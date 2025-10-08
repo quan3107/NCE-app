@@ -6,13 +6,15 @@
 import { createServer } from "node:http";
 
 import { app } from "./app.js";
+import { config } from "./config/env.js";
+import { logger } from "./config/logger.js";
 
-const port = Number.parseInt(process.env.PORT ?? "4000", 10);
+const port = config.port;
 
 const server = createServer(app);
 
 server.listen(port, () => {
-  console.info(`API listening on http://localhost:${port}`);
+  logger.info({ port }, "API listening");
 });
 
 export { server };
