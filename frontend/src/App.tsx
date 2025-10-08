@@ -1,48 +1,48 @@
+/**
+ * Location: src/App.tsx
+ * Purpose: Compose global providers and render the app shell with route-aware content.
+ * Why: Centralizes navigation decisions while delegating UI to feature and route modules.
+ */
+
 import { useEffect } from 'react';
-import { Toaster } from './components/ui/sonner';
-import { AuthProvider, useAuth } from './lib/auth-context';
-import { RouterProvider, useRouter } from './lib/router';
-import { AppShell } from './components/app-shell';
-
-// Public pages
-import { PublicHome } from './pages/public-home';
-import { PublicCourses } from './pages/public-courses';
-import { PublicCourseDetail } from './pages/public-course-detail';
-import { PublicAbout } from './pages/public-about';
-import { PublicContact } from './pages/public-contact';
-
-// Auth pages
-import { AuthLogin } from './pages/auth-login';
-import { AuthOAuth } from './pages/auth-oauth';
-
-// Student pages
-import { StudentDashboard } from './pages/student-dashboard';
-import { StudentAssignments } from './pages/student-assignments';
-import { StudentAssignmentDetail } from './pages/student-assignment-detail';
-import { StudentGrades } from './pages/student/student-grades';
-import { StudentNotifications } from './pages/student/student-notifications';
-import { StudentProfile } from './pages/student/student-profile';
-import { TeacherDashboard } from './pages/teacher/teacher-dashboard';
-import { TeacherAssignments } from './pages/teacher/teacher-assignments';
-import { TeacherSubmissions } from './pages/teacher/teacher-submissions';
-import { TeacherGradeForm } from './pages/teacher/teacher-grade-form';
-import { TeacherCourses } from './pages/teacher/teacher-courses';
-import { TeacherRubrics } from './pages/teacher/teacher-rubrics';
-import { TeacherAnalytics } from './pages/teacher/teacher-analytics';
-import { AdminDashboard } from './pages/admin/admin-dashboard';
-import { AdminUsers } from './pages/admin/admin-users';
-import { AdminCourses } from './pages/admin/admin-courses';
-import { AdminEnrollments } from './pages/admin/admin-enrollments';
-import { AdminAuditLogs } from './pages/admin/admin-audit-logs';
-import { AdminSettings } from './pages/admin/admin-settings';
+import { AppShell } from '@components/layout/AppShell';
+import { Toaster } from '@components/ui/sonner';
+import { AdminAuditLogsPage } from '@features/admin/components/AdminAuditLogsPage';
+import { AdminCoursesPage } from '@features/admin/components/AdminCoursesPage';
+import { AdminDashboardPage } from '@features/admin/components/AdminDashboardPage';
+import { AdminEnrollmentsPage } from '@features/admin/components/AdminEnrollmentsPage';
+import { AdminSettingsPage } from '@features/admin/components/AdminSettingsPage';
+import { AdminUsersPage } from '@features/admin/components/AdminUsersPage';
+import { TeacherAnalyticsPage } from '@features/analytics/components/TeacherAnalyticsPage';
+import { StudentAssignmentDetailPage } from '@features/assignments/components/StudentAssignmentDetailPage';
+import { StudentAssignmentsPage } from '@features/assignments/components/StudentAssignmentsPage';
+import { TeacherAssignmentsPage } from '@features/assignments/components/TeacherAssignmentsPage';
+import { TeacherGradeFormPage } from '@features/assignments/components/TeacherGradeFormPage';
+import { TeacherSubmissionsPage } from '@features/assignments/components/TeacherSubmissionsPage';
+import { TeacherCoursesPage } from '@features/courses/components/TeacherCoursesPage';
+import { StudentGradesPage } from '@features/grades/components/StudentGradesPage';
+import { StudentNotificationsPage } from '@features/notifications/components/StudentNotificationsPage';
+import { StudentProfilePage } from '@features/profile/components/StudentProfilePage';
+import { TeacherRubricsPage } from '@features/rubrics/components/TeacherRubricsPage';
+import { AuthProvider } from '@lib/auth';
+import { RouterProvider, useRouter } from '@lib/router';
+import { useAuthStore } from '@store/authStore';
+import { AboutRoute } from '@routes/About';
+import { ContactRoute } from '@routes/Contact';
+import { CourseDetailRoute } from '@routes/CourseDetail';
+import { CoursesRoute } from '@routes/Courses';
+import { DashboardStudentRoute } from '@routes/DashboardStudent';
+import { DashboardTeacherRoute } from '@routes/DashboardTeacher';
+import { HomeRoute } from '@routes/Home';
+import { LoginRoute } from '@routes/Login';
+import { NotFoundRoute } from '@routes/NotFound';
+import { OAuthRoute } from '@routes/OAuth';
 
 function AppContent() {
   const { currentPath, navigate } = useRouter();
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated } = useAuthStore();
 
-  // Auto-redirect based on auth state - only redirect from root path
   useEffect(() => {
-    // Only redirect if on root path and authenticated
     if (isAuthenticated && currentUser && currentPath === '/') {
       if (currentUser.role === 'student') {
         navigate('/student/dashboard');
@@ -54,73 +54,64 @@ function AppContent() {
     }
   }, [isAuthenticated, currentUser, currentPath, navigate]);
 
-  // Redirect to login for protected routes
   useEffect(() => {
     const protectedRoutes = ['/student/', '/teacher/', '/admin/'];
     const isProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route));
-    
+
     if (isProtectedRoute && !isAuthenticated) {
       navigate('/login');
     }
   }, [currentPath, isAuthenticated, navigate]);
 
-  // Route rendering
   const renderRoute = () => {
-    // Auth routes
-    if (currentPath === '/login') return <AuthLogin />;
-    if (currentPath === '/auth/oauth') return <AuthOAuth />;
+    if (currentPath === '/login') return <LoginRoute />;
+    if (currentPath === '/auth/oauth') return <OAuthRoute />;
 
-    // Public routes
-    if (currentPath === '/') return <PublicHome />;
-    if (currentPath === '/about') return <PublicAbout />;
-    if (currentPath === '/contact') return <PublicContact />;
-    if (currentPath === '/courses') return <PublicCourses />;
+    if (currentPath === '/') return <HomeRoute />;
+    if (currentPath === '/about') return <AboutRoute />;
+    if (currentPath === '/contact') return <ContactRoute />;
+    if (currentPath === '/courses') return <CoursesRoute />;
     if (currentPath.startsWith('/courses/')) {
       const courseId = currentPath.split('/')[2];
-      return <PublicCourseDetail courseId={courseId} />;
+      return <CourseDetailRoute courseId={courseId} />;
     }
 
-    // Require auth for protected routes
     if (!isAuthenticated) {
-      return <AuthLogin />;
+      return <LoginRoute />;
     }
 
-    // Student routes
-    if (currentPath === '/student/dashboard') return <StudentDashboard />;
-    if (currentPath === '/student/assignments') return <StudentAssignments />;
+    if (currentPath === '/student/dashboard') return <DashboardStudentRoute />;
+    if (currentPath === '/student/assignments') return <StudentAssignmentsPage />;
     if (currentPath.startsWith('/student/assignments/')) {
       const assignmentId = currentPath.split('/')[3];
-      return <StudentAssignmentDetail assignmentId={assignmentId} />;
+      return <StudentAssignmentDetailPage assignmentId={assignmentId} />;
     }
-    if (currentPath === '/student/grades') return <StudentGrades />;
-    if (currentPath === '/student/notifications') return <StudentNotifications />;
-    if (currentPath === '/student/profile') return <StudentProfile />;
+    if (currentPath === '/student/grades') return <StudentGradesPage />;
+    if (currentPath === '/student/notifications') return <StudentNotificationsPage />;
+    if (currentPath === '/student/profile') return <StudentProfilePage />;
 
-    // Teacher routes
-    if (currentPath === '/teacher/dashboard') return <TeacherDashboard />;
-    if (currentPath === '/teacher/courses') return <TeacherCourses />;
-    if (currentPath === '/teacher/assignments') return <TeacherAssignments />;
+    if (currentPath === '/teacher/dashboard') return <DashboardTeacherRoute />;
+    if (currentPath === '/teacher/courses') return <TeacherCoursesPage />;
+    if (currentPath === '/teacher/assignments') return <TeacherAssignmentsPage />;
     if (currentPath.startsWith('/teacher/assignments/')) {
-      return <TeacherAssignments />;
+      return <TeacherAssignmentsPage />;
     }
-    if (currentPath === '/teacher/submissions') return <TeacherSubmissions />;
+    if (currentPath === '/teacher/submissions') return <TeacherSubmissionsPage />;
     if (currentPath.startsWith('/teacher/grade/')) {
       const submissionId = currentPath.split('/')[3];
-      return <TeacherGradeForm submissionId={submissionId} />;
+      return <TeacherGradeFormPage submissionId={submissionId} />;
     }
-    if (currentPath === '/teacher/rubrics') return <TeacherRubrics />;
-    if (currentPath === '/teacher/analytics') return <TeacherAnalytics />;
+    if (currentPath === '/teacher/rubrics') return <TeacherRubricsPage />;
+    if (currentPath === '/teacher/analytics') return <TeacherAnalyticsPage />;
 
-    // Admin routes
-    if (currentPath === '/admin/dashboard') return <AdminDashboard />;
-    if (currentPath === '/admin/users') return <AdminUsers />;
-    if (currentPath === '/admin/courses') return <AdminCourses />;
-    if (currentPath === '/admin/enrollments') return <AdminEnrollments />;
-    if (currentPath === '/admin/logs') return <AdminAuditLogs />;
-    if (currentPath === '/admin/settings') return <AdminSettings />;
+    if (currentPath === '/admin/dashboard') return <AdminDashboardPage />;
+    if (currentPath === '/admin/users') return <AdminUsersPage />;
+    if (currentPath === '/admin/courses') return <AdminCoursesPage />;
+    if (currentPath === '/admin/enrollments') return <AdminEnrollmentsPage />;
+    if (currentPath === '/admin/logs') return <AdminAuditLogsPage />;
+    if (currentPath === '/admin/settings') return <AdminSettingsPage />;
 
-    // 404
-    return <PublicHome />;
+    return <NotFoundRoute />;
   };
 
   return (
@@ -140,3 +131,6 @@ export default function App() {
     </AuthProvider>
   );
 }
+
+
+

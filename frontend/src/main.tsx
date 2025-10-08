@@ -1,7 +1,14 @@
+/**
+ * Location: src/main.tsx
+ * Purpose: Bootstrap the React application with the root component and global styles.
+ * Why: Provides a single entry point aligned with the refactored structure.
+ */
 
-  import { createRoot } from "react-dom/client";
-  import App from "./App.tsx";
-  import "./index.css";
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './styles/globals.css';
 
-  createRoot(document.getElementById("root")!).render(<App />);
-  
+createRoot(document.getElementById('root')!).render(<App />);
+
+
+

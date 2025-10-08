@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+/**
+ * Location: src/lib/router.tsx
+ * Purpose: Provide a minimal client-side router to mimic navigation during prototyping.
+ * Why: Enables route-aware state without adding external dependencies yet.
+ */
+
+import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
 
 type RouterContextType = {
   currentPath: string;
@@ -46,3 +52,6 @@ export function useRouter() {
   }
   return context;
 }
+
+
+

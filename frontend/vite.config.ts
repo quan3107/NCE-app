@@ -1,16 +1,22 @@
 
-  import { defineConfig } from 'vite';
-  import react from '@vitejs/plugin-react-swc';
-  import path from 'path';
+/**
+ * Location: frontend/vite.config.ts
+ * Purpose: Configure Vite bundling, including shared aliases for the refactored frontend.
+ * Why: Keeps build tooling aligned with the new project structure.
+ */
 
-  export default defineConfig({
-    plugins: [react()],
-    resolve: {
-      extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
-      alias: {
-        'vaul@1.1.2': 'vaul',
-        'sonner@2.0.3': 'sonner',
-        'recharts@2.15.2': 'recharts',
+import path from 'path';
+import react from '@vitejs/plugin-react-swc';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+    alias: {
+      'vaul@1.1.2': 'vaul',
+      'sonner@2.0.3': 'sonner',
+      'recharts@2.15.2': 'recharts',
         'react-resizable-panels@2.1.7': 'react-resizable-panels',
         'react-hook-form@7.55.0': 'react-hook-form',
         'react-day-picker@8.10.1': 'react-day-picker',
@@ -43,12 +49,19 @@
         '@radix-ui/react-collapsible@1.1.3': '@radix-ui/react-collapsible',
         '@radix-ui/react-checkbox@1.1.4': '@radix-ui/react-checkbox',
         '@radix-ui/react-avatar@1.1.3': '@radix-ui/react-avatar',
-        '@radix-ui/react-aspect-ratio@1.1.2': '@radix-ui/react-aspect-ratio',
-        '@radix-ui/react-alert-dialog@1.1.6': '@radix-ui/react-alert-dialog',
-        '@radix-ui/react-accordion@1.2.3': '@radix-ui/react-accordion',
-        '@': path.resolve(__dirname, './src'),
-      },
+      '@radix-ui/react-aspect-ratio@1.1.2': '@radix-ui/react-aspect-ratio',
+      '@radix-ui/react-alert-dialog@1.1.6': '@radix-ui/react-alert-dialog',
+      '@radix-ui/react-accordion@1.2.3': '@radix-ui/react-accordion',
+      '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@features': path.resolve(__dirname, './src/features'),
+      '@routes': path.resolve(__dirname, './src/routes'),
+      '@lib': path.resolve(__dirname, './src/lib'),
+      '@store': path.resolve(__dirname, './src/store'),
+      '@styles': path.resolve(__dirname, './src/styles'),
+      '@types': path.resolve(__dirname, './src/types'),
     },
+  },
     build: {
       target: 'esnext',
       outDir: 'build',

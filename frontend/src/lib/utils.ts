@@ -1,4 +1,8 @@
-// Utility functions
+/**
+ * Location: src/lib/utils.ts
+ * Purpose: Provide shared date and formatting helpers used across features.
+ * Why: Avoids duplication while the app is in prototype mode.
+ */
 
 export function formatDistanceToNow(date: Date, options?: { addSuffix?: boolean }): string {
   const now = new Date();

@@ -1,4 +1,8 @@
-// Mock data for the IELTS education platform
+/**
+ * Location: src/lib/mock-data.ts
+ * Purpose: Provide mock entities and helpers powering the prototype experience.
+ * Why: Allows UI flows to function without live backend data.
+ */
 
 export type Role = 'student' | 'teacher' | 'admin' | 'public';
 
