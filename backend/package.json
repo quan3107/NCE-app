@@ -1,0 +1,62 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "main": "src/index.js",
+  "description": "Backend API for the English education web app",
+  "engines": {
+    "node": ">=20"
+  },
+  "directories": {
+    "src": "src",
+    "tests": "tests"
+  },
+  "scripts": {
+    "dev": "nodemon --watch src src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint .",
+    "test": "vitest",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "prisma:generate": "prisma generate --schema=src/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema=src/prisma/schema.prisma",
+    "seed": "tsx src/prisma/seed.js"
+  },
+  "exports": {
+    "./app": "./src/app.js",
+    "./server": "./src/server.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.3",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jose": "^6.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "openid-client": "^6.8.1",
+    "pg": "^8.16.3",
+    "pg-boss": "^11.0.5",
+    "pino": "^10.0.0",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "@types/node": "^24.7.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^9.37.0",
+    "globals": "^16.4.0",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.6.2",
+    "prisma": "^6.16.3",
+    "supertest": "^7.1.4",
+    "tsx": "^4.19.0",
+    "vitest": "^3.2.4"
+  }
+}
