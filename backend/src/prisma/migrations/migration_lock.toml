@@ -1,0 +1,5 @@
+# File: backend/src/prisma/migrations/migration_lock.toml
+# Purpose: Pin the Prisma migration engine to the PostgreSQL provider for reproducible deploys.
+# Why: Prisma expects this lock file to coordinate future migrate deploy executions.
+
+provider = "postgresql"

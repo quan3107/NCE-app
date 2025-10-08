@@ -1,0 +1,279 @@
+// File: src/prisma/schema.prisma
+// Purpose: Define the relational data model for the English education backend using Prisma ORM.
+// Why: Establishes the canonical database schema needed for initializing and migrating the PostgreSQL database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique @db.Citext
+  password      String?        @map("password_hash")
+  fullName      String         @map("full_name")
+  role          UserRole
+  status        UserStatus
+  courses       Course[]       @relation("CourseOwner")
+  enrollments   Enrollment[]
+  submissions   Submission[]   @relation("SubmissionStudent")
+  grades        Grade[]        @relation("SubmissionGrader")
+  notifications Notification[]
+  files         File[]
+  sessions      AuthSession[]
+  identities    Identity[]
+  auditLogs     AuditLog[]     @relation("AuditActor")
+  createdAt     DateTime       @default(now()) @db.Timestamptz
+  updatedAt     DateTime       @updatedAt @db.Timestamptz
+  deletedAt     DateTime?      @db.Timestamptz
+
+  @@map("users")
+}
+
+model Course {
+  id           String       @id @default(uuid()) @db.Uuid
+  title        String
+  description  String?
+  scheduleJson Json?        @map("schedule_json")
+  ownerId      String       @map("owner_teacher_id") @db.Uuid
+  owner        User         @relation("CourseOwner", fields: [ownerId], references: [id])
+  enrollments  Enrollment[]
+  assignments  Assignment[]
+  rubrics      Rubric[]
+  createdAt    DateTime     @default(now()) @db.Timestamptz
+  updatedAt    DateTime     @updatedAt @db.Timestamptz
+  deletedAt    DateTime?    @db.Timestamptz
+
+  @@index([ownerId])
+  @@map("courses")
+}
+
+model Enrollment {
+  id           String         @id @default(uuid()) @db.Uuid
+  courseId     String         @map("course_id") @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  roleInCourse EnrollmentRole @map("role_in_course")
+  course       Course         @relation(fields: [courseId], references: [id])
+  user         User           @relation(fields: [userId], references: [id])
+  createdAt    DateTime       @default(now()) @db.Timestamptz
+  updatedAt    DateTime       @updatedAt @db.Timestamptz
+  deletedAt    DateTime?      @db.Timestamptz
+
+  @@unique([courseId, userId])
+  @@index([userId, roleInCourse])
+  @@map("enrollments")
+}
+
+model Assignment {
+  id          String         @id @default(uuid()) @db.Uuid
+  courseId    String         @map("course_id") @db.Uuid
+  title       String
+  description String?        @map("description_md")
+  type        AssignmentType
+  dueAt       DateTime?      @map("due_at") @db.Timestamptz
+  latePolicy  Json?          @map("late_policy")
+  publishedAt DateTime?      @map("published_at") @db.Timestamptz
+  course      Course         @relation(fields: [courseId], references: [id])
+  submissions Submission[]
+  createdAt   DateTime       @default(now()) @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @db.Timestamptz
+  deletedAt   DateTime?      @db.Timestamptz
+
+  @@index([courseId, dueAt])
+  @@map("assignments")
+}
+
+model Rubric {
+  id        String    @id @default(uuid()) @db.Uuid
+  courseId  String    @map("course_id") @db.Uuid
+  name      String
+  criteria  Json
+  course    Course    @relation(fields: [courseId], references: [id])
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+  deletedAt DateTime? @db.Timestamptz
+
+  @@index([courseId])
+  @@map("rubrics")
+}
+
+model Submission {
+  id           String           @id @default(uuid()) @db.Uuid
+  assignmentId String           @map("assignment_id") @db.Uuid
+  studentId    String           @map("student_id") @db.Uuid
+  status       SubmissionStatus
+  submittedAt  DateTime?        @map("submitted_at") @db.Timestamptz
+  payload      Json
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id])
+  student      User             @relation("SubmissionStudent", fields: [studentId], references: [id])
+  grade        Grade?
+  createdAt    DateTime         @default(now()) @db.Timestamptz
+  updatedAt    DateTime         @updatedAt @db.Timestamptz
+  deletedAt    DateTime?        @db.Timestamptz
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId, status])
+  @@map("submissions")
+}
+
+model Grade {
+  id              String     @id @default(uuid()) @db.Uuid
+  submissionId    String     @map("submission_id") @db.Uuid
+  graderId        String     @map("grader_id") @db.Uuid
+  rubricBreakdown Json?      @map("rubric_breakdown")
+  rawScore        Decimal?   @map("raw_score") @db.Decimal(5, 2)
+  adjustments     Json?
+  finalScore      Decimal?   @map("final_score") @db.Decimal(5, 2)
+  feedback        String?    @map("feedback_md")
+  gradedAt        DateTime?  @map("graded_at") @db.Timestamptz
+  submission      Submission @relation(fields: [submissionId], references: [id])
+  grader          User       @relation("SubmissionGrader", fields: [graderId], references: [id])
+  createdAt       DateTime   @default(now()) @db.Timestamptz
+  updatedAt       DateTime   @updatedAt @db.Timestamptz
+  deletedAt       DateTime?  @db.Timestamptz
+
+  @@unique([submissionId])
+  @@index([graderId, gradedAt])
+  @@map("grades")
+}
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  type      String
+  payload   Json
+  channel   NotificationChannel
+  status    NotificationStatus
+  sentAt    DateTime?           @map("sent_at") @db.Timestamptz
+  readAt    DateTime?           @map("read_at") @db.Timestamptz
+  user      User                @relation(fields: [userId], references: [id])
+  createdAt DateTime            @default(now()) @db.Timestamptz
+  updatedAt DateTime            @updatedAt @db.Timestamptz
+  deletedAt DateTime?           @db.Timestamptz
+
+  @@index([userId, status, sentAt])
+  @@map("notifications")
+}
+
+model File {
+  id        String    @id @default(uuid()) @db.Uuid
+  ownerId   String    @map("owner_user_id") @db.Uuid
+  bucket    String
+  objectKey String    @map("key")
+  mime      String
+  size      Int
+  checksum  String
+  owner     User      @relation(fields: [ownerId], references: [id])
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+  deletedAt DateTime? @db.Timestamptz
+
+  @@index([ownerId])
+  @@map("files")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash")
+  userAgent        String?   @map("user_agent")
+  ipHash           String?   @map("ip_hash")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+  user             User      @relation(fields: [userId], references: [id])
+  createdAt        DateTime  @default(now()) @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @db.Timestamptz
+  deletedAt        DateTime? @db.Timestamptz
+
+  @@index([userId, expiresAt])
+  @@map("auth_sessions")
+}
+
+model Identity {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  provider        IdentityProvider
+  providerSubject String           @map("provider_subject")
+  providerIssuer  String           @map("provider_issuer")
+  email           String           @db.Citext
+  emailVerified   Boolean          @map("email_verified")
+  user            User             @relation(fields: [userId], references: [id])
+  createdAt       DateTime         @default(now()) @db.Timestamptz
+  updatedAt       DateTime         @updatedAt @db.Timestamptz
+  deletedAt       DateTime?        @db.Timestamptz
+
+  @@unique([provider, providerSubject])
+  @@unique([providerIssuer, email])
+  @@index([userId])
+  @@map("identities")
+}
+
+model AuditLog {
+  id        String    @id @default(uuid()) @db.Uuid
+  actorId   String?   @map("actor_user_id") @db.Uuid
+  action    String
+  entity    String
+  entityId  String    @map("entity_id")
+  diff      Json?
+  actor     User?     @relation("AuditActor", fields: [actorId], references: [id])
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+  deletedAt DateTime? @db.Timestamptz
+
+  @@index([actorId, createdAt])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+enum UserRole {
+  admin
+  teacher
+  student
+}
+
+enum UserStatus {
+  active
+  invited
+  suspended
+}
+
+enum EnrollmentRole {
+  teacher
+  student
+}
+
+enum AssignmentType {
+  file
+  link
+  text
+  quiz
+}
+
+enum SubmissionStatus {
+  draft
+  submitted
+  late
+}
+
+enum NotificationChannel {
+  inapp
+  email
+  push
+  sms
+}
+
+enum NotificationStatus {
+  queued
+  sent
+  failed
+  read
+}
+
+enum IdentityProvider {
+  password
+  google
+}
