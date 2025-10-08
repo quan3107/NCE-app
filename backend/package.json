@@ -5,7 +5,7 @@
   "author": "",
   "license": "ISC",
   "type": "module",
-  "main": "src/index.js",
+  "main": "dist/server.js",
   "description": "Backend API for the English education web app",
   "engines": {
     "node": ">=20"
@@ -15,8 +15,9 @@
     "tests": "tests"
   },
   "scripts": {
-    "dev": "nodemon --watch src src/server.js",
-    "start": "node src/server.js",
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
     "lint": "eslint .",
     "test": "vitest",
     "test:watch": "vitest watch",
@@ -25,11 +26,11 @@
     "format:write": "prettier --write .",
     "prisma:generate": "prisma generate --schema=src/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=src/prisma/schema.prisma",
-    "seed": "tsx src/prisma/seed.js"
+    "seed": "tsx src/prisma/seed.ts"
   },
   "exports": {
-    "./app": "./src/app.js",
-    "./server": "./src/server.js"
+    "./app": "./dist/app.js",
+    "./server": "./dist/server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",
@@ -48,8 +49,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/express": "^4.17.21",
     "@types/node": "^24.7.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
     "eslint": "^9.37.0",
     "globals": "^16.4.0",
     "nodemon": "^3.1.10",
@@ -57,6 +62,7 @@
     "prisma": "^6.16.3",
     "supertest": "^7.1.4",
     "tsx": "^4.19.0",
+    "typescript": "^5.6.3",
     "vitest": "^3.2.4"
   }
 }

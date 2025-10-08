@@ -2,7 +2,7 @@
 
 # English Education Backend
 
-Node.js 20 + Express 5 scaffold providing REST APIs for the English education platform.
+Node.js 20 + Express 5 + TypeScript scaffold providing REST APIs for the English education platform.
 
 ## Setup
 ```bash
@@ -13,6 +13,12 @@ npm run prisma:generate
 Create a `.env` based on `.env.example`, then start the dev server:
 ```bash
 npm run dev
+```
+
+To produce production-ready output run:
+```bash
+npm run build
+npm start
 ```
 
 ## Database Seeding
@@ -28,6 +34,7 @@ npm run dev
 
 ## Structure
 - `src/app.ts` - Express app factory.
+- `src/server.ts` - HTTP bootstrapper (invoked by dev/start scripts).
 - `src/modules/` - Feature modules (auth, users, courses, assignments, submissions, grades, notifications).
 - `src/jobs/` - pg-boss workers.
 - `src/prisma/` - Prisma schema and migrations.
