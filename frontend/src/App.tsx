@@ -20,6 +20,7 @@ import { TeacherAssignmentsPage } from '@features/assignments/components/Teacher
 import { TeacherGradeFormPage } from '@features/assignments/components/TeacherGradeFormPage';
 import { TeacherSubmissionsPage } from '@features/assignments/components/TeacherSubmissionsPage';
 import { TeacherCoursesPage } from '@features/courses/components/TeacherCoursesPage';
+import { TeacherCourseManagement } from '@features/courses/management/TeacherCourseManagement';
 import { StudentGradesPage } from '@features/grades/components/StudentGradesPage';
 import { StudentNotificationsPage } from '@features/notifications/components/StudentNotificationsPage';
 import { StudentProfilePage } from '@features/profile/components/StudentProfilePage';
@@ -92,6 +93,14 @@ function AppContent() {
 
     if (currentPath === '/teacher/dashboard') return <DashboardTeacherRoute />;
     if (currentPath === '/teacher/courses') return <TeacherCoursesPage />;
+    if (currentPath.startsWith('/teacher/courses/') && currentPath.endsWith('/manage')) {
+      const managePrefix = '/teacher/courses/';
+      const manageSuffix = '/manage';
+      const courseId = currentPath.slice(managePrefix.length, -manageSuffix.length);
+      if (courseId) {
+        return <TeacherCourseManagement courseId={courseId} />;
+      }
+    }
     if (currentPath === '/teacher/assignments') return <TeacherAssignmentsPage />;
     if (currentPath.startsWith('/teacher/assignments/')) {
       return <TeacherAssignmentsPage />;
