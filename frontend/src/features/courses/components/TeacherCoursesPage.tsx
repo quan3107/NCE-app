@@ -8,10 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@comp
 import { Button } from '@components/ui/button';
 import { PageHeader } from '@components/common/PageHeader';
 import { Skeleton } from '@components/ui/skeleton';
+import { useRouter } from '@lib/router';
 import { useCoursesQuery } from '@features/courses/api';
 
 export function TeacherCoursesPage() {
   const { data: courses = [], isLoading, error, refresh } = useCoursesQuery();
+  const { navigate } = useRouter();
 
   return (
     <div>
@@ -64,7 +66,13 @@ export function TeacherCoursesPage() {
                     <span className="text-muted-foreground">Schedule</span>
                     <span className="font-medium">{course.schedule}</span>
                   </div>
-                  <Button variant="outline" className="w-full">Manage Course</Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate(`/teacher/courses/${course.id}/manage`)}
+                  >
+                    Manage Course
+                  </Button>
                 </CardContent>
               </Card>
             ))}

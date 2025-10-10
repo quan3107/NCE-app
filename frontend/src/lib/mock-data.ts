@@ -19,6 +19,9 @@ export type Course = {
   title: string;
   description: string;
   schedule: string;
+  duration?: string;
+  level?: string;
+  price?: number;
   teacher: string;
   teacherId: string;
   enrolled?: number;
@@ -112,6 +115,9 @@ export const mockCourses: Course[] = [
     title: 'IELTS Academic Writing Task 2',
     description: 'Master essay writing for IELTS Academic with comprehensive training on argument development, structure, and advanced vocabulary. Target Band 7+.',
     schedule: 'Mon/Wed/Fri 10:00-11:30 AM',
+    duration: '8 weeks',
+    level: 'Advanced',
+    price: 249,
     teacher: 'James Patterson',
     teacherId: '3',
     enrolled: 28,
@@ -121,6 +127,9 @@ export const mockCourses: Course[] = [
     title: 'IELTS Speaking Part 2 & 3 Mastery',
     description: 'Develop fluency and coherence for IELTS Speaking test. Practice with real examiner questions, learn effective strategies, and build confidence.',
     schedule: 'Tue/Thu 2:00-3:30 PM',
+    duration: '6 weeks',
+    level: 'Intermediate',
+    price: 219,
     teacher: 'James Patterson',
     teacherId: '3',
     enrolled: 22,
@@ -130,6 +139,9 @@ export const mockCourses: Course[] = [
     title: 'IELTS Reading Techniques',
     description: 'Learn speed reading strategies, skimming, scanning, and question-type specific approaches to achieve Band 8+ in IELTS Academic Reading.',
     schedule: 'Mon/Wed 1:00-2:30 PM',
+    duration: '6 weeks',
+    level: 'Intermediate',
+    price: 199,
     teacher: 'James Patterson',
     teacherId: '3',
     enrolled: 19,
@@ -139,6 +151,9 @@ export const mockCourses: Course[] = [
     title: 'IELTS Listening Skills Development',
     description: 'Intensive training for all four sections of IELTS Listening with focus on note-taking, accent recognition, and time management.',
     schedule: 'Tue/Thu 9:00-10:30 AM',
+    duration: '5 weeks',
+    level: 'All Levels',
+    price: 189,
     teacher: 'James Patterson',
     teacherId: '3',
     enrolled: 25,
