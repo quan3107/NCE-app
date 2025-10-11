@@ -159,6 +159,8 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
         onOpenChange={dialogs.setShowAddStudent}
         newStudentEmail={enrollment.newStudentEmail}
         onEmailChange={enrollmentHandlers.setNewStudentEmail}
+        isSubmitting={enrollment.isAddingStudent}
+        errorMessage={enrollment.addStudentError}
         onSubmit={enrollmentHandlers.addStudent}
       />
 
