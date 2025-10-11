@@ -55,9 +55,11 @@ export function StudentsTab({ enrollment, handlers, onOpenAddStudent }: Students
                   <TableRow key={student.id}>
                     <TableCell>{student.name}</TableCell>
                     <TableCell>{student.email}</TableCell>
-                    <TableCell>{formatDate(new Date(), 'date')}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">Active</Badge>
+                      {formatDate(new Date(student.enrolledAt), 'date')}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{formatStatus(student.status)}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -91,4 +93,15 @@ function EmptyState({ onAddStudent }: EmptyStateProps) {
       <Button onClick={onAddStudent}>Add First Student</Button>
     </div>
   );
+}
+
+function formatStatus(status: EnrollmentState['students'][number]['status']) {
+  switch (status) {
+    case 'invited':
+      return 'Invited';
+    case 'suspended':
+      return 'Suspended';
+    default:
+      return 'Active';
+  }
 }
