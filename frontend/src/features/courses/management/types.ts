@@ -52,6 +52,8 @@ export type CourseDetailsState = {
 export type EnrollmentState = {
   students: EnrolledStudent[];
   newStudentEmail: string;
+  isAddingStudent: boolean;
+  addStudentError: string | null;
 };
 
 export type AnnouncementDraft = {
