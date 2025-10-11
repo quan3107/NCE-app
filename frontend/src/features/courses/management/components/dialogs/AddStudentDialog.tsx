@@ -4,6 +4,8 @@
  * Why: Keeps dialog markup independent of the TeacherCourseManagement container.
  */
 
+import type { FormEvent } from 'react';
+
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
@@ -15,7 +17,9 @@ type AddStudentDialogProps = {
   onOpenChange: (open: boolean) => void;
   newStudentEmail: string;
   onEmailChange: (value: string) => void;
-  onSubmit: () => void;
+  isSubmitting: boolean;
+  errorMessage: string | null;
+  onSubmit: () => Promise<void>;
 };
 
 export function AddStudentDialog({
@@ -23,35 +27,52 @@ export function AddStudentDialog({
   onOpenChange,
   newStudentEmail,
   onEmailChange,
+  isSubmitting,
+  errorMessage,
   onSubmit,
 }: AddStudentDialogProps) {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void onSubmit();
+  };
+
+  const isSendDisabled = isSubmitting || newStudentEmail.trim().length === 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Student to Course</DialogTitle>
-          <DialogDescription>Enter the student's email address to send them an invitation</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <DialogHeader>
+            <DialogTitle>Add Student to Course</DialogTitle>
+            <DialogDescription>Enter the student's email address to send them an invitation</DialogDescription>
+          </DialogHeader>
           <div className="space-y-2">
-            <Label>Student Email</Label>
+            <Label htmlFor="add-student-email">Student Email</Label>
             <Input
+              id="add-student-email"
               type="email"
               placeholder="student@example.com"
               value={newStudentEmail}
               onChange={(event) => onEmailChange(event.target.value)}
+              disabled={isSubmitting}
+              aria-invalid={Boolean(errorMessage)}
             />
+            {errorMessage ? (
+              <p className="text-sm text-destructive" role="alert">
+                {errorMessage}
+              </p>
+            ) : null}
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={onSubmit}>
-            <Mail className="mr-2 size-4" />
-            Send Invitation
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSendDisabled}>
+              <Mail className="mr-2 size-4" />
+              {isSubmitting ? 'Sending...' : 'Send Invitation'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
