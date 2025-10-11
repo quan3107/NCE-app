@@ -27,13 +27,18 @@ export function LoginRoute() {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
-        toast.success('Welcome back!');
-        // Navigate based on user role - will be handled by App.tsx
-      } else {
-        toast.error('Invalid credentials. Try alice@example.com');
+      const mode = await login(email, password);
+      if (mode === 'live') {
+        toast.success('Signed in successfully.');
+        return;
       }
+      if (mode === 'persona') {
+        toast.success('Signed in with demo mode. Use Passw0rd! for personas.');
+        return;
+      }
+      toast.error('Invalid credentials. Try Passw0rd! for demo access.');
+    } catch {
+      toast.error('Unable to sign in. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -46,8 +51,14 @@ export function LoginRoute() {
 
     // Simulate OAuth delay
     setTimeout(async () => {
-      await loginWithGoogle();
-      toast.success('Successfully signed in with Google!');
+      try {
+        await loginWithGoogle();
+        toast.success('Demo Google sign-in activated.');
+      } catch {
+        toast.error('Google sign-in is not available yet.');
+      } finally {
+        setIsLoading(false);
+      }
     }, 2000);
   };
 
