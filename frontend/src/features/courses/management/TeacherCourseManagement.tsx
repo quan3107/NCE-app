@@ -37,6 +37,9 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
 
   const {
     course,
+    isLoading,
+    error,
+    reload,
     details,
     detailsHandlers,
     enrollment,
@@ -48,6 +51,32 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
     rubricHandlers,
     dialogs,
   } = useTeacherCourseManagement(courseId);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Loading course data...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="space-y-4 text-center">
+          <p className="text-destructive">Unable to load course data.</p>
+          <p className="text-muted-foreground text-sm">{error}</p>
+          <div className="flex justify-center gap-2">
+            <Button variant="outline" onClick={() => navigate('/teacher/courses')}>
+              <ArrowLeft className="mr-2 size-4" />
+              Back to Courses
+            </Button>
+            <Button onClick={reload}>Retry</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!course) {
     return (
