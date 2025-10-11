@@ -24,8 +24,7 @@ const envSchema = z
     GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
     GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
     LOG_LEVEL: z.string().default("info"),
-  })
-  .strict();
+  });
 
 const parseResult = envSchema.safeParse(process.env);
 

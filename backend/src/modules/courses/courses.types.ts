@@ -31,11 +31,27 @@ export type CourseMetrics = {
   rubricCount: number;
 };
 
+export type CourseSchedule = {
+  cadence: string | null;
+  startTime: string | null;
+  durationMinutes: number | null;
+  timeZone: string | null;
+  format: string | null;
+  label: string | null;
+};
+
+export type CourseMetadata = {
+  duration: string | null;
+  level: string | null;
+  price: number | null;
+};
+
 export type CourseSummary = {
   id: string;
   title: string;
   description: string | null;
-  schedule: Record<string, unknown> | null;
+  schedule: CourseSchedule | null;
+  metadata: CourseMetadata;
   owner: {
     id: string;
     fullName: string;

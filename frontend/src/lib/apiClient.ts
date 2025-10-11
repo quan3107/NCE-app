@@ -5,6 +5,7 @@
  */
 
 import { API_BASE_URL, STORAGE_KEYS } from './constants';
+import { PERSONA_HEADERS } from './devPersonas';
 
 type Primitive = string | number | boolean;
 
@@ -45,23 +46,71 @@ function buildUrl(endpoint: string, params?: ApiClientOptions['params']) {
   return url;
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type StoredAuthPayload = {
+  id?: string;
+  role?: string;
+  token?: string;
+  effective?: {
+    id?: string;
+    role?: string;
+  };
+  basePersona?: string;
+  actingPersona?: string | null;
+};
+
+const FALLBACK_AUTH = PERSONA_HEADERS.admin;
+
+const isUuid = (value: unknown): value is string =>
+  typeof value === 'string' && UUID_PATTERN.test(value);
+
+const isSupportedRole = (value: unknown): value is 'admin' | 'teacher' | 'student' =>
+  value === 'admin' || value === 'teacher' || value === 'student';
+
 function getAuthHeaders() {
   const storedUser = localStorage.getItem(STORAGE_KEYS.currentUser);
 
   if (!storedUser) {
-    return {};
+    return {
+      'x-user-id': FALLBACK_AUTH.id,
+      'x-user-role': FALLBACK_AUTH.role,
+    };
   }
 
   try {
-    const { token } = JSON.parse(storedUser);
-    if (token) {
-      return { Authorization: `Bearer ${token}` };
-    }
-  } catch {
-    // Swallow parse errors to avoid breaking the request pipeline.
-  }
+    const parsed = JSON.parse(storedUser) as StoredAuthPayload;
 
-  return {};
+    const effective = parsed.effective ?? {};
+    const rawId =
+      typeof effective.id === 'string' && effective.id.length > 0
+        ? effective.id
+        : parsed.id;
+    const rawRole =
+      typeof effective.role === 'string' && effective.role.length > 0
+        ? effective.role
+        : parsed.role;
+
+    const userId = isUuid(rawId) ? rawId : FALLBACK_AUTH.id;
+    const role = isSupportedRole(rawRole) ? rawRole : FALLBACK_AUTH.role;
+
+    const headers: Record<string, string> = {
+      'x-user-id': userId,
+      'x-user-role': role,
+    };
+
+    if (typeof parsed.token === 'string' && parsed.token.length > 0) {
+      headers.Authorization = `Bearer ${parsed.token}`;
+    }
+
+    return headers;
+  } catch {
+    return {
+      'x-user-id': FALLBACK_AUTH.id,
+      'x-user-role': FALLBACK_AUTH.role,
+    };
+  }
 }
 
 export async function apiClient<TResponse = unknown, TBody = unknown>(

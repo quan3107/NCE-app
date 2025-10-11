@@ -4,7 +4,35 @@
  * Why: Keeps components and hooks aligned on data/state shapes after splitting files.
  */
 
-import type { Assignment, Course, User } from '@lib/mock-data';
+import type { Assignment } from '@lib/mock-data';
+
+export type ManagedCourse = {
+  id: string;
+  title: string;
+  description: string | null;
+  scheduleLabel: string | null;
+  level: string | null;
+  duration: string | null;
+  price: number | null;
+  teacherName: string;
+  teacherId: string;
+  teacherEmail: string;
+  metrics: {
+    activeStudentCount: number;
+    invitedStudentCount: number;
+    teacherCount: number;
+    assignmentCount: number;
+    rubricCount: number;
+  };
+};
+
+export type EnrolledStudent = {
+  id: string;
+  name: string;
+  email: string;
+  status: 'active' | 'invited' | 'suspended';
+  enrolledAt: string;
+};
 
 export type RubricCriterion = {
   name: string;
@@ -22,8 +50,10 @@ export type CourseDetailsState = {
 };
 
 export type EnrollmentState = {
-  students: User[];
+  students: EnrolledStudent[];
   newStudentEmail: string;
+  isAddingStudent: boolean;
+  addStudentError: string | null;
 };
 
 export type AnnouncementDraft = {
@@ -38,7 +68,7 @@ export type RubricState = {
 };
 
 export type CourseManagementData = {
-  course?: Course;
+  course?: ManagedCourse;
   details: CourseDetailsState;
   enrollment: EnrollmentState;
   announcements: AnnouncementDraft;
