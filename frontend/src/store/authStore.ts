@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth';
 
 export function useAuthStore() {
   const {
+    authMode,
     currentUser,
     isAuthenticated,
     actingRole,
@@ -21,6 +22,7 @@ export function useAuthStore() {
   } = useAuth();
 
   return {
+    authMode,
     currentUser,
     isAuthenticated,
     actingRole,
