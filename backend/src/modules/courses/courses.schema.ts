@@ -9,9 +9,17 @@ export const courseIdParamsSchema = z.object({
   courseId: z.string().uuid(),
 });
 
+export const courseStudentParamsSchema = courseIdParamsSchema.extend({
+  studentId: z.string().uuid(),
+});
+
 export const createCourseSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   ownerTeacherId: z.string().uuid(),
   schedule: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const addCourseStudentSchema = z.object({
+  email: z.string().email(),
 });
