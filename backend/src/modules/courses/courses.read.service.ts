@@ -7,15 +7,14 @@ import { EnrollmentRole, UserRole, UserStatus } from "@prisma/client";
 
 import { prisma } from "../../config/prismaClient.js";
 import { courseIdParamsSchema } from "./courses.schema.js";
-import {
-  canManageCourse,
-  createHttpError,
-} from "./courses.shared.js";
+import { canManageCourse, createHttpError } from "./courses.shared.js";
 import type {
   CourseDetailResponse,
   CourseListResponse,
   CourseManager,
   CourseMetrics,
+  CourseMetadata,
+  CourseSchedule,
   CourseSummary,
 } from "./courses.types.js";
 
@@ -45,13 +44,81 @@ type CourseWithRelations = {
   updatedAt: Date;
 };
 
-const parseSchedule = (
-  value: unknown,
-): Record<string, unknown> | null => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
+type ParsedCourseConfig = {
+  schedule: CourseSchedule | null;
+  metadata: CourseMetadata;
+};
+
+const readString = (
+  source: Record<string, unknown>,
+  keys: string[],
+): string | null => {
+  for (const key of keys) {
+    const candidate = source[key];
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate;
+    }
   }
-  return value as Record<string, unknown>;
+  return null;
+};
+
+const readNumber = (
+  source: Record<string, unknown>,
+  keys: string[],
+): number | null => {
+  for (const key of keys) {
+    const candidate = source[key];
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};
+
+const parseCourseConfig = (value: unknown): ParsedCourseConfig => {
+  const fallbackMetadata: CourseMetadata = {
+    duration: null,
+    level: null,
+    price: null,
+  };
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      schedule: null,
+      metadata: fallbackMetadata,
+    };
+  }
+
+  const record = value as Record<string, unknown>;
+
+  const schedule: CourseSchedule = {
+    cadence: readString(record, ["cadence"]),
+    startTime: readString(record, ["start_time", "startTime"]),
+    durationMinutes: readNumber(record, ["duration_minutes", "durationMinutes"]),
+    timeZone: readString(record, ["time_zone", "timeZone"]),
+    format: readString(record, ["format"]),
+    label: readString(record, ["label", "schedule_label"]),
+  };
+
+  const hasScheduleValue = Object.values(schedule).some(
+    (entry) => entry !== null,
+  );
+
+  const metadata: CourseMetadata = {
+    duration: readString(record, [
+      "duration",
+      "duration_label",
+      "durationLabel",
+      "duration_weeks",
+    ]),
+    level: readString(record, ["level"]),
+    price: readNumber(record, ["price", "tuition"]),
+  };
+
+  return {
+    schedule: hasScheduleValue ? schedule : null,
+    metadata,
+  };
 };
 
 const courseMetricsFromEnrollments = (
@@ -87,7 +154,7 @@ const toCourseSummary = (course: CourseWithRelations): CourseSummary => ({
   id: course.id,
   title: course.title,
   description: course.description,
-  schedule: parseSchedule(course.scheduleJson),
+  ...parseCourseConfig(course.scheduleJson),
   owner: course.owner,
   metrics: courseMetricsFromEnrollments(course),
   createdAt: course.createdAt.toISOString(),
