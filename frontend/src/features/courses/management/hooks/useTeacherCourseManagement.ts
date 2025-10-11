@@ -7,9 +7,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner@2.0.3';
 
+import { ApiError } from '@lib/apiClient';
 import { mockAssignments, type Assignment } from '@lib/mock-data';
 
 import {
+  addCourseStudent,
   type CourseDetailResponse,
   type CourseStudentResponse,
   useCourseDetailQuery,
@@ -26,7 +28,7 @@ import type {
 
 export type EnrollmentHandlers = {
   setNewStudentEmail: (value: string) => void;
-  addStudent: () => void;
+  addStudent: () => Promise<void>;
   removeStudent: (studentId: string, studentName: string) => void;
 };
 
@@ -111,6 +113,23 @@ const toEnrolledStudent = (input: CourseStudentResponse): EnrollmentState['stude
   enrolledAt: input.enrolledAt,
 });
 
+const toAddStudentErrorMessage = (error: unknown): string => {
+  if (error instanceof ApiError) {
+    if (error.status === 404) {
+      return 'Student account not found';
+    }
+    if (error.status === 409) {
+      return error.message || 'Student is already enrolled in this course';
+    }
+    if (error.status === 401 || error.status === 403) {
+      return 'You do not have permission to manage enrollment for this course';
+    }
+    return error.message || 'Unable to add student right now';
+  }
+
+  return 'Unable to add student right now';
+};
+
 export function useTeacherCourseManagement(courseId: string): CourseManagementViewModel {
   const courseQuery = useCourseDetailQuery(courseId);
   const studentsQuery = useCourseStudentsQuery(courseId);
@@ -128,8 +147,18 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
   const [coursePrice, setCoursePrice] = useState('');
 
   const [newStudentEmail, setNewStudentEmail] = useState('');
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [addStudentError, setAddStudentError] = useState<string | null>(null);
 
   const hydrationRef = useRef(false);
+
+  const handleNewStudentEmailChange = useCallback(
+    (value: string) => {
+      setNewStudentEmail(value);
+      setAddStudentError(null);
+    },
+    [setAddStudentError, setNewStudentEmail],
+  );
 
   useEffect(() => {
     hydrationRef.current = false;
@@ -179,15 +208,39 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
     toast.success('Course details updated successfully');
   }, []);
 
-  const handleAddStudent = useCallback(() => {
-    if (!newStudentEmail) {
-      toast.error('Please enter a student email');
+  const handleAddStudent = useCallback(async () => {
+    const email = newStudentEmail.trim();
+
+    if (!email) {
+      const message = 'Please enter a student email';
+      setAddStudentError(message);
+      toast.error(message);
       return;
     }
-    toast.success(`Invitation sent to ${newStudentEmail}`);
-    setNewStudentEmail('');
-    setShowAddStudentDialog(false);
-  }, [newStudentEmail]);
+
+    setIsAddingStudent(true);
+    setAddStudentError(null);
+
+    try {
+      await addCourseStudent(courseId, { email });
+      toast.success(`Invitation sent to ${email}`);
+      setNewStudentEmail('');
+      setShowAddStudentDialog(false);
+    } catch (error) {
+      const message = toAddStudentErrorMessage(error);
+      setAddStudentError(message);
+      toast.error(message);
+    } finally {
+      setIsAddingStudent(false);
+    }
+  }, [
+    courseId,
+    newStudentEmail,
+    setAddStudentError,
+    setIsAddingStudent,
+    setNewStudentEmail,
+    setShowAddStudentDialog,
+  ]);
 
   const handleRemoveStudent = useCallback((studentId: string, studentName: string) => {
     toast.success(`${studentName} removed from course`);
@@ -250,6 +303,8 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
     enrollment: {
       students: enrolledStudents,
       newStudentEmail,
+      isAddingStudent,
+      addStudentError,
     },
     announcements: {
       title: announcementTitle,
@@ -280,7 +335,7 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
     },
     enrollment: data.enrollment,
     enrollmentHandlers: {
-      setNewStudentEmail,
+      setNewStudentEmail: handleNewStudentEmailChange,
       addStudent: handleAddStudent,
       removeStudent: handleRemoveStudent,
     },
