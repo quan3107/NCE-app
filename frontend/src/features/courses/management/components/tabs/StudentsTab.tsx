@@ -30,7 +30,7 @@ export function StudentsTab({ enrollment, handlers, onOpenAddStudent }: Students
               <CardTitle>Enrolled Students</CardTitle>
               <CardDescription>Manage student enrollment and access</CardDescription>
             </div>
-            <Button onClick={onOpenAddStudent}>
+            <Button onClick={onOpenAddStudent} disabled={enrollment.isAddingStudent}>
               <UserPlus className="mr-2 size-4" />
               Add Student
             </Button>
