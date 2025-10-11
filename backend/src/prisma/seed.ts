@@ -54,6 +54,7 @@ async function main(): Promise<void> {
 
   const userFixtures: Array<Prisma.UserCreateInput> = [
     {
+      id: "11111111-1111-4111-8111-111111111111",
       email: "rosa.admin@ielts.local",
       password: passwordHash,
       fullName: "Rosa Martinez",
@@ -61,6 +62,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "22222222-2222-4222-8222-222222222222",
       email: "sarah.tutor@ielts.local",
       password: passwordHash,
       fullName: "Sarah Nguyen",
@@ -68,6 +70,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "44444444-4444-4444-8444-444444444444",
       email: "david.tutor@ielts.local",
       password: passwordHash,
       fullName: "David Walker",
@@ -75,6 +78,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "33333333-3333-4333-8333-333333333333",
       email: "amelia.chan@ielts.local",
       password: passwordHash,
       fullName: "Amelia Chan",
@@ -82,6 +86,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "55555555-5555-4555-8555-555555555555",
       email: "noah.patel@ielts.local",
       password: passwordHash,
       fullName: "Noah Patel",
@@ -89,6 +94,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "66666666-6666-4666-8666-666666666666",
       email: "li.huang@ielts.local",
       password: passwordHash,
       fullName: "Li Huang",
@@ -96,6 +102,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "77777777-7777-4777-8777-777777777777",
       email: "fatima.ahmed@ielts.local",
       password: passwordHash,
       fullName: "Fatima Ahmed",
@@ -103,6 +110,7 @@ async function main(): Promise<void> {
       status: UserStatus.invited,
     },
     {
+      id: "88888888-8888-4888-8888-888888888888",
       email: "diego.rojas@ielts.local",
       password: passwordHash,
       fullName: "Diego Rojas",
@@ -110,6 +118,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "99999999-9999-4999-8999-999999999999",
       email: "sofia.mendes@ielts.local",
       password: passwordHash,
       fullName: "Sofia Mendes",
@@ -131,6 +140,10 @@ async function main(): Promise<void> {
     cadence: string;
     startTime: string;
     durationMinutes: number;
+    scheduleLabel: string;
+    durationLabel: string;
+    level: string;
+    price: number;
     studentEmails: string[];
   }> = [
     {
@@ -141,6 +154,10 @@ async function main(): Promise<void> {
       cadence: "Mon-Wed",
       startTime: "18:30",
       durationMinutes: 120,
+      scheduleLabel: "Mon/Wed 6:30-8:30 PM ET",
+      durationLabel: "4 weeks",
+      level: "Advanced",
+      price: 299,
       studentEmails: [
         "amelia.chan@ielts.local",
         "noah.patel@ielts.local",
@@ -155,6 +172,10 @@ async function main(): Promise<void> {
       cadence: "Tue-Thu",
       startTime: "07:30",
       durationMinutes: 90,
+      scheduleLabel: "Tue/Thu 7:30-9:00 AM ET",
+      durationLabel: "6 weeks",
+      level: "Intermediate",
+      price: 249,
       studentEmails: [
         "fatima.ahmed@ielts.local",
         "diego.rojas@ielts.local",
@@ -169,6 +190,10 @@ async function main(): Promise<void> {
       cadence: "Sat",
       startTime: "10:00",
       durationMinutes: 150,
+      scheduleLabel: "Saturday 10:00 AM-12:30 PM ET",
+      durationLabel: "8 weeks",
+      level: "All Levels",
+      price: 189,
       studentEmails: [
         "noah.patel@ielts.local",
         "fatima.ahmed@ielts.local",
@@ -183,6 +208,10 @@ async function main(): Promise<void> {
       cadence: "Fri",
       startTime: "17:00",
       durationMinutes: 120,
+      scheduleLabel: "Friday 5:00-7:00 PM ET",
+      durationLabel: "5 weeks",
+      level: "Upper-Intermediate",
+      price: 219,
       studentEmails: [
         "amelia.chan@ielts.local",
         "sofia.mendes@ielts.local",
@@ -197,6 +226,10 @@ async function main(): Promise<void> {
       cadence: "Sun",
       startTime: "08:30",
       durationMinutes: 180,
+      scheduleLabel: "Sunday 8:30-11:30 AM ET",
+      durationLabel: "6 weeks",
+      level: "Upper-Intermediate",
+      price: 329,
       studentEmails: [
         "li.huang@ielts.local",
         "fatima.ahmed@ielts.local",
@@ -220,6 +253,10 @@ async function main(): Promise<void> {
       duration_minutes: seed.durationMinutes,
       time_zone: "America/New_York",
       format: "live-online",
+      label: seed.scheduleLabel,
+      duration: seed.durationLabel,
+      level: seed.level,
+      price: seed.price,
     };
 
     const course = await prisma.course.create({
