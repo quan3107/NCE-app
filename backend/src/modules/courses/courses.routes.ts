@@ -5,10 +5,16 @@
  */
 import { Router } from "express";
 
-import { getCourse, getCourses, postCourse } from "./courses.controller.js";
+import {
+  getCourse,
+  getCourses,
+  getCourseStudents,
+  postCourse,
+} from "./courses.controller.js";
 
 export const courseRouter = Router();
 
 courseRouter.get("/", getCourses);
 courseRouter.post("/", postCourse);
+courseRouter.get("/:courseId/students", getCourseStudents);
 courseRouter.get("/:courseId", getCourse);

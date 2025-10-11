@@ -9,6 +9,7 @@ import {
   createCourse,
   getCourseById,
   listCourses,
+  listStudentsForCourse,
 } from "./courses.service.js";
 
 export async function getCourses(_req: Request, res: Response): Promise<void> {
@@ -27,4 +28,12 @@ export async function postCourse(
 ): Promise<void> {
   await createCourse(req.body);
   res.status(501).json({ message: "Course creation not implemented yet." });
+}
+
+export async function getCourseStudents(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const payload = await listStudentsForCourse(req.params);
+  res.status(200).json(payload);
 }
