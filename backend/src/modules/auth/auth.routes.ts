@@ -9,6 +9,7 @@ import {
   completeGoogleAuth,
   logout,
   passwordLogin,
+  registerAccount,
   refreshSession,
   startGoogleAuth,
 } from "./auth.controller.js";
@@ -16,6 +17,7 @@ import {
 export const authRouter = Router();
 
 authRouter.post("/login", passwordLogin);
+authRouter.post("/register", registerAccount);
 authRouter.post("/refresh", refreshSession);
 authRouter.post("/logout", logout);
 authRouter.get("/google", startGoogleAuth);

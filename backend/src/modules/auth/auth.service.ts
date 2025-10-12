@@ -5,12 +5,13 @@
  */
 import { randomBytes, createHash } from "node:crypto";
 
-import { UserRole, UserStatus } from "@prisma/client";
+import { Prisma, UserRole, UserStatus } from "@prisma/client";
 import bcrypt from "bcrypt";
 
 import { prisma } from "../../config/prismaClient.js";
 import {
   googleAuthCallbackSchema,
+  registerAccountSchema,
   passwordLoginSchema,
   refreshSessionSchema,
 } from "./auth.schema.js";
@@ -38,6 +39,7 @@ export type SessionContext = {
 
 const REFRESH_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 const MAX_USER_AGENT_LENGTH = 256;
+const PASSWORD_SALT_ROUNDS = 12;
 
 const AUTH_ERROR = "Invalid email or password";
 
@@ -207,6 +209,73 @@ export async function handlePasswordLogin(
     refreshToken: session.refreshToken,
     refreshTokenExpiresAt: session.expiresAt,
   };
+}
+
+const isUniqueConstraintError = (
+  error: unknown,
+): error is Prisma.PrismaClientKnownRequestError =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === "P2002";
+
+export async function handleRegisterAccount(
+  payload: unknown,
+  context: SessionContext,
+): Promise<AuthSessionResult> {
+  const parsed = registerAccountSchema.parse(payload);
+
+  const existing = await prisma.user.findFirst({
+    where: {
+      email: parsed.email,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existing) {
+    throw createAuthError(409, "An account with that email already exists.");
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.password, PASSWORD_SALT_ROUNDS);
+
+  try {
+    const userRecord = await prisma.user.create({
+      data: {
+        email: parsed.email,
+        fullName: parsed.fullName,
+        password: passwordHash,
+        role: parsed.role,
+        status: UserStatus.active,
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+      },
+    });
+
+    const refreshToken = generateRefreshToken();
+    const session = await persistSession(userRecord.id, refreshToken, context);
+
+    const accessToken = signAccessToken({
+      userId: userRecord.id,
+      role: userRecord.role,
+    });
+
+    return {
+      user: toAuthenticatedUser(userRecord),
+      accessToken,
+      refreshToken: session.refreshToken,
+      refreshTokenExpiresAt: session.expiresAt,
+    };
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw createAuthError(409, "An account with that email already exists.");
+    }
+    throw error;
+  }
 }
 
 export async function handleSessionRefresh(

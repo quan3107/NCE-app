@@ -12,6 +12,7 @@ import {
   completeGoogleAuthorization,
   handleLogout,
   handlePasswordLogin,
+  handleRegisterAccount,
   handleSessionRefresh,
 } from "./auth.service.js";
 
@@ -84,6 +85,22 @@ export async function passwordLogin(
 
   setRefreshCookie(res, result.refreshToken);
   res.status(200).json({
+    user: result.user,
+    accessToken: result.accessToken,
+  });
+}
+
+export async function registerAccount(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const result = await handleRegisterAccount(
+    req.body,
+    sessionContextFromRequest(req),
+  );
+
+  setRefreshCookie(res, result.refreshToken);
+  res.status(201).json({
     user: result.user,
     accessToken: result.accessToken,
   });

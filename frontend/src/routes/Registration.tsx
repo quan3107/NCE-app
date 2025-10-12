@@ -1,7 +1,7 @@
 /**
  * Location: src/routes/Registration.tsx
- * Purpose: Present the user registration flow with email form and demo Google option.
- * Why: Provides a dedicated onboarding experience until live backend signup is wired.
+ * Purpose: Present the user registration flow, invoking the live API while retaining the demo Google placeholder.
+ * Why: Keeps onboarding cohesive now that backend signup persists real accounts.
  */
 
 import { useState, useEffect } from 'react';
@@ -13,12 +13,13 @@ import { Separator } from '@components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { Checkbox } from '@components/ui/checkbox';
 import { useAuth } from '@lib/auth';
+import { ApiError } from '@lib/apiClient';
 import { useRouter } from '@lib/router';
 import { GraduationCap, Mail, Lock, Chrome, User, UserCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
 export function AuthRegister() {
-  const { currentUser, authMode } = useAuth();
+  const { currentUser, authMode, register } = useAuth();
   const { navigate, currentPath } = useRouter();
   const [formData, setFormData] = useState({
     fullName: '',
@@ -84,17 +85,23 @@ export function AuthRegister() {
     }
 
     try {
-      // Simulate registration API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      toast.success('Account created successfully! Please sign in.');
-      
-      // Navigate to login page
-      setTimeout(() => {
-        navigate('/login');
-      }, 1000);
+      await register({
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role as 'student' | 'teacher',
+      });
+
+      toast.success('Account created successfully!');
+      const destination = formData.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
+      navigate(destination);
     } catch (error) {
-      toast.error('Registration failed. Please try again.');
+      if (error instanceof ApiError) {
+        toast.error(error.message || 'Registration failed. Please try again.');
+      } else {
+        toast.error('Registration failed. Please try again.');
+      }
+    } finally {
       setIsLoading(false);
     }
   };
@@ -226,7 +233,7 @@ export function AuthRegister() {
               </div>
             </div>
 
-            <div className="flex items-start space-x-2">
+            <div className="flex items-center space-x-2">
               <Checkbox 
                 id="terms" 
                 checked={agreedToTerms}
@@ -239,7 +246,7 @@ export function AuthRegister() {
                 I agree to the{' '}
                 <button 
                   type="button"
-                  className="font-medium hover:underline"
+                  className="text-sm hover:underline"
                   onClick={() => toast.info('Terms and Conditions would open here')}
                 >
                   Terms and Conditions
@@ -247,7 +254,7 @@ export function AuthRegister() {
                 {' '}and{' '}
                 <button 
                   type="button"
-                  className="font-medium hover:underline"
+                  className="text-sm hover:underline"
                   onClick={() => toast.info('Privacy Policy would open here')}
                 >
                   Privacy Policy

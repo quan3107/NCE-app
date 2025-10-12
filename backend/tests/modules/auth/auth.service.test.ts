@@ -16,7 +16,7 @@ vi.mock("node:crypto", async () => {
 });
 
 vi.mock("../../../src/config/prismaClient.js", () => {
-  const user = { findFirst: vi.fn() };
+  const user = { findFirst: vi.fn(), create: vi.fn() };
   const authSession = {
     create: vi.fn(),
     findFirst: vi.fn(),
@@ -33,11 +33,14 @@ vi.mock("../../../src/config/prismaClient.js", () => {
 
 vi.mock("bcrypt", () => {
   const compare = vi.fn();
+  const hash = vi.fn();
   return {
     default: {
       compare,
+      hash,
     },
     compare,
+    hash,
   };
 });
 
@@ -55,6 +58,7 @@ const { signAccessToken } = await import(
 );
 
 const {
+  handleRegisterAccount,
   handlePasswordLogin,
   handleSessionRefresh,
   handleLogout,
@@ -79,6 +83,85 @@ describe("auth.service", () => {
 
   const ipHash = (value: string) =>
     crypto.createHash("sha256").update(value).digest("hex");
+
+  it("registers a new user and returns auth tokens", async () => {
+    prisma.user.findFirst.mockResolvedValueOnce(null);
+    (bcrypt.hash as unknown as vi.Mock).mockResolvedValueOnce("hashed-password");
+    prisma.user.create.mockResolvedValueOnce({
+      id: "user-1",
+      email: "new.user@example.com",
+      fullName: "New User",
+      role: "student",
+    });
+    prisma.authSession.create.mockResolvedValueOnce(undefined);
+    randomBytesMock.mockReturnValueOnce(Buffer.alloc(48, 3));
+
+    const result = await handleRegisterAccount(
+      {
+        fullName: "  New User  ",
+        email: "New.User@example.com",
+        password: "Passw0rd!",
+        role: "student",
+      },
+      { ipAddress: "192.168.0.2", userAgent: "vitest-register" },
+    );
+
+    expect(bcrypt.hash).toHaveBeenCalledWith("Passw0rd!", 12);
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: {
+        email: "new.user@example.com",
+        fullName: "New User",
+        password: "hashed-password",
+        role: "student",
+        status: "active",
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+      },
+    });
+
+    expect(result.user).toEqual({
+      id: "user-1",
+      email: "new.user@example.com",
+      fullName: "New User",
+      role: "student",
+    });
+    expect(result.accessToken).toBe("signed-access");
+    expect(result.refreshToken).toBe(Buffer.alloc(48, 3).toString("base64url"));
+    expect(result.refreshTokenExpiresAt.toISOString()).toBe(
+      new Date(fixedDate.getTime() + REFRESH_TOKEN_TTL_MS).toISOString(),
+    );
+
+    const sessionArgs = prisma.authSession.create.mock.calls[0]?.[0];
+    expect(sessionArgs?.data.userId).toBe("user-1");
+    expect(sessionArgs?.data.userAgent).toBe("vitest-register");
+    expect(sessionArgs?.data.ipHash).toBe(ipHash("192.168.0.2"));
+  });
+
+  it("rejects registration when the email is already in use", async () => {
+    prisma.user.findFirst.mockResolvedValueOnce({
+      id: "existing-user",
+    });
+
+    await expect(
+      handleRegisterAccount(
+        {
+          fullName: "Existing User",
+          email: "existing@example.com",
+          password: "Passw0rd!",
+          role: "student",
+        },
+        {},
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+    });
+
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
 
   it("issues tokens and persists a session on successful password login", async () => {
     const mockUser = {
