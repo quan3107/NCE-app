@@ -62,6 +62,13 @@ export function LoginRoute() {
     }, 2000);
   };
 
+  const handleNavigateToRegister = () => {
+    if (isLoading) {
+      return;
+    }
+    navigate('/register');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#E6F0FF] via-[#BFD9FF]/30 to-background p-4">
       <Card className="w-full max-w-md">
@@ -138,7 +145,13 @@ export function LoginRoute() {
 
           <div className="text-center text-sm">
             <span className="text-muted-foreground">Don't have an account? </span>
-            <button className="font-medium hover:underline">Create one</button>
+            <button
+              className="font-medium hover:underline"
+              onClick={handleNavigateToRegister}
+              disabled={isLoading}
+            >
+              Create one
+            </button>
           </div>
 
           {/* Demo hint */}
