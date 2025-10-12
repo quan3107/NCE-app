@@ -74,8 +74,28 @@ type StoredAuthContext = {
 
 const FALLBACK_AUTH = PERSONA_HEADERS.admin;
 
+const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
+const API_VERSION_PREFIX = '/api/v1';
+
 function buildUrl(endpoint: string, params?: ApiClientOptions['params']) {
-  const url = new URL(endpoint, API_BASE_URL);
+  const trimmedEndpoint = endpoint.trim();
+  const isAbsolute = ABSOLUTE_URL_PATTERN.test(trimmedEndpoint);
+
+  let targetPath = trimmedEndpoint;
+
+  if (!isAbsolute) {
+    const withLeadingSlash = trimmedEndpoint.startsWith('/')
+      ? trimmedEndpoint
+      : `/${trimmedEndpoint}`;
+
+    targetPath = withLeadingSlash.startsWith('/api/')
+      ? withLeadingSlash
+      : `${API_VERSION_PREFIX}${withLeadingSlash}`;
+  }
+
+  const url = isAbsolute
+    ? new URL(targetPath)
+    : new URL(targetPath, API_BASE_URL);
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
