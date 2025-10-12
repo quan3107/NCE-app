@@ -174,16 +174,14 @@ const teacherCanAccess = (
 export async function listCourses(
   actor: CourseManager,
 ): Promise<CourseListResponse> {
-  if (actor.role === UserRole.student) {
-    throw createHttpError(403, "Students cannot list courses.");
-  }
-
-  const courses = await prisma.course.findMany({
-    where:
-      actor.role === UserRole.admin
-        ? { deletedAt: null }
-        : {
-            deletedAt: null,
+  const baseWhere = { deletedAt: null };
+  // Students should only see courses they are enrolled in, while teachers retain owner/teacher visibility and admins see everything.
+  const where =
+    actor.role === UserRole.admin
+      ? baseWhere
+      : actor.role === UserRole.teacher
+        ? {
+            ...baseWhere,
             OR: [
               { ownerId: actor.id },
               {
@@ -196,7 +194,21 @@ export async function listCourses(
                 },
               },
             ],
-          },
+          }
+        : {
+            ...baseWhere,
+            enrollments: {
+              some: {
+                userId: actor.id,
+                roleInCourse: EnrollmentRole.student,
+                deletedAt: null,
+                user: { deletedAt: null },
+              },
+            },
+          };
+
+  const courses = await prisma.course.findMany({
+    where,
     select: {
       id: true,
       title: true,
