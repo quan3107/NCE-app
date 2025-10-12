@@ -49,7 +49,7 @@ type AuthSuccessResponse = {
   accessToken: string;
 };
 
-type RegisterRole = Extract<SupportedRole, 'student' | 'teacher'>;
+type RegisterRole = Extract<SupportedRole, 'admin' | 'student' | 'teacher'>;
 
 export type RegisterPayload = {
   fullName: string;
