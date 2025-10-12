@@ -6,7 +6,11 @@
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
-const REGISTERABLE_ROLES = [UserRole.student, UserRole.teacher] as const;
+const REGISTERABLE_ROLES = [
+  UserRole.admin,
+  UserRole.student,
+  UserRole.teacher,
+] as const;
 
 export const passwordLoginSchema = z.object({
   email: z.string().email(),
