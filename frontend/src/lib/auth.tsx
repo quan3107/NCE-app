@@ -49,6 +49,15 @@ type AuthSuccessResponse = {
   accessToken: string;
 };
 
+type RegisterRole = Extract<SupportedRole, 'student' | 'teacher'>;
+
+export type RegisterPayload = {
+  fullName: string;
+  email: string;
+  password: string;
+  role: RegisterRole;
+};
+
 type StoredAuthPayload = {
   mode?: AuthMode;
   token?: string | null;
@@ -72,6 +81,7 @@ type AuthContextType = {
   actingRole: Role | null;
   isImpersonating: boolean;
   login: (email: string, password: string) => Promise<AuthMode | null>;
+  register: (payload: RegisterPayload) => Promise<'live'>;
   loginWithGoogle: () => Promise<boolean>;
   logout: () => Promise<void>;
   switchRole: (role: Role) => void;
@@ -366,6 +376,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [activatePersonaSession, applyLiveSession],
   );
 
+  const register = useCallback(
+    async (payload: RegisterPayload): Promise<'live'> => {
+      const result = await apiClient<AuthSuccessResponse>('/auth/register', {
+        method: 'POST',
+        withAuth: false,
+        credentials: 'include',
+        body: {
+          fullName: payload.fullName.trim(),
+          email: payload.email.trim(),
+          password: payload.password,
+          role: payload.role,
+        },
+      });
+      applyLiveSession(result);
+      return 'live';
+    },
+    [applyLiveSession],
+  );
+
   const loginWithGoogle = useCallback(async () => {
     activatePersonaSession('student');
     return true;
@@ -448,6 +477,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       actingRole,
       isImpersonating,
       login,
+      register,
       loginWithGoogle,
       logout,
       switchRole,
@@ -461,6 +491,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       isImpersonating,
       login,
+      register,
       loginWithGoogle,
       logout,
       stopImpersonating,
