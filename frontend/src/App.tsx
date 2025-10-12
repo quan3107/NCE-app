@@ -4,7 +4,7 @@
  * Why: Centralizes navigation decisions while delegating UI to feature and route modules.
  */
 
-import { useEffect } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { AppShell } from '@components/layout/AppShell';
 import { Toaster } from '@components/ui/sonner';
 import { AdminAuditLogsPage } from '@features/admin/components/AdminAuditLogsPage';
@@ -36,12 +36,18 @@ import { DashboardStudentRoute } from '@routes/DashboardStudent';
 import { DashboardTeacherRoute } from '@routes/DashboardTeacher';
 import { HomeRoute } from '@routes/Home';
 import { LoginRoute } from '@routes/Login';
+import { AuthRegister } from '@routes/Registration';
 import { NotFoundRoute } from '@routes/NotFound';
 import { OAuthRoute } from '@routes/OAuth';
 
 function AppContent() {
   const { currentPath, navigate } = useRouter();
   const { currentUser, isAuthenticated } = useAuthStore();
+
+  type RouteResolution = {
+    element: ReactNode;
+    variant: 'public' | 'app';
+  };
 
   useEffect(() => {
     if (isAuthenticated && currentUser && currentPath === '/') {
@@ -64,68 +70,119 @@ function AppContent() {
     }
   }, [currentPath, isAuthenticated, navigate]);
 
-  const renderRoute = () => {
-    if (currentPath === '/login') return <LoginRoute />;
-    if (currentPath === '/auth/oauth') return <OAuthRoute />;
+  const resolveRoute = (): RouteResolution => {
+    if (currentPath === '/login') {
+      return { element: <LoginRoute />, variant: 'public' };
+    }
+    if (currentPath === '/auth/oauth') {
+      return { element: <OAuthRoute />, variant: 'public' };
+    }
+    if (currentPath === '/register') {
+      return { element: <AuthRegister />, variant: 'public' };
+    }
 
-    if (currentPath === '/') return <HomeRoute />;
-    if (currentPath === '/about') return <AboutRoute />;
-    if (currentPath === '/contact') return <ContactRoute />;
-    if (currentPath === '/courses') return <CoursesRoute />;
+    if (currentPath === '/') {
+      return { element: <HomeRoute />, variant: 'public' };
+    }
+    if (currentPath === '/about') {
+      return { element: <AboutRoute />, variant: 'public' };
+    }
+    if (currentPath === '/contact') {
+      return { element: <ContactRoute />, variant: 'public' };
+    }
+    if (currentPath === '/courses') {
+      return { element: <CoursesRoute />, variant: 'public' };
+    }
     if (currentPath.startsWith('/courses/')) {
       const courseId = currentPath.split('/')[2];
-      return <CourseDetailRoute courseId={courseId} />;
+      return { element: <CourseDetailRoute courseId={courseId} />, variant: 'public' };
     }
 
     if (!isAuthenticated) {
-      return <LoginRoute />;
+      return { element: <LoginRoute />, variant: 'public' };
     }
 
-    if (currentPath === '/student/dashboard') return <DashboardStudentRoute />;
-    if (currentPath === '/student/assignments') return <StudentAssignmentsPage />;
+    if (currentPath === '/student/dashboard') {
+      return { element: <DashboardStudentRoute />, variant: 'app' };
+    }
+    if (currentPath === '/student/assignments') {
+      return { element: <StudentAssignmentsPage />, variant: 'app' };
+    }
     if (currentPath.startsWith('/student/assignments/')) {
       const assignmentId = currentPath.split('/')[3];
-      return <StudentAssignmentDetailPage assignmentId={assignmentId} />;
+      return { element: <StudentAssignmentDetailPage assignmentId={assignmentId} />, variant: 'app' };
     }
-    if (currentPath === '/student/grades') return <StudentGradesPage />;
-    if (currentPath === '/student/notifications') return <StudentNotificationsPage />;
-    if (currentPath === '/student/profile') return <StudentProfilePage />;
+    if (currentPath === '/student/grades') {
+      return { element: <StudentGradesPage />, variant: 'app' };
+    }
+    if (currentPath === '/student/notifications') {
+      return { element: <StudentNotificationsPage />, variant: 'app' };
+    }
+    if (currentPath === '/student/profile') {
+      return { element: <StudentProfilePage />, variant: 'app' };
+    }
 
-    if (currentPath === '/teacher/dashboard') return <DashboardTeacherRoute />;
-    if (currentPath === '/teacher/courses') return <TeacherCoursesPage />;
+    if (currentPath === '/teacher/dashboard') {
+      return { element: <DashboardTeacherRoute />, variant: 'app' };
+    }
+    if (currentPath === '/teacher/courses') {
+      return { element: <TeacherCoursesPage />, variant: 'app' };
+    }
     if (currentPath.startsWith('/teacher/courses/') && currentPath.endsWith('/manage')) {
       const managePrefix = '/teacher/courses/';
       const manageSuffix = '/manage';
       const courseId = currentPath.slice(managePrefix.length, -manageSuffix.length);
       if (courseId) {
-        return <TeacherCourseManagement courseId={courseId} />;
+        return { element: <TeacherCourseManagement courseId={courseId} />, variant: 'app' };
       }
     }
-    if (currentPath === '/teacher/assignments') return <TeacherAssignmentsPage />;
-    if (currentPath.startsWith('/teacher/assignments/')) {
-      return <TeacherAssignmentsPage />;
+    if (currentPath === '/teacher/assignments') {
+      return { element: <TeacherAssignmentsPage />, variant: 'app' };
     }
-    if (currentPath === '/teacher/submissions') return <TeacherSubmissionsPage />;
+    if (currentPath.startsWith('/teacher/assignments/')) {
+      return { element: <TeacherAssignmentsPage />, variant: 'app' };
+    }
+    if (currentPath === '/teacher/submissions') {
+      return { element: <TeacherSubmissionsPage />, variant: 'app' };
+    }
     if (currentPath.startsWith('/teacher/grade/')) {
       const submissionId = currentPath.split('/')[3];
-      return <TeacherGradeFormPage submissionId={submissionId} />;
+      return { element: <TeacherGradeFormPage submissionId={submissionId} />, variant: 'app' };
     }
-    if (currentPath === '/teacher/rubrics') return <TeacherRubricsPage />;
-    if (currentPath === '/teacher/analytics') return <TeacherAnalyticsPage />;
+    if (currentPath === '/teacher/rubrics') {
+      return { element: <TeacherRubricsPage />, variant: 'app' };
+    }
+    if (currentPath === '/teacher/analytics') {
+      return { element: <TeacherAnalyticsPage />, variant: 'app' };
+    }
 
-    if (currentPath === '/admin/dashboard') return <AdminDashboardPage />;
-    if (currentPath === '/admin/users') return <AdminUsersPage />;
-    if (currentPath === '/admin/courses') return <AdminCoursesPage />;
-    if (currentPath === '/admin/enrollments') return <AdminEnrollmentsPage />;
-    if (currentPath === '/admin/logs') return <AdminAuditLogsPage />;
-    if (currentPath === '/admin/settings') return <AdminSettingsPage />;
+    if (currentPath === '/admin/dashboard') {
+      return { element: <AdminDashboardPage />, variant: 'app' };
+    }
+    if (currentPath === '/admin/users') {
+      return { element: <AdminUsersPage />, variant: 'app' };
+    }
+    if (currentPath === '/admin/courses') {
+      return { element: <AdminCoursesPage />, variant: 'app' };
+    }
+    if (currentPath === '/admin/enrollments') {
+      return { element: <AdminEnrollmentsPage />, variant: 'app' };
+    }
+    if (currentPath === '/admin/logs') {
+      return { element: <AdminAuditLogsPage />, variant: 'app' };
+    }
+    if (currentPath === '/admin/settings') {
+      return { element: <AdminSettingsPage />, variant: 'app' };
+    }
 
-    return <NotFoundRoute />;
+    return { element: <NotFoundRoute />, variant: 'public' };
   };
 
+  const { element, variant } = resolveRoute();
+
   return (
-    <AppShell>
-      {renderRoute()}
+    <AppShell variant={variant}>
+      {element}
     </AppShell>
   );
 }
