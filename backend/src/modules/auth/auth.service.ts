@@ -280,11 +280,17 @@ async function rotateSession(
   };
 }
 
-function assertActiveUser(user: {
-  status: UserStatus;
-  password: string | null;
-}): void {
-  if (!user.password) {
+function assertActiveUser(
+  user: {
+    status: UserStatus;
+    password: string | null;
+  },
+  options: { requirePassword?: boolean } = {},
+): void {
+  // Passwordless identity providers skip the password requirement when refreshing sessions.
+  const requirePassword = options.requirePassword ?? true;
+
+  if (requirePassword && !user.password) {
     throw createAuthError(401, AUTH_ERROR);
   }
 
@@ -481,7 +487,7 @@ export async function handleSessionRefresh(
     throw createAuthError(401, "Account is no longer available.");
   }
 
-  assertActiveUser(user);
+  assertActiveUser(user, { requirePassword: false });
 
   const nextRefreshToken = generateRefreshToken();
   const rotated = await rotateSession(
