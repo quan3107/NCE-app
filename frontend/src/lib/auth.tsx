@@ -419,7 +419,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const completeGoogleLogin = useCallback(async () => {
+  const completeGoogleLogin = useCallback(async (): Promise<'live'> => {
     const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
       method: 'POST',
       withAuth: false,
