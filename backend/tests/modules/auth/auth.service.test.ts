@@ -3,14 +3,25 @@
  * Purpose: Validate the auth service flows for login, refresh rotation, and logout revocation.
  * Why: Ensures credential handling and session management behave as intended before wiring the frontend.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+  type MockedFunction,
+} from "vitest";
+import type { AuthSession, Identity, User } from "@prisma/client";
+import { IdentityProvider, UserRole, UserStatus } from "@prisma/client";
 
 process.env.NODE_ENV = "test";
 process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/test-db";
 process.env.JWT_PRIVATE_KEY_PATH ??= "tests/fixtures/private.pem";
 process.env.JWT_PUBLIC_KEY_PATH ??= "tests/fixtures/public.pem";
-process.env.GOOGLE_CLIENT_ID ??= "test-google-client-id";
-process.env.GOOGLE_CLIENT_SECRET ??= "test-google-client-secret";
+process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
+process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
 
 vi.mock("node:crypto", async () => {
   const actual = await vi.importActual<typeof import("node:crypto")>(
@@ -82,13 +93,25 @@ const fetchMock = vi.fn();
   fetchMock as unknown as typeof fetch;
 
 const crypto = await import("node:crypto");
-const prisma = await import("../../../src/config/prismaClient.js").then(
-  (module) => module.prisma,
+// Wrap Prisma singleton in vi.mocked so nested delegates expose mock helpers.
+const prismaModule = await import(
+  "../../../src/config/prismaClient.js"
 );
-const bcrypt = await import("bcrypt").then((module) => module.default);
-const { signAccessToken } = await import(
-  "../../../src/modules/auth/auth.tokens.js"
+const prisma = vi.mocked(prismaModule.prisma, true);
+// Mirror for bcrypt mock to avoid manual casts in each assertion.
+const bcryptModule = await import("bcrypt");
+const bcrypt = vi.mocked(bcryptModule.default, true);
+// Pull the token helpers through vi.mocked for typed expectations.
+const tokensModule = vi.mocked(
+  await import("../../../src/modules/auth/auth.tokens.js"),
 );
+const { signAccessToken } = tokensModule;
+const bcryptHashMock = bcrypt.hash as unknown as MockedFunction<
+  (data: string | Buffer, rounds: string | number) => Promise<string>
+>;
+const bcryptCompareMock = bcrypt.compare as unknown as MockedFunction<
+  (data: string | Buffer, encrypted: string | Buffer) => Promise<boolean>
+>;
 
 const {
   handleRegisterAccount,
@@ -101,7 +124,56 @@ const {
 } = await import("../../../src/modules/auth/auth.service.js");
 
 const fixedDate = new Date("2025-10-11T12:00:00.000Z");
-const randomBytesMock = crypto.randomBytes as unknown as vi.Mock;
+const randomBytesMock = crypto.randomBytes as unknown as Mock;
+
+// Helper ensures mocked Prisma calls receive fully-shaped user records.
+const buildUser = (overrides: Partial<User> = {}): User => ({
+  id: "user-default",
+  email: "user@example.com",
+  password: "$2b$10$hash",
+  fullName: "Default User",
+  role: UserRole.teacher,
+  status: UserStatus.active,
+  createdAt: new Date(fixedDate),
+  updatedAt: new Date(fixedDate),
+  deletedAt: null,
+  ...overrides,
+});
+
+const buildAuthSession = (
+  overrides: Partial<AuthSession> = {},
+): AuthSession => ({
+  id: overrides.id ?? "session-default",
+  userId: overrides.userId ?? "user-default",
+  refreshTokenHash: overrides.refreshTokenHash ?? "refresh-token-hash",
+  userAgent: overrides.userAgent ?? null,
+  ipHash: overrides.ipHash ?? null,
+  expiresAt: overrides.expiresAt ?? new Date(fixedDate),
+  revokedAt: overrides.revokedAt ?? null,
+  createdAt: overrides.createdAt ?? new Date(fixedDate),
+  updatedAt: overrides.updatedAt ?? new Date(fixedDate),
+  deletedAt: overrides.deletedAt ?? null,
+});
+
+const buildIdentity = (
+  overrides: Partial<Identity> = {},
+  userOverrides: Partial<User> = {},
+): Identity & { user: User } => {
+  const userId = overrides.userId ?? userOverrides.id ?? "user-identity";
+  return {
+    id: overrides.id ?? "identity-default",
+    userId,
+    provider: overrides.provider ?? IdentityProvider.google,
+    providerSubject: overrides.providerSubject ?? "google-subject",
+    providerIssuer: overrides.providerIssuer ?? "https://accounts.google.com",
+    email: overrides.email ?? "identity@example.com",
+    emailVerified: overrides.emailVerified ?? false,
+    createdAt: overrides.createdAt ?? new Date(fixedDate),
+    updatedAt: overrides.updatedAt ?? new Date(fixedDate),
+    deletedAt: overrides.deletedAt ?? null,
+    user: buildUser({ id: userId, ...userOverrides }),
+  };
+};
 
 describe("auth.service", () => {
   beforeEach(() => {
@@ -111,7 +183,7 @@ describe("auth.service", () => {
     randomBytesMock.mockImplementation((size?: number) =>
       Buffer.alloc(size ?? 48, 1),
     );
-    (signAccessToken as unknown as vi.Mock).mockReturnValue("signed-access");
+    signAccessToken.mockReturnValue("signed-access");
   });
 
   afterEach(() => {
@@ -124,14 +196,18 @@ describe("auth.service", () => {
 
   it("registers a new user and returns auth tokens", async () => {
     prisma.user.findFirst.mockResolvedValueOnce(null);
-    (bcrypt.hash as unknown as vi.Mock).mockResolvedValueOnce("hashed-password");
-    prisma.user.create.mockResolvedValueOnce({
-      id: "user-1",
-      email: "new.user@example.com",
-      fullName: "New User",
-      role: "admin",
-    });
-    prisma.authSession.create.mockResolvedValueOnce(undefined);
+    bcryptHashMock.mockResolvedValueOnce("hashed-password");
+    prisma.user.create.mockResolvedValueOnce(
+      buildUser({
+        id: "user-1",
+        email: "new.user@example.com",
+        fullName: "New User",
+        role: UserRole.admin,
+      }),
+    );
+    prisma.authSession.create.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-register", userId: "user-1" }),
+    );
     randomBytesMock.mockReturnValueOnce(Buffer.alloc(48, 3));
 
     const result = await handleRegisterAccount(
@@ -180,9 +256,9 @@ describe("auth.service", () => {
   });
 
   it("rejects registration when the email is already in use", async () => {
-    prisma.user.findFirst.mockResolvedValueOnce({
-      id: "existing-user",
-    });
+    prisma.user.findFirst.mockResolvedValueOnce(
+      buildUser({ id: "existing-user" }),
+    );
 
     await expect(
       handleRegisterAccount(
@@ -202,18 +278,18 @@ describe("auth.service", () => {
   });
 
   it("issues tokens and persists a session on successful password login", async () => {
-    const mockUser = {
+    const mockUser = buildUser({
       id: "user-1",
       email: "alice@example.com",
       fullName: "Alice Doe",
-      role: "student",
-      status: "active",
-      password: "$2b$10$hash",
-    };
+      role: UserRole.student,
+    });
 
     prisma.user.findFirst.mockResolvedValueOnce(mockUser);
-    prisma.authSession.create.mockResolvedValueOnce(undefined);
-    bcrypt.compare.mockResolvedValueOnce(true);
+    prisma.authSession.create.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-login", userId: mockUser.id }),
+    );
+    bcryptCompareMock.mockResolvedValueOnce(true);
 
     const result = await handlePasswordLogin(
       { email: mockUser.email, password: "Passw0rd!" },
@@ -252,15 +328,15 @@ describe("auth.service", () => {
   });
 
   it("rejects login when the password comparison fails", async () => {
-    prisma.user.findFirst.mockResolvedValueOnce({
-      id: "user-1",
-      email: "alice@example.com",
-      fullName: "Alice Doe",
-      role: "student",
-      status: "active",
-      password: "$2b$10$hash",
-    });
-    bcrypt.compare.mockResolvedValueOnce(false);
+    prisma.user.findFirst.mockResolvedValueOnce(
+      buildUser({
+        id: "user-1",
+        email: "alice@example.com",
+        fullName: "Alice Doe",
+        role: UserRole.student,
+      }),
+    );
+    bcryptCompareMock.mockResolvedValueOnce(false);
 
     await expect(
       handlePasswordLogin(
@@ -277,19 +353,20 @@ describe("auth.service", () => {
     const nextTokenBuffer = Buffer.alloc(48, 2);
     randomBytesMock.mockReturnValueOnce(nextTokenBuffer);
 
-    prisma.authSession.findFirst.mockResolvedValueOnce({
-      id: "session-1",
-      userId: "user-1",
-    });
-    prisma.user.findFirst.mockResolvedValueOnce({
-      id: "user-1",
-      email: "alice@example.com",
-      fullName: "Alice Doe",
-      role: "teacher",
-      status: "active",
-      password: "$2b$10$hash",
-    });
-    prisma.authSession.update.mockResolvedValueOnce(undefined);
+    prisma.authSession.findFirst.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-1", userId: "user-1" }),
+    );
+    prisma.user.findFirst.mockResolvedValueOnce(
+      buildUser({
+        id: "user-1",
+        email: "alice@example.com",
+        fullName: "Alice Doe",
+        role: UserRole.teacher,
+      }),
+    );
+    prisma.authSession.update.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-1", userId: "user-1" }),
+    );
 
     const result = await handleSessionRefresh(
       {},
@@ -318,19 +395,21 @@ describe("auth.service", () => {
     const nextTokenBuffer = Buffer.alloc(48, 3);
     randomBytesMock.mockReturnValueOnce(nextTokenBuffer);
 
-    prisma.authSession.findFirst.mockResolvedValueOnce({
-      id: "session-google",
-      userId: "user-google",
-    });
-    prisma.user.findFirst.mockResolvedValueOnce({
-      id: "user-google",
-      email: "sso@example.com",
-      fullName: "SSO User",
-      role: "teacher",
-      status: "active",
-      password: null,
-    });
-    prisma.authSession.update.mockResolvedValueOnce(undefined);
+    prisma.authSession.findFirst.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-google", userId: "user-google" }),
+    );
+    prisma.user.findFirst.mockResolvedValueOnce(
+      buildUser({
+        id: "user-google",
+        email: "sso@example.com",
+        fullName: "SSO User",
+        role: UserRole.teacher,
+        password: null,
+      }),
+    );
+    prisma.authSession.update.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-google", userId: "user-google" }),
+    );
 
     const result = await handleSessionRefresh(
       {},
@@ -447,19 +526,41 @@ describe("auth.service", () => {
         }) as const,
     });
 
-    prisma.identity.findFirst.mockResolvedValueOnce({
-      id: "identity-1",
-      emailVerified: false,
-      user: {
-        id: "user-1",
-        email: "existing@example.com",
-        fullName: "Existing User",
-        role: "teacher",
-        status: "active",
-      },
-    });
-    prisma.identity.update.mockResolvedValueOnce({});
-    prisma.authSession.create.mockResolvedValueOnce(undefined);
+    prisma.identity.findFirst.mockResolvedValueOnce(
+      buildIdentity(
+        {
+          id: "identity-1",
+          userId: "user-1",
+          email: "existing@example.com",
+          emailVerified: false,
+        },
+        {
+          id: "user-1",
+          email: "existing@example.com",
+          fullName: "Existing User",
+          role: UserRole.teacher,
+        },
+      ),
+    );
+    prisma.identity.update.mockResolvedValueOnce(
+      buildIdentity(
+        {
+          id: "identity-1",
+          userId: "user-1",
+          email: "existing@example.com",
+          emailVerified: true,
+        },
+        {
+          id: "user-1",
+          email: "existing@example.com",
+          fullName: "Existing User",
+          role: UserRole.teacher,
+        },
+      ),
+    );
+    prisma.authSession.create.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-google-login", userId: "user-1" }),
+    );
 
     const result = await completeGoogleAuthorization(
       { code: "auth-code", state },
