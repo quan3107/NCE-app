@@ -20,6 +20,10 @@ const REFRESH_COOKIE_NAME = "refreshToken";
 const REFRESH_COOKIE_PATH = "/api/v1/auth";
 
 const secureCookie = config.nodeEnv === "production";
+const GOOGLE_OAUTH_COOKIE_MAX_AGE_MS = 1000 * 60 * 5; // 5 minutes
+const GOOGLE_STATE_COOKIE_NAME = "googleOAuthState";
+const GOOGLE_VERIFIER_COOKIE_NAME = "googleOAuthVerifier";
+const GOOGLE_OAUTH_COOKIE_PATH = `${REFRESH_COOKIE_PATH}/google`;
 
 const readCookie = (req: Request, name: string): string | null => {
   const cookieHeader = req.headers.cookie;
@@ -72,6 +76,38 @@ const clearRefreshCookie = (res: Response): void => {
     sameSite: "lax",
     path: REFRESH_COOKIE_PATH,
   });
+};
+
+const setGoogleCookie = (res: Response, name: string, value: string): void => {
+  res.cookie(name, value, {
+    httpOnly: true,
+    secure: secureCookie,
+    sameSite: "lax",
+    maxAge: GOOGLE_OAUTH_COOKIE_MAX_AGE_MS,
+    path: GOOGLE_OAUTH_COOKIE_PATH,
+  });
+};
+
+const clearGoogleCookie = (res: Response, name: string): void => {
+  res.clearCookie(name, {
+    httpOnly: true,
+    secure: secureCookie,
+    sameSite: "lax",
+    path: GOOGLE_OAUTH_COOKIE_PATH,
+  });
+};
+
+const clearGoogleOAuthCookies = (res: Response): void => {
+  clearGoogleCookie(res, GOOGLE_STATE_COOKIE_NAME);
+  clearGoogleCookie(res, GOOGLE_VERIFIER_COOKIE_NAME);
+};
+
+const resolveGoogleRedirectUri = (req: Request): string | null => {
+  const host = req.get("host");
+  if (!host) {
+    return null;
+  }
+  return `${req.protocol}://${host}${REFRESH_COOKIE_PATH}/google/callback`;
 };
 
 export async function passwordLogin(
@@ -132,21 +168,52 @@ export async function logout(req: Request, res: Response): Promise<void> {
 }
 
 export async function startGoogleAuth(
-  _req: Request,
+  req: Request,
   res: Response,
 ): Promise<void> {
-  await buildGoogleAuthorizationUrl();
-  res
-    .status(501)
-    .json({ message: "Google auth initiation not implemented yet." });
+  const redirectUri = resolveGoogleRedirectUri(req);
+  if (!redirectUri) {
+    res
+      .status(500)
+      .json({ message: "Unable to determine callback URL for Google sign-in." });
+    return;
+  }
+
+  const { authorizationUrl, state, codeVerifier } =
+    await buildGoogleAuthorizationUrl({ redirectUri });
+
+  setGoogleCookie(res, GOOGLE_STATE_COOKIE_NAME, state);
+  setGoogleCookie(res, GOOGLE_VERIFIER_COOKIE_NAME, codeVerifier);
+
+  res.status(200).json({
+    authorizationUrl,
+  });
 }
 
 export async function completeGoogleAuth(
   req: Request,
   res: Response,
 ): Promise<void> {
-  await completeGoogleAuthorization(req.query);
-  res
-    .status(501)
-    .json({ message: "Google auth callback handling not implemented yet." });
+  const redirectUri = resolveGoogleRedirectUri(req);
+  if (!redirectUri) {
+    res
+      .status(500)
+      .json({ message: "Unable to determine callback URL for Google sign-in." });
+    return;
+  }
+
+  const result = await completeGoogleAuthorization(req.query, {
+    redirectUri,
+    expectedState: readCookie(req, GOOGLE_STATE_COOKIE_NAME),
+    codeVerifier: readCookie(req, GOOGLE_VERIFIER_COOKIE_NAME),
+    context: sessionContextFromRequest(req),
+  });
+
+  clearGoogleOAuthCookies(res);
+  setRefreshCookie(res, result.refreshToken);
+
+  res.status(200).json({
+    user: result.user,
+    accessToken: result.accessToken,
+  });
 }
