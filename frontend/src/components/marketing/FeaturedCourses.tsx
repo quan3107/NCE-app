@@ -1,26 +1,38 @@
 /**
  * Location: components/marketing/FeaturedCourses.tsx
- * Purpose: Render the Featured Courses component within the Marketing layer.
- * Why: Supports reuse under the refactored frontend structure.
+ * Purpose: Render top courses, preferring live backend data with mock fallback during outages.
+ * Why: Keeps the landing page resilient while we transition from mock-driven previews.
  */
 
 import type { MouseEvent } from 'react';
 
 import { ArrowRight, CheckCircle2, Users } from 'lucide-react';
 
-import type { Course } from '@lib/mock-data';
+import { useCoursesQuery } from '@features/courses/api';
+import { mockCourses, type Course } from '@lib/mock-data';
 import { Button } from '@components/ui/button';
 import { Badge } from '@components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 
 type FeaturedCoursesProps = {
-  courses: Course[];
   onSelectCourse: (courseId: string) => void;
   onViewAll: () => void;
-  isLoading?: boolean;
 };
 
-export function FeaturedCourses({ courses, onSelectCourse, onViewAll, isLoading }: FeaturedCoursesProps) {
+export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesProps) {
+  const { data: backendCourses, isLoading, error } = useCoursesQuery();
+
+  const hasBackendCourses = Array.isArray(backendCourses) && backendCourses.length > 0;
+  const shouldUseFallback = (!isLoading && !hasBackendCourses) || Boolean(error);
+
+  const resolvedCourses: Course[] = shouldUseFallback
+    ? mockCourses
+    : backendCourses ?? [];
+  const showSkeletons = isLoading && !hasBackendCourses;
+
+  // Prefer live data while keeping the marketing surface populated when the API is offline.
+  const courses = resolvedCourses;
+
   return (
     <section className="py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -36,7 +48,7 @@ export function FeaturedCourses({ courses, onSelectCourse, onViewAll, isLoading 
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {isLoading && courses.length === 0
+          {showSkeletons
             ? Array.from({ length: 3 }).map((_, index) => (
                 <Card key={`skeleton-${index}`} className="animate-pulse">
                   <CardHeader>
@@ -51,49 +63,44 @@ export function FeaturedCourses({ courses, onSelectCourse, onViewAll, isLoading 
                 </Card>
               ))
             : courses.map(course => (
-              <Card
-                key={course.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => onSelectCourse(course.id)}
-              >
-              <CardHeader>
-                <div className="flex items-start justify-between mb-2">
-                  {course.enrolled != null && <Badge variant="secondary">{course.enrolled} enrolled</Badge>}
-                </div>
-                <CardTitle>{course.title}</CardTitle>
-                <CardDescription className="line-clamp-2">{course.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                  <Users className="size-4" />
-                  <span>{course.teacher}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="size-4" />
-                  <span>{course.schedule}</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  className="w-full mt-4"
-                  onClick={(event: MouseEvent<HTMLButtonElement>) => {
-                    event.stopPropagation();
-                    onSelectCourse(course.id);
-                  }}
+                <Card
+                  key={course.id}
+                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => onSelectCourse(course.id)}
                 >
-                  Learn More
-                  <ArrowRight className="ml-2 size-4" />
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <CardHeader>
+                    <div className="flex items-start justify-between mb-2">
+                      {course.enrolled != null && <Badge variant="secondary">{course.enrolled} enrolled</Badge>}
+                    </div>
+                    <CardTitle>{course.title}</CardTitle>
+                    <CardDescription className="line-clamp-2">{course.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                      <Users className="size-4" />
+                      <span>{course.teacher}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <CheckCircle2 className="size-4" />
+                      <span>{course.schedule}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      className="w-full mt-4"
+                      onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                        event.stopPropagation();
+                        onSelectCourse(course.id);
+                      }}
+                    >
+                      Learn More
+                      <ArrowRight className="ml-2 size-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
         </div>
       </div>
     </section>
   );
 }
-
-
-
-
-
 
