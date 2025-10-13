@@ -313,6 +313,46 @@ describe("auth.service", () => {
     );
   });
 
+  it("refreshes sessions for passwordless SSO users", async () => {
+    const existingToken = "google-refresh";
+    const nextTokenBuffer = Buffer.alloc(48, 3);
+    randomBytesMock.mockReturnValueOnce(nextTokenBuffer);
+
+    prisma.authSession.findFirst.mockResolvedValueOnce({
+      id: "session-google",
+      userId: "user-google",
+    });
+    prisma.user.findFirst.mockResolvedValueOnce({
+      id: "user-google",
+      email: "sso@example.com",
+      fullName: "SSO User",
+      role: "teacher",
+      status: "active",
+      password: null,
+    });
+    prisma.authSession.update.mockResolvedValueOnce(undefined);
+
+    const result = await handleSessionRefresh(
+      {},
+      { refreshToken: existingToken, userAgent: "oauth-refresh" },
+    );
+
+    expect(result.accessToken).toBe("signed-access");
+    expect(result.user).toEqual({
+      id: "user-google",
+      email: "sso@example.com",
+      fullName: "SSO User",
+      role: "teacher",
+    });
+    expect(result.refreshToken).toBe(
+      nextTokenBuffer.toString("base64url"),
+    );
+    expect(prisma.authSession.update).toHaveBeenCalledTimes(1);
+    const updateArgs = prisma.authSession.update.mock.calls[0]?.[0];
+    expect(updateArgs?.where.id).toBe("session-google");
+    expect(updateArgs?.data.userAgent).toBe("oauth-refresh");
+  });
+
   it("revokes matching sessions on logout when a token is present", async () => {
     prisma.authSession.updateMany.mockResolvedValueOnce({ count: 1 });
 
