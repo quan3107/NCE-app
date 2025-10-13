@@ -5,29 +5,58 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+process.env.NODE_ENV = "test";
+process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/test-db";
+process.env.JWT_PRIVATE_KEY_PATH ??= "tests/fixtures/private.pem";
+process.env.JWT_PUBLIC_KEY_PATH ??= "tests/fixtures/public.pem";
+process.env.GOOGLE_CLIENT_ID ??= "test-google-client-id";
+process.env.GOOGLE_CLIENT_SECRET ??= "test-google-client-secret";
+
 vi.mock("node:crypto", async () => {
   const actual = await vi.importActual<typeof import("node:crypto")>(
     "node:crypto",
   );
+  const randomBytesMock = vi.fn((size?: number) =>
+    Buffer.alloc(size ?? 48, 1),
+  );
   return {
     ...actual,
-    randomBytes: vi.fn(() => Buffer.alloc(48, 1)),
+    randomBytes: randomBytesMock,
   };
 });
 
 vi.mock("../../../src/config/prismaClient.js", () => {
   const user = { findFirst: vi.fn(), create: vi.fn() };
+  const identity = { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() };
   const authSession = {
     create: vi.fn(),
     findFirst: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
   };
+  const prisma = {
+    user,
+    identity,
+    authSession,
+    $transaction: vi.fn(async (callback: (tx: {
+      user: typeof user;
+      identity: typeof identity;
+    }) => Promise<unknown>) =>
+      callback({
+        user: {
+          create: user.create,
+        },
+        identity: {
+          create: identity.create,
+        },
+      } as unknown as {
+        user: typeof user;
+        identity: typeof identity;
+      }),
+    ),
+  };
   return {
-    prisma: {
-      user,
-      authSession,
-    },
+    prisma,
   };
 });
 
@@ -48,6 +77,10 @@ vi.mock("../../../src/modules/auth/auth.tokens.js", () => ({
   signAccessToken: vi.fn(),
 }));
 
+const fetchMock = vi.fn();
+(globalThis as unknown as { fetch: typeof fetch }).fetch =
+  fetchMock as unknown as typeof fetch;
+
 const crypto = await import("node:crypto");
 const prisma = await import("../../../src/config/prismaClient.js").then(
   (module) => module.prisma,
@@ -63,6 +96,8 @@ const {
   handleSessionRefresh,
   handleLogout,
   REFRESH_TOKEN_TTL_MS,
+  buildGoogleAuthorizationUrl,
+  completeGoogleAuthorization,
 } = await import("../../../src/modules/auth/auth.service.js");
 
 const fixedDate = new Date("2025-10-11T12:00:00.000Z");
@@ -72,7 +107,10 @@ describe("auth.service", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(fixedDate);
-    randomBytesMock.mockReturnValue(Buffer.alloc(48, 1));
+    fetchMock.mockReset();
+    randomBytesMock.mockImplementation((size?: number) =>
+      Buffer.alloc(size ?? 48, 1),
+    );
     (signAccessToken as unknown as vi.Mock).mockReturnValue("signed-access");
   });
 
@@ -91,7 +129,7 @@ describe("auth.service", () => {
       id: "user-1",
       email: "new.user@example.com",
       fullName: "New User",
-      role: "student",
+      role: "admin",
     });
     prisma.authSession.create.mockResolvedValueOnce(undefined);
     randomBytesMock.mockReturnValueOnce(Buffer.alloc(48, 3));
@@ -101,7 +139,7 @@ describe("auth.service", () => {
         fullName: "  New User  ",
         email: "New.User@example.com",
         password: "Passw0rd!",
-        role: "student",
+        role: "admin",
       },
       { ipAddress: "192.168.0.2", userAgent: "vitest-register" },
     );
@@ -112,7 +150,7 @@ describe("auth.service", () => {
         email: "new.user@example.com",
         fullName: "New User",
         password: "hashed-password",
-        role: "student",
+        role: "admin",
         status: "active",
       },
       select: {
@@ -127,7 +165,7 @@ describe("auth.service", () => {
       id: "user-1",
       email: "new.user@example.com",
       fullName: "New User",
-      role: "student",
+      role: "admin",
     });
     expect(result.accessToken).toBe("signed-access");
     expect(result.refreshToken).toBe(Buffer.alloc(48, 3).toString("base64url"));
@@ -152,7 +190,7 @@ describe("auth.service", () => {
           fullName: "Existing User",
           email: "existing@example.com",
           password: "Passw0rd!",
-          role: "student",
+          role: "admin",
         },
         {},
       ),
@@ -292,5 +330,138 @@ describe("auth.service", () => {
         revokedAt: expect.any(Date),
       },
     });
+  });
+
+  it("builds Google authorization url with PKCE settings", async () => {
+    randomBytesMock
+      .mockImplementationOnce((size?: number) => Buffer.alloc(size ?? 32, 2))
+      .mockImplementationOnce((size?: number) => Buffer.alloc(size ?? 32, 3));
+
+    const redirectUri =
+      "https://app.example.com/api/v1/auth/google/callback";
+
+    const result = await buildGoogleAuthorizationUrl({ redirectUri });
+
+    expect(result.state).toBeTruthy();
+    expect(result.codeVerifier.length).toBeGreaterThanOrEqual(43);
+    expect(result.codeVerifier.length).toBeLessThanOrEqual(128);
+
+    const url = new URL(result.authorizationUrl);
+    expect(url.origin).toBe("https://accounts.google.com");
+    expect(url.searchParams.get("client_id")).toBe(
+      "test-google-client-id",
+    );
+    expect(url.searchParams.get("redirect_uri")).toBe(redirectUri);
+    expect(url.searchParams.get("scope")).toBe("openid email profile");
+    expect(url.searchParams.get("state")).toBe(result.state);
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+
+    const expectedChallenge = crypto
+      .createHash("sha256")
+      .update(result.codeVerifier)
+      .digest("base64url");
+    expect(url.searchParams.get("code_challenge")).toBe(
+      expectedChallenge,
+    );
+  });
+
+  it("completes Google authorization for an existing identity", async () => {
+    const state = "state-value";
+    const codeVerifier = "a".repeat(64);
+
+    const idTokenPayload = {
+      iss: "https://accounts.google.com",
+      aud: "test-google-client-id",
+      sub: "google-123",
+      email: "existing@example.com",
+      email_verified: true,
+    };
+    const idToken = [
+      Buffer.from(
+        JSON.stringify({ alg: "RS256", typ: "JWT" }),
+      ).toString("base64url"),
+      Buffer.from(JSON.stringify(idTokenPayload)).toString("base64url"),
+      "signature",
+    ].join(".");
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () =>
+        ({
+          access_token: "access-token",
+          token_type: "Bearer",
+          scope: "openid email profile",
+          expires_in: 3600,
+          id_token: idToken,
+        }) as const,
+    });
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () =>
+        ({
+          sub: "google-123",
+          email: "existing@example.com",
+          email_verified: true,
+          name: "Existing User",
+        }) as const,
+    });
+
+    prisma.identity.findFirst.mockResolvedValueOnce({
+      id: "identity-1",
+      emailVerified: false,
+      user: {
+        id: "user-1",
+        email: "existing@example.com",
+        fullName: "Existing User",
+        role: "teacher",
+        status: "active",
+      },
+    });
+    prisma.identity.update.mockResolvedValueOnce({});
+    prisma.authSession.create.mockResolvedValueOnce(undefined);
+
+    const result = await completeGoogleAuthorization(
+      { code: "auth-code", state },
+      {
+        redirectUri:
+          "https://app.example.com/api/v1/auth/google/callback",
+        expectedState: state,
+        codeVerifier,
+        context: { ipAddress: "127.0.0.1", userAgent: "oauth-test" },
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://oauth2.googleapis.com/token",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    const tokenCall = fetchMock.mock.calls[0]?.[1];
+    expect(tokenCall?.body).toContain("code=auth-code");
+    expect(tokenCall?.body).toContain(`code_verifier=${codeVerifier}`);
+
+    expect(result.accessToken).toBe("signed-access");
+    expect(result.user).toEqual({
+      id: "user-1",
+      email: "existing@example.com",
+      fullName: "Existing User",
+      role: "teacher",
+    });
+    expect(prisma.identity.update).toHaveBeenCalledWith({
+      where: { id: "identity-1" },
+      data: { emailVerified: true },
+    });
+
+    expect(prisma.identity.create).not.toHaveBeenCalled();
+    const sessionCall = prisma.authSession.create.mock.calls[0]?.[0];
+    expect(sessionCall?.data.userId).toBe("user-1");
+    expect(sessionCall?.data.userAgent).toBe("oauth-test");
+    expect(sessionCall?.data.ipHash).toBe(
+      crypto.createHash("sha256").update("127.0.0.1").digest("hex"),
+    );
   });
 });
