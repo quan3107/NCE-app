@@ -82,7 +82,8 @@ type AuthContextType = {
   isImpersonating: boolean;
   login: (email: string, password: string) => Promise<AuthMode | null>;
   register: (payload: RegisterPayload) => Promise<'live'>;
-  loginWithGoogle: () => Promise<boolean>;
+  loginWithGoogle: () => Promise<void>;
+  completeGoogleLogin: () => Promise<'live'>;
   logout: () => Promise<void>;
   switchRole: (role: Role) => void;
   viewAs: (role: Role) => void;
@@ -396,9 +397,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loginWithGoogle = useCallback(async () => {
-    activatePersonaSession('student');
-    return true;
-  }, [activatePersonaSession]);
+    if (typeof window === 'undefined') {
+      throw new ApiError('Google sign-in is only available in the browser.', 500);
+    }
+
+    try {
+      const returnTo = `${window.location.origin}/auth/oauth`;
+      const result = await apiClient<{ authorizationUrl: string }>('/auth/google', {
+        withAuth: false,
+        credentials: 'include',
+        params: {
+          returnTo,
+        },
+      });
+      window.location.href = result.authorizationUrl;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Unable to start Google sign-in. Please try again.', 500);
+    }
+  }, []);
+
+  const completeGoogleLogin = useCallback(async () => {
+    const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
+      method: 'POST',
+      withAuth: false,
+      credentials: 'include',
+    });
+    applyLiveSession(result);
+    return 'live';
+  }, [applyLiveSession]);
 
   const logout = useCallback(async () => {
     if (authMode === 'live') {
@@ -479,6 +508,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       loginWithGoogle,
+      completeGoogleLogin,
       logout,
       switchRole,
       viewAs,
@@ -493,6 +523,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       loginWithGoogle,
+      completeGoogleLogin,
       logout,
       stopImpersonating,
       switchRole,
