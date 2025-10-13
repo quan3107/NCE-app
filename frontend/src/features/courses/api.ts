@@ -48,6 +48,9 @@ type CourseSummaryResponse = {
   metadata: CourseMetadataResponse;
   owner: CourseOwnerResponse;
   metrics: CourseMetricsResponse;
+  learningOutcomes?: unknown;
+  structureSummary?: string | null;
+  prerequisitesSummary?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -76,6 +79,19 @@ const buildScheduleLabel = (schedule: CourseScheduleResponse): string => {
   return parts.join(' ').trim();
 };
 
+// Sanitize the backend JSON array before it hits the UI.
+const normalizeLearningOutcomes = (source: unknown): string[] | undefined => {
+  if (!Array.isArray(source)) {
+    return undefined;
+  }
+
+  const outcomes = source
+    .map(item => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item): item is string => item.length > 0);
+
+  return outcomes.length > 0 ? outcomes : undefined;
+};
+
 const toCourse = (course: CourseSummaryResponse): Course => ({
   id: course.id,
   title: course.title,
@@ -87,6 +103,9 @@ const toCourse = (course: CourseSummaryResponse): Course => ({
   teacher: course.owner.fullName,
   teacherId: course.owner.id,
   enrolled: course.metrics.activeStudentCount + course.metrics.invitedStudentCount,
+  learningOutcomes: normalizeLearningOutcomes(course.learningOutcomes),
+  structureSummary: course.structureSummary ?? undefined,
+  prerequisitesSummary: course.prerequisitesSummary ?? undefined,
 });
 
 const fetchCourses = async (): Promise<Course[]> => {

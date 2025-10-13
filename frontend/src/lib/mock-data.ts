@@ -25,6 +25,9 @@ export type Course = {
   teacher: string;
   teacherId: string;
   enrolled?: number;
+  learningOutcomes?: string[];
+  structureSummary?: string;
+  prerequisitesSummary?: string;
 };
 
 export type AssignmentType = 'file' | 'link' | 'text' | 'quiz';

@@ -10,11 +10,9 @@ import { FeaturedCourses } from '@components/marketing/FeaturedCourses';
 import { HeroSection } from '@components/marketing/HeroSection';
 import { HowItWorks } from '@components/marketing/HowItWorks';
 import { useRouter } from '@lib/router';
-import { useCoursesQuery } from '@features/courses/api';
 
 export function HomeRoute() {
   const { navigate } = useRouter();
-  const { data: courses = [], isLoading } = useCoursesQuery();
 
   const features = [
     {
@@ -49,8 +47,6 @@ export function HomeRoute() {
       />
       <HowItWorks features={features} />
       <FeaturedCourses
-        courses={courses}
-        isLoading={isLoading}
         onSelectCourse={courseId => navigate(`/courses/${courseId}`)}
         onViewAll={() => navigate('/courses')}
       />

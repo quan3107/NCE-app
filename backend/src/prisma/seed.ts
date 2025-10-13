@@ -136,6 +136,10 @@ async function main(): Promise<void> {
   const courseSeeds: Array<{
     title: string;
     description: string;
+    // Prisma JSON columns expect readonly arrays; we normalize them here.
+    learningOutcomes: Prisma.InputJsonArray;
+    structureSummary: string;
+    prerequisitesSummary: string;
     ownerEmail: string;
     cadence: string;
     startTime: string;
@@ -150,6 +154,15 @@ async function main(): Promise<void> {
       title: "IELTS Academic Writing Bootcamp",
       description:
         "Four-week intensive on Task 1 and Task 2 academic writing responses.",
+      learningOutcomes: [
+        "Craft data-driven Task 1 essays using examiner-approved structure.",
+        "Develop coherent arguments with advanced cohesive devices for Task 2.",
+        "Expand academic vocabulary and tone tailored to band 7+ expectations.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Weekly live workshops paired with asynchronous drafting clinics and annotated feedback loops.",
+      prerequisitesSummary:
+        "Ideal for candidates already scoring Band 6 in writing; submit a recent essay sample during onboarding.",
       ownerEmail: "sarah.tutor@ielts.local",
       cadence: "Mon-Wed",
       startTime: "18:30",
@@ -168,6 +181,15 @@ async function main(): Promise<void> {
       title: "IELTS Speaking Masterclass",
       description:
         "Small-group speaking drills with emphasis on fluency, coherence, and pronunciation.",
+      learningOutcomes: [
+        "Build spontaneity and depth for Part 3 follow-up questions.",
+        "Strengthen pronunciation through targeted phoneme and stress drills.",
+        "Refine band-scaling vocabulary and idiomatic range for Part 2 stories.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Twice-weekly studio sessions featuring timed mock interviews and individualized speech analysis clips.",
+      prerequisitesSummary:
+        "Comfortable with conversational English; complete a recorded placement interview before the first class.",
       ownerEmail: "david.tutor@ielts.local",
       cadence: "Tue-Thu",
       startTime: "07:30",
@@ -186,6 +208,15 @@ async function main(): Promise<void> {
       title: "IELTS Listening Lab",
       description:
         "Targeted listening comprehension sessions using authentic recordings and transcripts.",
+      learningOutcomes: [
+        "Decode fast native accents across academic and conversational contexts.",
+        "Practice predictive listening using signposting language and question stems.",
+        "Build stamina for multi-step matching and map-completion tasks.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Saturday intensives combine exam-style drills, transcript breakdowns, and reflection journals.",
+      prerequisitesSummary:
+        "Bring wired headphones and commit to weekly shadowing homework; no band minimum required.",
       ownerEmail: "sarah.tutor@ielts.local",
       cadence: "Sat",
       startTime: "10:00",
@@ -204,6 +235,15 @@ async function main(): Promise<void> {
       title: "IELTS Reading Strategies Workshop",
       description:
         "Skimming, scanning, and inference drills for Academic and General Training reading passages.",
+      learningOutcomes: [
+        "Crack headline matching and paragraph classification with replicable heuristics.",
+        "Apply timing checkpoints to finish all sections without sacrificing accuracy.",
+        "Strengthen inference skills for True/False/Not Given traps.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Each session opens with a timing lab, followed by strategy debriefs and mini group competitions.",
+      prerequisitesSummary:
+        "Students should be comfortable reading upper-intermediate texts; diagnostic reading quiz provided at signup.",
       ownerEmail: "david.tutor@ielts.local",
       cadence: "Fri",
       startTime: "17:00",
@@ -222,6 +262,15 @@ async function main(): Promise<void> {
       title: "IELTS General Training Fast Track",
       description:
         "Comprehensive review for candidates targeting band 7 within six weeks.",
+      learningOutcomes: [
+        "Map out a personalized study calendar anchored to official scoring rubrics.",
+        "Master letter-writing formats and tone required for the General Training exam.",
+        "Integrate listening, reading, and speaking drills to reinforce daily progress.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Sunday bootcamps featuring rotating skill stations, homework reviews, and peer accountability huddles.",
+      prerequisitesSummary:
+        "Designed for working professionals; expect 6 hours of independent practice per week alongside live sessions.",
       ownerEmail: "sarah.tutor@ielts.local",
       cadence: "Sun",
       startTime: "08:30",
@@ -259,13 +308,19 @@ async function main(): Promise<void> {
       price: seed.price,
     };
 
+    const courseData: Prisma.CourseUncheckedCreateInput = {
+      title: seed.title,
+      description: seed.description,
+      // Cast to Prisma's generic JSON input union so TS goal state matches the schema.
+      learningOutcomes: seed.learningOutcomes as Prisma.InputJsonValue,
+      structureSummary: seed.structureSummary,
+      prerequisitesSummary: seed.prerequisitesSummary,
+      scheduleJson,
+      ownerId: owner.id,
+    };
+
     const course = await prisma.course.create({
-      data: {
-        title: seed.title,
-        description: seed.description,
-        scheduleJson,
-        ownerId: owner.id,
-      },
+      data: courseData,
     });
 
     createdCourses.push(course);

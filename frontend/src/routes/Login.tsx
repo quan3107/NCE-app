@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@comp
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Separator } from '@components/ui/separator';
+import { ApiError } from '@lib/apiClient';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
 import { toast } from 'sonner@2.0.3';
@@ -45,21 +46,21 @@ export function LoginRoute() {
   };
 
   const handleGoogleLogin = async () => {
+    if (isLoading) {
+      return;
+    }
     setIsLoading(true);
-    // Show OAuth flow screen
-    navigate('/auth/oauth');
-
-    // Simulate OAuth delay
-    setTimeout(async () => {
-      try {
-        await loginWithGoogle();
-        toast.success('Demo Google sign-in activated.');
-      } catch {
-        toast.error('Google sign-in is not available yet.');
-      } finally {
-        setIsLoading(false);
-      }
-    }, 2000);
+    try {
+      await loginWithGoogle();
+      toast.info('Redirecting to Google...');
+    } catch (error) {
+      setIsLoading(false);
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : 'Unable to start Google sign-in. Please try again.';
+      toast.error(message);
+    }
   };
 
   const handleNavigateToRegister = () => {

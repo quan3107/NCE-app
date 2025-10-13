@@ -5,7 +5,6 @@
  */
 
 import { BookOpen, Calendar, ChevronLeft, Clock, Users } from 'lucide-react';
-import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { useRouter } from '@lib/router';
@@ -57,6 +56,15 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
     );
   }
 
+  const learningOutcomes = course.learningOutcomes ?? [];
+  const hasLearningOutcomes = learningOutcomes.length > 0;
+  const structureSummary = course.structureSummary?.trim() || undefined;
+  const prerequisitesSummary = course.prerequisitesSummary?.trim() || undefined;
+  const durationLabel =
+    course.duration && course.duration.trim().length > 0
+      ? course.duration
+      : 'Duration shared at enrollment';
+
   return (
     <div className="py-20">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -79,26 +87,28 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
               <CardContent className="space-y-4">
                 <div>
                   <h4 className="mb-2">What You'll Learn</h4>
-                  <ul className="space-y-2 text-muted-foreground">
-                    <li>• Advanced English grammar and vocabulary</li>
-                    <li>• Professional writing and communication skills</li>
-                    <li>• Critical reading and analysis techniques</li>
-                    <li>• Effective presentation and speaking abilities</li>
-                  </ul>
+                  {hasLearningOutcomes ? (
+                    <ul className="space-y-2 text-muted-foreground">
+                      {learningOutcomes.map(outcome => (
+                        <li key={outcome}>- {outcome}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground">Learning outcomes will be published soon.</p>
+                  )}
                 </div>
 
                 <div>
                   <h4 className="mb-2">Course Structure</h4>
                   <p className="text-muted-foreground">
-                    This course consists of weekly lectures, interactive assignments, and regular assessments. 
-                    Students will engage in both individual and group activities designed to enhance their English proficiency.
+                    {structureSummary ?? 'Structure details will be shared before the first session.'}
                   </p>
                 </div>
 
                 <div>
                   <h4 className="mb-2">Prerequisites</h4>
                   <p className="text-muted-foreground">
-                    Basic to intermediate English proficiency. A placement test may be required for enrollment.
+                    {prerequisitesSummary ?? 'Prerequisites will be confirmed during enrollment.'}
                   </p>
                 </div>
               </CardContent>
@@ -131,7 +141,7 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
                   <Clock className="size-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Duration</p>
-                    <p className="font-medium">16 weeks</p>
+                    <p className="font-medium">{durationLabel}</p>
                   </div>
                 </div>
 
@@ -165,6 +175,4 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
     </div>
   );
 }
-
-
 
