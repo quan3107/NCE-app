@@ -136,7 +136,8 @@ async function main(): Promise<void> {
   const courseSeeds: Array<{
     title: string;
     description: string;
-    learningOutcomes: string[];
+    // Prisma JSON columns expect readonly arrays; we normalize them here.
+    learningOutcomes: Prisma.InputJsonArray;
     structureSummary: string;
     prerequisitesSummary: string;
     ownerEmail: string;
@@ -157,7 +158,7 @@ async function main(): Promise<void> {
         "Craft data-driven Task 1 essays using examiner-approved structure.",
         "Develop coherent arguments with advanced cohesive devices for Task 2.",
         "Expand academic vocabulary and tone tailored to band 7+ expectations.",
-      ],
+      ] as Prisma.InputJsonArray,
       structureSummary:
         "Weekly live workshops paired with asynchronous drafting clinics and annotated feedback loops.",
       prerequisitesSummary:
@@ -184,7 +185,7 @@ async function main(): Promise<void> {
         "Build spontaneity and depth for Part 3 follow-up questions.",
         "Strengthen pronunciation through targeted phoneme and stress drills.",
         "Refine band-scaling vocabulary and idiomatic range for Part 2 stories.",
-      ],
+      ] as Prisma.InputJsonArray,
       structureSummary:
         "Twice-weekly studio sessions featuring timed mock interviews and individualized speech analysis clips.",
       prerequisitesSummary:
@@ -211,7 +212,7 @@ async function main(): Promise<void> {
         "Decode fast native accents across academic and conversational contexts.",
         "Practice predictive listening using signposting language and question stems.",
         "Build stamina for multi-step matching and map-completion tasks.",
-      ],
+      ] as Prisma.InputJsonArray,
       structureSummary:
         "Saturday intensives combine exam-style drills, transcript breakdowns, and reflection journals.",
       prerequisitesSummary:
@@ -238,7 +239,7 @@ async function main(): Promise<void> {
         "Crack headline matching and paragraph classification with replicable heuristics.",
         "Apply timing checkpoints to finish all sections without sacrificing accuracy.",
         "Strengthen inference skills for True/False/Not Given traps.",
-      ],
+      ] as Prisma.InputJsonArray,
       structureSummary:
         "Each session opens with a timing lab, followed by strategy debriefs and mini group competitions.",
       prerequisitesSummary:
@@ -265,7 +266,7 @@ async function main(): Promise<void> {
         "Map out a personalized study calendar anchored to official scoring rubrics.",
         "Master letter-writing formats and tone required for the General Training exam.",
         "Integrate listening, reading, and speaking drills to reinforce daily progress.",
-      ],
+      ] as Prisma.InputJsonArray,
       structureSummary:
         "Sunday bootcamps featuring rotating skill stations, homework reviews, and peer accountability huddles.",
       prerequisitesSummary:
@@ -307,16 +308,19 @@ async function main(): Promise<void> {
       price: seed.price,
     };
 
+    const courseData: Prisma.CourseUncheckedCreateInput = {
+      title: seed.title,
+      description: seed.description,
+      // Cast to Prisma's generic JSON input union so TS goal state matches the schema.
+      learningOutcomes: seed.learningOutcomes as Prisma.InputJsonValue,
+      structureSummary: seed.structureSummary,
+      prerequisitesSummary: seed.prerequisitesSummary,
+      scheduleJson,
+      ownerId: owner.id,
+    };
+
     const course = await prisma.course.create({
-      data: {
-        title: seed.title,
-        description: seed.description,
-        learningOutcomes: seed.learningOutcomes,
-        structureSummary: seed.structureSummary,
-        prerequisitesSummary: seed.prerequisitesSummary,
-        scheduleJson,
-        ownerId: owner.id,
-      },
+      data: courseData,
     });
 
     createdCourses.push(course);
