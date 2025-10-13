@@ -24,6 +24,7 @@ const envSchema = z
     GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
     GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
     LOG_LEVEL: z.string().default("info"),
+    LOG_PRETTY: z.enum(["true", "false"]).optional(),
   });
 
 const parseResult = envSchema.safeParse(process.env);
@@ -34,6 +35,11 @@ if (!parseResult.success) {
     .join("; ");
   throw new Error(`Invalid environment configuration - ${formattedErrors}`);
 }
+
+const shouldPrettyLog =
+  parseResult.data.LOG_PRETTY === undefined
+    ? parseResult.data.NODE_ENV !== "production"
+    : parseResult.data.LOG_PRETTY === "true";
 
 const envConfig = {
   nodeEnv: parseResult.data.NODE_ENV,
@@ -48,6 +54,7 @@ const envConfig = {
     clientSecret: parseResult.data.GOOGLE_CLIENT_SECRET,
   },
   logLevel: parseResult.data.LOG_LEVEL,
+  logPretty: shouldPrettyLog,
 };
 
 export type AppConfig = typeof envConfig;
