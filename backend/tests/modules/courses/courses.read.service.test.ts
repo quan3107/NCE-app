@@ -4,6 +4,7 @@
  * Why: Guards against authorization mistakes like the 403 error students hit when attempting to fetch their courses.
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
+import type { Course, Prisma } from "@prisma/client";
 import { EnrollmentRole, UserRole, UserStatus } from "@prisma/client";
 
 vi.mock("../../../src/config/prismaClient.js", () => ({
@@ -14,13 +15,60 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
   },
 }));
 
-const prisma = await import("../../../src/config/prismaClient.js").then(
-  (module) => module.prisma,
-);
+// Use vi.mocked to surface typed helpers on the Prisma course delegate.
+const prismaModule = await import("../../../src/config/prismaClient.js");
+const prisma = vi.mocked(prismaModule.prisma, true);
 
 const { listCourses } = await import(
   "../../../src/modules/courses/courses.read.service.js"
 );
+
+type CourseWithRelations = Course & {
+  owner: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  enrollments: Array<{
+    roleInCourse: EnrollmentRole;
+    userId: string;
+    user: {
+      status: UserStatus;
+    };
+  }>;
+  _count: {
+    assignments: number;
+    rubrics: number;
+  };
+};
+
+// Builder keeps Prisma delegate mocks satisfied with fully-shaped course records.
+const buildCourse = (
+  overrides: Partial<CourseWithRelations> = {},
+): CourseWithRelations => ({
+  id: "course-default",
+  title: "Default Course",
+  description: null,
+  learningOutcomes: null,
+  structureSummary: null,
+  prerequisitesSummary: null,
+  scheduleJson: {} as Prisma.JsonValue,
+  ownerId: "teacher-default",
+  owner: {
+    id: "teacher-default",
+    fullName: "Default Teacher",
+    email: "teacher@example.com",
+  },
+  enrollments: [],
+  _count: {
+    assignments: 0,
+    rubrics: 0,
+  },
+  createdAt: new Date("2025-10-12T00:00:00.000Z"),
+  updatedAt: new Date("2025-10-12T00:00:00.000Z"),
+  deletedAt: null,
+  ...overrides,
+});
 
 describe("courses.read.service.listCourses", () => {
   beforeEach(() => {
@@ -29,21 +77,22 @@ describe("courses.read.service.listCourses", () => {
 
   it("allows students to list only the courses they are enrolled in", async () => {
     const now = new Date("2025-10-12T12:00:00.000Z");
-    const course = {
+    const scheduleJson: Prisma.JsonObject = {
+      cadence: "weekly",
+      start_time: "2025-10-15T11:00:00Z",
+      duration_minutes: 90,
+      time_zone: "Asia/Ho_Chi_Minh",
+      format: "online",
+      label: "Evening Cohort",
+      duration: "8 weeks",
+      level: "Intermediate",
+      price: 450,
+    };
+    const course = buildCourse({
       id: "course-1",
       title: "IELTS Writing Intensive",
       description: "Focused prep for band 7 writing.",
-      scheduleJson: {
-        cadence: "weekly",
-        start_time: "2025-10-15T11:00:00Z",
-        duration_minutes: 90,
-        time_zone: "Asia/Ho_Chi_Minh",
-        format: "online",
-        label: "Evening Cohort",
-        duration: "8 weeks",
-        level: "Intermediate",
-        price: 450,
-      },
+      scheduleJson: scheduleJson as Prisma.JsonValue,
       ownerId: "teacher-1",
       owner: {
         id: "teacher-1",
@@ -73,7 +122,7 @@ describe("courses.read.service.listCourses", () => {
       },
       createdAt: now,
       updatedAt: now,
-    };
+    });
 
     prisma.course.findMany.mockResolvedValueOnce([course]);
 
