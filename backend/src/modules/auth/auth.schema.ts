@@ -23,7 +23,7 @@ export const refreshSessionSchema = z.object({
 
 export const googleAuthCallbackSchema = z.object({
   code: z.string().min(1),
-  state: z.string().optional(),
+  state: z.string().min(1),
 });
 
 export const registerAccountSchema = z.object({
