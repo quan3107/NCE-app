@@ -19,7 +19,7 @@ import { GraduationCap, Mail, Lock, Chrome, User, UserCircle } from 'lucide-reac
 import { toast } from 'sonner@2.0.3';
 
 export function AuthRegister() {
-  const { currentUser, authMode, register } = useAuth();
+  const { currentUser, authMode, register, loginWithGoogle } = useAuth();
   const { navigate, currentPath } = useRouter();
   const [formData, setFormData] = useState({
     fullName: '',
@@ -111,9 +111,22 @@ export function AuthRegister() {
     }
   };
 
-  const handleGoogleRegister = () => {
-    // Navigate to OAuth callback page which will handle the registration
-    navigate('/oauth/callback');
+  const handleGoogleRegister = async () => {
+    if (isLoading) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await loginWithGoogle();
+      toast.info('Redirecting to Google...');
+    } catch (error) {
+      setIsLoading(false);
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : 'Unable to start Google sign-up. Please try again.';
+      toast.error(message);
+    }
   };
 
   const handleNavigateToLogin = () => {
