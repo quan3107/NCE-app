@@ -3,9 +3,11 @@
  * Purpose: Define admin-facing enrollment routes.
  * Why: Exposes enrollment management endpoints aligned with the PRD.
  */
+import { UserRole } from "@prisma/client";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
+import { roleGuard } from "../../middleware/roleGuard.js";
 import {
   getEnrollments,
   postEnrollment,
@@ -14,6 +16,7 @@ import {
 export const enrollmentRouter = Router();
 
 enrollmentRouter.use(authGuard);
+enrollmentRouter.use(roleGuard([UserRole.admin]));
 
 enrollmentRouter.get("/", getEnrollments);
 enrollmentRouter.post("/", postEnrollment);
