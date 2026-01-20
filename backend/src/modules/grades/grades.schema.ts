@@ -11,6 +11,7 @@ export const submissionScopedParamsSchema = z.object({
 
 export const gradePayloadSchema = z
   .object({
+    graderId: z.string().uuid(),
     rubricBreakdown: z.array(
       z.object({
         criterion: z.string(),
