@@ -60,6 +60,7 @@ export async function handleDeliverQueuedJob(): Promise<void> {
 
         await sendNotificationEmail({
           to: notification.user.email,
+          toName: notification.user.fullName,
           subject,
           bodyText,
         });
