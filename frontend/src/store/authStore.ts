@@ -7,14 +7,35 @@
 import { useAuth } from '../lib/auth';
 
 export function useAuthStore() {
-  const { currentUser, isAuthenticated, login, loginWithGoogle, logout, switchRole } = useAuth();
-
-  return {
+  const {
+    authMode,
     currentUser,
     isAuthenticated,
+    actingRole,
+    isImpersonating,
     login,
+    register,
     loginWithGoogle,
+    completeGoogleLogin,
     logout,
     switchRole,
+    viewAs,
+    stopImpersonating,
+  } = useAuth();
+
+  return {
+    authMode,
+    currentUser,
+    isAuthenticated,
+    actingRole,
+    isImpersonating,
+    login,
+    register,
+    loginWithGoogle,
+    completeGoogleLogin,
+    logout,
+    switchRole,
+    viewAs,
+    stopImpersonating,
   };
 }

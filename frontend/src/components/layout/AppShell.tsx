@@ -76,11 +76,14 @@ type NavItem = {
   icon: ReactNode;
 };
 
-export function AppShell({ children }: { children: ReactNode }) {
+type AppShellVariant = 'public' | 'app';
+
+export function AppShell({ children, variant = 'app' }: { children: ReactNode; variant?: AppShellVariant }) {
   const { currentUser, logout, isAuthenticated } = useAuthStore();
   const { notifications: userNotifications } = useUserNotifications(currentUser?.id);
   const { currentPath, navigate } = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isPublicVariant = variant === 'public';
 
   // Public nav items
   const publicNav: NavItem[] = [
@@ -133,8 +136,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   };
 
-  const navItems = getNavItems();
-  const unreadCount = currentUser ? userNotifications.filter(notification => !notification.read).length : 0;
+  const navItems = isPublicVariant ? publicNav : getNavItems();
+  const unreadCount = !isPublicVariant
+    ? userNotifications.filter(notification => !notification.read).length
+    : 0;
 
   const handleNavClick = (path: string) => {
     navigate(path);
@@ -142,7 +147,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   // For public pages, render without sidebar
-  if (!currentUser) {
+  if (isPublicVariant) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         {/* Top nav for public pages */}
@@ -157,7 +162,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span className="font-medium">NCE</span>
                 </button>
                 <div className="hidden md:flex items-center gap-1">
-                  {publicNav.map(item => (
+                  {navItems.map(item => (
                     <Button
                       key={item.path}
                       variant={currentPath === item.path ? 'secondary' : 'ghost'}

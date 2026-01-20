@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@comp
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Separator } from '@components/ui/separator';
+import { ApiError } from '@lib/apiClient';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
 import { toast } from 'sonner@2.0.3';
@@ -27,28 +28,46 @@ export function LoginRoute() {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
-        toast.success('Welcome back!');
-        // Navigate based on user role - will be handled by App.tsx
-      } else {
-        toast.error('Invalid credentials. Try alice@example.com');
+      const mode = await login(email, password);
+      if (mode === 'live') {
+        toast.success('Signed in successfully.');
+        return;
       }
+      if (mode === 'persona') {
+        toast.success('Signed in with demo mode. Use Passw0rd! for personas.');
+        return;
+      }
+      toast.error('Invalid credentials. Try Passw0rd! for demo access.');
+    } catch {
+      toast.error('Unable to sign in. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
+    if (isLoading) {
+      return;
+    }
     setIsLoading(true);
-    // Show OAuth flow screen
-    navigate('/auth/oauth');
-
-    // Simulate OAuth delay
-    setTimeout(async () => {
+    try {
       await loginWithGoogle();
-      toast.success('Successfully signed in with Google!');
-    }, 2000);
+      toast.info('Redirecting to Google...');
+    } catch (error) {
+      setIsLoading(false);
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : 'Unable to start Google sign-in. Please try again.';
+      toast.error(message);
+    }
+  };
+
+  const handleNavigateToRegister = () => {
+    if (isLoading) {
+      return;
+    }
+    navigate('/register');
   };
 
   return (
@@ -127,7 +146,13 @@ export function LoginRoute() {
 
           <div className="text-center text-sm">
             <span className="text-muted-foreground">Don't have an account? </span>
-            <button className="font-medium hover:underline">Create one</button>
+            <button
+              className="font-medium hover:underline"
+              onClick={handleNavigateToRegister}
+              disabled={isLoading}
+            >
+              Create one
+            </button>
           </div>
 
           {/* Demo hint */}

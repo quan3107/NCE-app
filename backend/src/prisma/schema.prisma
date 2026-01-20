@@ -38,6 +38,9 @@ model Course {
   id           String       @id @default(uuid()) @db.Uuid
   title        String
   description  String?
+  learningOutcomes Json?    @map("learning_outcomes")
+  structureSummary String?  @map("structure_summary")
+  prerequisitesSummary String? @map("prerequisites_summary")
   scheduleJson Json?        @map("schedule_json")
   ownerId      String       @map("owner_teacher_id") @db.Uuid
   owner        User         @relation("CourseOwner", fields: [ownerId], references: [id])

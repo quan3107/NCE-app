@@ -54,6 +54,7 @@ async function main(): Promise<void> {
 
   const userFixtures: Array<Prisma.UserCreateInput> = [
     {
+      id: "11111111-1111-4111-8111-111111111111",
       email: "rosa.admin@ielts.local",
       password: passwordHash,
       fullName: "Rosa Martinez",
@@ -61,6 +62,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "22222222-2222-4222-8222-222222222222",
       email: "sarah.tutor@ielts.local",
       password: passwordHash,
       fullName: "Sarah Nguyen",
@@ -68,6 +70,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "44444444-4444-4444-8444-444444444444",
       email: "david.tutor@ielts.local",
       password: passwordHash,
       fullName: "David Walker",
@@ -75,6 +78,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "33333333-3333-4333-8333-333333333333",
       email: "amelia.chan@ielts.local",
       password: passwordHash,
       fullName: "Amelia Chan",
@@ -82,6 +86,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "55555555-5555-4555-8555-555555555555",
       email: "noah.patel@ielts.local",
       password: passwordHash,
       fullName: "Noah Patel",
@@ -89,6 +94,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "66666666-6666-4666-8666-666666666666",
       email: "li.huang@ielts.local",
       password: passwordHash,
       fullName: "Li Huang",
@@ -96,6 +102,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "77777777-7777-4777-8777-777777777777",
       email: "fatima.ahmed@ielts.local",
       password: passwordHash,
       fullName: "Fatima Ahmed",
@@ -103,6 +110,7 @@ async function main(): Promise<void> {
       status: UserStatus.invited,
     },
     {
+      id: "88888888-8888-4888-8888-888888888888",
       email: "diego.rojas@ielts.local",
       password: passwordHash,
       fullName: "Diego Rojas",
@@ -110,6 +118,7 @@ async function main(): Promise<void> {
       status: UserStatus.active,
     },
     {
+      id: "99999999-9999-4999-8999-999999999999",
       email: "sofia.mendes@ielts.local",
       password: passwordHash,
       fullName: "Sofia Mendes",
@@ -127,20 +136,41 @@ async function main(): Promise<void> {
   const courseSeeds: Array<{
     title: string;
     description: string;
+    // Prisma JSON columns expect readonly arrays; we normalize them here.
+    learningOutcomes: Prisma.InputJsonArray;
+    structureSummary: string;
+    prerequisitesSummary: string;
     ownerEmail: string;
     cadence: string;
     startTime: string;
     durationMinutes: number;
+    scheduleLabel: string;
+    durationLabel: string;
+    level: string;
+    price: number;
     studentEmails: string[];
   }> = [
     {
       title: "IELTS Academic Writing Bootcamp",
       description:
         "Four-week intensive on Task 1 and Task 2 academic writing responses.",
+      learningOutcomes: [
+        "Craft data-driven Task 1 essays using examiner-approved structure.",
+        "Develop coherent arguments with advanced cohesive devices for Task 2.",
+        "Expand academic vocabulary and tone tailored to band 7+ expectations.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Weekly live workshops paired with asynchronous drafting clinics and annotated feedback loops.",
+      prerequisitesSummary:
+        "Ideal for candidates already scoring Band 6 in writing; submit a recent essay sample during onboarding.",
       ownerEmail: "sarah.tutor@ielts.local",
       cadence: "Mon-Wed",
       startTime: "18:30",
       durationMinutes: 120,
+      scheduleLabel: "Mon/Wed 6:30-8:30 PM ET",
+      durationLabel: "4 weeks",
+      level: "Advanced",
+      price: 299,
       studentEmails: [
         "amelia.chan@ielts.local",
         "noah.patel@ielts.local",
@@ -151,10 +181,23 @@ async function main(): Promise<void> {
       title: "IELTS Speaking Masterclass",
       description:
         "Small-group speaking drills with emphasis on fluency, coherence, and pronunciation.",
+      learningOutcomes: [
+        "Build spontaneity and depth for Part 3 follow-up questions.",
+        "Strengthen pronunciation through targeted phoneme and stress drills.",
+        "Refine band-scaling vocabulary and idiomatic range for Part 2 stories.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Twice-weekly studio sessions featuring timed mock interviews and individualized speech analysis clips.",
+      prerequisitesSummary:
+        "Comfortable with conversational English; complete a recorded placement interview before the first class.",
       ownerEmail: "david.tutor@ielts.local",
       cadence: "Tue-Thu",
       startTime: "07:30",
       durationMinutes: 90,
+      scheduleLabel: "Tue/Thu 7:30-9:00 AM ET",
+      durationLabel: "6 weeks",
+      level: "Intermediate",
+      price: 249,
       studentEmails: [
         "fatima.ahmed@ielts.local",
         "diego.rojas@ielts.local",
@@ -165,10 +208,23 @@ async function main(): Promise<void> {
       title: "IELTS Listening Lab",
       description:
         "Targeted listening comprehension sessions using authentic recordings and transcripts.",
+      learningOutcomes: [
+        "Decode fast native accents across academic and conversational contexts.",
+        "Practice predictive listening using signposting language and question stems.",
+        "Build stamina for multi-step matching and map-completion tasks.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Saturday intensives combine exam-style drills, transcript breakdowns, and reflection journals.",
+      prerequisitesSummary:
+        "Bring wired headphones and commit to weekly shadowing homework; no band minimum required.",
       ownerEmail: "sarah.tutor@ielts.local",
       cadence: "Sat",
       startTime: "10:00",
       durationMinutes: 150,
+      scheduleLabel: "Saturday 10:00 AM-12:30 PM ET",
+      durationLabel: "8 weeks",
+      level: "All Levels",
+      price: 189,
       studentEmails: [
         "noah.patel@ielts.local",
         "fatima.ahmed@ielts.local",
@@ -179,10 +235,23 @@ async function main(): Promise<void> {
       title: "IELTS Reading Strategies Workshop",
       description:
         "Skimming, scanning, and inference drills for Academic and General Training reading passages.",
+      learningOutcomes: [
+        "Crack headline matching and paragraph classification with replicable heuristics.",
+        "Apply timing checkpoints to finish all sections without sacrificing accuracy.",
+        "Strengthen inference skills for True/False/Not Given traps.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Each session opens with a timing lab, followed by strategy debriefs and mini group competitions.",
+      prerequisitesSummary:
+        "Students should be comfortable reading upper-intermediate texts; diagnostic reading quiz provided at signup.",
       ownerEmail: "david.tutor@ielts.local",
       cadence: "Fri",
       startTime: "17:00",
       durationMinutes: 120,
+      scheduleLabel: "Friday 5:00-7:00 PM ET",
+      durationLabel: "5 weeks",
+      level: "Upper-Intermediate",
+      price: 219,
       studentEmails: [
         "amelia.chan@ielts.local",
         "sofia.mendes@ielts.local",
@@ -193,10 +262,23 @@ async function main(): Promise<void> {
       title: "IELTS General Training Fast Track",
       description:
         "Comprehensive review for candidates targeting band 7 within six weeks.",
+      learningOutcomes: [
+        "Map out a personalized study calendar anchored to official scoring rubrics.",
+        "Master letter-writing formats and tone required for the General Training exam.",
+        "Integrate listening, reading, and speaking drills to reinforce daily progress.",
+      ] as Prisma.InputJsonArray,
+      structureSummary:
+        "Sunday bootcamps featuring rotating skill stations, homework reviews, and peer accountability huddles.",
+      prerequisitesSummary:
+        "Designed for working professionals; expect 6 hours of independent practice per week alongside live sessions.",
       ownerEmail: "sarah.tutor@ielts.local",
       cadence: "Sun",
       startTime: "08:30",
       durationMinutes: 180,
+      scheduleLabel: "Sunday 8:30-11:30 AM ET",
+      durationLabel: "6 weeks",
+      level: "Upper-Intermediate",
+      price: 329,
       studentEmails: [
         "li.huang@ielts.local",
         "fatima.ahmed@ielts.local",
@@ -220,15 +302,25 @@ async function main(): Promise<void> {
       duration_minutes: seed.durationMinutes,
       time_zone: "America/New_York",
       format: "live-online",
+      label: seed.scheduleLabel,
+      duration: seed.durationLabel,
+      level: seed.level,
+      price: seed.price,
+    };
+
+    const courseData: Prisma.CourseUncheckedCreateInput = {
+      title: seed.title,
+      description: seed.description,
+      // Cast to Prisma's generic JSON input union so TS goal state matches the schema.
+      learningOutcomes: seed.learningOutcomes as Prisma.InputJsonValue,
+      structureSummary: seed.structureSummary,
+      prerequisitesSummary: seed.prerequisitesSummary,
+      scheduleJson,
+      ownerId: owner.id,
     };
 
     const course = await prisma.course.create({
-      data: {
-        title: seed.title,
-        description: seed.description,
-        scheduleJson,
-        ownerId: owner.id,
-      },
+      data: courseData,
     });
 
     createdCourses.push(course);

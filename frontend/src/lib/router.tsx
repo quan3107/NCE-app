@@ -15,12 +15,17 @@ type RouterContextType = {
 const RouterContext = createContext<RouterContextType | undefined>(undefined);
 
 export function RouterProvider({ children }: { children: ReactNode }) {
-  const [currentPath, setCurrentPath] = useState('/');
-  const [history, setHistory] = useState<string[]>(['/']);
+  const initialPath =
+    typeof window !== 'undefined' ? window.location.pathname : '/';
+  const [currentPath, setCurrentPath] = useState(initialPath);
+  const [history, setHistory] = useState<string[]>([initialPath]);
 
   const navigate = (path: string) => {
     setCurrentPath(path);
     setHistory(prev => [...prev, path]);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', path);
+    }
   };
 
   const goBack = () => {
@@ -30,6 +35,9 @@ export function RouterProvider({ children }: { children: ReactNode }) {
       const previousPath = newHistory[newHistory.length - 1];
       setCurrentPath(previousPath);
       setHistory(newHistory);
+      if (typeof window !== 'undefined') {
+        window.history.back();
+      }
     }
   };
 
@@ -37,6 +45,21 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     // Scroll to top on navigation
     window.scrollTo(0, 0);
   }, [currentPath]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const handlePopState = () => {
+      const nextPath = window.location.pathname;
+      setCurrentPath(nextPath);
+      setHistory(prev => [...prev, nextPath]);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   return (
     <RouterContext.Provider value={{ currentPath, navigate, goBack }}>
