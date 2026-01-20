@@ -6,13 +6,15 @@
 import { type Request, type Response } from "express";
 
 import {
-  addStudentToCourse,
   createCourse,
   getCourseById,
   listCourses,
+} from "./courses.service.js";
+import {
+  addStudentToCourse,
   listStudentsForCourse,
   removeStudentFromCourse,
-} from "./courses.service.js";
+} from "./courses.students.service.js";
 
 export async function getCourses(_req: Request, res: Response): Promise<void> {
   const courses = await listCourses();
