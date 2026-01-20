@@ -1,6 +1,6 @@
 /**
  * File: src/modules/notifications/notifications.controller.ts
- * Purpose: Serve as the HTTP glue for notification operations.
+ * Purpose: Serve as the HTTP glue for notification operations with persisted data.
  * Why: Preserves a clear boundary between routing and notification services.
  */
 import { type Request, type Response } from "express";
@@ -15,28 +15,22 @@ export async function getNotifications(
   _req: Request,
   res: Response,
 ): Promise<void> {
-  await listNotifications();
-  res
-    .status(501)
-    .json({ message: "Notification listing not implemented yet." });
+  const notifications = await listNotifications();
+  res.status(200).json(notifications);
 }
 
 export async function postNotification(
   req: Request,
   res: Response,
 ): Promise<void> {
-  await createNotification(req.body);
-  res
-    .status(501)
-    .json({ message: "Notification creation not implemented yet." });
+  const notification = await createNotification(req.body);
+  res.status(201).json(notification);
 }
 
 export async function getNotification(
   req: Request,
   res: Response,
 ): Promise<void> {
-  await getNotificationById(req.params);
-  res
-    .status(501)
-    .json({ message: "Notification lookup not implemented yet." });
+  const notification = await getNotificationById(req.params);
+  res.status(200).json(notification);
 }
