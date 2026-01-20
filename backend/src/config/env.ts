@@ -24,6 +24,12 @@ const envSchema = z
     GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
     GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
     GOOGLE_REDIRECT_URI: z.string().url().optional(),
+    BREVO_API_KEY: z.string().min(1, "BREVO_API_KEY is required"),
+    BREVO_SENDER_NAME: z.string().min(1, "BREVO_SENDER_NAME is required"),
+    BREVO_SENDER_EMAIL: z
+      .string()
+      .min(1, "BREVO_SENDER_EMAIL is required")
+      .email("BREVO_SENDER_EMAIL must be a valid email"),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
   });
@@ -54,6 +60,11 @@ const envConfig = {
     clientId: parseResult.data.GOOGLE_CLIENT_ID,
     clientSecret: parseResult.data.GOOGLE_CLIENT_SECRET,
     redirectUri: parseResult.data.GOOGLE_REDIRECT_URI,
+  },
+  email: {
+    brevoApiKey: parseResult.data.BREVO_API_KEY,
+    senderName: parseResult.data.BREVO_SENDER_NAME,
+    senderEmail: parseResult.data.BREVO_SENDER_EMAIL,
   },
   logLevel: parseResult.data.LOG_LEVEL,
   logPretty: shouldPrettyLog,
