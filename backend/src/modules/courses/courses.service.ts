@@ -1,31 +1,46 @@
 /**
  * File: src/modules/courses/courses.service.ts
- * Purpose: Aggregate course service exports for controller consumption.
- * Why: Provides a stable entrypoint while internally splitting logic into focused modules.
+ * Purpose: Implement course data workflows backed by Prisma.
+ * Why: Encapsulates course-specific logic to keep controllers slim.
  */
-export {
-  listCourses,
-  getCourseById,
-} from "./courses.read.service.js";
+import { Prisma } from "@prisma/client";
 
-export {
-  listStudentsForCourse,
-  addStudentToCourse,
-  removeStudentFromCourse,
-} from "./courses.students.service.js";
+import { prisma } from "../../prisma/client.js";
+import { createNotFoundError } from "../../utils/httpError.js";
+import {
+  courseIdParamsSchema,
+  createCourseSchema,
+} from "./courses.schema.js";
 
-export type {
-  CourseManager,
-  CourseStudent,
-  CourseStudentsResponse,
-  CourseMetrics,
-  CourseSummary,
-  CourseListResponse,
-  CourseDetailResponse,
-} from "./courses.types.js";
+export async function listCourses() {
+  return prisma.course.findMany({
+    where: { deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+}
 
-import { createCourseSchema } from "./courses.schema.js";
+export async function getCourseById(params: unknown) {
+  const { courseId } = courseIdParamsSchema.parse(params);
+  const course = await prisma.course.findFirst({
+    where: { id: courseId, deletedAt: null },
+  });
+  if (!course) {
+    throw createNotFoundError("Course", courseId);
+  }
+  return course;
+}
 
-export async function createCourse(payload: unknown): Promise<void> {
-  createCourseSchema.parse(payload);
+export async function createCourse(payload: unknown) {
+  const data = createCourseSchema.parse(payload);
+  return prisma.course.create({
+    data: {
+      title: data.title,
+      description: data.description,
+      ownerId: data.ownerTeacherId,
+      // Cast validated maps to Prisma JSON input for schedule metadata.
+      scheduleJson: data.schedule
+        ? (data.schedule as Prisma.InputJsonObject)
+        : undefined,
+    },
+  });
 }

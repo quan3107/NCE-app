@@ -1,6 +1,6 @@
 /**
  * File: src/modules/courses/courses.controller.ts
- * Purpose: Bridge HTTP requests to course service stubs with consistent responses.
+ * Purpose: Bridge HTTP requests to course services with persisted responses.
  * Why: Keeps the routing layer declarative while business logic evolves.
  */
 import { type Request, type Response } from "express";
@@ -14,36 +14,22 @@ import {
   removeStudentFromCourse,
 } from "./courses.service.js";
 
-export async function getCourses(req: Request, res: Response): Promise<void> {
-  const actor = req.user;
-
-  if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  const payload = await listCourses(actor);
-  res.status(200).json(payload);
+export async function getCourses(_req: Request, res: Response): Promise<void> {
+  const courses = await listCourses();
+  res.status(200).json(courses);
 }
 
 export async function getCourse(req: Request, res: Response): Promise<void> {
-  const actor = req.user;
-
-  if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  const payload = await getCourseById(req.params, actor);
-  res.status(200).json(payload);
+  const course = await getCourseById(req.params);
+  res.status(200).json(course);
 }
 
 export async function postCourse(
   req: Request,
   res: Response,
 ): Promise<void> {
-  await createCourse(req.body);
-  res.status(501).json({ message: "Course creation not implemented yet." });
+  const course = await createCourse(req.body);
+  res.status(201).json(course);
 }
 
 export async function getCourseStudents(

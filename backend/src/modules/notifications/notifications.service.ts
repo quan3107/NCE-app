@@ -1,21 +1,48 @@
 /**
  * File: src/modules/notifications/notifications.service.ts
- * Purpose: Stub notification workflows ahead of pg-boss integration.
+ * Purpose: Implement notification persistence workflows via Prisma.
  * Why: Keeps notification logic isolated from transport-specific code.
  */
+import { Prisma } from "@prisma/client";
+
+import { prisma } from "../../prisma/client.js";
+import { createNotFoundError } from "../../utils/httpError.js";
 import {
   createNotificationSchema,
   notificationIdParamsSchema,
 } from "./notifications.schema.js";
 
-export async function listNotifications(): Promise<void> {
-  // Notification listing will leverage filters in later iterations.
+export async function listNotifications() {
+  return prisma.notification.findMany({
+    where: { deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
-export async function createNotification(payload: unknown): Promise<void> {
-  createNotificationSchema.parse(payload);
+export async function createNotification(payload: unknown) {
+  const data = createNotificationSchema.parse(payload);
+  // Default payload to empty object for required JSON column.
+  const payloadJson = (data.payload ?? {}) as Prisma.InputJsonObject;
+
+  return prisma.notification.create({
+    data: {
+      userId: data.userId,
+      type: data.template,
+      payload: payloadJson,
+      channel: data.channel,
+      // New notifications start queued until delivery jobs update status.
+      status: "queued",
+    },
+  });
 }
 
-export async function getNotificationById(params: unknown): Promise<void> {
-  notificationIdParamsSchema.parse(params);
+export async function getNotificationById(params: unknown) {
+  const { notificationId } = notificationIdParamsSchema.parse(params);
+  const notification = await prisma.notification.findFirst({
+    where: { id: notificationId, deletedAt: null },
+  });
+  if (!notification) {
+    throw createNotFoundError("Notification", notificationId);
+  }
+  return notification;
 }
