@@ -1,14 +1,31 @@
 /**
  * File: src/middleware/roleGuard.ts
- * Purpose: Stub middleware that will eventually enforce role-based access control for course resources.
- * Why: Establishes the contract for future authorization logic without blocking early API iteration.
+ * Purpose: Enforce role-based access control based on the authenticated request context.
+ * Why: Ensures only allowed roles can access protected routes once authentication is verified.
  */
+import { UserRole } from "@prisma/client";
 import { type NextFunction, type Request, type Response } from "express";
 
 export function roleGuard(
-  _requiredRoles: string[],
+  requiredRoles: readonly UserRole[],
 ): (req: Request, res: Response, next: NextFunction) => void {
-  return (_req: Request, _res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const actor = req.user;
+    if (!actor) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (requiredRoles.length === 0) {
+      next();
+      return;
+    }
+
+    if (!requiredRoles.includes(actor.role)) {
+      res.status(403).json({ message: "Forbidden" });
+      return;
+    }
+
     next();
   };
 }

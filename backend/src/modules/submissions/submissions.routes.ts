@@ -3,8 +3,11 @@
  * Purpose: Connect submission controllers to Express routes.
  * Why: Makes submission routing explicit and versionable.
  */
+import { UserRole } from "@prisma/client";
 import { Router } from "express";
 
+import { authGuard } from "../../middleware/authGuard.js";
+import { roleGuard } from "../../middleware/roleGuard.js";
 import {
   getSubmission,
   getSubmissions,
@@ -13,6 +16,20 @@ import {
 
 export const submissionRouter = Router({ mergeParams: true });
 
-submissionRouter.get("/", getSubmissions);
-submissionRouter.post("/", postSubmission);
-submissionRouter.get("/:submissionId", getSubmission);
+submissionRouter.use(authGuard);
+
+submissionRouter.get(
+  "/",
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  getSubmissions,
+);
+submissionRouter.post(
+  "/",
+  roleGuard([UserRole.student]),
+  postSubmission,
+);
+submissionRouter.get(
+  "/:submissionId",
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  getSubmission,
+);
