@@ -7,9 +7,11 @@ import { type Request, type Response } from "express";
 
 import {
   createCourse,
+} from "./courses.service.js";
+import {
   getCourseById,
   listCourses,
-} from "./courses.service.js";
+} from "./courses.read.service.js";
 import {
   addStudentToCourse,
   listStudentsForCourse,
@@ -17,12 +19,26 @@ import {
 } from "./courses.students.service.js";
 
 export async function getCourses(_req: Request, res: Response): Promise<void> {
-  const courses = await listCourses();
+  const actor = _req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const courses = await listCourses(actor);
   res.status(200).json(courses);
 }
 
 export async function getCourse(req: Request, res: Response): Promise<void> {
-  const course = await getCourseById(req.params);
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const course = await getCourseById(req.params, actor);
   res.status(200).json(course);
 }
 
