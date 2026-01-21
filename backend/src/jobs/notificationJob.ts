@@ -14,6 +14,10 @@ import {
 import { handleDeliverQueuedJob } from "./notificationDelivery.js";
 
 export async function registerNotificationJobs(boss: PgBoss): Promise<void> {
+  await boss.createQueue(NOTIFICATION_JOB_NAMES.dueSoon);
+  await boss.createQueue(NOTIFICATION_JOB_NAMES.weeklyDigest);
+  await boss.createQueue(NOTIFICATION_JOB_NAMES.deliverQueued);
+
   await boss.work(NOTIFICATION_JOB_NAMES.dueSoon, handleDueSoonJob);
   await boss.work(NOTIFICATION_JOB_NAMES.weeklyDigest, handleWeeklyDigestJob);
   await boss.work(
