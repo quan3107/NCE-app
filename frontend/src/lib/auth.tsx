@@ -305,27 +305,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     shouldRefreshOnMountRef.current = false;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
-          method: 'POST',
-          withAuth: false,
-          credentials: 'include',
-        });
-        if (!cancelled) {
-          applyLiveSession(result);
-        }
-      } catch {
-        if (!cancelled) {
-          clearSession();
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [applyLiveSession, clearSession]);
+    void refreshAccessToken();
+  }, [refreshAccessToken]);
 
   const mutatePersonaState = useCallback(
     (updater: (previous: PersonaState) => PersonaState) => {
