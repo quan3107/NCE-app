@@ -48,9 +48,9 @@ const derivePkceCodeChallenge = (verifier: string): string => {
   return base64UrlEncode(digest);
 };
 
-export const assertValidRedirectUri = (
+export function assertValidRedirectUri(
   redirectUri: string | null | undefined,
-): asserts redirectUri is string => {
+): asserts redirectUri is string {
   if (!redirectUri) {
     throw createAuthError(
       500,
@@ -67,11 +67,11 @@ export const assertValidRedirectUri = (
       "Google redirect URI is invalid. Check the server configuration.",
     );
   }
-};
+}
 
-export const assertValidCodeVerifier = (
+export function assertValidCodeVerifier(
   codeVerifier: string | null,
-): asserts codeVerifier is string => {
+): asserts codeVerifier is string {
   if (
     !codeVerifier ||
     codeVerifier.length < PKCE_CODE_VERIFIER_MIN_LENGTH ||
@@ -82,7 +82,7 @@ export const assertValidCodeVerifier = (
       "Google sign-in verifier is invalid or expired. Please try again.",
     );
   }
-};
+}
 
 export async function buildGoogleAuthorizationUrl(
   options: BuildGoogleAuthorizationOptions,
