@@ -1,0 +1,29 @@
+# File: docs/openapi/paths/analytics.yaml
+# Purpose: Define analytics endpoint documentation.
+# Why: Documents aggregated analytics for teacher dashboards.
+
+TeacherAnalytics:
+  get:
+    tags: [analytics]
+    summary: Get teacher analytics aggregates
+    responses:
+      '200':
+        description: Teacher analytics aggregates
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/analytics.yaml#/TeacherAnalyticsResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
