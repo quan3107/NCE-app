@@ -4,9 +4,10 @@
  * Why: Centralizes API access for the management feature while we migrate off mocks.
  */
 
+import { useQuery } from '@tanstack/react-query';
+
 import { apiClient } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
-import { useStaticQuery } from '@lib/useStaticQuery';
 
 export type CourseMetricsResponse = {
   activeStudentCount: number;
@@ -62,8 +63,9 @@ export type CourseStudentsResponse = {
   students: CourseStudentResponse[];
 };
 
-export const courseDetailKey = (courseId: string) => `courses:detail:${courseId}`;
-export const courseStudentsKey = (courseId: string) => `courses:${courseId}:students`;
+export const courseDetailKey = (courseId: string) => ['courses', 'detail', courseId] as const;
+export const courseStudentsKey = (courseId: string) =>
+  ['courses', courseId, 'students'] as const;
 
 export const fetchCourseDetail = (courseId: string): Promise<CourseDetailResponse> =>
   apiClient<CourseDetailResponse>(`/api/v1/courses/${courseId}`);
@@ -106,9 +108,15 @@ export const addCourseStudent = async (
 };
 
 export function useCourseDetailQuery(courseId: string) {
-  return useStaticQuery<CourseDetailResponse>(courseDetailKey(courseId), () => fetchCourseDetail(courseId));
+  return useQuery({
+    queryKey: courseDetailKey(courseId),
+    queryFn: () => fetchCourseDetail(courseId),
+  });
 }
 
 export function useCourseStudentsQuery(courseId: string) {
-  return useStaticQuery<CourseStudentsResponse>(courseStudentsKey(courseId), () => fetchCourseStudents(courseId));
+  return useQuery({
+    queryKey: courseStudentsKey(courseId),
+    queryFn: () => fetchCourseStudents(courseId),
+  });
 }
