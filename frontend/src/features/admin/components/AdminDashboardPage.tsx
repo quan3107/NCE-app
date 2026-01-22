@@ -10,7 +10,7 @@ import { Users, BookOpen, CheckCircle2, FileText, RefreshCw } from 'lucide-react
 import { useAdminDashboardMetrics } from '@features/admin/api';
 
 export function AdminDashboardPage() {
-  const { metrics, isLoading, error, refresh } = useAdminDashboardMetrics();
+  const { metrics, isLoading, error, refetch } = useAdminDashboardMetrics();
   const stats = [
     { label: 'Total Users', value: metrics.users, icon: <Users className="size-5" /> },
     { label: 'Courses', value: metrics.courses, icon: <BookOpen className="size-5" /> },
@@ -29,7 +29,7 @@ export function AdminDashboardPage() {
               <button
                 type="button"
                 className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-                onClick={() => refresh()}
+                onClick={() => refetch()}
                 disabled={isLoading}
               >
                 <RefreshCw className="size-4" />
