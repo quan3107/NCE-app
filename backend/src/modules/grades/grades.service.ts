@@ -52,26 +52,36 @@ export async function upsertGrade(
     ? (data.adjustments as Prisma.InputJsonArray)
     : undefined;
 
-  const grade = await prisma.grade.upsert({
-    where: { submissionId },
-    create: {
-      submissionId,
-      graderId: data.graderId,
-      rubricBreakdown,
-      rawScore: data.rawScore,
-      adjustments,
-      finalScore: data.finalScore,
-      feedback: data.feedbackMd,
-    },
-    update: {
-      graderId: data.graderId,
-      rubricBreakdown,
-      rawScore: data.rawScore,
-      adjustments,
-      finalScore: data.finalScore,
-      feedback: data.feedbackMd,
-    },
-  });
+  const gradedAt = new Date();
+  const [grade] = await prisma.$transaction([
+    prisma.grade.upsert({
+      where: { submissionId },
+      create: {
+        submissionId,
+        graderId: data.graderId,
+        rubricBreakdown,
+        rawScore: data.rawScore,
+        adjustments,
+        finalScore: data.finalScore,
+        feedback: data.feedbackMd,
+        gradedAt,
+      },
+      update: {
+        graderId: data.graderId,
+        rubricBreakdown,
+        rawScore: data.rawScore,
+        adjustments,
+        finalScore: data.finalScore,
+        feedback: data.feedbackMd,
+        gradedAt,
+      },
+    }),
+    // Keep grading + submission status update atomic for queue accuracy.
+    prisma.submission.update({
+      where: { id: submissionId },
+      data: { status: "graded" },
+    }),
+  ]);
 
   const channels: NotificationChannel[] = ["inapp", "email"];
   const payloadJson: Prisma.InputJsonObject = {

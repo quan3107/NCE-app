@@ -16,6 +16,7 @@ import { AdminUsersPage } from '@features/admin/components/AdminUsersPage';
 import { TeacherAnalyticsPage } from '@features/analytics/components/TeacherAnalyticsPage';
 import { StudentAssignmentDetailPage } from '@features/assignments/components/StudentAssignmentDetailPage';
 import { StudentAssignmentsPage } from '@features/assignments/components/StudentAssignmentsPage';
+import { TeacherAssignmentEditPage } from '@features/assignments/components/TeacherAssignmentEditPage';
 import { TeacherAssignmentsPage } from '@features/assignments/components/TeacherAssignmentsPage';
 import { TeacherGradeFormPage } from '@features/assignments/components/TeacherGradeFormPage';
 import { TeacherSubmissionsPage } from '@features/assignments/components/TeacherSubmissionsPage';
@@ -115,6 +116,11 @@ function TeacherGradeFormWrapper() {
   return <TeacherGradeFormPage submissionId={submissionId} />;
 }
 
+function TeacherAssignmentEditWrapper() {
+  const { assignmentId = '' } = useParams<{ assignmentId: string }>();
+  return <TeacherAssignmentEditPage assignmentId={assignmentId} />;
+}
+
 function TeacherCourseManagementWrapper() {
   const { courseId = '' } = useParams<{ courseId: string }>();
   return <TeacherCourseManagement courseId={courseId} />;
@@ -150,7 +156,8 @@ export function AppRoutes() {
           <Route path="teacher/courses" element={<TeacherCoursesPage />} />
           <Route path="teacher/courses/:courseId/manage" element={<TeacherCourseManagementWrapper />} />
           <Route path="teacher/assignments" element={<TeacherAssignmentsPage />} />
-          <Route path="teacher/assignments/:assignmentId" element={<TeacherAssignmentsPage />} />
+          <Route path="teacher/assignments/:assignmentId" element={<TeacherAssignmentEditWrapper />} />
+          <Route path="teacher/assignments/:assignmentId/edit" element={<TeacherAssignmentEditWrapper />} />
           <Route path="teacher/submissions" element={<TeacherSubmissionsPage />} />
           <Route path="teacher/grade/:submissionId" element={<TeacherGradeFormWrapper />} />
           <Route path="teacher/rubrics" element={<TeacherRubricsPage />} />

@@ -86,3 +86,38 @@ Enrollments:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+
+EnrollmentById:
+  delete:
+    tags: [enrollments]
+    summary: Delete enrollment (admin)
+    parameters:
+      - in: path
+        name: enrollmentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '204':
+        description: Enrollment deleted
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

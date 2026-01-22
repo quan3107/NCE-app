@@ -9,6 +9,7 @@ import { Router } from "express";
 import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
 import {
+  deleteEnrollmentById,
   getEnrollments,
   postEnrollment,
 } from "./enrollments.controller.js";
@@ -20,3 +21,4 @@ enrollmentRouter.use(roleGuard([UserRole.admin]));
 
 enrollmentRouter.get("/", getEnrollments);
 enrollmentRouter.post("/", postEnrollment);
+enrollmentRouter.delete("/:enrollmentId", deleteEnrollmentById);

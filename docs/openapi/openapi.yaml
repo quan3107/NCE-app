@@ -51,6 +51,8 @@ paths:
 
   /api/v1/enrollments:
     $ref: './paths/enrollments.yaml#/Enrollments'
+  /api/v1/enrollments/{enrollmentId}:
+    $ref: './paths/enrollments.yaml#/EnrollmentById'
 
   /api/v1/courses:
     $ref: './paths/courses.yaml#/Courses'

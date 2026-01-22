@@ -23,3 +23,14 @@ export const createAssignmentSchema = z
     publishedAt: z.string().optional(),
   })
   .strict();
+
+export const updateAssignmentSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    descriptionMd: z.string().optional(),
+    type: z.enum(["file", "link", "text", "quiz"]).optional(),
+    dueAt: z.string().optional(),
+    latePolicy: z.record(z.string(), z.unknown()).optional(),
+    publishedAt: z.string().optional(),
+  })
+  .strict();

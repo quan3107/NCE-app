@@ -7,6 +7,7 @@ import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import {
   createEnrollmentSchema,
+  enrollmentIdParamsSchema,
   enrollmentQuerySchema,
 } from "./enrollments.schema.js";
 
@@ -106,4 +107,22 @@ export async function createEnrollment(payload: unknown) {
         },
         select: enrollmentSelect,
       });
+}
+
+export async function deleteEnrollment(params: unknown) {
+  const { enrollmentId } = enrollmentIdParamsSchema.parse(params);
+
+  const enrollment = await prisma.enrollment.findUnique({
+    where: { id: enrollmentId },
+    select: { id: true, deletedAt: true },
+  });
+
+  if (!enrollment || enrollment.deletedAt) {
+    throw createNotFoundError("Enrollment", enrollmentId);
+  }
+
+  await prisma.enrollment.update({
+    where: { id: enrollmentId },
+    data: { deletedAt: new Date() },
+  });
 }

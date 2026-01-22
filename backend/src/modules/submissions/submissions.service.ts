@@ -30,10 +30,18 @@ function parseOptionalDate(
   return parsed;
 }
 
-export async function listSubmissions(params: unknown) {
+export async function listSubmissions(
+  params: unknown,
+  user?: { id: string; role: string },
+) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
+  const isStudent = user?.role === "student";
   return prisma.submission.findMany({
-    where: { assignmentId, deletedAt: null },
+    where: {
+      assignmentId,
+      deletedAt: null,
+      ...(isStudent ? { studentId: user?.id } : {}),
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -41,13 +49,25 @@ export async function listSubmissions(params: unknown) {
 export async function createSubmission(
   params: unknown,
   payload: unknown,
+  user?: { id: string; role: string },
 ) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
   const data = createSubmissionSchema.parse(payload);
   const submittedAt = parseOptionalDate(data.submittedAt, "submittedAt");
   const status =
     data.status ?? (submittedAt ? "submitted" : "draft");
-  // Accept explicit studentId until auth context exists to infer the actor.
+  if (!user || user.role !== "student") {
+    throw createHttpError(403, "Only students can submit assignments.");
+  }
+
+  if (data.studentId !== user.id) {
+    throw createHttpError(
+      403,
+      "Student ID must match the authenticated user.",
+    );
+  }
+
+  // Accept explicit studentId while preserving auth verification.
   // Cast validated payloads to Prisma JSON input for storage.
   const payloadJson = data.payload as Prisma.InputJsonObject;
 

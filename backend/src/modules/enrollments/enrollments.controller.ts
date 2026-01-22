@@ -7,6 +7,7 @@ import { type Request, type Response } from "express";
 
 import {
   createEnrollment,
+  deleteEnrollment,
   listEnrollments,
 } from "./enrollments.service.js";
 
@@ -38,4 +39,19 @@ export async function postEnrollment(
 
   const enrollment = await createEnrollment(req.body);
   res.status(201).json(enrollment);
+}
+
+export async function deleteEnrollmentById(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  await deleteEnrollment(req.params);
+  res.status(204).send();
 }

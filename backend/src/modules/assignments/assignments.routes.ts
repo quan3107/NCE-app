@@ -11,6 +11,7 @@ import { roleGuard } from "../../middleware/roleGuard.js";
 import {
   getAssignmentById,
   getAssignments,
+  patchAssignment,
   postAssignment,
 } from "./assignments.controller.js";
 
@@ -25,3 +26,8 @@ assignmentRouter.post(
   postAssignment,
 );
 assignmentRouter.get("/:assignmentId", getAssignmentById);
+assignmentRouter.patch(
+  "/:assignmentId",
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  patchAssignment,
+);

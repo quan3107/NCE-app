@@ -29,7 +29,7 @@ AssignmentType:
 
 SubmissionStatus:
   type: string
-  enum: [draft, submitted, late]
+  enum: [draft, submitted, late, graded]
 
 NotificationChannel:
   type: string

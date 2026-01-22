@@ -76,6 +76,7 @@ const FALLBACK_AUTH = PERSONA_HEADERS.admin;
 
 const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
 const API_VERSION_PREFIX = '/api/v1';
+const SHOULD_LOG_API_ERRORS = import.meta.env?.DEV ?? false;
 
 function buildUrl(endpoint: string, params?: ApiClientOptions['params']) {
   const trimmedEndpoint = endpoint.trim();
@@ -224,6 +225,20 @@ async function parseErrorPayload(response: Response) {
   }
 }
 
+function logApiError(
+  method: string,
+  url: URL,
+  status: number,
+  payload: unknown,
+) {
+  if (!SHOULD_LOG_API_ERRORS) {
+    return;
+  }
+
+  const message = `[apiClient] ${method} ${url.toString()} -> ${status}`;
+  console.warn(message, payload);
+}
+
 async function apiClientInternal<TResponse, TBody>(
   endpoint: string,
   options: ApiClientOptions<TBody>,
@@ -274,6 +289,7 @@ async function apiClientInternal<TResponse, TBody>(
 
   if (!response.ok) {
     const errorPayload = await parseErrorPayload(response);
+    logApiError(method, url, response.status, errorPayload);
     const message =
       (typeof errorPayload === 'object' &&
       errorPayload !== null &&

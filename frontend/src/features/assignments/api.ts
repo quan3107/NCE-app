@@ -5,11 +5,12 @@
  */
 
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
 import { Assignment, Enrollment, Submission } from '@lib/mock-data';
+import { queryClient } from '@lib/queryClient';
 import { useCoursesQuery } from '@features/courses/api';
 
 const ASSIGNMENTS_KEY = 'assignments:list';
@@ -31,7 +32,7 @@ type ApiSubmission = {
   id: string;
   assignmentId: string;
   studentId: string;
-  status: 'draft' | 'submitted' | 'late';
+  status: 'draft' | 'submitted' | 'late' | 'graded';
   submittedAt: string | null;
   payload: Record<string, unknown>;
 };
@@ -45,6 +46,24 @@ type ApiMeResponse = {
     courseId: string;
     enrolledAt: string;
   }>;
+};
+
+type CreateAssignmentRequest = {
+  title: string;
+  descriptionMd?: string;
+  type: Assignment['type'];
+  dueAt?: string;
+  latePolicy?: Record<string, unknown>;
+  publishedAt?: string;
+};
+
+type UpdateAssignmentRequest = Partial<CreateAssignmentRequest>;
+
+type CreateSubmissionRequest = {
+  studentId: string;
+  payload: Record<string, unknown>;
+  submittedAt?: string;
+  status?: 'draft' | 'submitted' | 'late';
 };
 
 const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment => {
@@ -104,6 +123,33 @@ const fetchAssignments = async (courseIds: string[]): Promise<ApiAssignment[]> =
   return results.flat();
 };
 
+const createAssignment = async (
+  courseId: string,
+  payload: CreateAssignmentRequest,
+): Promise<ApiAssignment> => {
+  return apiClient<ApiAssignment, CreateAssignmentRequest>(
+    `/api/v1/courses/${courseId}/assignments`,
+    {
+      method: 'POST',
+      body: payload,
+    },
+  );
+};
+
+const updateAssignment = async (
+  courseId: string,
+  assignmentId: string,
+  payload: UpdateAssignmentRequest,
+): Promise<ApiAssignment> => {
+  return apiClient<ApiAssignment, UpdateAssignmentRequest>(
+    `/api/v1/courses/${courseId}/assignments/${assignmentId}`,
+    {
+      method: 'PATCH',
+      body: payload,
+    },
+  );
+};
+
 const fetchSubmissions = async (assignmentIds: string[]): Promise<ApiSubmission[]> => {
   if (assignmentIds.length === 0) {
     return [];
@@ -116,6 +162,19 @@ const fetchSubmissions = async (assignmentIds: string[]): Promise<ApiSubmission[
   );
 
   return results.flat();
+};
+
+const createSubmission = async (
+  assignmentId: string,
+  payload: CreateSubmissionRequest,
+): Promise<ApiSubmission> => {
+  return apiClient<ApiSubmission, CreateSubmissionRequest>(
+    `/api/v1/assignments/${assignmentId}/submissions`,
+    {
+      method: 'POST',
+      body: payload,
+    },
+  );
 };
 
 const fetchEnrollments = async (): Promise<ApiMeResponse> => {
@@ -146,6 +205,64 @@ function useEnrollmentsQuery(userId: string | undefined) {
   });
 }
 
+export function useCreateAssignmentMutation() {
+  return useMutation({
+    mutationFn: ({ courseId, payload }: { courseId: string; payload: CreateAssignmentRequest }) =>
+      createAssignment(courseId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY] });
+    },
+  });
+}
+
+export function useUpdateAssignmentMutation() {
+  return useMutation({
+    mutationFn: ({
+      courseId,
+      assignmentId,
+      payload,
+    }: {
+      courseId: string;
+      assignmentId: string;
+      payload: UpdateAssignmentRequest;
+    }) => updateAssignment(courseId, assignmentId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY] });
+    },
+  });
+}
+
+export function useCreateSubmissionMutation() {
+  return useMutation({
+    mutationFn: ({
+      assignmentId,
+      payload,
+    }: {
+      assignmentId: string;
+      payload: CreateSubmissionRequest;
+    }) => createSubmission(assignmentId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SUBMISSIONS_KEY] });
+    },
+  });
+}
+
+export function markSubmissionAsGraded(submissionId: string) {
+  queryClient.setQueriesData<ApiSubmission[]>(
+    { queryKey: [SUBMISSIONS_KEY], exact: false },
+    (data) => {
+      if (!data) {
+        return data;
+      }
+      return data.map((submission) =>
+        submission.id === submissionId
+          ? { ...submission, status: 'graded' }
+          : submission,
+      );
+    },
+  );
+}
+
 export function useAssignmentResources() {
   const { currentUser } = useAuth();
   const coursesQuery = useCoursesQuery();
@@ -174,9 +291,11 @@ export function useAssignmentResources() {
     [assignmentsQuery.data],
   );
 
-  // Submissions list is admin/teacher-only on the backend; avoid 403s for students/public users.
+  // Submissions list supports students (scoped to their own submissions) and staff.
   const canViewSubmissions =
-    currentUser.role === 'admin' || currentUser.role === 'teacher';
+    currentUser.role === 'admin' ||
+    currentUser.role === 'teacher' ||
+    currentUser.role === 'student';
   const submissionsQuery = useSubmissionsQuery(assignmentIds, canViewSubmissions);
   const submissions = useMemo(
     () => (submissionsQuery.data ?? []).map(toSubmission),

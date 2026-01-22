@@ -9,6 +9,7 @@ import {
   createAssignment,
   getAssignment,
   listAssignments,
+  updateAssignment,
 } from "./assignments.service.js";
 
 export async function getAssignments(
@@ -33,4 +34,12 @@ export async function postAssignment(
 ): Promise<void> {
   const assignment = await createAssignment(req.params, req.body);
   res.status(201).json(assignment);
+}
+
+export async function patchAssignment(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const assignment = await updateAssignment(req.params, req.body);
+  res.status(200).json(assignment);
 }

@@ -15,7 +15,7 @@ export async function getSubmissions(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const submissions = await listSubmissions(req.params);
+  const submissions = await listSubmissions(req.params, req.user);
   res.status(200).json(submissions);
 }
 
@@ -23,7 +23,7 @@ export async function postSubmission(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const submission = await createSubmission(req.params, req.body);
+  const submission = await createSubmission(req.params, req.body, req.user);
   res.status(201).json(submission);
 }
 

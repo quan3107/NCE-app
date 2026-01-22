@@ -16,13 +16,24 @@ import { useRouter } from '@lib/router';
 import { formatDate } from '@lib/utils';
 import { toast } from 'sonner@2.0.3';
 import { Download, FileText, Send } from 'lucide-react';
-import { useAssignmentResources } from '@features/assignments/api';
+import { useAssignmentResources, markSubmissionAsGraded } from '@features/assignments/api';
+import { useUpsertGradeMutation } from '@features/grades/api';
+import { useAuthStore } from '@store/authStore';
+
+const RUBRIC_CRITERIA = [
+  { label: 'Format & Structure', key: 'format', max: 10 },
+  { label: 'Content & Analysis', key: 'content', max: 20 },
+  { label: 'Clarity & Professionalism', key: 'clarity', max: 10 },
+  { label: 'Grammar & Mechanics', key: 'grammar', max: 10 },
+] as const;
 
 export function TeacherGradeFormPage({ submissionId }: { submissionId: string }) {
+  const { currentUser } = useAuthStore();
   const { navigate } = useRouter();
   const [scores, setScores] = useState({ format: 9, content: 18, clarity: 8, grammar: 9 });
   const [feedback, setFeedback] = useState('');
   const { submissions, assignments, isLoading, error } = useAssignmentResources();
+  const upsertGradeMutation = useUpsertGradeMutation();
 
   if (isLoading) {
     return (
@@ -58,9 +69,37 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   const adjustments = submission.status === 'late' ? -5 : 0;
   const finalScore = rawScore + adjustments;
 
-  const handleSubmit = () => {
-    toast.success('Grade posted successfully!');
-    navigate('/teacher/submissions');
+  const handleSubmit = async () => {
+    if (!currentUser.id) {
+      toast.error('Unable to grade without a teacher account.');
+      return;
+    }
+
+    const rubricBreakdown = RUBRIC_CRITERIA.map((criteria) => ({
+      criterion: criteria.label,
+      points: scores[criteria.key],
+    }));
+
+    const adjustmentsList = adjustments !== 0 ? [{ reason: 'Late submission', delta: adjustments }] : undefined;
+
+    try {
+      await upsertGradeMutation.mutateAsync({
+        submissionId,
+        payload: {
+          graderId: currentUser.id,
+          rubricBreakdown,
+          rawScore,
+          adjustments: adjustmentsList,
+          finalScore,
+          feedbackMd: feedback.trim() || undefined,
+        },
+      });
+      markSubmissionAsGraded(submissionId);
+      toast.success('Grade posted successfully!');
+      navigate('/teacher/submissions');
+    } catch (errorValue) {
+      toast.error(errorValue instanceof Error ? errorValue.message : 'Unable to post grade.');
+    }
   };
 
   return (
@@ -102,12 +141,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
                 <CardTitle>Rubric</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  { label: 'Format & Structure', key: 'format', max: 10 },
-                  { label: 'Content & Analysis', key: 'content', max: 20 },
-                  { label: 'Clarity & Professionalism', key: 'clarity', max: 10 },
-                  { label: 'Grammar & Mechanics', key: 'grammar', max: 10 },
-                ].map(criteria => (
+                {RUBRIC_CRITERIA.map(criteria => (
                   <div key={criteria.key} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label>{criteria.label}</Label>
@@ -192,9 +226,14 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
               </CardContent>
             </Card>
 
-            <Button className="w-full" size="lg" onClick={handleSubmit}>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={handleSubmit}
+              disabled={upsertGradeMutation.isLoading}
+            >
               <Send className="mr-2 size-4" />
-              Post Grade
+              {upsertGradeMutation.isLoading ? 'Posting...' : 'Post Grade'}
             </Button>
           </div>
         </div>
@@ -202,12 +241,5 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     </div>
   );
 }
-
-
-
-
-
-
-
 
 
