@@ -106,3 +106,52 @@ CourseAssignmentById:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+  patch:
+    tags: [assignments]
+    summary: Update assignment (admin/teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/assignments.yaml#/UpdateAssignmentRequest'
+    responses:
+      '200':
+        description: Assignment updated
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignments.yaml#/Assignment'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
