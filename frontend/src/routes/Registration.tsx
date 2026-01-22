@@ -19,7 +19,7 @@ import { GraduationCap, Mail, Lock, Chrome, User, UserCircle } from 'lucide-reac
 import { toast } from 'sonner@2.0.3';
 
 export function AuthRegister() {
-  const { currentUser, authMode, register, loginWithGoogle } = useAuth();
+  const { currentUser, isAuthenticated, register, loginWithGoogle } = useAuth();
   const { navigate, currentPath } = useRouter();
   const [formData, setFormData] = useState({
     fullName: '',
@@ -33,7 +33,7 @@ export function AuthRegister() {
 
   // Navigate when user is already logged in
   useEffect(() => {
-    if (authMode === 'live' && currentUser) {
+    if (isAuthenticated && currentUser) {
       const targetPath = currentUser.role === 'student' ? '/student/dashboard'
         : currentUser.role === 'teacher' ? '/teacher/dashboard'
         : '/admin/dashboard';
@@ -43,7 +43,7 @@ export function AuthRegister() {
         navigate(targetPath);
       }
     }
-  }, [authMode, currentPath, currentUser, navigate]);
+  }, [currentPath, currentUser, isAuthenticated, navigate]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
