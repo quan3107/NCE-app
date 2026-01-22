@@ -5,6 +5,7 @@
  */
 import { Router } from "express";
 
+import { analyticsRouter } from "./analytics/analytics.routes.js";
 import { assignmentRouter } from "./assignments/assignments.routes.js";
 import { authRouter } from "./auth/auth.routes.js";
 import { auditLogRouter } from "./audit-logs/audit-logs.routes.js";
@@ -23,6 +24,7 @@ export const apiRouter = Router();
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/me", meRouter);
 apiRouter.use("/users", userRouter);
+apiRouter.use("/analytics", analyticsRouter);
 apiRouter.use("/audit-logs", auditLogRouter);
 apiRouter.use("/enrollments", enrollmentRouter);
 apiRouter.use("/courses", courseRouter);

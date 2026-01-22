@@ -14,6 +14,7 @@ tags:
   - name: auth
   - name: me
   - name: users
+  - name: analytics
   - name: enrollments
   - name: courses
   - name: assignments
@@ -45,6 +46,9 @@ paths:
     $ref: './paths/users.yaml#/Users'
   /api/v1/users/{userId}:
     $ref: './paths/users.yaml#/UserById'
+
+  /api/v1/analytics/teacher:
+    $ref: './paths/analytics.yaml#/TeacherAnalytics'
 
   /api/v1/audit-logs:
     $ref: './paths/audit-logs.yaml#/AuditLogs'

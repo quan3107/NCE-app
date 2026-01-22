@@ -1,0 +1,73 @@
+# File: docs/openapi/schemas/analytics.yaml
+# Purpose: Define analytics aggregate response schemas.
+# Why: Documents teacher/admin analytics payloads for dashboards.
+
+AnalyticsCourseSummary:
+  type: object
+  properties:
+    courseId:
+      type: string
+      format: uuid
+    courseTitle:
+      type: string
+    submissionCount:
+      type: integer
+      format: int32
+    gradedCount:
+      type: integer
+      format: int32
+    onTimeRate:
+      type: number
+      description: Percentage of on-time submissions (0-100).
+      nullable: true
+    averageScore:
+      type: number
+      nullable: true
+    averageTurnaroundDays:
+      type: number
+      nullable: true
+  required: [courseId, courseTitle, submissionCount, gradedCount]
+
+AnalyticsRubricAverage:
+  type: object
+  properties:
+    criterion:
+      type: string
+    averageScore:
+      type: number
+    sampleSize:
+      type: integer
+      format: int32
+  required: [criterion, averageScore, sampleSize]
+
+TeacherAnalyticsResponse:
+  type: object
+  properties:
+    teacherId:
+      type: string
+      format: uuid
+    courseCount:
+      type: integer
+      format: int32
+    onTimeRate:
+      type: number
+      nullable: true
+      description: Overall on-time submission rate (0-100).
+    averageScore:
+      type: number
+      nullable: true
+    averageTurnaroundDays:
+      type: number
+      nullable: true
+    courses:
+      type: array
+      items:
+        $ref: './analytics.yaml#/AnalyticsCourseSummary'
+    rubricAverages:
+      type: array
+      items:
+        $ref: './analytics.yaml#/AnalyticsRubricAverage'
+    generatedAt:
+      type: string
+      format: date-time
+  required: [teacherId, courseCount, courses, rubricAverages, generatedAt]
