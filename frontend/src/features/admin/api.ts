@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
-import { AuditLog, Enrollment, User } from '@lib/mock-data';
+import { AuditLog, User } from '@lib/mock-data';
 import { queryClient } from '@lib/queryClient';
 import { useAssignmentResources } from '@features/assignments/api';
 import { useCoursesQuery } from '@features/courses/api';
@@ -29,7 +29,16 @@ type ApiEnrollment = {
   id: string;
   courseId: string;
   userId: string;
+  roleInCourse: 'student' | 'teacher';
   createdAt: string;
+};
+
+type AdminEnrollment = {
+  id: string;
+  userId: string;
+  courseId: string;
+  roleInCourse: ApiEnrollment['roleInCourse'];
+  enrolledAt: Date;
 };
 
 type ApiAuditActor = {
@@ -80,10 +89,11 @@ const toUser = (user: ApiUser): User => ({
   role: user.role,
 });
 
-const toEnrollment = (enrollment: ApiEnrollment): Enrollment => ({
+const toEnrollment = (enrollment: ApiEnrollment): AdminEnrollment => ({
   id: enrollment.id,
   userId: enrollment.userId,
   courseId: enrollment.courseId,
+  roleInCourse: enrollment.roleInCourse,
   enrolledAt: new Date(enrollment.createdAt),
 });
 
@@ -106,7 +116,7 @@ const fetchUsers = async (): Promise<User[]> => {
   return response.map(toUser);
 };
 
-const fetchEnrollments = async (): Promise<Enrollment[]> => {
+const fetchEnrollments = async (): Promise<AdminEnrollment[]> => {
   const response = await apiClient<ApiEnrollment[]>('/api/v1/enrollments');
   return response.map(toEnrollment);
 };
@@ -132,11 +142,8 @@ const createEnrollment = async (
   });
 };
 
-const removeEnrollment = async (
-  courseId: string,
-  studentId: string,
-): Promise<void> => {
-  await apiClient<void>(`/api/v1/courses/${courseId}/students/${studentId}`, {
+const removeEnrollment = async (enrollmentId: string): Promise<void> => {
+  await apiClient<void>(`/api/v1/enrollments/${enrollmentId}`, {
     method: 'DELETE',
   });
 };
@@ -189,8 +196,8 @@ export function useCreateEnrollmentMutation() {
 
 export function useRemoveEnrollmentMutation() {
   return useMutation({
-    mutationFn: ({ courseId, studentId }: { courseId: string; studentId: string }) =>
-      removeEnrollment(courseId, studentId),
+    mutationFn: ({ enrollmentId }: { enrollmentId: string }) =>
+      removeEnrollment(enrollmentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_ENROLLMENTS_KEY });
     },
