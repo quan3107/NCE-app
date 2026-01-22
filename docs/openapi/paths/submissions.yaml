@@ -5,7 +5,7 @@
 AssignmentSubmissions:
   get:
     tags: [submissions]
-    summary: List submissions for an assignment (admin/teacher)
+    summary: List submissions for an assignment (admin/teacher; students see their own)
     parameters:
       - in: path
         name: assignmentId
