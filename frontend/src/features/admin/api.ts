@@ -31,6 +31,27 @@ type ApiEnrollment = {
   createdAt: string;
 };
 
+type ApiAuditActor = {
+  id: string;
+  fullName: string;
+};
+
+type ApiAuditLog = {
+  id: string;
+  actorId?: string | null;
+  actor?: ApiAuditActor | null;
+  action: string;
+  entity: string;
+  entityId: string;
+  diff?: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+type ApiAuditLogPage = {
+  data: ApiAuditLog[];
+  nextCursor?: string | null;
+};
+
 const toUser = (user: ApiUser): User => ({
   id: user.id,
   name: user.fullName,
@@ -45,6 +66,20 @@ const toEnrollment = (enrollment: ApiEnrollment): Enrollment => ({
   enrolledAt: new Date(enrollment.createdAt),
 });
 
+const toAuditLog = (log: ApiAuditLog): AuditLog => {
+  const diff = log.diff ?? null;
+  const details = diff ? JSON.stringify(diff) : `Entity ID: ${log.entityId}`;
+
+  return {
+    id: log.id,
+    actor: log.actor?.fullName ?? 'System',
+    action: log.action,
+    entity: log.entity,
+    timestamp: new Date(log.createdAt),
+    details,
+  };
+};
+
 const fetchUsers = async (): Promise<User[]> => {
   const response = await apiClient<ApiUser[]>('/api/v1/users');
   return response.map(toUser);
@@ -55,9 +90,9 @@ const fetchEnrollments = async (): Promise<Enrollment[]> => {
   return response.map(toEnrollment);
 };
 
-// Audit log endpoints are not exposed yet; return empty data until the API is available.
 const fetchAuditLogs = async (): Promise<AuditLog[]> => {
-  return [];
+  const response = await apiClient<ApiAuditLogPage>('/api/v1/audit-logs');
+  return response.data.map(toAuditLog);
 };
 
 export function useAdminUsersQuery() {
