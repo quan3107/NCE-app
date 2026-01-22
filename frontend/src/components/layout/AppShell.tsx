@@ -7,6 +7,7 @@
 import { ReactNode, useState } from 'react';
 import { Role } from '@lib/mock-data';
 import { useUserNotifications } from '@features/notifications/api';
+import { ENABLE_DEV_AUTH_FALLBACK } from '@lib/constants';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 import {
@@ -79,11 +80,12 @@ type NavItem = {
 type AppShellVariant = 'public' | 'app';
 
 export function AppShell({ children, variant = 'app' }: { children: ReactNode; variant?: AppShellVariant }) {
-  const { currentUser, logout, isAuthenticated } = useAuthStore();
+  const { currentUser, logout, authMode } = useAuthStore();
   const { notifications: userNotifications } = useUserNotifications(currentUser?.id);
   const { currentPath, navigate } = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isPublicVariant = variant === 'public';
+  const showRoleSwitcher = ENABLE_DEV_AUTH_FALLBACK && authMode === 'persona';
 
   // Public nav items
   const publicNav: NavItem[] = [
@@ -344,11 +346,12 @@ export function AppShell({ children, variant = 'app' }: { children: ReactNode; v
             ))}
           </nav>
 
-          {/* Role switcher for demo */}
-          <div className="p-4 border-t bg-muted/30">
-            <p className="text-xs text-muted-foreground mb-2">Demo: Switch Role</p>
-            <RoleSwitcher currentRole={currentUser.role} />
-          </div>
+          {showRoleSwitcher && (
+            <div className="p-4 border-t bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-2">Demo: Switch Role</p>
+              <RoleSwitcher currentRole={currentUser.role} />
+            </div>
+          )}
         </aside>
 
         {/* Mobile sidebar overlay */}

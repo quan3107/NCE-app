@@ -12,6 +12,7 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Separator } from '@components/ui/separator';
 import { ApiError } from '@lib/apiClient';
+import { ENABLE_DEV_AUTH_FALLBACK } from '@lib/constants';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
 import { toast } from 'sonner@2.0.3';
@@ -37,7 +38,11 @@ export function LoginRoute() {
         toast.success('Signed in with demo mode. Use Passw0rd! for personas.');
         return;
       }
-      toast.error('Invalid credentials. Try Passw0rd! for demo access.');
+      toast.error(
+        ENABLE_DEV_AUTH_FALLBACK
+          ? 'Invalid credentials. Try Passw0rd! for demo access.'
+          : 'Invalid credentials. Please try again.',
+      );
     } catch {
       toast.error('Unable to sign in. Please try again.');
     } finally {
@@ -155,13 +160,14 @@ export function LoginRoute() {
             </button>
           </div>
 
-          {/* Demo hint */}
-          <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Demo accounts:</p>
-            <p>Student: alice@example.com</p>
-            <p>Teacher: carol@example.com</p>
-            <p>Admin: david@example.com</p>
-          </div>
+          {ENABLE_DEV_AUTH_FALLBACK && (
+            <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+              <p className="font-medium mb-1">Demo accounts:</p>
+              <p>Student: alice@example.com</p>
+              <p>Teacher: carol@example.com</p>
+              <p>Admin: david@example.com</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

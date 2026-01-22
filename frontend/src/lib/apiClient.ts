@@ -5,7 +5,7 @@
  */
 
 import { authBridge } from './authBridge';
-import { API_BASE_URL, STORAGE_KEYS } from './constants';
+import { API_BASE_URL, ENABLE_DEV_AUTH_FALLBACK, STORAGE_KEYS } from './constants';
 import {
   DEFAULT_PERSONA,
   PERSONA_HEADERS,
@@ -196,15 +196,14 @@ function getAuthHeaders(): Record<string, string> {
     };
   }
 
-  const personaHeaders = personaHeadersFromStored(storedContext);
-  if (personaHeaders) {
-    return personaHeaders;
+  if (ENABLE_DEV_AUTH_FALLBACK) {
+    const personaHeaders = personaHeadersFromStored(storedContext);
+    if (personaHeaders) {
+      return personaHeaders;
+    }
   }
 
-  return {
-    'x-user-id': FALLBACK_AUTH.id,
-    'x-user-role': FALLBACK_AUTH.role,
-  };
+  return {};
 }
 
 async function parseErrorPayload(response: Response) {
