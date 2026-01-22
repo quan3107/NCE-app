@@ -59,3 +59,20 @@ CreateAssignmentRequest:
     publishedAt:
       type: string
   required: [title, type]
+
+UpdateAssignmentRequest:
+  type: object
+  properties:
+    title:
+      type: string
+    descriptionMd:
+      type: string
+    type:
+      $ref: './common.yaml#/AssignmentType'
+    dueAt:
+      type: string
+    latePolicy:
+      type: object
+      additionalProperties: true
+    publishedAt:
+      type: string
