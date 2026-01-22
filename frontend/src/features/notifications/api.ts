@@ -24,6 +24,11 @@ type ApiNotification = {
   createdAt: string;
 };
 
+type ApiNotificationsReadResponse = {
+  userId: string;
+  updatedCount: number;
+};
+
 const toNotification = (notification: ApiNotification): Notification => {
   const payload = notification.payload ?? {};
   const payloadRecord = payload as Record<string, unknown>;
@@ -61,22 +66,35 @@ export function useNotificationsQuery() {
 }
 
 export function markNotificationsRead(params: { userId: string; notificationIds?: string[] }) {
-  const existing = queryClient.getQueryData<Notification[]>(NOTIFICATIONS_KEY) ?? [];
   const { userId, notificationIds } = params;
 
-  const updated = existing.map(notification => {
-    if (notification.userId !== userId) {
-      return notification;
-    }
+  return apiClient<ApiNotificationsReadResponse>('/api/v1/notifications/read', {
+    method: 'POST',
+    body: {
+      userId,
+      notificationIds,
+    },
+  })
+    .then(() => {
+      const existing = queryClient.getQueryData<Notification[]>(NOTIFICATIONS_KEY) ?? [];
 
-    if (!notificationIds || notificationIds.includes(notification.id)) {
-      return { ...notification, read: true };
-    }
+      const updated = existing.map(notification => {
+        if (notification.userId !== userId) {
+          return notification;
+        }
 
-    return notification;
-  });
+        if (!notificationIds || notificationIds.includes(notification.id)) {
+          return { ...notification, read: true };
+        }
 
-  queryClient.setQueryData(NOTIFICATIONS_KEY, updated);
+        return notification;
+      });
+
+      queryClient.setQueryData(NOTIFICATIONS_KEY, updated);
+    })
+    .catch(() => {
+      // Keep UI state unchanged if the API request fails.
+    });
 }
 
 export function useUserNotifications(userId: string | undefined) {
