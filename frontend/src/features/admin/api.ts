@@ -5,10 +5,11 @@
  */
 
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
 import { AuditLog, Enrollment, User } from '@lib/mock-data';
+import { queryClient } from '@lib/queryClient';
 import { useAssignmentResources } from '@features/assignments/api';
 import { useCoursesQuery } from '@features/courses/api';
 
@@ -50,6 +51,26 @@ type ApiAuditLog = {
 type ApiAuditLogPage = {
   data: ApiAuditLog[];
   nextCursor?: string | null;
+};
+
+type CreateUserRequest = {
+  email: string;
+  fullName: string;
+  role: User['role'];
+  status: 'active' | 'invited' | 'suspended';
+};
+
+type CreateEnrollmentRequest = {
+  courseId: string;
+  userId: string;
+  roleInCourse: 'student' | 'teacher';
+};
+
+type CreateCourseRequest = {
+  title: string;
+  description?: string;
+  ownerTeacherId: string;
+  schedule?: Record<string, unknown>;
 };
 
 const toUser = (user: ApiUser): User => ({
@@ -95,6 +116,38 @@ const fetchAuditLogs = async (): Promise<AuditLog[]> => {
   return response.data.map(toAuditLog);
 };
 
+const createUser = async (payload: CreateUserRequest): Promise<ApiUser> => {
+  return apiClient<ApiUser, CreateUserRequest>('/api/v1/users', {
+    method: 'POST',
+    body: payload,
+  });
+};
+
+const createEnrollment = async (
+  payload: CreateEnrollmentRequest,
+): Promise<ApiEnrollment> => {
+  return apiClient<ApiEnrollment, CreateEnrollmentRequest>('/api/v1/enrollments', {
+    method: 'POST',
+    body: payload,
+  });
+};
+
+const removeEnrollment = async (
+  courseId: string,
+  studentId: string,
+): Promise<void> => {
+  await apiClient<void>(`/api/v1/courses/${courseId}/students/${studentId}`, {
+    method: 'DELETE',
+  });
+};
+
+const createCourse = async (payload: CreateCourseRequest): Promise<void> => {
+  await apiClient('/api/v1/courses', {
+    method: 'POST',
+    body: payload,
+  });
+};
+
 export function useAdminUsersQuery() {
   return useQuery({
     queryKey: ADMIN_USERS_KEY,
@@ -113,6 +166,43 @@ export function useAdminAuditLogsQuery() {
   return useQuery({
     queryKey: ADMIN_AUDIT_LOGS_KEY,
     queryFn: fetchAuditLogs,
+  });
+}
+
+export function useCreateUserMutation() {
+  return useMutation({
+    mutationFn: createUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_USERS_KEY });
+    },
+  });
+}
+
+export function useCreateEnrollmentMutation() {
+  return useMutation({
+    mutationFn: createEnrollment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_ENROLLMENTS_KEY });
+    },
+  });
+}
+
+export function useRemoveEnrollmentMutation() {
+  return useMutation({
+    mutationFn: ({ courseId, studentId }: { courseId: string; studentId: string }) =>
+      removeEnrollment(courseId, studentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_ENROLLMENTS_KEY });
+    },
+  });
+}
+
+export function useCreateCourseMutation() {
+  return useMutation({
+    mutationFn: createCourse,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+    },
   });
 }
 
