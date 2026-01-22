@@ -4,22 +4,22 @@
  * Why: Keeps the feature module organized under the new structure.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { Badge } from '@components/ui/badge';
-import { Textarea } from '@components/ui/textarea';
-import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Alert, AlertDescription } from '@components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
 import { PageHeader } from '@components/common/PageHeader';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
-import { Clock, FileText, Upload, Link as LinkIcon, Type, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { Clock, FileText, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { formatDate } from '@lib/utils';
 import { toast } from 'sonner@2.0.3';
-import { useAssignmentResources } from '@features/assignments/api';
+import { Submission } from '@lib/mock-data';
+import { useAssignmentResources, useCreateSubmissionMutation } from '@features/assignments/api';
+import { StudentAssignmentSubmitDialog } from '@features/assignments/components/StudentAssignmentSubmitDialog';
+import { StudentAssignmentSidebar } from '@features/assignments/components/StudentAssignmentSidebar';
 
 export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
   const { currentUser } = useAuthStore();
@@ -28,6 +28,8 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [submissionContent, setSubmissionContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localSubmission, setLocalSubmission] = useState<Submission | null>(null);
+  const createSubmissionMutation = useCreateSubmissionMutation();
 
   if (isLoading) {
     return (
@@ -55,8 +57,12 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
   }
 
   const assignment = assignments.find(a => a.id === assignmentId);
-  const submission = submissions.find(
-    s => s.assignmentId === assignmentId && s.studentId === currentUser?.id
+  const submission = useMemo(
+    () =>
+      submissions.find(
+        (item) => item.assignmentId === assignmentId && item.studentId === currentUser?.id,
+      ) ?? localSubmission,
+    [assignmentId, currentUser?.id, localSubmission, submissions],
   );
 
   if (!assignment) {
@@ -77,26 +83,66 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const isDueSoon = hoursUntilDue <= 48 && hoursUntilDue > 0;
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    // Simulate submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setShowSubmitDialog(false);
-      toast.success('Assignment submitted successfully!');
-      navigate('/student/assignments');
-    }, 1500);
-  };
+    if (!currentUser?.id) {
+      toast.error('Unable to submit without a student account.');
+      return;
+    }
 
-  const getTypeIcon = () => {
-    switch (assignment.type) {
-      case 'file':
-        return <Upload className="size-5" />;
-      case 'link':
-        return <LinkIcon className="size-5" />;
-      case 'text':
-        return <Type className="size-5" />;
-      default:
-        return <FileText className="size-5" />;
+    if ((assignment.type === 'text' || assignment.type === 'link') && !submissionContent.trim()) {
+      toast.error('Please add your submission before sending.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const payloadRecord: Record<string, unknown> = {
+      studentName: currentUser.name || 'Student',
+    };
+
+    if (assignment.type === 'text') {
+      payloadRecord.content = submissionContent.trim();
+    }
+    if (assignment.type === 'link') {
+      payloadRecord.link = submissionContent.trim();
+    }
+    if (assignment.type === 'file') {
+      payloadRecord.files = [];
+    }
+
+    try {
+      const response = await createSubmissionMutation.mutateAsync({
+        assignmentId,
+        payload: {
+          studentId: currentUser.id,
+          payload: payloadRecord,
+          submittedAt: new Date().toISOString(),
+          status: isOverdue ? 'late' : 'submitted',
+        },
+      });
+
+      const nextSubmission: Submission = {
+        id: response.id,
+        assignmentId: response.assignmentId,
+        studentId: response.studentId,
+        studentName: currentUser.name || 'Student',
+        status: response.status,
+        submittedAt: response.submittedAt ? new Date(response.submittedAt) : new Date(),
+        content: typeof payloadRecord.content === 'string' ? payloadRecord.content : undefined,
+        files: Array.isArray(payloadRecord.files) ? (payloadRecord.files as string[]) : undefined,
+        version: 1,
+      };
+
+      setLocalSubmission(nextSubmission);
+      setSubmissionContent('');
+      toast.success('Assignment submitted successfully!');
+      setShowSubmitDialog(false);
+      navigate('/student/assignments');
+    } catch (errorValue) {
+      toast.error(
+        errorValue instanceof Error ? errorValue.message : 'Unable to submit assignment.',
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -221,126 +267,27 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
               )}
             </div>
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Assignment Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Type</Label>
-                    <div className="flex items-center gap-2 mt-2">
-                      {getTypeIcon()}
-                      <span className="capitalize">{assignment.type}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Due Date</Label>
-                    <div className="mt-2">
-                      <p className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                        {formatDate(dueDate, 'datetime')}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">UTC+07:00 (Bangkok)</p>
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Late Policy</Label>
-                    <p className="text-sm mt-2 text-muted-foreground">{assignment.latePolicy}</p>
-                  </div>
-                  <div>
-                    <Label>Max Score</Label>
-                    <p className="text-sm mt-2">{assignment.maxScore} points</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Course Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Course</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <h4 className="mb-1">{assignment.courseName}</h4>
-                  <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => navigate('/student/assignments')}>
-                    View All Assignments
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            <StudentAssignmentSidebar
+              assignment={assignment}
+              dueDate={dueDate}
+              isOverdue={isOverdue}
+              onViewAssignments={() => navigate('/student/assignments')}
+            />
           </div>
         </div>
       </div>
-
-      {/* Submit Dialog */}
-      <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Submit Assignment</DialogTitle>
-            <DialogDescription>
-              Submit your work for {assignment.title}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {assignment.type === 'file' && (
-              <div className="space-y-2">
-                <Label>Upload File</Label>
-                <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-accent/50 cursor-pointer transition-colors">
-                  <Upload className="size-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Click to upload or drag and drop</p>
-                  <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX (max 10MB)</p>
-                </div>
-              </div>
-            )}
-
-            {assignment.type === 'link' && (
-              <div className="space-y-2">
-                <Label htmlFor="link">Submission Link</Label>
-                <Input
-                  id="link"
-                  placeholder="https://..."
-                  value={submissionContent}
-                  onChange={(e) => setSubmissionContent(e.target.value)}
-                />
-              </div>
-            )}
-
-            {assignment.type === 'text' && (
-              <div className="space-y-2">
-                <Label htmlFor="text">Your Response</Label>
-                <Textarea
-                  id="text"
-                  placeholder="Type your response here..."
-                  rows={8}
-                  value={submissionContent}
-                  onChange={(e) => setSubmissionContent(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSubmitDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Submit'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <StudentAssignmentSubmitDialog
+        assignment={assignment}
+        isOpen={showSubmitDialog}
+        isSubmitting={isSubmitting}
+        submissionContent={submissionContent}
+        onOpenChange={setShowSubmitDialog}
+        onSubmissionContentChange={setSubmissionContent}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 }
-
-
-
-
-
-
-
 
 
 
