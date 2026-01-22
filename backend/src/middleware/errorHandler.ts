@@ -23,14 +23,17 @@ export function errorHandler(
   const statusCode = err.statusCode ?? 500;
   const expose = err.expose ?? statusCode < 500;
 
-  logger.error(
-    {
-      err,
-      statusCode,
-      details: err.details,
-    },
-    "Unhandled backend error",
-  );
+  const logPayload = {
+    err,
+    statusCode,
+    details: err.details,
+  };
+
+  if (statusCode < 500) {
+    logger.warn(logPayload, "Request rejected");
+  } else {
+    logger.error(logPayload, "Unhandled backend error");
+  }
 
   const payload = expose
     ? { message: err.message, details: err.details }
