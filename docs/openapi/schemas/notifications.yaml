@@ -1,0 +1,80 @@
+# File: docs/openapi/schemas/notifications.yaml
+# Purpose: Define notification schemas for the API.
+# Why: Documents notification payloads used in delivery flows.
+
+Notification:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    userId:
+      type: string
+      format: uuid
+    type:
+      type: string
+    payload:
+      type: object
+      additionalProperties: true
+    channel:
+      $ref: './common.yaml#/NotificationChannel'
+    status:
+      $ref: './common.yaml#/NotificationStatus'
+    sentAt:
+      type: string
+      format: date-time
+      nullable: true
+    readAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, userId, type, payload, channel, status, createdAt, updatedAt]
+
+CreateNotificationRequest:
+  type: object
+  properties:
+    userId:
+      type: string
+      format: uuid
+    channel:
+      $ref: './common.yaml#/NotificationChannel'
+    template:
+      type: string
+    payload:
+      type: object
+      additionalProperties: true
+  required: [userId, channel, template]
+
+MarkNotificationsReadRequest:
+  type: object
+  properties:
+    userId:
+      type: string
+      format: uuid
+    notificationIds:
+      type: array
+      items:
+        type: string
+        format: uuid
+  required: [userId]
+
+MarkNotificationsReadResponse:
+  type: object
+  properties:
+    userId:
+      type: string
+      format: uuid
+    updatedCount:
+      type: integer
+      format: int32
+  required: [userId, updatedCount]

@@ -1,0 +1,120 @@
+# File: docs/openapi/paths/submissions.yaml
+# Purpose: Define submission OpenAPI path items.
+# Why: Documents submission endpoints scoped to assignments.
+
+AssignmentSubmissions:
+  get:
+    tags: [submissions]
+    summary: List submissions for an assignment (admin/teacher)
+    parameters:
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Submissions
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../schemas/submissions.yaml#/Submission'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  post:
+    tags: [submissions]
+    summary: Create submission (student)
+    parameters:
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/submissions.yaml#/CreateSubmissionRequest'
+    responses:
+      '201':
+        description: Submission created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/submissions.yaml#/Submission'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+AssignmentSubmissionById:
+  get:
+    tags: [submissions]
+    summary: Get submission (admin/teacher)
+    parameters:
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Submission
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/submissions.yaml#/Submission'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

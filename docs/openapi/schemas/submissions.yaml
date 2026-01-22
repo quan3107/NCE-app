@@ -1,0 +1,51 @@
+# File: docs/openapi/schemas/submissions.yaml
+# Purpose: Define submission schemas for the API.
+# Why: Documents submission payloads used by assignment workflows.
+
+Submission:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    assignmentId:
+      type: string
+      format: uuid
+    studentId:
+      type: string
+      format: uuid
+    status:
+      $ref: './common.yaml#/SubmissionStatus'
+    submittedAt:
+      type: string
+      format: date-time
+      nullable: true
+    payload:
+      type: object
+      additionalProperties: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, assignmentId, studentId, status, payload, createdAt, updatedAt]
+
+CreateSubmissionRequest:
+  type: object
+  properties:
+    studentId:
+      type: string
+      format: uuid
+    payload:
+      type: object
+      additionalProperties: true
+    submittedAt:
+      type: string
+    status:
+      $ref: './common.yaml#/SubmissionStatus'
+  required: [studentId, payload]

@@ -1,0 +1,120 @@
+# File: docs/openapi/paths/notifications.yaml
+# Purpose: Define notification OpenAPI path items.
+# Why: Documents notification listing and creation endpoints.
+
+Notifications:
+  get:
+    tags: [notifications]
+    summary: List notifications (own)
+    responses:
+      '200':
+        description: Notifications
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../schemas/notifications.yaml#/Notification'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  post:
+    tags: [notifications]
+    summary: Create notification (admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/notifications.yaml#/CreateNotificationRequest'
+    responses:
+      '201':
+        description: Notification created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/notifications.yaml#/Notification'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+NotificationById:
+  get:
+    tags: [notifications]
+    summary: Get notification (own)
+    parameters:
+      - in: path
+        name: notificationId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Notification
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/notifications.yaml#/Notification'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+NotificationsRead:
+  post:
+    tags: [notifications]
+    summary: Mark notifications as read
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/notifications.yaml#/MarkNotificationsReadRequest'
+    responses:
+      '200':
+        description: Notifications updated
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/notifications.yaml#/MarkNotificationsReadResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

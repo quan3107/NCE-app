@@ -1,0 +1,55 @@
+# File: docs/openapi/paths/files.yaml
+# Purpose: Define file upload OpenAPI path items.
+# Why: Documents upload signing/completion endpoints.
+
+FileSign:
+  post:
+    tags: [files]
+    summary: Sign file upload
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/files.yaml#/FileSignRequest'
+    responses:
+      '200':
+        description: Signed upload details
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/FileSignResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+FileComplete:
+  post:
+    tags: [files]
+    summary: Complete file upload
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/files.yaml#/FileCompleteRequest'
+    responses:
+      '201':
+        description: File record created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/File'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

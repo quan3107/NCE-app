@@ -1,0 +1,158 @@
+# File: docs/openapi/schemas/courses.yaml
+# Purpose: Define course and roster schemas for the API.
+# Why: Documents course list, detail, and student roster payloads.
+
+CourseSchedule:
+  type: object
+  properties:
+    cadence:
+      type: string
+      nullable: true
+    startTime:
+      type: string
+      nullable: true
+    durationMinutes:
+      type: number
+      nullable: true
+    timeZone:
+      type: string
+      nullable: true
+    format:
+      type: string
+      nullable: true
+    label:
+      type: string
+      nullable: true
+
+CourseMetadata:
+  type: object
+  properties:
+    duration:
+      type: string
+      nullable: true
+    level:
+      type: string
+      nullable: true
+    price:
+      type: number
+      nullable: true
+  required: [duration, level, price]
+
+CourseMetrics:
+  type: object
+  properties:
+    activeStudentCount:
+      type: number
+    invitedStudentCount:
+      type: number
+    teacherCount:
+      type: number
+    assignmentCount:
+      type: number
+    rubricCount:
+      type: number
+  required: [activeStudentCount, invitedStudentCount, teacherCount, assignmentCount, rubricCount]
+
+CourseOwner:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    fullName:
+      type: string
+    email:
+      type: string
+      format: email
+  required: [id, fullName, email]
+
+Course:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    schedule:
+      allOf:
+        - $ref: '#/CourseSchedule'
+      nullable: true
+    metadata:
+      $ref: '#/CourseMetadata'
+    owner:
+      $ref: '#/CourseOwner'
+    metrics:
+      $ref: '#/CourseMetrics'
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+  required: [id, title, schedule, metadata, owner, metrics, createdAt, updatedAt]
+
+CourseListResponse:
+  type: object
+  properties:
+    courses:
+      type: array
+      items:
+        $ref: '#/Course'
+  required: [courses]
+
+CreateCourseRequest:
+  type: object
+  properties:
+    title:
+      type: string
+    description:
+      type: string
+    ownerTeacherId:
+      type: string
+      format: uuid
+    schedule:
+      type: object
+      additionalProperties: true
+  required: [title, ownerTeacherId]
+
+CourseStudent:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    fullName:
+      type: string
+    email:
+      type: string
+      format: email
+    status:
+      $ref: './common.yaml#/UserStatus'
+    enrolledAt:
+      type: string
+      format: date-time
+  required: [id, fullName, email, status, enrolledAt]
+
+CourseStudentsResponse:
+  type: object
+  properties:
+    courseId:
+      type: string
+      format: uuid
+    students:
+      type: array
+      items:
+        $ref: '#/CourseStudent'
+  required: [courseId, students]
+
+AddCourseStudentRequest:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+  required: [email]

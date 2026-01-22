@@ -1,0 +1,61 @@
+# File: docs/openapi/schemas/assignments.yaml
+# Purpose: Define assignment schemas for the API.
+# Why: Documents assignment request/response payloads.
+
+Assignment:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    courseId:
+      type: string
+      format: uuid
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    type:
+      $ref: './common.yaml#/AssignmentType'
+    dueAt:
+      type: string
+      format: date-time
+      nullable: true
+    latePolicy:
+      type: object
+      additionalProperties: true
+      nullable: true
+    publishedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, courseId, title, type, createdAt, updatedAt]
+
+CreateAssignmentRequest:
+  type: object
+  properties:
+    title:
+      type: string
+    descriptionMd:
+      type: string
+    type:
+      $ref: './common.yaml#/AssignmentType'
+    dueAt:
+      type: string
+    latePolicy:
+      type: object
+      additionalProperties: true
+    publishedAt:
+      type: string
+  required: [title, type]

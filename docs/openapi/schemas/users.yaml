@@ -1,0 +1,44 @@
+# File: docs/openapi/schemas/users.yaml
+# Purpose: Define user schemas for admin APIs.
+# Why: Keeps user response/request shapes documented.
+
+User:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    email:
+      type: string
+      format: email
+    fullName:
+      type: string
+    role:
+      $ref: './common.yaml#/UserRole'
+    status:
+      $ref: './common.yaml#/UserStatus'
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, email, fullName, role, status, createdAt, updatedAt]
+
+CreateUserRequest:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+    fullName:
+      type: string
+    role:
+      $ref: './common.yaml#/UserRole'
+    status:
+      $ref: './common.yaml#/UserStatus'
+  required: [email, fullName, role, status]

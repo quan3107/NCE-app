@@ -1,0 +1,66 @@
+# File: docs/openapi/schemas/auth.yaml
+# Purpose: Define auth request/response schemas for the API.
+# Why: Documents authentication payloads used by the frontend.
+
+PasswordLoginRequest:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      minLength: 8
+  required: [email, password]
+
+RegisterAccountRequest:
+  type: object
+  properties:
+    fullName:
+      type: string
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      minLength: 8
+    role:
+      $ref: './common.yaml#/UserRole'
+  required: [fullName, email, password, role]
+
+RefreshSessionRequest:
+  type: object
+  properties:
+    refreshToken:
+      type: string
+
+GoogleAuthStartResponse:
+  type: object
+  properties:
+    authorizationUrl:
+      type: string
+  required: [authorizationUrl]
+
+AuthUser:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    email:
+      type: string
+      format: email
+    fullName:
+      type: string
+    role:
+      $ref: './common.yaml#/UserRole'
+  required: [id, email, fullName, role]
+
+AuthSuccessResponse:
+  type: object
+  properties:
+    user:
+      $ref: '#/AuthUser'
+    accessToken:
+      type: string
+  required: [user, accessToken]

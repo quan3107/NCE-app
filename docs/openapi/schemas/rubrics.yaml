@@ -1,0 +1,73 @@
+# File: docs/openapi/schemas/rubrics.yaml
+# Purpose: Define rubric schemas for the API.
+# Why: Documents rubric payloads and criteria structures.
+
+Rubric:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    courseId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    criteria:
+      type: array
+      items:
+        type: object
+        properties:
+          criterion:
+            type: string
+          weight:
+            type: number
+          levels:
+            type: array
+            items:
+              type: object
+              properties:
+                label:
+                  type: string
+                points:
+                  type: number
+                desc:
+                  type: string
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, courseId, name, criteria, createdAt, updatedAt]
+
+CreateRubricRequest:
+  type: object
+  properties:
+    name:
+      type: string
+    criteria:
+      type: array
+      items:
+        type: object
+        properties:
+          criterion:
+            type: string
+          weight:
+            type: number
+          levels:
+            type: array
+            items:
+              type: object
+              properties:
+                label:
+                  type: string
+                points:
+                  type: number
+                desc:
+                  type: string
+  required: [name, criteria]

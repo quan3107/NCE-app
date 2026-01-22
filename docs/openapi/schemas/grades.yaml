@@ -1,0 +1,92 @@
+# File: docs/openapi/schemas/grades.yaml
+# Purpose: Define grade schemas for the API.
+# Why: Documents grading request/response payloads.
+
+Grade:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    submissionId:
+      type: string
+      format: uuid
+    graderId:
+      type: string
+      format: uuid
+    rubricBreakdown:
+      type: array
+      nullable: true
+      items:
+        type: object
+        properties:
+          criterion:
+            type: string
+          points:
+            type: number
+    rawScore:
+      type: number
+      nullable: true
+    adjustments:
+      type: array
+      nullable: true
+      items:
+        type: object
+        properties:
+          reason:
+            type: string
+          delta:
+            type: number
+    finalScore:
+      type: number
+      nullable: true
+    feedback:
+      type: string
+      nullable: true
+    gradedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, submissionId, graderId, createdAt, updatedAt]
+
+UpsertGradeRequest:
+  type: object
+  properties:
+    graderId:
+      type: string
+      format: uuid
+    rubricBreakdown:
+      type: array
+      items:
+        type: object
+        properties:
+          criterion:
+            type: string
+          points:
+            type: number
+    rawScore:
+      type: number
+    adjustments:
+      type: array
+      items:
+        type: object
+        properties:
+          reason:
+            type: string
+          delta:
+            type: number
+    finalScore:
+      type: number
+    feedbackMd:
+      type: string
+  required: [graderId]

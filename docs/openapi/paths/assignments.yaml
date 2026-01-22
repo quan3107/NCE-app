@@ -1,0 +1,108 @@
+# File: docs/openapi/paths/assignments.yaml
+# Purpose: Define assignment OpenAPI path items.
+# Why: Documents course-scoped assignment endpoints.
+
+CourseAssignments:
+  get:
+    tags: [assignments]
+    summary: List assignments for a course
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Assignments
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../schemas/assignments.yaml#/Assignment'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  post:
+    tags: [assignments]
+    summary: Create assignment (admin/teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/assignments.yaml#/CreateAssignmentRequest'
+    responses:
+      '201':
+        description: Assignment created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignments.yaml#/Assignment'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseAssignmentById:
+  get:
+    tags: [assignments]
+    summary: Get assignment
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Assignment
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignments.yaml#/Assignment'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
