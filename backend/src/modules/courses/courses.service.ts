@@ -6,7 +6,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../../prisma/client.js";
-import { createNotFoundError } from "../../utils/httpError.js";
+import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import {
   courseIdParamsSchema,
   createCourseSchema,
@@ -31,7 +31,26 @@ export async function getCourseById(params: unknown) {
 }
 
 export async function createCourse(payload: unknown) {
-  const data = createCourseSchema.parse(payload);
+  // Map validation failures to 400s so bad payloads don't surface as 500s.
+  const parseResult = createCourseSchema.safeParse(payload);
+
+  if (!parseResult.success) {
+    throw createHttpError(400, "Invalid course payload.", {
+      issues: parseResult.error.flatten(),
+    });
+  }
+
+  const data = parseResult.data;
+
+  const owner = await prisma.user.findUnique({
+    where: { id: data.ownerTeacherId },
+    select: { id: true },
+  });
+
+  if (!owner) {
+    throw createNotFoundError("Owner teacher", data.ownerTeacherId);
+  }
+
   return prisma.course.create({
     data: {
       title: data.title,
