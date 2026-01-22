@@ -11,12 +11,24 @@ import { Input } from '@components/ui/input';
 import { Badge } from '@components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@components/ui/table';
 import { PageHeader } from '@components/common/PageHeader';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
+import { Label } from '@components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { Plus, Search, Edit } from 'lucide-react';
-import { useAdminUsersQuery } from '@features/admin/api';
+import { toast } from 'sonner@2.0.3';
+import { useAdminUsersQuery, useCreateUserMutation } from '@features/admin/api';
 
 export function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [formState, setFormState] = useState({
+    fullName: '',
+    email: '',
+    role: 'student',
+    status: 'active',
+  });
   const { data: users = [], isLoading, error, refetch } = useAdminUsersQuery();
+  const createUserMutation = useCreateUserMutation();
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -35,7 +47,7 @@ export function AdminUsersPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
               Refresh
             </Button>
-            <Button>
+            <Button onClick={() => setShowCreateDialog(true)}>
               <Plus className="mr-2 size-4" />
               Add User
             </Button>
@@ -102,6 +114,114 @@ export function AdminUsersPage() {
           </Card>
         )}
       </div>
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add User</DialogTitle>
+            <DialogDescription>Create a new user account.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                placeholder="Full name"
+                value={formState.fullName}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, fullName: event.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                placeholder="email@example.com"
+                value={formState.email}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, email: event.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select
+                value={formState.role}
+                onValueChange={(value) =>
+                  setFormState((current) => ({ ...current, role: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={formState.status}
+                onValueChange={(value) =>
+                  setFormState((current) => ({ ...current, status: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="invited">Invited</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCreateDialog(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!formState.fullName.trim() || !formState.email.trim()) {
+                  toast.error('Name and email are required.');
+                  return;
+                }
+                try {
+                  await createUserMutation.mutateAsync({
+                    fullName: formState.fullName.trim(),
+                    email: formState.email.trim(),
+                    role: formState.role as 'admin' | 'teacher' | 'student',
+                    status: formState.status as 'active' | 'invited' | 'suspended',
+                  });
+                  toast.success('User created.');
+                  setShowCreateDialog(false);
+                  setFormState({
+                    fullName: '',
+                    email: '',
+                    role: 'student',
+                    status: 'active',
+                  });
+                } catch (errorValue) {
+                  toast.error(
+                    errorValue instanceof Error ? errorValue.message : 'Unable to create user.',
+                  );
+                }
+              }}
+              disabled={createUserMutation.isLoading}
+            >
+              {createUserMutation.isLoading ? 'Creating...' : 'Create User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
