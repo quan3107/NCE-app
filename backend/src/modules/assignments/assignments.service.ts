@@ -14,6 +14,7 @@ import {
   assignmentIdParamsSchema,
   courseScopedParamsSchema,
   createAssignmentSchema,
+  updateAssignmentSchema,
 } from "./assignments.schema.js";
 
 function parseOptionalDate(
@@ -72,5 +73,51 @@ export async function createAssignment(
       latePolicy,
       publishedAt,
     },
+  });
+}
+
+export async function updateAssignment(
+  params: unknown,
+  payload: unknown,
+) {
+  const { assignmentId } = assignmentIdParamsSchema.parse(params);
+  const { courseId } = courseScopedParamsSchema.parse(params);
+  const data = updateAssignmentSchema.parse(payload);
+  const dueAt = parseOptionalDate(data.dueAt, "dueAt");
+  const publishedAt = parseOptionalDate(data.publishedAt, "publishedAt");
+  const latePolicy = data.latePolicy
+    ? (data.latePolicy as Prisma.InputJsonObject)
+    : undefined;
+
+  const existing = await prisma.assignment.findFirst({
+    where: { id: assignmentId, courseId, deletedAt: null },
+  });
+  if (!existing) {
+    throw createNotFoundError("Assignment", assignmentId);
+  }
+
+  const updateData: Prisma.AssignmentUpdateInput = {};
+  if (data.title !== undefined) {
+    updateData.title = data.title;
+  }
+  if (data.descriptionMd !== undefined) {
+    updateData.description = data.descriptionMd;
+  }
+  if (data.type !== undefined) {
+    updateData.type = data.type;
+  }
+  if (data.dueAt !== undefined) {
+    updateData.dueAt = dueAt;
+  }
+  if (data.latePolicy !== undefined) {
+    updateData.latePolicy = latePolicy;
+  }
+  if (data.publishedAt !== undefined) {
+    updateData.publishedAt = publishedAt;
+  }
+
+  return prisma.assignment.update({
+    where: { id: assignmentId },
+    data: updateData,
   });
 }
