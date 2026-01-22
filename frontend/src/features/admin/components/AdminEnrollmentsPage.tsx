@@ -41,7 +41,7 @@ export function AdminEnrollmentsPage() {
   }, [enrollmentsQuery.data, usersQuery.data, coursesQuery.data]);
 
   const handleRefresh = async () => {
-    await Promise.all([enrollmentsQuery.refresh(), usersQuery.refresh(), coursesQuery.refresh()]);
+    await Promise.all([enrollmentsQuery.refetch(), usersQuery.refetch(), coursesQuery.refetch()]);
   };
 
   return (
