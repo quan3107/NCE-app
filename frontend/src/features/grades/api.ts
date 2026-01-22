@@ -5,11 +5,12 @@
  */
 
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { ApiError, apiClient } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
 import { Assignment, Grade, Submission } from '@lib/mock-data';
+import { queryClient } from '@lib/queryClient';
 
 const GRADES_KEY = 'grades:list';
 
@@ -23,6 +24,15 @@ type ApiGrade = {
   finalScore?: number | null;
   feedback?: string | null;
   gradedAt?: string | null;
+};
+
+type UpsertGradeRequest = {
+  graderId: string;
+  rubricBreakdown?: Array<{ criterion: string; points: number }>;
+  rawScore?: number;
+  adjustments?: Array<{ reason: string; delta: number }>;
+  finalScore?: number;
+  feedbackMd?: string;
 };
 
 const toGrade = (
@@ -85,6 +95,19 @@ const fetchGrades = async (
   return results.filter((value): value is Grade => value !== null);
 };
 
+const upsertGrade = async (
+  submissionId: string,
+  payload: UpsertGradeRequest,
+): Promise<ApiGrade> => {
+  return apiClient<ApiGrade, UpsertGradeRequest>(
+    `/api/v1/submissions/${submissionId}/grade`,
+    {
+      method: 'PUT',
+      body: payload,
+    },
+  );
+};
+
 export function useGradesQuery(submissions: Submission[], assignments: Assignment[]) {
   const { currentUser } = useAuth();
   const assignmentMap = useMemo(
@@ -102,5 +125,20 @@ export function useGradesQuery(submissions: Submission[], assignments: Assignmen
     queryKey: [GRADES_KEY, ...submissionIds],
     queryFn: () => fetchGrades(submissions, assignmentMap),
     enabled: canViewGrades && submissionIds.length > 0,
+  });
+}
+
+export function useUpsertGradeMutation() {
+  return useMutation({
+    mutationFn: ({
+      submissionId,
+      payload,
+    }: {
+      submissionId: string;
+      payload: UpsertGradeRequest;
+    }) => upsertGrade(submissionId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [GRADES_KEY] });
+    },
   });
 }
