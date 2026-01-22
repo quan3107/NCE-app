@@ -133,6 +133,7 @@ export function AppShell({ children, variant = 'app' }: { children: ReactNode; v
     { label: 'Submissions', path: '/teacher/submissions', icon: <ScrollText className="size-5" /> },
     { label: 'Rubrics', path: '/teacher/rubrics', icon: <BookMarked className="size-5" /> },
     { label: 'Analytics', path: '/teacher/analytics', icon: <BarChart3 className="size-5" /> },
+    { label: 'Profile', path: '/teacher/profile', icon: <User className="size-5" /> },
   ];
 
   // Admin nav items
