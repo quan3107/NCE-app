@@ -3,18 +3,27 @@
  * Purpose: Implement notification persistence workflows via Prisma.
  * Why: Keeps notification logic isolated from transport-specific code.
  */
-import { NotificationChannel, Prisma } from "@prisma/client";
+import { NotificationChannel, Prisma, UserRole } from "@prisma/client";
 
 import { prisma } from "../../prisma/client.js";
-import { createNotFoundError } from "../../utils/httpError.js";
+import {
+  createHttpError,
+  createNotFoundError,
+} from "../../utils/httpError.js";
 import {
   createNotificationSchema,
+  markNotificationsReadSchema,
   notificationIdParamsSchema,
 } from "./notifications.schema.js";
 
-export async function listNotifications() {
+type NotificationActor = {
+  id: string;
+  role: UserRole;
+};
+
+export async function listNotifications(actor: NotificationActor) {
   return prisma.notification.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, userId: actor.id },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -36,15 +45,54 @@ export async function createNotification(payload: unknown) {
   });
 }
 
-export async function getNotificationById(params: unknown) {
+export async function getNotificationById(
+  params: unknown,
+  actor: NotificationActor,
+) {
   const { notificationId } = notificationIdParamsSchema.parse(params);
   const notification = await prisma.notification.findFirst({
-    where: { id: notificationId, deletedAt: null },
+    where: { id: notificationId, deletedAt: null, userId: actor.id },
   });
   if (!notification) {
     throw createNotFoundError("Notification", notificationId);
   }
   return notification;
+}
+
+export async function markNotificationsRead(
+  payload: unknown,
+  actor: NotificationActor,
+) {
+  const data = markNotificationsReadSchema.parse(payload);
+
+  if (actor.role !== UserRole.admin && actor.id !== data.userId) {
+    throw createHttpError(403, "Forbidden");
+  }
+
+  const where: Prisma.NotificationWhereInput = {
+    userId: data.userId,
+    deletedAt: null,
+  };
+
+  if (data.notificationIds && data.notificationIds.length > 0) {
+    where.id = { in: data.notificationIds };
+  }
+
+  const result = await prisma.notification.updateMany({
+    where: {
+      ...where,
+      readAt: null,
+    },
+    data: {
+      readAt: new Date(),
+      status: "read",
+    },
+  });
+
+  return {
+    userId: data.userId,
+    updatedCount: result.count,
+  };
 }
 
 type EnqueueNotificationInput = {
