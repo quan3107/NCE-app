@@ -50,11 +50,12 @@ export function AdminEnrollmentsPage() {
 
       return {
         id: enrollment.id,
-        userName: user?.name ?? 'Unknown Student',
+        userName: user?.name ?? 'Unknown User',
         courseTitle: course?.title ?? 'Unknown Course',
         enrolledAt: enrollment.enrolledAt,
         courseId: enrollment.courseId,
         userId: enrollment.userId,
+        roleInCourse: enrollment.roleInCourse,
       };
     });
   }, [enrollmentsQuery.data, usersQuery.data, coursesQuery.data]);
@@ -100,8 +101,9 @@ export function AdminEnrollmentsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Student</TableHead>
+                    <TableHead>User</TableHead>
                     <TableHead>Course</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>Enrolled Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -111,6 +113,7 @@ export function AdminEnrollmentsPage() {
                     <TableRow key={row.id}>
                       <TableCell className="font-medium">{row.userName}</TableCell>
                       <TableCell>{row.courseTitle}</TableCell>
+                      <TableCell className="capitalize">{row.roleInCourse}</TableCell>
                       <TableCell>{formatDate(row.enrolledAt)}</TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -119,8 +122,7 @@ export function AdminEnrollmentsPage() {
                           onClick={async () => {
                             try {
                               await removeEnrollmentMutation.mutateAsync({
-                                courseId: row.courseId,
-                                studentId: row.userId,
+                                enrollmentId: row.id,
                               });
                               toast.success('Enrollment removed.');
                             } catch (errorValue) {
