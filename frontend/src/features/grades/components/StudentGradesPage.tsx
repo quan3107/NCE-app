@@ -4,6 +4,8 @@
  * Why: Keeps the feature module organized under the new structure.
  */
 
+import { useMemo } from 'react';
+
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { Label } from '@components/ui/label';
@@ -20,7 +22,11 @@ export function StudentGradesPage() {
   const { currentUser } = useAuthStore();
   const { navigate } = useRouter();
   const { submissions, assignments, isLoading: assignmentsLoading, error: assignmentsError } = useAssignmentResources();
-  const gradesQuery = useGradesQuery();
+  const studentSubmissions = useMemo(
+    () => submissions.filter(submission => submission.studentId === currentUser?.id),
+    [submissions, currentUser?.id],
+  );
+  const gradesQuery = useGradesQuery(studentSubmissions, assignments);
 
   if (!currentUser) return null;
 
@@ -59,8 +65,9 @@ export function StudentGradesPage() {
   }
 
   const grades = gradesQuery.data ?? [];
-  const studentSubmissions = submissions.filter(s => s.studentId === currentUser.id);
-  const gradedSubmissions = studentSubmissions.filter(s => s.status === 'graded');
+  const gradedSubmissions = studentSubmissions.filter(submission =>
+    grades.some(grade => grade.submissionId === submission.id),
+  );
 
   return (
     <div>
