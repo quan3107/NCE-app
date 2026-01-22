@@ -18,15 +18,8 @@ import {
   removeStudentFromCourse,
 } from "./courses.students.service.js";
 
-export async function getCourses(_req: Request, res: Response): Promise<void> {
-  const actor = _req.user;
-
-  if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  const courses = await listCourses(actor);
+export async function getCourses(req: Request, res: Response): Promise<void> {
+  const courses = await listCourses(req.user);
   res.status(200).json(courses);
 }
 

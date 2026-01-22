@@ -19,27 +19,29 @@ import {
 
 export const courseRouter = Router();
 
-courseRouter.use(authGuard);
-
 courseRouter.get("/", getCourses);
 courseRouter.post(
   "/",
+  authGuard,
   roleGuard([UserRole.admin, UserRole.teacher]),
   postCourse,
 );
 courseRouter.get(
   "/:courseId/students",
+  authGuard,
   roleGuard([UserRole.admin, UserRole.teacher]),
   getCourseStudents,
 );
 courseRouter.post(
   "/:courseId/students",
+  authGuard,
   roleGuard([UserRole.admin, UserRole.teacher]),
   postCourseStudent,
 );
 courseRouter.delete(
   "/:courseId/students/:studentId",
+  authGuard,
   roleGuard([UserRole.admin, UserRole.teacher]),
   deleteCourseStudent,
 );
-courseRouter.get("/:courseId", getCourse);
+courseRouter.get("/:courseId", authGuard, getCourse);
