@@ -1,0 +1,81 @@
+# File: docs/openapi/schemas/files.yaml
+# Purpose: Define file upload schemas for the API.
+# Why: Documents signing/completion payloads used by the frontend.
+
+File:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    ownerId:
+      type: string
+      format: uuid
+    bucket:
+      type: string
+    objectKey:
+      type: string
+    mime:
+      type: string
+    size:
+      type: number
+    checksum:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, ownerId, bucket, objectKey, mime, size, checksum, createdAt, updatedAt]
+
+FileSignRequest:
+  type: object
+  properties:
+    fileName:
+      type: string
+    mime:
+      type: string
+    size:
+      type: number
+    checksum:
+      type: string
+  required: [fileName, mime, size]
+
+FileSignResponse:
+  type: object
+  properties:
+    uploadUrl:
+      type: string
+    method:
+      type: string
+    headers:
+      type: object
+      additionalProperties: true
+    bucket:
+      type: string
+    objectKey:
+      type: string
+    expiresAt:
+      type: string
+      format: date-time
+  required: [uploadUrl, method, headers, bucket, objectKey, expiresAt]
+
+FileCompleteRequest:
+  type: object
+  properties:
+    bucket:
+      type: string
+    objectKey:
+      type: string
+    mime:
+      type: string
+    size:
+      type: number
+    checksum:
+      type: string
+  required: [bucket, objectKey, mime, size, checksum]

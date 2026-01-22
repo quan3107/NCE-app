@@ -286,8 +286,8 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
 
   const reload = useCallback(async () => {
     hydrationRef.current = false;
-    await courseQuery.refresh();
-    await studentsQuery.refresh();
+    await courseQuery.refetch();
+    await studentsQuery.refetch();
   }, [courseQuery, studentsQuery]);
 
   const data: CourseManagementData = {

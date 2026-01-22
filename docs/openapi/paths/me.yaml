@@ -1,0 +1,29 @@
+# File: docs/openapi/paths/me.yaml
+# Purpose: Define the /me OpenAPI path item.
+# Why: Documents the authenticated profile endpoint.
+
+Me:
+  get:
+    tags: [me]
+    summary: Get the authenticated profile
+    responses:
+      '200':
+        description: Current user profile
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/me.yaml#/MeResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

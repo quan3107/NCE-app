@@ -14,7 +14,7 @@ import { Download } from 'lucide-react';
 import { useAdminAuditLogsQuery } from '@features/admin/api';
 
 export function AdminAuditLogsPage() {
-  const { data: logs = [], isLoading, error, refresh } = useAdminAuditLogsQuery();
+  const { data: logs = [], isLoading, error, refetch } = useAdminAuditLogsQuery();
 
   return (
     <div>
@@ -23,7 +23,7 @@ export function AdminAuditLogsPage() {
         description="System activity and changes"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refresh()} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
               Refresh
             </Button>
             <Button variant="outline">

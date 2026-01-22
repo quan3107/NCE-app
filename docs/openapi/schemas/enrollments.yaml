@@ -1,0 +1,63 @@
+# File: docs/openapi/schemas/enrollments.yaml
+# Purpose: Define enrollment schemas for the API.
+# Why: Documents enrollment list and creation payloads.
+
+Enrollment:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    courseId:
+      type: string
+      format: uuid
+    userId:
+      type: string
+      format: uuid
+    roleInCourse:
+      $ref: './common.yaml#/EnrollmentRole'
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    user:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: './common.yaml#/UserRole'
+        status:
+          $ref: './common.yaml#/UserStatus'
+      required: [id, fullName, email, role, status]
+    course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+      required: [id, title]
+  required: [id, courseId, userId, roleInCourse, createdAt, updatedAt, user, course]
+
+CreateEnrollmentRequest:
+  type: object
+  properties:
+    courseId:
+      type: string
+      format: uuid
+    userId:
+      type: string
+      format: uuid
+    roleInCourse:
+      $ref: './common.yaml#/EnrollmentRole'
+  required: [courseId, userId, roleInCourse]

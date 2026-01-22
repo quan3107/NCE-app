@@ -1,0 +1,219 @@
+# File: docs/openapi/paths/courses.yaml
+# Purpose: Define course-related OpenAPI path items.
+# Why: Captures course listing and roster management endpoints.
+
+Courses:
+  get:
+    tags: [courses]
+    summary: List courses (public or scoped)
+    responses:
+      '200':
+        description: Courses
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/CourseListResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security: []
+  post:
+    tags: [courses]
+    summary: Create course (admin/teacher)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/courses.yaml#/CreateCourseRequest'
+    responses:
+      '201':
+        description: Course created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/Course'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseById:
+  get:
+    tags: [courses]
+    summary: Get course (admin/teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/Course'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseStudents:
+  get:
+    tags: [courses]
+    summary: List course students (admin/teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course students
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/CourseStudentsResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  post:
+    tags: [courses]
+    summary: Add course student (admin/teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/courses.yaml#/AddCourseStudentRequest'
+    responses:
+      '201':
+        description: Student added
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/CourseStudent'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Conflict
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseStudentById:
+  delete:
+    tags: [courses]
+    summary: Remove course student (admin/teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: studentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '204': { description: Student removed }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

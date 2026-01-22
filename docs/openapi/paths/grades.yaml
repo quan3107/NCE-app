@@ -1,0 +1,79 @@
+# File: docs/openapi/paths/grades.yaml
+# Purpose: Define grade OpenAPI path items.
+# Why: Documents grade retrieval and update endpoints.
+
+SubmissionGrade:
+  get:
+    tags: [grades]
+    summary: Get grade (admin/teacher)
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Grade
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/grades.yaml#/Grade'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  put:
+    tags: [grades]
+    summary: Upsert grade (admin/teacher)
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/grades.yaml#/UpsertGradeRequest'
+    responses:
+      '200':
+        description: Grade upserted
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/grades.yaml#/Grade'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

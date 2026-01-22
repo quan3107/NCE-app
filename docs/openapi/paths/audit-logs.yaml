@@ -1,0 +1,44 @@
+# File: docs/openapi/paths/audit-logs.yaml
+# Purpose: Define audit log OpenAPI path items.
+# Why: Documents admin access to system audit history.
+
+AuditLogs:
+  get:
+    tags: [audit-logs]
+    summary: List audit logs (admin)
+    parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        description: Max number of audit logs to return (default 50).
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+        description: Audit log id to continue pagination after.
+    responses:
+      '200':
+        description: Audit logs
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/audit-logs.yaml#/AuditLogPage'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

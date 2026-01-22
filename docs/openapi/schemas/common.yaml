@@ -1,0 +1,40 @@
+# File: docs/openapi/schemas/common.yaml
+# Purpose: Define shared enums and error shapes for the API.
+# Why: Centralizes common schema types used across multiple domains.
+
+ErrorResponse:
+  type: object
+  properties:
+    message:
+      type: string
+    details:
+      nullable: true
+  required: [message]
+
+UserRole:
+  type: string
+  enum: [admin, teacher, student]
+
+UserStatus:
+  type: string
+  enum: [active, invited, suspended]
+
+EnrollmentRole:
+  type: string
+  enum: [teacher, student]
+
+AssignmentType:
+  type: string
+  enum: [file, link, text, quiz]
+
+SubmissionStatus:
+  type: string
+  enum: [draft, submitted, late]
+
+NotificationChannel:
+  type: string
+  enum: [inapp, email, push, sms]
+
+NotificationStatus:
+  type: string
+  enum: [queued, sent, failed, read]

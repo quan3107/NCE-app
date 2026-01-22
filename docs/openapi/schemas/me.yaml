@@ -1,0 +1,67 @@
+# File: docs/openapi/schemas/me.yaml
+# Purpose: Define the /me response schema for the API.
+# Why: Documents authenticated profile and enrollment payloads.
+
+MeResponse:
+  type: object
+  properties:
+    profile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        role:
+          $ref: './common.yaml#/UserRole'
+        status:
+          $ref: './common.yaml#/UserStatus'
+      required: [id, email, fullName, role, status]
+    roles:
+      type: object
+      properties:
+        global:
+          $ref: './common.yaml#/UserRole'
+        courses:
+          type: array
+          items:
+            type: object
+            properties:
+              courseId:
+                type: string
+                format: uuid
+              roleInCourse:
+                $ref: './common.yaml#/EnrollmentRole'
+            required: [courseId, roleInCourse]
+      required: [global, courses]
+    enrollments:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+            format: uuid
+          courseId:
+            type: string
+            format: uuid
+          roleInCourse:
+            $ref: './common.yaml#/EnrollmentRole'
+          course:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              title:
+                type: string
+            required: [id, title]
+          enrolledAt:
+            type: string
+            format: date-time
+        required: [id, courseId, roleInCourse, course, enrolledAt]
+  required: [profile, roles, enrollments]

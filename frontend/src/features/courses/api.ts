@@ -4,12 +4,13 @@
  * Why: Keeps the course feature aligned on backend responses while leveraging the shared query cache.
  */
 
+import { useQuery } from '@tanstack/react-query';
+
 import { apiClient } from '@lib/apiClient';
 import { Course } from '@lib/mock-data';
 import { queryClient } from '@lib/queryClient';
-import { useStaticQuery } from '@lib/useStaticQuery';
 
-const COURSES_KEY = 'courses:list';
+const COURSES_KEY = ['courses', 'list'] as const;
 
 type CourseMetricsResponse = {
   activeStudentCount: number;
@@ -114,10 +115,15 @@ const fetchCourses = async (): Promise<Course[]> => {
 };
 
 export async function preloadCourses() {
-  const courses = await fetchCourses();
-  queryClient.setQueryData(COURSES_KEY, courses);
+  await queryClient.prefetchQuery({
+    queryKey: COURSES_KEY,
+    queryFn: fetchCourses,
+  });
 }
 
 export function useCoursesQuery() {
-  return useStaticQuery<Course[]>(COURSES_KEY, fetchCourses);
+  return useQuery({
+    queryKey: COURSES_KEY,
+    queryFn: fetchCourses,
+  });
 }

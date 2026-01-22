@@ -1,0 +1,61 @@
+# File: docs/openapi/schemas/audit-logs.yaml
+# Purpose: Define audit log schemas for admin audit endpoints.
+# Why: Documents immutable audit history exposed to administrators.
+
+AuditLogActor:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    fullName:
+      type: string
+  required: [id, fullName]
+
+AuditLog:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    actorId:
+      type: string
+      format: uuid
+      nullable: true
+    actor:
+      $ref: './audit-logs.yaml#/AuditLogActor'
+      nullable: true
+    action:
+      type: string
+    entity:
+      type: string
+    entityId:
+      type: string
+    diff:
+      type: object
+      additionalProperties: true
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, action, entity, entityId, createdAt, updatedAt]
+
+AuditLogPage:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: './audit-logs.yaml#/AuditLog'
+    nextCursor:
+      type: string
+      format: uuid
+      nullable: true
+  required: [data, nextCursor]

@@ -17,3 +17,10 @@ export const createNotificationSchema = z
     payload: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
+
+export const markNotificationsReadSchema = z
+  .object({
+    userId: z.string().uuid(),
+    notificationIds: z.array(z.string().uuid()).min(1).optional(),
+  })
+  .strict();

@@ -1,0 +1,97 @@
+# File: docs/openapi/openapi.yaml
+# Purpose: Provide an OpenAPI 3.0 contract entry point for the backend.
+# Why: Keeps the API surface documented and allows path/schema refs to stay modular.
+
+openapi: 3.0.3
+info:
+  title: English Education Platform API
+  version: 0.1.0
+  description: Drafted from the current Express routes/controllers.
+servers:
+  - url: http://localhost:4000
+
+tags:
+  - name: auth
+  - name: me
+  - name: users
+  - name: enrollments
+  - name: courses
+  - name: assignments
+  - name: rubrics
+  - name: submissions
+  - name: grades
+  - name: notifications
+  - name: audit-logs
+  - name: files
+
+paths:
+  /api/v1/auth/login:
+    $ref: './paths/auth.yaml#/Login'
+  /api/v1/auth/register:
+    $ref: './paths/auth.yaml#/Register'
+  /api/v1/auth/refresh:
+    $ref: './paths/auth.yaml#/Refresh'
+  /api/v1/auth/logout:
+    $ref: './paths/auth.yaml#/Logout'
+  /api/v1/auth/google:
+    $ref: './paths/auth.yaml#/GoogleStart'
+  /api/v1/auth/google/callback:
+    $ref: './paths/auth.yaml#/GoogleCallback'
+
+  /api/v1/me:
+    $ref: './paths/me.yaml#/Me'
+
+  /api/v1/users:
+    $ref: './paths/users.yaml#/Users'
+  /api/v1/users/{userId}:
+    $ref: './paths/users.yaml#/UserById'
+
+  /api/v1/audit-logs:
+    $ref: './paths/audit-logs.yaml#/AuditLogs'
+
+  /api/v1/enrollments:
+    $ref: './paths/enrollments.yaml#/Enrollments'
+
+  /api/v1/courses:
+    $ref: './paths/courses.yaml#/Courses'
+  /api/v1/courses/{courseId}:
+    $ref: './paths/courses.yaml#/CourseById'
+  /api/v1/courses/{courseId}/students:
+    $ref: './paths/courses.yaml#/CourseStudents'
+  /api/v1/courses/{courseId}/students/{studentId}:
+    $ref: './paths/courses.yaml#/CourseStudentById'
+
+  /api/v1/courses/{courseId}/assignments:
+    $ref: './paths/assignments.yaml#/CourseAssignments'
+  /api/v1/courses/{courseId}/assignments/{assignmentId}:
+    $ref: './paths/assignments.yaml#/CourseAssignmentById'
+
+  /api/v1/courses/{courseId}/rubrics:
+    $ref: './paths/rubrics.yaml#/CourseRubrics'
+
+  /api/v1/assignments/{assignmentId}/submissions:
+    $ref: './paths/submissions.yaml#/AssignmentSubmissions'
+  /api/v1/assignments/{assignmentId}/submissions/{submissionId}:
+    $ref: './paths/submissions.yaml#/AssignmentSubmissionById'
+
+  /api/v1/submissions/{submissionId}/grade:
+    $ref: './paths/grades.yaml#/SubmissionGrade'
+
+  /api/v1/notifications:
+    $ref: './paths/notifications.yaml#/Notifications'
+  /api/v1/notifications/{notificationId}:
+    $ref: './paths/notifications.yaml#/NotificationById'
+  /api/v1/notifications/read:
+    $ref: './paths/notifications.yaml#/NotificationsRead'
+
+  /api/v1/files/sign:
+    $ref: './paths/files.yaml#/FileSign'
+  /api/v1/files/complete:
+    $ref: './paths/files.yaml#/FileComplete'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -1,0 +1,88 @@
+# File: docs/openapi/paths/enrollments.yaml
+# Purpose: Define enrollment OpenAPI path items.
+# Why: Documents admin enrollment management routes.
+
+Enrollments:
+  get:
+    tags: [enrollments]
+    summary: List enrollments (admin)
+    parameters:
+      - in: query
+        name: courseId
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: userId
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: roleInCourse
+        schema:
+          $ref: '../schemas/common.yaml#/EnrollmentRole'
+    responses:
+      '200':
+        description: Enrollments
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../schemas/enrollments.yaml#/Enrollment'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  post:
+    tags: [enrollments]
+    summary: Create enrollment (admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/enrollments.yaml#/CreateEnrollmentRequest'
+    responses:
+      '201':
+        description: Enrollment created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/enrollments.yaml#/Enrollment'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Conflict
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

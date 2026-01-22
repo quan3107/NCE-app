@@ -16,7 +16,7 @@ import { useAdminUsersQuery } from '@features/admin/api';
 
 export function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: users = [], isLoading, error, refresh } = useAdminUsersQuery();
+  const { data: users = [], isLoading, error, refetch } = useAdminUsersQuery();
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -32,7 +32,7 @@ export function AdminUsersPage() {
         description="Manage user accounts"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refresh()} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
               Refresh
             </Button>
             <Button>

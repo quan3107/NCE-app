@@ -1,43 +1,100 @@
 /**
  * Location: features/notifications/api.ts
- * Purpose: Centralize notification queries and mutations backed by the query client stub.
- * Why: Keeps UI layers decoupled from mock data while we await real backend endpoints.
+ * Purpose: Centralize notification queries and mutations backed by React Query.
+ * Why: Keeps UI layers decoupled from backend wiring while notifications evolve.
  */
 
 import { useMemo } from 'react';
-import { Notification, mockNotifications } from '@lib/mock-data';
+import { useQuery } from '@tanstack/react-query';
+
+import { apiClient } from '@lib/apiClient';
+import { Notification } from '@lib/mock-data';
 import { queryClient } from '@lib/queryClient';
-import { useStaticQuery } from '@lib/useStaticQuery';
 
-const NOTIFICATIONS_KEY = 'notifications:list';
+const NOTIFICATIONS_KEY = ['notifications', 'list'] as const;
 
-const fetchNotifications = async (): Promise<Notification[]> => mockNotifications;
+type ApiNotification = {
+  id: string;
+  userId: string;
+  type: string;
+  payload: Record<string, unknown>;
+  channel: string;
+  status: string;
+  readAt?: string | null;
+  createdAt: string;
+};
 
-export function preloadNotifications() {
-  queryClient.setQueryData(NOTIFICATIONS_KEY, mockNotifications);
-}
+type ApiNotificationsReadResponse = {
+  userId: string;
+  updatedCount: number;
+};
+
+const toNotification = (notification: ApiNotification): Notification => {
+  const payload = notification.payload ?? {};
+  const payloadRecord = payload as Record<string, unknown>;
+
+  return {
+    id: notification.id,
+    userId: notification.userId,
+    type: ['assignment_published', 'due_soon', 'graded', 'reminder'].includes(notification.type)
+      ? (notification.type as Notification['type'])
+      : 'reminder',
+    title:
+      typeof payloadRecord.title === 'string'
+        ? payloadRecord.title
+        : notification.type.replace(/_/g, ' '),
+    message:
+      typeof payloadRecord.message === 'string'
+        ? payloadRecord.message
+        : 'You have a new notification.',
+    timestamp: new Date(notification.createdAt),
+    read: Boolean(notification.readAt) || notification.status === 'read',
+    link: typeof payloadRecord.link === 'string' ? payloadRecord.link : undefined,
+  };
+};
+
+const fetchNotifications = async (): Promise<Notification[]> => {
+  const response = await apiClient<ApiNotification[]>('/api/v1/notifications');
+  return response.map(toNotification);
+};
 
 export function useNotificationsQuery() {
-  return useStaticQuery<Notification[]>(NOTIFICATIONS_KEY, fetchNotifications);
+  return useQuery({
+    queryKey: NOTIFICATIONS_KEY,
+    queryFn: fetchNotifications,
+  });
 }
 
 export function markNotificationsRead(params: { userId: string; notificationIds?: string[] }) {
-  const existing = queryClient.getQueryData<Notification[]>(NOTIFICATIONS_KEY) ?? [];
   const { userId, notificationIds } = params;
 
-  const updated = existing.map(notification => {
-    if (notification.userId !== userId) {
-      return notification;
-    }
+  return apiClient<ApiNotificationsReadResponse>('/api/v1/notifications/read', {
+    method: 'POST',
+    body: {
+      userId,
+      notificationIds,
+    },
+  })
+    .then(() => {
+      const existing = queryClient.getQueryData<Notification[]>(NOTIFICATIONS_KEY) ?? [];
 
-    if (!notificationIds || notificationIds.includes(notification.id)) {
-      return { ...notification, read: true };
-    }
+      const updated = existing.map(notification => {
+        if (notification.userId !== userId) {
+          return notification;
+        }
 
-    return notification;
-  });
+        if (!notificationIds || notificationIds.includes(notification.id)) {
+          return { ...notification, read: true };
+        }
 
-  queryClient.setQueryData(NOTIFICATIONS_KEY, updated);
+        return notification;
+      });
+
+      queryClient.setQueryData(NOTIFICATIONS_KEY, updated);
+    })
+    .catch(() => {
+      // Keep UI state unchanged if the API request fails.
+    });
 }
 
 export function useUserNotifications(userId: string | undefined) {
@@ -55,6 +112,6 @@ export function useUserNotifications(userId: string | undefined) {
     notifications: data,
     isLoading: query.isLoading,
     error: query.error,
-    refresh: query.refresh,
+    refetch: query.refetch,
   };
 }

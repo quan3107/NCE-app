@@ -11,6 +11,7 @@ import { roleGuard } from "../../middleware/roleGuard.js";
 import {
   getNotification,
   getNotifications,
+  postNotificationsRead,
   postNotification,
 } from "./notifications.controller.js";
 
@@ -24,4 +25,5 @@ notificationRouter.post(
   roleGuard([UserRole.admin]),
   postNotification,
 );
+notificationRouter.post("/read", postNotificationsRead);
 notificationRouter.get("/:notificationId", getNotification);

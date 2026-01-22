@@ -7,6 +7,7 @@ import { Router } from "express";
 
 import { assignmentRouter } from "./assignments/assignments.routes.js";
 import { authRouter } from "./auth/auth.routes.js";
+import { auditLogRouter } from "./audit-logs/audit-logs.routes.js";
 import { courseRouter } from "./courses/courses.routes.js";
 import { enrollmentRouter } from "./enrollments/enrollments.routes.js";
 import { fileRouter } from "./files/files.routes.js";
@@ -22,6 +23,7 @@ export const apiRouter = Router();
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/me", meRouter);
 apiRouter.use("/users", userRouter);
+apiRouter.use("/audit-logs", auditLogRouter);
 apiRouter.use("/enrollments", enrollmentRouter);
 apiRouter.use("/courses", courseRouter);
 apiRouter.use("/courses/:courseId/assignments", assignmentRouter);
