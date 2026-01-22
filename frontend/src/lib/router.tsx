@@ -1,79 +1,58 @@
 /**
  * Location: src/lib/router.tsx
- * Purpose: Provide a minimal client-side router to mimic navigation during prototyping.
- * Why: Enables route-aware state without adding external dependencies yet.
+ * Purpose: Wrap React Router to provide the app's routing primitives and shared helpers.
+ * Why: Centralizes navigation wiring while keeping existing hooks stable during migration.
  */
 
-import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { ReactNode, useEffect } from 'react';
+import {
+  BrowserRouter,
+  type NavigateFunction,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 
 type RouterContextType = {
   currentPath: string;
-  navigate: (path: string) => void;
+  navigate: NavigateFunction;
   goBack: () => void;
 };
 
-const RouterContext = createContext<RouterContextType | undefined>(undefined);
-
-export function RouterProvider({ children }: { children: ReactNode }) {
-  const initialPath =
-    typeof window !== 'undefined' ? window.location.pathname : '/';
-  const [currentPath, setCurrentPath] = useState(initialPath);
-  const [history, setHistory] = useState<string[]>([initialPath]);
-
-  const navigate = (path: string) => {
-    setCurrentPath(path);
-    setHistory(prev => [...prev, path]);
-    if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', path);
-    }
-  };
-
-  const goBack = () => {
-    if (history.length > 1) {
-      const newHistory = [...history];
-      newHistory.pop();
-      const previousPath = newHistory[newHistory.length - 1];
-      setCurrentPath(previousPath);
-      setHistory(newHistory);
-      if (typeof window !== 'undefined') {
-        window.history.back();
-      }
-    }
-  };
-
-  useEffect(() => {
-    // Scroll to top on navigation
-    window.scrollTo(0, 0);
-  }, [currentPath]);
+function ScrollToTop() {
+  const location = useLocation();
 
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
-    const handlePopState = () => {
-      const nextPath = window.location.pathname;
-      setCurrentPath(nextPath);
-      setHistory(prev => [...prev, nextPath]);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, []);
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
+  return null;
+}
+
+export function RouterProvider({ children }: { children: ReactNode }) {
   return (
-    <RouterContext.Provider value={{ currentPath, navigate, goBack }}>
+    <BrowserRouter>
+      <ScrollToTop />
       {children}
-    </RouterContext.Provider>
+    </BrowserRouter>
   );
 }
 
-export function useRouter() {
-  const context = useContext(RouterContext);
-  if (context === undefined) {
-    throw new Error('useRouter must be used within a RouterProvider');
-  }
-  return context;
+export function useRouter(): RouterContextType {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const goBack = () => {
+    navigate(-1);
+  };
+
+  return {
+    currentPath: location.pathname,
+    navigate,
+    goBack,
+  };
 }
 
 
