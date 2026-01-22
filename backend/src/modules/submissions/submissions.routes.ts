@@ -20,7 +20,7 @@ submissionRouter.use(authGuard);
 
 submissionRouter.get(
   "/",
-  roleGuard([UserRole.admin, UserRole.teacher]),
+  roleGuard([UserRole.admin, UserRole.teacher, UserRole.student]),
   getSubmissions,
 );
 submissionRouter.post(
