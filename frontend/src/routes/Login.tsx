@@ -4,7 +4,8 @@
  * Why: Keeps authentication UI encapsulated while routing logic stays in App.tsx.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Chrome, GraduationCap, Lock, Mail } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
@@ -13,16 +14,73 @@ import { Label } from '@components/ui/label';
 import { Separator } from '@components/ui/separator';
 import { ApiError } from '@lib/apiClient';
 import { ENABLE_DEV_AUTH_FALLBACK } from '@lib/constants';
+import { Role } from '@lib/mock-data';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
 import { toast } from 'sonner@2.0.3';
 
+// Keep post-login redirects safe by scoping return paths to the active role.
+const AUTH_ROUTE_BLOCKLIST = new Set(['/login', '/register', '/auth/oauth']);
+const ROLE_LANDING: Record<Role, string> = {
+  student: '/student/dashboard',
+  teacher: '/teacher/dashboard',
+  admin: '/admin/dashboard',
+  public: '/',
+};
+
+const stripSearchAndHash = (path: string) => path.split('?')[0]?.split('#')[0] ?? path;
+
+const isAllowedReturnPath = (role: Role, path: string) => {
+  if (!path.startsWith('/')) {
+    return false;
+  }
+  const basePath = stripSearchAndHash(path);
+  if (AUTH_ROUTE_BLOCKLIST.has(basePath)) {
+    return false;
+  }
+  if (role === 'public') {
+    return basePath === '/';
+  }
+  if (role === 'student') {
+    return basePath === '/student' || basePath.startsWith('/student/');
+  }
+  if (role === 'teacher') {
+    return basePath === '/teacher' || basePath.startsWith('/teacher/');
+  }
+  if (role === 'admin') {
+    return basePath === '/admin' || basePath.startsWith('/admin/');
+  }
+  return false;
+};
+
+const resolvePostLoginPath = (role: Role, from?: string | null) => {
+  if (from && isAllowedReturnPath(role, from)) {
+    return from;
+  }
+  return ROLE_LANDING[role] ?? '/';
+};
+
 export function LoginRoute() {
-  const { login, loginWithGoogle } = useAuthStore();
-  const { navigate } = useRouter();
+  const { login, loginWithGoogle, isAuthenticated, currentUser } = useAuthStore();
+  const { navigate, currentPath } = useRouter();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const state = location.state as { from?: string } | null;
+  const returnTo = typeof state?.from === 'string' ? state.from : null;
+
+  useEffect(() => {
+    if (!isAuthenticated || currentUser.role === 'public') {
+      return;
+    }
+    if (currentPath !== '/login') {
+      return;
+    }
+    const destination = resolvePostLoginPath(currentUser.role, returnTo);
+    navigate(destination, { replace: true });
+  }, [currentPath, currentUser.role, isAuthenticated, navigate, returnTo]);
 
   const handleEmailLogin = async (event: React.FormEvent) => {
     event.preventDefault();
