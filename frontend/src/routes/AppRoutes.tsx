@@ -25,6 +25,7 @@ import { TeacherCourseManagement } from '@features/courses/management/TeacherCou
 import { StudentGradesPage } from '@features/grades/components/StudentGradesPage';
 import { StudentNotificationsPage } from '@features/notifications/components/StudentNotificationsPage';
 import { StudentProfilePage } from '@features/profile/components/StudentProfilePage';
+import { TeacherProfilePage } from '@features/profile/components/TeacherProfilePage';
 import { TeacherRubricsPage } from '@features/rubrics/components/TeacherRubricsPage';
 import { Role } from '@lib/mock-data';
 import { useAuthStore } from '@store/authStore';
@@ -55,7 +56,8 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
   // Guard protected areas from unauthenticated sessions.
   if (!isAuthenticated || currentUser.role === 'public') {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    const returnTo = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to="/login" replace state={{ from: returnTo }} />;
   }
 
   return <>{children}</>;
@@ -92,13 +94,8 @@ function AppLayout() {
 }
 
 function HomeGate() {
-  const { isAuthenticated, currentUser } = useAuthStore();
-
-  if (!isAuthenticated || currentUser.role === 'public') {
-    return <HomeRoute />;
-  }
-
-  return <Navigate to={resolveLanding(currentUser.role)} replace />;
+  // Allow authenticated users to revisit the marketing homepage.
+  return <HomeRoute />;
 }
 
 function CourseDetailWrapper() {
@@ -162,6 +159,7 @@ export function AppRoutes() {
           <Route path="teacher/grade/:submissionId" element={<TeacherGradeFormWrapper />} />
           <Route path="teacher/rubrics" element={<TeacherRubricsPage />} />
           <Route path="teacher/analytics" element={<TeacherAnalyticsPage />} />
+          <Route path="teacher/profile" element={<TeacherProfilePage />} />
         </Route>
 
         <Route element={<RoleGuard allowedRoles={['admin']} />}>
