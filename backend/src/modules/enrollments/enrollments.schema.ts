@@ -27,6 +27,12 @@ export const enrollmentQuerySchema = z
   })
   .strip();
 
+export const enrollmentIdParamsSchema = z
+  .object({
+    enrollmentId: z.string().uuid(),
+  })
+  .strict();
+
 export const createEnrollmentSchema = z
   .object({
     courseId: z.string().uuid(),
