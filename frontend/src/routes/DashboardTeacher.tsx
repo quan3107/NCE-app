@@ -4,13 +4,14 @@
  * Why: Keeps role-specific overview logic within the routing layer.
  */
 
-import { Clock, FileText, TrendingUp, Users } from 'lucide-react';
+import { Clock, FileText, Gauge, Timer, Users } from 'lucide-react';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
 import { formatDistanceToNow } from '@lib/utils';
+import { useTeacherAnalyticsQuery } from '@features/analytics/api';
 import { useAssignmentResources } from '@features/assignments/api';
 import { useCoursesQuery } from '@features/courses/api';
 
@@ -19,22 +20,33 @@ export function DashboardTeacherRoute() {
   const { assignments, submissions, isLoading: assignmentsLoading, error: assignmentsError } =
     useAssignmentResources();
   const coursesQuery = useCoursesQuery();
+  const analyticsQuery = useTeacherAnalyticsQuery();
 
-  const isLoading = assignmentsLoading || coursesQuery.isLoading;
-  const error = assignmentsError ?? coursesQuery.error;
+  const isLoading = assignmentsLoading || coursesQuery.isLoading || analyticsQuery.isLoading;
+  const error = assignmentsError ?? coursesQuery.error ?? analyticsQuery.error ?? null;
 
   const processedSubmissions = submissions.filter(
     submission => submission.status === 'submitted' || submission.status === 'late',
   );
 
   const openSubmissions = processedSubmissions.length;
-  const avgTurnaround = 2.5;
+  const avgTurnaround = analyticsQuery.data?.averageTurnaroundDays ?? null;
+  const onTimeRate = analyticsQuery.data?.onTimeRate ?? null;
+  const totalStudents = (coursesQuery.data ?? []).reduce(
+    (sum, course) => sum + course.enrolled,
+    0,
+  );
+  const formatRate = (value: number | null) =>
+    value === null ? 'N/A' : `${value.toFixed(1)}%`;
+  const formatDays = (value: number | null) =>
+    value === null ? 'N/A' : `${value.toFixed(1)} days`;
 
   const stats = [
     { label: 'Active Assignments', value: assignments.filter(a => a.status === 'published').length, icon: <FileText className="size-5" /> },
     { label: 'Pending Grading', value: openSubmissions, icon: <Clock className="size-5 text-orange-500" /> },
-    { label: 'Total Students', value: 42, icon: <Users className="size-5 text-blue-500" /> },
-    { label: 'Avg Turnaround', value: `${avgTurnaround} days`, icon: <TrendingUp className="size-5 text-green-500" /> },
+    { label: 'Total Students', value: totalStudents, icon: <Users className="size-5 text-blue-500" /> },
+    { label: 'On-time Rate', value: formatRate(onTimeRate), icon: <Gauge className="size-5 text-blue-500" /> },
+    { label: 'Avg Turnaround', value: formatDays(avgTurnaround), icon: <Timer className="size-5 text-green-500" /> },
   ];
 
   if (isLoading) {
@@ -74,7 +86,7 @@ export function DashboardTeacherRoute() {
     <div>
       <PageHeader title="Dashboard" description="Welcome back! Here's your overview." />
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {stats.map((stat, index) => (
             <Card key={index}>
               <CardContent className="pt-6">
