@@ -12,7 +12,7 @@ import { useRouter } from '@lib/router';
 import { useCoursesQuery } from '@features/courses/api';
 
 export function TeacherCoursesPage() {
-  const { data: courses = [], isLoading, error, refresh } = useCoursesQuery();
+  const { data: courses = [], isLoading, error, refetch } = useCoursesQuery();
   const { navigate } = useRouter();
 
   return (
@@ -21,7 +21,7 @@ export function TeacherCoursesPage() {
         title="Courses"
         description="Manage your courses"
         actions={
-          <Button variant="outline" size="sm" onClick={() => refresh()} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             Refresh
           </Button>
         }
