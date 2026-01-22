@@ -17,7 +17,7 @@ import {
 
 import { ApiError, apiClient } from './apiClient';
 import { authBridge } from './authBridge';
-import { STORAGE_KEYS } from './constants';
+import { ENABLE_DEV_AUTH_FALLBACK, STORAGE_KEYS } from './constants';
 import {
   DEFAULT_PERSONA,
   PERSONA_USERS,
@@ -103,6 +103,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const DEFAULT_TOKEN = 'dev-admin-token';
 const DEMO_PASSWORD = 'Passw0rd!';
+// Public placeholder to keep UI rendering predictable when unauthenticated.
+const PUBLIC_USER: LiveUser = {
+  id: '',
+  name: 'Guest',
+  email: '',
+  role: 'public',
+};
 
 const PERSONA_BY_EMAIL = Object.values(PERSONA_USERS).reduce<Record<string, PersonaKey>>(
   (accumulator, personaUser) => {
@@ -120,12 +127,19 @@ const mapBackendUser = (user: BackendAuthUser): LiveUser => ({
 });
 
 const loadInitialState = (): InitialSnapshot => {
-  const defaultSnapshot: InitialSnapshot = {
-    mode: 'persona',
-    token: DEFAULT_TOKEN,
-    persona: { basePersona: DEFAULT_PERSONA, actingPersona: null },
-    liveUser: null,
-  };
+  const defaultSnapshot: InitialSnapshot = ENABLE_DEV_AUTH_FALLBACK
+    ? {
+        mode: 'persona',
+        token: DEFAULT_TOKEN,
+        persona: { basePersona: DEFAULT_PERSONA, actingPersona: null },
+        liveUser: null,
+      }
+    : {
+        mode: 'live',
+        token: null,
+        persona: { basePersona: DEFAULT_PERSONA, actingPersona: null },
+        liveUser: null,
+      };
 
   if (typeof window === 'undefined') {
     return defaultSnapshot;
@@ -142,7 +156,8 @@ const loadInitialState = (): InitialSnapshot => {
       throw new Error('Invalid stored auth payload');
     }
 
-    const mode: AuthMode = parsed.mode === 'live' ? 'live' : 'persona';
+    const storedMode: AuthMode = parsed.mode === 'live' ? 'live' : 'persona';
+    const mode: AuthMode = ENABLE_DEV_AUTH_FALLBACK ? storedMode : 'live';
     const persona: PersonaState =
       parsed.persona ??
       {
@@ -150,13 +165,17 @@ const loadInitialState = (): InitialSnapshot => {
         actingPersona: isPersonaKey(parsed.actingPersona) ? parsed.actingPersona : null,
       };
 
-    const token =
+    const parsedToken =
       'token' in parsed
         ? typeof parsed.token === 'string' && parsed.token.length > 0
           ? parsed.token
           : null
-        : mode === 'persona'
-          ? DEFAULT_TOKEN
+        : null;
+    const token =
+      mode === 'live'
+        ? parsedToken
+        : ENABLE_DEV_AUTH_FALLBACK
+          ? parsedToken ?? DEFAULT_TOKEN
           : null;
 
     const liveUser = mode === 'live' && parsed.liveUser ? parsed.liveUser : null;
@@ -234,6 +253,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const activatePersonaSession = useCallback(
     (basePersona: PersonaKey, token: string | null = DEFAULT_TOKEN) => {
+      if (!ENABLE_DEV_AUTH_FALLBACK) {
+        return;
+      }
       const persona: PersonaState = { basePersona, actingPersona: null };
       tokenRef.current = token;
       setAuthMode('persona');
@@ -250,10 +272,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearSession = useCallback(() => {
     const persona: PersonaState = { basePersona: DEFAULT_PERSONA, actingPersona: null };
     tokenRef.current = null;
-    setAuthMode('persona');
+    const nextMode: AuthMode = ENABLE_DEV_AUTH_FALLBACK ? 'persona' : 'live';
+    setAuthMode(nextMode);
     setLiveUser(null);
     setPersona(persona, {
-      mode: 'persona',
+      mode: nextMode,
       token: null,
       liveUser: null,
     });
@@ -335,6 +358,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         applyLiveSession(result);
         return 'live';
       } catch (error) {
+        if (!ENABLE_DEV_AUTH_FALLBACK) {
+          if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+            return null;
+          }
+          return null;
+        }
         const normalizedEmail = email.trim().toLowerCase();
         const personaKey = PERSONA_BY_EMAIL[normalizedEmail];
 
@@ -427,6 +456,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [authMode, clearSession]);
 
   const stopImpersonating = useCallback(() => {
+    if (!ENABLE_DEV_AUTH_FALLBACK) {
+      return;
+    }
     mutatePersonaState((previous) => ({
       basePersona: previous.basePersona,
       actingPersona: null,
@@ -435,6 +467,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const viewAs = useCallback(
     (role: Role) => {
+      if (!ENABLE_DEV_AUTH_FALLBACK) {
+        return;
+      }
       if (authMode !== 'persona') {
         return;
       }
@@ -469,15 +504,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     personaState.actingPersona !== null ? personaState.actingPersona : personaState.basePersona;
 
   const personaUser = PERSONA_USERS[effectivePersona];
-  const currentUser = authMode === 'live' && liveUser ? liveUser : personaUser;
+  const fallbackUser = ENABLE_DEV_AUTH_FALLBACK ? personaUser : PUBLIC_USER;
+  const currentUser = authMode === 'live' && liveUser ? liveUser : fallbackUser;
 
   const actingRole =
-    authMode === 'persona' && personaState.actingPersona
+    ENABLE_DEV_AUTH_FALLBACK && authMode === 'persona' && personaState.actingPersona
       ? PERSONA_USERS[personaState.actingPersona].role
       : null;
 
-  const isImpersonating = authMode === 'persona' && personaState.actingPersona !== null;
-  const isAuthenticated = tokenRef.current !== null;
+  const isImpersonating =
+    ENABLE_DEV_AUTH_FALLBACK && authMode === 'persona' && personaState.actingPersona !== null;
+  const hasLiveToken = authMode === 'live' && Boolean(tokenRef.current);
+  const hasPersonaToken =
+    ENABLE_DEV_AUTH_FALLBACK && authMode === 'persona' && Boolean(tokenRef.current);
+  const isAuthenticated = hasLiveToken || hasPersonaToken;
 
   const contextValue = useMemo<AuthContextType>(
     () => ({
