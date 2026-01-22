@@ -1,47 +1,84 @@
 /**
  * Location: features/admin/api.ts
- * Purpose: Provide admin-specific data queries derived from the shared mock dataset.
- * Why: Enables admin views to share a single source of truth before backend wiring.
+ * Purpose: Provide admin-specific data queries derived from the live API.
+ * Why: Enables admin views to share a single source of truth via React Query.
  */
 
 import { useMemo } from 'react';
-import {
-  AuditLog,
-  Enrollment,
-  User,
-  mockAuditLogs,
-  mockEnrollments,
-  mockUsers,
-} from '@lib/mock-data';
-import { queryClient } from '@lib/queryClient';
-import { useStaticQuery } from '@lib/useStaticQuery';
+import { useQuery } from '@tanstack/react-query';
+
+import { apiClient } from '@lib/apiClient';
+import { AuditLog, Enrollment, User } from '@lib/mock-data';
 import { useAssignmentResources } from '@features/assignments/api';
 import { useCoursesQuery } from '@features/courses/api';
 
-const ADMIN_USERS_KEY = 'admin:users';
-const ADMIN_ENROLLMENTS_KEY = 'admin:enrollments';
-const ADMIN_AUDIT_LOGS_KEY = 'admin:auditLogs';
+const ADMIN_USERS_KEY = ['admin', 'users'] as const;
+const ADMIN_ENROLLMENTS_KEY = ['admin', 'enrollments'] as const;
+const ADMIN_AUDIT_LOGS_KEY = ['admin', 'auditLogs'] as const;
 
-const fetchUsers = async (): Promise<User[]> => mockUsers;
-const fetchEnrollments = async (): Promise<Enrollment[]> => mockEnrollments;
-const fetchAuditLogs = async (): Promise<AuditLog[]> => mockAuditLogs;
+type ApiUser = {
+  id: string;
+  email: string;
+  fullName: string;
+  role: User['role'];
+  status: string;
+};
 
-export function preloadAdminData() {
-  queryClient.setQueryData(ADMIN_USERS_KEY, mockUsers);
-  queryClient.setQueryData(ADMIN_ENROLLMENTS_KEY, mockEnrollments);
-  queryClient.setQueryData(ADMIN_AUDIT_LOGS_KEY, mockAuditLogs);
-}
+type ApiEnrollment = {
+  id: string;
+  courseId: string;
+  userId: string;
+  createdAt: string;
+};
+
+const toUser = (user: ApiUser): User => ({
+  id: user.id,
+  name: user.fullName,
+  email: user.email,
+  role: user.role,
+});
+
+const toEnrollment = (enrollment: ApiEnrollment): Enrollment => ({
+  id: enrollment.id,
+  userId: enrollment.userId,
+  courseId: enrollment.courseId,
+  enrolledAt: new Date(enrollment.createdAt),
+});
+
+const fetchUsers = async (): Promise<User[]> => {
+  const response = await apiClient<ApiUser[]>('/api/v1/users');
+  return response.map(toUser);
+};
+
+const fetchEnrollments = async (): Promise<Enrollment[]> => {
+  const response = await apiClient<ApiEnrollment[]>('/api/v1/enrollments');
+  return response.map(toEnrollment);
+};
+
+// Audit log endpoints are not exposed yet; return empty data until the API is available.
+const fetchAuditLogs = async (): Promise<AuditLog[]> => {
+  return [];
+};
 
 export function useAdminUsersQuery() {
-  return useStaticQuery<User[]>(ADMIN_USERS_KEY, fetchUsers);
+  return useQuery({
+    queryKey: ADMIN_USERS_KEY,
+    queryFn: fetchUsers,
+  });
 }
 
 export function useAdminEnrollmentsQuery() {
-  return useStaticQuery<Enrollment[]>(ADMIN_ENROLLMENTS_KEY, fetchEnrollments);
+  return useQuery({
+    queryKey: ADMIN_ENROLLMENTS_KEY,
+    queryFn: fetchEnrollments,
+  });
 }
 
 export function useAdminAuditLogsQuery() {
-  return useStaticQuery<AuditLog[]>(ADMIN_AUDIT_LOGS_KEY, fetchAuditLogs);
+  return useQuery({
+    queryKey: ADMIN_AUDIT_LOGS_KEY,
+    queryFn: fetchAuditLogs,
+  });
 }
 
 export function useAdminDashboardMetrics() {
@@ -73,15 +110,13 @@ export function useAdminDashboardMetrics() {
     metrics,
     isLoading,
     error,
-    refresh: async () => {
+    refetch: async () => {
       await Promise.all([
-        assignments.refresh(),
-        courses.refresh(),
-        users.refresh(),
-        enrollments.refresh(),
+        assignments.refetch(),
+        courses.refetch(),
+        users.refetch(),
+        enrollments.refetch(),
       ]);
     },
   };
 }
-
-
