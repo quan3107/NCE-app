@@ -4,20 +4,37 @@
  * Why: Keeps the feature module organized under the new structure.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@components/ui/table';
 import { PageHeader } from '@components/common/PageHeader';
 import { formatDate } from '@lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
+import { Label } from '@components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { Plus, Trash2, RefreshCw } from 'lucide-react';
-import { useAdminEnrollmentsQuery, useAdminUsersQuery } from '@features/admin/api';
+import { toast } from 'sonner@2.0.3';
+import {
+  useAdminEnrollmentsQuery,
+  useAdminUsersQuery,
+  useCreateEnrollmentMutation,
+  useRemoveEnrollmentMutation,
+} from '@features/admin/api';
 import { useCoursesQuery } from '@features/courses/api';
 
 export function AdminEnrollmentsPage() {
   const enrollmentsQuery = useAdminEnrollmentsQuery();
   const usersQuery = useAdminUsersQuery();
   const coursesQuery = useCoursesQuery();
+  const createEnrollmentMutation = useCreateEnrollmentMutation();
+  const removeEnrollmentMutation = useRemoveEnrollmentMutation();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [formState, setFormState] = useState({
+    courseId: '',
+    userId: '',
+    roleInCourse: 'student',
+  });
 
   const isLoading = enrollmentsQuery.isLoading || usersQuery.isLoading || coursesQuery.isLoading;
   const error = enrollmentsQuery.error ?? usersQuery.error ?? coursesQuery.error ?? null;
@@ -36,6 +53,8 @@ export function AdminEnrollmentsPage() {
         userName: user?.name ?? 'Unknown Student',
         courseTitle: course?.title ?? 'Unknown Course',
         enrolledAt: enrollment.enrolledAt,
+        courseId: enrollment.courseId,
+        userId: enrollment.userId,
       };
     });
   }, [enrollmentsQuery.data, usersQuery.data, coursesQuery.data]);
@@ -55,7 +74,7 @@ export function AdminEnrollmentsPage() {
               <RefreshCw className="mr-2 size-4" />
               Refresh
             </Button>
-            <Button>
+            <Button onClick={() => setShowCreateDialog(true)}>
               <Plus className="mr-2 size-4" />
               Enroll Student
             </Button>
@@ -94,7 +113,25 @@ export function AdminEnrollmentsPage() {
                       <TableCell>{row.courseTitle}</TableCell>
                       <TableCell>{formatDate(row.enrolledAt)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await removeEnrollmentMutation.mutateAsync({
+                                courseId: row.courseId,
+                                studentId: row.userId,
+                              });
+                              toast.success('Enrollment removed.');
+                            } catch (errorValue) {
+                              toast.error(
+                                errorValue instanceof Error
+                                  ? errorValue.message
+                                  : 'Unable to remove enrollment.',
+                              );
+                            }
+                          }}
+                        >
                           <Trash2 className="size-4" />
                         </Button>
                       </TableCell>
@@ -106,6 +143,110 @@ export function AdminEnrollmentsPage() {
           </Card>
         )}
       </div>
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enroll Student</DialogTitle>
+            <DialogDescription>Add a user to a course.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Course</Label>
+              <Select
+                value={formState.courseId}
+                onValueChange={(value) =>
+                  setFormState((current) => ({ ...current, courseId: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select course" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(coursesQuery.data ?? []).map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>User</Label>
+              <Select
+                value={formState.userId}
+                onValueChange={(value) =>
+                  setFormState((current) => ({ ...current, userId: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(usersQuery.data ?? []).map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select
+                value={formState.roleInCourse}
+                onValueChange={(value) =>
+                  setFormState((current) => ({ ...current, roleInCourse: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!formState.courseId || !formState.userId) {
+                  toast.error('Course and user are required.');
+                  return;
+                }
+                try {
+                  await createEnrollmentMutation.mutateAsync({
+                    courseId: formState.courseId,
+                    userId: formState.userId,
+                    roleInCourse: formState.roleInCourse as 'student' | 'teacher',
+                  });
+                  toast.success('Enrollment created.');
+                  setShowCreateDialog(false);
+                  setFormState({
+                    courseId: '',
+                    userId: '',
+                    roleInCourse: 'student',
+                  });
+                } catch (errorValue) {
+                  toast.error(
+                    errorValue instanceof Error
+                      ? errorValue.message
+                      : 'Unable to create enrollment.',
+                  );
+                }
+              }}
+              disabled={createEnrollmentMutation.isLoading}
+            >
+              {createEnrollmentMutation.isLoading ? 'Saving...' : 'Create Enrollment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
