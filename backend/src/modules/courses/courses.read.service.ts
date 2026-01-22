@@ -172,12 +172,13 @@ const teacherCanAccess = (
   );
 
 export async function listCourses(
-  actor: CourseManager,
+  actor?: CourseManager,
 ): Promise<CourseListResponse> {
   const baseWhere = { deletedAt: null };
+  // Public requests surface all active courses for marketing browse views.
   // Students should only see courses they are enrolled in, while teachers retain owner/teacher visibility and admins see everything.
   const where =
-    actor.role === UserRole.admin
+    !actor || actor.role === UserRole.admin
       ? baseWhere
       : actor.role === UserRole.teacher
         ? {
