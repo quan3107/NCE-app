@@ -10,7 +10,15 @@ const resolvedApiBaseUrl =
     : typeof process !== 'undefined' &&
         typeof process.env?.VITE_API_BASE_URL === 'string'
       ? process.env.VITE_API_BASE_URL
-      : 'http://localhost:4000';
+      : '';
+
+if (!resolvedApiBaseUrl) {
+  if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+    console.warn(
+      '[config] Missing VITE_API_BASE_URL. Set it to the full API base (including /api/v1), e.g. http://localhost:4000/api/v1.',
+    );
+  }
+}
 
 export const API_BASE_URL = resolvedApiBaseUrl;
 // Demo persona fallback disabled for now to validate live auth-only flows.
