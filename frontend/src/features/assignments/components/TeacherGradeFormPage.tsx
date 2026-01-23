@@ -230,10 +230,10 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
               className="w-full"
               size="lg"
               onClick={handleSubmit}
-              disabled={upsertGradeMutation.isLoading}
+              disabled={upsertGradeMutation.isPending}
             >
               <Send className="mr-2 size-4" />
-              {upsertGradeMutation.isLoading ? 'Posting...' : 'Post Grade'}
+              {upsertGradeMutation.isPending ? 'Posting...' : 'Post Grade'}
             </Button>
           </div>
         </div>
