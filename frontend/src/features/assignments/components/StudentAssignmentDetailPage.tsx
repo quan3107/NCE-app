@@ -106,7 +106,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
     if (assignment.type === 'link') {
       payloadRecord.link = submissionContent.trim();
     }
-    if (assignment.type === 'file') {
+    if (uploadedFiles.length > 0) {
       payloadRecord.files = uploadedFiles;
     }
 
