@@ -198,7 +198,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [liveUser, setLiveUser] = useState<LiveUser | null>(initial.liveUser);
   const tokenRef = useRef<string | null>(initial.token);
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
-  const shouldRefreshOnMountRef = useRef(initial.mode === 'live');
+  // Only attempt refresh on mount if we have evidence of a prior live session.
+  const shouldRefreshOnMountRef = useRef(
+    initial.mode === 'live' && Boolean(initial.token || initial.liveUser),
+  );
 
   const buildSnapshot = useCallback(
     (overrides?: Partial<PersistSnapshot>): PersistSnapshot => ({
@@ -359,6 +362,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return 'live';
       } catch (error) {
         if (!ENABLE_DEV_AUTH_FALLBACK) {
+          if (error instanceof ApiError && error.status === 400) {
+            // Bubble validation errors so the login UI can show field feedback.
+            throw error;
+          }
           if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
             return null;
           }
