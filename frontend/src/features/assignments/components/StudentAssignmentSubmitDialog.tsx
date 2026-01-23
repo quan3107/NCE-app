@@ -51,18 +51,16 @@ export function StudentAssignmentSubmitDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {assignment.type === 'file' && (
-            <div className="space-y-2">
-              <Label>Upload Files</Label>
-              <FileUploader
-                value={uploadedFiles}
-                onChange={onUploadedFilesChange}
-                onBusyChange={onUploadBusyChange}
-                maxFileSize={FILE_UPLOAD_LIMITS.maxFileSize}
-                maxTotalSize={FILE_UPLOAD_LIMITS.maxTotalSize}
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label>Upload Files</Label>
+            <FileUploader
+              value={uploadedFiles}
+              onChange={onUploadedFilesChange}
+              onBusyChange={onUploadBusyChange}
+              maxFileSize={FILE_UPLOAD_LIMITS.maxFileSize}
+              maxTotalSize={FILE_UPLOAD_LIMITS.maxTotalSize}
+            />
+          </div>
 
           {assignment.type === 'link' && (
             <div className="space-y-2">
