@@ -1,8 +1,30 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+/**
+ * Location: tests/apiClient.test.ts
+ * Purpose: Verify apiClient auth header behavior and retry handling.
+ * Why: Prevents regressions in auth wiring and retry logic.
+ */
 
-import { apiClient } from '../src/lib/apiClient';
-import { authBridge } from '../src/lib/authBridge';
+import assert from 'node:assert/strict';
+import { before, test } from 'node:test';
+import type * as ApiClientModule from '../src/lib/apiClient';
+import type * as AuthBridgeModule from '../src/lib/authBridge';
+
+const API_BASE_URL = 'http://localhost:4000/api/v1';
+
+let apiClient: ApiClientModule['apiClient'];
+let authBridge: AuthBridgeModule['authBridge'];
+
+before(async () => {
+  if (typeof process !== 'undefined' && process.env) {
+    process.env.VITE_API_BASE_URL = API_BASE_URL;
+  }
+
+  const apiModule = await import('../src/lib/apiClient');
+  apiClient = apiModule.apiClient;
+
+  const authModule = await import('../src/lib/authBridge');
+  authBridge = authModule.authBridge;
+});
 
 type StorageRecord = Record<string, string>;
 
@@ -226,4 +248,3 @@ test('apiClient does not clear persona session on 401 without bearer auth', asyn
     },
   );
 });
-
