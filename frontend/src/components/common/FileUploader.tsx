@@ -4,7 +4,7 @@
  * Why: Keeps the pre-signed upload UX consistent across submission flows.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
@@ -61,7 +61,8 @@ export function FileUploader({
   maxFileSize,
   maxTotalSize,
 }: FileUploaderProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputId = useId();
+  const helperId = useId();
   const valueRef = useRef(value);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -176,12 +177,22 @@ export function FileUploader({
     }
   };
 
+  const handleBrowseKeyDown = (event: KeyboardEvent<HTMLLabelElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+    event.preventDefault();
+    const input = document.getElementById(inputId) as HTMLInputElement | null;
+    input?.click();
+  };
+
   return (
     <div className="space-y-3">
       <input
-        ref={inputRef}
         type="file"
-        className="hidden"
+        className="sr-only"
+        id={inputId}
+        aria-describedby={helperId}
         accept={FILE_UPLOAD_ACCEPT}
         multiple
         onChange={handleInputChange}
@@ -202,15 +213,17 @@ export function FileUploader({
         <UploadCloud className="size-8 mx-auto mb-2 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
           Drag and drop files, or{' '}
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="text-primary underline underline-offset-4"
+          <label
+            htmlFor={inputId}
+            className="text-primary underline underline-offset-4 cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onKeyDown={handleBrowseKeyDown}
           >
             browse
-          </button>
+          </label>
         </p>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p id={helperId} className="text-xs text-muted-foreground mt-1">
           {FILE_UPLOAD_LABEL} · {formatFileSize(maxFileSize)} max per file ·{' '}
           {formatFileSize(maxTotalSize)} total
         </p>
