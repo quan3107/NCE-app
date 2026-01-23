@@ -6,13 +6,13 @@
 
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
-import type * as ApiClientModule from '../src/lib/apiClient';
-import type * as AuthBridgeModule from '../src/lib/authBridge';
+type ApiClientFn = typeof import('../src/lib/apiClient').apiClient;
+type AuthBridgeInstance = typeof import('../src/lib/authBridge').authBridge;
 
 const API_BASE_URL = 'http://localhost:4000/api/v1';
 
-let apiClient: ApiClientModule['apiClient'];
-let authBridge: AuthBridgeModule['authBridge'];
+let apiClient: ApiClientFn;
+let authBridge: AuthBridgeInstance;
 
 before(async () => {
   if (typeof process !== 'undefined' && process.env) {
@@ -122,7 +122,7 @@ test('apiClient attaches bearer token supplied by authBridge', async () => {
   );
 });
 
-test('apiClient falls back to persona headers when stored mode is persona', async () => {
+test('apiClient ignores stored persona headers when dev fallback is disabled', async () => {
   let capturedHeaders: Headers | null = null;
 
   const storedPayload = JSON.stringify({
@@ -156,11 +156,8 @@ test('apiClient falls back to persona headers when stored mode is persona', asyn
 
       await apiClient('/persona');
       assert.equal(capturedHeaders?.get('authorization'), null);
-      assert.equal(capturedHeaders?.get('x-user-role'), 'teacher');
-      assert.equal(
-        capturedHeaders?.get('x-user-id'),
-        '22222222-2222-4222-8222-222222222222',
-      );
+      assert.equal(capturedHeaders?.get('x-user-role'), null);
+      assert.equal(capturedHeaders?.get('x-user-id'), null);
     },
   );
 });
