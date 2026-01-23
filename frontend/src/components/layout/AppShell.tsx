@@ -71,6 +71,24 @@ function RoleSwitcher({ currentRole }: { currentRole: Role }) {
   );
 }
 
+const DASHBOARD_PATH_BY_ROLE: Record<Role, string> = {
+  student: '/student/dashboard',
+  teacher: '/teacher/dashboard',
+  admin: '/admin/dashboard',
+  public: '/',
+};
+
+// Profile routes only exist for student + teacher; admins skip profile entirely.
+const resolveProfilePath = (role: Role): string | null => {
+  if (role === 'student') {
+    return '/student/profile';
+  }
+  if (role === 'teacher') {
+    return '/teacher/profile';
+  }
+  return null;
+};
+
 type NavItem = {
   label: string;
   path: string;
@@ -80,12 +98,15 @@ type NavItem = {
 type AppShellVariant = 'public' | 'app';
 
 export function AppShell({ children, variant = 'app' }: { children: ReactNode; variant?: AppShellVariant }) {
-  const { currentUser, logout, authMode } = useAuthStore();
+  const { currentUser, logout, authMode, isAuthenticated } = useAuthStore();
   const { notifications: userNotifications } = useUserNotifications(currentUser?.id);
   const { currentPath, navigate } = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isPublicVariant = variant === 'public';
   const showRoleSwitcher = ENABLE_DEV_AUTH_FALLBACK && authMode === 'persona';
+  const isLoggedIn = isAuthenticated && currentUser.role !== 'public';
+  const dashboardPath = DASHBOARD_PATH_BY_ROLE[currentUser.role];
+  const profilePath = resolveProfilePath(currentUser.role);
 
   // Public nav items
   const publicNav: NavItem[] = [
@@ -112,6 +133,7 @@ export function AppShell({ children, variant = 'app' }: { children: ReactNode; v
     { label: 'Submissions', path: '/teacher/submissions', icon: <ScrollText className="size-5" /> },
     { label: 'Rubrics', path: '/teacher/rubrics', icon: <BookMarked className="size-5" /> },
     { label: 'Analytics', path: '/teacher/analytics', icon: <BarChart3 className="size-5" /> },
+    { label: 'Profile', path: '/teacher/profile', icon: <User className="size-5" /> },
   ];
 
   // Admin nav items
@@ -148,6 +170,11 @@ export function AppShell({ children, variant = 'app' }: { children: ReactNode; v
     setSidebarOpen(false);
   };
 
+  const handleLogout = () => {
+    void logout();
+    navigate('/');
+  };
+
   // For public pages, render without sidebar
   if (isPublicVariant) {
     return (
@@ -178,10 +205,47 @@ export function AppShell({ children, variant = 'app' }: { children: ReactNode; v
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" onClick={() => navigate('/login')}>
-                  Login
-                </Button>
-                <Button onClick={() => navigate('/login')}>Get Started</Button>
+                {isLoggedIn ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Open account menu"
+                        className="rounded-full p-1 hover:bg-accent transition-colors"
+                      >
+                        <Avatar className="size-9">
+                          <AvatarFallback>
+                            {currentUser.name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => navigate(dashboardPath)}>
+                        <LayoutDashboard className="mr-2 size-4" />
+                        Dashboard
+                      </DropdownMenuItem>
+                      {profilePath && (
+                        <DropdownMenuItem onClick={() => navigate(profilePath)}>
+                          <User className="mr-2 size-4" />
+                          Profile
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleLogout}>
+                        <LogOut className="mr-2 size-4" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <>
+                    <Button variant="ghost" onClick={() => navigate('/login')}>
+                      Login
+                    </Button>
+                    <Button onClick={() => navigate('/login')}>Get Started</Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -294,8 +358,8 @@ export function AppShell({ children, variant = 'app' }: { children: ReactNode; v
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {currentUser.role === 'student' && (
-              <DropdownMenuItem onClick={() => navigate('/student/profile')}>
+            {profilePath && (
+              <DropdownMenuItem onClick={() => navigate(profilePath)}>
                 <User className="mr-2 size-4" />
                 Profile
               </DropdownMenuItem>

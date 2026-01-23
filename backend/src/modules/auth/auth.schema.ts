@@ -14,7 +14,7 @@ const REGISTERABLE_ROLES = [
 
 export const passwordLoginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const refreshSessionSchema = z.object({

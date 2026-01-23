@@ -4,6 +4,7 @@
  * Why: Keeps error reporting consistent while the domain logic is still under construction.
  */
 import { type NextFunction, type Request, type Response } from "express";
+import { ZodError } from "zod";
 
 import { logger } from "../config/logger.js";
 
@@ -20,13 +21,17 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  const statusCode = err.statusCode ?? 500;
-  const expose = err.expose ?? statusCode < 500;
+  // Normalize schema validation errors into a client-safe 400 response.
+  const isValidationError = err instanceof ZodError;
+  const statusCode = isValidationError ? 400 : err.statusCode ?? 500;
+  const expose = isValidationError ? true : err.expose ?? statusCode < 500;
+  const details = isValidationError ? err.issues : err.details;
+  const message = isValidationError ? "Validation failed." : err.message;
 
   const logPayload = {
     err,
     statusCode,
-    details: err.details,
+    details,
   };
 
   if (statusCode < 500) {
@@ -36,7 +41,7 @@ export function errorHandler(
   }
 
   const payload = expose
-    ? { message: err.message, details: err.details }
+    ? { message, details }
     : { message: "Internal Server Error" };
 
   res.status(statusCode).json(payload);
