@@ -1,7 +1,32 @@
-import { test } from 'node:test';
+/**
+ * Location: tests/queryClient.test.ts
+ * Purpose: Validate query client cache behavior and API helper wiring.
+ * Why: Guards against regressions in query cache usage and request construction.
+ */
+
+import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { addCourseStudent, courseStudentsKey } from '../src/features/courses/management/api';
-import { queryClient } from '../src/lib/queryClient';
+import type * as ApiModule from '../src/features/courses/management/api';
+import type * as QueryClientModule from '../src/lib/queryClient';
+
+const API_BASE_URL = 'http://localhost:4000/api/v1';
+
+let addCourseStudent: ApiModule['addCourseStudent'];
+let courseStudentsKey: ApiModule['courseStudentsKey'];
+let queryClient: QueryClientModule['queryClient'];
+
+before(async () => {
+  if (typeof process !== 'undefined' && process.env) {
+    process.env.VITE_API_BASE_URL = API_BASE_URL;
+  }
+
+  const apiModule = await import('../src/features/courses/management/api');
+  addCourseStudent = apiModule.addCourseStudent;
+  courseStudentsKey = apiModule.courseStudentsKey;
+
+  const queryClientModule = await import('../src/lib/queryClient');
+  queryClient = queryClientModule.queryClient;
+});
 
 test('caches fetch results until invalidated', async () => {
   queryClient.clear();
