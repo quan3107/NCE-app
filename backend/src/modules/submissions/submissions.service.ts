@@ -71,13 +71,56 @@ export async function createSubmission(
   // Cast validated payloads to Prisma JSON input for storage.
   const payloadJson = data.payload as Prisma.InputJsonObject;
 
+  const existing = await prisma.submission.findUnique({
+    where: {
+      assignmentId_studentId: {
+        assignmentId,
+        studentId: data.studentId,
+      },
+    },
+  });
+
+  if (existing) {
+    if (existing.status === "graded") {
+      throw createHttpError(
+        409,
+        "This submission has already been graded and cannot be resubmitted.",
+      );
+    }
+
+    const existingPayload = existing.payload as Prisma.InputJsonObject;
+    const existingVersion =
+      typeof existingPayload?.version === "number"
+        ? existingPayload.version
+        : 1;
+    const payloadWithVersion: Prisma.InputJsonObject = {
+      ...payloadJson,
+      version: existingVersion + 1,
+    };
+
+    return prisma.submission.update({
+      where: { id: existing.id },
+      data: {
+        status,
+        submittedAt,
+        payload: payloadWithVersion,
+      },
+    });
+  }
+
+  const payloadWithVersion: Prisma.InputJsonObject = {
+    ...payloadJson,
+    version:
+      typeof payloadJson?.version === "number" ? payloadJson.version : 1,
+  };
+
   return prisma.submission.create({
     data: {
       assignmentId,
       studentId: data.studentId,
       status,
       submittedAt,
-      payload: payloadJson,
+      payload: payloadWithVersion,
     },
   });
 }
