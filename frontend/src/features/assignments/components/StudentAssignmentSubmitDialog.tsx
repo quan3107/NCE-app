@@ -4,21 +4,26 @@
  * Why: Keeps the detail page lean while reusing the same submit form UI.
  */
 
-import { Assignment } from '@lib/mock-data';
+import type { Assignment, SubmissionFile } from '@lib/mock-data';
 import { Button } from '@components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
-import { Upload } from 'lucide-react';
+import { FileUploader } from '@components/common/FileUploader';
+import { FILE_UPLOAD_LIMITS } from '@features/files/fileUpload';
 
 type StudentAssignmentSubmitDialogProps = {
   assignment: Assignment;
   isOpen: boolean;
   isSubmitting: boolean;
+  isUploadBusy: boolean;
   submissionContent: string;
+  uploadedFiles: SubmissionFile[];
   onOpenChange: (open: boolean) => void;
   onSubmissionContentChange: (value: string) => void;
+  onUploadedFilesChange: (files: SubmissionFile[]) => void;
+  onUploadBusyChange: (busy: boolean) => void;
   onSubmit: () => void;
 };
 
@@ -26,9 +31,13 @@ export function StudentAssignmentSubmitDialog({
   assignment,
   isOpen,
   isSubmitting,
+  isUploadBusy,
   submissionContent,
+  uploadedFiles,
   onOpenChange,
   onSubmissionContentChange,
+  onUploadedFilesChange,
+  onUploadBusyChange,
   onSubmit,
 }: StudentAssignmentSubmitDialogProps) {
   return (
@@ -44,12 +53,14 @@ export function StudentAssignmentSubmitDialog({
         <div className="space-y-4">
           {assignment.type === 'file' && (
             <div className="space-y-2">
-              <Label>Upload File</Label>
-              <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-accent/50 cursor-pointer transition-colors">
-                <Upload className="size-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Click to upload or drag and drop</p>
-                <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX (max 10MB)</p>
-              </div>
+              <Label>Upload Files</Label>
+              <FileUploader
+                value={uploadedFiles}
+                onChange={onUploadedFilesChange}
+                onBusyChange={onUploadBusyChange}
+                maxFileSize={FILE_UPLOAD_LIMITS.maxFileSize}
+                maxTotalSize={FILE_UPLOAD_LIMITS.maxTotalSize}
+              />
             </div>
           )}
 
@@ -83,8 +94,8 @@ export function StudentAssignmentSubmitDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={onSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Submitting...' : 'Submit'}
+          <Button onClick={onSubmit} disabled={isSubmitting || isUploadBusy}>
+            {isSubmitting ? 'Submitting...' : isUploadBusy ? 'Uploading...' : 'Submit'}
           </Button>
         </DialogFooter>
       </DialogContent>
