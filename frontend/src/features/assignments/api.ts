@@ -9,7 +9,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
-import { Assignment, Enrollment, Submission } from '@lib/mock-data';
+import type { Assignment, Enrollment, Submission, SubmissionFile } from '@lib/mock-data';
 import { queryClient } from '@lib/queryClient';
 import { useCoursesQuery } from '@features/courses/api';
 
@@ -92,7 +92,37 @@ const toSubmission = (submission: ApiSubmission): Submission => {
   const payload = submission.payload ?? {};
   const payloadRecord = payload as Record<string, unknown>;
   const files = Array.isArray(payloadRecord.files)
-    ? payloadRecord.files.filter((item): item is string => typeof item === 'string')
+    ? payloadRecord.files
+        .map((item) => {
+          if (typeof item === 'string') {
+            return {
+              id: item,
+              name: item,
+              size: 0,
+              mime: 'application/octet-stream',
+              checksum: '',
+              bucket: '',
+              objectKey: '',
+            };
+          }
+
+          if (item && typeof item === 'object') {
+            const record = item as Record<string, unknown>;
+            const name = typeof record.name === 'string' ? record.name : 'Uploaded file';
+            const id = typeof record.id === 'string' ? record.id : name;
+            const size = typeof record.size === 'number' ? record.size : 0;
+            const mime =
+              typeof record.mime === 'string' ? record.mime : 'application/octet-stream';
+            const checksum = typeof record.checksum === 'string' ? record.checksum : '';
+            const bucket = typeof record.bucket === 'string' ? record.bucket : '';
+            const objectKey = typeof record.objectKey === 'string' ? record.objectKey : '';
+
+            return { id, name, size, mime, checksum, bucket, objectKey };
+          }
+
+          return null;
+        })
+        .filter((item): item is SubmissionFile => Boolean(item))
     : undefined;
 
   return {

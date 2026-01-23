@@ -864,7 +864,7 @@ async function main(): Promise<void> {
     },
   ];
 
-  await Promise.all(
+  const files = await Promise.all(
     fileSeeds.map((seed) => {
       const owner = userByEmail.get(seed.ownerEmail);
       if (!owner) {
@@ -885,6 +885,147 @@ async function main(): Promise<void> {
       });
     })
   );
+
+  const fileByKey = new Map(files.map((file) => [file.objectKey, file]));
+
+  console.info("Creating IELTS file submissions with metadata...");
+  const fileSubmissionSeeds: Array<{
+    assignmentTitle: string;
+    studentEmail: string;
+    fileKey: string;
+    submittedOffsetDays: number;
+    status: SubmissionStatus;
+    version?: number;
+    graderEmail?: string;
+    rawScore?: number;
+    finalScore?: number;
+    feedback?: string;
+    adjustments?: Prisma.InputJsonArray;
+  }> = [
+    {
+      assignmentTitle: "Data Interpretation Task 1: Global Energy Mix",
+      studentEmail: "amelia.chan@ielts.local",
+      fileKey: "writing/technology-society/amelia.pdf",
+      submittedOffsetDays: -1,
+      status: SubmissionStatus.graded,
+      version: 1,
+      graderEmail: "sarah.tutor@ielts.local",
+      rawScore: 7.5,
+      finalScore: 7.0,
+      feedback:
+        "Solid comparisons and structure. Tighten the conclusion to keep it concise for a higher band.",
+    },
+    {
+      assignmentTitle: "Part 3 Discussion: Urban Living",
+      studentEmail: "fatima.ahmed@ielts.local",
+      fileKey: "speaking/cue-card/fatima.mp3",
+      submittedOffsetDays: -2,
+      status: SubmissionStatus.submitted,
+      version: 1,
+    },
+    {
+      assignmentTitle: "Section 3 University Projects",
+      studentEmail: "diego.rojas@ielts.local",
+      fileKey: "writing/general-letter/diego.docx",
+      submittedOffsetDays: -1,
+      status: SubmissionStatus.graded,
+      version: 2,
+      graderEmail: "david.tutor@ielts.local",
+      rawScore: 7.0,
+      finalScore: 7.0,
+      feedback:
+        "Clear answers with improved accuracy. Keep practicing paraphrasing to push into Band 8.",
+    },
+    {
+      assignmentTitle: "Listening Mock Test: Band 7 Target",
+      studentEmail: "li.huang@ielts.local",
+      fileKey: "listening/section3/li-answer-sheet.pdf",
+      submittedOffsetDays: 13,
+      status: SubmissionStatus.late,
+      version: 1,
+      graderEmail: "sarah.tutor@ielts.local",
+      rawScore: 6.5,
+      finalScore: 6.0,
+      feedback:
+        "Good overall accuracy, but late submission reduced the final score. Review section 4 detail traps.",
+      adjustments: [{ reason: "late_submission", delta: -0.5 }] as Prisma.InputJsonArray,
+    },
+  ];
+
+  for (const seed of fileSubmissionSeeds) {
+    const assignment = assignmentByTitle.get(seed.assignmentTitle);
+    if (!assignment) {
+      throw new Error(`Missing assignment for file submission ${seed.assignmentTitle}`);
+    }
+    const student = userByEmail.get(seed.studentEmail);
+    if (!student) {
+      throw new Error(`Missing user for file submission ${seed.assignmentTitle}`);
+    }
+    const file = fileByKey.get(seed.fileKey);
+    if (!file) {
+      throw new Error(`Missing file for file submission ${seed.fileKey}`);
+    }
+
+    const name =
+      file.objectKey.split("/").pop() ?? file.objectKey;
+
+    const payload: Prisma.InputJsonObject = {
+      studentName: student.fullName,
+      version: seed.version ?? 1,
+      files: [
+        {
+          id: file.id,
+          name,
+          size: file.size,
+          mime: file.mime,
+          checksum: file.checksum,
+          bucket: file.bucket,
+          objectKey: file.objectKey,
+        },
+      ],
+    };
+
+    const submission = await prisma.submission.create({
+      data: {
+        assignmentId: assignment.id,
+        studentId: student.id,
+        status: seed.status,
+        submittedAt: daysFromNow(seed.submittedOffsetDays),
+        payload,
+      },
+    });
+
+    submissions.push(submission);
+
+    if (seed.graderEmail && seed.rawScore !== undefined && seed.finalScore !== undefined) {
+      const grader = userByEmail.get(seed.graderEmail);
+      if (!grader) {
+        throw new Error(`Missing grader for file submission ${seed.assignmentTitle}`);
+      }
+
+      const rubricBreakdown: Prisma.InputJsonArray = [
+        { criterion: "Task Achievement", points: seed.finalScore >= 7 ? 7 : 6 },
+        { criterion: "Coherence & Cohesion", points: seed.finalScore },
+        { criterion: "Lexical Resource", points: seed.finalScore },
+        { criterion: "Grammatical Range & Accuracy", points: seed.finalScore - 0.5 },
+      ];
+
+      const gradedOffsetDays = Math.min(seed.submittedOffsetDays + 1, 0);
+
+      await prisma.grade.create({
+        data: {
+          submissionId: submission.id,
+          graderId: grader.id,
+          rubricBreakdown,
+          rawScore: new Prisma.Decimal(seed.rawScore),
+          adjustments: seed.adjustments ?? [],
+          finalScore: new Prisma.Decimal(seed.finalScore),
+          feedback: seed.feedback ?? null,
+          gradedAt: daysFromNow(gradedOffsetDays),
+        },
+      });
+    }
+  }
 
   console.info("Creating IELTS auth sessions...");
   const sessionSeeds: Array<{

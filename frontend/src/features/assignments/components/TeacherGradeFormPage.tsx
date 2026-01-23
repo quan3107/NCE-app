@@ -123,10 +123,10 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
                     <p className="text-sm whitespace-pre-wrap">{submission.content}</p>
                   </div>
                 )}
-                {submission.files && submission.files.map((file, i) => (
-                  <div key={i} className="flex items-center gap-2 p-3 border rounded-lg">
+                {submission.files && submission.files.map((file) => (
+                  <div key={file.id} className="flex items-center gap-2 p-3 border rounded-lg">
                     <FileText className="size-5 text-muted-foreground" />
-                    <span className="flex-1">{file}</span>
+                    <span className="flex-1">{file.name}</span>
                     <Button variant="ghost" size="sm">
                       <Download className="size-4" />
                     </Button>
@@ -230,10 +230,10 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
               className="w-full"
               size="lg"
               onClick={handleSubmit}
-              disabled={upsertGradeMutation.isLoading}
+              disabled={upsertGradeMutation.isPending}
             >
               <Send className="mr-2 size-4" />
-              {upsertGradeMutation.isLoading ? 'Posting...' : 'Post Grade'}
+              {upsertGradeMutation.isPending ? 'Posting...' : 'Post Grade'}
             </Button>
           </div>
         </div>

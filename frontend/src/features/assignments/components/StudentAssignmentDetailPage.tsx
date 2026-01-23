@@ -14,9 +14,9 @@ import { PageHeader } from '@components/common/PageHeader';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
 import { Clock, FileText, CheckCircle2, AlertCircle, Info } from 'lucide-react';
-import { formatDate } from '@lib/utils';
+import { formatDate, formatFileSize } from '@lib/utils';
 import { toast } from 'sonner@2.0.3';
-import { Submission } from '@lib/mock-data';
+import type { Submission, SubmissionFile } from '@lib/mock-data';
 import { useAssignmentResources, useCreateSubmissionMutation } from '@features/assignments/api';
 import { StudentAssignmentSubmitDialog } from '@features/assignments/components/StudentAssignmentSubmitDialog';
 import { StudentAssignmentSidebar } from '@features/assignments/components/StudentAssignmentSidebar';
@@ -28,6 +28,8 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [submissionContent, setSubmissionContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadBusy, setIsUploadBusy] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<SubmissionFile[]>([]);
   const [localSubmission, setLocalSubmission] = useState<Submission | null>(null);
   const createSubmissionMutation = useCreateSubmissionMutation();
 
@@ -42,7 +44,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
@@ -55,7 +56,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       </div>
     );
   }
-
   const assignment = assignments.find(a => a.id === assignmentId);
   const submission = useMemo(
     () =>
@@ -64,7 +64,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       ) ?? localSubmission,
     [assignmentId, currentUser?.id, localSubmission, submissions],
   );
-
   if (!assignment) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -75,28 +74,31 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       </div>
     );
   }
-
   const dueDate = new Date(assignment.dueAt);
   const now = new Date();
   const isOverdue = dueDate < now && !submission;
   const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
   const isDueSoon = hoursUntilDue <= 48 && hoursUntilDue > 0;
-
+  const canResubmit = Boolean(submission && submission.status !== 'graded');
   const handleSubmit = async () => {
     if (!currentUser?.id) {
       toast.error('Unable to submit without a student account.');
       return;
     }
-
     if ((assignment.type === 'text' || assignment.type === 'link') && !submissionContent.trim()) {
       toast.error('Please add your submission before sending.');
       return;
     }
-
+    if (assignment.type === 'file' && uploadedFiles.length === 0) {
+      toast.error('Please upload at least one file before submitting.');
+      return;
+    }
     setIsSubmitting(true);
 
+    const nextVersion = submission ? submission.version + 1 : 1;
     const payloadRecord: Record<string, unknown> = {
       studentName: currentUser.name || 'Student',
+      version: nextVersion,
     };
 
     if (assignment.type === 'text') {
@@ -105,8 +107,8 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
     if (assignment.type === 'link') {
       payloadRecord.link = submissionContent.trim();
     }
-    if (assignment.type === 'file') {
-      payloadRecord.files = [];
+    if (uploadedFiles.length > 0) {
+      payloadRecord.files = uploadedFiles;
     }
 
     try {
@@ -116,7 +118,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
           studentId: currentUser.id,
           payload: payloadRecord,
           submittedAt: new Date().toISOString(),
-          status: isOverdue ? 'late' : 'submitted',
+          status: dueDate < now ? 'late' : 'submitted',
         },
       });
 
@@ -128,15 +130,18 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
         status: response.status,
         submittedAt: response.submittedAt ? new Date(response.submittedAt) : new Date(),
         content: typeof payloadRecord.content === 'string' ? payloadRecord.content : undefined,
-        files: Array.isArray(payloadRecord.files) ? (payloadRecord.files as string[]) : undefined,
-        version: 1,
+        files: Array.isArray(payloadRecord.files)
+          ? (payloadRecord.files as SubmissionFile[])
+          : undefined,
+        version: nextVersion,
       };
 
       setLocalSubmission(nextSubmission);
       setSubmissionContent('');
+      setUploadedFiles([]);
+      setIsUploadBusy(false);
       toast.success('Assignment submitted successfully!');
       setShowSubmitDialog(false);
-      navigate('/student/assignments');
     } catch (errorValue) {
       toast.error(
         errorValue instanceof Error ? errorValue.message : 'Unable to submit assignment.',
@@ -161,6 +166,10 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
             <Button onClick={() => setShowSubmitDialog(true)} disabled={isOverdue}>
               {isOverdue ? 'Past Due' : 'Submit Assignment'}
             </Button>
+          ) : canResubmit ? (
+            <Button variant="outline" onClick={() => setShowSubmitDialog(true)}>
+              Resubmit Assignment
+            </Button>
           ) : (
             <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-200">
               <CheckCircle2 className="size-4 mr-2" />
@@ -169,10 +178,8 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
           )
         }
       />
-
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-5xl mx-auto space-y-6">
-          {/* Status Alert */}
           {isOverdue && (
             <Alert variant="destructive">
               <AlertCircle className="size-4" />
@@ -181,7 +188,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
               </AlertDescription>
             </Alert>
           )}
-
           {isDueSoon && !submission && (
             <Alert>
               <Clock className="size-4" />
@@ -190,7 +196,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
               </AlertDescription>
             </Alert>
           )}
-
           {submission && (
             <Alert className="bg-green-500/10 border-green-200">
               <CheckCircle2 className="size-4 text-green-700" />
@@ -200,9 +205,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
               </AlertDescription>
             </Alert>
           )}
-
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Main Content */}
             <div className="lg:col-span-2 space-y-6">
               {/* Assignment Details */}
               <Card>
@@ -226,8 +229,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Submission History */}
               {submission && (
                 <Card>
                   <CardHeader>
@@ -246,10 +247,15 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
                         <div>
                           <Label>Files</Label>
                           <div className="mt-2 space-y-2">
-                            {submission.files.map((file, i) => (
-                              <div key={i} className="flex items-center gap-2 text-sm">
+                            {submission.files.map((file) => (
+                              <div key={file.id} className="flex items-center gap-2 text-sm">
                                 <FileText className="size-4 text-muted-foreground" />
-                                <span>{file}</span>
+                                <div>
+                                  <p className="font-medium">{file.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatFileSize(file.size)} · {file.mime}
+                                  </p>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -266,7 +272,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
                 </Card>
               )}
             </div>
-
             <StudentAssignmentSidebar
               assignment={assignment}
               dueDate={dueDate}
@@ -280,14 +285,16 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
         assignment={assignment}
         isOpen={showSubmitDialog}
         isSubmitting={isSubmitting}
+        isUploadBusy={isUploadBusy}
         submissionContent={submissionContent}
+        uploadedFiles={uploadedFiles}
         onOpenChange={setShowSubmitDialog}
         onSubmissionContentChange={setSubmissionContent}
+        onUploadedFilesChange={setUploadedFiles}
+        onUploadBusyChange={setIsUploadBusy}
         onSubmit={handleSubmit}
       />
     </div>
   );
 }
-
-
 

@@ -34,6 +34,16 @@ export type AssignmentType = 'file' | 'link' | 'text' | 'quiz';
 export type AssignmentStatus = 'draft' | 'published' | 'archived';
 export type SubmissionStatus = 'not_submitted' | 'draft' | 'submitted' | 'late' | 'graded';
 
+export type SubmissionFile = {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  checksum: string;
+  bucket: string;
+  objectKey: string;
+};
+
 export type Assignment = {
   id: string;
   title: string;
@@ -56,7 +66,7 @@ export type Submission = {
   status: SubmissionStatus;
   submittedAt?: Date;
   content?: string;
-  files?: string[];
+  files?: SubmissionFile[];
   version: number;
 };
 
@@ -241,7 +251,17 @@ export const mockSubmissions: Submission[] = [
     studentName: 'Sarah Anderson',
     status: 'submitted',
     submittedAt: new Date('2025-10-11T20:30:00+07:00'),
-    files: ['writing_task2_environmental.pdf'],
+    files: [
+      {
+        id: 'file-s1-1',
+        name: 'writing_task2_environmental.pdf',
+        size: 824576,
+        mime: 'application/pdf',
+        checksum: 'mock-checksum-s1',
+        bucket: 'nce-mock-uploads',
+        objectKey: 'uploads/mock/writing_task2_environmental.pdf',
+      },
+    ],
     version: 1,
   },
   {
@@ -251,7 +271,17 @@ export const mockSubmissions: Submission[] = [
     studentName: 'Sarah Anderson',
     status: 'graded',
     submittedAt: new Date('2025-10-09T16:45:00+07:00'),
-    files: ['speaking_part2_memorable_event.mp4'],
+    files: [
+      {
+        id: 'file-s2-1',
+        name: 'speaking_part2_memorable_event.m4a',
+        size: 2485760,
+        mime: 'audio/mp4',
+        checksum: 'mock-checksum-s2',
+        bucket: 'nce-mock-uploads',
+        objectKey: 'uploads/mock/speaking_part2_memorable_event.m4a',
+      },
+    ],
     version: 1,
   },
   {
@@ -261,7 +291,17 @@ export const mockSubmissions: Submission[] = [
     studentName: 'Michael Lee',
     status: 'late',
     submittedAt: new Date('2025-10-08T16:00:00+07:00'),
-    files: ['listening_section3_answers.pdf'],
+    files: [
+      {
+        id: 'file-s3-1',
+        name: 'listening_section3_answers.pdf',
+        size: 512000,
+        mime: 'application/pdf',
+        checksum: 'mock-checksum-s3',
+        bucket: 'nce-mock-uploads',
+        objectKey: 'uploads/mock/listening_section3_answers.pdf',
+      },
+    ],
     version: 1,
   },
   {
@@ -271,7 +311,17 @@ export const mockSubmissions: Submission[] = [
     studentName: 'Priya Sharma',
     status: 'submitted',
     submittedAt: new Date('2025-10-12T22:00:00+07:00'),
-    files: ['environmental_essay_final.docx'],
+    files: [
+      {
+        id: 'file-s4-1',
+        name: 'environmental_essay_final.docx',
+        size: 1048576,
+        mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        checksum: 'mock-checksum-s4',
+        bucket: 'nce-mock-uploads',
+        objectKey: 'uploads/mock/environmental_essay_final.docx',
+      },
+    ],
     version: 2,
   },
   {
@@ -281,7 +331,17 @@ export const mockSubmissions: Submission[] = [
     studentName: 'Sarah Anderson',
     status: 'graded',
     submittedAt: new Date('2025-10-10T15:30:00+07:00'),
-    files: ['writing_task1_line_graph.pdf'],
+    files: [
+      {
+        id: 'file-s5-1',
+        name: 'writing_task1_line_graph.pdf',
+        size: 945120,
+        mime: 'application/pdf',
+        checksum: 'mock-checksum-s5',
+        bucket: 'nce-mock-uploads',
+        objectKey: 'uploads/mock/writing_task1_line_graph.pdf',
+      },
+    ],
     version: 1,
   },
 ];

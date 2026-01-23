@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 /**
  * Location: tests/queryClient.test.ts
  * Purpose: Validate query client cache behavior and API helper wiring.
@@ -6,14 +7,15 @@
 
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import type * as ApiModule from '../src/features/courses/management/api';
-import type * as QueryClientModule from '../src/lib/queryClient';
+type AddCourseStudent = typeof import('../src/features/courses/management/api').addCourseStudent;
+type CourseStudentsKey = typeof import('../src/features/courses/management/api').courseStudentsKey;
+type QueryClientInstance = typeof import('../src/lib/queryClient').queryClient;
 
 const API_BASE_URL = 'http://localhost:4000/api/v1';
 
-let addCourseStudent: ApiModule['addCourseStudent'];
-let courseStudentsKey: ApiModule['courseStudentsKey'];
-let queryClient: QueryClientModule['queryClient'];
+let addCourseStudent: AddCourseStudent;
+let courseStudentsKey: CourseStudentsKey;
+let queryClient: QueryClientInstance;
 
 before(async () => {
   if (typeof process !== 'undefined' && process.env) {
@@ -37,8 +39,16 @@ test('caches fetch results until invalidated', async () => {
     return { value: Math.random() };
   };
 
-  const first = await queryClient.fetchQuery('sample:key', fetcher);
-  const second = await queryClient.fetchQuery('sample:key', fetcher);
+  const first = await queryClient.fetchQuery({
+    queryKey: ['sample', 'key'],
+    queryFn: fetcher,
+    staleTime: Infinity,
+  });
+  const second = await queryClient.fetchQuery({
+    queryKey: ['sample', 'key'],
+    queryFn: fetcher,
+    staleTime: Infinity,
+  });
 
   assert.deepEqual(second, first);
   assert.equal(callCount, 1);
@@ -48,28 +58,36 @@ test('subscription receives updates when query data changes', () => {
   queryClient.clear();
   let triggered = 0;
 
-  const unsubscribe = queryClient.subscribe('notify:key', () => {
-    triggered += 1;
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+    if (event?.query?.queryKey?.[0] === 'notify') {
+      triggered += 1;
+    }
   });
 
-  queryClient.setQueryData('notify:key', { ready: true });
+  queryClient.setQueryData(['notify', 'key'], { ready: true });
+  const triggeredAfterFirst = triggered;
   unsubscribe();
-  queryClient.setQueryData('notify:key', { ready: false });
+  queryClient.setQueryData(['notify', 'key'], { ready: false });
 
-  assert.equal(triggered, 1);
+  assert.ok(triggeredAfterFirst >= 1);
+  assert.equal(triggered, triggeredAfterFirst);
 });
 
 test('invalidatePrefix clears matching entries', () => {
   queryClient.clear();
-  queryClient.setQueryData('user:1', { id: 1 });
-  queryClient.setQueryData('user:2', { id: 2 });
-  queryClient.setQueryData('course:1', { id: 'course-1' });
+  queryClient.setQueryData(['user', '1'], { id: 1 });
+  queryClient.setQueryData(['user', '2'], { id: 2 });
+  queryClient.setQueryData(['course', '1'], { id: 'course-1' });
 
-  queryClient.invalidatePrefix('user:');
+  queryClient.removeQueries({
+    predicate: (query) =>
+      typeof query.queryKey[0] === 'string' &&
+      (query.queryKey[0] as string).startsWith('user'),
+  });
 
-  assert.equal(queryClient.getQueryData('user:1'), undefined);
-  assert.equal(queryClient.getQueryData('user:2'), undefined);
-  assert.deepEqual(queryClient.getQueryData('course:1'), { id: 'course-1' });
+  assert.equal(queryClient.getQueryData(['user', '1']), undefined);
+  assert.equal(queryClient.getQueryData(['user', '2']), undefined);
+  assert.deepEqual(queryClient.getQueryData(['course', '1']), { id: 'course-1' });
 });
 
 test('addCourseStudent posts to backend and updates roster cache', async () => {
