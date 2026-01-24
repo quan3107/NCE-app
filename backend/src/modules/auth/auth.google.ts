@@ -4,6 +4,7 @@
  * Why: Keeps controller-facing Google auth entry points compact and focused.
  */
 import { prisma } from "../../config/prismaClient.js";
+import { runWithRole } from "../../prisma/client.js";
 import { googleAuthCallbackSchema } from "./auth.schema.js";
 import { createAuthError } from "./auth.errors.js";
 import { generateRefreshToken, timingSafeMatch } from "./auth.crypto.js";
@@ -32,55 +33,57 @@ export async function completeGoogleAuthorization(
   query: unknown,
   options: CompleteGoogleAuthorizationOptions,
 ): Promise<AuthSessionResult> {
-  const { redirectUri, expectedState, codeVerifier, context } = options;
+  return runWithRole({ role: "service_role", userRole: "service_role" }, async () => {
+    const { redirectUri, expectedState, codeVerifier, context } = options;
 
-  assertValidRedirectUri(redirectUri);
+    assertValidRedirectUri(redirectUri);
 
-  const { code, state } = googleAuthCallbackSchema.parse(query);
+    const { code, state } = googleAuthCallbackSchema.parse(query);
 
-  if (!expectedState || !timingSafeMatch(expectedState, state)) {
-    throw createAuthError(
-      400,
-      "Google sign-in state is invalid or expired. Please try again.",
-    );
-  }
+    if (!expectedState || !timingSafeMatch(expectedState, state)) {
+      throw createAuthError(
+        400,
+        "Google sign-in state is invalid or expired. Please try again.",
+      );
+    }
 
-  assertValidCodeVerifier(codeVerifier);
+    assertValidCodeVerifier(codeVerifier);
 
-  const profile = await fetchGoogleProfile({
-    code,
-    redirectUri,
-    codeVerifier,
-  });
-
-  const identityRecord = await findOrCreateGoogleIdentity(profile);
-
-  const finalUser = identityRecord.user;
-  assertUserIsActive(finalUser);
-
-  if (profile.emailVerified && !identityRecord.emailVerified) {
-    await prisma.identity.update({
-      where: { id: identityRecord.id },
-      data: {
-        emailVerified: true,
-      },
+    const profile = await fetchGoogleProfile({
+      code,
+      redirectUri,
+      codeVerifier,
     });
-  }
 
-  const refreshToken = generateRefreshToken();
-  const session = await persistSession(finalUser.id, refreshToken, {
-    ...context,
+    const identityRecord = await findOrCreateGoogleIdentity(profile);
+
+    const finalUser = identityRecord.user;
+    assertUserIsActive(finalUser);
+
+    if (profile.emailVerified && !identityRecord.emailVerified) {
+      await prisma.identity.update({
+        where: { id: identityRecord.id },
+        data: {
+          emailVerified: true,
+        },
+      });
+    }
+
+    const refreshToken = generateRefreshToken();
+    const session = await persistSession(finalUser.id, refreshToken, {
+      ...context,
+    });
+
+    const accessToken = signAccessToken({
+      userId: finalUser.id,
+      role: finalUser.role,
+    });
+
+    return {
+      user: toAuthenticatedUser(finalUser),
+      accessToken,
+      refreshToken: session.refreshToken,
+      refreshTokenExpiresAt: session.expiresAt,
+    };
   });
-
-  const accessToken = signAccessToken({
-    userId: finalUser.id,
-    role: finalUser.role,
-  });
-
-  return {
-    user: toAuthenticatedUser(finalUser),
-    accessToken,
-    refreshToken: session.refreshToken,
-    refreshTokenExpiresAt: session.expiresAt,
-  };
 }
