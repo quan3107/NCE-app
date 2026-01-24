@@ -3,163 +3,22 @@
  * Purpose: Implement course read/query operations for controllers.
  * Why: Separates list/detail logic from enrollment actions while keeping files under guideline limits.
  */
-import { EnrollmentRole, UserRole, UserStatus } from "@prisma/client";
+import { EnrollmentRole, UserRole } from "@prisma/client";
 
 import { prisma } from "../../config/prismaClient.js";
 import { courseIdParamsSchema } from "./courses.schema.js";
 import { canManageCourse, createHttpError } from "./courses.shared.js";
+import {
+  type CourseWithRelations,
+  type PublicCourseRow,
+  toCourseSummary,
+  toPublicCourseSummary,
+} from "./courses.read.helpers.js";
 import type {
   CourseDetailResponse,
   CourseListResponse,
   CourseManager,
-  CourseMetrics,
-  CourseMetadata,
-  CourseSchedule,
-  CourseSummary,
 } from "./courses.types.js";
-
-type CourseWithRelations = {
-  id: string;
-  title: string;
-  description: string | null;
-  scheduleJson: unknown;
-  ownerId: string;
-  owner: {
-    id: string;
-    fullName: string;
-    email: string;
-  };
-  enrollments: Array<{
-    roleInCourse: EnrollmentRole;
-    userId: string;
-    user: {
-      status: UserStatus;
-    };
-  }>;
-  _count: {
-    assignments: number;
-    rubrics: number;
-  };
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type ParsedCourseConfig = {
-  schedule: CourseSchedule | null;
-  metadata: CourseMetadata;
-};
-
-const readString = (
-  source: Record<string, unknown>,
-  keys: string[],
-): string | null => {
-  for (const key of keys) {
-    const candidate = source[key];
-    if (typeof candidate === "string" && candidate.trim().length > 0) {
-      return candidate;
-    }
-  }
-  return null;
-};
-
-const readNumber = (
-  source: Record<string, unknown>,
-  keys: string[],
-): number | null => {
-  for (const key of keys) {
-    const candidate = source[key];
-    if (typeof candidate === "number" && Number.isFinite(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-};
-
-const parseCourseConfig = (value: unknown): ParsedCourseConfig => {
-  const fallbackMetadata: CourseMetadata = {
-    duration: null,
-    level: null,
-    price: null,
-  };
-
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {
-      schedule: null,
-      metadata: fallbackMetadata,
-    };
-  }
-
-  const record = value as Record<string, unknown>;
-
-  const schedule: CourseSchedule = {
-    cadence: readString(record, ["cadence"]),
-    startTime: readString(record, ["start_time", "startTime"]),
-    durationMinutes: readNumber(record, ["duration_minutes", "durationMinutes"]),
-    timeZone: readString(record, ["time_zone", "timeZone"]),
-    format: readString(record, ["format"]),
-    label: readString(record, ["label", "schedule_label"]),
-  };
-
-  const hasScheduleValue = Object.values(schedule).some(
-    (entry) => entry !== null,
-  );
-
-  const metadata: CourseMetadata = {
-    duration: readString(record, [
-      "duration",
-      "duration_label",
-      "durationLabel",
-      "duration_weeks",
-    ]),
-    level: readString(record, ["level"]),
-    price: readNumber(record, ["price", "tuition"]),
-  };
-
-  return {
-    schedule: hasScheduleValue ? schedule : null,
-    metadata,
-  };
-};
-
-const courseMetricsFromEnrollments = (
-  course: CourseWithRelations,
-): CourseMetrics => {
-  const metrics: CourseMetrics = {
-    activeStudentCount: 0,
-    invitedStudentCount: 0,
-    teacherCount: 0,
-    assignmentCount: course._count.assignments,
-    rubricCount: course._count.rubrics,
-  };
-
-  for (const enrollment of course.enrollments) {
-    if (enrollment.roleInCourse === EnrollmentRole.student) {
-      if (enrollment.user.status === UserStatus.invited) {
-        metrics.invitedStudentCount += 1;
-      } else {
-        metrics.activeStudentCount += 1;
-      }
-      continue;
-    }
-
-    if (enrollment.roleInCourse === EnrollmentRole.teacher) {
-      metrics.teacherCount += 1;
-    }
-  }
-
-  return metrics;
-};
-
-const toCourseSummary = (course: CourseWithRelations): CourseSummary => ({
-  id: course.id,
-  title: course.title,
-  description: course.description,
-  ...parseCourseConfig(course.scheduleJson),
-  owner: course.owner,
-  metrics: courseMetricsFromEnrollments(course),
-  createdAt: course.createdAt.toISOString(),
-  updatedAt: course.updatedAt.toISOString(),
-});
 
 const teacherCanAccess = (
   course: CourseWithRelations,
@@ -174,9 +33,36 @@ const teacherCanAccess = (
 export async function listCourses(
   actor?: CourseManager,
 ): Promise<CourseListResponse> {
+  if (!actor) {
+    const courses = await prisma.$queryRaw<PublicCourseRow[]>`
+      select
+        id,
+        title,
+        description,
+        schedule_json as "scheduleJson",
+        owner_teacher_id as "ownerId",
+        owner_name as "ownerName",
+        active_student_count as "activeStudentCount",
+        invited_student_count as "invitedStudentCount",
+        teacher_count as "teacherCount",
+        assignment_count as "assignmentCount",
+        rubric_count as "rubricCount",
+        learning_outcomes as "learningOutcomes",
+        structure_summary as "structureSummary",
+        prerequisites_summary as "prerequisitesSummary",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      from public.courses_public
+      order by created_at desc
+    `;
+
+    return {
+      courses: courses.map(toPublicCourseSummary),
+    };
+  }
+
   const baseWhere = { deletedAt: null };
-  // Public requests surface all active courses for marketing browse views.
-  // Students should only see courses they are enrolled in, while teachers retain owner/teacher visibility and admins see everything.
+  // Authenticated requests scope courses by role, while admins see everything.
   const where =
     !actor || actor.role === UserRole.admin
       ? baseWhere
@@ -215,6 +101,9 @@ export async function listCourses(
       title: true,
       description: true,
       scheduleJson: true,
+      learningOutcomes: true,
+      structureSummary: true,
+      prerequisitesSummary: true,
       ownerId: true,
       owner: {
         select: {
@@ -276,6 +165,9 @@ export async function getCourseById(
       title: true,
       description: true,
       scheduleJson: true,
+      learningOutcomes: true,
+      structureSummary: true,
+      prerequisitesSummary: true,
       ownerId: true,
       owner: {
         select: {
