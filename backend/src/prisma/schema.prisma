@@ -10,6 +10,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -32,6 +33,7 @@ model User {
   updatedAt     DateTime       @updatedAt @db.Timestamptz
   deletedAt     DateTime?      @db.Timestamptz
 
+  @@index([deletedAt, createdAt], map: "users_deletedAt_createdAt_idx")
   @@map("users")
 }
 
@@ -52,6 +54,7 @@ model Course {
   updatedAt    DateTime     @updatedAt @db.Timestamptz
   deletedAt    DateTime?    @db.Timestamptz
 
+  @@index([deletedAt, createdAt], map: "courses_deletedAt_createdAt_idx")
   @@index([ownerId])
   @@map("courses")
 }
@@ -68,7 +71,8 @@ model Enrollment {
   deletedAt    DateTime?      @db.Timestamptz
 
   @@unique([courseId, userId])
-  @@index([userId, roleInCourse])
+  @@index([userId, roleInCourse, deletedAt], map: "enrollments_user_id_role_in_course_deletedAt_idx")
+  @@index([courseId, roleInCourse, deletedAt, createdAt], map: "enrollments_course_id_role_in_course_deletedAt_createdAt_idx")
   @@map("enrollments")
 }
 
@@ -87,7 +91,9 @@ model Assignment {
   updatedAt   DateTime       @updatedAt @db.Timestamptz
   deletedAt   DateTime?      @db.Timestamptz
 
+  @@index([courseId, deletedAt, createdAt], map: "assignments_course_id_deletedAt_createdAt_idx")
   @@index([courseId, dueAt])
+  @@index([deletedAt, dueAt], map: "assignments_deletedAt_due_at_idx")
   @@map("assignments")
 }
 
@@ -101,6 +107,7 @@ model Rubric {
   updatedAt DateTime  @updatedAt @db.Timestamptz
   deletedAt DateTime? @db.Timestamptz
 
+  @@index([courseId, deletedAt, createdAt], map: "rubrics_course_id_deletedAt_createdAt_idx")
   @@index([courseId])
   @@map("rubrics")
 }
@@ -120,6 +127,8 @@ model Submission {
   deletedAt    DateTime?        @db.Timestamptz
 
   @@unique([assignmentId, studentId])
+  @@index([assignmentId, deletedAt, createdAt], map: "submissions_assignment_id_deletedAt_createdAt_idx")
+  @@index([assignmentId, status, deletedAt], map: "submissions_assignment_id_status_deletedAt_idx")
   @@index([studentId, status])
   @@map("submissions")
 }
@@ -159,6 +168,9 @@ model Notification {
   updatedAt DateTime            @updatedAt @db.Timestamptz
   deletedAt DateTime?           @db.Timestamptz
 
+  @@index([userId, deletedAt, createdAt], map: "notifications_user_id_deletedAt_createdAt_idx")
+  @@index([status, deletedAt, createdAt], map: "notifications_status_deletedAt_createdAt_idx")
+  @@index([userId, readAt, deletedAt], map: "notifications_user_id_read_at_deletedAt_idx")
   @@index([userId, status, sentAt])
   @@map("notifications")
 }
@@ -193,6 +205,7 @@ model AuthSession {
   updatedAt        DateTime  @updatedAt @db.Timestamptz
   deletedAt        DateTime? @db.Timestamptz
 
+  @@index([refreshTokenHash, revokedAt], map: "auth_sessions_refresh_token_hash_revoked_at_idx")
   @@index([userId, expiresAt])
   @@map("auth_sessions")
 }
@@ -228,6 +241,7 @@ model AuditLog {
   updatedAt DateTime  @updatedAt @db.Timestamptz
   deletedAt DateTime? @db.Timestamptz
 
+  @@index([deletedAt, createdAt, id], map: "audit_logs_deletedAt_createdAt_id_idx")
   @@index([actorId, createdAt])
   @@index([entity, entityId])
   @@map("audit_logs")
