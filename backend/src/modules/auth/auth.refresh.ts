@@ -3,116 +3,119 @@
  * Purpose: Refresh and revoke auth sessions using refresh tokens.
  * Why: Centralizes refresh/logout flow handling outside password and OAuth modules.
  */
-import { prisma } from "../../config/prismaClient.js";
-import { runWithRole } from "../../prisma/client.js";
-import { refreshSessionSchema } from "./auth.schema.js";
-import { createAuthError } from "./auth.errors.js";
-import { generateRefreshToken, hashValue } from "./auth.crypto.js";
-import { rotateSession } from "./auth.sessions.js";
-import { assertActiveUser, toAuthenticatedUser } from "./auth.users.js";
-import { signAccessToken } from "./auth.tokens.js";
-import type { AuthSessionResult, SessionContext } from "./auth.types.js";
+import { prisma } from '../../config/prismaClient.js'
+import { runWithRole } from '../../prisma/client.js'
+import { refreshSessionSchema } from './auth.schema.js'
+import { createAuthError } from './auth.errors.js'
+import { generateRefreshToken, hashValue } from './auth.crypto.js'
+import { rotateSession } from './auth.sessions.js'
+import { assertActiveUser, toAuthenticatedUser } from './auth.users.js'
+import { signAccessToken } from './auth.tokens.js'
+import type { AuthSessionResult, SessionContext } from './auth.types.js'
 
 export async function handleSessionRefresh(
   payload: unknown,
   context: SessionContext,
 ): Promise<AuthSessionResult> {
-  return runWithRole({ role: "service_role", userRole: "service_role" }, async () => {
-    const parsed = refreshSessionSchema.safeParse(payload);
-
+  const parsed = refreshSessionSchema.safeParse(payload)
   const refreshToken =
-    typeof context.refreshToken === "string" && context.refreshToken.length > 0
+    typeof context.refreshToken === 'string' && context.refreshToken.length > 0
       ? context.refreshToken
       : parsed.success
         ? parsed.data.refreshToken
-        : null;
+        : null
 
-    if (!refreshToken) {
-      throw createAuthError(401, "Refresh token is missing.");
-    }
+  if (!refreshToken) {
+    throw createAuthError(401, 'Refresh token is missing.')
+  }
 
-    const now = new Date();
-    const refreshTokenHash = hashValue(refreshToken);
+  const now = new Date()
+  const refreshTokenHash = hashValue(refreshToken)
+  const nextRefreshToken = generateRefreshToken()
 
-    const session = await prisma.authSession.findFirst({
-      where: {
-        refreshTokenHash,
-        revokedAt: null,
-        expiresAt: {
-          gt: now,
+  const { rotated, user } = await runWithRole(
+    { role: 'service_role', userRole: 'service_role' },
+    async () => {
+      const session = await prisma.authSession.findFirst({
+        where: {
+          refreshTokenHash,
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
         },
-      },
-      select: {
-        id: true,
-        userId: true,
-      },
-    });
-
-    if (!session) {
-      throw createAuthError(401, "Refresh token is invalid or expired.");
-    }
-
-    const user = await prisma.user.findFirst({
-      where: { id: session.userId, deletedAt: null },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        status: true,
-        password: true,
-      },
-    });
-
-    if (!user) {
-      await prisma.authSession.update({
-        where: { id: session.id },
-        data: {
-          revokedAt: now,
+        select: {
+          id: true,
+          userId: true,
         },
-      });
-      throw createAuthError(401, "Account is no longer available.");
-    }
+      })
 
-    assertActiveUser(user, { requirePassword: false });
+      if (!session) {
+        throw createAuthError(401, 'Refresh token is invalid or expired.')
+      }
 
-    const nextRefreshToken = generateRefreshToken();
-    const rotated = await rotateSession(session.id, nextRefreshToken, context);
+      const user = await prisma.user.findFirst({
+        where: { id: session.userId, deletedAt: null },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          status: true,
+          password: true,
+        },
+      })
 
-    const accessToken = signAccessToken({
-      userId: user.id,
-      role: user.role,
-    });
+      if (!user) {
+        await prisma.authSession.update({
+          where: { id: session.id },
+          data: {
+            revokedAt: now,
+          },
+        })
+        throw createAuthError(401, 'Account is no longer available.')
+      }
 
-    return {
-      user: toAuthenticatedUser(user),
-      accessToken,
-      refreshToken: rotated.refreshToken,
-      refreshTokenExpiresAt: rotated.expiresAt,
-    };
-  });
+      assertActiveUser(user, { requirePassword: false })
+
+      const rotated = await rotateSession(session.id, nextRefreshToken, context)
+
+      return { rotated, user }
+    },
+  )
+
+  const accessToken = signAccessToken({
+    userId: user.id,
+    role: user.role,
+  })
+
+  return {
+    user: toAuthenticatedUser(user),
+    accessToken,
+    refreshToken: rotated.refreshToken,
+    refreshTokenExpiresAt: rotated.expiresAt,
+  }
 }
 
 export async function handleLogout(
   payload: unknown,
   context: SessionContext,
 ): Promise<void> {
-  await runWithRole({ role: "service_role", userRole: "service_role" }, async () => {
-    const parsed = refreshSessionSchema.safeParse(payload);
-
+  const parsed = refreshSessionSchema.safeParse(payload)
   const refreshToken =
-    typeof context.refreshToken === "string" && context.refreshToken.length > 0
+    typeof context.refreshToken === 'string' && context.refreshToken.length > 0
       ? context.refreshToken
       : parsed.success
         ? parsed.data.refreshToken
-        : null;
+        : null
 
-    if (!refreshToken) {
-      return;
-    }
+  if (!refreshToken) {
+    return
+  }
 
-    const refreshTokenHash = hashValue(refreshToken);
+  const refreshTokenHash = hashValue(refreshToken)
 
+  await runWithRole({ role: 'service_role', userRole: 'service_role' }, async () => {
     await prisma.authSession.updateMany({
       where: {
         refreshTokenHash,
@@ -121,6 +124,6 @@ export async function handleLogout(
       data: {
         revokedAt: new Date(),
       },
-    });
-  });
+    })
+  })
 }
