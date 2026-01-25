@@ -7,7 +7,7 @@ import { UserRole } from "@prisma/client";
 import { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 
-import { runWithRole } from "../prisma/client.js";
+import { withRoleContext } from "../prisma/client.js";
 import { verifyAccessToken } from "../modules/auth/auth.tokens.js";
 
 const headerSchema = z.object({
@@ -62,35 +62,9 @@ function resolveActor(req: Request): Actor | null {
   return parseBearerActor(req) ?? parseHeaderActor(req);
 }
 
-function waitForResponse(res: Response): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const finalize = () => {
-      if (settled) return;
-      settled = true;
-      res.removeListener("finish", finalize);
-      res.removeListener("close", finalize);
-      res.removeListener("error", onError);
-      resolve();
-    };
-    const onError = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      res.removeListener("finish", finalize);
-      res.removeListener("close", finalize);
-      res.removeListener("error", onError);
-      reject(error);
-    };
-
-    res.once("finish", finalize);
-    res.once("close", finalize);
-    res.once("error", onError);
-  });
-}
-
 export async function rlsContext(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction,
 ): Promise<void> {
   if (req.path.startsWith("/auth")) {
@@ -104,13 +78,9 @@ export async function rlsContext(
   const userId = actor?.id ?? "";
 
   try {
-    await runWithRole(
-      { role, userId, userRole },
-      async () => {
-        next();
-        await waitForResponse(res);
-      },
-    );
+    withRoleContext({ role, userId, userRole }, () => {
+      next();
+    });
   } catch (error) {
     next(error);
   }
