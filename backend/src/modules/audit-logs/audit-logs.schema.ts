@@ -11,6 +11,6 @@ const MAX_AUDIT_LOG_LIMIT = 100;
 export const auditLogQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(MAX_AUDIT_LOG_LIMIT).optional(),
-    cursor: z.string().uuid().optional(),
+    offset: z.coerce.number().int().min(0).optional(),
   })
   .strict();
