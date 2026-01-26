@@ -164,42 +164,33 @@ export async function addStudentToCourse(
     throw createHttpError(409, "Student is already enrolled in this course");
   }
 
-  const enrollment = existingEnrollment
-    ? await prisma.enrollment.update({
-        where: { id: existingEnrollment.id },
-        data: {
-          deletedAt: null,
-        },
+  const enrollment = await prisma.enrollment.upsert({
+    where: {
+      courseId_userId: {
+        courseId,
+        userId: user.id,
+      },
+    },
+    update: {
+      deletedAt: null,
+    },
+    create: {
+      courseId,
+      userId: user.id,
+      roleInCourse: EnrollmentRole.student,
+    },
+    select: {
+      createdAt: true,
+      user: {
         select: {
-          createdAt: true,
-          user: {
-            select: {
-              id: true,
-              email: true,
-              fullName: true,
-              status: true,
-            },
-          },
+          id: true,
+          email: true,
+          fullName: true,
+          status: true,
         },
-      })
-    : await prisma.enrollment.create({
-        data: {
-          courseId,
-          userId: user.id,
-          roleInCourse: EnrollmentRole.student,
-        },
-        select: {
-          createdAt: true,
-          user: {
-            select: {
-              id: true,
-              email: true,
-              fullName: true,
-              status: true,
-            },
-          },
-        },
-      });
+      },
+    },
+  });
 
   if (!enrollment.user) {
     throw createHttpError(500, "Enrollment created without student");
