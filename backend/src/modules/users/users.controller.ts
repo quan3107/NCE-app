@@ -11,8 +11,8 @@ import {
   listUsers,
 } from "./users.service.js";
 
-export async function getUsers(_req: Request, res: Response): Promise<void> {
-  const users = await listUsers();
+export async function getUsers(req: Request, res: Response): Promise<void> {
+  const users = await listUsers(req.query);
   res.status(200).json(users);
 }
 
