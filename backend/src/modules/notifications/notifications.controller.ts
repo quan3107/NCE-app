@@ -23,8 +23,11 @@ export async function getNotifications(
     return;
   }
 
-  const notifications = await listNotifications(actor);
-  res.status(200).json(notifications);
+  const result = await listNotifications(actor, req.query);
+  if (result.nextCursor) {
+    res.set("x-next-cursor", result.nextCursor);
+  }
+  res.status(200).json(result.data);
 }
 
 export async function postNotification(
