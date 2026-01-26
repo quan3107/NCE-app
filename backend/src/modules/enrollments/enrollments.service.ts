@@ -7,6 +7,7 @@ import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import {
   createEnrollmentSchema,
+  DEFAULT_ENROLLMENT_LIMIT,
   enrollmentIdParamsSchema,
   enrollmentQuerySchema,
 } from "./enrollments.schema.js";
@@ -37,6 +38,8 @@ const enrollmentSelect = {
 
 export async function listEnrollments(query: unknown) {
   const filters = enrollmentQuerySchema.parse(query);
+  const limit = filters.limit ?? DEFAULT_ENROLLMENT_LIMIT;
+  const offset = filters.offset ?? 0;
 
   return prisma.enrollment.findMany({
     where: {
@@ -47,7 +50,9 @@ export async function listEnrollments(query: unknown) {
       course: { deletedAt: null },
       user: { deletedAt: null },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit,
+    skip: offset,
     select: enrollmentSelect,
   });
 }
@@ -90,23 +95,24 @@ export async function createEnrollment(payload: unknown) {
     throw createHttpError(409, "Enrollment already exists");
   }
 
-  return existing
-    ? prisma.enrollment.update({
-        where: { id: existing.id },
-        data: {
-          deletedAt: null,
-          roleInCourse: data.roleInCourse,
-        },
-        select: enrollmentSelect,
-      })
-    : prisma.enrollment.create({
-        data: {
-          courseId: data.courseId,
-          userId: data.userId,
-          roleInCourse: data.roleInCourse,
-        },
-        select: enrollmentSelect,
-      });
+  return prisma.enrollment.upsert({
+    where: {
+      courseId_userId: {
+        courseId: data.courseId,
+        userId: data.userId,
+      },
+    },
+    update: {
+      deletedAt: null,
+      roleInCourse: data.roleInCourse,
+    },
+    create: {
+      courseId: data.courseId,
+      userId: data.userId,
+      roleInCourse: data.roleInCourse,
+    },
+    select: enrollmentSelect,
+  });
 }
 
 export async function deleteEnrollment(params: unknown) {
