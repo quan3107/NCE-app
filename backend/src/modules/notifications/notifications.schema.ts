@@ -5,9 +5,24 @@
  */
 import { z } from "zod";
 
+export const DEFAULT_NOTIFICATION_LIMIT = 50;
+const MAX_NOTIFICATION_LIMIT = 100;
+
 export const notificationIdParamsSchema = z.object({
   notificationId: z.string().uuid(),
 });
+
+export const notificationQuerySchema = z
+  .object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_NOTIFICATION_LIMIT)
+      .optional(),
+    cursor: z.string().uuid().optional(),
+  })
+  .strict();
 
 export const createNotificationSchema = z
   .object({
