@@ -9,6 +9,9 @@ import { z } from "zod";
 const pickFirst = (value: unknown) =>
   Array.isArray(value) ? value[0] : value;
 
+export const DEFAULT_ENROLLMENT_LIMIT = 50;
+const MAX_ENROLLMENT_LIMIT = 100;
+
 const optionalUuid = z.preprocess(
   pickFirst,
   z.string().uuid().optional(),
@@ -19,11 +22,23 @@ const optionalRole = z.preprocess(
   z.nativeEnum(EnrollmentRole).optional(),
 );
 
+const optionalLimit = z.preprocess(
+  pickFirst,
+  z.coerce.number().int().min(1).max(MAX_ENROLLMENT_LIMIT).optional(),
+);
+
+const optionalOffset = z.preprocess(
+  pickFirst,
+  z.coerce.number().int().min(0).optional(),
+);
+
 export const enrollmentQuerySchema = z
   .object({
     courseId: optionalUuid,
     userId: optionalUuid,
     roleInCourse: optionalRole,
+    limit: optionalLimit,
+    offset: optionalOffset,
   })
   .strip();
 

@@ -15,10 +15,10 @@ export async function getAuditLogs(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const { limit, cursor } = auditLogQuerySchema.parse(req.query);
+  const { limit, offset } = auditLogQuerySchema.parse(req.query);
   const payload = await listAuditLogs({
     limit: limit ?? DEFAULT_AUDIT_LOG_LIMIT,
-    cursor,
+    offset,
   });
   res.status(200).json(payload);
 }

@@ -58,6 +58,9 @@ export type CourseSummary = {
     email: string;
   };
   metrics: CourseMetrics;
+  learningOutcomes?: unknown;
+  structureSummary?: string | null;
+  prerequisitesSummary?: string | null;
   createdAt: string;
   updatedAt: string;
 };

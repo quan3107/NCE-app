@@ -9,6 +9,7 @@ import helmet from "helmet";
 
 import { logger } from "./config/logger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { rlsContext } from "./middleware/rlsContext.js";
 import { apiRouter } from "./modules/router.js";
 
 const app = express();
@@ -32,7 +33,7 @@ app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ ok: true });
 });
 
-app.use("/api/v1", apiRouter);
+app.use("/api/v1", rlsContext, apiRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: "Not Found" });

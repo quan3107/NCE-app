@@ -5,6 +5,9 @@
  */
 import { z } from "zod";
 
+export const DEFAULT_SUBMISSION_LIMIT = 50;
+const MAX_SUBMISSION_LIMIT = 100;
+
 export const assignmentScopedParamsSchema = z.object({
   assignmentId: z.string().uuid(),
 });
@@ -12,6 +15,18 @@ export const assignmentScopedParamsSchema = z.object({
 export const submissionIdParamsSchema = z.object({
   submissionId: z.string().uuid(),
 });
+
+export const submissionQuerySchema = z
+  .object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_SUBMISSION_LIMIT)
+      .optional(),
+    offset: z.coerce.number().int().min(0).optional(),
+  })
+  .strict();
 
 export const createSubmissionSchema = z
   .object({

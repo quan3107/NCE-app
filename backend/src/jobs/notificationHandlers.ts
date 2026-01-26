@@ -7,7 +7,6 @@ import type { NotificationChannel, Prisma } from "@prisma/client";
 
 import { logger } from "../config/logger.js";
 import { prisma } from "../prisma/client.js";
-import { enqueueNotification } from "../modules/notifications/notifications.service.js";
 
 export const NOTIFICATION_JOB_NAMES = {
   dueSoon: "notifications.due-soon",
@@ -29,6 +28,26 @@ type DigestAssignment = {
   courseId: string;
   courseTitle: string;
   dueAt: string;
+};
+
+const buildUserIdsByAssignment = (
+  rows: Array<{ userId: string; payload: unknown }>,
+): Map<string, Set<string>> => {
+  const map = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (!row.payload || typeof row.payload !== "object") {
+      continue;
+    }
+    const assignmentId = (row.payload as Record<string, unknown>)
+      .assignmentId;
+    if (typeof assignmentId !== "string") {
+      continue;
+    }
+    const existing = map.get(assignmentId) ?? new Set<string>();
+    existing.add(row.userId);
+    map.set(assignmentId, existing);
+  }
+  return map;
 };
 
 export async function handleDueSoonJob(): Promise<void> {
@@ -85,30 +104,40 @@ export async function handleDueSoonJob(): Promise<void> {
     userIdsByCourse.set(enrollment.courseId, existing);
   }
 
-  let createdCount = 0;
+  const assignmentIds = assignments.map((assignment) => assignment.id);
+  const allUserIds = enrollments.map((enrollment) => enrollment.userId);
+  const existingUserIdsByAssignment =
+    assignmentIds.length > 0 && allUserIds.length > 0
+      ? buildUserIdsByAssignment(
+          await prisma.notification.findMany({
+            where: {
+              userId: { in: allUserIds },
+              type: "due_soon",
+              deletedAt: null,
+              OR: assignmentIds.map((assignmentId) => ({
+                payload: {
+                  path: ["assignmentId"],
+                  equals: assignmentId,
+                },
+              })),
+            },
+            select: {
+              userId: true,
+              payload: true,
+            },
+          }),
+        )
+      : new Map<string, Set<string>>();
+
+  const inserts: Prisma.NotificationCreateManyInput[] = [];
   for (const assignment of assignments) {
     const enrolledUserIds = userIdsByCourse.get(assignment.courseId) ?? [];
     if (enrolledUserIds.length === 0) {
       continue;
     }
 
-    const existingNotifications = await prisma.notification.findMany({
-      where: {
-        userId: { in: enrolledUserIds },
-        type: "due_soon",
-        deletedAt: null,
-        payload: {
-          path: ["assignmentId"],
-          equals: assignment.id,
-        },
-      },
-      select: {
-        userId: true,
-      },
-    });
-    const existingUserIds = new Set(
-      existingNotifications.map((notification) => notification.userId),
-    );
+    const existingUserIds =
+      existingUserIdsByAssignment.get(assignment.id) ?? new Set<string>();
 
     for (const userId of enrolledUserIds) {
       if (existingUserIds.has(userId)) {
@@ -124,15 +153,22 @@ export async function handleDueSoonJob(): Promise<void> {
         reminderHours: DUE_SOON_HOURS,
       };
 
-      await enqueueNotification({
-        userId,
-        type: "due_soon",
-        payload,
-        channels: DEFAULT_CHANNELS,
-      });
-      createdCount += DEFAULT_CHANNELS.length;
+      for (const channel of DEFAULT_CHANNELS) {
+        inserts.push({
+          userId,
+          type: "due_soon",
+          payload,
+          channel,
+          status: "queued",
+        });
+      }
     }
   }
+
+  if (inserts.length > 0) {
+    await prisma.notification.createMany({ data: inserts });
+  }
+  const createdCount = inserts.length;
 
   logger.info(
     { createdCount },
@@ -211,7 +247,7 @@ export async function handleWeeklyDigestJob(): Promise<void> {
     assignmentsByUser.set(enrollment.userId, existing);
   }
 
-  let createdCount = 0;
+  const inserts: Prisma.NotificationCreateManyInput[] = [];
   for (const [userId, digestAssignments] of assignmentsByUser.entries()) {
     if (digestAssignments.length === 0) {
       continue;
@@ -229,14 +265,21 @@ export async function handleWeeklyDigestJob(): Promise<void> {
       totalAssignments: sortedAssignments.length,
     };
 
-    await enqueueNotification({
-      userId,
-      type: "weekly_digest",
-      payload,
-      channels: DEFAULT_CHANNELS,
-    });
-    createdCount += DEFAULT_CHANNELS.length;
+    for (const channel of DEFAULT_CHANNELS) {
+      inserts.push({
+        userId,
+        type: "weekly_digest",
+        payload,
+        channel,
+        status: "queued",
+      });
+    }
   }
+
+  if (inserts.length > 0) {
+    await prisma.notification.createMany({ data: inserts });
+  }
+  const createdCount = inserts.length;
 
   logger.info(
     { createdCount },

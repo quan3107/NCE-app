@@ -12,7 +12,9 @@ import {
 } from "../../utils/httpError.js";
 import {
   createNotificationSchema,
+  DEFAULT_NOTIFICATION_LIMIT,
   markNotificationsReadSchema,
+  notificationQuerySchema,
   notificationIdParamsSchema,
 } from "./notifications.schema.js";
 
@@ -21,11 +23,33 @@ type NotificationActor = {
   role: UserRole;
 };
 
-export async function listNotifications(actor: NotificationActor) {
-  return prisma.notification.findMany({
+export async function listNotifications(
+  actor: NotificationActor,
+  query: unknown,
+) {
+  const { limit: rawLimit, cursor } = notificationQuerySchema.parse(query);
+  const limit = rawLimit ?? DEFAULT_NOTIFICATION_LIMIT;
+
+  const notifications = await prisma.notification.findMany({
     where: { deletedAt: null, userId: actor.id },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
+    ...(cursor
+      ? {
+          cursor: { id: cursor },
+          skip: 1,
+        }
+      : {}),
   });
+
+  const hasMore = notifications.length > limit;
+  const data = hasMore ? notifications.slice(0, limit) : notifications;
+  const nextCursor = hasMore ? data[data.length - 1]?.id ?? null : null;
+
+  return {
+    data,
+    nextCursor,
+  };
 }
 
 export async function createNotification(payload: unknown) {
