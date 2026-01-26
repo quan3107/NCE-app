@@ -7,6 +7,8 @@ import { prisma } from "../../prisma/client.js";
 import { createNotFoundError } from "../../utils/httpError.js";
 import {
   createUserSchema,
+  DEFAULT_USER_LIMIT,
+  userQuerySchema,
   userIdParamsSchema,
 } from "./users.schema.js";
 
@@ -21,10 +23,17 @@ const userSelect = {
   deletedAt: true,
 };
 
-export async function listUsers() {
+export async function listUsers(query: unknown) {
+  const { limit: rawLimit, offset: rawOffset } =
+    userQuerySchema.parse(query);
+  const limit = rawLimit ?? DEFAULT_USER_LIMIT;
+  const offset = rawOffset ?? 0;
+
   return prisma.user.findMany({
     where: { deletedAt: null },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit,
+    skip: offset,
     // Exclude password hashes from API responses.
     select: userSelect,
   });
