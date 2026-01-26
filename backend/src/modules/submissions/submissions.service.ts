@@ -13,7 +13,9 @@ import {
 import {
   assignmentScopedParamsSchema,
   createSubmissionSchema,
+  DEFAULT_SUBMISSION_LIMIT,
   submissionIdParamsSchema,
+  submissionQuerySchema,
 } from "./submissions.schema.js";
 
 function parseOptionalDate(
@@ -32,9 +34,14 @@ function parseOptionalDate(
 
 export async function listSubmissions(
   params: unknown,
+  query: unknown,
   user?: { id: string; role: string },
 ) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
+  const { limit: rawLimit, offset: rawOffset } =
+    submissionQuerySchema.parse(query);
+  const limit = rawLimit ?? DEFAULT_SUBMISSION_LIMIT;
+  const offset = rawOffset ?? 0;
   const isStudent = user?.role === "student";
   return prisma.submission.findMany({
     where: {
@@ -42,7 +49,9 @@ export async function listSubmissions(
       deletedAt: null,
       ...(isStudent ? { studentId: user?.id } : {}),
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit,
+    skip: offset,
   });
 }
 
