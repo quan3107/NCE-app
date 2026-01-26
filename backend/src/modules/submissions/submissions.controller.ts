@@ -15,7 +15,7 @@ export async function getSubmissions(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const submissions = await listSubmissions(req.params, req.user);
+  const submissions = await listSubmissions(req.params, req.query, req.user);
   res.status(200).json(submissions);
 }
 
