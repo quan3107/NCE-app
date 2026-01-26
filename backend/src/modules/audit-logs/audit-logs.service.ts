@@ -26,32 +26,27 @@ const auditLogSelect = {
 
 type AuditLogQuery = {
   limit?: number;
-  cursor?: string;
+  offset?: number;
 };
 
 export async function listAuditLogs(params: AuditLogQuery) {
   const limit = params.limit ?? DEFAULT_AUDIT_LOG_LIMIT;
-  const cursor = params.cursor;
+  const offset = params.offset ?? 0;
 
   const logs = await prisma.auditLog.findMany({
     where: { deletedAt: null },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
-    ...(cursor
-      ? {
-          cursor: { id: cursor },
-          skip: 1,
-        }
-      : {}),
+    skip: offset,
     select: auditLogSelect,
   });
 
   const hasMore = logs.length > limit;
   const items = hasMore ? logs.slice(0, limit) : logs;
-  const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
+  const nextOffset = hasMore ? offset + limit : null;
 
   return {
     data: items,
-    nextCursor,
+    nextOffset,
   };
 }
