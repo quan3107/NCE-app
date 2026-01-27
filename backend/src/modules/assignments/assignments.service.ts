@@ -62,6 +62,9 @@ export async function createAssignment(
   const latePolicy = data.latePolicy
     ? (data.latePolicy as Prisma.InputJsonObject)
     : undefined;
+  const assignmentConfig = data.assignmentConfig
+    ? (data.assignmentConfig as Prisma.InputJsonObject)
+    : undefined;
 
   return prisma.assignment.create({
     data: {
@@ -71,6 +74,7 @@ export async function createAssignment(
       type: data.type,
       dueAt,
       latePolicy,
+      assignmentConfig,
       publishedAt,
     },
   });
@@ -87,6 +91,9 @@ export async function updateAssignment(
   const publishedAt = parseOptionalDate(data.publishedAt, "publishedAt");
   const latePolicy = data.latePolicy
     ? (data.latePolicy as Prisma.InputJsonObject)
+    : undefined;
+  const assignmentConfig = data.assignmentConfig
+    ? (data.assignmentConfig as Prisma.InputJsonObject)
     : undefined;
 
   const existing = await prisma.assignment.findFirst({
@@ -111,6 +118,9 @@ export async function updateAssignment(
   }
   if (data.latePolicy !== undefined) {
     updateData.latePolicy = latePolicy;
+  }
+  if (data.assignmentConfig !== undefined) {
+    updateData.assignmentConfig = assignmentConfig;
   }
   if (data.publishedAt !== undefined) {
     updateData.publishedAt = publishedAt;
