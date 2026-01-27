@@ -64,7 +64,11 @@ logs/
 *.err
 
 # === Project-specific exclusions ===
-agents.md
+
 docs/*
 !docs/openapi/
 !docs/openapi/**
+
+# === Markdown ===
+*.md
+!README.md
