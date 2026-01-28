@@ -36,3 +36,5 @@ export const createSubmissionSchema = z
     status: z.enum(["draft", "submitted", "late"]).optional(),
   })
   .strict();
+
+export type CreateSubmissionPayload = z.infer<typeof createSubmissionSchema>;
