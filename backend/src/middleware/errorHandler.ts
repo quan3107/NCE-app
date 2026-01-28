@@ -25,7 +25,7 @@ export function errorHandler(
   const isValidationError = err instanceof ZodError;
   const statusCode = isValidationError ? 400 : err.statusCode ?? 500;
   const expose = isValidationError ? true : err.expose ?? statusCode < 500;
-  const details = isValidationError ? err.issues : err.details;
+  const details = isValidationError ? err.flatten() : err.details;
   const message = isValidationError ? "Validation failed." : err.message;
 
   const logPayload = {
