@@ -13,8 +13,8 @@ import {
   type Mock,
   type MockedFunction,
 } from "vitest";
-import type { AuthSession, Identity, User } from "@prisma/client";
-import { IdentityProvider, UserRole, UserStatus } from "@prisma/client";
+import type { AuthSession, Identity, User } from '../../../src/prisma/generated/client/client.js';
+import { IdentityProvider, UserRole, UserStatus } from '../../../src/prisma/generated/client/client.js';
 
 process.env.NODE_ENV = "test";
 process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/test-db";

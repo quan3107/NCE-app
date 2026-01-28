@@ -15,16 +15,16 @@
     "tests": "tests"
   },
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "npm run prisma:generate && tsc --project tsconfig.json",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "lint": "eslint .",
-    "test": "vitest",
+    "test": "npm run prisma:generate && vitest",
     "test:watch": "vitest watch",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "npm run prisma:generate && vitest run --coverage",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "prisma:generate": "prisma generate --schema=src/prisma/schema.prisma",
+    "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:migrate": "prisma migrate dev --schema=src/prisma/schema.prisma",
     "seed": "tsx src/prisma/seed.ts",
     "seed:ielts": "tsx src/prisma/seedIeltsAssignments.ts"
@@ -34,7 +34,8 @@
     "./server": "./dist/server.js"
   },
   "dependencies": {
-    "@prisma/client": "^6.17.1",
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.3.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -57,6 +58,7 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.7.0",
+    "@types/pg": "^8.15.0",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
     "@typescript-eslint/parser": "^8.8.1",
     "@vitest/coverage-v8": "^3.2.4",
@@ -64,7 +66,7 @@
     "globals": "^16.4.0",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
-    "prisma": "^6.17.1",
+    "prisma": "^7.3.0",
     "supertest": "^7.1.4",
     "tsx": "^4.19.0",
     "typescript": "^5.6.3",

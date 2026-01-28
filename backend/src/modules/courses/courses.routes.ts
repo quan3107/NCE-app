@@ -3,7 +3,7 @@
  * Purpose: Wire course HTTP endpoints to their controllers.
  * Why: Centralizes REST route declarations for course resources.
  */
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../prisma/generated/client/client.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";

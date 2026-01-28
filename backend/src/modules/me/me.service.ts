@@ -3,7 +3,7 @@
  * Purpose: Fetch the authenticated user's profile, roles, and enrollments.
  * Why: Powers the PRD-required /me endpoint with a single query flow.
  */
-import type { EnrollmentRole, UserRole, UserStatus } from "@prisma/client";
+import type { EnrollmentRole, UserRole, UserStatus } from "../../prisma/generated/client/client.js";
 
 import { prisma } from "../../prisma/client.js";
 import { createNotFoundError } from "../../utils/httpError.js";

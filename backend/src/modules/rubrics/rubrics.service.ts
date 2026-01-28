@@ -3,7 +3,7 @@
  * Purpose: Provide rubric persistence and lookup logic via Prisma.
  * Why: Encapsulates rubric workflows so controllers stay focused on HTTP.
  */
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../../prisma/generated/client/client.js";
 
 import { prisma } from "../../prisma/client.js";
 import {

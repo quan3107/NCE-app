@@ -4,7 +4,7 @@
  * Why: Ensures valid configs persist while invalid configs are rejected.
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import type { Assignment } from "@prisma/client";
+import type { Assignment } from '../../../src/prisma/generated/client/client.js';
 import { ZodError } from "zod";
 
 vi.mock("../../../src/prisma/client.js", () => ({

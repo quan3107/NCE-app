@@ -3,7 +3,7 @@
  * Purpose: Share course parsing and mapping helpers for public and authenticated queries.
  * Why: Keeps the read service focused while keeping course DTO logic reusable.
  */
-import { EnrollmentRole, UserStatus } from "@prisma/client";
+import { EnrollmentRole, UserStatus } from "../../prisma/generated/client/client.js";
 
 import type {
   CourseMetadata,

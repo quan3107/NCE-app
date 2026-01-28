@@ -3,7 +3,7 @@
  * Purpose: Manage course enrollment operations (list/add/remove students).
  * Why: Keeps roster logic isolated from general course reads for clarity.
  */
-import { EnrollmentRole, UserRole, UserStatus } from "@prisma/client";
+import { EnrollmentRole, UserRole, UserStatus } from "../../prisma/generated/client/client.js";
 
 import { prisma } from "../../config/prismaClient.js";
 import {

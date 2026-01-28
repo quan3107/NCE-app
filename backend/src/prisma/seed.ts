@@ -12,14 +12,14 @@ import {
   NotificationChannel,
   NotificationStatus,
   Prisma,
-  PrismaClient,
   Submission,
   SubmissionStatus,
   UserRole,
   UserStatus,
-} from "@prisma/client";
+} from './generated/client/client.js';
+import { basePrisma } from './client.js';
 
-const prisma = new PrismaClient();
+const prisma = basePrisma;
 
 const daysFromNow = (days: number): Date =>
   new Date(Date.now() + days * 24 * 60 * 60 * 1000);

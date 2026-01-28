@@ -3,7 +3,7 @@
  * Purpose: Implement course read/query operations for controllers.
  * Why: Separates list/detail logic from enrollment actions while keeping files under guideline limits.
  */
-import { EnrollmentRole, UserRole } from "@prisma/client";
+import { EnrollmentRole, UserRole } from "../../prisma/generated/client/client.js";
 
 import { prisma } from "../../config/prismaClient.js";
 import { courseIdParamsSchema } from "./courses.schema.js";

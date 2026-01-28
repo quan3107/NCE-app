@@ -3,7 +3,7 @@
  * Purpose: Validate enrollment query parameters and creation payloads.
  * Why: Keeps enrollment requests consistent with the PRD data model.
  */
-import { EnrollmentRole } from "@prisma/client";
+import { EnrollmentRole } from "../../prisma/generated/client/client.js";
 import { z } from "zod";
 
 const pickFirst = (value: unknown) =>

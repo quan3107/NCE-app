@@ -5,7 +5,7 @@
  */
 import type { CourseManager } from "./courses.types.js";
 import { prisma } from "../../config/prismaClient.js";
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../prisma/generated/client/client.js";
 
 export type HttpError = Error & {
   statusCode?: number;

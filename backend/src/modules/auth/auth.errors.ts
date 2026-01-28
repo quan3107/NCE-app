@@ -3,7 +3,7 @@
  * Purpose: Provide shared auth error helpers and messages.
  * Why: Keeps auth error shaping consistent across service modules.
  */
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../../prisma/generated/client/client.js";
 
 export const AUTH_ERROR = "Invalid email or password";
 
