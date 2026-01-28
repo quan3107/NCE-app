@@ -28,6 +28,7 @@ export const gradePayloadSchema = z
       )
       .optional(),
     finalScore: z.number().min(0).optional(),
+    band: z.number().min(0).optional(),
     feedbackMd: z.string().optional(),
   })
   .strict();
