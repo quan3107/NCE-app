@@ -4,7 +4,7 @@
  * Why: Ensures valid payloads persist once assignment types are verified.
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import type { Assignment, Submission } from "@prisma/client";
+import type { Assignment, Submission } from '../../../src/prisma/generated/client/client.js';
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
