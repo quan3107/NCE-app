@@ -3,7 +3,7 @@
  * Purpose: Define shared auth-facing types used across auth modules.
  * Why: Keeps request/response typing consistent without circular imports.
  */
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../prisma/generated/client/client.js";
 
 export type AuthenticatedUser = {
   id: string;
