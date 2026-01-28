@@ -5,7 +5,10 @@
  */
 import { AsyncLocalStorage } from 'node:async_hooks'
 
-import { Prisma, PrismaClient } from '@prisma/client'
+import { Pool } from 'pg'
+
+import { Prisma, PrismaClient } from './generated/client/client.js'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 type PrismaRole = 'authenticated' | 'anon' | 'service_role'
 
@@ -21,7 +24,18 @@ type RequestContext = {
 }
 
 const prismaContext = new AsyncLocalStorage<RequestContext>()
-const basePrisma = new PrismaClient()
+const databaseUrl = process.env.DATABASE_URL ?? process.env.DIRECT_URL
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL or DIRECT_URL must be set for Prisma.')
+}
+const pool = new Pool({ connectionString: databaseUrl })
+const adapter = new PrismaPg(pool)
+const basePrisma = new PrismaClient({ adapter })
+
+export async function shutdownPrisma(): Promise<void> {
+  await basePrisma.$disconnect()
+  await pool.end()
+}
 
 async function runWithRoleContext<T>(
   options: RoleContextOptions,
