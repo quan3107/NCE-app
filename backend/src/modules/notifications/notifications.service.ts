@@ -3,7 +3,7 @@
  * Purpose: Implement notification persistence workflows via Prisma.
  * Why: Keeps notification logic isolated from transport-specific code.
  */
-import { NotificationChannel, Prisma, UserRole } from "@prisma/client";
+import { NotificationChannel, Prisma, UserRole } from "../../prisma/generated/client/client.js";
 
 import { prisma } from "../../prisma/client.js";
 import {
