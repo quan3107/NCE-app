@@ -3,7 +3,7 @@
  * Purpose: Register admin-only audit log endpoints.
  * Why: Exposes immutable audit history for compliance views.
  */
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../prisma/generated/client/client.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
