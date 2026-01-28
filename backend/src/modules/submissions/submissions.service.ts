@@ -12,11 +12,12 @@ import {
 } from "../../utils/httpError.js";
 import {
   assignmentScopedParamsSchema,
-  createSubmissionSchema,
   DEFAULT_SUBMISSION_LIMIT,
   submissionIdParamsSchema,
   submissionQuerySchema,
+  type CreateSubmissionPayload,
 } from "./submissions.schema.js";
+import { parseSubmissionPayloadForType } from "../assignments/ielts.schema.js";
 
 function parseOptionalDate(
   value: string | undefined,
@@ -57,34 +58,47 @@ export async function listSubmissions(
 
 export async function createSubmission(
   params: unknown,
-  payload: unknown,
+  payload: CreateSubmissionPayload,
   user?: { id: string; role: string },
 ) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
-  const data = createSubmissionSchema.parse(payload);
-  const submittedAt = parseOptionalDate(data.submittedAt, "submittedAt");
+  const submittedAt = parseOptionalDate(payload.submittedAt, "submittedAt");
   const status =
-    data.status ?? (submittedAt ? "submitted" : "draft");
+    payload.status ?? (submittedAt ? "submitted" : "draft");
   if (!user || user.role !== "student") {
     throw createHttpError(403, "Only students can submit assignments.");
   }
 
-  if (data.studentId !== user.id) {
+  if (payload.studentId !== user.id) {
     throw createHttpError(
       403,
       "Student ID must match the authenticated user.",
     );
   }
 
+  const assignment = await prisma.assignment.findFirst({
+    where: { id: assignmentId, deletedAt: null },
+    select: { id: true, type: true },
+  });
+
+  if (!assignment) {
+    throw createNotFoundError("Assignment", assignmentId);
+  }
+
+  const validatedPayload = parseSubmissionPayloadForType(
+    assignment.type,
+    payload.payload,
+  );
+
   // Accept explicit studentId while preserving auth verification.
   // Cast validated payloads to Prisma JSON input for storage.
-  const payloadJson = data.payload as Prisma.InputJsonObject;
+  const payloadJson = validatedPayload as Prisma.InputJsonObject;
 
   const existing = await prisma.submission.findUnique({
     where: {
       assignmentId_studentId: {
         assignmentId,
-        studentId: data.studentId,
+        studentId: payload.studentId,
       },
     },
   });
@@ -126,7 +140,7 @@ export async function createSubmission(
   return prisma.submission.create({
     data: {
       assignmentId,
-      studentId: data.studentId,
+      studentId: payload.studentId,
       status,
       submittedAt,
       payload: payloadWithVersion,
