@@ -3,7 +3,7 @@
  * Purpose: Register analytics endpoints for teacher/admin dashboards.
  * Why: Centralizes analytics routing and access control.
  */
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../prisma/generated/client/client.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
