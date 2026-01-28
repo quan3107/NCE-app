@@ -40,6 +40,9 @@ Grade:
     finalScore:
       type: number
       nullable: true
+    band:
+      type: number
+      nullable: true
     feedback:
       type: string
       nullable: true
@@ -86,6 +89,8 @@ UpsertGradeRequest:
           delta:
             type: number
     finalScore:
+      type: number
+    band:
       type: number
     feedbackMd:
       type: string

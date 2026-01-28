@@ -18,6 +18,7 @@ import {
   type CreateSubmissionPayload,
 } from "./submissions.schema.js";
 import { parseSubmissionPayloadForType } from "../assignments/ielts.schema.js";
+import { autoScoreSubmission } from "../scoring/ieltsScoring.service.js";
 
 function parseOptionalDate(
   value: string | undefined,
@@ -121,7 +122,7 @@ export async function createSubmission(
       version: existingVersion + 1,
     };
 
-    return prisma.submission.update({
+    const updatedSubmission = await prisma.submission.update({
       where: { id: existing.id },
       data: {
         status,
@@ -129,6 +130,13 @@ export async function createSubmission(
         payload: payloadWithVersion,
       },
     });
+    if (
+      (status === "submitted" || status === "late") &&
+      (assignment.type === "reading" || assignment.type === "listening")
+    ) {
+      await autoScoreSubmission(updatedSubmission.id);
+    }
+    return updatedSubmission;
   }
 
   const payloadWithVersion: Prisma.InputJsonObject = {
@@ -137,7 +145,7 @@ export async function createSubmission(
       typeof payloadJson?.version === "number" ? payloadJson.version : 1,
   };
 
-  return prisma.submission.create({
+  const createdSubmission = await prisma.submission.create({
     data: {
       assignmentId,
       studentId: payload.studentId,
@@ -146,6 +154,13 @@ export async function createSubmission(
       payload: payloadWithVersion,
     },
   });
+  if (
+    (status === "submitted" || status === "late") &&
+    (assignment.type === "reading" || assignment.type === "listening")
+  ) {
+    await autoScoreSubmission(createdSubmission.id);
+  }
+  return createdSubmission;
 }
 
 export async function getSubmissionById(
