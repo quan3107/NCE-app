@@ -3,7 +3,7 @@
  * Purpose: Provide lightweight helpers for analytics calculations.
  * Why: Keeps analytics service logic readable and within size limits.
  */
-import { Prisma, SubmissionStatus } from "@prisma/client";
+import { Prisma, SubmissionStatus } from "../../prisma/generated/client/client.js";
 
 import type { AnalyticsCourseSummary } from "./analytics.types.js";
 
