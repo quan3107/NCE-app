@@ -25,7 +25,7 @@ EnrollmentRole:
 
 AssignmentType:
   type: string
-  enum: [file, link, text, quiz]
+  enum: [file, link, text, quiz, reading, listening, writing, speaking]
 
 SubmissionStatus:
   type: string

@@ -26,6 +26,10 @@ Assignment:
       type: object
       additionalProperties: true
       nullable: true
+    assignmentConfig:
+      type: object
+      additionalProperties: true
+      nullable: true
     publishedAt:
       type: string
       format: date-time
@@ -56,6 +60,9 @@ CreateAssignmentRequest:
     latePolicy:
       type: object
       additionalProperties: true
+    assignmentConfig:
+      type: object
+      additionalProperties: true
     publishedAt:
       type: string
   required: [title, type]
@@ -72,6 +79,9 @@ UpdateAssignmentRequest:
     dueAt:
       type: string
     latePolicy:
+      type: object
+      additionalProperties: true
+    assignmentConfig:
       type: object
       additionalProperties: true
     publishedAt:

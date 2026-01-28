@@ -443,96 +443,308 @@ async function main(): Promise<void> {
     type: AssignmentType;
     dueInDays: number;
     latePenaltyPercent: number;
+    assignmentConfig: Prisma.InputJsonObject;
   }> = [
     {
       courseTitle: "IELTS Academic Writing Bootcamp",
       title: "Academic Essay: Technology and Society",
       description:
         "Write a 250-word Task 2 response discussing whether increasing reliance on technology benefits society.",
-      type: AssignmentType.text,
+      type: AssignmentType.writing,
       dueInDays: 5,
       latePenaltyPercent: 10,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 60, enforce: false },
+        instructions:
+          "Write a Task 2 essay. Use formal academic tone and support your arguments with examples.",
+        attempts: { maxAttempts: null },
+        task1: {
+          prompt:
+            "Summarize the chart or process in at least 150 words (Task 1).",
+          imageFileId: null,
+        },
+        task2: {
+          prompt:
+            "Discuss whether increasing reliance on technology benefits society (Task 2).",
+        },
+      },
     },
     {
       courseTitle: "IELTS Academic Writing Bootcamp",
       title: "Data Interpretation Task 1: Global Energy Mix",
       description:
         "Summarize the main trends from the provided chart comparing global energy sources between 1990 and 2030.",
-      type: AssignmentType.file,
+      type: AssignmentType.writing,
       dueInDays: 10,
       latePenaltyPercent: 15,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 60, enforce: false },
+        instructions:
+          "Complete Task 1 and Task 2. Focus on summarizing trends clearly.",
+        attempts: { maxAttempts: null },
+        task1: {
+          prompt:
+            "Summarize the main trends from the energy mix chart in at least 150 words.",
+          imageFileId: null,
+        },
+        task2: {
+          prompt:
+            "Explain how energy choices might shift in the next decade and why.",
+        },
+      },
     },
     {
       courseTitle: "IELTS Speaking Masterclass",
       title: "Part 2 Cue Card: Memorable Journey",
       description:
         "Record a two-minute response to the cue card about a memorable journey, focusing on coherence and fluency.",
-      type: AssignmentType.link,
+      type: AssignmentType.speaking,
       dueInDays: 3,
       latePenaltyPercent: 5,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 15, enforce: false },
+        instructions:
+          "Complete all three parts. Record your response for Part 2.",
+        attempts: { maxAttempts: null },
+        part1: {
+          questions: [
+            "Do you enjoy traveling?",
+            "How often do you take trips?",
+          ],
+        },
+        part2: {
+          cueCard: {
+            topic: "A memorable journey you took",
+            bulletPoints: [
+              "Where you went",
+              "Who you went with",
+              "What happened on the trip",
+              "Why it was memorable",
+            ],
+          },
+          prepSeconds: 60,
+          talkSeconds: 120,
+        },
+        part3: {
+          questions: [
+            "How has travel changed in recent years?",
+            "What are the benefits of traveling with family?",
+          ],
+        },
+      },
     },
     {
       courseTitle: "IELTS Speaking Masterclass",
       title: "Part 3 Discussion: Urban Living",
       description:
         "Submit a recorded discussion on the pros and cons of living in a large city versus a small town.",
-      type: AssignmentType.file,
+      type: AssignmentType.speaking,
       dueInDays: 8,
       latePenaltyPercent: 10,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 15, enforce: false },
+        instructions:
+          "Answer the discussion questions with clear examples and comparisons.",
+        attempts: { maxAttempts: null },
+        part1: {
+          questions: [
+            "Do you live in a city or a town?",
+            "What do you like about where you live?",
+          ],
+        },
+        part2: {
+          cueCard: {
+            topic: "A place you enjoy in your hometown",
+            bulletPoints: [
+              "Where it is",
+              "What you do there",
+              "Who you go with",
+              "Why you like it",
+            ],
+          },
+          prepSeconds: 60,
+          talkSeconds: 120,
+        },
+        part3: {
+          questions: [
+            "What are the main advantages of city life?",
+            "How can cities become more livable?",
+          ],
+        },
+      },
     },
     {
       courseTitle: "IELTS Listening Lab",
       title: "Section 3 University Projects",
       description:
         "Complete the listening comprehension questions for the Section 3 recording and upload your answer sheet.",
-      type: AssignmentType.file,
+      type: AssignmentType.listening,
       dueInDays: 4,
       latePenaltyPercent: 10,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 30, enforce: true },
+        instructions:
+          "Listen to the recording once and answer all questions.",
+        attempts: { maxAttempts: null },
+        sections: [
+          {
+            id: "sec-1",
+            title: "Section 3",
+            audioFileId: null,
+            playback: { limitPlays: 1 },
+            questions: [],
+          },
+        ],
+      },
     },
     {
       courseTitle: "IELTS Listening Lab",
       title: "Gap Fill Drill: Renewable Energy Lecture",
       description:
         "Fill in the missing words from the lecture transcript to practice predictive listening strategies.",
-      type: AssignmentType.quiz,
+      type: AssignmentType.listening,
       dueInDays: 9,
       latePenaltyPercent: 5,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 20, enforce: false },
+        instructions:
+          "Complete the gap-fill questions while listening to the lecture.",
+        attempts: { maxAttempts: null },
+        sections: [
+          {
+            id: "sec-1",
+            title: "Lecture",
+            audioFileId: null,
+            playback: { limitPlays: 0 },
+            questions: [],
+          },
+        ],
+      },
     },
     {
       courseTitle: "IELTS Reading Strategies Workshop",
       title: "True/False/Not Given Drill",
       description:
         "Answer T/F/NG questions from a sample Academic passage focusing on inference and paraphrasing.",
-      type: AssignmentType.quiz,
+      type: AssignmentType.reading,
       dueInDays: 6,
       latePenaltyPercent: 5,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 60, enforce: false },
+        instructions:
+          "Read the passage and answer all True/False/Not Given questions.",
+        attempts: { maxAttempts: null },
+        sections: [
+          {
+            id: "sec-1",
+            title: "Passage 1",
+            passage: "Sample academic passage content in markdown.",
+            questions: [],
+          },
+        ],
+      },
     },
     {
       courseTitle: "IELTS Reading Strategies Workshop",
       title: "Matching Headings Practice",
       description:
         "Match paragraph headings with the provided reading passage and justify each decision.",
-      type: AssignmentType.text,
+      type: AssignmentType.reading,
       dueInDays: 11,
       latePenaltyPercent: 10,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 60, enforce: false },
+        instructions:
+          "Match headings to paragraphs based on the passage content.",
+        attempts: { maxAttempts: null },
+        sections: [
+          {
+            id: "sec-1",
+            title: "Passage 1",
+            passage: "Sample passage with multiple paragraphs for matching.",
+            questions: [],
+          },
+        ],
+      },
     },
     {
       courseTitle: "IELTS General Training Fast Track",
       title: "General Training Letter: Workplace Equipment",
       description:
         "Write a Task 1 letter to your manager requesting new equipment and explaining the benefits.",
-      type: AssignmentType.text,
+      type: AssignmentType.writing,
       dueInDays: 7,
       latePenaltyPercent: 5,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 60, enforce: false },
+        instructions:
+          "Complete Task 1 letter writing and Task 2 essay responses.",
+        attempts: { maxAttempts: null },
+        task1: {
+          prompt:
+            "Write a letter requesting new workplace equipment and explain why it is needed.",
+          imageFileId: null,
+        },
+        task2: {
+          prompt:
+            "Discuss how workplace tools influence productivity and morale.",
+        },
+      },
     },
     {
       courseTitle: "IELTS General Training Fast Track",
       title: "Listening Mock Test: Band 7 Target",
       description:
         "Complete the listening mock test, aiming for band 7 accuracy, and upload the answer sheet.",
-      type: AssignmentType.file,
+      type: AssignmentType.listening,
       dueInDays: 12,
       latePenaltyPercent: 10,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: true, durationMinutes: 30, enforce: true },
+        instructions:
+          "Complete the full listening mock test in one sitting.",
+        attempts: { maxAttempts: null },
+        sections: [
+          {
+            id: "sec-1",
+            title: "Section 1",
+            audioFileId: null,
+            playback: { limitPlays: 1 },
+            questions: [],
+          },
+          {
+            id: "sec-2",
+            title: "Section 2",
+            audioFileId: null,
+            playback: { limitPlays: 1 },
+            questions: [],
+          },
+          {
+            id: "sec-3",
+            title: "Section 3",
+            audioFileId: null,
+            playback: { limitPlays: 1 },
+            questions: [],
+          },
+          {
+            id: "sec-4",
+            title: "Section 4",
+            audioFileId: null,
+            playback: { limitPlays: 1 },
+            questions: [],
+          },
+        ],
+      },
     },
   ];
 
@@ -554,6 +766,7 @@ async function main(): Promise<void> {
           type: seed.type,
           dueAt: daysFromNow(seed.dueInDays),
           latePolicy,
+          assignmentConfig: seed.assignmentConfig,
           publishedAt: daysFromNow(-1),
         },
       });

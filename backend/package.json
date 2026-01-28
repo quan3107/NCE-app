@@ -26,7 +26,8 @@
     "format:write": "prettier --write .",
     "prisma:generate": "prisma generate --schema=src/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=src/prisma/schema.prisma",
-    "seed": "tsx src/prisma/seed.ts"
+    "seed": "tsx src/prisma/seed.ts",
+    "seed:ielts": "tsx src/prisma/seedIeltsAssignments.ts"
   },
   "exports": {
     "./app": "./dist/app.js",

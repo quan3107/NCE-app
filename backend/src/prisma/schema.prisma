@@ -84,6 +84,7 @@ model Assignment {
   type        AssignmentType
   dueAt       DateTime?      @map("due_at") @db.Timestamptz
   latePolicy  Json?          @map("late_policy")
+  assignmentConfig Json?      @map("assignment_config")
   publishedAt DateTime?      @map("published_at") @db.Timestamptz
   course      Course         @relation(fields: [courseId], references: [id])
   submissions Submission[]
@@ -269,6 +270,10 @@ enum AssignmentType {
   link
   text
   quiz
+  reading
+  listening
+  writing
+  speaking
 }
 
 enum SubmissionStatus {

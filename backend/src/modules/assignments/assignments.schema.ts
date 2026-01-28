@@ -17,9 +17,19 @@ export const createAssignmentSchema = z
   .object({
     title: z.string().min(1),
     descriptionMd: z.string().optional(),
-    type: z.enum(["file", "link", "text", "quiz"]),
+    type: z.enum([
+      "file",
+      "link",
+      "text",
+      "quiz",
+      "reading",
+      "listening",
+      "writing",
+      "speaking",
+    ]),
     dueAt: z.string().optional(),
     latePolicy: z.record(z.string(), z.unknown()).optional(),
+    assignmentConfig: z.record(z.string(), z.unknown()).optional(),
     publishedAt: z.string().optional(),
   })
   .strict();
@@ -28,9 +38,21 @@ export const updateAssignmentSchema = z
   .object({
     title: z.string().min(1).optional(),
     descriptionMd: z.string().optional(),
-    type: z.enum(["file", "link", "text", "quiz"]).optional(),
+    type: z
+      .enum([
+        "file",
+        "link",
+        "text",
+        "quiz",
+        "reading",
+        "listening",
+        "writing",
+        "speaking",
+      ])
+      .optional(),
     dueAt: z.string().optional(),
     latePolicy: z.record(z.string(), z.unknown()).optional(),
+    assignmentConfig: z.record(z.string(), z.unknown()).optional(),
     publishedAt: z.string().optional(),
   })
   .strict();
