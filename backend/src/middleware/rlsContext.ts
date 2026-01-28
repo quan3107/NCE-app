@@ -3,7 +3,7 @@
  * Purpose: Set per-request database role + RLS context for Prisma queries.
  * Why: Ensures RLS policies enforce tenant access for all API requests.
  */
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../prisma/generated/client/client.js";
 import { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 
