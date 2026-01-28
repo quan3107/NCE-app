@@ -71,6 +71,12 @@ vi.mock("../../../src/config/prismaClient.js", () => {
   };
 });
 
+vi.mock("../../../src/prisma/client.js", () => ({
+  runWithRole: vi.fn(async (_options, fn: (tx: unknown) => Promise<unknown>) =>
+    fn({}),
+  ),
+}));
+
 vi.mock("bcrypt", () => {
   const compare = vi.fn();
   const hash = vi.fn();
@@ -234,6 +240,7 @@ describe("auth.service", () => {
         email: true,
         fullName: true,
         role: true,
+        status: true,
       },
     });
 
@@ -285,7 +292,9 @@ describe("auth.service", () => {
       role: UserRole.student,
     });
 
-    prisma.user.findFirst.mockResolvedValueOnce(mockUser);
+    prisma.user.findFirst
+      .mockResolvedValueOnce(mockUser)
+      .mockResolvedValueOnce(mockUser);
     prisma.authSession.create.mockResolvedValueOnce(
       buildAuthSession({ id: "session-login", userId: mockUser.id }),
     );
