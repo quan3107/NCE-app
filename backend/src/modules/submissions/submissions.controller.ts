@@ -10,6 +10,7 @@ import {
   getSubmissionById,
   listSubmissions,
 } from "./submissions.service.js";
+import { createSubmissionSchema } from "./submissions.schema.js";
 
 export async function getSubmissions(
   req: Request,
@@ -23,7 +24,8 @@ export async function postSubmission(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const submission = await createSubmission(req.params, req.body, req.user);
+  const payload = createSubmissionSchema.parse(req.body);
+  const submission = await createSubmission(req.params, payload, req.user);
   res.status(201).json(submission);
 }
 

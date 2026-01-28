@@ -153,6 +153,9 @@ describe("courses.read.service.listCourses", () => {
           id: course.id,
           title: course.title,
           description: course.description,
+          learningOutcomes: null,
+          structureSummary: null,
+          prerequisitesSummary: null,
           schedule: {
             cadence: "weekly",
             startTime: "2025-10-15T11:00:00Z",
