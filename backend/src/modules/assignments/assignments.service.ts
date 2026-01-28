@@ -13,9 +13,10 @@ import {
 import {
   assignmentIdParamsSchema,
   courseScopedParamsSchema,
-  createAssignmentSchema,
-  updateAssignmentSchema,
+  type CreateAssignmentPayload,
+  type UpdateAssignmentPayload,
 } from "./assignments.schema.js";
+import { parseAssignmentConfigForType } from "./ielts.schema.js";
 
 function parseOptionalDate(
   value: string | undefined,
@@ -52,26 +53,30 @@ export async function getAssignment(params: unknown) {
 
 export async function createAssignment(
   params: unknown,
-  payload: unknown,
+  payload: CreateAssignmentPayload,
 ) {
   const { courseId } = courseScopedParamsSchema.parse(params);
-  const data = createAssignmentSchema.parse(payload);
-  const dueAt = parseOptionalDate(data.dueAt, "dueAt");
-  const publishedAt = parseOptionalDate(data.publishedAt, "publishedAt");
+  const dueAt = parseOptionalDate(payload.dueAt, "dueAt");
+  const publishedAt = parseOptionalDate(payload.publishedAt, "publishedAt");
   // Cast validated maps to Prisma JSON input, since Zod cannot enforce JsonValue types.
-  const latePolicy = data.latePolicy
-    ? (data.latePolicy as Prisma.InputJsonObject)
+  const latePolicy = payload.latePolicy
+    ? (payload.latePolicy as Prisma.InputJsonObject)
     : undefined;
-  const assignmentConfig = data.assignmentConfig
-    ? (data.assignmentConfig as Prisma.InputJsonObject)
-    : undefined;
+  const validatedAssignmentConfig = parseAssignmentConfigForType(
+    payload.type,
+    payload.assignmentConfig,
+  );
+  const assignmentConfig =
+    validatedAssignmentConfig !== undefined
+      ? (validatedAssignmentConfig as Prisma.InputJsonObject)
+      : undefined;
 
   return prisma.assignment.create({
     data: {
       courseId,
-      title: data.title,
-      description: data.descriptionMd,
-      type: data.type,
+      title: payload.title,
+      description: payload.descriptionMd,
+      type: payload.type,
       dueAt,
       latePolicy,
       assignmentConfig,
@@ -82,18 +87,14 @@ export async function createAssignment(
 
 export async function updateAssignment(
   params: unknown,
-  payload: unknown,
+  payload: UpdateAssignmentPayload,
 ) {
   const { assignmentId } = assignmentIdParamsSchema.parse(params);
   const { courseId } = courseScopedParamsSchema.parse(params);
-  const data = updateAssignmentSchema.parse(payload);
-  const dueAt = parseOptionalDate(data.dueAt, "dueAt");
-  const publishedAt = parseOptionalDate(data.publishedAt, "publishedAt");
-  const latePolicy = data.latePolicy
-    ? (data.latePolicy as Prisma.InputJsonObject)
-    : undefined;
-  const assignmentConfig = data.assignmentConfig
-    ? (data.assignmentConfig as Prisma.InputJsonObject)
+  const dueAt = parseOptionalDate(payload.dueAt, "dueAt");
+  const publishedAt = parseOptionalDate(payload.publishedAt, "publishedAt");
+  const latePolicy = payload.latePolicy
+    ? (payload.latePolicy as Prisma.InputJsonObject)
     : undefined;
 
   const existing = await prisma.assignment.findFirst({
@@ -103,26 +104,35 @@ export async function updateAssignment(
     throw createNotFoundError("Assignment", assignmentId);
   }
 
+  const targetType = payload.type ?? existing.type;
+  const assignmentConfig =
+    payload.assignmentConfig !== undefined
+      ? (parseAssignmentConfigForType(
+          targetType,
+          payload.assignmentConfig,
+        ) as Prisma.InputJsonObject)
+      : undefined;
+
   const updateData: Prisma.AssignmentUpdateInput = {};
-  if (data.title !== undefined) {
-    updateData.title = data.title;
+  if (payload.title !== undefined) {
+    updateData.title = payload.title;
   }
-  if (data.descriptionMd !== undefined) {
-    updateData.description = data.descriptionMd;
+  if (payload.descriptionMd !== undefined) {
+    updateData.description = payload.descriptionMd;
   }
-  if (data.type !== undefined) {
-    updateData.type = data.type;
+  if (payload.type !== undefined) {
+    updateData.type = payload.type;
   }
-  if (data.dueAt !== undefined) {
+  if (payload.dueAt !== undefined) {
     updateData.dueAt = dueAt;
   }
-  if (data.latePolicy !== undefined) {
+  if (payload.latePolicy !== undefined) {
     updateData.latePolicy = latePolicy;
   }
-  if (data.assignmentConfig !== undefined) {
+  if (payload.assignmentConfig !== undefined) {
     updateData.assignmentConfig = assignmentConfig;
   }
-  if (data.publishedAt !== undefined) {
+  if (payload.publishedAt !== undefined) {
     updateData.publishedAt = publishedAt;
   }
 
