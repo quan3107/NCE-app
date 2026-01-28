@@ -3,7 +3,7 @@
  * Purpose: Implement grading persistence and retrieval via Prisma.
  * Why: Keeps scoring routines decoupled from controllers.
  */
-import { NotificationChannel, Prisma } from "@prisma/client";
+import { NotificationChannel, Prisma } from "../../prisma/generated/client/client.js";
 
 import { prisma } from "../../prisma/client.js";
 import { createNotFoundError } from "../../utils/httpError.js";
