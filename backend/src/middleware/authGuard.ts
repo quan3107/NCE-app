@@ -3,7 +3,7 @@
  * Purpose: Enforce authenticated requests by validating lightweight header-based credentials.
  * Why: Provides a temporary access guard until full token verification is wired up.
  */
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../prisma/generated/client/client.js";
 import { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 
