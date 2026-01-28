@@ -56,3 +56,6 @@ export const updateAssignmentSchema = z
     publishedAt: z.string().optional(),
   })
   .strict();
+
+export type CreateAssignmentPayload = z.infer<typeof createAssignmentSchema>;
+export type UpdateAssignmentPayload = z.infer<typeof updateAssignmentSchema>;
