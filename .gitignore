@@ -32,6 +32,7 @@ frontend/build/
 # === Database & ORM ===
 # Prisma migrations or DB dumps
 prisma/migrations/
+backend/src/prisma/generated/
 *.sqlite
 *.db
 *.dump
