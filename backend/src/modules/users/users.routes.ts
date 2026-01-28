@@ -3,7 +3,7 @@
  * Purpose: Register REST endpoints for user administration.
  * Why: Provides a stable routing layer that aligns with the layered architecture.
  */
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../prisma/generated/client/client.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
