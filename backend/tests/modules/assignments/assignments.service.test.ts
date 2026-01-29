@@ -20,7 +20,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
 
-const { createAssignment } = await import(
+const { createAssignment, deleteAssignment } = await import(
   "../../../src/modules/assignments/assignments.service.js"
 );
 
@@ -75,5 +75,42 @@ describe("assignments.service.createAssignment", () => {
         } as never,
       ),
     ).rejects.toBeInstanceOf(ZodError);
+  });
+});
+
+describe("assignments.service.deleteAssignment", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("soft deletes an assignment scoped to the course", async () => {
+    const assignmentId = "4c67e29f-7a7b-4c3e-8d56-52e5487e59a2";
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+    } as Assignment);
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+    } as Assignment);
+
+    await deleteAssignment({
+      courseId,
+      assignmentId,
+    });
+
+    expect(prisma.assignment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: assignmentId,
+          courseId,
+          deletedAt: null,
+        },
+      }),
+    );
+    expect(prisma.assignment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: assignmentId },
+        data: { deletedAt: expect.any(Date) },
+      }),
+    );
   });
 });
