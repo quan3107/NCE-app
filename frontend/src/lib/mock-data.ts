@@ -30,7 +30,15 @@ export type Course = {
   prerequisitesSummary?: string;
 };
 
-export type AssignmentType = 'file' | 'link' | 'text' | 'quiz';
+export type AssignmentType =
+  | 'file'
+  | 'link'
+  | 'text'
+  | 'quiz'
+  | 'reading'
+  | 'listening'
+  | 'writing'
+  | 'speaking';
 export type AssignmentStatus = 'draft' | 'published' | 'archived';
 export type SubmissionStatus = 'not_submitted' | 'draft' | 'submitted' | 'late' | 'graded';
 
@@ -56,6 +64,7 @@ export type Assignment = {
   status: AssignmentStatus;
   latePolicy: string;
   maxScore: number;
+  assignmentConfig?: Record<string, unknown> | null;
 };
 
 export type Submission = {
