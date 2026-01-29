@@ -4,6 +4,8 @@
  * Why: Centralizes theming variables while delegating utility generation to Tailwind.
  */
 
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Crimson+Pro:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -197,6 +199,87 @@
       font-weight: var(--font-weight-normal);
       line-height: 1.5;
     }
+  }
+}
+
+@layer components {
+  .ielts-authoring {
+    --ielts-serif: 'Crimson Pro', serif;
+    --ielts-sans: 'Atkinson Hyperlegible', sans-serif;
+  }
+
+  .ielts-authoring h1,
+  .ielts-authoring h2,
+  .ielts-authoring h3,
+  .ielts-authoring h4 {
+    font-family: var(--ielts-serif);
+  }
+
+  .ielts-authoring,
+  .ielts-authoring input,
+  .ielts-authoring textarea,
+  .ielts-authoring select,
+  .ielts-authoring button,
+  .ielts-authoring label {
+    font-family: var(--ielts-sans);
+  }
+
+  /* Enhanced dialog overlay with blur */
+  [data-slot="dialog-overlay"] {
+    backdrop-filter: blur(4px);
+  }
+
+  /* IELTS type card active state enhancement */
+  .ielts-card-active {
+    background: linear-gradient(
+      to bottom right,
+      color-mix(in oklab, var(--primary) 3%, transparent),
+      color-mix(in oklab, var(--primary) 1%, transparent)
+    );
+  }
+
+  /* Form validation states */
+  .form-input-valid {
+    border-color: color-mix(in oklab, var(--color-green-500) 50%, transparent);
+  }
+
+  .form-input-valid:focus-visible {
+    --tw-ring-color: color-mix(in oklab, var(--color-green-500) 30%, transparent);
+  }
+
+  .form-input-invalid {
+    border-color: var(--destructive);
+  }
+
+  .form-input-invalid:focus-visible {
+    --tw-ring-color: color-mix(in oklab, var(--destructive) 30%, transparent);
+  }
+
+  /* Section badge for IELTS builders */
+  .section-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /* Enhanced button states */
+  .btn-icon-text {
+    transition-property: all;
+    transition-duration: 0.15s;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-icon-text:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.1)),
+      0 2px 4px -2px var(--tw-shadow-color, rgba(0, 0, 0, 0.1));
   }
 }
 
