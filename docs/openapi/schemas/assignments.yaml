@@ -27,9 +27,12 @@ Assignment:
       additionalProperties: true
       nullable: true
     assignmentConfig:
-      type: object
-      additionalProperties: true
       nullable: true
+      description: IELTS assignment configuration payload (shape depends on assignment type).
+      anyOf:
+        - $ref: '#/IeltsAssignmentConfig'
+        - type: object
+          additionalProperties: true
     publishedAt:
       type: string
       format: date-time
@@ -61,8 +64,11 @@ CreateAssignmentRequest:
       type: object
       additionalProperties: true
     assignmentConfig:
-      type: object
-      additionalProperties: true
+      description: IELTS assignment configuration payload (shape depends on assignment type).
+      anyOf:
+        - $ref: '#/IeltsAssignmentConfig'
+        - type: object
+          additionalProperties: true
     publishedAt:
       type: string
   required: [title, type]
@@ -82,7 +88,211 @@ UpdateAssignmentRequest:
       type: object
       additionalProperties: true
     assignmentConfig:
-      type: object
-      additionalProperties: true
+      description: IELTS assignment configuration payload (shape depends on assignment type).
+      anyOf:
+        - $ref: '#/IeltsAssignmentConfig'
+        - type: object
+          additionalProperties: true
     publishedAt:
       type: string
+
+IeltsAssignmentConfig:
+  oneOf:
+    - $ref: '#/IeltsReadingAssignmentConfig'
+    - $ref: '#/IeltsListeningAssignmentConfig'
+    - $ref: '#/IeltsWritingAssignmentConfig'
+    - $ref: '#/IeltsSpeakingAssignmentConfig'
+
+IeltsTimingConfig:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+    durationMinutes:
+      type: integer
+      minimum: 1
+    enforce:
+      type: boolean
+    startAt:
+      type: string
+      format: date-time
+    endAt:
+      type: string
+      format: date-time
+    autoSubmit:
+      type: boolean
+    rejectLateStart:
+      type: boolean
+  required: [enabled, durationMinutes, enforce]
+  additionalProperties: false
+
+IeltsAttemptsConfig:
+  type: object
+  properties:
+    maxAttempts:
+      type: integer
+      minimum: 1
+      nullable: true
+  required: [maxAttempts]
+  additionalProperties: false
+
+IeltsBaseAssignmentConfig:
+  type: object
+  properties:
+    version:
+      type: integer
+      enum: [1]
+    timing:
+      $ref: '#/IeltsTimingConfig'
+    instructions:
+      type: string
+    attempts:
+      $ref: '#/IeltsAttemptsConfig'
+  required: [version]
+  additionalProperties: true
+
+IeltsQuestion:
+  type: object
+  additionalProperties: true
+
+IeltsSectionBase:
+  type: object
+  properties:
+    id:
+      type: string
+    title:
+      type: string
+    questions:
+      type: array
+      items:
+        $ref: '#/IeltsQuestion'
+  required: [id, title, questions]
+  additionalProperties: true
+
+IeltsReadingSection:
+  allOf:
+    - $ref: '#/IeltsSectionBase'
+    - type: object
+      properties:
+        passage:
+          type: string
+      required: [passage]
+      additionalProperties: true
+
+IeltsListeningSection:
+  allOf:
+    - $ref: '#/IeltsSectionBase'
+    - type: object
+      properties:
+        audioFileId:
+          type: string
+          format: uuid
+          nullable: true
+        playback:
+          type: object
+          properties:
+            limitPlays:
+              type: integer
+              minimum: 0
+          required: [limitPlays]
+          additionalProperties: false
+      additionalProperties: true
+
+IeltsReadingAssignmentConfig:
+  allOf:
+    - $ref: '#/IeltsBaseAssignmentConfig'
+    - type: object
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: '#/IeltsReadingSection'
+      required: [sections]
+
+IeltsListeningAssignmentConfig:
+  allOf:
+    - $ref: '#/IeltsBaseAssignmentConfig'
+    - type: object
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: '#/IeltsListeningSection'
+      required: [sections]
+
+IeltsWritingTask:
+  type: object
+  properties:
+    prompt:
+      type: string
+    imageFileId:
+      type: string
+      format: uuid
+      nullable: true
+  required: [prompt]
+  additionalProperties: true
+
+IeltsWritingTaskTwo:
+  type: object
+  properties:
+    prompt:
+      type: string
+  required: [prompt]
+  additionalProperties: true
+
+IeltsWritingAssignmentConfig:
+  allOf:
+    - $ref: '#/IeltsBaseAssignmentConfig'
+    - type: object
+      properties:
+        task1:
+          $ref: '#/IeltsWritingTask'
+        task2:
+          $ref: '#/IeltsWritingTaskTwo'
+      required: [task1, task2]
+
+IeltsSpeakingPart:
+  type: object
+  properties:
+    questions:
+      type: array
+      items:
+        type: string
+  required: [questions]
+  additionalProperties: true
+
+IeltsSpeakingPartTwo:
+  type: object
+  properties:
+    cueCard:
+      type: object
+      properties:
+        topic:
+          type: string
+        bulletPoints:
+          type: array
+          items:
+            type: string
+      required: [topic, bulletPoints]
+      additionalProperties: false
+    prepSeconds:
+      type: integer
+      minimum: 0
+    talkSeconds:
+      type: integer
+      minimum: 0
+  required: [cueCard, prepSeconds, talkSeconds]
+  additionalProperties: true
+
+IeltsSpeakingAssignmentConfig:
+  allOf:
+    - $ref: '#/IeltsBaseAssignmentConfig'
+    - type: object
+      properties:
+        part1:
+          $ref: '#/IeltsSpeakingPart'
+        part2:
+          $ref: '#/IeltsSpeakingPartTwo'
+        part3:
+          $ref: '#/IeltsSpeakingPart'
+      required: [part1, part2, part3]
