@@ -18,6 +18,7 @@ import { StudentAssignmentDetailPage } from '@features/assignments/components/St
 import { StudentAssignmentsPage } from '@features/assignments/components/StudentAssignmentsPage';
 import { TeacherAssignmentEditPage } from '@features/assignments/components/TeacherAssignmentEditPage';
 import { TeacherAssignmentsPage } from '@features/assignments/components/TeacherAssignmentsPage';
+import { TeacherIeltsAssignmentCreatePage } from '@features/assignments/components/TeacherIeltsAssignmentCreatePage';
 import { TeacherGradeFormPage } from '@features/assignments/components/TeacherGradeFormPage';
 import { TeacherSubmissionsPage } from '@features/assignments/components/TeacherSubmissionsPage';
 import { TeacherCoursesPage } from '@features/courses/components/TeacherCoursesPage';
@@ -153,6 +154,7 @@ export function AppRoutes() {
           <Route path="teacher/courses" element={<TeacherCoursesPage />} />
           <Route path="teacher/courses/:courseId/manage" element={<TeacherCourseManagementWrapper />} />
           <Route path="teacher/assignments" element={<TeacherAssignmentsPage />} />
+          <Route path="teacher/assignments/create" element={<TeacherIeltsAssignmentCreatePage />} />
           <Route path="teacher/assignments/:assignmentId" element={<TeacherAssignmentEditWrapper />} />
           <Route path="teacher/assignments/:assignmentId/edit" element={<TeacherAssignmentEditWrapper />} />
           <Route path="teacher/submissions" element={<TeacherSubmissionsPage />} />
