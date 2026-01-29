@@ -27,6 +27,10 @@ const timingSchema = z
     enabled: z.boolean(),
     durationMinutes: z.number().int().min(1),
     enforce: z.boolean(),
+    startAt: z.string().optional(),
+    endAt: z.string().optional(),
+    autoSubmit: z.boolean().optional(),
+    rejectLateStart: z.boolean().optional(),
   })
   .strict();
 
