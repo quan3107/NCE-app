@@ -9,6 +9,7 @@ import { Router } from "express";
 import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
 import {
+  deleteAssignmentById,
   getAssignmentById,
   getAssignments,
   patchAssignment,
@@ -30,4 +31,9 @@ assignmentRouter.patch(
   "/:assignmentId",
   roleGuard([UserRole.admin, UserRole.teacher]),
   patchAssignment,
+);
+assignmentRouter.delete(
+  "/:assignmentId",
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  deleteAssignmentById,
 );
