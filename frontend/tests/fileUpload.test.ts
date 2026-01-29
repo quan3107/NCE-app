@@ -34,7 +34,7 @@ test('formatFileSize renders bytes in human-friendly units', () => {
   assert.equal(formatFileSize(10 * 1024 * 1024), '10 MB');
 });
 
-test('isAllowedFile accepts document and audio files', () => {
+test('isAllowedFile accepts document, audio, and image files', () => {
   const pdfFile = { name: 'essay.pdf', type: 'application/pdf' } as File;
   const docxFile = {
     name: 'draft.docx',
@@ -42,11 +42,13 @@ test('isAllowedFile accepts document and audio files', () => {
   } as File;
   const audioFile = { name: 'response.mp3', type: 'audio/mpeg' } as File;
   const audioByExtension = { name: 'voice.m4a', type: '' } as File;
+  const imageFile = { name: 'chart.png', type: 'image/png' } as File;
 
   assert.equal(isAllowedFile(pdfFile).ok, true);
   assert.equal(isAllowedFile(docxFile).ok, true);
   assert.equal(isAllowedFile(audioFile).ok, true);
   assert.equal(isAllowedFile(audioByExtension).ok, true);
+  assert.equal(isAllowedFile(imageFile).ok, true);
 });
 
 test('isAllowedFile rejects unsupported files', () => {
