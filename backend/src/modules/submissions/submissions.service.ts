@@ -17,7 +17,10 @@ import {
   submissionQuerySchema,
   type CreateSubmissionPayload,
 } from "./submissions.schema.js";
-import { parseSubmissionPayloadForType } from "../assignments/ielts.schema.js";
+import {
+  isIeltsAssignmentType,
+  parseSubmissionPayloadForType,
+} from "../assignments/ielts.schema.js";
 import { autoScoreSubmission } from "../scoring/ieltsScoring.service.js";
 
 function parseOptionalDate(
@@ -33,7 +36,21 @@ function parseOptionalDate(
   }
   return parsed;
 }
-
+function asRecord(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+function readNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
 export async function listSubmissions(
   params: unknown,
   query: unknown,
@@ -63,8 +80,8 @@ export async function createSubmission(
   user?: { id: string; role: string },
 ) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
-  const submittedAt = parseOptionalDate(payload.submittedAt, "submittedAt");
-  const status =
+  let submittedAt = parseOptionalDate(payload.submittedAt, "submittedAt");
+  let status =
     payload.status ?? (submittedAt ? "submitted" : "draft");
   if (!user || user.role !== "student") {
     throw createHttpError(403, "Only students can submit assignments.");
@@ -79,7 +96,7 @@ export async function createSubmission(
 
   const assignment = await prisma.assignment.findFirst({
     where: { id: assignmentId, deletedAt: null },
-    select: { id: true, type: true },
+    select: { id: true, type: true, assignmentConfig: true },
   });
 
   if (!assignment) {
@@ -90,6 +107,91 @@ export async function createSubmission(
     assignment.type,
     payload.payload,
   );
+
+  const isIeltsAssignment = isIeltsAssignmentType(assignment.type);
+  const assignmentConfig = isIeltsAssignment
+    ? asRecord(assignment.assignmentConfig)
+    : undefined;
+  const timingConfig = assignmentConfig
+    ? asRecord(assignmentConfig.timing)
+    : undefined;
+  const attemptsConfig = assignmentConfig
+    ? asRecord(assignmentConfig.attempts)
+    : undefined;
+  const enforceTiming = timingConfig?.enforce === true;
+  const timingEnabled = timingConfig?.enabled !== false;
+  const timingDurationMinutes = readNumber(
+    timingConfig?.durationMinutes,
+  );
+  const timingStartAt = readString(timingConfig?.startAt);
+  const timingEndAt = readString(timingConfig?.endAt);
+  const timingAutoSubmit = timingConfig?.autoSubmit === true;
+  const rejectLateStart =
+    timingConfig?.rejectLateStart !== false;
+
+  // Apply IELTS timing enforcement when explicitly enabled by the teacher.
+  if (enforceTiming && timingEnabled) {
+    const payloadRecord = asRecord(validatedPayload);
+    const startedAtValue = readString(payloadRecord?.startedAt);
+    if (!startedAtValue) {
+      throw createHttpError(
+        400,
+        "payload.startedAt is required for timed submissions.",
+      );
+    }
+
+    const startedAt = parseOptionalDate(
+      startedAtValue,
+      "payload.startedAt",
+    );
+    if (!startedAt) {
+      throw createHttpError(
+        400,
+        "payload.startedAt is required for timed submissions.",
+      );
+    }
+
+    const windowStart = parseOptionalDate(
+      timingStartAt,
+      "assignmentConfig.timing.startAt",
+    );
+    const windowEnd = parseOptionalDate(
+      timingEndAt,
+      "assignmentConfig.timing.endAt",
+    );
+
+    if (windowStart && startedAt < windowStart) {
+      throw createHttpError(
+        400,
+        "Submission start time is before the allowed window.",
+      );
+    }
+    if (windowEnd && startedAt > windowEnd && rejectLateStart) {
+      throw createHttpError(
+        400,
+        "Submission start time is after the allowed window.",
+      );
+    }
+
+    if (timingDurationMinutes) {
+      const effectiveSubmittedAt =
+        submittedAt ?? new Date();
+      const elapsedMs =
+        effectiveSubmittedAt.getTime() - startedAt.getTime();
+      const limitMs = timingDurationMinutes * 60 * 1000;
+      if (elapsedMs > limitMs) {
+        if (timingAutoSubmit) {
+          submittedAt = effectiveSubmittedAt;
+          status = "submitted";
+        } else {
+          throw createHttpError(
+            400,
+            "Submission exceeded the time limit.",
+          );
+        }
+      }
+    }
+  }
 
   // Accept explicit studentId while preserving auth verification.
   // Cast validated payloads to Prisma JSON input for storage.
@@ -117,9 +219,20 @@ export async function createSubmission(
       typeof existingPayload?.version === "number"
         ? existingPayload.version
         : 1;
+    const isSameAttempt = existing.status === "draft";
+    const nextVersion = isSameAttempt
+      ? existingVersion
+      : existingVersion + 1;
+    const maxAttempts = readNumber(attemptsConfig?.maxAttempts);
+    if (maxAttempts !== undefined && nextVersion > maxAttempts) {
+      throw createHttpError(
+        409,
+        "Maximum attempts reached for this assignment.",
+      );
+    }
     const payloadWithVersion: Prisma.InputJsonObject = {
       ...payloadJson,
-      version: existingVersion + 1,
+      version: nextVersion,
     };
 
     const updatedSubmission = await prisma.submission.update({
@@ -139,10 +252,20 @@ export async function createSubmission(
     return updatedSubmission;
   }
 
+  const payloadVersion =
+    typeof payloadJson?.version === "number"
+      ? payloadJson.version
+      : 1;
+  const maxAttempts = readNumber(attemptsConfig?.maxAttempts);
+  if (maxAttempts !== undefined && payloadVersion > maxAttempts) {
+    throw createHttpError(
+      409,
+      "Maximum attempts reached for this assignment.",
+    );
+  }
   const payloadWithVersion: Prisma.InputJsonObject = {
     ...payloadJson,
-    version:
-      typeof payloadJson?.version === "number" ? payloadJson.version : 1,
+    version: payloadVersion,
   };
 
   const createdSubmission = await prisma.submission.create({
