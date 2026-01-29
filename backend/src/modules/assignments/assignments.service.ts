@@ -141,3 +141,21 @@ export async function updateAssignment(
     data: updateData,
   });
 }
+
+export async function deleteAssignment(params: unknown) {
+  const { assignmentId } = assignmentIdParamsSchema.parse(params);
+  const { courseId } = courseScopedParamsSchema.parse(params);
+
+  const existing = await prisma.assignment.findFirst({
+    where: { id: assignmentId, courseId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) {
+    throw createNotFoundError("Assignment", assignmentId);
+  }
+
+  await prisma.assignment.update({
+    where: { id: assignmentId },
+    data: { deletedAt: new Date() },
+  });
+}
