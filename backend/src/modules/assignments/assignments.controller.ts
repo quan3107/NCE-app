@@ -7,6 +7,7 @@ import { type Request, type Response } from "express";
 
 import {
   createAssignment,
+  deleteAssignment,
   getAssignment,
   listAssignments,
   updateAssignment,
@@ -48,4 +49,12 @@ export async function patchAssignment(
   const payload = updateAssignmentSchema.parse(req.body);
   const assignment = await updateAssignment(req.params, payload);
   res.status(200).json(assignment);
+}
+
+export async function deleteAssignmentById(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  await deleteAssignment(req.params);
+  res.status(204).send();
 }
