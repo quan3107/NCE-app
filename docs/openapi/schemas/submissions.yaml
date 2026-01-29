@@ -21,8 +21,11 @@ Submission:
       format: date-time
       nullable: true
     payload:
-      type: object
-      additionalProperties: true
+      description: IELTS submission payload (shape depends on assignment type).
+      anyOf:
+        - $ref: '#/IeltsSubmissionPayload'
+        - type: object
+          additionalProperties: true
     createdAt:
       type: string
       format: date-time
@@ -42,10 +45,121 @@ CreateSubmissionRequest:
       type: string
       format: uuid
     payload:
-      type: object
-      additionalProperties: true
+      description: IELTS submission payload (shape depends on assignment type).
+      anyOf:
+        - $ref: '#/IeltsSubmissionPayload'
+        - type: object
+          additionalProperties: true
     submittedAt:
       type: string
     status:
       $ref: './common.yaml#/SubmissionStatus'
   required: [studentId, payload]
+
+IeltsSubmissionPayload:
+  oneOf:
+    - $ref: '#/IeltsReadingSubmissionPayload'
+    - $ref: '#/IeltsListeningSubmissionPayload'
+    - $ref: '#/IeltsWritingSubmissionPayload'
+    - $ref: '#/IeltsSpeakingSubmissionPayload'
+
+IeltsSubmissionBase:
+  type: object
+  properties:
+    version:
+      type: integer
+      enum: [1]
+    attempt:
+      type: integer
+      minimum: 1
+    startedAt:
+      type: string
+      format: date-time
+    submittedAt:
+      type: string
+      format: date-time
+    durationSeconds:
+      type: integer
+      minimum: 0
+  additionalProperties: true
+
+IeltsAnswer:
+  type: object
+  properties:
+    questionId:
+      type: string
+    value:
+      nullable: true
+  required: [questionId, value]
+  additionalProperties: true
+
+IeltsReadingSubmissionPayload:
+  allOf:
+    - $ref: '#/IeltsSubmissionBase'
+    - type: object
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: '#/IeltsAnswer'
+      required: [answers]
+
+IeltsListeningSubmissionPayload:
+  allOf:
+    - $ref: '#/IeltsSubmissionBase'
+    - type: object
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: '#/IeltsAnswer'
+      required: [answers]
+
+IeltsWritingTaskResponse:
+  type: object
+  properties:
+    text:
+      type: string
+  required: [text]
+  additionalProperties: true
+
+IeltsWritingSubmissionPayload:
+  allOf:
+    - $ref: '#/IeltsSubmissionBase'
+    - type: object
+      properties:
+        task1:
+          $ref: '#/IeltsWritingTaskResponse'
+        task2:
+          $ref: '#/IeltsWritingTaskResponse'
+      required: [task1, task2]
+
+IeltsSpeakingRecording:
+  type: object
+  properties:
+    part:
+      type: string
+      enum: [part1, part2, part3]
+    fileId:
+      type: string
+      format: uuid
+    durationSeconds:
+      type: integer
+      minimum: 1
+  required: [part, fileId, durationSeconds]
+  additionalProperties: true
+
+IeltsSpeakingSubmissionPayload:
+  allOf:
+    - $ref: '#/IeltsSubmissionBase'
+    - type: object
+      properties:
+        recordings:
+          type: array
+          items:
+            $ref: '#/IeltsSpeakingRecording'
+        notes:
+          type: object
+          additionalProperties:
+            type: string
+      required: [recordings]
