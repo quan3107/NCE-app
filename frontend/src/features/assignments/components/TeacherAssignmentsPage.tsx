@@ -45,7 +45,7 @@ export function TeacherAssignmentsPage() {
           <Card
             key={assignment.id}
             className="hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => navigate(`/teacher/assignments/${assignment.id}/edit`)}
+            onClick={() => navigate(`/teacher/assignments/${assignment.id}/detail`)}
           >
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
