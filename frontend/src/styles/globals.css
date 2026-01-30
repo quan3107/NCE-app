@@ -147,6 +147,27 @@
   }
 }
 
+@layer components {
+  .tabs-pill {
+    height: 32px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid #e5e5ea;
+    background-color: #ffffff;
+    color: #0a0a0a;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  }
+
+  .tabs-pill[data-state='active'] {
+    background-color: #1b1b29;
+    border-color: #1b1b29;
+    color: #ffffff;
+  }
+}
+
 /**
  * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
  */
