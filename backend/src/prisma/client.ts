@@ -30,7 +30,25 @@ if (!databaseUrl) {
 }
 const pool = new Pool({ connectionString: databaseUrl })
 const adapter = new PrismaPg(pool)
-const basePrisma = new PrismaClient({ adapter })
+// Allow tuning transaction acquisition/timeout to reduce P2028 under load.
+const transactionMaxWaitMs = Number.parseInt(
+  process.env.PRISMA_TRANSACTION_MAX_WAIT_MS ?? '',
+  10,
+)
+const transactionTimeoutMs = Number.parseInt(
+  process.env.PRISMA_TRANSACTION_TIMEOUT_MS ?? '',
+  10,
+)
+const transactionOptions: Prisma.PrismaClientOptions['transactionOptions'] = {
+  maxWait:
+    Number.isFinite(transactionMaxWaitMs) && transactionMaxWaitMs > 0
+      ? transactionMaxWaitMs
+      : 5000,
+}
+if (Number.isFinite(transactionTimeoutMs) && transactionTimeoutMs > 0) {
+  transactionOptions.timeout = transactionTimeoutMs
+}
+const basePrisma = new PrismaClient({ adapter, transactionOptions })
 
 export async function shutdownPrisma(): Promise<void> {
   await basePrisma.$disconnect()
