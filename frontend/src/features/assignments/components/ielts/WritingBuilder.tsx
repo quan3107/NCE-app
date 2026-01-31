@@ -10,7 +10,7 @@ import { Card } from '@components/ui/card';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import type { IeltsWritingConfig } from '@lib/ielts';
-import type { SubmissionFile } from '@lib/mock-data';
+import type { UploadFile } from '@lib/mock-data';
 import { FILE_UPLOAD_LIMITS } from '@features/files/fileUpload';
 import { FileUploader } from '@components/common/FileUploader';
 
@@ -20,9 +20,9 @@ type WritingBuilderProps = {
 };
 
 export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
-  const [task1Files, setTask1Files] = useState<SubmissionFile[]>([]);
+  const [task1Files, setTask1Files] = useState<UploadFile[]>([]);
 
-  const handleTask1Files = (files: SubmissionFile[]) => {
+  const handleTask1Files = (files: UploadFile[]) => {
     setTask1Files(files);
     onChange({
       ...value,
