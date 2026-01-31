@@ -1,11 +1,25 @@
 /**
  * Location: features/assignments/components/ielts/authoring/ReadingAssignmentForm.tsx
  * Purpose: Render the reading authoring form per Figma layout.
- * Why: Matches the passage accordion and question editor design.
+ * Why: Matches the passage accordion and question editor design with drag-drop reordering.
  */
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
@@ -15,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@components/ui/textarea';
 import type { IeltsQuestion, IeltsQuestionType, IeltsReadingConfig } from '@lib/ielts';
 import { IELTS_READING_QUESTION_TYPES } from '@lib/ielts';
+import { SortablePassageCard } from './SortablePassageCard';
 
 const createId = () =>
   globalThis.crypto?.randomUUID?.() ?? `reading-${Date.now()}-${Math.random()}`;
@@ -35,6 +50,34 @@ export function ReadingAssignmentForm({
   onChange: (value: IeltsReadingConfig) => void;
 }) {
   const [expandedPassage, setExpandedPassage] = useState(0);
+
+  // Setup sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = value.sections.findIndex((s) => s.id === active.id);
+      const newIndex = value.sections.findIndex((s) => s.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newSections = [...value.sections];
+        const [movedSection] = newSections.splice(oldIndex, 1);
+        newSections.splice(newIndex, 0, movedSection);
+        onChange({ ...value, sections: newSections });
+      }
+    }
+  };
 
   const addPassage = () => {
     const nextSections = [
@@ -79,6 +122,16 @@ export function ReadingAssignmentForm({
     updatePassage(passageIndex, { questions });
   };
 
+  const moveQuestion = (passageIndex: number, questionIndex: number, direction: 'up' | 'down') => {
+    const questions = [...value.sections[passageIndex].questions];
+    const newIndex = direction === 'up' ? questionIndex - 1 : questionIndex + 1;
+    
+    if (newIndex >= 0 && newIndex < questions.length) {
+      [questions[questionIndex], questions[newIndex]] = [questions[newIndex], questions[questionIndex]];
+      updatePassage(passageIndex, { questions });
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -94,26 +147,27 @@ export function ReadingAssignmentForm({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {value.sections.map((passage, passageIndex) => (
-          <Card key={passage.id} className="border-2">
-            <CardHeader
-              className="cursor-pointer"
-              onClick={() =>
-                setExpandedPassage(expandedPassage === passageIndex ? -1 : passageIndex)
-              }
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">{passage.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {passage.questions.length} questions
-                  </p>
-                </div>
-                {expandedPassage === passageIndex ? <ChevronUp /> : <ChevronDown />}
-              </div>
-            </CardHeader>
-            {expandedPassage === passageIndex && (
-              <CardContent className="space-y-4">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={value.sections.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {value.sections.map((passage, passageIndex) => (
+              <SortablePassageCard
+                key={passage.id}
+                id={passage.id}
+                index={passageIndex}
+                title={passage.title}
+                questionCount={passage.questions.length}
+                isExpanded={expandedPassage === passageIndex}
+                onToggle={() =>
+                  setExpandedPassage(expandedPassage === passageIndex ? -1 : passageIndex)
+                }
+              >
                 <div className="space-y-2">
                   <Label>Passage Title</Label>
                   <Input
@@ -148,7 +202,29 @@ export function ReadingAssignmentForm({
                     <Card key={question.id} className="bg-muted/30">
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between">
-                          <Label>Question {questionIndex + 1}</Label>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Question {questionIndex + 1}</span>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6"
+                                disabled={questionIndex === 0}
+                                onClick={() => moveQuestion(passageIndex, questionIndex, 'up')}
+                              >
+                                <ArrowUp className="size-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6"
+                                disabled={questionIndex === passage.questions.length - 1}
+                                onClick={() => moveQuestion(passageIndex, questionIndex, 'down')}
+                              >
+                                <ArrowDown className="size-3" />
+                              </Button>
+                            </div>
+                          </div>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -222,10 +298,10 @@ export function ReadingAssignmentForm({
                     </Card>
                   ))}
                 </div>
-              </CardContent>
-            )}
-          </Card>
-        ))}
+              </SortablePassageCard>
+            ))}
+          </SortableContext>
+        </DndContext>
       </CardContent>
     </Card>
   );
