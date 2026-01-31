@@ -7,12 +7,13 @@
 
 import { useState } from 'react';
 import type { IeltsListeningConfig, IeltsQuestion, IeltsListeningSection } from '@lib/ielts';
+import { IELTS_LISTENING_QUESTION_TYPES } from '@lib/ielts';
 import { Textarea } from '@components/ui/textarea';
 import { Input } from '@components/ui/input';
 import { Button } from '@components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { QuestionEditor } from './QuestionEditor';
-import { Plus, Trash2, Headphones } from 'lucide-react';
+import { Plus, X, Headphones } from 'lucide-react';
 
 const createId = () => {
   if (globalThis.crypto?.randomUUID) {
@@ -113,31 +114,38 @@ export function IeltsListeningContentEditor({ value, onChange }: IeltsListeningC
     <div className="space-y-4">
       <Tabs value={activeSectionId} onValueChange={setActiveSectionId}>
         <div className="flex items-center gap-2 flex-wrap">
-          <TabsList className="flex flex-wrap gap-2 bg-muted/30 p-2 rounded-[12px]">
+          <TabsList className="flex flex-wrap gap-2 bg-transparent p-0 rounded-none">
             {sections.map((section, index) => (
               <TabsTrigger
                 key={section.id}
                 value={section.id}
-                className="tabs-pill relative pr-8"
+                className="tabs-pill"
               >
-                Section {index + 1}
+                <span>Section {index + 1}</span>
                 {sections.length > 1 && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteSection(section.id);
                     }}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-sm hover:bg-destructive/10"
+                    className="passage-remove-btn"
+                    title="Delete section"
+                    type="button"
                   >
-                    <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
+                    <X className="size-3" />
                   </button>
                 )}
               </TabsTrigger>
             ))}
           </TabsList>
-          <Button variant="outline" size="sm" className="h-8" onClick={handleAddSection}>
-            <Plus className="size-4 mr-1" />
-            Add Section
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg"
+            onClick={handleAddSection}
+            title="Add section"
+          >
+            <Plus className="size-4" />
           </Button>
         </div>
 
@@ -217,16 +225,17 @@ export function IeltsListeningContentEditor({ value, onChange }: IeltsListeningC
                 
                 <div className="space-y-4">
                   {section.questions.map((question, index) => (
-                    <QuestionEditor
-                      key={question.id}
-                      question={question}
-                      questionNumber={index + 1}
-                      onChange={(updated) =>
-                        handleUpdateQuestion(section.id, question.id, updated)
-                      }
-                      onDelete={() => handleDeleteQuestion(section.id, question.id)}
-                      showDelete={section.questions.length > 1}
-                    />
+                  <QuestionEditor
+                    key={question.id}
+                    question={question}
+                    questionNumber={index + 1}
+                    onChange={(updated) =>
+                      handleUpdateQuestion(section.id, question.id, updated)
+                    }
+                    onDelete={() => handleDeleteQuestion(section.id, question.id)}
+                    showDelete={section.questions.length > 1}
+                    questionTypes={IELTS_LISTENING_QUESTION_TYPES}
+                  />
                   ))}
                   
                   <Button
