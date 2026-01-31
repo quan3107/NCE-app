@@ -1,7 +1,8 @@
 /**
  * Location: features/assignments/components/TeacherAssignmentOverviewTab.tsx
  * Purpose: Render the overview tab with stats cards and assignment details.
- * Why: Matches the Figma Make detail page while keeping the main screen lean.
+ *          Now supports inline editing for title, description, due date, and max score.
+ * Why: Allows teachers to edit basic assignment info without leaving the detail view.
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
@@ -18,16 +19,25 @@ const formatTypeLabel = (value: string) =>
 const toDateTimeLocal = (dateValue: Date) =>
   new Date(dateValue).toISOString().slice(0, 16);
 
+const fromDateTimeLocal = (value: string): Date => {
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? new Date() : date;
+};
+
 type TeacherAssignmentOverviewTabProps = {
   assignment: Assignment;
   courseTitle: string;
   statsCards: TeacherAssignmentStatCard[];
+  isEditing?: boolean;
+  onAssignmentChange?: (updates: Partial<Assignment>) => void;
 };
 
 export function TeacherAssignmentOverviewTab({
   assignment,
   courseTitle,
   statsCards,
+  isEditing = false,
+  onAssignmentChange,
 }: TeacherAssignmentOverviewTabProps) {
   return (
     <>
@@ -50,13 +60,21 @@ export function TeacherAssignmentOverviewTab({
       <Card className="rounded-[14px]">
         <CardHeader>
           <CardTitle>Assignment Details</CardTitle>
-          <CardDescription>Review key settings at a glance</CardDescription>
+          <CardDescription>
+            {isEditing ? 'Edit key settings below' : 'Review key settings at a glance'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Title</Label>
-              <Input value={assignment.title} disabled />
+              <Label htmlFor="assignment-title">Title</Label>
+              <Input
+                id="assignment-title"
+                value={assignment.title}
+                disabled={!isEditing}
+                onChange={(e) => onAssignmentChange?.({ title: e.target.value })}
+                className={isEditing ? 'bg-background' : ''}
+              />
             </div>
             <div className="space-y-2">
               <Label>Course</Label>
@@ -64,8 +82,16 @@ export function TeacherAssignmentOverviewTab({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Description</Label>
-            <Textarea value={assignment.description} rows={4} disabled />
+            <Label htmlFor="assignment-description">Description</Label>
+            <Textarea
+              id="assignment-description"
+              value={assignment.description}
+              rows={4}
+              disabled={!isEditing}
+              onChange={(e) => onAssignmentChange?.({ description: e.target.value })}
+              className={isEditing ? 'bg-background resize-none' : 'resize-none'}
+              placeholder="Enter assignment description..."
+            />
           </div>
           <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -73,12 +99,28 @@ export function TeacherAssignmentOverviewTab({
               <Input value={formatTypeLabel(assignment.type)} disabled />
             </div>
             <div className="space-y-2">
-              <Label>Due Date</Label>
-              <Input type="datetime-local" value={toDateTimeLocal(assignment.dueAt)} disabled />
+              <Label htmlFor="assignment-due-date">Due Date</Label>
+              <Input
+                id="assignment-due-date"
+                type="datetime-local"
+                value={toDateTimeLocal(assignment.dueAt)}
+                disabled={!isEditing}
+                onChange={(e) => onAssignmentChange?.({ dueAt: fromDateTimeLocal(e.target.value) })}
+                className={isEditing ? 'bg-background' : ''}
+              />
             </div>
             <div className="space-y-2">
-              <Label>Max Score</Label>
-              <Input type="number" value={assignment.maxScore} disabled />
+              <Label htmlFor="assignment-max-score">Max Score</Label>
+              <Input
+                id="assignment-max-score"
+                type="number"
+                min={0}
+                max={1000}
+                value={assignment.maxScore}
+                disabled={!isEditing}
+                onChange={(e) => onAssignmentChange?.({ maxScore: parseInt(e.target.value) || 0 })}
+                className={isEditing ? 'bg-background' : ''}
+              />
             </div>
           </div>
           <div className="pt-4 border-t">
