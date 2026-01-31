@@ -52,6 +52,20 @@ export type SubmissionFile = {
   objectKey: string;
 };
 
+/**
+ * UploadFile - Used for temporary file uploads during authoring.
+ * Contains client-side metadata including a blob URL for preview.
+ * This is NOT stored in the database - files must be uploaded to server first.
+ */
+export type UploadFile = {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  url: string;
+  createdAt: string;
+};
+
 export type Assignment = {
   id: string;
   title: string;
