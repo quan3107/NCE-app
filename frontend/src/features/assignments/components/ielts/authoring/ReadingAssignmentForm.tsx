@@ -14,15 +14,7 @@ import { Label } from '@components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { Textarea } from '@components/ui/textarea';
 import type { IeltsQuestion, IeltsQuestionType, IeltsReadingConfig } from '@lib/ielts';
-
-const QUESTION_TYPES: Array<{ value: IeltsQuestionType; label: string }> = [
-  { value: 'multiple_choice', label: 'Multiple Choice' },
-  { value: 'true_false_not_given', label: 'True/False/Not Given' },
-  { value: 'matching_headings', label: 'Matching Headings' },
-  { value: 'matching_information', label: 'Matching Information' },
-  { value: 'sentence_completion', label: 'Sentence Completion' },
-  { value: 'matching_features', label: 'Matching Features' },
-];
+import { IELTS_READING_QUESTION_TYPES } from '@lib/ielts';
 
 const createId = () =>
   globalThis.crypto?.randomUUID?.() ?? `reading-${Date.now()}-${Math.random()}`;
@@ -178,7 +170,7 @@ export function ReadingAssignmentForm({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {QUESTION_TYPES.map((option) => (
+                              {IELTS_READING_QUESTION_TYPES.map((option) => (
                                 <SelectItem key={option.value} value={option.value}>
                                   {option.label}
                                 </SelectItem>
