@@ -1,75 +1,53 @@
 /**
  * Location: features/assignments/components/TeacherAssignmentContentTab.tsx
- * Purpose: Render the assignment content tab with description and IELTS preview.
- * Why: Keeps the tab content modular and easier to align to the Figma Make layout.
+ * Purpose: Render the assignment content tab with IELTS preview or editor based on edit mode.
+ * Why: Conditionally shows either read-only preview or inline editor for IELTS content.
  */
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import type { Assignment } from '@lib/mock-data';
 import type { IeltsAssignmentConfig, IeltsAssignmentType } from '@lib/ielts';
 import { isIeltsAssignmentType } from '@lib/ielts';
 import { IeltsAssignmentContentPreview } from './ielts/IeltsAssignmentContentPreview';
+import { IeltsAssignmentContentEditor } from './ielts/IeltsAssignmentContentEditor';
 
 type TeacherAssignmentContentTabProps = {
   assignment: Assignment;
   ieltsConfig: IeltsAssignmentConfig | null;
+  isEditing?: boolean;
+  onDraftConfigChange?: (updated: IeltsAssignmentConfig) => void;
 };
 
 export function TeacherAssignmentContentTab({
   assignment,
   ieltsConfig,
+  isEditing = false,
+  onDraftConfigChange,
 }: TeacherAssignmentContentTabProps) {
-  return (
-    <>
-      <Card className="rounded-[14px]">
-        <CardHeader>
-          <CardTitle>Assignment Overview</CardTitle>
-          <CardDescription>Student-facing instructions and materials</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MarkdownText value={assignment.description} />
-        </CardContent>
-      </Card>
-      {isIeltsAssignmentType(assignment.type) && ieltsConfig && (
-        <Card className="rounded-[14px]">
-          <CardHeader>
-            <CardTitle>IELTS Assignment Content</CardTitle>
-            <CardDescription>Full student-facing content preview</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <IeltsAssignmentContentPreview
-              type={assignment.type as IeltsAssignmentType}
-              value={ieltsConfig}
-            />
-          </CardContent>
-        </Card>
-      )}
-    </>
-  );
-}
+  if (isIeltsAssignmentType(assignment.type) && ieltsConfig) {
+    if (isEditing && onDraftConfigChange) {
+      return (
+        <IeltsAssignmentContentEditor
+          type={assignment.type as IeltsAssignmentType}
+          value={ieltsConfig}
+          onChange={onDraftConfigChange}
+        />
+      );
+    }
 
-function MarkdownText({ value }: { value: string }) {
-  if (!value) {
-    return <p className="text-sm text-muted-foreground">No description provided.</p>;
+    return (
+      <IeltsAssignmentContentPreview
+        type={assignment.type as IeltsAssignmentType}
+        value={ieltsConfig}
+      />
+    );
   }
 
+  // Fallback for non-IELTS assignments
   return (
-    <div className="prose prose-sm max-w-none">
-      {value.split('\n').map((line, index) => {
-        if (line.startsWith('# ')) {
-          return <h2 key={index}>{line.replace('# ', '')}</h2>;
-        }
-        if (line.startsWith('## ')) {
-          return <h3 key={index}>{line.replace('## ', '')}</h3>;
-        }
-        if (line.startsWith('- ')) {
-          return <li key={index}>{line.replace('- ', '')}</li>;
-        }
-        if (line) {
-          return <p key={index}>{line}</p>;
-        }
-        return null;
-      })}
+    <div className="rounded-[14px] border bg-card p-6">
+      <p className="text-sm text-muted-foreground">
+        {assignment.description || 'No content available.'}
+      </p>
     </div>
   );
 }
