@@ -60,7 +60,7 @@ export function IeltsReadingContentPreview({ value }: IeltsReadingContentPreview
                 <TabsTrigger
                   key={section.id}
                   value={section.id}
-                  className="tabs-pill"
+                  className="tabs-pill !px-3"
                 >
                   Passage {index + 1}
                 </TabsTrigger>
