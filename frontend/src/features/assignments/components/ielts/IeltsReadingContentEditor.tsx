@@ -8,12 +8,13 @@
 
 import { useState, useMemo } from 'react';
 import type { IeltsReadingConfig, IeltsQuestion, IeltsReadingSection } from '@lib/ielts';
+import { IELTS_READING_QUESTION_TYPES } from '@lib/ielts';
 import { Textarea } from '@components/ui/textarea';
 import { Input } from '@components/ui/input';
 import { Button } from '@components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { QuestionEditor } from './QuestionEditor';
-import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const createId = () => {
   if (globalThis.crypto?.randomUUID) {
@@ -134,30 +135,36 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
                 <TabsTrigger
                   key={section.id}
                   value={section.id}
-                  className="tabs-pill relative pr-8"
+                  className="tabs-pill"
                 >
-                  Passage {index + 1}
+                  <span>Passage {index + 1}</span>
                   {sections.length > 1 && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteSection(section.id);
                       }}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-sm hover:bg-destructive/10"
+                      className="passage-remove-btn"
+                      title="Delete passage"
+                      type="button"
                     >
-                      <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
+                      <X className="size-3" />
                     </button>
                   )}
                 </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleAddSection}>
-            <Plus className="size-3.5 mr-1" />
-            Add Passage
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg"
+            onClick={handleAddSection}
+            title="Add passage"
+          >
+            <Plus className="size-4" />
           </Button>
         </div>
-        <span className="text-xs text-muted-foreground">Editing Mode</span>
       </div>
 
       {/* Content area */}
@@ -214,6 +221,7 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
                       }
                       onDelete={() => handleDeleteQuestion(activeSection.id, question.id)}
                       showDelete={activeSection.questions.length > 1}
+                      questionTypes={IELTS_READING_QUESTION_TYPES}
                     />
                   ))}
                   
