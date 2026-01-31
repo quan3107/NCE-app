@@ -1,11 +1,25 @@
 /**
  * Location: features/assignments/components/ielts/authoring/ListeningAssignmentForm.tsx
  * Purpose: Render the listening authoring form per Figma layout.
- * Why: Matches audio upload, playback limit, section list, and question editing design.
+ * Why: Matches audio upload, playback limit, section list, and question editing design with drag-drop reordering.
  */
 
 import { useState } from 'react';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, ArrowUp, ArrowDown } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
@@ -17,6 +31,8 @@ import type { IeltsListeningConfig, IeltsQuestion } from '@lib/ielts';
 import { IELTS_LISTENING_QUESTION_TYPES, createIeltsAssignmentConfig } from '@lib/ielts';
 import type { UploadFile } from '@lib/mock-data';
 import { QuestionEditor } from '../QuestionEditor';
+import { SortableSectionCard } from './SortableSectionCard';
+import { AudioPlayer } from '@components/ui/audio-player';
 
 type ListeningAssignmentFormProps = {
   value: IeltsListeningConfig;
@@ -34,6 +50,36 @@ export function ListeningAssignmentForm({
 }: ListeningAssignmentFormProps) {
   // Track uploaded images for diagram labeling questions
   const [uploadedImages, setUploadedImages] = useState<Record<string, UploadFile>>({});
+  // Track uploaded audio files for preview
+  const [uploadedAudio, setUploadedAudio] = useState<Record<string, { file: File; url: string }>>({});
+
+  // Setup sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = value.sections.findIndex((s) => s.id === active.id);
+      const newIndex = value.sections.findIndex((s) => s.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newSections = [...value.sections];
+        const [movedSection] = newSections.splice(oldIndex, 1);
+        newSections.splice(newIndex, 0, movedSection);
+        onChange({ ...value, sections: newSections });
+      }
+    }
+  };
 
   const addSection = () => {
     const nextSections = [
@@ -97,6 +143,22 @@ export function ListeningAssignmentForm({
     updateSection(sectionIndex, { questions: updatedQuestions });
   };
 
+  const moveQuestion = (sectionIndex: number, questionId: string, direction: 'up' | 'down') => {
+    const section = value.sections[sectionIndex];
+    const questionIndex = section.questions.findIndex((q) => q.id === questionId);
+    if (questionIndex === -1) return;
+
+    const newIndex = direction === 'up' ? questionIndex - 1 : questionIndex + 1;
+    if (newIndex < 0 || newIndex >= section.questions.length) return;
+
+    const updatedQuestions = [...section.questions];
+    [updatedQuestions[questionIndex], updatedQuestions[newIndex]] = [
+      updatedQuestions[newIndex],
+      updatedQuestions[questionIndex],
+    ];
+    updateSection(sectionIndex, { questions: updatedQuestions });
+  };
+
   // Image upload handler for diagram labeling
   const handleImageUpload = async (file: File): Promise<string> => {
     // Create UploadFile for temporary blob URL
@@ -127,6 +189,27 @@ export function ListeningAssignmentForm({
     });
   };
 
+  // Audio file selection handler
+  const handleAudioSelect = (sectionId: string, file: File | null) => {
+    if (file) {
+      // Create object URL for preview
+      const url = URL.createObjectURL(file);
+      setUploadedAudio((prev) => ({ ...prev, [sectionId]: { file, url } }));
+    } else {
+      // Remove audio file
+      setUploadedAudio((prev) => {
+        const next = { ...prev };
+        if (next[sectionId]?.url) {
+          URL.revokeObjectURL(next[sectionId].url);
+        }
+        delete next[sectionId];
+        return next;
+      });
+    }
+    // Call parent handler
+    onAudioSelect(sectionId, file);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -142,29 +225,65 @@ export function ListeningAssignmentForm({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {value.sections.map((section, index) => (
-          <Card key={section.id} className="border-2">
-            <CardContent className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">{section.title}</h4>
-                <Badge variant="secondary">{section.questions.length} questions</Badge>
-              </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={value.sections.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {value.sections.map((section, index) => (
+              <SortableSectionCard
+                key={section.id}
+                id={section.id}
+                index={index}
+                title={section.title}
+                questionCount={section.questions.length}
+              >
 
               <div className="space-y-2">
                 <Label>Audio File</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="file"
-                    accept="audio/*"
-                    onChange={(event) =>
-                      onAudioSelect(section.id, event.target.files?.[0] ?? null)
-                    }
-                  />
-                  <Button variant="outline">
-                    <Upload className="mr-2 size-4" />
-                    Upload
-                  </Button>
-                </div>
+                {uploadedAudio[section.id] ? (
+                  <div className="space-y-3">
+                    <AudioPlayer
+                      audioUrl={uploadedAudio[section.id].url}
+                      fileName={uploadedAudio[section.id].file.name}
+                      fileSize={uploadedAudio[section.id].file.size}
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        type="file"
+                        accept="audio/*"
+                        onChange={(event) =>
+                          handleAudioSelect(section.id, event.target.files?.[0] ?? null)
+                        }
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => handleAudioSelect(section.id, null)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(event) =>
+                        handleAudioSelect(section.id, event.target.files?.[0] ?? null)
+                      }
+                    />
+                    <Button variant="outline">
+                      <Upload className="mr-2 size-4" />
+                      Upload
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -200,22 +319,27 @@ export function ListeningAssignmentForm({
                     onImageUpload={handleImageUpload}
                     onImageRemove={handleImageRemove}
                     uploadedImages={uploadedImages}
+                    onMoveUp={() => moveQuestion(index, question.id, 'up')}
+                    onMoveDown={() => moveQuestion(index, question.id, 'down')}
+                    canMoveUp={questionIndex > 0}
+                    canMoveDown={questionIndex < section.questions.length - 1}
                   />
                 ))}
               </div>
 
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="w-full"
                 onClick={() => handleAddQuestion(index)}
               >
                 <Plus className="mr-2 size-4" />
                 Add Question to Section
               </Button>
-            </CardContent>
-          </Card>
-        ))}
+              </SortableSectionCard>
+            ))}
+          </SortableContext>
+        </DndContext>
       </CardContent>
     </Card>
   );
