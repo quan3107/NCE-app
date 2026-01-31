@@ -6,7 +6,7 @@
 
 import type { ReactNode } from 'react';
 import type { Assignment, Submission } from '@lib/mock-data';
-import type { IeltsAssignmentConfig } from '@lib/ielts';
+import type { IeltsAssignmentConfig, IeltsAssignmentType } from '@lib/ielts';
 import { Badge } from '@components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { TeacherAssignmentContentTab } from './TeacherAssignmentContentTab';
@@ -36,6 +36,9 @@ type TeacherAssignmentDetailTabsProps = {
   statsCards: TeacherAssignmentStatCard[];
   statsSummary: TeacherAssignmentStatsSummary;
   ieltsConfig: IeltsAssignmentConfig | null;
+  isEditing?: boolean;
+  onDraftConfigChange?: (updated: IeltsAssignmentConfig) => void;
+  onAssignmentChange?: (updates: Partial<Assignment>) => void;
 };
 
 export function TeacherAssignmentDetailTabs({
@@ -45,6 +48,9 @@ export function TeacherAssignmentDetailTabs({
   statsCards,
   statsSummary,
   ieltsConfig,
+  isEditing = false,
+  onDraftConfigChange,
+  onAssignmentChange,
 }: TeacherAssignmentDetailTabsProps) {
   return (
     <Tabs defaultValue="content">
@@ -63,7 +69,12 @@ export function TeacherAssignmentDetailTabs({
       </TabsList>
 
       <TabsContent value="content" className="space-y-6">
-        <TeacherAssignmentContentTab assignment={assignment} ieltsConfig={ieltsConfig} />
+        <TeacherAssignmentContentTab
+          assignment={assignment}
+          ieltsConfig={ieltsConfig}
+          isEditing={isEditing}
+          onDraftConfigChange={onDraftConfigChange}
+        />
       </TabsContent>
 
       <TabsContent value="overview" className="space-y-6">
@@ -71,6 +82,8 @@ export function TeacherAssignmentDetailTabs({
           assignment={assignment}
           courseTitle={courseTitle}
           statsCards={statsCards}
+          isEditing={isEditing}
+          onAssignmentChange={onAssignmentChange}
         />
       </TabsContent>
 
