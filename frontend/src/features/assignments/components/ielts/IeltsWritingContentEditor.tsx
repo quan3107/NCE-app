@@ -16,6 +16,10 @@ type IeltsWritingContentEditorProps = {
 };
 
 export function IeltsWritingContentEditor({ value, onChange }: IeltsWritingContentEditorProps) {
+  // Defensive: ensure task1 and task2 exist
+  const task1 = value.task1 ?? { prompt: '', imageFileId: null };
+  const task2 = value.task2 ?? { prompt: '' };
+
   return (
     <div className="space-y-6">
       {/* Task 1 Card */}
@@ -26,11 +30,11 @@ export function IeltsWritingContentEditor({ value, onChange }: IeltsWritingConte
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            value={value.task1.prompt}
+            value={task1.prompt}
             onChange={(e) =>
               onChange({
                 ...value,
-                task1: { ...value.task1, prompt: e.target.value },
+                task1: { ...task1, prompt: e.target.value },
               })
             }
             placeholder="Enter Task 1 prompt (e.g., Describe the chart showing...)"
@@ -45,19 +49,19 @@ export function IeltsWritingContentEditor({ value, onChange }: IeltsWritingConte
               <div className="flex-1 rounded-lg border border-dashed border-border p-4 flex items-center gap-3">
                 <ImageIcon className="size-5 text-muted-foreground" />
                 <div className="flex-1">
-                  {value.task1.imageFileId ? (
-                    <p className="text-sm text-foreground">{value.task1.imageFileId}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No image attached</p>
-                  )}
+              {task1.imageFileId ? (
+                <p className="text-sm text-foreground">{task1.imageFileId}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">No image attached</p>
+              )}
                 </div>
               </div>
               <Input
-                value={value.task1.imageFileId || ''}
+                value={task1.imageFileId || ''}
                 onChange={(e) =>
                   onChange({
                     ...value,
-                    task1: { ...value.task1, imageFileId: e.target.value || null },
+                    task1: { ...task1, imageFileId: e.target.value || null },
                   })
                 }
                 placeholder="Image file ID..."
@@ -76,7 +80,7 @@ export function IeltsWritingContentEditor({ value, onChange }: IeltsWritingConte
         </CardHeader>
         <CardContent>
           <Textarea
-            value={value.task2.prompt}
+            value={task2.prompt}
             onChange={(e) =>
               onChange({
                 ...value,
