@@ -23,12 +23,12 @@ export function IeltsListeningContentPreview({ value }: IeltsListeningContentPre
 
   return (
     <Tabs defaultValue={sections[0]?.id ?? 'section-0'}>
-      <TabsList className="flex flex-wrap gap-2 bg-muted/30 p-2 rounded-[12px]">
+      <TabsList className="flex flex-wrap gap-2 bg-transparent p-0 rounded-none">
         {sections.map((section, index) => (
           <TabsTrigger
             key={section.id}
             value={section.id}
-            className="tabs-pill"
+            className="tabs-pill !px-3"
           >
             {`Section ${index + 1}`}
           </TabsTrigger>
