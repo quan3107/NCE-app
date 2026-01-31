@@ -166,6 +166,29 @@
     border-color: #1b1b29;
     color: #ffffff;
   }
+
+  /* Custom scrollbar styles for reading panels */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #9ca3af;
+  }
 }
 
 /**
@@ -3530,4 +3553,36 @@ html {
   }
 }
 /* End legacy tailwind build */
+
+/* Scrollbar styles for reading panels - placed outside @layer to ensure inclusion */
+.scrollbar-visible {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.scrollbar-visible::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 4px;
+}
+
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
+}
+
+/* Reading panels container height - placed outside @layer to ensure inclusion */
+.reading-panels-container {
+  height: calc(100vh - 280px);
+}
+
+.reading-panels-container > div {
+  height: calc(100vh - 280px);
+}
 
