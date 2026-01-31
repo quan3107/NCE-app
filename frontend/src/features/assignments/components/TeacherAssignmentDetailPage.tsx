@@ -4,7 +4,7 @@
  * Why: Provides a read-only overview page that keeps editing in the dedicated edit screen.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { PageHeader } from '@components/common/PageHeader';
@@ -14,6 +14,7 @@ import {
   isIeltsAssignmentType,
   normalizeIeltsAssignmentConfig,
   type IeltsAssignmentType,
+  type IeltsAssignmentConfig,
 } from '@lib/ielts';
 import { TeacherAssignmentDetailTabs } from './TeacherAssignmentDetailTabs';
 import {
@@ -22,17 +23,28 @@ import {
   Clock,
   Edit,
   FileText,
-  Send,
+  EyeOff,
   Users,
+  Save,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import type { Assignment } from '@lib/mock-data';
 
 export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
   const { navigate } = useRouter();
   const { assignments, submissions, courses, isLoading, error } = useAssignmentResources();
   const updateAssignmentMutation = useUpdateAssignmentMutation();
 
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftConfig, setDraftConfig] = useState<IeltsAssignmentConfig | null>(null);
+  const [draftAssignment, setDraftAssignment] = useState<Assignment | null>(null);
+
   const assignment = assignments.find(item => item.id === assignmentId) ?? null;
+
+  // Use draft assignment when editing, otherwise use the saved assignment
+  const activeAssignment = isEditing && draftAssignment ? draftAssignment : assignment;
   const course = courses.find(item => item.id === assignment?.courseId) ?? null;
   const assignmentSubmissions = useMemo(
     () => submissions.filter(item => item.assignmentId === assignmentId),
@@ -63,6 +75,9 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     );
   }, [assignment]);
 
+  // Use draft config when editing, otherwise use the saved config
+  const activeConfig = isEditing && draftConfig ? draftConfig : ieltsConfig;
+
   const statsCards = [
     { label: 'Total Students', value: totalStudents, icon: <Users className="size-5 text-blue-600" /> },
     { label: 'Submitted', value: submittedCount, icon: <FileText className="size-5 text-green-600" /> },
@@ -70,8 +85,70 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     { label: 'Graded', value: gradedCount, icon: <CheckCircle2 className="size-5 text-purple-600" /> },
   ];
 
-  const handlePublish = async () => {
-    if (!assignment || assignment.status === 'published') {
+  // Edit mode handlers
+  const handleEnterEditMode = useCallback(() => {
+    if (ieltsConfig && assignment) {
+      setDraftConfig(ieltsConfig);
+      setDraftAssignment({ ...assignment });
+      setIsEditing(true);
+    }
+  }, [ieltsConfig, assignment]);
+
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setDraftConfig(null);
+    setDraftAssignment(null);
+  }, []);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!assignment) return;
+
+    try {
+      const payload: Record<string, unknown> = {};
+      
+      // Save assignment metadata changes if draft exists
+      if (draftAssignment) {
+        payload.title = draftAssignment.title;
+        payload.descriptionMd = draftAssignment.description;
+        payload.dueAt = draftAssignment.dueAt?.toISOString();
+        payload.assignmentConfig = {
+          ...assignment.assignmentConfig,
+          maxScore: draftAssignment.maxScore,
+        };
+      }
+      
+      // Save IELTS config changes if draft exists
+      if (draftConfig) {
+        payload.assignmentConfig = draftConfig;
+      }
+
+      await updateAssignmentMutation.mutateAsync({
+        courseId: assignment.courseId,
+        assignmentId: assignment.id,
+        payload,
+      });
+      
+      setIsEditing(false);
+      setDraftConfig(null);
+      setDraftAssignment(null);
+      toast.success('Assignment updated successfully.');
+    } catch (errorValue) {
+      toast.error(
+        errorValue instanceof Error ? errorValue.message : 'Failed to update assignment.',
+      );
+    }
+  }, [assignment, draftAssignment, draftConfig, updateAssignmentMutation]);
+
+  const handleDraftConfigChange = useCallback((updated: IeltsAssignmentConfig) => {
+    setDraftConfig(updated);
+  }, []);
+
+  const handleAssignmentChange = useCallback((updates: Partial<Assignment>) => {
+    setDraftAssignment(prev => prev ? { ...prev, ...updates } : null);
+  }, []);
+
+  const handleUnpublish = async () => {
+    if (!assignment || assignment.status !== 'published') {
       return;
     }
 
@@ -79,12 +156,12 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
       await updateAssignmentMutation.mutateAsync({
         courseId: assignment.courseId,
         assignmentId: assignment.id,
-        payload: { publishedAt: new Date().toISOString() },
+        payload: { publishedAt: null },
       });
-      toast.success('Assignment published.');
+      toast.success('Assignment unpublished.');
     } catch (errorValue) {
       toast.error(
-        errorValue instanceof Error ? errorValue.message : 'Unable to publish assignment.',
+        errorValue instanceof Error ? errorValue.message : 'Unable to unpublish assignment.',
       );
     }
   };
@@ -128,8 +205,6 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     );
   }
 
-  const publishLabel = assignment.status === 'published' ? 'Published' : 'Publish';
-
   return (
     <div>
       <PageHeader
@@ -141,21 +216,42 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
               <ArrowLeft className="mr-2 size-4" />
               Back
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/teacher/assignments/${assignment.id}/edit`)}
-            >
-              <Edit className="mr-2 size-4" />
-              Edit
-            </Button>
-            <Button
-              onClick={handlePublish}
-              variant={assignment.status === 'published' ? 'secondary' : 'default'}
-              disabled={assignment.status === 'published' || updateAssignmentMutation.isLoading}
-            >
-              <Send className="mr-2 size-4" />
-              {updateAssignmentMutation.isLoading ? 'Publishing...' : publishLabel}
-            </Button>
+            {isEditing ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleCancelEdit}
+                  disabled={updateAssignmentMutation.isLoading}
+                >
+                  <X className="mr-2 size-4" />
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveEdit}
+                  disabled={updateAssignmentMutation.isLoading}
+                >
+                  <Save className="mr-2 size-4" />
+                  {updateAssignmentMutation.isLoading ? 'Saving...' : 'Save'}
+                </Button>
+              </>
+            ) : (
+              <>
+                {isIeltsAssignmentType(assignment.type) && ieltsConfig && (
+                  <Button variant="outline" onClick={handleEnterEditMode}>
+                    <Edit className="mr-2 size-4" />
+                    Edit
+                  </Button>
+                )}
+                <Button
+                  onClick={handleUnpublish}
+                  variant="secondary"
+                  disabled={assignment.status !== 'published' || updateAssignmentMutation.isLoading}
+                >
+                  <EyeOff className="mr-2 size-4" />
+                  {updateAssignmentMutation.isLoading ? 'Unpublishing...' : 'Unpublish'}
+                </Button>
+              </>
+            )}
           </div>
         }
       />
@@ -163,8 +259,8 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-[736px] space-y-6">
           <TeacherAssignmentDetailTabs
-            assignment={assignment}
-            courseTitle={course?.title ?? assignment.courseName}
+            assignment={activeAssignment}
+            courseTitle={course?.title ?? activeAssignment.courseName}
             submissions={assignmentSubmissions}
             statsCards={statsCards}
             statsSummary={{
@@ -175,7 +271,10 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
               submissionRate,
               onTimeRate,
             }}
-            ieltsConfig={ieltsConfig}
+            ieltsConfig={activeConfig}
+            isEditing={isEditing}
+            onDraftConfigChange={handleDraftConfigChange}
+            onAssignmentChange={handleAssignmentChange}
           />
         </div>
       </div>
