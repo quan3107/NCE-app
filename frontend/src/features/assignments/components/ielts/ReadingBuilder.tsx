@@ -4,6 +4,7 @@
  * Why: Gives teachers a structured editor aligned with IELTS reading format.
  */
 
+import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@components/ui/button';
@@ -12,6 +13,8 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import type { IeltsReadingConfig, IeltsReadingSection } from '@lib/ielts';
+import { IELTS_READING_QUESTION_TYPES } from '@lib/ielts';
+import type { UploadFile } from '@lib/mock-data';
 import { IeltsQuestionListEditor } from './IeltsQuestionListEditor';
 
 type ReadingBuilderProps = {
@@ -19,24 +22,18 @@ type ReadingBuilderProps = {
   onChange: (value: IeltsReadingConfig) => void;
 };
 
-const QUESTION_TYPES = [
-  { value: 'multiple_choice', label: 'Multiple Choice' },
-  { value: 'true_false_not_given', label: 'True/False/Not Given' },
-  { value: 'matching_headings', label: 'Matching Headings' },
-  { value: 'matching_information', label: 'Matching Information' },
-  { value: 'sentence_completion', label: 'Sentence Completion' },
-  { value: 'summary_completion', label: 'Summary Completion' },
-  { value: 'matching_features', label: 'Matching Features' },
-] as const;
+const createId = () => globalThis.crypto?.randomUUID?.() ?? `reading-${Date.now()}`;
 
 const createSection = (index: number): IeltsReadingSection => ({
-  id: globalThis.crypto?.randomUUID?.() ?? `reading-${Date.now()}`,
+  id: createId(),
   title: `Passage ${index + 1}`,
   passage: '',
   questions: [],
 });
 
 export function ReadingBuilder({ value, onChange }: ReadingBuilderProps) {
+  // Track uploaded images for diagram labeling questions
+  const [uploadedImages, setUploadedImages] = useState<Record<string, UploadFile>>({});
   const updateSection = (id: string, patch: Partial<IeltsReadingSection>) => {
     onChange({
       ...value,
@@ -56,6 +53,34 @@ export function ReadingBuilder({ value, onChange }: ReadingBuilderProps) {
   const removeSection = (id: string) => {
     const next = value.sections.filter((section) => section.id !== id);
     onChange({ ...value, sections: next.length ? next : [createSection(0)] });
+  };
+
+  // Image upload handler for diagram labeling
+  const handleImageUpload = async (file: File): Promise<string> => {
+    const imageId = createId();
+    const uploadFile: UploadFile = {
+      id: imageId,
+      name: file.name,
+      size: file.size,
+      mime: file.type,
+      url: URL.createObjectURL(file),
+      createdAt: new Date().toISOString(),
+    };
+
+    setUploadedImages((prev) => ({ ...prev, [imageId]: uploadFile }));
+    return imageId;
+  };
+
+  // Image removal handler
+  const handleImageRemove = (imageId: string) => {
+    setUploadedImages((prev) => {
+      const next = { ...prev };
+      if (next[imageId]?.url) {
+        URL.revokeObjectURL(next[imageId].url);
+      }
+      delete next[imageId];
+      return next;
+    });
   };
 
   return (
@@ -107,10 +132,10 @@ export function ReadingBuilder({ value, onChange }: ReadingBuilderProps) {
             <IeltsQuestionListEditor
               questions={section.questions}
               onChange={(questions) => updateSection(section.id, { questions })}
-              typeOptions={QUESTION_TYPES.map((type) => ({
-                value: type.value,
-                label: type.label,
-              }))}
+              typeOptions={IELTS_READING_QUESTION_TYPES}
+              onImageUpload={handleImageUpload}
+              onImageRemove={handleImageRemove}
+              uploadedImages={uploadedImages}
             />
           </div>
         </Card>
