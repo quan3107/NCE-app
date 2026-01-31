@@ -30,25 +30,173 @@ export type IeltsAttemptsConfig = {
   maxAttempts: number | null;
 };
 
-export type IeltsQuestionType =
+/**
+ * IELTS Completion Format - used by both Reading and Listening completion questions
+ */
+export const IELTS_COMPLETION_FORMATS: { value: IeltsCompletionFormat; label: string }[] = [
+  { value: 'form', label: 'Form Completion' },
+  { value: 'note', label: 'Note Completion' },
+  { value: 'table', label: 'Table Completion' },
+  { value: 'flow_chart', label: 'Flow Chart Completion' },
+  { value: 'summary', label: 'Summary Completion' },
+];
+
+export type IeltsCompletionFormat =
+  | 'form'
+  | 'note'
+  | 'table'
+  | 'flow_chart'
+  | 'summary';
+
+/**
+ * IELTS Reading Question Types (10 types)
+ * Source: https://ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-reading
+ */
+export const IELTS_READING_QUESTION_TYPES: { value: IeltsReadingQuestionType; label: string }[] = [
+  { value: 'multiple_choice', label: 'Multiple Choice' },
+  { value: 'true_false_not_given', label: 'True/False/Not Given' },
+  { value: 'yes_no_not_given', label: 'Yes/No/Not Given' },
+  { value: 'matching_headings', label: 'Matching Headings' },
+  { value: 'matching_information', label: 'Matching Information' },
+  { value: 'matching_features', label: 'Matching Features' },
+  { value: 'sentence_completion', label: 'Sentence Completion' },
+  { value: 'completion', label: 'Completion (Form/Note/Table/etc.)' },
+  { value: 'diagram_labeling', label: 'Diagram Labeling' },
+  { value: 'short_answer', label: 'Short Answer' },
+];
+
+export type IeltsReadingQuestionType =
   | 'multiple_choice'
   | 'true_false_not_given'
+  | 'yes_no_not_given'
   | 'matching_headings'
   | 'matching_information'
-  | 'sentence_completion'
-  | 'summary_completion'
   | 'matching_features'
-  | 'form_completion'
-  | 'table_completion'
-  | 'map_labeling'
+  | 'sentence_completion'
+  | 'completion'
+  | 'diagram_labeling'
   | 'short_answer';
 
+/**
+ * IELTS Listening Question Types (6 types)
+ * Source: https://ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-listening
+ */
+export const IELTS_LISTENING_QUESTION_TYPES: { value: IeltsListeningQuestionType; label: string }[] = [
+  { value: 'multiple_choice', label: 'Multiple Choice' },
+  { value: 'matching', label: 'Matching' },
+  { value: 'map_diagram_labeling', label: 'Map/Diagram Labeling' },
+  { value: 'completion', label: 'Completion (Form/Note/Table/etc.)' },
+  { value: 'sentence_completion', label: 'Sentence Completion' },
+  { value: 'short_answer', label: 'Short Answer' },
+];
+
+export type IeltsListeningQuestionType =
+  | 'multiple_choice'
+  | 'matching'
+  | 'map_diagram_labeling'
+  | 'completion'
+  | 'sentence_completion'
+  | 'short_answer';
+
+/**
+ * Legacy union type for backward compatibility
+ * @deprecated Use IeltsReadingQuestionType or IeltsListeningQuestionType instead
+ */
+export type IeltsQuestionType = IeltsReadingQuestionType | IeltsListeningQuestionType;
+
+/**
+ * IELTS Writing Task 1 Visual Types
+ */
+export const IELTS_WRITING_TASK1_TYPES: { value: IeltsWritingTask1Type; label: string }[] = [
+  { value: 'line_graph', label: 'Line Graph' },
+  { value: 'bar_chart', label: 'Bar Chart' },
+  { value: 'pie_chart', label: 'Pie Chart' },
+  { value: 'table', label: 'Table' },
+  { value: 'diagram', label: 'Diagram' },
+  { value: 'map', label: 'Map' },
+  { value: 'process', label: 'Process' },
+];
+
+export type IeltsWritingTask1Type =
+  | 'line_graph'
+  | 'bar_chart'
+  | 'pie_chart'
+  | 'table'
+  | 'diagram'
+  | 'map'
+  | 'process';
+
+/**
+ * IELTS Writing Task 2 Essay Types
+ */
+export const IELTS_WRITING_TASK2_TYPES: { value: IeltsWritingTask2Type; label: string }[] = [
+  { value: 'opinion', label: 'Opinion Essay' },
+  { value: 'discussion', label: 'Discussion Essay' },
+  { value: 'problem_solution', label: 'Problem-Solution Essay' },
+  { value: 'advantages_disadvantages', label: 'Advantages & Disadvantages Essay' },
+  { value: 'double_question', label: 'Double Question Essay' },
+];
+
+export type IeltsWritingTask2Type =
+  | 'opinion'
+  | 'discussion'
+  | 'problem_solution'
+  | 'advantages_disadvantages'
+  | 'double_question';
+
+/**
+ * IELTS Speaking Part Types
+ */
+export const IELTS_SPEAKING_PART_TYPES: { value: IeltsSpeakingPartType; label: string }[] = [
+  { value: 'part1_personal', label: 'Part 1: Personal Questions' },
+  { value: 'part2_cue_card', label: 'Part 2: Cue Card' },
+  { value: 'part3_discussion', label: 'Part 3: Discussion' },
+];
+
+export type IeltsSpeakingPartType =
+  | 'part1_personal'
+  | 'part2_cue_card'
+  | 'part3_discussion';
+
+/**
+ * Matching types for drag-and-drop matching questions
+ */
+export type MatchingItem = {
+  id: string;
+  statement: string;
+  matchId: string | null;
+};
+
+export type MatchingOption = {
+  id: string;
+  label: string;
+};
+
+/**
+ * Diagram labeling types for image-based questions
+ */
+export type DiagramLabel = {
+  id: string;
+  letter: string;
+  position: string;
+  answer: string;
+};
+
+/**
+ * Base question interface with optional format for completion types
+ */
 export type IeltsQuestion = {
   id: string;
   type: IeltsQuestionType;
   prompt: string;
   options: string[];
   correctAnswer: string;
+  format?: IeltsCompletionFormat;
+  // Extended fields for specific question types
+  matchingItems?: MatchingItem[];
+  matchingOptions?: MatchingOption[];
+  diagramImageIds?: string[];
+  diagramLabels?: DiagramLabel[];
 };
 
 export type IeltsReadingSection = {
@@ -139,13 +287,51 @@ const baseConfig = (): IeltsAssignmentBase => ({
   },
 });
 
-const createQuestion = (type: IeltsQuestionType = 'multiple_choice'): IeltsQuestion => ({
-  id: createId(),
-  type,
-  prompt: '',
-  options: [''],
-  correctAnswer: '',
-});
+const createQuestion = (
+  type: IeltsQuestionType = 'multiple_choice',
+  format?: IeltsCompletionFormat,
+): IeltsQuestion => {
+  const baseOptions = type === 'completion' ? ['', ''] : [''];
+  const question: IeltsQuestion = {
+    id: createId(),
+    type,
+    prompt: '',
+    options: baseOptions,
+    correctAnswer: '',
+  };
+
+  // Initialize format for completion types
+  if (type === 'completion') {
+    question.format = format || 'summary';
+  }
+
+  // Initialize matching data for matching types
+  if (['matching', 'matching_headings', 'matching_information', 'matching_features'].includes(type)) {
+    question.matchingItems = [
+      { id: createId(), statement: '', matchId: null },
+      { id: createId(), statement: '', matchId: null },
+      { id: createId(), statement: '', matchId: null },
+    ];
+    question.matchingOptions = [
+      { id: createId(), label: 'A' },
+      { id: createId(), label: 'B' },
+      { id: createId(), label: 'C' },
+      { id: createId(), label: 'D' },
+    ];
+  }
+
+  // Initialize diagram data for labeling types
+  if (['map_diagram_labeling', 'diagram_labeling'].includes(type)) {
+    question.diagramImageIds = [];
+    question.diagramLabels = [
+      { id: createId(), letter: 'A', position: '', answer: '' },
+      { id: createId(), letter: 'B', position: '', answer: '' },
+      { id: createId(), letter: 'C', position: '', answer: '' },
+    ];
+  }
+
+  return question;
+};
 
 const createReadingSection = (index: number): IeltsReadingSection => ({
   id: createId(),
@@ -221,13 +407,43 @@ const normalizeQuestions = (value: unknown): IeltsQuestion[] => {
     return [createQuestion()];
   }
 
+  const normalizeMatchingItem = (item: unknown): MatchingItem | null => {
+    if (!item || typeof item !== 'object') return null;
+    const record = item as Record<string, unknown>;
+    return {
+      id: toString(record.id, createId()),
+      statement: toString(record.statement),
+      matchId: record.matchId === null ? null : toString(record.matchId, ''),
+    };
+  };
+
+  const normalizeMatchingOption = (option: unknown): MatchingOption | null => {
+    if (!option || typeof option !== 'object') return null;
+    const record = option as Record<string, unknown>;
+    return {
+      id: toString(record.id, createId()),
+      label: toString(record.label),
+    };
+  };
+
+  const normalizeDiagramLabel = (label: unknown): DiagramLabel | null => {
+    if (!label || typeof label !== 'object') return null;
+    const record = label as Record<string, unknown>;
+    return {
+      id: toString(record.id, createId()),
+      letter: toString(record.letter),
+      position: toString(record.position),
+      answer: toString(record.answer),
+    };
+  };
+
   const questions = value
     .map((item) => {
       if (!item || typeof item !== 'object') {
         return null;
       }
       const record = item as Record<string, unknown>;
-      return {
+      const question: IeltsQuestion = {
         id: toString(record.id, createId()),
         type: (record.type as IeltsQuestionType) ?? 'multiple_choice',
         prompt: toString(record.prompt),
@@ -236,6 +452,33 @@ const normalizeQuestions = (value: unknown): IeltsQuestion[] => {
           : [''],
         correctAnswer: toString(record.correctAnswer),
       };
+      // Preserve format field for completion questions
+      if (record.format && typeof record.format === 'string') {
+        question.format = record.format as IeltsCompletionFormat;
+      }
+      // Preserve matching data
+      if (Array.isArray(record.matchingItems)) {
+        question.matchingItems = record.matchingItems
+          .map(normalizeMatchingItem)
+          .filter((item): item is MatchingItem => Boolean(item));
+      }
+      if (Array.isArray(record.matchingOptions)) {
+        question.matchingOptions = record.matchingOptions
+          .map(normalizeMatchingOption)
+          .filter((option): option is MatchingOption => Boolean(option));
+      }
+      // Preserve diagram data
+      if (Array.isArray(record.diagramImageIds)) {
+        question.diagramImageIds = record.diagramImageIds
+          .map((id) => toString(id))
+          .filter((id) => id);
+      }
+      if (Array.isArray(record.diagramLabels)) {
+        question.diagramLabels = record.diagramLabels
+          .map(normalizeDiagramLabel)
+          .filter((label): label is DiagramLabel => Boolean(label));
+      }
+      return question;
     })
     .filter((item): item is IeltsQuestion => Boolean(item));
 
