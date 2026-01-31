@@ -8,9 +8,19 @@ import { useState } from 'react';
 import type { IeltsQuestion, IeltsQuestionType } from '@lib/ielts';
 import { RadioGroup, RadioGroupItem } from '@components/ui/radio-group';
 
+// Map completion format to display label
+const formatLabels: Record<string, string> = {
+  form: 'Form Completion',
+  note: 'Note Completion',
+  table: 'Table Completion',
+  flow_chart: 'Flow Chart Completion',
+  summary: 'Summary Completion',
+};
+
 const questionTypeLabels: Record<IeltsQuestionType, string> = {
   multiple_choice: 'Multiple Choice',
   true_false_not_given: 'True / False / Not Given',
+  yes_no_not_given: 'Yes / No / Not Given',
   matching_headings: 'Matching Headings',
   matching_information: 'Matching Information',
   sentence_completion: 'Sentence Completion',
@@ -20,10 +30,20 @@ const questionTypeLabels: Record<IeltsQuestionType, string> = {
   table_completion: 'Table Completion',
   map_labeling: 'Map Labeling',
   short_answer: 'Short Answer',
+  // New Listening-specific types
+  matching: 'Matching',
+  map_diagram_labeling: 'Map/Diagram Labeling',
+  completion: 'Completion',
+  // New Reading-specific types
+  diagram_labeling: 'Diagram Labeling',
 };
 
-export const getQuestionTypeLabel = (type: IeltsQuestionType) =>
-  questionTypeLabels[type] ?? 'Question';
+export const getQuestionTypeLabel = (type: IeltsQuestionType, format?: string) => {
+  if (type === 'completion' && format && formatLabels[format]) {
+    return formatLabels[format];
+  }
+  return questionTypeLabels[type] ?? 'Question';
+};
 
 export function QuestionList({
   questions,
@@ -43,7 +63,7 @@ export function QuestionList({
       {questions.map((question, index) => (
         <div key={question.id} className="rounded-[10px] bg-muted/20 p-4 space-y-2">
           <div className="text-xs text-muted-foreground">
-            {getQuestionTypeLabel(question.type)}
+            {getQuestionTypeLabel(question.type, question.format)}
           </div>
           <p className="text-sm font-medium">
             {startIndex + index}. {question.prompt || 'Untitled question'}
