@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@components/ui/select';
-import { Trash2, Plus, GripVertical } from 'lucide-react';
+import { Trash2, Plus, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
 import type { UploadFile } from '@lib/mock-data';
 import { MatchingEditor } from './MatchingEditor';
 import { DiagramLabelingEditor } from './DiagramLabelingEditor';
@@ -63,6 +63,11 @@ type QuestionEditorProps = {
   onImageUpload?: (file: File) => Promise<string>;
   onImageRemove?: (imageId: string) => void;
   uploadedImages?: Record<string, UploadFile>;
+  // Reordering props
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 };
 
 export function QuestionEditor({
@@ -75,6 +80,10 @@ export function QuestionEditor({
   onImageUpload,
   onImageRemove,
   uploadedImages = {},
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
 }: QuestionEditorProps) {
   const [localUploads, setLocalUploads] = useState<Record<string, UploadFile[]>>({});
 
@@ -246,7 +255,34 @@ export function QuestionEditor({
       {/* Header with question number and type selector */}
       <div className="flex items-start gap-3">
         <div className="flex items-center gap-2 mt-2">
-          <GripVertical className="size-4 text-muted-foreground cursor-grab" />
+          {(onMoveUp || onMoveDown) ? (
+            <div className="flex flex-col gap-0.5">
+              {onMoveUp && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-5 p-0"
+                  disabled={!canMoveUp}
+                  onClick={onMoveUp}
+                >
+                  <ArrowUp className="size-3" />
+                </Button>
+              )}
+              {onMoveDown && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-5 p-0"
+                  disabled={!canMoveDown}
+                  onClick={onMoveDown}
+                >
+                  <ArrowDown className="size-3" />
+                </Button>
+              )}
+            </div>
+          ) : (
+            <GripVertical className="size-4 text-muted-foreground cursor-grab" />
+          )}
           <span className="text-sm font-medium text-muted-foreground min-w-[3ch]">
             {questionNumber}.
           </span>
