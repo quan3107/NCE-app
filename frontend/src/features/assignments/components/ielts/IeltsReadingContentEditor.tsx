@@ -8,13 +8,20 @@
 
 import { useState, useMemo } from 'react';
 import type { IeltsReadingConfig, IeltsQuestion, IeltsReadingSection } from '@lib/ielts';
-import { IELTS_READING_QUESTION_TYPES } from '@lib/ielts';
+import { IELTS_READING_QUESTION_TYPES, groupQuestionsByType } from '@lib/ielts';
 import { Textarea } from '@components/ui/textarea';
 import { Input } from '@components/ui/input';
 import { Button } from '@components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { QuestionEditor } from './QuestionEditor';
-import { Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Group } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@components/ui/tooltip';
 
 const createId = () => {
   if (globalThis.crypto?.randomUUID) {
@@ -119,6 +126,26 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
     handleUpdateSection(sectionId, { questions: newQuestions });
   };
 
+  const handleGroupByType = () => {
+    if (!activeSection) return;
+
+    const groupedQuestions = groupQuestionsByType(activeSection.questions);
+
+    // Check if order actually changed
+    const hasChanged = groupedQuestions.some((q, i) => q.id !== activeSection.questions[i].id);
+
+    if (hasChanged) {
+      handleUpdateSection(activeSection.id, { questions: groupedQuestions });
+      toast.success('Questions grouped', {
+        description: 'Questions reordered by type. Question numbers updated.',
+      });
+    } else {
+      toast.info('Already grouped', {
+        description: 'Questions are already grouped by type.',
+      });
+    }
+  };
+
   const activeSection = sections.find((s) => s.id === activeSectionId);
   const activeSectionIndex = sections.findIndex((s) => s.id === activeSectionId);
   const activeRange = ranges[activeSectionIndex];
@@ -201,7 +228,26 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
             {/* Right column - Questions editor */}
             <div className="flex flex-col overflow-hidden bg-background">
               <div className="flex-none p-4 border-b bg-muted/5 flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">Questions</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-foreground">Questions</h3>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={handleGroupByType}
+                        >
+                          <Group className="size-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Group questions by type</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 {activeRange && activeRange.end && (
                   <span className="text-xs font-medium px-3 py-1.5 rounded-md bg-muted text-muted-foreground">
                     Questions {activeRange.start}-{activeRange.end}

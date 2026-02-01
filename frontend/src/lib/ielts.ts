@@ -274,6 +274,33 @@ const createId = () => {
   return `ielts-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+/**
+ * Group questions by type while preserving relative order within each type group.
+ * Used when teacher clicks "Group by Type" button in reading editor.
+ * Questions maintain their original order within each type group.
+ */
+export function groupQuestionsByType<T extends { type: string }>(questions: T[]): T[] {
+  const typeOrder: string[] = [];
+  const typeMap = new Map<string, T[]>();
+
+  // First pass: determine type order (first appearance) and collect questions
+  for (const question of questions) {
+    if (!typeMap.has(question.type)) {
+      typeOrder.push(question.type);
+      typeMap.set(question.type, []);
+    }
+    typeMap.get(question.type)!.push(question);
+  }
+
+  // Second pass: rebuild array in type order
+  const grouped: T[] = [];
+  for (const type of typeOrder) {
+    grouped.push(...typeMap.get(type)!);
+  }
+
+  return grouped;
+}
+
 const baseConfig = (): IeltsAssignmentBase => ({
   version: 1,
   timing: {
