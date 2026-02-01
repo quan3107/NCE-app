@@ -30,7 +30,15 @@ export type Course = {
   prerequisitesSummary?: string;
 };
 
-export type AssignmentType = 'file' | 'link' | 'text' | 'quiz';
+export type AssignmentType =
+  | 'file'
+  | 'link'
+  | 'text'
+  | 'quiz'
+  | 'reading'
+  | 'listening'
+  | 'writing'
+  | 'speaking';
 export type AssignmentStatus = 'draft' | 'published' | 'archived';
 export type SubmissionStatus = 'not_submitted' | 'draft' | 'submitted' | 'late' | 'graded';
 
@@ -42,6 +50,20 @@ export type SubmissionFile = {
   checksum: string;
   bucket: string;
   objectKey: string;
+};
+
+/**
+ * UploadFile - Used for temporary file uploads during authoring.
+ * Contains client-side metadata including a blob URL for preview.
+ * This is NOT stored in the database - files must be uploaded to server first.
+ */
+export type UploadFile = {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  url: string;
+  createdAt: string;
 };
 
 export type Assignment = {
@@ -56,6 +78,7 @@ export type Assignment = {
   status: AssignmentStatus;
   latePolicy: string;
   maxScore: number;
+  assignmentConfig?: Record<string, unknown> | null;
 };
 
 export type Submission = {

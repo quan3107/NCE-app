@@ -437,14 +437,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const completeGoogleLogin = useCallback(async (): Promise<'live'> => {
-    const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
-      method: 'POST',
-      withAuth: false,
-      credentials: 'include',
-    });
-    applyLiveSession(result);
+    const token = await refreshAccessToken();
+    if (!token) {
+      throw new ApiError('Unable to finalize Google sign-in. Please try again.', 401);
+    }
     return 'live';
-  }, [applyLiveSession]);
+  }, [refreshAccessToken]);
 
   const logout = useCallback(async () => {
     if (authMode === 'live') {

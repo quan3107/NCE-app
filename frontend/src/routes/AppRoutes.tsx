@@ -16,8 +16,10 @@ import { AdminUsersPage } from '@features/admin/components/AdminUsersPage';
 import { TeacherAnalyticsPage } from '@features/analytics/components/TeacherAnalyticsPage';
 import { StudentAssignmentDetailPage } from '@features/assignments/components/StudentAssignmentDetailPage';
 import { StudentAssignmentsPage } from '@features/assignments/components/StudentAssignmentsPage';
+import { TeacherAssignmentDetailPage } from '@features/assignments/components/TeacherAssignmentDetailPage';
 import { TeacherAssignmentEditPage } from '@features/assignments/components/TeacherAssignmentEditPage';
 import { TeacherAssignmentsPage } from '@features/assignments/components/TeacherAssignmentsPage';
+import { TeacherIeltsAssignmentCreatePage } from '@features/assignments/components/TeacherIeltsAssignmentCreatePage';
 import { TeacherGradeFormPage } from '@features/assignments/components/TeacherGradeFormPage';
 import { TeacherSubmissionsPage } from '@features/assignments/components/TeacherSubmissionsPage';
 import { TeacherCoursesPage } from '@features/courses/components/TeacherCoursesPage';
@@ -113,6 +115,11 @@ function TeacherGradeFormWrapper() {
   return <TeacherGradeFormPage submissionId={submissionId} />;
 }
 
+function TeacherAssignmentDetailWrapper() {
+  const { assignmentId = '' } = useParams<{ assignmentId: string }>();
+  return <TeacherAssignmentDetailPage assignmentId={assignmentId} />;
+}
+
 function TeacherAssignmentEditWrapper() {
   const { assignmentId = '' } = useParams<{ assignmentId: string }>();
   return <TeacherAssignmentEditPage assignmentId={assignmentId} />;
@@ -153,7 +160,9 @@ export function AppRoutes() {
           <Route path="teacher/courses" element={<TeacherCoursesPage />} />
           <Route path="teacher/courses/:courseId/manage" element={<TeacherCourseManagementWrapper />} />
           <Route path="teacher/assignments" element={<TeacherAssignmentsPage />} />
-          <Route path="teacher/assignments/:assignmentId" element={<TeacherAssignmentEditWrapper />} />
+          <Route path="teacher/assignments/create" element={<TeacherIeltsAssignmentCreatePage />} />
+          <Route path="teacher/assignments/:assignmentId" element={<TeacherAssignmentDetailWrapper />} />
+          <Route path="teacher/assignments/:assignmentId/detail" element={<TeacherAssignmentDetailWrapper />} />
           <Route path="teacher/assignments/:assignmentId/edit" element={<TeacherAssignmentEditWrapper />} />
           <Route path="teacher/submissions" element={<TeacherSubmissionsPage />} />
           <Route path="teacher/grade/:submissionId" element={<TeacherGradeFormWrapper />} />

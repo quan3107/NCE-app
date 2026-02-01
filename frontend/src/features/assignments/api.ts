@@ -26,6 +26,7 @@ type ApiAssignment = {
   dueAt: string | null;
   latePolicy: Record<string, unknown> | null;
   publishedAt: string | null;
+  assignmentConfig?: Record<string, unknown> | string | null;
 };
 
 type ApiSubmission = {
@@ -54,6 +55,7 @@ type CreateAssignmentRequest = {
   type: Assignment['type'];
   dueAt?: string;
   latePolicy?: Record<string, unknown>;
+  assignmentConfig?: Record<string, unknown>;
   publishedAt?: string;
 };
 
@@ -66,12 +68,26 @@ type CreateSubmissionRequest = {
   status?: 'draft' | 'submitted' | 'late';
 };
 
+const safeParseJson = (value: string): Record<string, unknown> | null => {
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment => {
   const latePolicy = assignment.latePolicy
     ? typeof assignment.latePolicy === 'string'
       ? assignment.latePolicy
       : JSON.stringify(assignment.latePolicy)
     : '';
+
+  const assignmentConfig =
+    typeof assignment.assignmentConfig === 'string'
+      ? safeParseJson(assignment.assignmentConfig)
+      : assignment.assignmentConfig ?? null;
 
   return {
     id: assignment.id,
@@ -85,6 +101,7 @@ const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment
     status: assignment.publishedAt ? 'published' : 'draft',
     latePolicy,
     maxScore: 100,
+    assignmentConfig,
   };
 };
 

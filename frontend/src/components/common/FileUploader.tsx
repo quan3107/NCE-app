@@ -4,7 +4,7 @@
  * Why: Keeps the pre-signed upload UX consistent across submission flows.
  */
 
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
@@ -12,7 +12,7 @@ import { Button } from '@components/ui/button';
 import { Progress } from '@components/ui/progress';
 import { cn } from '@components/ui/utils';
 import { formatFileSize } from '@lib/utils';
-import type { SubmissionFile } from '@lib/mock-data';
+import type { SubmissionFile, UploadFile } from '@lib/mock-data';
 import {
   FILE_UPLOAD_ACCEPT,
   FILE_UPLOAD_LABEL,
@@ -20,6 +20,14 @@ import {
   isAllowedFile,
   uploadFileWithProgress,
 } from '@features/files/fileUpload';
+
+// Base file type - common properties for both SubmissionFile and UploadFile
+type BaseFile = {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+};
 
 type UploadStatus = UploadStage | 'error';
 
@@ -31,12 +39,17 @@ type UploadItem = {
   error?: string;
 };
 
-type FileUploaderProps = {
-  value: SubmissionFile[];
-  onChange: (files: SubmissionFile[]) => void;
+type FileUploaderProps<T extends BaseFile = SubmissionFile> = {
+  value: T[];
+  onChange: (files: T[]) => void;
   onBusyChange?: (busy: boolean) => void;
   maxFileSize: number;
   maxTotalSize: number;
+  /**
+   * Custom upload function. If not provided, uses the default server upload.
+   * Use this for temporary uploads (e.g., authoring) that return UploadFile with blob URLs.
+   */
+  uploadFn?: (file: File, onProgress: (progress: number) => void, onStageChange: (stage: UploadStage) => void) => Promise<T>;
 };
 
 const stageLabels: Record<UploadStatus, string> = {
@@ -54,15 +67,17 @@ const createUploadId = (): string => {
   return `upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-export function FileUploader({
+export function FileUploader<T extends BaseFile = SubmissionFile>({
   value,
   onChange,
   onBusyChange,
   maxFileSize,
   maxTotalSize,
-}: FileUploaderProps) {
+  uploadFn,
+}: FileUploaderProps<T>) {
   const inputId = useId();
   const helperId = useId();
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const valueRef = useRef(value);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -104,12 +119,18 @@ export function FileUploader({
 
   const handleUpload = async (uploadId: string, file: File) => {
     try {
-      const result = await uploadFileWithProgress({
-        file,
-        onProgress: (progress) => updateUpload(uploadId, { progress }),
-        onStageChange: (stage) =>
-          updateUpload(uploadId, { status: stage }),
-      });
+      const result = uploadFn
+        ? await uploadFn(
+            file,
+            (progress) => updateUpload(uploadId, { progress }),
+            (stage) => updateUpload(uploadId, { status: stage })
+          )
+        : await uploadFileWithProgress({
+            file,
+            onProgress: (progress) => updateUpload(uploadId, { progress }),
+            onStageChange: (stage) =>
+              updateUpload(uploadId, { status: stage }),
+          });
 
       const nextFiles = [...valueRef.current, result];
       onChange(nextFiles);
@@ -177,13 +198,8 @@ export function FileUploader({
     }
   };
 
-  const handleBrowseKeyDown = (event: KeyboardEvent<HTMLLabelElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') {
-      return;
-    }
-    event.preventDefault();
-    const input = document.getElementById(inputId) as HTMLInputElement | null;
-    input?.click();
+  const handleBrowseClick = () => {
+    inputRef.current?.click();
   };
 
   return (
@@ -192,9 +208,12 @@ export function FileUploader({
         type="file"
         className="sr-only"
         id={inputId}
+        ref={inputRef}
         aria-describedby={helperId}
         accept={FILE_UPLOAD_ACCEPT}
         multiple
+        tabIndex={-1}
+        aria-hidden="true"
         onChange={handleInputChange}
       />
 
@@ -213,15 +232,13 @@ export function FileUploader({
         <UploadCloud className="size-8 mx-auto mb-2 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
           Drag and drop files, or{' '}
-          <label
-            htmlFor={inputId}
+          <button
+            type="button"
+            onClick={handleBrowseClick}
             className="text-primary underline underline-offset-4 cursor-pointer"
-            role="button"
-            tabIndex={0}
-            onKeyDown={handleBrowseKeyDown}
           >
             browse
-          </label>
+          </button>
         </p>
         <p id={helperId} className="text-xs text-muted-foreground mt-1">
           {FILE_UPLOAD_LABEL} · {formatFileSize(maxFileSize)} max per file ·{' '}

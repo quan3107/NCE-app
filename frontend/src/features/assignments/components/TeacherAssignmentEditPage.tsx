@@ -15,7 +15,18 @@ import { PageHeader } from '@components/common/PageHeader';
 import { toast } from 'sonner@2.0.3';
 
 import { useRouter } from '@lib/router';
+import type { Assignment } from '@lib/mock-data';
+import { cn } from '@components/ui/utils';
+import {
+  createIeltsAssignmentConfig,
+  isIeltsAssignmentType,
+  normalizeIeltsAssignmentConfig,
+  type IeltsAssignmentConfig,
+  type IeltsAssignmentType,
+} from '@lib/ielts';
 import { useAssignmentResources, useUpdateAssignmentMutation } from '@features/assignments/api';
+import { IeltsAssignmentBuilder } from './ielts/IeltsAssignmentBuilder';
+import { IeltsTypeCards } from './ielts/IeltsTypeCards';
 
 type AssignmentFormState = {
   title: string;
@@ -45,6 +56,10 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
   );
 
   const [formState, setFormState] = useState<AssignmentFormState>(emptyForm);
+  const [assignmentConfig, setAssignmentConfig] = useState<IeltsAssignmentConfig | null>(
+    null,
+  );
+  const isIelts = isIeltsAssignmentType(formState.type);
 
   useEffect(() => {
     if (!assignment) {
@@ -56,7 +71,23 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
       type: assignment.type,
       dueAt: assignment.dueAt ? new Date(assignment.dueAt).toISOString().slice(0, 16) : '',
     });
+    if (isIeltsAssignmentType(assignment.type)) {
+      setAssignmentConfig(
+        normalizeIeltsAssignmentConfig(assignment.type, assignment.assignmentConfig),
+      );
+    } else {
+      setAssignmentConfig(null);
+    }
   }, [assignment]);
+
+  const handleTypeChange = (value: string) => {
+    setFormState((current) => ({ ...current, type: value }));
+    if (isIeltsAssignmentType(value)) {
+      setAssignmentConfig(createIeltsAssignmentConfig(value));
+    } else {
+      setAssignmentConfig(null);
+    }
+  };
 
   const handleSave = async (publish: boolean) => {
     if (!assignment) {
@@ -70,12 +101,20 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
       toast.error('Assignment type is required.');
       return;
     }
+    if (isIeltsAssignmentType(formState.type) && !assignmentConfig) {
+      toast.error('IELTS assignments require a full configuration.');
+      return;
+    }
 
     const payload = {
       title: formState.title.trim(),
       descriptionMd: formState.description.trim() || undefined,
-      type: formState.type as 'file' | 'link' | 'text' | 'quiz',
+      type: formState.type as Assignment['type'],
       dueAt: formState.dueAt ? new Date(formState.dueAt).toISOString() : undefined,
+      assignmentConfig:
+        isIeltsAssignmentType(formState.type) && assignmentConfig
+          ? assignmentConfig
+          : undefined,
       publishedAt: publish ? new Date().toISOString() : undefined,
     };
 
@@ -138,7 +177,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
         showBack
       />
       <div className="p-4 sm:p-6 lg:p-8">
-        <div className="max-w-3xl space-y-6">
+        <div className={cn('max-w-5xl space-y-6', isIelts && 'ielts-authoring')}>
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="space-y-2">
@@ -155,12 +194,21 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
                 <Input value={course?.title ?? assignment.courseName} disabled />
               </div>
               <div className="space-y-2">
-                <Label>Type</Label>
-                <Select
-                  value={formState.type}
-                  onValueChange={(value) =>
-                    setFormState((current) => ({ ...current, type: value }))
+                <Label>IELTS Skill Type</Label>
+                <IeltsTypeCards
+                  value={
+                    isIeltsAssignmentType(formState.type)
+                      ? (formState.type as IeltsAssignmentType)
+                      : null
                   }
+                  onChange={(value) => handleTypeChange(value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Other Assignment Types</Label>
+                <Select
+                  value={isIeltsAssignmentType(formState.type) ? '' : formState.type}
+                  onValueChange={handleTypeChange}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
@@ -174,7 +222,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>{isIelts ? 'Overview (shown in assignment list)' : 'Description'}</Label>
                 <Textarea
                   rows={5}
                   value={formState.description}
@@ -185,6 +233,11 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
                     }))
                   }
                 />
+                {isIelts && (
+                  <p className="text-xs text-muted-foreground">
+                    Student-facing instructions live inside the IELTS builder below.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Due Date</Label>
@@ -198,8 +251,26 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
               </div>
             </CardContent>
           </Card>
+          {isIeltsAssignmentType(formState.type) && assignmentConfig && (
+            <IeltsAssignmentBuilder
+              type={formState.type as IeltsAssignmentType}
+              value={assignmentConfig}
+              onChange={setAssignmentConfig}
+              onTypeChange={(nextType, nextConfig) => {
+                setFormState((current) => ({ ...current, type: nextType }));
+                setAssignmentConfig(nextConfig);
+              }}
+              showTypeSelector={false}
+            />
+          )}
 
-          <div className="flex flex-wrap gap-3">
+          <div
+            className={cn(
+              'flex flex-wrap gap-3',
+              isIelts &&
+                'sticky bottom-4 z-10 rounded-lg border bg-background/95 p-4 shadow-sm backdrop-blur',
+            )}
+          >
             <Button
               variant="outline"
               onClick={() => navigate('/teacher/assignments')}

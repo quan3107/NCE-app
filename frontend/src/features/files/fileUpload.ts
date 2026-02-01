@@ -12,8 +12,8 @@ export const FILE_UPLOAD_LIMITS = {
   maxTotalSize: 100 * 1024 * 1024,
 } as const;
 
-export const FILE_UPLOAD_ACCEPT = '.pdf,.doc,.docx,audio/*';
-export const FILE_UPLOAD_LABEL = 'PDF, DOC, DOCX, or audio files';
+export const FILE_UPLOAD_ACCEPT = '.pdf,.doc,.docx,audio/*,image/*';
+export const FILE_UPLOAD_LABEL = 'PDF, DOC, DOCX, audio, or image files';
 
 const DOCUMENT_MIME_TYPES = new Set([
   'application/pdf',
@@ -24,6 +24,7 @@ const DOCUMENT_MIME_TYPES = new Set([
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac']);
 const DOCUMENT_EXTENSIONS = new Set(['.pdf', '.doc', '.docx']);
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
 
 type FileSignRequest = {
   fileName: string;
@@ -81,11 +82,19 @@ export const isAllowedFile = (
     return { ok: true };
   }
 
+  if (mime.startsWith('image/')) {
+    return { ok: true };
+  }
+
   if (DOCUMENT_MIME_TYPES.has(mime)) {
     return { ok: true };
   }
 
-  if (AUDIO_EXTENSIONS.has(extension) || DOCUMENT_EXTENSIONS.has(extension)) {
+  if (
+    AUDIO_EXTENSIONS.has(extension) ||
+    DOCUMENT_EXTENSIONS.has(extension) ||
+    IMAGE_EXTENSIONS.has(extension)
+  ) {
     return { ok: true };
   }
 
