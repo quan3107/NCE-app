@@ -81,20 +81,93 @@ const listeningAssignmentConfigSchema = baseAssignmentConfigSchema.extend({
   sections: z.array(listeningSectionSchema),
 });
 
-const writingTaskSchema = z
-  .object({
-    prompt: z.string().min(1),
-    imageFileId: z.string().uuid().nullable().optional(),
-  })
-  .passthrough();
+// Word count validation helper (max 1000 words)
+const maxWords = 1000;
+const wordCountSchema = z.string()
+  .max(50000, "Sample response is too long")
+  .refine(
+    (text) => {
+      if (!text || text.trim() === '') return true;
+      const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+      return wordCount <= maxWords;
+    },
+    { 
+      message: `Sample response must not exceed ${maxWords} words` 
+    }
+  );
+
+// Visual type enum (teacher-only metadata)
+const visualTypeSchema = z.enum([
+  'line_graph', 
+  'bar_chart', 
+  'pie_chart', 
+  'table', 
+  'diagram', 
+  'map', 
+  'process'
+]).optional();
+
+// Sample visibility timing
+const showSampleTimingSchema = z.enum([
+  'immediate',
+  'after_submission',
+  'after_grading',
+  'specific_date'
+]).optional();
+
+// Task 1 schema with visual type and sample response
+const writingTask1Schema = z.object({
+  prompt: z.string().min(1, "Task 1 prompt is required"),
+  imageFileId: z.string().uuid().nullable().optional(),
+  visualType: visualTypeSchema,
+  sampleResponse: wordCountSchema.optional(),
+  showSampleToStudents: z.boolean().optional(),
+  showSampleTiming: showSampleTimingSchema,
+  showSampleDate: z.string().datetime().optional(),
+}).strict().refine(
+  (data) => {
+    // Can't show sample without content
+    if (data.showSampleToStudents && (!data.sampleResponse || data.sampleResponse.trim() === '')) {
+      return false;
+    }
+    // Must have date if timing is specific_date
+    if (data.showSampleTiming === 'specific_date' && !data.showSampleDate) {
+      return false;
+    }
+    return true;
+  },
+  { 
+    message: "Invalid sample response configuration",
+    path: ["showSampleToStudents"]
+  }
+);
+
+// Task 2 schema with sample response
+const writingTask2Schema = z.object({
+  prompt: z.string().min(1, "Task 2 prompt is required"),
+  sampleResponse: wordCountSchema.optional(),
+  showSampleToStudents: z.boolean().optional(),
+  showSampleTiming: showSampleTimingSchema,
+  showSampleDate: z.string().datetime().optional(),
+}).strict().refine(
+  (data) => {
+    if (data.showSampleToStudents && (!data.sampleResponse || data.sampleResponse.trim() === '')) {
+      return false;
+    }
+    if (data.showSampleTiming === 'specific_date' && !data.showSampleDate) {
+      return false;
+    }
+    return true;
+  },
+  { 
+    message: "Invalid sample response configuration",
+    path: ["showSampleToStudents"]
+  }
+);
 
 const writingAssignmentConfigSchema = baseAssignmentConfigSchema.extend({
-  task1: writingTaskSchema,
-  task2: z
-    .object({
-      prompt: z.string().min(1),
-    })
-    .passthrough(),
+  task1: writingTask1Schema,
+  task2: writingTask2Schema,
 });
 
 const speakingPartSchema = z
