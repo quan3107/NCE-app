@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Eye, Edit } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -25,11 +25,13 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { Textarea } from '@components/ui/textarea';
-import type { IeltsQuestion, IeltsQuestionType, IeltsReadingConfig } from '@lib/ielts';
+import { ToggleGroup, ToggleGroupItem } from '@components/ui/toggle-group';
+import type { IeltsQuestion, IeltsReadingConfig } from '@lib/ielts';
 import { IELTS_READING_QUESTION_TYPES } from '@lib/ielts';
 import { SortablePassageCard } from './SortablePassageCard';
+import { QuestionEditor } from '../QuestionEditor';
+import { IeltsReadingContentPreview } from '../IeltsReadingContentPreview';
 
 const createId = () =>
   globalThis.crypto?.randomUUID?.() ?? `reading-${Date.now()}-${Math.random()}`;
@@ -50,6 +52,7 @@ export function ReadingAssignmentForm({
   onChange: (value: IeltsReadingConfig) => void;
 }) {
   const [expandedPassage, setExpandedPassage] = useState(0);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -140,13 +143,32 @@ export function ReadingAssignmentForm({
             <CardTitle>Reading Passages</CardTitle>
             <CardDescription>Create passages and questions for the reading test</CardDescription>
           </div>
-          <Button onClick={addPassage} size="sm">
-            <Plus className="mr-2 size-4" />
-            Add Passage
-          </Button>
+          <div className="flex items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={isPreviewMode ? 'preview' : 'edit'}
+              onValueChange={(value) => setIsPreviewMode(value === 'preview')}
+            >
+              <ToggleGroupItem value="edit" aria-label="Edit mode">
+                <Edit className="mr-2 size-4" />
+                Edit
+              </ToggleGroupItem>
+              <ToggleGroupItem value="preview" aria-label="Preview mode">
+                <Eye className="mr-2 size-4" />
+                Preview
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <Button onClick={addPassage} size="sm">
+              <Plus className="mr-2 size-4" />
+              Add Passage
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isPreviewMode ? (
+          <IeltsReadingContentPreview value={value} />
+        ) : (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -200,100 +222,19 @@ export function ReadingAssignmentForm({
 
                   {passage.questions.map((question, questionIndex) => (
                     <Card key={question.id} className="bg-muted/30">
-                      <CardContent className="p-4 space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">Question {questionIndex + 1}</span>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-6"
-                                disabled={questionIndex === 0}
-                                onClick={() => moveQuestion(passageIndex, questionIndex, 'up')}
-                              >
-                                <ArrowUp className="size-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-6"
-                                disabled={questionIndex === passage.questions.length - 1}
-                                onClick={() => moveQuestion(passageIndex, questionIndex, 'down')}
-                              >
-                                <ArrowDown className="size-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeQuestion(passageIndex, questionIndex)}
-                          >
-                            <Trash2 className="size-4 text-destructive" />
-                          </Button>
-                        </div>
-                        <div className="space-y-2">
-                          <Select
-                            value={question.type}
-                            onValueChange={(nextValue) =>
-                              updateQuestion(passageIndex, questionIndex, {
-                                type: nextValue as IeltsQuestionType,
-                              })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {IELTS_READING_QUESTION_TYPES.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Textarea
-                          value={question.prompt}
-                          onChange={(event) =>
-                            updateQuestion(passageIndex, questionIndex, {
-                              prompt: event.target.value,
-                            })
-                          }
-                          placeholder="Enter question text..."
-                          rows={2}
+                      <CardContent className="p-4">
+                        <QuestionEditor
+                          question={question}
+                          questionNumber={questionIndex + 1}
+                          onChange={(updated) => updateQuestion(passageIndex, questionIndex, updated)}
+                          onDelete={() => removeQuestion(passageIndex, questionIndex)}
+                          showDelete={true}
+                          questionTypes={IELTS_READING_QUESTION_TYPES}
+                          onMoveUp={() => moveQuestion(passageIndex, questionIndex, 'up')}
+                          onMoveDown={() => moveQuestion(passageIndex, questionIndex, 'down')}
+                          canMoveUp={questionIndex > 0}
+                          canMoveDown={questionIndex < passage.questions.length - 1}
                         />
-                        {question.type === 'multiple_choice' && (
-                          <div className="space-y-2">
-                            {question.options.map((option, optionIndex) => (
-                              <Input
-                                key={`${question.id}-${optionIndex}`}
-                                value={option}
-                                onChange={(event) => {
-                                  const nextOptions = [...question.options];
-                                  nextOptions[optionIndex] = event.target.value;
-                                  updateQuestion(passageIndex, questionIndex, {
-                                    options: nextOptions,
-                                  });
-                                }}
-                                placeholder={`Option ${String.fromCharCode(65 + optionIndex)}`}
-                              />
-                            ))}
-                          </div>
-                        )}
-                        <div className="space-y-2">
-                          <Label>Correct Answer</Label>
-                          <Input
-                            value={question.correctAnswer}
-                            onChange={(event) =>
-                              updateQuestion(passageIndex, questionIndex, {
-                                correctAnswer: event.target.value,
-                              })
-                            }
-                            placeholder="Enter correct answer"
-                          />
-                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -302,6 +243,7 @@ export function ReadingAssignmentForm({
             ))}
           </SortableContext>
         </DndContext>
+        )}
       </CardContent>
     </Card>
   );
