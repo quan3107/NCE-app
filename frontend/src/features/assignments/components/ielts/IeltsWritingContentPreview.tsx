@@ -1,11 +1,13 @@
 /**
  * Location: features/assignments/components/ielts/IeltsWritingContentPreview.tsx
- * Purpose: Render IELTS writing tasks with full prompt text.
- * Why: Gives teachers a full preview of Task 1 and Task 2 instructions.
+ * Purpose: Render IELTS writing tasks with full prompt text and sample responses.
+ * Why: Gives teachers a full preview of Task 1 and Task 2 instructions, including model answers.
  */
 
 import type { IeltsWritingConfig } from '@lib/ielts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
+import { Badge } from '@components/ui/badge';
+import { BookOpen, Eye, EyeOff } from 'lucide-react';
 
 export function IeltsWritingContentPreview({ value }: { value: IeltsWritingConfig }) {
   return (
@@ -24,6 +26,24 @@ export function IeltsWritingContentPreview({ value }: { value: IeltsWritingConfi
               Image reference: {value.task1.imageFileId}
             </div>
           )}
+          {value.task1.sampleResponse && (
+            <div className="rounded-[12px] border border-primary/20 bg-primary/5 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <BookOpen className="size-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Sample Response</span>
+                <Badge variant={value.task1.showSampleToStudents ? 'default' : 'secondary'} className="ml-auto text-xs">
+                  {value.task1.showSampleToStudents ? (
+                    <><Eye className="mr-1 size-3" /> Visible to students</>
+                  ) : (
+                    <><EyeOff className="mr-1 size-3" /> Hidden</>
+                  )}
+                </Badge>
+              </div>
+              <div className="text-sm whitespace-pre-wrap text-muted-foreground">
+                {value.task1.sampleResponse}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       <Card className="rounded-[14px]">
@@ -31,10 +51,28 @@ export function IeltsWritingContentPreview({ value }: { value: IeltsWritingConfi
           <CardTitle>Task 2</CardTitle>
           <CardDescription>Essay prompt</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="rounded-[12px] bg-muted/20 p-4 text-sm whitespace-pre-wrap">
             {value.task2.prompt || 'No Task 2 prompt yet.'}
           </div>
+          {value.task2.sampleResponse && (
+            <div className="rounded-[12px] border border-primary/20 bg-primary/5 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <BookOpen className="size-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Sample Response</span>
+                <Badge variant={value.task2.showSampleToStudents ? 'default' : 'secondary'} className="ml-auto text-xs">
+                  {value.task2.showSampleToStudents ? (
+                    <><Eye className="mr-1 size-3" /> Visible to students</>
+                  ) : (
+                    <><EyeOff className="mr-1 size-3" /> Hidden</>
+                  )}
+                </Badge>
+              </div>
+              <div className="text-sm whitespace-pre-wrap text-muted-foreground">
+                {value.task2.sampleResponse}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
