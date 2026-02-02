@@ -4,8 +4,8 @@
  * Why: Matches audio upload, playback limit, section list, and question editing design with drag-drop reordering.
  */
 
-import { useState } from 'react';
-import { Plus, Upload, ArrowUp, ArrowDown } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, Upload, ArrowUp, ArrowDown, FolderUp, X } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -21,12 +21,20 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
-import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@components/ui/dialog';
+
 import type { IeltsListeningConfig, IeltsQuestion } from '@lib/ielts';
 import { IELTS_LISTENING_QUESTION_TYPES, createIeltsAssignmentConfig } from '@lib/ielts';
 import type { UploadFile } from '@lib/mock-data';
@@ -52,6 +60,11 @@ export function ListeningAssignmentForm({
   const [uploadedImages, setUploadedImages] = useState<Record<string, UploadFile>>({});
   // Track uploaded audio files for preview
   const [uploadedAudio, setUploadedAudio] = useState<Record<string, { file: File; url: string }>>({});
+  // Bulk upload state
+  const [bulkUploadFiles, setBulkUploadFiles] = useState<File[]>([]);
+  const [showBulkUploadDialog, setShowBulkUploadDialog] = useState(false);
+  const [bulkMatches, setBulkMatches] = useState<Record<string, File | null>>({});
+  const bulkInputRef = useRef<HTMLInputElement>(null);
 
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -110,7 +123,7 @@ export function ListeningAssignmentForm({
   // Question management handlers
   const handleAddQuestion = (sectionIndex: number) => {
     const section = value.sections[sectionIndex];
-    const baseConfig = createIeltsAssignmentConfig('listening');
+    const baseConfig = createIeltsAssignmentConfig('listening') as IeltsListeningConfig;
     const baseSection = baseConfig.sections[0];
     const newQuestion: IeltsQuestion = {
       ...baseSection.questions[0],
@@ -210,6 +223,136 @@ export function ListeningAssignmentForm({
     onAudioSelect(sectionId, file);
   };
 
+  // Auto-match filename to section based on naming patterns
+  const matchFileToSection = (filename: string, sections: typeof value.sections): string | null => {
+    const lowerName = filename.toLowerCase();
+    
+    // Pattern matching for Section 1, 2, 3, 4
+    for (let i = 1; i <= 4; i++) {
+      const patterns = [
+        `section${i}`,
+        `section_${i}`,
+        `section-${i}`,
+        `section ${i}`,
+        `part${i}`,
+        `part_${i}`,
+        `part-${i}`,
+        `part ${i}`,
+        `s${i}`,
+        `p${i}`,
+        `${i}`
+      ];
+      
+      // Check if filename contains any pattern
+      const hasPattern = patterns.some(pattern => 
+        lowerName.includes(pattern) || lowerName.includes(`${i}`)
+      );
+      
+      if (hasPattern) {
+        // Find section with matching index (i-1 for 0-based array)
+        const sectionIndex = i - 1;
+        if (sectionIndex < sections.length) {
+          return sections[sectionIndex].id;
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  // Handle bulk file upload
+  const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // Filter only audio files
+    const audioFiles = Array.from(files).filter(file => 
+      file.type.startsWith('audio/')
+    );
+
+    if (audioFiles.length === 0) return;
+
+    setBulkUploadFiles(audioFiles);
+
+    // Auto-match files to sections
+    const matches: Record<string, File | null> = {};
+    const matchedFiles = new Set<File>();
+
+    // Initialize all sections as null (no match)
+    value.sections.forEach(section => {
+      matches[section.id] = null;
+    });
+
+    // Try to match each file to a section
+    audioFiles.forEach(file => {
+      const sectionId = matchFileToSection(file.name, value.sections);
+      if (sectionId && !matchedFiles.has(file)) {
+        matches[sectionId] = file;
+        matchedFiles.add(file);
+      }
+    });
+
+    setBulkMatches(matches);
+    setShowBulkUploadDialog(true);
+  };
+
+  // Apply bulk upload matches
+  const applyBulkUpload = () => {
+    Object.entries(bulkMatches).forEach(([sectionId, file]) => {
+      if (file) {
+        handleAudioSelect(sectionId, file);
+      }
+    });
+    
+    setShowBulkUploadDialog(false);
+    setBulkUploadFiles([]);
+    setBulkMatches({});
+  };
+
+  // Cancel bulk upload
+  const cancelBulkUpload = () => {
+    setShowBulkUploadDialog(false);
+    setBulkUploadFiles([]);
+    setBulkMatches({});
+  };
+
+  // Get all files assigned to sections
+  const getAssignedFiles = (): Set<File> => {
+    return new Set(Object.values(bulkMatches).filter((file): file is File => file !== null));
+  };
+
+  // Get unassigned files (files not assigned to any section)
+  const getUnassignedFiles = (): File[] => {
+    const assignedFiles = getAssignedFiles();
+    return bulkUploadFiles.filter(file => !assignedFiles.has(file));
+  };
+
+  // Handle manual file assignment to a section
+  const handleAssignFileToSection = (sectionId: string, file: File | null) => {
+    setBulkMatches(prev => ({
+      ...prev,
+      [sectionId]: file
+    }));
+  };
+
+  // Handle removing a file from a section
+  const handleRemoveFileFromSection = (sectionId: string) => {
+    setBulkMatches(prev => ({
+      ...prev,
+      [sectionId]: null
+    }));
+  };
+
+  // Handle removing a file from unassigned list
+  const handleRemoveUnassignedFile = (fileToRemove: File) => {
+    setBulkUploadFiles(prev => prev.filter(file => file !== fileToRemove));
+  };
+
+  // Get available files for a section dropdown (all uploaded files)
+  const getAvailableFilesForSection = (): File[] => {
+    return bulkUploadFiles;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -218,10 +361,24 @@ export function ListeningAssignmentForm({
             <CardTitle>Listening Sections</CardTitle>
             <CardDescription>Upload audio and create questions for each section</CardDescription>
           </div>
-          <Button onClick={addSection} size="sm">
-            <Plus className="mr-2 size-4" />
-            Add Section
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => bulkInputRef.current?.click()}>
+              <FolderUp className="mr-2 size-4" />
+              Bulk Upload
+            </Button>
+            <input
+              ref={bulkInputRef}
+              type="file"
+              accept="audio/*"
+              multiple
+              onChange={handleBulkUpload}
+              className="hidden"
+            />
+            <Button onClick={addSection} size="sm">
+              <Plus className="mr-2 size-4" />
+              Add Section
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -241,6 +398,7 @@ export function ListeningAssignmentForm({
                 index={index}
                 title={section.title}
                 questionCount={section.questions.length}
+                hasAudio={!!uploadedAudio[section.id] || !!section.audioFileId}
               >
 
               <div className="space-y-2">
@@ -340,6 +498,114 @@ export function ListeningAssignmentForm({
             ))}
           </SortableContext>
         </DndContext>
+
+        {/* Bulk Upload Confirmation Dialog */}
+        <Dialog open={showBulkUploadDialog} onOpenChange={setShowBulkUploadDialog}>
+          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Confirm Bulk Audio Upload</DialogTitle>
+              <DialogDescription>
+                Review and adjust the audio file assignments for each section.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {/* Section assignments with dropdowns */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground">Section Assignments</h4>
+                {value.sections.map((section) => {
+                  const assignedFile = bulkMatches[section.id];
+                  return (
+                    <div
+                      key={section.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-card"
+                    >
+                      <span className="font-medium min-w-[80px]">{section.title}</span>
+                      <div className="flex-1">
+                        <Select
+                          value={assignedFile ? assignedFile.name : "__none__"}
+                          onValueChange={(value) => {
+                            if (value === "__none__") {
+                              handleRemoveFileFromSection(section.id);
+                            } else {
+                              const selectedFile = bulkUploadFiles.find(f => f.name === value);
+                              handleAssignFileToSection(section.id, selectedFile || null);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select audio file..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">No file assigned</SelectItem>
+                            {getAvailableFilesForSection().map((file) => (
+                              <SelectItem key={file.name} value={file.name}>
+                                {file.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {assignedFile && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0"
+                          onClick={() => handleRemoveFileFromSection(section.id)}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Unassigned files section */}
+              {getUnassignedFiles().length > 0 && (
+                <div className="space-y-3 pt-4 border-t">
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    Unassigned Files ({getUnassignedFiles().length})
+                  </h4>
+                  <div className="space-y-2">
+                    {getUnassignedFiles().map((file, idx) => (
+                      <div
+                        key={`${file.name}-${idx}`}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
+                      >
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0"
+                          onClick={() => handleRemoveUnassignedFile(file)}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tips */}
+              <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                <strong>Tip:</strong> Select files from dropdowns to assign them to sections. Files can be reassigned freely. Unassigned files won't be uploaded.
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={cancelBulkUpload}>
+                <X className="mr-2 size-4" />
+                Cancel
+              </Button>
+              <Button onClick={applyBulkUpload}>
+                <Upload className="mr-2 size-4" />
+                Apply ({Object.values(bulkMatches).filter(Boolean).length} files)
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
