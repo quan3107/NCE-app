@@ -105,7 +105,7 @@ export type IeltsListeningQuestionType =
 export type IeltsQuestionType = IeltsReadingQuestionType | IeltsListeningQuestionType;
 
 /**
- * IELTS Writing Task 1 Visual Types
+ * IELTS Writing Task 1 Visual Types (teacher-only metadata)
  */
 export const IELTS_WRITING_TASK1_TYPES: { value: IeltsWritingTask1Type; label: string }[] = [
   { value: 'line_graph', label: 'Line Graph' },
@@ -125,6 +125,22 @@ export type IeltsWritingTask1Type =
   | 'diagram'
   | 'map'
   | 'process';
+
+/**
+ * Sample visibility timing options
+ */
+export type ShowSampleTiming =
+  | 'immediate'
+  | 'after_submission'
+  | 'after_grading'
+  | 'specific_date';
+
+export const SHOW_SAMPLE_TIMING_OPTIONS: { value: ShowSampleTiming; label: string }[] = [
+  { value: 'immediate', label: 'Immediately' },
+  { value: 'after_submission', label: 'After student submits' },
+  { value: 'after_grading', label: 'After grading is complete' },
+  { value: 'specific_date', label: 'On a specific date' },
+];
 
 /**
  * IELTS Writing Task 2 Essay Types
@@ -220,6 +236,11 @@ export type IeltsListeningSection = {
 export type IeltsWritingTask = {
   prompt: string;
   imageFileId?: string | null;
+  visualType?: IeltsWritingTask1Type;
+  sampleResponse?: string;
+  showSampleToStudents?: boolean;
+  showSampleTiming?: ShowSampleTiming;
+  showSampleDate?: string;
 };
 
 export type IeltsSpeakingPart = {
@@ -243,9 +264,7 @@ export type IeltsListeningConfig = IeltsAssignmentBase & {
 
 export type IeltsWritingConfig = IeltsAssignmentBase & {
   task1: IeltsWritingTask;
-  task2: {
-    prompt: string;
-  };
+  task2: Omit<IeltsWritingTask, 'imageFileId' | 'visualType'>;
 };
 
 export type IeltsSpeakingConfig = IeltsAssignmentBase & {
@@ -272,6 +291,21 @@ const createId = () => {
     return globalThis.crypto.randomUUID();
   }
   return `ielts-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+/**
+ * Helper: Count words in text
+ */
+export const countWords = (text: string | undefined | null): number => {
+  if (!text || text.trim() === '') return 0;
+  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+};
+
+/**
+ * Helper: Check if text is within word limit
+ */
+export const isWithinWordLimit = (text: string | undefined | null, max: number = 1000): boolean => {
+  return countWords(text) <= max;
 };
 
 /**
@@ -398,8 +432,22 @@ export const createIeltsAssignmentConfig = (
     case 'writing':
       return {
         ...baseConfig(),
-        task1: { prompt: '', imageFileId: null },
-        task2: { prompt: '' },
+        task1: {
+          prompt: '',
+          imageFileId: null,
+          visualType: undefined,
+          sampleResponse: '',
+          showSampleToStudents: false,
+          showSampleTiming: 'immediate',
+          showSampleDate: undefined,
+        },
+        task2: {
+          prompt: '',
+          sampleResponse: '',
+          showSampleToStudents: false,
+          showSampleTiming: 'immediate',
+          showSampleDate: undefined,
+        },
       };
     case 'speaking':
       return {
@@ -627,17 +675,27 @@ export const normalizeIeltsAssignmentConfig = (
         record.task1 && typeof record.task1 === 'object' ? (record.task1 as Record<string, unknown>) : {};
       const task2 =
         record.task2 && typeof record.task2 === 'object' ? (record.task2 as Record<string, unknown>) : {};
+      const baseConfig = base as IeltsWritingConfig;
       return {
         ...normalizedBase,
         task1: {
-          prompt: toString(task1.prompt, (base as IeltsWritingConfig).task1.prompt),
+          prompt: toString(task1.prompt, baseConfig.task1.prompt),
           imageFileId:
             task1.imageFileId === null
               ? null
-              : toString(task1.imageFileId, (base as IeltsWritingConfig).task1.imageFileId ?? ''),
+              : toString(task1.imageFileId, baseConfig.task1.imageFileId ?? ''),
+          visualType: typeof task1.visualType === 'string' ? task1.visualType as IeltsWritingTask1Type : baseConfig.task1.visualType,
+          sampleResponse: toString(task1.sampleResponse, baseConfig.task1.sampleResponse ?? ''),
+          showSampleToStudents: toBoolean(task1.showSampleToStudents, baseConfig.task1.showSampleToStudents ?? false),
+          showSampleTiming: typeof task1.showSampleTiming === 'string' ? task1.showSampleTiming as ShowSampleTiming : baseConfig.task1.showSampleTiming,
+          showSampleDate: typeof task1.showSampleDate === 'string' ? task1.showSampleDate : baseConfig.task1.showSampleDate,
         },
         task2: {
-          prompt: toString(task2.prompt, (base as IeltsWritingConfig).task2.prompt),
+          prompt: toString(task2.prompt, baseConfig.task2.prompt),
+          sampleResponse: toString(task2.sampleResponse, baseConfig.task2.sampleResponse ?? ''),
+          showSampleToStudents: toBoolean(task2.showSampleToStudents, baseConfig.task2.showSampleToStudents ?? false),
+          showSampleTiming: typeof task2.showSampleTiming === 'string' ? task2.showSampleTiming as ShowSampleTiming : baseConfig.task2.showSampleTiming,
+          showSampleDate: typeof task2.showSampleDate === 'string' ? task2.showSampleDate : baseConfig.task2.showSampleDate,
         },
       };
     }
