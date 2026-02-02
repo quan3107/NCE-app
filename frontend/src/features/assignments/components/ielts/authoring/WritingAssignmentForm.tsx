@@ -10,9 +10,29 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import { Switch } from '@components/ui/switch';
 import { Textarea } from '@components/ui/textarea';
-import type { IeltsWritingConfig } from '@lib/ielts';
-import { Maximize2, Trash2, Upload } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@components/ui/collapsible';
+import { cn } from '@components/ui/utils';
+import type { IeltsWritingConfig, IeltsWritingTask1Type, ShowSampleTiming } from '@lib/ielts';
+import {
+  countWords,
+  isWithinWordLimit,
+  IELTS_WRITING_TASK1_TYPES,
+  SHOW_SAMPLE_TIMING_OPTIONS,
+} from '@lib/ielts';
+import { Maximize2, Trash2, Upload, ChevronDown, BookOpen } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -63,6 +83,18 @@ export function WritingAssignmentForm({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     onImageSelect(file);
+  };
+
+  // Word count display component
+  const WordCountDisplay = ({ text, max = 1000 }: { text: string | undefined | null; max?: number }) => {
+    const wordCount = countWords(text);
+    const isOverLimit = wordCount > max;
+
+    return (
+      <span className={cn("text-xs", isOverLimit && "text-destructive font-medium")}>
+        {wordCount}/{max} words
+      </span>
+    );
   };
 
   return (
@@ -157,9 +189,159 @@ export function WritingAssignmentForm({
                     className="hidden"
                   />
                 </div>
+
+                {/* Visual Type Dropdown */}
+                <div className="space-y-2 mt-3">
+                  <Label>Visual Type (Optional)</Label>
+                  <Select
+                    value={value.task1.visualType || ''}
+                    onValueChange={(val: IeltsWritingTask1Type) =>
+                      onChange({
+                        ...value,
+                        task1: { ...value.task1, visualType: val },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select visual type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {IELTS_WRITING_TASK1_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    For your reference only - students won't see this
+                  </p>
+                </div>
               </div>
             )}
           </div>
+          
+          {/* Task 1 Sample Response */}
+          <Collapsible className="mt-4">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="flex w-full items-center justify-between p-2 hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen className="size-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Sample Response</span>
+                  {value.task1.sampleResponse && (
+                    <Badge variant="secondary" className="text-xs">
+                      Added
+                    </Badge>
+                  )}
+                </div>
+                <ChevronDown className="size-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 px-2 pt-2">
+              {/* Word count + textarea */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="task1-sample-response">Model Answer</Label>
+                  <WordCountDisplay text={value.task1.sampleResponse} max={1000} />
+                </div>
+                <Textarea
+                  id="task1-sample-response"
+                  value={value.task1.sampleResponse || ''}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    onChange({
+                      ...value,
+                      task1: { ...value.task1, sampleResponse: text },
+                    });
+                  }}
+                  placeholder="Enter a model answer that demonstrates what a good response looks like..."
+                  rows={6}
+                  className={cn(
+                    !isWithinWordLimit(value.task1.sampleResponse) && "border-destructive focus-visible:ring-destructive"
+                  )}
+                />
+                {!isWithinWordLimit(value.task1.sampleResponse) && (
+                  <p className="text-xs text-destructive">
+                    Sample response exceeds 1000 word limit
+                  </p>
+                )}
+              </div>
+
+              {/* Show to students toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="task1-show-sample" className="text-sm">
+                    Show to Students
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Students can view this sample response
+                  </p>
+                </div>
+                <Switch
+                  id="task1-show-sample"
+                  checked={value.task1.showSampleToStudents || false}
+                  onCheckedChange={(checked) =>
+                    onChange({
+                      ...value,
+                      task1: { ...value.task1, showSampleToStudents: checked },
+                    })
+                  }
+                  disabled={!value.task1.sampleResponse || countWords(value.task1.sampleResponse) === 0}
+                />
+              </div>
+
+              {/* Timing controls - only show if enabled */}
+              {value.task1.showSampleToStudents && (
+                <div className="space-y-3 rounded-lg border border-border/50 p-3">
+                  <div className="space-y-2">
+                    <Label>When should students see this?</Label>
+                    <Select
+                      value={value.task1.showSampleTiming || 'immediate'}
+                      onValueChange={(val: ShowSampleTiming) =>
+                        onChange({
+                          ...value,
+                          task1: { ...value.task1, showSampleTiming: val },
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SHOW_SAMPLE_TIMING_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {value.task1.showSampleTiming === 'specific_date' && (
+                    <div className="space-y-2">
+                      <Label>Select date and time</Label>
+                      <Input
+                        type="datetime-local"
+                        value={value.task1.showSampleDate || ''}
+                        onChange={(e) =>
+                          onChange({
+                            ...value,
+                            task1: { ...value.task1, showSampleDate: e.target.value },
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Based on your computer's local time
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         <div className="space-y-4 pt-6 border-t">
@@ -174,13 +356,135 @@ export function WritingAssignmentForm({
               onChange={(event) =>
                 onChange({
                   ...value,
-                  task2: { prompt: event.target.value },
+                  task2: { ...value.task2, prompt: event.target.value },
                 })
               }
               placeholder="Some people believe that... Discuss both views and give your opinion..."
               rows={5}
             />
           </div>
+          
+          {/* Task 2 Sample Response */}
+          <Collapsible className="mt-4">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="flex w-full items-center justify-between p-2 hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen className="size-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Sample Response</span>
+                  {value.task2.sampleResponse && (
+                    <Badge variant="secondary" className="text-xs">
+                      Added
+                    </Badge>
+                  )}
+                </div>
+                <ChevronDown className="size-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 px-2 pt-2">
+              {/* Word count + textarea */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="task2-sample-response">Model Answer</Label>
+                  <WordCountDisplay text={value.task2.sampleResponse} max={1000} />
+                </div>
+                <Textarea
+                  id="task2-sample-response"
+                  value={value.task2.sampleResponse || ''}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    onChange({
+                      ...value,
+                      task2: { ...value.task2, sampleResponse: text },
+                    });
+                  }}
+                  placeholder="Enter a model answer that demonstrates what a good response looks like..."
+                  rows={8}
+                  className={cn(
+                    !isWithinWordLimit(value.task2.sampleResponse) && "border-destructive focus-visible:ring-destructive"
+                  )}
+                />
+                {!isWithinWordLimit(value.task2.sampleResponse) && (
+                  <p className="text-xs text-destructive">
+                    Sample response exceeds 1000 word limit
+                  </p>
+                )}
+              </div>
+
+              {/* Show to students toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="task2-show-sample" className="text-sm">
+                    Show to Students
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Students can view this sample response
+                  </p>
+                </div>
+                <Switch
+                  id="task2-show-sample"
+                  checked={value.task2.showSampleToStudents || false}
+                  onCheckedChange={(checked) =>
+                    onChange({
+                      ...value,
+                      task2: { ...value.task2, showSampleToStudents: checked },
+                    })
+                  }
+                  disabled={!value.task2.sampleResponse || countWords(value.task2.sampleResponse) === 0}
+                />
+              </div>
+
+              {/* Timing controls - only show if enabled */}
+              {value.task2.showSampleToStudents && (
+                <div className="space-y-3 rounded-lg border border-border/50 p-3">
+                  <div className="space-y-2">
+                    <Label>When should students see this?</Label>
+                    <Select
+                      value={value.task2.showSampleTiming || 'immediate'}
+                      onValueChange={(val: ShowSampleTiming) =>
+                        onChange({
+                          ...value,
+                          task2: { ...value.task2, showSampleTiming: val },
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SHOW_SAMPLE_TIMING_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {value.task2.showSampleTiming === 'specific_date' && (
+                    <div className="space-y-2">
+                      <Label>Select date and time</Label>
+                      <Input
+                        type="datetime-local"
+                        value={value.task2.showSampleDate || ''}
+                        onChange={(e) =>
+                          onChange({
+                            ...value,
+                            task2: { ...value.task2, showSampleDate: e.target.value },
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Based on your computer's local time
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </CardContent>
     </Card>
