@@ -241,6 +241,7 @@ export type IeltsWritingTask = {
   showSampleToStudents?: boolean;
   showSampleTiming?: ShowSampleTiming;
   showSampleDate?: string;
+  rubricId?: string | null;
 };
 
 export type IeltsSpeakingPart = {
@@ -440,6 +441,7 @@ export const createIeltsAssignmentConfig = (
           showSampleToStudents: false,
           showSampleTiming: 'immediate',
           showSampleDate: undefined,
+          rubricId: null,
         },
         task2: {
           prompt: '',
@@ -447,6 +449,7 @@ export const createIeltsAssignmentConfig = (
           showSampleToStudents: false,
           showSampleTiming: 'immediate',
           showSampleDate: undefined,
+          rubricId: null,
         },
       };
     case 'speaking':
@@ -689,6 +692,7 @@ export const normalizeIeltsAssignmentConfig = (
           showSampleToStudents: toBoolean(task1.showSampleToStudents, baseConfig.task1.showSampleToStudents ?? false),
           showSampleTiming: typeof task1.showSampleTiming === 'string' ? task1.showSampleTiming as ShowSampleTiming : baseConfig.task1.showSampleTiming,
           showSampleDate: typeof task1.showSampleDate === 'string' ? task1.showSampleDate : baseConfig.task1.showSampleDate,
+          rubricId: task1.rubricId === null ? null : toString(task1.rubricId, baseConfig.task1.rubricId ?? ''),
         },
         task2: {
           prompt: toString(task2.prompt, baseConfig.task2.prompt),
@@ -696,6 +700,7 @@ export const normalizeIeltsAssignmentConfig = (
           showSampleToStudents: toBoolean(task2.showSampleToStudents, baseConfig.task2.showSampleToStudents ?? false),
           showSampleTiming: typeof task2.showSampleTiming === 'string' ? task2.showSampleTiming as ShowSampleTiming : baseConfig.task2.showSampleTiming,
           showSampleDate: typeof task2.showSampleDate === 'string' ? task2.showSampleDate : baseConfig.task2.showSampleDate,
+          rubricId: task2.rubricId === null ? null : toString(task2.rubricId, baseConfig.task2.rubricId ?? ''),
         },
       };
     }
