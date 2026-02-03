@@ -32,6 +32,7 @@ import {
   IELTS_WRITING_TASK1_TYPES,
   SHOW_SAMPLE_TIMING_OPTIONS,
 } from '@lib/ielts';
+import { RubricSelector } from '@features/rubrics/components/RubricSelector';
 import { Maximize2, Trash2, Upload, ChevronDown, BookOpen } from 'lucide-react';
 import {
   Dialog,
@@ -47,6 +48,8 @@ type WritingAssignmentFormProps = {
   onChange: (value: IeltsWritingConfig) => void;
   onImageSelect: (file: File | null) => void;
   selectedImageFile?: File | null;
+  courseId: string;
+  onManageRubrics?: () => void;
 };
 
 export function WritingAssignmentForm({
@@ -54,6 +57,8 @@ export function WritingAssignmentForm({
   onChange,
   onImageSelect,
   selectedImageFile,
+  courseId,
+  onManageRubrics,
 }: WritingAssignmentFormProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -217,10 +222,27 @@ export function WritingAssignmentForm({
                     For your reference only - students won't see this
                   </p>
                 </div>
+
               </div>
             )}
+
+            {/* Task 1 Rubric Selector */}
+            <div className="mt-4 space-y-3">
+              <RubricSelector
+                courseId={courseId}
+                value={value.task1.rubricId}
+                onChange={(rubricId) =>
+                  onChange({
+                    ...value,
+                    task1: { ...value.task1, rubricId },
+                  })
+                }
+                label="Task 1 Rubric (Optional)"
+                onManageRubrics={onManageRubrics}
+              />
+            </div>
           </div>
-          
+
           {/* Task 1 Sample Response */}
           <Collapsible className="mt-4">
             <CollapsibleTrigger asChild>
@@ -363,7 +385,23 @@ export function WritingAssignmentForm({
               rows={5}
             />
           </div>
-          
+
+          {/* Task 2 Rubric Selector */}
+          <div className="mt-4 space-y-3">
+            <RubricSelector
+              courseId={courseId}
+              value={value.task2.rubricId}
+              onChange={(rubricId) =>
+                onChange({
+                  ...value,
+                  task2: { ...value.task2, rubricId },
+                })
+              }
+              label="Task 2 Rubric (Optional)"
+              onManageRubrics={onManageRubrics}
+            />
+          </div>
+
           {/* Task 2 Sample Response */}
           <Collapsible className="mt-4">
             <CollapsibleTrigger asChild>
