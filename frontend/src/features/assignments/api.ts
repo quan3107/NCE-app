@@ -56,7 +56,7 @@ type CreateAssignmentRequest = {
   dueAt?: string;
   latePolicy?: Record<string, unknown>;
   assignmentConfig?: Record<string, unknown>;
-  publishedAt?: string;
+  publishedAt?: string | null;
 };
 
 type UpdateAssignmentRequest = Partial<CreateAssignmentRequest>;
