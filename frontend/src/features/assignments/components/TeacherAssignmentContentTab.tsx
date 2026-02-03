@@ -15,6 +15,9 @@ type TeacherAssignmentContentTabProps = {
   ieltsConfig: IeltsAssignmentConfig | null;
   isEditing?: boolean;
   onDraftConfigChange?: (updated: IeltsAssignmentConfig) => void;
+  rubrics?: { id: string; name: string }[];
+  courseId?: string;
+  onManageRubrics?: () => void;
 };
 
 export function TeacherAssignmentContentTab({
@@ -22,6 +25,9 @@ export function TeacherAssignmentContentTab({
   ieltsConfig,
   isEditing = false,
   onDraftConfigChange,
+  rubrics = [],
+  courseId,
+  onManageRubrics,
 }: TeacherAssignmentContentTabProps) {
   if (isIeltsAssignmentType(assignment.type) && ieltsConfig) {
     if (isEditing && onDraftConfigChange) {
@@ -30,6 +36,8 @@ export function TeacherAssignmentContentTab({
           type={assignment.type as IeltsAssignmentType}
           value={ieltsConfig}
           onChange={onDraftConfigChange}
+          courseId={courseId}
+          onManageRubrics={onManageRubrics}
         />
       );
     }
@@ -38,6 +46,7 @@ export function TeacherAssignmentContentTab({
       <IeltsAssignmentContentPreview
         type={assignment.type as IeltsAssignmentType}
         value={ieltsConfig}
+        rubrics={rubrics}
       />
     );
   }
