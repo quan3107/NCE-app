@@ -17,6 +17,10 @@ import {
   createIeltsAssignmentConfig,
   type IeltsAssignmentConfig,
   type IeltsAssignmentType,
+  type IeltsReadingConfig,
+  type IeltsListeningConfig,
+  type IeltsWritingConfig,
+  type IeltsSpeakingConfig,
 } from '@lib/ielts';
 import { useAssignmentResources, useCreateAssignmentMutation } from '@features/assignments/api';
 import { uploadFileWithProgress } from '@features/files/fileUpload';
@@ -29,6 +33,41 @@ import { IeltsAuthoringBasicDetailsCard } from './ielts/authoring/IeltsAuthoring
 import { IeltsAuthoringActionsCard } from './ielts/authoring/IeltsAuthoringActionsCard';
 
 type UploadMap = Record<string, File | null>;
+
+// Narrow assignment config by expected shape to avoid passing wrong type to editors.
+const isReadingConfig = (config: IeltsAssignmentConfig | null): config is IeltsReadingConfig => {
+  if (!config || !('sections' in config) || !Array.isArray(config.sections)) {
+    return false;
+  }
+  if (config.sections.length === 0) {
+    return false;
+  }
+  return config.sections.every(section => typeof (section as IeltsReadingConfig['sections'][0]).passage === 'string');
+};
+
+const isListeningConfig = (config: IeltsAssignmentConfig | null): config is IeltsListeningConfig => {
+  if (!config || !('sections' in config) || !Array.isArray(config.sections)) {
+    return false;
+  }
+  if (config.sections.length === 0) {
+    return false;
+  }
+  return config.sections.every(section => 'audioFileId' in section);
+};
+
+const isWritingConfig = (config: IeltsAssignmentConfig | null): config is IeltsWritingConfig => {
+  if (!config || !('task1' in config) || !('task2' in config)) {
+    return false;
+  }
+  return typeof config.task1 === 'object' && typeof config.task2 === 'object';
+};
+
+const isSpeakingConfig = (config: IeltsAssignmentConfig | null): config is IeltsSpeakingConfig => {
+  if (!config || !('part1' in config) || !('part2' in config) || !('part3' in config)) {
+    return false;
+  }
+  return typeof config.part1 === 'object' && typeof config.part2 === 'object' && typeof config.part3 === 'object';
+};
 
 // Helper to get initial state from localStorage draft
 function getInitialStateFromDraft() {
@@ -199,6 +238,24 @@ export function TeacherIeltsAssignmentCreatePage() {
     });
   }, [instructions, timingEnabled, durationMinutes, enforceTime]);
 
+  useEffect(() => {
+    if (!selectedType) {
+      return;
+    }
+    if (!assignmentConfig) {
+      setAssignmentConfig(createIeltsAssignmentConfig(selectedType));
+      return;
+    }
+    const isValid =
+      (selectedType === 'reading' && isReadingConfig(assignmentConfig)) ||
+      (selectedType === 'listening' && isListeningConfig(assignmentConfig)) ||
+      (selectedType === 'writing' && isWritingConfig(assignmentConfig)) ||
+      (selectedType === 'speaking' && isSpeakingConfig(assignmentConfig));
+    if (!isValid) {
+      setAssignmentConfig(createIeltsAssignmentConfig(selectedType));
+    }
+  }, [selectedType, assignmentConfig]);
+
   const canSave = useMemo(
     () => assignmentTitle.trim().length > 0 && courseId.length > 0,
     [assignmentTitle, courseId],
@@ -208,11 +265,19 @@ export function TeacherIeltsAssignmentCreatePage() {
     setListeningFiles((current) => ({ ...current, [sectionId]: file }));
   };
 
+  const handleManageRubrics = () => {
+    navigate('/teacher/rubrics');
+  };
+
+  const readingConfig = assignmentConfig && isReadingConfig(assignmentConfig) ? assignmentConfig : null;
+  const listeningConfig = assignmentConfig && isListeningConfig(assignmentConfig) ? assignmentConfig : null;
+  const writingConfig = assignmentConfig && isWritingConfig(assignmentConfig) ? assignmentConfig : null;
+  const speakingConfig = assignmentConfig && isSpeakingConfig(assignmentConfig) ? assignmentConfig : null;
+
   const uploadAudioFiles = async (config: IeltsAssignmentConfig) => {
-    if (config && selectedType === 'listening') {
-      const listeningConfig = config as Extract<IeltsAssignmentConfig, { sections: any[] }>;
+    if (config && selectedType === 'listening' && isListeningConfig(config)) {
       const nextSections = await Promise.all(
-        listeningConfig.sections.map(async (section) => {
+        config.sections.map(async (section) => {
           const file = listeningFiles[section.id];
           if (!file) {
             return section;
@@ -227,22 +292,21 @@ export function TeacherIeltsAssignmentCreatePage() {
           };
         }),
       );
-      return { ...listeningConfig, sections: nextSections } as IeltsAssignmentConfig;
+      return { ...config, sections: nextSections } as IeltsAssignmentConfig;
     }
     return config;
   };
 
   const uploadWritingImage = async (config: IeltsAssignmentConfig) => {
-    if (config && selectedType === 'writing' && writingTask1File) {
+    if (config && selectedType === 'writing' && writingTask1File && isWritingConfig(config)) {
       const uploaded = await uploadFileWithProgress({
         file: writingTask1File,
         onProgress: () => undefined,
       });
-      const writingConfig = config as Extract<IeltsAssignmentConfig, { task1: any }>;
       return {
-        ...writingConfig,
+        ...config,
         task1: {
-          ...writingConfig.task1,
+          ...config.task1,
           imageFileId: uploaded.id,
         },
       } as IeltsAssignmentConfig;
@@ -353,37 +417,39 @@ export function TeacherIeltsAssignmentCreatePage() {
             onDueDateChange={setDueDate}
           />
 
-          {assignmentConfig && selectedType === 'reading' && (
+          {selectedType === 'reading' && readingConfig && (
             <ReadingAssignmentForm
-              value={assignmentConfig as Extract<IeltsAssignmentConfig, { sections: any[] }>}
+              value={readingConfig}
               onChange={setAssignmentConfig}
             />
           )}
-          {assignmentConfig && selectedType === 'listening' && (
+          {selectedType === 'listening' && listeningConfig && (
             <ListeningAssignmentForm
-              value={assignmentConfig as Extract<IeltsAssignmentConfig, { sections: any[] }>}
+              value={listeningConfig}
               onChange={setAssignmentConfig}
               onAudioSelect={handleAudioSelect}
             />
           )}
-          {assignmentConfig && selectedType === 'writing' && (
+          {selectedType === 'writing' && writingConfig && (
             <WritingAssignmentForm
-              value={assignmentConfig as Extract<IeltsAssignmentConfig, { task1: any }>}
+              value={writingConfig}
               onChange={setAssignmentConfig}
               onImageSelect={setWritingTask1File}
               selectedImageFile={writingTask1File}
+              courseId={courseId}
+              onManageRubrics={handleManageRubrics}
             />
           )}
-          {assignmentConfig && selectedType === 'speaking' && (
+          {selectedType === 'speaking' && speakingConfig && (
             <SpeakingAssignmentForm
-              value={assignmentConfig as Extract<IeltsAssignmentConfig, { part1: any }>}
+              value={speakingConfig}
               onChange={setAssignmentConfig}
             />
           )}
 
           <IeltsAuthoringActionsCard
             canSave={canSave}
-            isLoading={createAssignmentMutation.isLoading}
+            isLoading={createAssignmentMutation.isPending}
             onSaveDraft={() => handleSubmit(false)}
             onPublish={() => handleSubmit(true)}
           />
