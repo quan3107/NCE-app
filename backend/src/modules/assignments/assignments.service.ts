@@ -32,6 +32,52 @@ function parseOptionalDate(
   return parsed;
 }
 
+/**
+ * Validate that rubricIds in writing assignment config exist and belong to the course
+ */
+async function validateWritingRubrics(
+  config: unknown,
+  courseId: string,
+): Promise<void> {
+  if (!config || typeof config !== 'object') {
+    return;
+  }
+
+  const configRecord = config as Record<string, unknown>;
+  const task1 = configRecord.task1 as Record<string, unknown> | undefined;
+  const task2 = configRecord.task2 as Record<string, unknown> | undefined;
+
+  const rubricIds: string[] = [];
+
+  if (task1?.rubricId && typeof task1.rubricId === 'string') {
+    rubricIds.push(task1.rubricId);
+  }
+  if (task2?.rubricId && typeof task2.rubricId === 'string') {
+    rubricIds.push(task2.rubricId);
+  }
+
+  if (rubricIds.length === 0) {
+    return;
+  }
+
+  // Check that all rubrics exist and belong to the course
+  const rubrics = await prisma.rubric.findMany({
+    where: {
+      id: { in: rubricIds },
+      courseId,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (rubrics.length !== rubricIds.length) {
+    throw createHttpError(
+      400,
+      "One or more selected rubrics are invalid or do not belong to this course",
+    );
+  }
+}
+
 export async function listAssignments(params: unknown) {
   const { courseId } = courseScopedParamsSchema.parse(params);
   return prisma.assignment.findMany({
@@ -186,6 +232,12 @@ export async function createAssignment(
     payload.type,
     payload.assignmentConfig,
   );
+
+  // Validate rubric IDs for writing assignments
+  if (payload.type === 'writing') {
+    await validateWritingRubrics(validatedAssignmentConfig, courseId);
+  }
+
   const assignmentConfig =
     validatedAssignmentConfig !== undefined
       ? (validatedAssignmentConfig as Prisma.InputJsonObject)
@@ -225,13 +277,21 @@ export async function updateAssignment(
   }
 
   const targetType = payload.type ?? existing.type;
-  const assignmentConfig =
-    payload.assignmentConfig !== undefined
-      ? (parseAssignmentConfigForType(
-          targetType,
-          payload.assignmentConfig,
-        ) as Prisma.InputJsonObject)
-      : undefined;
+
+  let assignmentConfig: Prisma.InputJsonObject | undefined;
+  if (payload.assignmentConfig !== undefined) {
+    const validatedConfig = parseAssignmentConfigForType(
+      targetType,
+      payload.assignmentConfig,
+    );
+
+    // Validate rubric IDs for writing assignments
+    if (targetType === 'writing') {
+      await validateWritingRubrics(validatedConfig, courseId);
+    }
+
+    assignmentConfig = validatedConfig as Prisma.InputJsonObject;
+  }
 
   const updateData: Prisma.AssignmentUpdateInput = {};
   if (payload.title !== undefined) {
