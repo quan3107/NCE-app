@@ -124,6 +124,7 @@ const writingTask1Schema = z.object({
   showSampleToStudents: z.boolean().optional(),
   showSampleTiming: showSampleTimingSchema,
   showSampleDate: z.string().datetime().optional(),
+  rubricId: z.string().uuid().nullable().optional(),
 }).strict().refine(
   (data) => {
     // Can't show sample without content
@@ -149,6 +150,7 @@ const writingTask2Schema = z.object({
   showSampleToStudents: z.boolean().optional(),
   showSampleTiming: showSampleTimingSchema,
   showSampleDate: z.string().datetime().optional(),
+  rubricId: z.string().uuid().nullable().optional(),
 }).strict().refine(
   (data) => {
     if (data.showSampleToStudents && (!data.sampleResponse || data.sampleResponse.trim() === '')) {
