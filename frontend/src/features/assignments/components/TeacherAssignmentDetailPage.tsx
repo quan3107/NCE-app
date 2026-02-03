@@ -10,6 +10,7 @@ import { Button } from '@components/ui/button';
 import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
 import { useAssignmentResources, useUpdateAssignmentMutation } from '@features/assignments/api';
+import { useCourseRubricsQuery } from '@features/rubrics/api';
 import {
   isIeltsAssignmentType,
   normalizeIeltsAssignmentConfig,
@@ -17,6 +18,7 @@ import {
   type IeltsAssignmentConfig,
 } from '@lib/ielts';
 import { TeacherAssignmentDetailTabs } from './TeacherAssignmentDetailTabs';
+import { RubricManagementOverlay } from '@features/rubrics/components/RubricManagementOverlay';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -41,10 +43,22 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const [draftConfig, setDraftConfig] = useState<IeltsAssignmentConfig | null>(null);
   const [draftAssignment, setDraftAssignment] = useState<Assignment | null>(null);
 
+  // Rubric management modal state
+  const [isRubricModalOpen, setIsRubricModalOpen] = useState(false);
+
   const assignment = assignments.find(item => item.id === assignmentId) ?? null;
 
-  // Use draft assignment when editing, otherwise use the saved assignment
-  const activeAssignment = isEditing && draftAssignment ? draftAssignment : assignment;
+  // Fetch rubrics for the assignment's course (for writing assignments)
+  const rubricsQuery = useCourseRubricsQuery(assignment?.courseId ?? '');
+  const rubrics = rubricsQuery.data ?? [];
+
+  // Debug logging
+  console.log('[TeacherAssignmentDetailPage] assignment?.courseId:', assignment?.courseId);
+  console.log('[TeacherAssignmentDetailPage] rubricsQuery.data:', rubricsQuery.data);
+  console.log('[TeacherAssignmentDetailPage] rubricsQuery.isLoading:', rubricsQuery.isLoading);
+  console.log('[TeacherAssignmentDetailPage] rubricsQuery.error:', rubricsQuery.error);
+  console.log('[TeacherAssignmentDetailPage] final rubrics array:', rubrics);
+
   const course = courses.find(item => item.id === assignment?.courseId) ?? null;
   const assignmentSubmissions = useMemo(
     () => submissions.filter(item => item.assignmentId === assignmentId),
@@ -77,6 +91,10 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
 
   // Use draft config when editing, otherwise use the saved config
   const activeConfig = isEditing && draftConfig ? draftConfig : ieltsConfig;
+
+  // Debug logging for config
+  console.log('[TeacherAssignmentDetailPage] ieltsConfig:', ieltsConfig);
+  console.log('[TeacherAssignmentDetailPage] activeConfig:', activeConfig);
 
   const statsCards = [
     { label: 'Total Students', value: totalStudents, icon: <Users className="size-5 text-blue-600" /> },
@@ -147,6 +165,40 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     setDraftAssignment(prev => prev ? { ...prev, ...updates } : null);
   }, []);
 
+  const handleAutoSave = useCallback(async () => {
+    if (!assignment || !isEditing) return;
+
+    try {
+      const payload: Record<string, unknown> = {};
+      
+      if (draftAssignment) {
+        payload.title = draftAssignment.title;
+        payload.descriptionMd = draftAssignment.description;
+        payload.dueAt = draftAssignment.dueAt?.toISOString();
+      }
+      
+      if (draftConfig) {
+        payload.assignmentConfig = draftConfig;
+      }
+
+      await updateAssignmentMutation.mutateAsync({
+        courseId: assignment.courseId,
+        assignmentId: assignment.id,
+        payload,
+      });
+      
+      toast.success('Changes saved automatically.');
+    } catch (errorValue) {
+      toast.error(
+        errorValue instanceof Error ? errorValue.message : 'Failed to auto-save changes.',
+      );
+    }
+  }, [assignment, isEditing, draftAssignment, draftConfig, updateAssignmentMutation]);
+
+  const handleManageRubrics = useCallback(() => {
+    setIsRubricModalOpen(true);
+  }, []);
+
   const handleUnpublish = async () => {
     if (!assignment || assignment.status !== 'published') {
       return;
@@ -205,6 +257,9 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     );
   }
 
+  // Use draft assignment when editing, otherwise use the saved assignment
+  const activeAssignment = isEditing && draftAssignment ? draftAssignment : assignment;
+
   return (
     <div>
       <PageHeader
@@ -221,17 +276,17 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
                 <Button
                   variant="outline"
                   onClick={handleCancelEdit}
-                  disabled={updateAssignmentMutation.isLoading}
+                  disabled={updateAssignmentMutation.isPending}
                 >
                   <X className="mr-2 size-4" />
                   Cancel
                 </Button>
                 <Button
                   onClick={handleSaveEdit}
-                  disabled={updateAssignmentMutation.isLoading}
+                  disabled={updateAssignmentMutation.isPending}
                 >
                   <Save className="mr-2 size-4" />
-                  {updateAssignmentMutation.isLoading ? 'Saving...' : 'Save'}
+                  {updateAssignmentMutation.isPending ? 'Saving...' : 'Save'}
                 </Button>
               </>
             ) : (
@@ -245,10 +300,10 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
                 <Button
                   onClick={handleUnpublish}
                   variant="secondary"
-                  disabled={assignment.status !== 'published' || updateAssignmentMutation.isLoading}
+                  disabled={assignment.status !== 'published' || updateAssignmentMutation.isPending}
                 >
                   <EyeOff className="mr-2 size-4" />
-                  {updateAssignmentMutation.isLoading ? 'Unpublishing...' : 'Unpublish'}
+                  {updateAssignmentMutation.isPending ? 'Unpublishing...' : 'Unpublish'}
                 </Button>
               </>
             )}
@@ -275,9 +330,27 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
             isEditing={isEditing}
             onDraftConfigChange={handleDraftConfigChange}
             onAssignmentChange={handleAssignmentChange}
+            rubrics={rubrics}
+            courseId={assignment.courseId}
+            onManageRubrics={handleManageRubrics}
           />
         </div>
       </div>
+
+      {/* Rubric Management Overlay */}
+      {assignment?.courseId && (
+        <RubricManagementOverlay
+          isOpen={isRubricModalOpen}
+          onClose={() => {
+            setIsRubricModalOpen(false);
+            // Auto-save assignment config when closing the modal
+            if (isEditing) {
+              handleAutoSave();
+            }
+          }}
+          courseId={assignment.courseId}
+        />
+      )}
     </div>
   );
 }
