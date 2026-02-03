@@ -37,20 +37,35 @@ const DEFAULT_CRITERIA: RubricCriterion[] = [
   },
 ];
 
-export function TeacherRubricsPage() {
+type TeacherRubricsPageProps = {
+  embedded?: boolean;
+  courseId?: string;
+};
+
+export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }: TeacherRubricsPageProps = {}) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState(propCourseId || '');
   const [rubricName, setRubricName] = useState('');
   const coursesQuery = useCoursesQuery();
 
+  // Use prop courseId if provided (embedded mode), otherwise use selected
+  const effectiveCourseId = propCourseId || selectedCourseId;
+
   useEffect(() => {
-    if (!selectedCourseId && coursesQuery.data && coursesQuery.data.length > 0) {
+    if (!embedded && !selectedCourseId && coursesQuery.data && coursesQuery.data.length > 0) {
       setSelectedCourseId(coursesQuery.data[0].id);
     }
-  }, [coursesQuery.data, selectedCourseId]);
+  }, [coursesQuery.data, selectedCourseId, embedded, propCourseId]);
 
-  const rubricsQuery = useCourseRubricsQuery(selectedCourseId);
-  const createRubricMutation = useCreateRubricMutation(selectedCourseId);
+  // Update selectedCourseId when prop changes
+  useEffect(() => {
+    if (propCourseId) {
+      setSelectedCourseId(propCourseId);
+    }
+  }, [propCourseId]);
+
+  const rubricsQuery = useCourseRubricsQuery(effectiveCourseId);
+  const createRubricMutation = useCreateRubricMutation(effectiveCourseId);
 
   const courseOptions = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
 
@@ -81,37 +96,50 @@ export function TeacherRubricsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Rubrics"
-        description="Create and manage grading rubrics"
-        actions={
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="mr-2 size-4" />
-            Create Rubric
-          </Button>
-        }
-      />
-      <div className="p-4 sm:p-6 lg:p-8">
+      {!embedded && (
+        <PageHeader
+          title="Rubrics"
+          description="Create and manage grading rubrics"
+          actions={
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="mr-2 size-4" />
+              Create Rubric
+            </Button>
+          }
+        />
+      )}
+      <div className={embedded ? '' : 'p-4 sm:p-6 lg:p-8'}>
         <div className="space-y-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                <Label>Course</Label>
-                <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courseOptions.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+          {!embedded && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-2">
+                  <Label>Course</Label>
+                  <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select course" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courseOptions.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {embedded && (
+            <div className="flex justify-end">
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="mr-2 size-4" />
+                Create Rubric
+              </Button>
+            </div>
+          )}
 
           {rubricsQuery.isLoading ? (
             <Card>
@@ -199,8 +227,8 @@ export function TeacherRubricsPage() {
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateRubric} disabled={createRubricMutation.isLoading}>
-              {createRubricMutation.isLoading ? 'Creating...' : 'Create Rubric'}
+            <Button onClick={handleCreateRubric} disabled={createRubricMutation.isPending}>
+              {createRubricMutation.isPending ? 'Creating...' : 'Create Rubric'}
             </Button>
           </DialogFooter>
         </DialogContent>
