@@ -12,6 +12,7 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Switch } from '@components/ui/switch';
 import { Textarea } from '@components/ui/textarea';
+import { RichTextEditor } from '@components/ui/rich-text-editor';
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ import {
   IELTS_WRITING_TASK1_TYPES,
   SHOW_SAMPLE_TIMING_OPTIONS,
 } from '@lib/ielts';
+import { stripHtml } from '@lib/rich-text';
 import { RubricSelector } from '@features/rubrics/components/RubricSelector';
 import { Maximize2, Trash2, Upload, ChevronDown, BookOpen } from 'lucide-react';
 import {
@@ -117,15 +119,23 @@ export function WritingAssignmentForm({
           <div className="space-y-2">
             <Label>Task 1 Prompt</Label>
             <Textarea
-              value={value.task1.prompt}
-              onChange={(event) =>
+              value={stripHtml(value.task1.prompt)}
+              onChange={(e) =>
                 onChange({
                   ...value,
-                  task1: { ...value.task1, prompt: event.target.value },
+                  task1: { ...value.task1, prompt: stripHtml(e.target.value) },
                 })
               }
               placeholder="The chart below shows... / You should spend about 20 minutes on this task..."
               rows={4}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Student Response</Label>
+            <RichTextEditor
+              value=""
+              onChange={() => {}}
+              placeholder="Students will write their response here..."
             />
           </div>
           <div className="space-y-2">
@@ -269,21 +279,15 @@ export function WritingAssignmentForm({
                   <Label htmlFor="task1-sample-response">Model Answer</Label>
                   <WordCountDisplay text={value.task1.sampleResponse} max={1000} />
                 </div>
-                <Textarea
-                  id="task1-sample-response"
+                <RichTextEditor
                   value={value.task1.sampleResponse || ''}
-                  onChange={(e) => {
-                    const text = e.target.value;
+                  onChange={(text) => {
                     onChange({
                       ...value,
                       task1: { ...value.task1, sampleResponse: text },
                     });
                   }}
                   placeholder="Enter a model answer that demonstrates what a good response looks like..."
-                  rows={6}
-                  className={cn(
-                    !isWithinWordLimit(value.task1.sampleResponse) && "border-destructive focus-visible:ring-destructive"
-                  )}
                 />
                 {!isWithinWordLimit(value.task1.sampleResponse) && (
                   <p className="text-xs text-destructive">
@@ -374,15 +378,23 @@ export function WritingAssignmentForm({
           <div className="space-y-2">
             <Label>Task 2 Prompt</Label>
             <Textarea
-              value={value.task2.prompt}
-              onChange={(event) =>
+              value={stripHtml(value.task2.prompt)}
+              onChange={(e) =>
                 onChange({
                   ...value,
-                  task2: { ...value.task2, prompt: event.target.value },
+                  task2: { ...value.task2, prompt: stripHtml(e.target.value) },
                 })
               }
               placeholder="Some people believe that... Discuss both views and give your opinion..."
-              rows={5}
+              rows={4}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Student Response</Label>
+            <RichTextEditor
+              value=""
+              onChange={() => {}}
+              placeholder="Students will write their response here..."
             />
           </div>
 
@@ -428,21 +440,15 @@ export function WritingAssignmentForm({
                   <Label htmlFor="task2-sample-response">Model Answer</Label>
                   <WordCountDisplay text={value.task2.sampleResponse} max={1000} />
                 </div>
-                <Textarea
-                  id="task2-sample-response"
+                <RichTextEditor
                   value={value.task2.sampleResponse || ''}
-                  onChange={(e) => {
-                    const text = e.target.value;
+                  onChange={(text) => {
                     onChange({
                       ...value,
                       task2: { ...value.task2, sampleResponse: text },
                     });
                   }}
                   placeholder="Enter a model answer that demonstrates what a good response looks like..."
-                  rows={8}
-                  className={cn(
-                    !isWithinWordLimit(value.task2.sampleResponse) && "border-destructive focus-visible:ring-destructive"
-                  )}
                 />
                 {!isWithinWordLimit(value.task2.sampleResponse) && (
                   <p className="text-xs text-destructive">
