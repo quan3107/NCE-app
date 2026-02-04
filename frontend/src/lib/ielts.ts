@@ -4,6 +4,8 @@
  * Why: Keeps IELTS-specific shapes centralized and reusable across authoring flows.
  */
 
+import { stripHtml } from './rich-text';
+
 export type IeltsAssignmentType = 'reading' | 'listening' | 'writing' | 'speaking';
 
 export const IELTS_ASSIGNMENT_TYPES: IeltsAssignmentType[] = [
@@ -296,10 +298,13 @@ const createId = () => {
 
 /**
  * Helper: Count words in text
+ * Strips HTML tags before counting to handle rich text content.
  */
 export const countWords = (text: string | undefined | null): number => {
   if (!text || text.trim() === '') return 0;
-  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+  // Strip HTML tags before counting words
+  const plainText = stripHtml(text);
+  return plainText.trim().split(/\s+/).filter(w => w.length > 0).length;
 };
 
 /**
