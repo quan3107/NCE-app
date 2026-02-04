@@ -197,9 +197,9 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
       {/* Content area */}
       <div className="flex-1 overflow-hidden">
         {activeSection && (
-          <div className="grid lg:grid-cols-2 divide-x min-h-[500px] reading-panels-container">
+          <div className="grid lg:grid-cols-2 divide-x reading-panels-container">
             {/* Left column - Passage editor */}
-            <div className="flex flex-col overflow-hidden bg-muted/5">
+            <div className="flex flex-col overflow-hidden bg-muted/5 reading-panels-container-child">
               <div className="flex-none p-4 border-b bg-muted/10 flex items-center justify-between">
                 <div className="flex items-center gap-3 flex-1">
                   <span className="text-sm font-medium text-muted-foreground">Title:</span>
@@ -226,7 +226,7 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
             </div>
 
             {/* Right column - Questions editor */}
-            <div className="flex flex-col overflow-hidden bg-background">
+            <div className="flex flex-col overflow-hidden bg-background reading-panels-container-child">
               <div className="flex-none p-4 border-b bg-muted/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-foreground">Questions</h3>
