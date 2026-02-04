@@ -358,8 +358,127 @@ html {
   min-height: 600px;
 }
 
+@layer components {
+  /* Rich text editor content styles */
+  .rich-text-editor-content {
+    @apply leading-relaxed min-h-[500px];
+  }
 
-/* Scrollbar styles for reading panels - placed outside @layer to ensure inclusion */
+  .rich-text-editor-content .ProseMirror {
+    @apply min-h-[500px];
+  }
+
+  .rich-text-editor-content p {
+    @apply mb-3;
+  }
+
+  .rich-text-editor-content p:last-child {
+    @apply mb-0;
+  }
+
+  .rich-text-editor-content ul,
+  .rich-text-editor-content ol {
+    @apply mb-3 pl-6;
+  }
+
+  .rich-text-editor-content ul {
+    @apply list-disc;
+  }
+
+  .rich-text-editor-content ol {
+    @apply list-decimal;
+  }
+
+  .rich-text-editor-content li {
+    @apply mb-1;
+  }
+
+  .rich-text-editor-content li:last-child {
+    @apply mb-0;
+  }
+
+  .rich-text-editor-content a {
+    @apply text-primary underline underline-offset-2;
+  }
+
+  /* Prose mirror placeholder styles */
+  .rich-text-editor-content .ProseMirror-placeholder {
+    @apply text-muted-foreground opacity-60;
+  }
+
+  /* Rich text content styles for rendered HTML */
+  .rich-text-content {
+    @apply leading-relaxed;
+  }
+
+  .rich-text-content p {
+    @apply mb-3;
+  }
+
+  .rich-text-content p:last-child {
+    @apply mb-0;
+  }
+
+  .rich-text-content ul,
+  .rich-text-content ol {
+    @apply mb-3 pl-6;
+  }
+
+  .rich-text-content ul {
+    @apply list-disc;
+  }
+
+  .rich-text-content ol {
+    @apply list-decimal;
+  }
+
+  .rich-text-content li {
+    @apply mb-1;
+  }
+
+  .rich-text-content li:last-child {
+    @apply mb-0;
+  }
+
+  .rich-text-content strong,
+  .rich-text-content b {
+    @apply font-semibold;
+  }
+
+  .rich-text-content em,
+  .rich-text-content i {
+    @apply italic;
+  }
+
+  .rich-text-content u {
+    @apply underline;
+  }
+
+  .rich-text-content a {
+    @apply text-primary underline underline-offset-2;
+  }
+
+  .rich-text-content a:hover {
+    @apply opacity-80;
+  }
+
+  .rich-text-content br {
+    @apply block mb-2;
+    content: "";
+  }
+}
+
+@utility reading-panels-container {
+  @apply h-[calc(100vh-280px)];
+}
+
+@utility reading-panels-container-child {
+  @apply h-[calc(100vh-280px)];
+}
+
+/* Scrollbar styles for reading panels - kept as plain CSS because 
+   ::-webkit-scrollbar pseudo-elements are browser-specific and not 
+   supported by Tailwind utilities */
 .scrollbar-visible {
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
@@ -382,7 +501,9 @@ html {
   background-color: #9ca3af;
 }
 
-/* Reading panels container height - placed outside @layer to ensure inclusion */
+/* BACKUP: Remove after 1 week if no issues with Tailwind refactor
+   Original custom CSS - commented out 2026-02-04
+   
 .reading-panels-container {
   height: calc(100vh - 280px);
 }
@@ -391,7 +512,6 @@ html {
   height: calc(100vh - 280px);
 }
 
-/* Rich text content styles for rendered HTML content */
 .rich-text-content {
   line-height: 1.6;
 }
@@ -456,7 +576,6 @@ html {
   margin-bottom: 0.5rem;
 }
 
-/* Rich text editor content styles */
 .rich-text-editor-content {
   line-height: 1.6;
   min-height: 500px;
@@ -502,8 +621,8 @@ html {
   text-underline-offset: 2px;
 }
 
-/* Prose mirror placeholder styles */
 .rich-text-editor-content .ProseMirror-placeholder {
   color: var(--muted-foreground);
   opacity: 0.6;
 }
+*/
