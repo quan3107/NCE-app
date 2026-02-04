@@ -8,6 +8,7 @@ import type { IeltsWritingConfig } from '@lib/ielts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Badge } from '@components/ui/badge';
 import { BookOpen, Eye, EyeOff, ClipboardList } from 'lucide-react';
+import { sanitizeHtml, isHtmlLike, textToHtml } from '@lib/rich-text';
 
 type RubricInfo = {
   id: string;
@@ -44,9 +45,18 @@ export function IeltsWritingContentPreview({
           <CardDescription>Report writing prompt</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-[12px] bg-muted/20 p-4 text-sm whitespace-pre-wrap">
-            {value.task1.prompt || 'No Task 1 prompt yet.'}
-          </div>
+          <div
+            className="rounded-[12px] bg-muted/20 p-4 text-sm rich-text-content"
+            dangerouslySetInnerHTML={{
+              __html: sanitizeHtml(
+                value.task1.prompt
+                  ? isHtmlLike(value.task1.prompt)
+                    ? value.task1.prompt
+                    : textToHtml(value.task1.prompt)
+                  : '<p>No Task 1 prompt yet.</p>'
+              ),
+            }}
+          />
           {value.task1.imageFileId && (
             <div className="rounded-[12px] border border-dashed p-4 text-sm text-muted-foreground">
               Image reference: {value.task1.imageFileId}
@@ -87,9 +97,18 @@ export function IeltsWritingContentPreview({
           <CardDescription>Essay prompt</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-[12px] bg-muted/20 p-4 text-sm whitespace-pre-wrap">
-            {value.task2.prompt || 'No Task 2 prompt yet.'}
-          </div>
+          <div
+            className="rounded-[12px] bg-muted/20 p-4 text-sm rich-text-content"
+            dangerouslySetInnerHTML={{
+              __html: sanitizeHtml(
+                value.task2.prompt
+                  ? isHtmlLike(value.task2.prompt)
+                    ? value.task2.prompt
+                    : textToHtml(value.task2.prompt)
+                  : '<p>No Task 2 prompt yet.</p>'
+              ),
+            }}
+          />
           {value.task2.sampleResponse && (
             <div className="rounded-[12px] border border-primary/20 bg-primary/5 p-4">
               <div className="mb-2 flex items-center gap-2">
