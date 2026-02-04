@@ -312,7 +312,7 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
       />
 
       <div className="p-4 sm:p-6 lg:p-8">
-        <div className="w-full max-w-[736px] space-y-6">
+        <div className="w-full space-y-6">
           <TeacherAssignmentDetailTabs
             assignment={activeAssignment}
             courseTitle={course?.title ?? activeAssignment.courseName}
