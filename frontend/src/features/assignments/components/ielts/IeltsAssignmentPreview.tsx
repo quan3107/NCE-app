@@ -13,6 +13,7 @@ import type {
   IeltsSpeakingConfig,
   IeltsWritingConfig,
 } from '@lib/ielts';
+import { stripHtml } from '@lib/rich-text';
 
 type IeltsAssignmentPreviewProps = {
   type: IeltsAssignmentType;
@@ -62,10 +63,10 @@ export function IeltsAssignmentPreview({ type, value }: IeltsAssignmentPreviewPr
         <Card className="p-4 space-y-2">
           <div className="text-sm text-muted-foreground">Writing Summary</div>
           <p className="text-sm">
-            Task 1 prompt length: {(value as IeltsWritingConfig).task1.prompt.length} chars
+            Task 1 prompt length: {stripHtml((value as IeltsWritingConfig).task1.prompt).length} chars
           </p>
           <p className="text-sm">
-            Task 2 prompt length: {(value as IeltsWritingConfig).task2.prompt.length} chars
+            Task 2 prompt length: {stripHtml((value as IeltsWritingConfig).task2.prompt).length} chars
           </p>
         </Card>
       )}
