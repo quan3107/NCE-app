@@ -36,7 +36,8 @@ import {
 } from '@components/ui/dialog';
 
 import type { IeltsListeningConfig, IeltsQuestion } from '@lib/ielts';
-import { IELTS_LISTENING_QUESTION_TYPES, createIeltsAssignmentConfig } from '@lib/ielts';
+import { createIeltsAssignmentConfig } from '@lib/ielts';
+import { useEnabledListeningQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
 import type { UploadFile } from '@lib/mock-data';
 import { QuestionEditor } from '../QuestionEditor';
 import { SortableSectionCard } from './SortableSectionCard';
@@ -65,6 +66,9 @@ export function ListeningAssignmentForm({
   const [showBulkUploadDialog, setShowBulkUploadDialog] = useState(false);
   const [bulkMatches, setBulkMatches] = useState<Record<string, File | null>>({});
   const bulkInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledListeningQuestionTypes();
+  const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();
 
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -353,6 +357,33 @@ export function ListeningAssignmentForm({
     return bulkUploadFiles;
   };
 
+  // Show loading or error state
+  if (isLoadingQuestionTypes || isLoadingCompletionFormats) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">Loading IELTS configuration...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (questionTypesError || completionFormatsError) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-destructive">Failed to load IELTS configuration</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Please refresh the page or contact support if the problem persists.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const questionTypeOptions = questionTypes?.map(qt => ({ value: qt.id, label: qt.label })) ?? [];
+  const completionFormatOptions = completionFormats?.map(cf => ({ value: cf.id, label: cf.label })) ?? [];
+
   return (
     <Card>
       <CardHeader>
@@ -470,7 +501,8 @@ export function ListeningAssignmentForm({
                     key={question.id}
                     question={question}
                     questionNumber={questionIndex + 1}
-                    questionTypes={IELTS_LISTENING_QUESTION_TYPES}
+                    questionTypes={questionTypeOptions}
+                    completionFormats={completionFormatOptions}
                     onChange={(updated) => handleUpdateQuestion(index, question.id, updated)}
                     onDelete={() => handleDeleteQuestion(index, question.id)}
                     showDelete={section.questions.length > 1}
