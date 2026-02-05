@@ -28,7 +28,7 @@ import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@components/ui/toggle-group';
 import type { IeltsQuestion, IeltsReadingConfig } from '@lib/ielts';
-import { IELTS_READING_QUESTION_TYPES } from '@lib/ielts';
+import { useEnabledReadingQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
 import { SortablePassageCard } from './SortablePassageCard';
 import { QuestionEditor } from '../QuestionEditor';
 import { IeltsReadingContentPreview } from '../IeltsReadingContentPreview';
@@ -53,6 +53,9 @@ export function ReadingAssignmentForm({
 }) {
   const [expandedPassage, setExpandedPassage] = useState(0);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+  const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledReadingQuestionTypes();
+  const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();
 
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -134,6 +137,33 @@ export function ReadingAssignmentForm({
       updatePassage(passageIndex, { questions });
     }
   };
+
+  // Show loading or error state
+  if (isLoadingQuestionTypes || isLoadingCompletionFormats) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">Loading IELTS configuration...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (questionTypesError || completionFormatsError) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-destructive">Failed to load IELTS configuration</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Please refresh the page or contact support if the problem persists.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const questionTypeOptions = questionTypes?.map(qt => ({ value: qt.id, label: qt.label })) ?? [];
+  const completionFormatOptions = completionFormats?.map(cf => ({ value: cf.id, label: cf.label })) ?? [];
 
   return (
     <Card>
@@ -229,7 +259,8 @@ export function ReadingAssignmentForm({
                           onChange={(updated) => updateQuestion(passageIndex, questionIndex, updated)}
                           onDelete={() => removeQuestion(passageIndex, questionIndex)}
                           showDelete={true}
-                          questionTypes={IELTS_READING_QUESTION_TYPES}
+                          questionTypes={questionTypeOptions}
+                          completionFormats={completionFormatOptions}
                           onMoveUp={() => moveQuestion(passageIndex, questionIndex, 'up')}
                           onMoveDown={() => moveQuestion(passageIndex, questionIndex, 'down')}
                           canMoveUp={questionIndex > 0}
