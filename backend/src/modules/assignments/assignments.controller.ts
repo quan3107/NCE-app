@@ -11,6 +11,7 @@ import {
   getAssignment,
   listAssignments,
   updateAssignment,
+  getPendingAssignmentsCount as getPendingAssignmentsCountService,
 } from "./assignments.service.js";
 import {
   createAssignmentSchema,
@@ -57,4 +58,22 @@ export async function deleteAssignmentById(
 ): Promise<void> {
   await deleteAssignment(req.params);
   res.status(204).send();
+}
+
+/**
+ * Get count of pending assignments for the authenticated student.
+ */
+export async function getPendingAssignmentsCount(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const user = req.user;
+
+  if (!user) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const count = await getPendingAssignmentsCountService(user.id);
+  res.status(200).json({ count });
 }
