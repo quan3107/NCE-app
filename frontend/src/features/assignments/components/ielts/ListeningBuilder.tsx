@@ -14,7 +14,7 @@ import { Label } from '@components/ui/label';
 import { Switch } from '@components/ui/switch';
 import { Textarea } from '@components/ui/textarea';
 import type { IeltsListeningConfig, IeltsListeningSection } from '@lib/ielts';
-import { IELTS_LISTENING_QUESTION_TYPES } from '@lib/ielts';
+import { useEnabledListeningQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
 import type { UploadFile } from '@lib/mock-data';
 import { FILE_UPLOAD_LIMITS } from '@features/files/fileUpload';
 import { FileUploader } from '@components/common/FileUploader';
@@ -35,6 +35,9 @@ const createSection = (index: number): IeltsListeningSection => ({
 
 export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
   const [uploads, setUploads] = useState<Record<string, UploadFile[]>>({});
+
+  const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledListeningQuestionTypes();
+  const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();
 
   const updateSection = (id: string, patch: Partial<IeltsListeningSection>) => {
     onChange({
@@ -62,6 +65,29 @@ export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
     const fileId = files[0]?.id ?? null;
     updateSection(sectionId, { audioFileId: fileId });
   };
+
+  // Show loading or error state
+  if (isLoadingQuestionTypes || isLoadingCompletionFormats) {
+    return (
+      <div className="rounded-[14px] border bg-card p-8 text-center">
+        <p className="text-muted-foreground">Loading IELTS configuration...</p>
+      </div>
+    );
+  }
+
+  if (questionTypesError || completionFormatsError) {
+    return (
+      <div className="rounded-[14px] border bg-card p-8 text-center">
+        <p className="text-destructive">Failed to load IELTS configuration</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Please refresh the page or contact support if the problem persists.
+        </p>
+      </div>
+    );
+  }
+
+  const questionTypeOptions = questionTypes?.map(qt => ({ value: qt.id, label: qt.label })) ?? [];
+  const completionFormatOptions = completionFormats?.map(cf => ({ value: cf.id, label: cf.label })) ?? [];
 
   return (
     <div className="space-y-6">
@@ -147,7 +173,8 @@ export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
               <IeltsQuestionListEditor
                 questions={section.questions}
                 onChange={(questions) => updateSection(section.id, { questions })}
-                typeOptions={IELTS_LISTENING_QUESTION_TYPES}
+                typeOptions={questionTypeOptions}
+                completionFormats={completionFormatOptions}
               />
             </div>
           </Card>
