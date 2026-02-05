@@ -21,7 +21,6 @@ import type {
   MatchingOption,
   DiagramLabel,
 } from '@lib/ielts';
-import { IELTS_COMPLETION_FORMATS } from '@lib/ielts';
 import type { UploadFile } from '@lib/mock-data';
 import { StringListEditor } from './StringListEditor';
 import { MatchingEditor } from './MatchingEditor';
@@ -32,10 +31,16 @@ type QuestionTypeOption = {
   label: string;
 };
 
+type CompletionFormatOption = {
+  value: IeltsCompletionFormat;
+  label: string;
+};
+
 type IeltsQuestionListEditorProps = {
   questions: IeltsQuestion[];
   onChange: (questions: IeltsQuestion[]) => void;
   typeOptions: QuestionTypeOption[];
+  completionFormats?: CompletionFormatOption[];
   // Optional image upload handlers for diagram labeling
   onImageUpload?: (file: File) => Promise<string>;
   onImageRemove?: (imageId: string) => void;
@@ -110,6 +115,7 @@ export function IeltsQuestionListEditor({
   questions,
   onChange,
   typeOptions,
+  completionFormats = [],
   onImageUpload,
   onImageRemove,
   uploadedImages = {},
@@ -296,13 +302,13 @@ export function IeltsQuestionListEditor({
                   <SelectTrigger>
                     <SelectValue placeholder="Select format" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {IELTS_COMPLETION_FORMATS.map((format) => (
-                      <SelectItem key={format.value} value={format.value}>
-                        {format.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+              <SelectContent>
+                {completionFormats.map((format) => (
+                  <SelectItem key={format.value} value={format.value}>
+                    {format.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
                 </Select>
               </div>
             )}
