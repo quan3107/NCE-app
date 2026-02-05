@@ -9,6 +9,7 @@ import {
   createSubmission,
   getSubmissionById,
   listSubmissions,
+  getUngradedSubmissionsCount as getUngradedSubmissionsCountService,
 } from "./submissions.service.js";
 import { createSubmissionSchema } from "./submissions.schema.js";
 
@@ -35,4 +36,22 @@ export async function getSubmission(
 ): Promise<void> {
   const submission = await getSubmissionById(req.params);
   res.status(200).json(submission);
+}
+
+/**
+ * Get count of ungraded submissions for the authenticated teacher/admin.
+ */
+export async function getUngradedSubmissionsCount(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const user = req.user;
+
+  if (!user) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const count = await getUngradedSubmissionsCountService(user.id);
+  res.status(200).json({ count });
 }
