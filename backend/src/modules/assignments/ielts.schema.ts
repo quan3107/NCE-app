@@ -287,3 +287,88 @@ export function parseSubmissionPayloadForType(
   }
   return submissionPayloadSchemasByType[type].parse(payload);
 }
+
+// ============================================================================
+// IELTS Domain Config API Schemas (for /api/v1/config/ielts)
+// ============================================================================
+
+export const ieltsAssignmentTypeSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  icon: z.string().optional(),
+  enabled: z.boolean(),
+  sort_order: z.number(),
+});
+
+export const ieltsQuestionTypeSchema = z.object({
+  id: z.string(),
+  skill_type: z.enum(['reading', 'listening']),
+  label: z.string(),
+  description: z.string().optional(),
+  enabled: z.boolean(),
+  sort_order: z.number(),
+});
+
+export const ieltsWritingTaskTypeSchema = z.object({
+  id: z.string(),
+  task_number: z.number(),
+  label: z.string(),
+  description: z.string().optional(),
+  enabled: z.boolean(),
+  sort_order: z.number(),
+});
+
+export const ieltsSpeakingPartTypeSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  enabled: z.boolean(),
+  sort_order: z.number(),
+});
+
+export const ieltsCompletionFormatSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  enabled: z.boolean(),
+  sort_order: z.number(),
+});
+
+export const ieltsSampleTimingOptionSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  enabled: z.boolean(),
+  sort_order: z.number(),
+});
+
+export const ieltsConfigResponseSchema = z.object({
+  version: z.number(),
+  assignment_types: z.array(ieltsAssignmentTypeSchema),
+  question_types: z.object({
+    reading: z.array(ieltsQuestionTypeSchema),
+    listening: z.array(ieltsQuestionTypeSchema),
+  }),
+  writing_task_types: z.object({
+    task1: z.array(ieltsWritingTaskTypeSchema),
+    task2: z.array(ieltsWritingTaskTypeSchema),
+  }),
+  speaking_part_types: z.array(ieltsSpeakingPartTypeSchema),
+  completion_formats: z.array(ieltsCompletionFormatSchema),
+  sample_timing_options: z.array(ieltsSampleTimingOptionSchema),
+});
+
+export const ieltsConfigVersionSchema = z.object({
+  version: z.number(),
+  name: z.string(),
+  description: z.string().optional(),
+  is_active: z.boolean(),
+  activated_at: z.string().datetime().optional(),
+  created_at: z.string().datetime(),
+});
+
+export const ieltsConfigVersionsResponseSchema = z.object({
+  versions: z.array(ieltsConfigVersionSchema),
+  active_version: z.number(),
+});
