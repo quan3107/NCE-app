@@ -1,12 +1,14 @@
 /**
  * File: src/modules/me/me.service.ts
- * Purpose: Fetch the authenticated user's profile, roles, and enrollments.
+ * Purpose: Fetch the authenticated user's profile, roles, enrollments, and navigation.
  * Why: Powers the PRD-required /me endpoint with a single query flow.
  */
 import type { EnrollmentRole, UserRole, UserStatus } from "../../prisma/generated/client/client.js";
 
 import { prisma } from "../../prisma/client.js";
 import { createNotFoundError } from "../../utils/httpError.js";
+import { getNavigationForRole } from "../navigation/navigation.service.js";
+import type { NavigationResponse } from "../navigation/navigation.types.js";
 
 type MeProfile = {
   id: string;
@@ -34,6 +36,7 @@ type MeResponse = {
     courses: Array<{ courseId: string; roleInCourse: EnrollmentRole }>;
   };
   enrollments: MeEnrollment[];
+  navigation: NavigationResponse;
 };
 
 export async function getMe(userId: string): Promise<MeResponse> {
@@ -86,6 +89,9 @@ export async function getMe(userId: string): Promise<MeResponse> {
     })
     .filter((value): value is MeEnrollment => value !== null);
 
+  // Fetch navigation data for the user's role
+  const navigation = await getNavigationForRole(user.role);
+
   return {
     profile: {
       id: user.id,
@@ -102,5 +108,6 @@ export async function getMe(userId: string): Promise<MeResponse> {
       })),
     },
     enrollments,
+    navigation,
   };
 }
