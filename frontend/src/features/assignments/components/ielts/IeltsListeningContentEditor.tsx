@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import type { IeltsListeningConfig, IeltsQuestion, IeltsListeningSection } from '@lib/ielts';
-import { IELTS_LISTENING_QUESTION_TYPES } from '@lib/ielts';
+import { useEnabledListeningQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
 import { Textarea } from '@components/ui/textarea';
 import { Input } from '@components/ui/input';
 import { Button } from '@components/ui/button';
@@ -47,6 +47,9 @@ type IeltsListeningContentEditorProps = {
 export function IeltsListeningContentEditor({ value, onChange }: IeltsListeningContentEditorProps) {
   const sections = value.sections ?? [];
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? '');
+
+  const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledListeningQuestionTypes();
+  const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();
 
   const handleAddSection = () => {
     const newSection = createListeningSection(sections.length);
@@ -109,6 +112,29 @@ export function IeltsListeningContentEditor({ value, onChange }: IeltsListeningC
 
   const activeSection = sections.find((s) => s.id === activeSectionId);
   const activeSectionIndex = sections.findIndex((s) => s.id === activeSectionId);
+
+  // Show loading or error state
+  if (isLoadingQuestionTypes || isLoadingCompletionFormats) {
+    return (
+      <div className="rounded-[14px] border bg-card p-8 text-center">
+        <p className="text-muted-foreground">Loading IELTS configuration...</p>
+      </div>
+    );
+  }
+
+  if (questionTypesError || completionFormatsError) {
+    return (
+      <div className="rounded-[14px] border bg-card p-8 text-center">
+        <p className="text-destructive">Failed to load IELTS configuration</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Please refresh the page or contact support if the problem persists.
+        </p>
+      </div>
+    );
+  }
+
+  const questionTypeOptions = questionTypes?.map(qt => ({ value: qt.id, label: qt.label })) ?? [];
+  const completionFormatOptions = completionFormats?.map(cf => ({ value: cf.id, label: cf.label })) ?? [];
 
   return (
     <div className="space-y-4">
@@ -234,7 +260,8 @@ export function IeltsListeningContentEditor({ value, onChange }: IeltsListeningC
                     }
                     onDelete={() => handleDeleteQuestion(section.id, question.id)}
                     showDelete={section.questions.length > 1}
-                    questionTypes={IELTS_LISTENING_QUESTION_TYPES}
+                    questionTypes={questionTypeOptions}
+                    completionFormats={completionFormatOptions}
                   />
                   ))}
                   
