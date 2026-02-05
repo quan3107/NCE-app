@@ -13,6 +13,7 @@ import { courseRouter } from "./courses/courses.routes.js";
 import { enrollmentRouter } from "./enrollments/enrollments.routes.js";
 import { fileRouter } from "./files/files.routes.js";
 import { gradeRouter } from "./grades/grades.routes.js";
+import ieltsConfigRouter from "./ielts-config/ielts-config.routes.js";
 import { meRouter } from "./me/me.routes.js";
 import { notificationRouter } from "./notifications/notifications.routes.js";
 import { rubricRouter } from "./rubrics/rubrics.routes.js";
@@ -37,3 +38,4 @@ apiRouter.use(
 apiRouter.use("/submissions/:submissionId/grade", gradeRouter);
 apiRouter.use("/notifications", notificationRouter);
 apiRouter.use("/files", fileRouter);
+apiRouter.use("/config/ielts", ieltsConfigRouter);
