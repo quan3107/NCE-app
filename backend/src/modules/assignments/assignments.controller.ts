@@ -29,7 +29,7 @@ export async function getAssignmentById(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const assignment = await getAssignment(req.params);
+  const assignment = await getAssignment(req.params, req.user);
   res.status(200).json(assignment);
 }
 

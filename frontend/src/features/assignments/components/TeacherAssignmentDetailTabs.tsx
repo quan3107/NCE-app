@@ -39,6 +39,9 @@ type TeacherAssignmentDetailTabsProps = {
   isEditing?: boolean;
   onDraftConfigChange?: (updated: IeltsAssignmentConfig) => void;
   onAssignmentChange?: (updates: Partial<Assignment>) => void;
+  rubrics?: { id: string; name: string }[];
+  courseId?: string;
+  onManageRubrics?: () => void;
 };
 
 export function TeacherAssignmentDetailTabs({
@@ -51,6 +54,9 @@ export function TeacherAssignmentDetailTabs({
   isEditing = false,
   onDraftConfigChange,
   onAssignmentChange,
+  rubrics = [],
+  courseId,
+  onManageRubrics,
 }: TeacherAssignmentDetailTabsProps) {
   return (
     <Tabs defaultValue="content">
@@ -74,6 +80,9 @@ export function TeacherAssignmentDetailTabs({
           ieltsConfig={ieltsConfig}
           isEditing={isEditing}
           onDraftConfigChange={onDraftConfigChange}
+          rubrics={rubrics}
+          courseId={courseId}
+          onManageRubrics={onManageRubrics}
         />
       </TabsContent>
 

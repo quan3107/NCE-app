@@ -22,11 +22,13 @@ import { IeltsSpeakingContentPreview } from './IeltsSpeakingContentPreview';
 export type IeltsAssignmentContentPreviewProps = {
   type: IeltsAssignmentType;
   value: IeltsAssignmentConfig;
+  rubrics?: { id: string; name: string }[];
 };
 
 export function IeltsAssignmentContentPreview({
   type,
   value,
+  rubrics = [],
 }: IeltsAssignmentContentPreviewProps) {
   // Reading type skips info cards to match Figma design
   const showInfoCards = type !== 'reading';
@@ -82,7 +84,7 @@ export function IeltsAssignmentContentPreview({
         <IeltsListeningContentPreview value={value as IeltsListeningConfig} />
       )}
       {type === 'writing' && (
-        <IeltsWritingContentPreview value={value as IeltsWritingConfig} />
+        <IeltsWritingContentPreview value={value as IeltsWritingConfig} rubrics={rubrics} />
       )}
       {type === 'speaking' && (
         <IeltsSpeakingContentPreview value={value as IeltsSpeakingConfig} />

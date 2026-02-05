@@ -5,6 +5,7 @@
  */
 
 import type {
+  IeltsAssignmentBase,
   IeltsAssignmentConfig,
   IeltsAssignmentType,
   IeltsReadingConfig,
@@ -22,34 +23,38 @@ import { IeltsListeningContentEditor } from './IeltsListeningContentEditor';
 import { IeltsWritingContentEditor } from './IeltsWritingContentEditor';
 import { IeltsSpeakingContentEditor } from './IeltsSpeakingContentEditor';
 
-export type IeltsAssignmentContentEditorProps = {
+export type IeltsAssignmentContentEditorProps<T extends IeltsAssignmentConfig> = {
   type: IeltsAssignmentType;
-  value: IeltsAssignmentConfig;
-  onChange: (updated: IeltsAssignmentConfig) => void;
+  value: T;
+  onChange: (updated: T) => void;
+  courseId?: string;
+  onManageRubrics?: () => void;
 };
 
-export function IeltsAssignmentContentEditor({
+export function IeltsAssignmentContentEditor<T extends IeltsAssignmentConfig>({
   type,
   value,
   onChange,
-}: IeltsAssignmentContentEditorProps) {
+  courseId,
+  onManageRubrics,
+}: IeltsAssignmentContentEditorProps<T>) {
   // Update base config (instructions, timing, attempts)
-  const handleUpdateBase = (updates: Partial<typeof value>) => {
-    onChange({ ...value, ...updates });
+  const handleUpdateBase = (updates: Partial<IeltsAssignmentBase>) => {
+    onChange({ ...value, ...updates } as T);
   };
 
-  const handleTimingChange = (updates: Partial<typeof value.timing>) => {
+  const handleTimingChange = (updates: Partial<IeltsAssignmentBase['timing']>) => {
     onChange({
       ...value,
       timing: { ...value.timing, ...updates },
-    });
+    } as T);
   };
 
-  const handleAttemptsChange = (updates: Partial<typeof value.attempts>) => {
+  const handleAttemptsChange = (updates: Partial<IeltsAssignmentBase['attempts']>) => {
     onChange({
       ...value,
       attempts: { ...value.attempts, ...updates },
-    });
+    } as T);
   };
 
   return (
@@ -162,25 +167,27 @@ export function IeltsAssignmentContentEditor({
       {type === 'reading' && (
         <IeltsReadingContentEditor
           value={value as IeltsReadingConfig}
-          onChange={(updated) => onChange(updated as IeltsAssignmentConfig)}
+          onChange={(updated) => onChange(updated as T)}
         />
       )}
       {type === 'listening' && (
         <IeltsListeningContentEditor
           value={value as IeltsListeningConfig}
-          onChange={(updated) => onChange(updated as IeltsAssignmentConfig)}
+          onChange={(updated) => onChange(updated as T)}
         />
       )}
       {type === 'writing' && (
         <IeltsWritingContentEditor
           value={value as IeltsWritingConfig}
-          onChange={(updated) => onChange(updated as IeltsAssignmentConfig)}
+          onChange={(updated) => onChange(updated as T)}
+          courseId={courseId || ''}
+          onManageRubrics={onManageRubrics || (() => {})}
         />
       )}
       {type === 'speaking' && (
         <IeltsSpeakingContentEditor
           value={value as IeltsSpeakingConfig}
-          onChange={(updated) => onChange(updated as IeltsAssignmentConfig)}
+          onChange={(updated) => onChange(updated as T)}
         />
       )}
     </div>

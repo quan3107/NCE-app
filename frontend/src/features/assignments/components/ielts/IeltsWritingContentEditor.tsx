@@ -1,97 +1,102 @@
 /**
  * Location: features/assignments/components/ielts/IeltsWritingContentEditor.tsx
- * Purpose: Inline editor for IELTS writing tasks (Task 1 and Task 2).
- * Why: Allows teachers to edit writing prompts and manage image references directly.
+ * Purpose: Full-featured inline editor for IELTS writing tasks (Task 1 and Task 2).
+ * Why: Provides comprehensive editing capabilities including rubric selection, sample responses,
+ *      visual uploads, and timing controls. Rewritten to use WritingAssignmentForm components
+ *      for consistency between creation and editing workflows.
  */
 
+import { useState, useCallback } from 'react';
 import type { IeltsWritingConfig } from '@lib/ielts';
-import { Textarea } from '@components/ui/textarea';
-import { Input } from '@components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@components/ui/card';
-import { ImageIcon } from 'lucide-react';
+import { WritingAssignmentForm } from './authoring/WritingAssignmentForm';
+import { uploadFileWithProgress } from '@features/files/fileUpload';
+import { toast } from 'sonner@2.0.3';
 
 type IeltsWritingContentEditorProps = {
   value: IeltsWritingConfig;
   onChange: (updated: IeltsWritingConfig) => void;
+  courseId: string;
+  onManageRubrics: () => void;
 };
 
-export function IeltsWritingContentEditor({ value, onChange }: IeltsWritingContentEditorProps) {
-  // Defensive: ensure task1 and task2 exist
-  const task1 = value.task1 ?? { prompt: '', imageFileId: null };
-  const task2 = value.task2 ?? { prompt: '' };
+export function IeltsWritingContentEditor({
+  value,
+  onChange,
+  courseId,
+  onManageRubrics,
+}: IeltsWritingContentEditorProps) {
+  // Local state for image upload
+  const [writingTask1File, setWritingTask1File] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Handle image file selection
+  const handleImageSelect = useCallback((file: File | null) => {
+    setWritingTask1File(file);
+  }, []);
+
+  // Upload image and update config
+  const uploadImage = useCallback(async (): Promise<string | null> => {
+    if (!writingTask1File) {
+      return value.task1.imageFileId || null;
+    }
+
+    setIsUploading(true);
+    try {
+      const uploaded = await uploadFileWithProgress({
+        file: writingTask1File,
+        onProgress: () => undefined,
+      });
+      return uploaded.id;
+    } catch (error) {
+      toast.error('Failed to upload image');
+      throw error;
+    } finally {
+      setIsUploading(false);
+    }
+  }, [writingTask1File, value.task1.imageFileId]);
+
+  // Handle form changes with optional image upload
+  const handleFormChange = useCallback(
+    async (updatedValue: IeltsWritingConfig) => {
+      // If a new image was selected, upload it first
+      if (writingTask1File) {
+        try {
+          const imageFileId = await uploadImage();
+          onChange({
+            ...updatedValue,
+            task1: {
+              ...updatedValue.task1,
+              imageFileId,
+            },
+          });
+          // Clear the file after successful upload
+          setWritingTask1File(null);
+        } catch {
+          // Error already toasted in uploadImage
+          return;
+        }
+      } else {
+        onChange(updatedValue);
+      }
+    },
+    [writingTask1File, uploadImage, onChange]
+  );
 
   return (
     <div className="space-y-6">
-      {/* Task 1 Card */}
-      <Card className="rounded-[14px]">
-        <CardHeader>
-          <CardTitle>Task 1</CardTitle>
-          <CardDescription>Report writing prompt (150 words)</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            value={task1.prompt}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                task1: { ...task1, prompt: e.target.value },
-              })
-            }
-            placeholder="Enter Task 1 prompt (e.g., Describe the chart showing...)"
-            className="min-h-[120px] resize-none"
-          />
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              Image Reference (Optional)
-            </label>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 rounded-lg border border-dashed border-border p-4 flex items-center gap-3">
-                <ImageIcon className="size-5 text-muted-foreground" />
-                <div className="flex-1">
-              {task1.imageFileId ? (
-                <p className="text-sm text-foreground">{task1.imageFileId}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">No image attached</p>
-              )}
-                </div>
-              </div>
-              <Input
-                value={task1.imageFileId || ''}
-                onChange={(e) =>
-                  onChange({
-                    ...value,
-                    task1: { ...task1, imageFileId: e.target.value || null },
-                  })
-                }
-                placeholder="Image file ID..."
-                className="w-[200px]"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Task 2 Card */}
-      <Card className="rounded-[14px]">
-        <CardHeader>
-          <CardTitle>Task 2</CardTitle>
-          <CardDescription>Essay prompt (250 words)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={task2.prompt}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                task2: { prompt: e.target.value },
-              })
-            }
-            placeholder="Enter Task 2 essay prompt (e.g., Some people think that...)"
-            className="min-h-[150px] resize-none"
-          />
-        </CardContent>
-      </Card>
+      <WritingAssignmentForm
+        value={value}
+        onChange={handleFormChange}
+        onImageSelect={handleImageSelect}
+        selectedImageFile={writingTask1File}
+        courseId={courseId}
+        onManageRubrics={onManageRubrics}
+      />
+      {isUploading && (
+        <div className="text-sm text-muted-foreground text-center">
+          Uploading image...
+        </div>
+      )}
     </div>
   );
 }

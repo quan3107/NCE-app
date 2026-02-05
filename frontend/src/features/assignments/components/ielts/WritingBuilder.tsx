@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Card } from '@components/ui/card';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
+import { RichTextEditor } from '@components/ui/rich-text-editor';
 import type { IeltsWritingConfig } from '@lib/ielts';
 import type { UploadFile } from '@lib/mock-data';
 import { FILE_UPLOAD_LIMITS } from '@features/files/fileUpload';
@@ -43,17 +44,15 @@ export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
         
         <div className="space-y-3">
           <Label className="text-sm font-medium">Task 1 Prompt</Label>
-          <Textarea
-            rows={5}
+          <RichTextEditor
             value={value.task1.prompt}
-            onChange={(event) =>
+            onChange={(prompt) =>
               onChange({
                 ...value,
-                task1: { ...value.task1, prompt: event.target.value },
+                task1: { ...value.task1, prompt },
               })
             }
             placeholder="Describe the chart, graph, or process students must analyze."
-            className="resize-none"
           />
         </div>
 
@@ -84,17 +83,15 @@ export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
         
         <div className="space-y-3">
           <Label className="text-sm font-medium">Task 2 Prompt</Label>
-          <Textarea
-            rows={5}
+          <RichTextEditor
             value={value.task2.prompt}
-            onChange={(event) =>
+            onChange={(prompt) =>
               onChange({
                 ...value,
-                task2: { prompt: event.target.value },
+                task2: { ...value.task2, prompt },
               })
             }
             placeholder="Write the essay question and required instructions."
-            className="resize-none"
           />
         </div>
       </Card>

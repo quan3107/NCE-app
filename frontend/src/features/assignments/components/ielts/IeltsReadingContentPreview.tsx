@@ -108,9 +108,9 @@ function ReadingSectionContent({
   const questionRangeLabel = questions.length > 0 ? `Questions ${startIndex}-${endIndex}` : '';
 
   return (
-    <div className="grid lg:grid-cols-2 divide-x min-h-0 reading-panels-container">
+    <div className="grid lg:grid-cols-2 divide-x reading-panels-container">
       {/* Left column - Reading passage */}
-      <div className="flex flex-col overflow-hidden bg-muted/5">
+      <div className="flex flex-col overflow-hidden bg-muted/5 reading-panels-container-child">
         <div className="flex-1 overflow-y-auto p-6 lg:p-8 scrollbar-visible">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-foreground">{title}</h3>
@@ -122,7 +122,7 @@ function ReadingSectionContent({
       </div>
 
       {/* Right column - Questions */}
-      <div className="flex flex-col overflow-hidden bg-background">
+      <div className="flex flex-col overflow-hidden bg-background reading-panels-container-child">
         {/* Questions header with badge - matching Figma */}
         <div className="flex-none p-4 border-b bg-muted/5 flex items-center justify-between">
           <h3 className="font-semibold text-foreground">Questions</h3>
