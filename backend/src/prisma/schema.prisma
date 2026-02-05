@@ -301,3 +301,119 @@ enum IdentityProvider {
   password
   google
 }
+
+// ============================================================================
+// IELTS Domain Configuration Models
+// ============================================================================
+
+model IeltsConfigVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  version       Int      @unique
+  name          String
+  description   String?
+  isActive      Boolean  @default(false) @map("is_active")
+  activatedAt   DateTime? @map("activated_at") @db.Timestamptz
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  assignmentTypes      IeltsAssignmentType[]
+  questionTypes        IeltsQuestionType[]
+  writingTaskTypes     IeltsWritingTaskType[]
+  speakingPartTypes    IeltsSpeakingPartType[]
+  completionFormats    IeltsCompletionFormat[]
+  sampleTimingOptions  IeltsSampleTimingOption[]
+
+  @@map("ielts_config_versions")
+}
+
+model IeltsAssignmentType {
+  id             String   @id
+  configVersion  Int      @map("config_version")
+  label          String
+  description    String?
+  icon           String?
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+
+  @@unique([id, configVersion])
+  @@map("ielts_assignment_types")
+}
+
+model IeltsQuestionType {
+  id             String   @id
+  configVersion  Int      @map("config_version")
+  skillType      String   @map("skill_type") // 'reading' or 'listening'
+  label          String
+  description    String?
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+
+  @@unique([id, configVersion, skillType])
+  @@map("ielts_question_types")
+}
+
+model IeltsWritingTaskType {
+  id             String   @id
+  configVersion  Int      @map("config_version")
+  taskNumber     Int      @map("task_number") // 1 or 2
+  label          String
+  description    String?
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+
+  @@unique([id, configVersion, taskNumber])
+  @@map("ielts_writing_task_types")
+}
+
+model IeltsSpeakingPartType {
+  id             String   @id
+  configVersion  Int      @map("config_version")
+  label          String
+  description    String?
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+
+  @@unique([id, configVersion])
+  @@map("ielts_speaking_part_types")
+}
+
+model IeltsCompletionFormat {
+  id             String   @id
+  configVersion  Int      @map("config_version")
+  label          String
+  description    String?
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+
+  @@unique([id, configVersion])
+  @@map("ielts_completion_formats")
+}
+
+model IeltsSampleTimingOption {
+  id             String   @id
+  configVersion  Int      @map("config_version")
+  label          String
+  description    String?
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+
+  @@unique([id, configVersion])
+  @@map("ielts_sample_timing_options")
+}

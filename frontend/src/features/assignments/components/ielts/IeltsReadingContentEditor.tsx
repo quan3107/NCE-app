@@ -8,7 +8,8 @@
 
 import { useState, useMemo } from 'react';
 import type { IeltsReadingConfig, IeltsQuestion, IeltsReadingSection } from '@lib/ielts';
-import { IELTS_READING_QUESTION_TYPES, groupQuestionsByType } from '@lib/ielts';
+import { groupQuestionsByType } from '@lib/ielts';
+import { useEnabledReadingQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
 import { Textarea } from '@components/ui/textarea';
 import { Input } from '@components/ui/input';
 import { Button } from '@components/ui/button';
@@ -53,6 +54,9 @@ type IeltsReadingContentEditorProps = {
 export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingContentEditorProps) {
   const sections = value.sections ?? [];
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? '');
+
+  const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledReadingQuestionTypes();
+  const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();
 
   const ranges = useMemo(() => {
     let cursor = 1;
@@ -149,6 +153,29 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
   const activeSection = sections.find((s) => s.id === activeSectionId);
   const activeSectionIndex = sections.findIndex((s) => s.id === activeSectionId);
   const activeRange = ranges[activeSectionIndex];
+
+  // Show loading or error state
+  if (isLoadingQuestionTypes || isLoadingCompletionFormats) {
+    return (
+      <div className="rounded-[14px] border bg-card p-8 text-center">
+        <p className="text-muted-foreground">Loading IELTS configuration...</p>
+      </div>
+    );
+  }
+
+  if (questionTypesError || completionFormatsError) {
+    return (
+      <div className="rounded-[14px] border bg-card p-8 text-center">
+        <p className="text-destructive">Failed to load IELTS configuration</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Please refresh the page or contact support if the problem persists.
+        </p>
+      </div>
+    );
+  }
+
+  const questionTypeOptions = questionTypes?.map(qt => ({ value: qt.id, label: qt.label })) ?? [];
+  const completionFormatOptions = completionFormats?.map(cf => ({ value: cf.id, label: cf.label })) ?? [];
 
   return (
     <div className="rounded-[14px] border bg-card overflow-hidden">
@@ -267,7 +294,8 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
                       }
                       onDelete={() => handleDeleteQuestion(activeSection.id, question.id)}
                       showDelete={activeSection.questions.length > 1}
-                      questionTypes={IELTS_READING_QUESTION_TYPES}
+                      questionTypes={questionTypeOptions}
+                      completionFormats={completionFormatOptions}
                     />
                   ))}
                   

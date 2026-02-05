@@ -14,7 +14,6 @@ import type {
   MatchingOption,
   DiagramLabel,
 } from '@lib/ielts';
-import { IELTS_COMPLETION_FORMATS } from '@lib/ielts';
 import { Input } from '@components/ui/input';
 import { Textarea } from '@components/ui/textarea';
 import { Button } from '@components/ui/button';
@@ -51,6 +50,7 @@ const DIAGRAM_LABELING_TYPES: IeltsQuestionType[] = [
 ];
 
 type QuestionTypeOption = { value: IeltsQuestionType; label: string };
+type CompletionFormatOption = { value: IeltsCompletionFormat; label: string };
 
 type QuestionEditorProps = {
   question: IeltsQuestion;
@@ -59,6 +59,7 @@ type QuestionEditorProps = {
   onDelete: () => void;
   showDelete?: boolean;
   questionTypes: QuestionTypeOption[];
+  completionFormats?: CompletionFormatOption[];
   // Optional image upload handlers for diagram labeling
   onImageUpload?: (file: File) => Promise<string>;
   onImageRemove?: (imageId: string) => void;
@@ -77,6 +78,7 @@ export function QuestionEditor({
   onDelete,
   showDelete = true,
   questionTypes,
+  completionFormats = [],
   onImageUpload,
   onImageRemove,
   uploadedImages = {},
@@ -313,7 +315,7 @@ export function QuestionEditor({
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
               <SelectContent>
-                {IELTS_COMPLETION_FORMATS.map((format) => (
+                {completionFormats.map((format) => (
                   <SelectItem key={format.value} value={format.value} className="text-xs">
                     {format.label}
                   </SelectItem>

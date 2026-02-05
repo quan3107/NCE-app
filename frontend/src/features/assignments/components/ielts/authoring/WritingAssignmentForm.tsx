@@ -30,9 +30,8 @@ import type { IeltsWritingConfig, IeltsWritingTask1Type, ShowSampleTiming } from
 import {
   countWords,
   isWithinWordLimit,
-  IELTS_WRITING_TASK1_TYPES,
-  SHOW_SAMPLE_TIMING_OPTIONS,
 } from '@lib/ielts';
+import { useEnabledWritingTaskTypes, useEnabledSampleTimingOptions } from '@features/ielts-config/api';
 import { stripHtml } from '@lib/rich-text';
 import { RubricSelector } from '@features/rubrics/components/RubricSelector';
 import { Maximize2, Trash2, Upload, ChevronDown, BookOpen } from 'lucide-react';
@@ -64,6 +63,9 @@ export function WritingAssignmentForm({
 }: WritingAssignmentFormProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+
+  const { data: task1Types, isLoading: isLoadingTask1Types, error: task1TypesError } = useEnabledWritingTaskTypes(1);
+  const { data: sampleTimingOptions, isLoading: isLoadingTimingOptions, error: timingOptionsError } = useEnabledSampleTimingOptions();
 
   // Create preview URL when file changes
   useEffect(() => {
@@ -103,6 +105,33 @@ export function WritingAssignmentForm({
       </span>
     );
   };
+
+  // Show loading or error state
+  if (isLoadingTask1Types || isLoadingTimingOptions) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">Loading IELTS configuration...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (task1TypesError || timingOptionsError) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-destructive">Failed to load IELTS configuration</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Please refresh the page or contact support if the problem persists.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const task1TypeOptions = task1Types?.map(tt => ({ value: tt.id, label: tt.label })) ?? [];
+  const sampleTimingOptionOptions = sampleTimingOptions?.map(sto => ({ value: sto.id, label: sto.label })) ?? [];
 
   return (
     <Card>
@@ -221,7 +250,7 @@ export function WritingAssignmentForm({
                       <SelectValue placeholder="Select visual type..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {IELTS_WRITING_TASK1_TYPES.map((type) => (
+                      {task1TypeOptions.map((type) => (
                         <SelectItem key={type.value} value={type.value}>
                           {type.label}
                         </SelectItem>
@@ -337,7 +366,7 @@ export function WritingAssignmentForm({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {SHOW_SAMPLE_TIMING_OPTIONS.map((option) => (
+                        {sampleTimingOptionOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -498,7 +527,7 @@ export function WritingAssignmentForm({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {SHOW_SAMPLE_TIMING_OPTIONS.map((option) => (
+                        {sampleTimingOptionOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>

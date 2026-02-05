@@ -8,15 +8,12 @@ import { stripHtml } from './rich-text';
 
 export type IeltsAssignmentType = 'reading' | 'listening' | 'writing' | 'speaking';
 
-export const IELTS_ASSIGNMENT_TYPES: IeltsAssignmentType[] = [
-  'reading',
-  'listening',
-  'writing',
-  'speaking',
-];
-
+/**
+ * Check if a value is a valid IELTS assignment type
+ * Note: This now checks against the type definition rather than a hardcoded array
+ */
 export const isIeltsAssignmentType = (value: string): value is IeltsAssignmentType =>
-  IELTS_ASSIGNMENT_TYPES.includes(value as IeltsAssignmentType);
+  ['reading', 'listening', 'writing', 'speaking'].includes(value as IeltsAssignmentType);
 
 export type IeltsTimingConfig = {
   enabled: boolean;
@@ -34,15 +31,9 @@ export type IeltsAttemptsConfig = {
 
 /**
  * IELTS Completion Format - used by both Reading and Listening completion questions
+ * Note: The list of formats is now fetched from the backend API
+ * Use: import { useEnabledCompletionFormats } from '@features/ielts-config/api'
  */
-export const IELTS_COMPLETION_FORMATS: { value: IeltsCompletionFormat; label: string }[] = [
-  { value: 'form', label: 'Form Completion' },
-  { value: 'note', label: 'Note Completion' },
-  { value: 'table', label: 'Table Completion' },
-  { value: 'flow_chart', label: 'Flow Chart Completion' },
-  { value: 'summary', label: 'Summary Completion' },
-];
-
 export type IeltsCompletionFormat =
   | 'form'
   | 'note'
@@ -53,20 +44,9 @@ export type IeltsCompletionFormat =
 /**
  * IELTS Reading Question Types (10 types)
  * Source: https://ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-reading
+ * Note: The list of question types is now fetched from the backend API
+ * Use: import { useEnabledReadingQuestionTypes } from '@features/ielts-config/api'
  */
-export const IELTS_READING_QUESTION_TYPES: { value: IeltsReadingQuestionType; label: string }[] = [
-  { value: 'multiple_choice', label: 'Multiple Choice' },
-  { value: 'true_false_not_given', label: 'True/False/Not Given' },
-  { value: 'yes_no_not_given', label: 'Yes/No/Not Given' },
-  { value: 'matching_headings', label: 'Matching Headings' },
-  { value: 'matching_information', label: 'Matching Information' },
-  { value: 'matching_features', label: 'Matching Features' },
-  { value: 'sentence_completion', label: 'Sentence Completion' },
-  { value: 'completion', label: 'Completion (Form/Note/Table/etc.)' },
-  { value: 'diagram_labeling', label: 'Diagram Labeling' },
-  { value: 'short_answer', label: 'Short Answer' },
-];
-
 export type IeltsReadingQuestionType =
   | 'multiple_choice'
   | 'true_false_not_given'
@@ -82,16 +62,9 @@ export type IeltsReadingQuestionType =
 /**
  * IELTS Listening Question Types (6 types)
  * Source: https://ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-listening
+ * Note: The list of question types is now fetched from the backend API
+ * Use: import { useEnabledListeningQuestionTypes } from '@features/ielts-config/api'
  */
-export const IELTS_LISTENING_QUESTION_TYPES: { value: IeltsListeningQuestionType; label: string }[] = [
-  { value: 'multiple_choice', label: 'Multiple Choice' },
-  { value: 'matching', label: 'Matching' },
-  { value: 'map_diagram_labeling', label: 'Map/Diagram Labeling' },
-  { value: 'completion', label: 'Completion (Form/Note/Table/etc.)' },
-  { value: 'sentence_completion', label: 'Sentence Completion' },
-  { value: 'short_answer', label: 'Short Answer' },
-];
-
 export type IeltsListeningQuestionType =
   | 'multiple_choice'
   | 'matching'
@@ -108,17 +81,9 @@ export type IeltsQuestionType = IeltsReadingQuestionType | IeltsListeningQuestio
 
 /**
  * IELTS Writing Task 1 Visual Types (teacher-only metadata)
+ * Note: The list of visual types is now fetched from the backend API
+ * Use: import { useEnabledWritingTaskTypes } from '@features/ielts-config/api'
  */
-export const IELTS_WRITING_TASK1_TYPES: { value: IeltsWritingTask1Type; label: string }[] = [
-  { value: 'line_graph', label: 'Line Graph' },
-  { value: 'bar_chart', label: 'Bar Chart' },
-  { value: 'pie_chart', label: 'Pie Chart' },
-  { value: 'table', label: 'Table' },
-  { value: 'diagram', label: 'Diagram' },
-  { value: 'map', label: 'Map' },
-  { value: 'process', label: 'Process' },
-];
-
 export type IeltsWritingTask1Type =
   | 'line_graph'
   | 'bar_chart'
@@ -130,6 +95,8 @@ export type IeltsWritingTask1Type =
 
 /**
  * Sample visibility timing options
+ * Note: The list of timing options is now fetched from the backend API
+ * Use: import { useEnabledSampleTimingOptions } from '@features/ielts-config/api'
  */
 export type ShowSampleTiming =
   | 'immediate'
@@ -137,24 +104,11 @@ export type ShowSampleTiming =
   | 'after_grading'
   | 'specific_date';
 
-export const SHOW_SAMPLE_TIMING_OPTIONS: { value: ShowSampleTiming; label: string }[] = [
-  { value: 'immediate', label: 'Immediately' },
-  { value: 'after_submission', label: 'After student submits' },
-  { value: 'after_grading', label: 'After grading is complete' },
-  { value: 'specific_date', label: 'On a specific date' },
-];
-
 /**
  * IELTS Writing Task 2 Essay Types
+ * Note: The list of essay types is now fetched from the backend API
+ * Use: import { useEnabledWritingTaskTypes } from '@features/ielts-config/api'
  */
-export const IELTS_WRITING_TASK2_TYPES: { value: IeltsWritingTask2Type; label: string }[] = [
-  { value: 'opinion', label: 'Opinion Essay' },
-  { value: 'discussion', label: 'Discussion Essay' },
-  { value: 'problem_solution', label: 'Problem-Solution Essay' },
-  { value: 'advantages_disadvantages', label: 'Advantages & Disadvantages Essay' },
-  { value: 'double_question', label: 'Double Question Essay' },
-];
-
 export type IeltsWritingTask2Type =
   | 'opinion'
   | 'discussion'
@@ -164,13 +118,9 @@ export type IeltsWritingTask2Type =
 
 /**
  * IELTS Speaking Part Types
+ * Note: The list of part types is now fetched from the backend API
+ * Use: import { useEnabledSpeakingPartTypes } from '@features/ielts-config/api'
  */
-export const IELTS_SPEAKING_PART_TYPES: { value: IeltsSpeakingPartType; label: string }[] = [
-  { value: 'part1_personal', label: 'Part 1: Personal Questions' },
-  { value: 'part2_cue_card', label: 'Part 2: Cue Card' },
-  { value: 'part3_discussion', label: 'Part 3: Discussion' },
-];
-
 export type IeltsSpeakingPartType =
   | 'part1_personal'
   | 'part2_cue_card'
