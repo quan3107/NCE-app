@@ -6,7 +6,8 @@
 
 import type { IeltsSpeakingConfig } from '@lib/ielts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
-import { BulletList, InfoTile } from './IeltsPreviewShared';
+import { BulletList } from './IeltsPreviewShared';
+import { TimerDisplay } from './TimerPreview';
 
 export function IeltsSpeakingContentPreview({ value }: { value: IeltsSpeakingConfig }) {
   return (
@@ -33,8 +34,16 @@ export function IeltsSpeakingContentPreview({ value }: { value: IeltsSpeakingCon
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <InfoTile label="Prep Time" value={`${value.part2.prepSeconds} sec`} />
-            <InfoTile label="Talk Time" value={`${value.part2.talkSeconds} sec`} />
+            <TimerDisplay
+              seconds={value.part2.prepSeconds}
+              label="Preparation Time"
+              variant="prep"
+            />
+            <TimerDisplay
+              seconds={value.part2.talkSeconds}
+              label="Speaking Time"
+              variant="talk"
+            />
           </div>
           <BulletList
             items={value.part2.cueCard.bulletPoints}
