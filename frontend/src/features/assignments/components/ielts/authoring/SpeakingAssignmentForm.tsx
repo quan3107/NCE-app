@@ -13,6 +13,7 @@ import { Label } from '@components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { Textarea } from '@components/ui/textarea';
 import type { IeltsSpeakingConfig } from '@lib/ielts';
+import { TimerPreview } from '../TimerPreview';
 
 type SpeakingAssignmentFormProps = {
   value: IeltsSpeakingConfig;
@@ -149,6 +150,26 @@ export function SpeakingAssignmentForm({ value, onChange }: SpeakingAssignmentFo
                       },
                     })
                   }
+                />
+              </div>
+            </div>
+
+            {/* Visual Timer Preview */}
+            <div className="space-y-3 pt-2">
+              <Label>Timer Preview (Student View)</Label>
+              <p className="text-xs text-muted-foreground">
+                Preview how the countdown timer will appear to students during the test.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <TimerPreview
+                  seconds={value.part2.prepSeconds}
+                  label="Preparation"
+                  variant="prep"
+                />
+                <TimerPreview
+                  seconds={value.part2.talkSeconds}
+                  label="Speaking Time"
+                  variant="talk"
                 />
               </div>
             </div>
