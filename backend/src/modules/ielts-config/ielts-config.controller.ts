@@ -14,7 +14,7 @@ import {
 import {
   ieltsConfigResponseSchema,
   ieltsConfigVersionsResponseSchema,
-} from "../assignments/ielts.schema.js";
+} from "./ielts-config.schema.js";
 
 // Error response helper
 function createErrorResponse(
