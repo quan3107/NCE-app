@@ -11,7 +11,8 @@ import { before, test } from 'node:test';
 const API_BASE_URL = 'http://localhost:4000/api/v1';
 
 let formatFileSize: (bytes: number) => string;
-let isAllowedFile: (file: Pick<File, 'name' | 'type'>) => { ok: boolean; reason?: string };
+let isAllowedFile: typeof import('../src/features/files/fileUpload').isAllowedFile;
+let createFileUploadPolicy: typeof import('../src/features/files/fileUpload').createFileUploadPolicy;
 let uploadFileWithProgress: typeof import('../src/features/files/fileUpload').uploadFileWithProgress;
 
 before(async () => {
@@ -24,6 +25,7 @@ before(async () => {
 
   const fileModule = await import('../src/features/files/fileUpload');
   isAllowedFile = fileModule.isAllowedFile;
+  createFileUploadPolicy = fileModule.createFileUploadPolicy;
   uploadFileWithProgress = fileModule.uploadFileWithProgress;
 });
 
@@ -57,6 +59,32 @@ test('isAllowedFile rejects unsupported files', () => {
 
   assert.equal(result.ok, false);
   assert.ok(result.reason?.includes('Unsupported'));
+});
+
+test('isAllowedFile respects provided runtime policy', () => {
+  const policy = createFileUploadPolicy({
+    limits: {
+      maxFileSize: 1024,
+      maxTotalSize: 4096,
+      maxFilesPerUpload: 3,
+    },
+    allowedTypes: [
+      {
+        mimeType: 'text/plain',
+        extensions: ['.txt'],
+        label: 'Text File',
+        acceptToken: '.txt',
+      },
+    ],
+    accept: '.txt',
+    typeLabel: 'TXT files',
+  });
+
+  const txtFile = { name: 'notes.txt', type: 'application/octet-stream' } as File;
+  const pdfFile = { name: 'essay.pdf', type: 'application/pdf' } as File;
+
+  assert.equal(isAllowedFile(txtFile, policy).ok, true);
+  assert.equal(isAllowedFile(pdfFile, policy).ok, false);
 });
 
 type MockProgressEvent = {

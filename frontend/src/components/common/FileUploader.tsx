@@ -3,24 +3,21 @@
  * Purpose: Provide a reusable file upload UI with progress and validation.
  * Why: Keeps the pre-signed upload UX consistent across submission flows.
  */
-
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-
 import { Button } from '@components/ui/button';
 import { Progress } from '@components/ui/progress';
 import { cn } from '@components/ui/utils';
 import { formatFileSize } from '@lib/utils';
 import type { SubmissionFile, UploadFile } from '@lib/mock-data';
 import {
-  FILE_UPLOAD_ACCEPT,
-  FILE_UPLOAD_LABEL,
+  FALLBACK_FILE_UPLOAD_POLICY,
   UploadStage,
   isAllowedFile,
   uploadFileWithProgress,
 } from '@features/files/fileUpload';
-
+import { useFileUploadConfig } from '@features/files/configApi';
 // Base file type - common properties for both SubmissionFile and UploadFile
 type BaseFile = {
   id: string;
@@ -28,9 +25,7 @@ type BaseFile = {
   size: number;
   mime: string;
 };
-
 type UploadStatus = UploadStage | 'error';
-
 type UploadItem = {
   id: string;
   file: File;
@@ -38,20 +33,16 @@ type UploadItem = {
   status: UploadStatus;
   error?: string;
 };
-
 type FileUploaderProps<T extends BaseFile = SubmissionFile> = {
   value: T[];
   onChange: (files: T[]) => void;
   onBusyChange?: (busy: boolean) => void;
-  maxFileSize: number;
-  maxTotalSize: number;
   /**
    * Custom upload function. If not provided, uses the default server upload.
    * Use this for temporary uploads (e.g., authoring) that return UploadFile with blob URLs.
    */
   uploadFn?: (file: File, onProgress: (progress: number) => void, onStageChange: (stage: UploadStage) => void) => Promise<T>;
 };
-
 const stageLabels: Record<UploadStatus, string> = {
   hashing: 'Preparing',
   signing: 'Signing',
@@ -59,33 +50,30 @@ const stageLabels: Record<UploadStatus, string> = {
   completing: 'Finalizing',
   error: 'Failed',
 };
-
 const createUploadId = (): string => {
   if (globalThis.crypto?.randomUUID) {
     return globalThis.crypto.randomUUID();
   }
   return `upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
-
 export function FileUploader<T extends BaseFile = SubmissionFile>({
   value,
   onChange,
   onBusyChange,
-  maxFileSize,
-  maxTotalSize,
   uploadFn,
 }: FileUploaderProps<T>) {
+  const policyQuery = useFileUploadConfig();
+  const policy = policyQuery.data ?? FALLBACK_FILE_UPLOAD_POLICY;
+  const { maxFileSize, maxTotalSize } = policy.limits;
   const inputId = useId();
   const helperId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const valueRef = useRef(value);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-
   useEffect(() => {
     valueRef.current = value;
   }, [value]);
-
   const totalSize = useMemo(() => {
     const uploadedSize = value.reduce((sum, file) => sum + file.size, 0);
     const pendingSize = uploads
@@ -93,30 +81,24 @@ export function FileUploader<T extends BaseFile = SubmissionFile>({
       .reduce((sum, item) => sum + item.file.size, 0);
     return uploadedSize + pendingSize;
   }, [uploads, value]);
-
   const isBusy = useMemo(
     () => uploads.some((item) => item.status !== 'error'),
     [uploads],
   );
-
   useEffect(() => {
     onBusyChange?.(isBusy);
   }, [isBusy, onBusyChange]);
-
   const updateUpload = (id: string, patch: Partial<UploadItem>) => {
     setUploads((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     );
   };
-
   const removeUpload = (id: string) => {
     setUploads((prev) => prev.filter((item) => item.id !== id));
   };
-
   const removeCompletedFile = (id: string) => {
     onChange(value.filter((file) => file.id !== id));
   };
-
   const handleUpload = async (uploadId: string, file: File) => {
     try {
       const result = uploadFn
@@ -142,38 +124,31 @@ export function FileUploader<T extends BaseFile = SubmissionFile>({
       });
     }
   };
-
   const addFiles = (files: FileList | File[]) => {
     const selected = Array.from(files);
     if (!selected.length) {
       return;
     }
-
     let runningTotal = totalSize;
-
     selected.forEach((file) => {
-      const { ok, reason } = isAllowedFile(file);
+      const { ok, reason } = isAllowedFile(file, policy);
       if (!ok) {
         toast.error(reason ?? 'Unsupported file type.');
         return;
       }
-
       if (file.size > maxFileSize) {
         toast.error(
           `${file.name} exceeds the ${formatFileSize(maxFileSize)} per-file limit.`,
         );
         return;
       }
-
       if (runningTotal + file.size > maxTotalSize) {
         toast.error(
           `Total upload size cannot exceed ${formatFileSize(maxTotalSize)}.`,
         );
         return;
       }
-
       runningTotal += file.size;
-
       const uploadId = createUploadId();
       setUploads((prev) => [
         ...prev,
@@ -182,14 +157,12 @@ export function FileUploader<T extends BaseFile = SubmissionFile>({
       void handleUpload(uploadId, file);
     });
   };
-
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       addFiles(event.target.files);
       event.target.value = '';
     }
   };
-
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDragging(false);
@@ -197,11 +170,9 @@ export function FileUploader<T extends BaseFile = SubmissionFile>({
       addFiles(event.dataTransfer.files);
     }
   };
-
   const handleBrowseClick = () => {
     inputRef.current?.click();
   };
-
   return (
     <div className="space-y-3">
       <input
@@ -210,13 +181,12 @@ export function FileUploader<T extends BaseFile = SubmissionFile>({
         id={inputId}
         ref={inputRef}
         aria-describedby={helperId}
-        accept={FILE_UPLOAD_ACCEPT}
+        accept={policy.accept}
         multiple
         tabIndex={-1}
         aria-hidden="true"
         onChange={handleInputChange}
       />
-
       <div
         className={cn(
           'border-2 border-dashed rounded-lg p-6 text-center transition-colors',
@@ -241,11 +211,10 @@ export function FileUploader<T extends BaseFile = SubmissionFile>({
           </button>
         </p>
         <p id={helperId} className="text-xs text-muted-foreground mt-1">
-          {FILE_UPLOAD_LABEL} · {formatFileSize(maxFileSize)} max per file ·{' '}
+          {policy.typeLabel} · {formatFileSize(maxFileSize)} max per file ·{' '}
           {formatFileSize(maxTotalSize)} total
         </p>
       </div>
-
       {(value.length > 0 || uploads.length > 0) && (
         <div className="space-y-2">
           {value.map((file) => (

@@ -18,7 +18,7 @@ export async function postFileSign(
     return;
   }
 
-  const signedPayload = signFileUpload(req.body, actor.id);
+  const signedPayload = await signFileUpload(req.body, actor.id, actor.role);
   res.status(200).json(signedPayload);
 }
 
@@ -33,6 +33,6 @@ export async function postFileComplete(
     return;
   }
 
-  const file = await completeFileUpload(req.body, actor.id);
+  const file = await completeFileUpload(req.body, actor.id, actor.role);
   res.status(201).json(file);
 }

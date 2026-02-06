@@ -15,7 +15,6 @@ import { Card, CardContent } from '@components/ui/card';
 import type { DiagramLabel } from '@lib/ielts';
 import type { UploadFile } from '@lib/mock-data';
 import { FileUploader } from '@components/common/FileUploader';
-import { FILE_UPLOAD_LIMITS } from '@features/files/fileUpload';
 
 type DiagramLabelingEditorProps = {
   imageIds: string[];
@@ -152,8 +151,6 @@ export function DiagramLabelingEditor({
                       <FileUploader
                         value={uploadFiles}
                         onChange={(files) => handleFilesChange(imageId, files)}
-                        maxFileSize={FILE_UPLOAD_LIMITS.maxFileSize}
-                        maxTotalSize={FILE_UPLOAD_LIMITS.maxTotalSize}
                       />
                     )}
                   </CardContent>

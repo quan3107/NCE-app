@@ -11,7 +11,6 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import { FileUploader } from '@components/common/FileUploader';
-import { FILE_UPLOAD_LIMITS } from '@features/files/fileUpload';
 
 type StudentAssignmentSubmitDialogProps = {
   assignment: Assignment;
@@ -57,8 +56,6 @@ export function StudentAssignmentSubmitDialog({
               value={uploadedFiles}
               onChange={onUploadedFilesChange}
               onBusyChange={onUploadBusyChange}
-              maxFileSize={FILE_UPLOAD_LIMITS.maxFileSize}
-              maxTotalSize={FILE_UPLOAD_LIMITS.maxTotalSize}
             />
           </div>
 
