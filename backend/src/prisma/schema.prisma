@@ -28,6 +28,7 @@ model User {
   sessions      AuthSession[]
   identities    Identity[]
   auditLogs     AuditLog[]     @relation("AuditActor")
+  dashboardWidgetPreferences UserDashboardWidgetPreference[]
   createdAt     DateTime       @default(now()) @db.Timestamptz
   updatedAt     DateTime       @updatedAt @db.Timestamptz
   deletedAt     DateTime?      @db.Timestamptz
@@ -420,6 +421,56 @@ model FileUploadAllowedType {
 
   @@index([policyId, sortOrder])
   @@map("file_upload_allowed_types")
+}
+
+// ============================================================================
+// Dashboard Widget Configuration Models
+// ============================================================================
+
+model DashboardWidgetDefinition {
+  id           String                          @id @default(uuid()) @db.Uuid
+  role         UserRole
+  widgetKey    String                          @map("widget_key")
+  type         String
+  label        String
+  iconName     String                          @map("icon_name")
+  color        String
+  dataSource   String                          @map("data_source")
+  valueFormat  String                          @map("value_format")
+  defaultOrder Int                             @default(0) @map("default_order")
+  defaultVisible Boolean                       @default(true) @map("default_visible")
+  defaultX     Int                             @default(0) @map("default_x")
+  defaultY     Int                             @default(0) @map("default_y")
+  defaultW     Int                             @default(1) @map("default_w")
+  defaultH     Int                             @default(1) @map("default_h")
+  isActive     Boolean                         @default(true) @map("is_active")
+  preferences  UserDashboardWidgetPreference[]
+  createdAt    DateTime                        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime                        @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([role, widgetKey], map: "dashboard_widget_defs_role_widget_key_key")
+  @@index([role, isActive, defaultOrder], map: "dashboard_widget_defs_role_active_order_idx")
+  @@map("dashboard_widget_definitions")
+}
+
+model UserDashboardWidgetPreference {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  userId             String                  @map("user_id") @db.Uuid
+  widgetDefinitionId String                  @map("widget_definition_id") @db.Uuid
+  visible            Boolean                 @default(true)
+  orderIndex         Int                     @map("order_index")
+  x                  Int
+  y                  Int
+  w                  Int
+  h                  Int
+  user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  widgetDefinition   DashboardWidgetDefinition @relation(fields: [widgetDefinitionId], references: [id], onDelete: Cascade)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, widgetDefinitionId], map: "user_dashboard_widget_prefs_user_widget_key")
+  @@index([userId, orderIndex], map: "user_dashboard_widget_prefs_user_order_idx")
+  @@map("user_dashboard_widget_preferences")
 }
 
 // ============================================================================
