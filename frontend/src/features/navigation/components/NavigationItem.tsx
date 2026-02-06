@@ -5,7 +5,7 @@
  */
 
 import { Button } from '@components/ui/button';
-import { cn } from '@lib/utils';
+import { cn } from '@components/ui/utils';
 
 import type { NavigationItem as NavigationEntry } from '../types';
 import { getIcon } from '../utils/iconMap';
