@@ -1,30 +1,22 @@
 /**
  * Location: features/files/fileUpload.ts
  * Purpose: Provide helpers for signing, uploading, and completing file uploads.
- * Why: Centralizes the pre-signed URL workflow with shared validation limits.
+ * Why: Centralizes pre-signed upload flow while sharing policy exports for callers.
  */
 
 import { apiClient } from '@lib/apiClient';
 import type { SubmissionFile } from '@lib/mock-data';
 
-export const FILE_UPLOAD_LIMITS = {
-  maxFileSize: 25 * 1024 * 1024,
-  maxTotalSize: 100 * 1024 * 1024,
-} as const;
-
-export const FILE_UPLOAD_ACCEPT = '.pdf,.doc,.docx,audio/*,image/*';
-export const FILE_UPLOAD_LABEL = 'PDF, DOC, DOCX, audio, or image files';
-
-const DOCUMENT_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.ms-word',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]);
-
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac']);
-const DOCUMENT_EXTENSIONS = new Set(['.pdf', '.doc', '.docx']);
-const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+export {
+  FALLBACK_FILE_UPLOAD_POLICY,
+  createFileUploadPolicy,
+  isAllowedFile,
+} from './uploadPolicy';
+export type {
+  FileUploadAllowedType,
+  FileUploadLimits,
+  FileUploadPolicy,
+} from './uploadPolicy';
 
 type FileSignRequest = {
   fileName: string;
@@ -65,41 +57,6 @@ const toHex = (buffer: ArrayBuffer): string =>
   Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
-
-const getFileExtension = (fileName: string): string => {
-  const trimmed = fileName.trim().toLowerCase();
-  const lastDot = trimmed.lastIndexOf('.');
-  return lastDot >= 0 ? trimmed.slice(lastDot) : '';
-};
-
-export const isAllowedFile = (
-  file: Pick<File, 'name' | 'type'>,
-): { ok: boolean; reason?: string } => {
-  const extension = getFileExtension(file.name);
-  const mime = typeof file.type === 'string' ? file.type.toLowerCase() : '';
-
-  if (mime.startsWith('audio/')) {
-    return { ok: true };
-  }
-
-  if (mime.startsWith('image/')) {
-    return { ok: true };
-  }
-
-  if (DOCUMENT_MIME_TYPES.has(mime)) {
-    return { ok: true };
-  }
-
-  if (
-    AUDIO_EXTENSIONS.has(extension) ||
-    DOCUMENT_EXTENSIONS.has(extension) ||
-    IMAGE_EXTENSIONS.has(extension)
-  ) {
-    return { ok: true };
-  }
-
-  return { ok: false, reason: `Unsupported file type: ${file.name}` };
-};
 
 export async function computeFileChecksum(file: Blob): Promise<string> {
   if (!globalThis.crypto?.subtle) {
