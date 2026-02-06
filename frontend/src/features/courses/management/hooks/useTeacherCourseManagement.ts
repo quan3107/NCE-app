@@ -9,6 +9,7 @@ import { toast } from 'sonner@2.0.3';
 
 import { ApiError } from '@lib/apiClient';
 import { mockAssignments, type Assignment } from '@lib/mock-data';
+import { useCourseDefaultRubricTemplateQuery } from '@features/rubrics/api';
 
 import {
   addCourseStudent,
@@ -91,6 +92,22 @@ const defaultRubric: RubricCriterion[] = [
   { name: 'Grammatical Range', weight: 25, description: 'Grammar variety and accuracy' },
 ];
 
+const toCourseRubricCriteria = (
+  criteria: Array<{
+    name: string;
+    weight: number;
+    description?: string;
+  }>,
+): RubricCriterion[] => {
+  const mapped = criteria.map((item) => ({
+    name: item.name,
+    weight: item.weight,
+    description: item.description ?? '',
+  }));
+
+  return mapped.length > 0 ? mapped : defaultRubric;
+};
+
 const toManagedCourse = (input: CourseDetailResponse): ManagedCourse => ({
   id: input.id,
   title: input.title,
@@ -133,6 +150,7 @@ const toAddStudentErrorMessage = (error: unknown): string => {
 export function useTeacherCourseManagement(courseId: string): CourseManagementViewModel {
   const courseQuery = useCourseDetailQuery(courseId);
   const studentsQuery = useCourseStudentsQuery(courseId);
+  const courseDefaultRubricTemplateQuery = useCourseDefaultRubricTemplateQuery(courseId);
 
   const course = useMemo(
     () => (courseQuery.data ? toManagedCourse(courseQuery.data) : undefined),
@@ -162,7 +180,35 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
 
   useEffect(() => {
     hydrationRef.current = false;
+    rubricHydrationRef.current = false;
   }, [courseId]);
+
+  useEffect(() => {
+    if (rubricHydrationRef.current) {
+      return;
+    }
+
+    if (courseDefaultRubricTemplateQuery.data?.template.criteria) {
+      const nextCriteria = toCourseRubricCriteria(
+        courseDefaultRubricTemplateQuery.data.template.criteria.map((criterion) => ({
+          name: criterion.name,
+          weight: criterion.weight,
+          description: criterion.description,
+        })),
+      );
+      setRubricCriteria(nextCriteria);
+      rubricHydrationRef.current = true;
+      return;
+    }
+
+    if (courseDefaultRubricTemplateQuery.isError) {
+      setRubricCriteria(defaultRubric);
+      rubricHydrationRef.current = true;
+    }
+  }, [
+    courseDefaultRubricTemplateQuery.data?.template.criteria,
+    courseDefaultRubricTemplateQuery.isError,
+  ]);
 
   useEffect(() => {
     if (!course) {
@@ -203,6 +249,7 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
   const [showAddStudentDialog, setShowAddStudentDialog] = useState(false);
   const [showCreateAnnouncementDialog, setShowCreateAnnouncementDialog] = useState(false);
   const [showEditRubricDialog, setShowEditRubricDialog] = useState(false);
+  const rubricHydrationRef = useRef(false);
 
   const handleSaveCourseDetails = useCallback(() => {
     toast.success('Course details updated successfully');
@@ -320,8 +367,15 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
 
   return {
     course,
-    isLoading: courseQuery.isLoading || studentsQuery.isLoading,
-    error: courseQuery.error?.message ?? studentsQuery.error?.message ?? null,
+    isLoading:
+      courseQuery.isLoading ||
+      studentsQuery.isLoading ||
+      courseDefaultRubricTemplateQuery.isLoading,
+    error:
+      courseQuery.error?.message ??
+      studentsQuery.error?.message ??
+      courseDefaultRubricTemplateQuery.error?.message ??
+      null,
     reload,
     details: data.details,
     detailsHandlers: {
