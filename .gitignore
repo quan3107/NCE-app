@@ -37,6 +37,7 @@ backend/src/prisma/generated/
 *.db
 *.dump
 *.sql
+!backend/src/prisma/migrations/**/*.sql
 
 # === Temporary files ===
 tmp/
