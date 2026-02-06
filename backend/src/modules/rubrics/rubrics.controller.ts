@@ -5,13 +5,18 @@
  */
 import { type Request, type Response } from "express";
 
+import { createHttpError } from "../../utils/httpError.js";
 import { createRubric, listRubrics } from "./rubrics.service.js";
 
 export async function getRubrics(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const rubrics = await listRubrics(req.params);
+  if (!req.user) {
+    throw createHttpError(401, "Unauthorized");
+  }
+
+  const rubrics = await listRubrics(req.params, req.user);
   res.status(200).json(rubrics);
 }
 
@@ -19,6 +24,10 @@ export async function postRubric(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const rubric = await createRubric(req.params, req.body);
+  if (!req.user) {
+    throw createHttpError(401, "Unauthorized");
+  }
+
+  const rubric = await createRubric(req.params, req.body, req.user);
   res.status(201).json(rubric);
 }
