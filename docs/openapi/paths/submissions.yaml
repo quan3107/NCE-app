@@ -74,6 +74,38 @@ AssignmentSubmissions:
     security:
       - BearerAuth: []
 
+PendingSubmissionsCount:
+  get:
+    tags: [submissions]
+    summary: Get ungraded submissions count (teacher/admin)
+    description: Returns the count of ungraded (submitted or late, no grade) submissions for courses owned by the authenticated teacher/admin.
+    responses:
+      '200':
+        description: Ungraded submissions count
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  description: Number of ungraded submissions
+              required: [count]
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden - Only teachers and admins can access this endpoint
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
 AssignmentSubmissionById:
   get:
     tags: [submissions]
