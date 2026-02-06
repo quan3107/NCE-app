@@ -30,6 +30,111 @@ CourseRubrics:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+
+DefaultRubrics:
+  get:
+    tags: [rubrics]
+    summary: List backend default rubric templates
+    parameters:
+      - in: query
+        name: context
+        required: true
+        schema:
+          type: string
+          enum: [course, assignment, grading]
+      - in: query
+        name: assignmentType
+        required: false
+        schema:
+          type: string
+          enum: [reading, listening, writing, speaking, generic]
+    responses:
+      '200':
+        description: Rubric templates
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rubrics.yaml#/RubricTemplatesResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseDefaultRubricTemplate:
+  get:
+    tags: [rubrics]
+    summary: Resolve the default rubric template for a course
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course default rubric template
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rubrics.yaml#/CourseDefaultRubricTemplateResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+RubricTemplates:
+  get:
+    tags: [rubrics]
+    summary: List available rubric templates (course + system)
+    parameters:
+      - in: query
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: context
+        required: false
+        schema:
+          type: string
+          enum: [course, assignment, grading]
+    responses:
+      '200':
+        description: Rubric templates
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rubrics.yaml#/RubricTemplatesResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
   post:
     tags: [rubrics]
     summary: Create rubric (admin/teacher)
