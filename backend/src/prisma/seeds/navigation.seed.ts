@@ -4,8 +4,15 @@
  * Why: Provides initial configuration for the navigation system.
  */
 
+import { config as loadEnv } from "dotenv";
+
 import { UserRole } from "../generated/client/client.js";
-import { basePrisma as prisma } from "../client.js";
+
+if (process.env.NODE_ENV !== "production") {
+  loadEnv();
+}
+
+const { basePrisma: prisma } = await import("../client.js");
 import { validateNavigationKeys } from "../../modules/navigation/navigation.validation.js";
 
 // ============================================================================
