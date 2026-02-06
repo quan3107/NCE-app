@@ -112,6 +112,22 @@ model Rubric {
   @@map("rubrics")
 }
 
+model RubricTemplate {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  context        String
+  assignmentType String   @map("assignment_type")
+  criteria       Json
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([context, assignmentType, name], map: "rubric_tpl_ctx_type_name_key")
+  @@index([context, assignmentType, isActive, sortOrder], map: "rubric_tpl_ctx_type_active_sort_idx")
+  @@map("rubric_templates")
+}
+
 model Submission {
   id           String           @id @default(uuid()) @db.Uuid
   assignmentId String           @map("assignment_id") @db.Uuid
