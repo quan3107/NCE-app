@@ -1,0 +1,87 @@
+# File: docs/openapi/paths/dashboard-config.yaml
+# Purpose: Define dashboard widget config OpenAPI path items.
+# Why: Documents role defaults and per-user dashboard personalization APIs.
+
+DashboardWidgetDefaults:
+  get:
+    tags: [dashboard-config]
+    summary: Get dashboard widget defaults for the authenticated role
+    responses:
+      '200':
+        description: Role dashboard widget defaults
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/dashboard-config.yaml#/DashboardWidgetDefaultsResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+MeDashboardConfig:
+  get:
+    tags: [dashboard-config]
+    summary: Get merged dashboard config for the authenticated user
+    responses:
+      '200':
+        description: Effective dashboard config
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/dashboard-config.yaml#/MyDashboardConfigResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  put:
+    tags: [dashboard-config]
+    summary: Replace dashboard widget preferences for the authenticated user
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/dashboard-config.yaml#/UpdateMyDashboardConfigRequest'
+    responses:
+      '200':
+        description: Effective dashboard config after save
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/dashboard-config.yaml#/MyDashboardConfigResponse'
+      '400':
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  delete:
+    tags: [dashboard-config]
+    summary: Reset dashboard widget preferences to role defaults
+    responses:
+      '204':
+        description: Preferences reset
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
