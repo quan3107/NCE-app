@@ -5,7 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@lib/apiClient';
+import { ApiError, apiClient } from '@lib/apiClient';
 
 const IELTS_CONFIG_KEY = 'ielts:config';
 const IELTS_CONFIG_VERSIONS_KEY = 'ielts:config:versions';
@@ -99,6 +99,30 @@ export interface IeltsConfigError {
   details?: Record<string, unknown>;
 }
 
+type IeltsConfigErrorPayload = {
+  error?: {
+    message?: string;
+  };
+};
+
+function getIeltsConfigErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    const details =
+      error.details && typeof error.details === 'object'
+        ? (error.details as IeltsConfigErrorPayload)
+        : undefined;
+    const nestedMessage =
+      details?.error && typeof details.error.message === 'string'
+        ? details.error.message
+        : undefined;
+    return nestedMessage ?? error.message ?? fallback;
+  }
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return fallback;
+}
+
 /**
  * Fetch active IELTS configuration
  */
@@ -106,33 +130,27 @@ async function fetchIeltsConfig(version?: number): Promise<IeltsConfig> {
   const url = version 
     ? `/api/v1/config/ielts?version=${version}`
     : '/api/v1/config/ielts';
-  
-  const response = await apiClient.get(url);
-  
-  if (!response.ok) {
-    const error = await response.json();
+
+  try {
+    return await apiClient<IeltsConfig>(url);
+  } catch (error) {
     throw new Error(
-      error.error?.message || 'Failed to fetch IELTS configuration'
+      getIeltsConfigErrorMessage(error, 'Failed to fetch IELTS configuration'),
     );
   }
-  
-  return response.json();
 }
 
 /**
  * Fetch all IELTS configuration versions
  */
 async function fetchIeltsConfigVersions(): Promise<IeltsConfigVersionsResponse> {
-  const response = await apiClient.get('/api/v1/config/ielts/versions');
-  
-  if (!response.ok) {
-    const error = await response.json();
+  try {
+    return await apiClient<IeltsConfigVersionsResponse>('/api/v1/config/ielts/versions');
+  } catch (error) {
     throw new Error(
-      error.error?.message || 'Failed to fetch IELTS configuration versions'
+      getIeltsConfigErrorMessage(error, 'Failed to fetch IELTS configuration versions'),
     );
   }
-  
-  return response.json();
 }
 
 /**
