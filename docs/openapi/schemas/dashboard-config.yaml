@@ -1,0 +1,126 @@
+# File: docs/openapi/schemas/dashboard-config.yaml
+# Purpose: Define dashboard widget config schemas for defaults and per-user personalization.
+# Why: Documents the payloads consumed by role dashboards and the customization editor.
+
+WidgetPosition:
+  type: object
+  properties:
+    x:
+      type: integer
+      minimum: 0
+    y:
+      type: integer
+      minimum: 0
+    w:
+      type: integer
+      minimum: 1
+    h:
+      type: integer
+      minimum: 1
+  required: [x, y, w, h]
+
+DashboardWidgetDefault:
+  type: object
+  properties:
+    id:
+      type: string
+    type:
+      type: string
+    label:
+      type: string
+    icon_name:
+      type: string
+    color:
+      type: string
+    data_source:
+      type: string
+    value_format:
+      type: string
+    default_order:
+      type: integer
+      minimum: 0
+    default_visible:
+      type: boolean
+    position:
+      $ref: './dashboard-config.yaml#/WidgetPosition'
+  required:
+    [id, type, label, icon_name, color, data_source, value_format, default_order, default_visible, position]
+
+DashboardWidgetEffective:
+  type: object
+  properties:
+    id:
+      type: string
+    type:
+      type: string
+    label:
+      type: string
+    icon_name:
+      type: string
+    color:
+      type: string
+    data_source:
+      type: string
+    value_format:
+      type: string
+    visible:
+      type: boolean
+    order:
+      type: integer
+      minimum: 0
+    position:
+      $ref: './dashboard-config.yaml#/WidgetPosition'
+  required:
+    [id, type, label, icon_name, color, data_source, value_format, visible, order, position]
+
+DashboardWidgetDefaultsResponse:
+  type: object
+  properties:
+    role:
+      $ref: './common.yaml#/UserRole'
+    version:
+      type: string
+    widgets:
+      type: array
+      items:
+        $ref: './dashboard-config.yaml#/DashboardWidgetDefault'
+  required: [role, version, widgets]
+
+MyDashboardConfigResponse:
+  type: object
+  properties:
+    role:
+      $ref: './common.yaml#/UserRole'
+    version:
+      type: string
+    personalized:
+      type: boolean
+    widgets:
+      type: array
+      items:
+        $ref: './dashboard-config.yaml#/DashboardWidgetEffective'
+  required: [role, version, personalized, widgets]
+
+UpdateMyDashboardConfigWidget:
+  type: object
+  properties:
+    id:
+      type: string
+    visible:
+      type: boolean
+    order:
+      type: integer
+      minimum: 0
+    position:
+      $ref: './dashboard-config.yaml#/WidgetPosition'
+  required: [id, visible, order, position]
+
+UpdateMyDashboardConfigRequest:
+  type: object
+  properties:
+    widgets:
+      type: array
+      minItems: 1
+      items:
+        $ref: './dashboard-config.yaml#/UpdateMyDashboardConfigWidget'
+  required: [widgets]
