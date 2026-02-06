@@ -16,7 +16,6 @@ import { Textarea } from '@components/ui/textarea';
 import type { IeltsListeningConfig, IeltsListeningSection } from '@lib/ielts';
 import { useEnabledListeningQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
 import type { UploadFile } from '@lib/mock-data';
-import { FILE_UPLOAD_LIMITS } from '@features/files/fileUpload';
 import { FileUploader } from '@components/common/FileUploader';
 import { IeltsQuestionListEditor } from './IeltsQuestionListEditor';
 
@@ -127,8 +126,6 @@ export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
               <FileUploader
                 value={sectionFiles}
                 onChange={(files) => handleFilesChange(section.id, files)}
-                maxFileSize={FILE_UPLOAD_LIMITS.maxFileSize}
-                maxTotalSize={FILE_UPLOAD_LIMITS.maxTotalSize}
               />
             </div>
 
