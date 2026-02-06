@@ -11,6 +11,10 @@ import { assignmentRouter } from "./assignments/assignments.routes.js";
 import { authRouter } from "./auth/auth.routes.js";
 import { auditLogRouter } from "./audit-logs/audit-logs.routes.js";
 import { courseRouter } from "./courses/courses.routes.js";
+import {
+  dashboardWidgetsRouter,
+  meDashboardConfigRouter,
+} from "./dashboard-config/dashboard-config.routes.js";
 import { enrollmentRouter } from "./enrollments/enrollments.routes.js";
 import { fileRouter } from "./files/files.routes.js";
 import {
@@ -41,6 +45,7 @@ apiRouter.use("/analytics", analyticsRouter);
 apiRouter.use("/audit-logs", auditLogRouter);
 apiRouter.use("/enrollments", enrollmentRouter);
 apiRouter.use("/courses", courseRouter);
+apiRouter.use("/config/dashboard-widgets", dashboardWidgetsRouter);
 apiRouter.use("/assignments", assignmentsTopLevelRouter);
 apiRouter.use("/courses/:courseId/assignments", assignmentRouter);
 apiRouter.use("/courses/:courseId/rubrics", rubricRouter);
@@ -59,3 +64,4 @@ apiRouter.use("/config/file-upload-limits", fileUploadLimitsRouter);
 apiRouter.use("/config/allowed-file-types", fileUploadAllowedTypesRouter);
 apiRouter.use("/config/ielts", ieltsConfigRouter);
 apiRouter.use("/navigation", navigationRouter);
+apiRouter.use("/me/dashboard-config", meDashboardConfigRouter);
