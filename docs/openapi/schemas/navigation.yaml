@@ -1,0 +1,82 @@
+# File: docs/openapi/schemas/navigation.yaml
+# Purpose: Define navigation-related schemas for the API.
+# Why: Documents navigation item structure and response payloads.
+
+NavigationItem:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for the navigation item
+    label:
+      type: string
+      description: Display label for the navigation item
+    path:
+      type: string
+      description: Route path for the navigation item
+    iconName:
+      type: string
+      description: Name of the Lucide icon to use
+    requiredPermission:
+      type: string
+      nullable: true
+      description: Permission key required to view this item
+    orderIndex:
+      type: integer
+      description: Sort order for the navigation item
+    badgeSource:
+      type: string
+      nullable: true
+      enum: [notifications, assignments, submissions]
+      description: Source for badge count (null if no badge)
+    children:
+      type: array
+      items:
+        $ref: '#/NavigationItem'
+      description: Child navigation items (if any)
+    isActive:
+      type: boolean
+      description: Whether the navigation item is active
+    featureFlag:
+      type: string
+      nullable: true
+      description: Feature flag key required to view this item
+  required:
+    - id
+    - label
+    - path
+    - iconName
+    - orderIndex
+    - children
+    - isActive
+
+FeatureFlagsMap:
+  type: object
+  additionalProperties:
+    type: boolean
+  description: Map of feature flag keys to their enabled status
+
+NavigationResponse:
+  type: object
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/NavigationItem'
+      description: Navigation items for the user's role
+    permissions:
+      type: array
+      items:
+        type: string
+      description: List of permission keys for the user's role
+    featureFlags:
+      $ref: '#/FeatureFlagsMap'
+    version:
+      type: string
+      description: Version string for cache invalidation
+  required:
+    - items
+    - permissions
+    - featureFlags
+    - version
