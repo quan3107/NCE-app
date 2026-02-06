@@ -298,3 +298,25 @@ export async function getSubmissionById(
   }
   return submission;
 }
+
+/**
+ * Get count of ungraded submissions for a teacher/admin.
+ * Ungraded = submitted or late status, no grade exists.
+ */
+export async function getUngradedSubmissionsCount(teacherId: string): Promise<number> {
+  const count = await prisma.submission.count({
+    where: {
+      deletedAt: null,
+      status: { in: ["submitted", "late"] },
+      grade: null,
+      assignment: {
+        course: {
+          ownerId: teacherId,
+          deletedAt: null,
+        },
+      },
+    },
+  });
+
+  return count;
+}

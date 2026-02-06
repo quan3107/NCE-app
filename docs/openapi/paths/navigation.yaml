@@ -1,0 +1,24 @@
+# File: docs/openapi/paths/navigation.yaml
+# Purpose: Define navigation OpenAPI path items.
+# Why: Documents the navigation endpoint for retrieving menu configuration.
+
+Navigation:
+  get:
+    tags: [navigation]
+    summary: Get navigation configuration for the authenticated user
+    description: Returns navigation items, permissions, feature flags, and version for the current user's role.
+    responses:
+      '200':
+        description: Navigation configuration
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/navigation.yaml#/NavigationResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

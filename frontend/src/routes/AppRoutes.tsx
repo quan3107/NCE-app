@@ -29,6 +29,7 @@ import { StudentNotificationsPage } from '@features/notifications/components/Stu
 import { StudentProfilePage } from '@features/profile/components/StudentProfilePage';
 import { TeacherProfilePage } from '@features/profile/components/TeacherProfilePage';
 import { TeacherRubricsPage } from '@features/rubrics/components/TeacherRubricsPage';
+import { NavigationProvider } from '@features/navigation';
 import { Role } from '@lib/mock-data';
 import { useAuthStore } from '@store/authStore';
 import { AboutRoute } from '@routes/About';
@@ -88,9 +89,11 @@ function PublicLayout() {
 function AppLayout() {
   return (
     <RequireAuth>
-      <AppShell variant="app">
-        <Outlet />
-      </AppShell>
+      <NavigationProvider>
+        <AppShell variant="app">
+          <Outlet />
+        </AppShell>
+      </NavigationProvider>
     </RequireAuth>
   );
 }

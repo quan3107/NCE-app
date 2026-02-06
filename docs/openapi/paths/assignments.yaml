@@ -68,6 +68,38 @@ CourseAssignments:
     security:
       - BearerAuth: []
 
+PendingAssignmentsCount:
+  get:
+    tags: [assignments]
+    summary: Get pending assignments count (student)
+    description: Returns the count of pending (published, not submitted, not past due) assignments for the authenticated student.
+    responses:
+      '200':
+        description: Pending assignments count
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  description: Number of pending assignments
+              required: [count]
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden - Only students can access this endpoint
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
 CourseAssignmentById:
   get:
     tags: [assignments]

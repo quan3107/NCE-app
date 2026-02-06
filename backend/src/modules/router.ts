@@ -6,6 +6,7 @@
 import { Router } from "express";
 
 import { analyticsRouter } from "./analytics/analytics.routes.js";
+import { assignmentsTopLevelRouter } from "./assignments/assignments-top-level.routes.js";
 import { assignmentRouter } from "./assignments/assignments.routes.js";
 import { authRouter } from "./auth/auth.routes.js";
 import { auditLogRouter } from "./audit-logs/audit-logs.routes.js";
@@ -15,8 +16,10 @@ import { fileRouter } from "./files/files.routes.js";
 import { gradeRouter } from "./grades/grades.routes.js";
 import ieltsConfigRouter from "./ielts-config/ielts-config.routes.js";
 import { meRouter } from "./me/me.routes.js";
+import { navigationRouter } from "./navigation/navigation.routes.js";
 import { notificationRouter } from "./notifications/notifications.routes.js";
 import { rubricRouter } from "./rubrics/rubrics.routes.js";
+import { submissionsTopLevelRouter } from "./submissions/submissions-top-level.routes.js";
 import { submissionRouter } from "./submissions/submissions.routes.js";
 import { userRouter } from "./users/users.routes.js";
 
@@ -29,8 +32,10 @@ apiRouter.use("/analytics", analyticsRouter);
 apiRouter.use("/audit-logs", auditLogRouter);
 apiRouter.use("/enrollments", enrollmentRouter);
 apiRouter.use("/courses", courseRouter);
+apiRouter.use("/assignments", assignmentsTopLevelRouter);
 apiRouter.use("/courses/:courseId/assignments", assignmentRouter);
 apiRouter.use("/courses/:courseId/rubrics", rubricRouter);
+apiRouter.use("/submissions", submissionsTopLevelRouter);
 apiRouter.use(
   "/assignments/:assignmentId/submissions",
   submissionRouter,
@@ -39,3 +44,4 @@ apiRouter.use("/submissions/:submissionId/grade", gradeRouter);
 apiRouter.use("/notifications", notificationRouter);
 apiRouter.use("/files", fileRouter);
 apiRouter.use("/config/ielts", ieltsConfigRouter);
+apiRouter.use("/navigation", navigationRouter);

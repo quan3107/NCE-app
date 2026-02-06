@@ -86,6 +86,38 @@ export async function listAssignments(params: unknown) {
   });
 }
 
+/**
+ * Get count of pending assignments for a student.
+ * Pending = published, not submitted, not past due date.
+ */
+export async function getPendingAssignmentsCount(studentId: string): Promise<number> {
+  const now = new Date();
+
+  const count = await prisma.assignment.count({
+    where: {
+      deletedAt: null,
+      publishedAt: { not: null },
+      dueAt: { gt: now },
+      course: {
+        enrollments: {
+          some: {
+            userId: studentId,
+            deletedAt: null,
+          },
+        },
+      },
+      submissions: {
+        none: {
+          studentId,
+          deletedAt: null,
+        },
+      },
+    },
+  });
+
+  return count;
+}
+
 type AssignmentWithSubmissions = {
   type: string;
   id: string;

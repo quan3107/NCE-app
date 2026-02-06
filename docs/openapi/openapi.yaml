@@ -24,6 +24,7 @@ tags:
   - name: notifications
   - name: audit-logs
   - name: files
+  - name: navigation
 
 paths:
   /api/v1/auth/login:
@@ -41,6 +42,15 @@ paths:
 
   /api/v1/me:
     $ref: './paths/me.yaml#/Me'
+
+  /api/v1/navigation:
+    $ref: './paths/navigation.yaml#/Navigation'
+
+  /api/v1/assignments/pending-count:
+    $ref: './paths/assignments.yaml#/PendingAssignmentsCount'
+
+  /api/v1/submissions/pending-count:
+    $ref: './paths/submissions.yaml#/PendingSubmissionsCount'
 
   /api/v1/users:
     $ref: './paths/users.yaml#/Users'

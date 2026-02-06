@@ -28,7 +28,10 @@
     "prisma:migrate": "prisma migrate dev --schema=src/prisma/schema.prisma",
     "seed": "tsx src/prisma/seed.ts",
     "seed:ielts-config": "tsx src/prisma/seedIeltsConfig.ts",
-    "seed:ielts": "tsx src/prisma/seedIeltsAssignments.ts"
+    "verify:ielts-config": "tsx src/prisma/verifyIeltsConfig.ts",
+    "seed:ielts": "tsx src/prisma/seedIeltsAssignments.ts",
+    "seed:ielts-sandbox": "tsx src/prisma/seedIeltsSandbox.ts",
+    "seed:navigation": "tsx src/prisma/seeds/navigation.seed.ts"
   },
   "exports": {
     "./app": "./dist/app.js",

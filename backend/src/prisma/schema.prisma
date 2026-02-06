@@ -303,6 +303,77 @@ enum IdentityProvider {
 }
 
 // ============================================================================
+// Navigation, Permissions & Feature Flags
+// ============================================================================
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  name        String
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime @default(now()) @db.Timestamptz
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid()) @db.Uuid
+  role         UserRole
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId String     @map("permission_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @db.Timestamptz
+
+  @@unique([role, permissionId])
+  @@map("role_permissions")
+}
+
+model NavigationItem {
+  id                 String   @id @default(uuid()) @db.Uuid
+  role               UserRole
+  label              String
+  path               String
+  iconName           String   @map("icon_name")
+  requiredPermission String?  @map("required_permission")
+  orderIndex         Int      @default(0) @map("order_index")
+  badgeSource        String?  @map("badge_source")
+  parentId           String?  @map("parent_id") @db.Uuid
+  parent             NavigationItem?  @relation("NavItemChildren", fields: [parentId], references: [id])
+  children           NavigationItem[] @relation("NavItemChildren")
+  isActive           Boolean  @default(true) @map("is_active")
+  featureFlag        String?  @map("feature_flag")
+  createdAt          DateTime @default(now()) @db.Timestamptz
+  updatedAt          DateTime @updatedAt @db.Timestamptz
+
+  @@index([role, isActive, orderIndex])
+  @@map("navigation_items")
+}
+
+model FeatureFlag {
+  id          String            @id @default(uuid()) @db.Uuid
+  key         String            @unique
+  name        String
+  description String?
+  enabled     Boolean           @default(false)
+  roles       FeatureFlagRole[]
+  createdAt   DateTime          @default(now()) @db.Timestamptz
+  updatedAt   DateTime          @updatedAt @db.Timestamptz
+
+  @@map("feature_flags")
+}
+
+model FeatureFlagRole {
+  id            String      @id @default(uuid()) @db.Uuid
+  featureFlag   FeatureFlag @relation(fields: [featureFlagId], references: [id])
+  featureFlagId String      @map("feature_flag_id") @db.Uuid
+  role          UserRole
+  createdAt     DateTime    @default(now()) @db.Timestamptz
+
+  @@unique([featureFlagId, role])
+  @@map("feature_flag_roles")
+}
+
+// ============================================================================
 // IELTS Domain Configuration Models
 // ============================================================================
 
