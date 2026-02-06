@@ -84,6 +84,12 @@ paths:
 
   /api/v1/courses/{courseId}/rubrics:
     $ref: './paths/rubrics.yaml#/CourseRubrics'
+  /api/v1/config/default-rubrics:
+    $ref: './paths/rubrics.yaml#/DefaultRubrics'
+  /api/v1/courses/{courseId}/default-rubric-template:
+    $ref: './paths/rubrics.yaml#/CourseDefaultRubricTemplate'
+  /api/v1/rubrics/templates:
+    $ref: './paths/rubrics.yaml#/RubricTemplates'
 
   /api/v1/assignments/{assignmentId}/submissions:
     $ref: './paths/submissions.yaml#/AssignmentSubmissions'
