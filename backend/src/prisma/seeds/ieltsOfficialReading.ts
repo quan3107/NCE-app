@@ -3,7 +3,7 @@
  * Purpose: Build official-structure IELTS Academic Reading assignment configs.
  * Why: Ensures seeds match 3 long passages, 40 substantive questions, and 60-minute timing.
  */
-import type { Prisma } from "../generated/client/client.js";
+import type { Prisma } from "../generated.js";
 import {
   buildTrueFalseNotGivenQuestion,
   nullAttempts,

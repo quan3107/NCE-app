@@ -3,7 +3,7 @@
  * Purpose: Declare notification REST endpoints.
  * Why: Keeps API routing cohesive and maintainable.
  */
-import { UserRole } from "../../prisma/generated/client/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";

@@ -3,7 +3,7 @@
  * Purpose: Provide query and mapping logic for rubric template endpoints.
  * Why: Centralizes fallback behavior so frontend can rely on one consistent template contract.
  */
-import { EnrollmentRole, UserRole } from "../../prisma/generated/client/client.js";
+import { EnrollmentRole, UserRole } from "../../prisma/index.js";
 import { prisma } from "../../prisma/client.js";
 import { createHttpError } from "../../utils/httpError.js";
 import {

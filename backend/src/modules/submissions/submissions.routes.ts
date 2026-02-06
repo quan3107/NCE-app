@@ -3,7 +3,7 @@
  * Purpose: Connect submission controllers to Express routes.
  * Why: Makes submission routing explicit and versionable.
  */
-import { UserRole } from "../../prisma/generated/client/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";

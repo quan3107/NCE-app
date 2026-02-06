@@ -3,7 +3,7 @@
  * Purpose: Build official-structure IELTS Speaking assignment configs.
  * Why: Ensures 3-part speaking seeds use official prep/talk timing and total duration range.
  */
-import type { Prisma } from "../generated/client/client.js";
+import type { Prisma } from "../generated.js";
 import { nullAttempts, type IeltsFixtureVariant } from "./ieltsOfficialShared.js";
 
 export function buildSpeakingConfigOfficial(

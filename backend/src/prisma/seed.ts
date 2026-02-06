@@ -16,7 +16,7 @@ import {
   SubmissionStatus,
   UserRole,
   UserStatus,
-} from './generated/client/client.js';
+} from './generated.js';
 import { basePrisma } from './client.js';
 import { buildPrimaryIeltsAssignmentConfig } from './seeds/ieltsOfficialFixtures.js';
 

@@ -3,7 +3,7 @@
  * Purpose: Register course-scoped assignment endpoints.
  * Why: Aligns with PRD expectations for course/assignment hierarchy.
  */
-import { UserRole } from "../../prisma/generated/client/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";

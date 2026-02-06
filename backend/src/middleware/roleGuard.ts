@@ -3,7 +3,7 @@
  * Purpose: Enforce role-based access control based on the authenticated request context.
  * Why: Ensures only allowed roles can access protected routes once authentication is verified.
  */
-import { UserRole } from "../prisma/generated/client/client.js";
+import { UserRole } from "../prisma/index.js";
 import { type NextFunction, type Request, type Response } from "express";
 
 export function roleGuard(

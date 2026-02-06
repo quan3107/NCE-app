@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "../../prisma/client.js";
-import type { UserRole } from "../../prisma/generated/client/client.js";
+import type { UserRole } from "../../prisma/index.js";
 import type { FeatureFlagsMap } from "./feature-flags.types.js";
 
 /**

@@ -3,7 +3,7 @@
  * Purpose: Seed IELTS assignments without wiping existing data.
  * Why: Allows adding/updating IELTS assignment configs while preserving other records.
  */
-import { AssignmentType, Prisma } from './generated/client/client.js';
+import { AssignmentType, Prisma } from './generated.js';
 import { basePrisma } from './client.js';
 import { buildPrimaryIeltsAssignmentConfig } from './seeds/ieltsOfficialFixtures.js';
 

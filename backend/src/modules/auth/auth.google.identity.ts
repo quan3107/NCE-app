@@ -3,7 +3,7 @@
  * Purpose: Link Google identities to existing or new users.
  * Why: Keeps identity persistence logic isolated from OAuth networking concerns.
  */
-import { IdentityProvider, UserRole, UserStatus } from "../../prisma/generated/client/client.js";
+import { IdentityProvider, UserRole, UserStatus } from "../../prisma/index.js";
 
 import { prisma } from "../../config/prismaClient.js";
 import { createAuthError, isUniqueConstraintError } from "./auth.errors.js";

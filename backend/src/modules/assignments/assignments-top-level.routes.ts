@@ -3,7 +3,7 @@
  * Purpose: Register top-level assignment endpoints (not course-scoped).
  * Why: Provides endpoints like /assignments/pending-count that don't require course context.
  */
-import { UserRole } from "../../prisma/generated/client/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";

@@ -3,7 +3,7 @@
  * Purpose: Register top-level submission endpoints (not assignment-scoped).
  * Why: Provides endpoints like /submissions/pending-count that don't require assignment context.
  */
-import { UserRole } from "../../prisma/generated/client/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";

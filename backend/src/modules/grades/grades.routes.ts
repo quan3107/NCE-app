@@ -3,7 +3,7 @@
  * Purpose: Register grading routes scoped to submissions.
  * Why: Keeps grade REST definitions isolated for easier evolution.
  */
-import { UserRole } from "../../prisma/generated/client/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";

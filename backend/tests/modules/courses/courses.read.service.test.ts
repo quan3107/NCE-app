@@ -4,8 +4,8 @@
  * Why: Guards against authorization mistakes like the 403 error students hit when attempting to fetch their courses.
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import type { Course, Prisma } from '../../../src/prisma/generated/client/client.js';
-import { EnrollmentRole, UserRole, UserStatus } from '../../../src/prisma/generated/client/client.js';
+import type { Course, Prisma } from '../../../src/prisma/index.js';
+import { EnrollmentRole, UserRole, UserStatus } from '../../../src/prisma/index.js';
 
 vi.mock("../../../src/config/prismaClient.js", () => ({
   prisma: {

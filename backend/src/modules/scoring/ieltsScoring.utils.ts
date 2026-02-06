@@ -3,7 +3,7 @@
  * Purpose: Score IELTS reading/listening submissions using answer keys.
  * Why: Keeps scoring logic isolated from persistence workflows.
  */
-import { AssignmentType } from "../../prisma/generated/client/client.js";
+import { AssignmentType } from "../../prisma/index.js";
 import {
   parseAssignmentConfigForType,
   parseSubmissionPayloadForType,
