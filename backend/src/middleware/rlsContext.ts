@@ -73,6 +73,9 @@ export async function rlsContext(
   }
 
   const actor = resolveActor(req);
+  // Share parsed actor with downstream handlers so optional-auth routes can
+  // still apply role-scoped service logic without requiring authGuard.
+  req.user = actor ?? undefined;
   const role = actor ? "authenticated" : "anon";
   const userRole = actor?.role ?? "anon";
   const userId = actor?.id ?? "";
