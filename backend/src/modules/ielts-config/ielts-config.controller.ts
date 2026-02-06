@@ -11,6 +11,7 @@ import {
   getIeltsConfigByVersion,
   getIeltsConfigVersions,
 } from "./ielts-config.service.js";
+import { logger } from "../../config/logger.js";
 import {
   ieltsConfigResponseSchema,
   ieltsConfigVersionsResponseSchema,
@@ -65,6 +66,10 @@ export async function getIeltsConfigHandler(
       config = await getIeltsConfigByVersion(version);
 
       if (!config) {
+        logger.warn(
+          { requestedVersion: version },
+          "IELTS config version was requested but not found",
+        );
         res.status(404).json(
           createErrorResponse(
             "IELTS_CONFIG_VERSION_NOT_FOUND",
@@ -82,6 +87,13 @@ export async function getIeltsConfigHandler(
       config = await getActiveIeltsConfig();
 
       if (!config) {
+        logger.error(
+          {
+            endpoint: "GET /api/v1/config/ielts",
+            reason: "No active IELTS configuration",
+          },
+          "IELTS configuration is missing",
+        );
         res.status(404).json(
           createErrorResponse(
             "IELTS_CONFIG_NOT_FOUND",
@@ -102,6 +114,12 @@ export async function getIeltsConfigHandler(
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         const fieldError = validationError.issues[0];
+        logger.error(
+          {
+            issues: validationError.issues,
+          },
+          "IELTS configuration payload failed response validation",
+        );
         res.status(500).json(
           createErrorResponse(
             "IELTS_CONFIG_INVALID_DATA",
@@ -135,6 +153,13 @@ export async function getIeltsConfigVersionsHandler(
     const { versions, activeVersion } = await getIeltsConfigVersions();
 
     if (versions.length === 0) {
+      logger.error(
+        {
+          endpoint: "GET /api/v1/config/ielts/versions",
+          reason: "No IELTS configuration versions in database",
+        },
+        "IELTS configuration versions are missing",
+      );
       res.status(404).json(
         createErrorResponse(
           "IELTS_CONFIG_NOT_FOUND",
@@ -157,6 +182,12 @@ export async function getIeltsConfigVersionsHandler(
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         const fieldError = validationError.issues[0];
+        logger.error(
+          {
+            issues: validationError.issues,
+          },
+          "IELTS config versions payload failed response validation",
+        );
         res.status(500).json(
           createErrorResponse(
             "IELTS_CONFIG_INVALID_DATA",
