@@ -71,3 +71,71 @@ CreateRubricRequest:
                 desc:
                   type: string
   required: [name, criteria]
+
+RubricTemplateLevel:
+  type: object
+  properties:
+    label:
+      type: string
+    points:
+      type: number
+    desc:
+      type: string
+  required: [label, points]
+
+RubricTemplateCriterion:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    weight:
+      type: number
+    description:
+      type: string
+    maxScore:
+      type: number
+    levels:
+      type: array
+      items:
+        $ref: './rubrics.yaml#/RubricTemplateLevel'
+  required: [id, name, weight]
+
+RubricTemplate:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    context:
+      type: string
+      enum: [course, assignment, grading]
+    assignmentType:
+      type: string
+      enum: [reading, listening, writing, speaking, generic]
+    source:
+      type: string
+      enum: [system, course]
+    criteria:
+      type: array
+      items:
+        $ref: './rubrics.yaml#/RubricTemplateCriterion'
+  required: [id, name, context, assignmentType, source, criteria]
+
+RubricTemplatesResponse:
+  type: object
+  properties:
+    templates:
+      type: array
+      items:
+        $ref: './rubrics.yaml#/RubricTemplate'
+  required: [templates]
+
+CourseDefaultRubricTemplateResponse:
+  type: object
+  properties:
+    template:
+      $ref: './rubrics.yaml#/RubricTemplate'
+  required: [template]

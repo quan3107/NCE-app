@@ -436,6 +436,101 @@ async function main(): Promise<void> {
     })
   );
 
+  console.info("Creating rubric templates...");
+  await prisma.rubricTemplate.createMany({
+    data: [
+      {
+        name: "Course Default Rubric",
+        context: "course",
+        assignmentType: "generic",
+        sortOrder: 1,
+        criteria: [
+          {
+            id: "task-achievement",
+            name: "Task Achievement",
+            weight: 25,
+            description: "How well the task requirements are met",
+          },
+          {
+            id: "coherence-cohesion",
+            name: "Coherence & Cohesion",
+            weight: 25,
+            description: "Logical organization and flow",
+          },
+          {
+            id: "lexical-resource",
+            name: "Lexical Resource",
+            weight: 25,
+            description: "Vocabulary range and accuracy",
+          },
+          {
+            id: "grammatical-range",
+            name: "Grammatical Range",
+            weight: 25,
+            description: "Grammar variety and accuracy",
+          },
+        ] as Prisma.InputJsonArray,
+      },
+      {
+        name: "Writing Assignment Rubric",
+        context: "assignment",
+        assignmentType: "writing",
+        sortOrder: 1,
+        criteria: [
+          {
+            id: "overall-performance",
+            name: "Overall Performance",
+            weight: 100,
+            levels: [
+              {
+                label: "Meets expectations",
+                points: 100,
+                desc: "Meets the rubric requirements.",
+              },
+            ],
+          },
+        ] as Prisma.InputJsonArray,
+      },
+      {
+        name: "Writing Grading Rubric",
+        context: "grading",
+        assignmentType: "writing",
+        sortOrder: 1,
+        criteria: [
+          {
+            id: "format-structure",
+            name: "Format & Structure",
+            weight: 20,
+            maxScore: 10,
+            description: "Organization, formatting, and structural quality.",
+          },
+          {
+            id: "content-analysis",
+            name: "Content & Analysis",
+            weight: 40,
+            maxScore: 20,
+            description: "Depth of response, argumentation, and analysis.",
+          },
+          {
+            id: "clarity-professionalism",
+            name: "Clarity & Professionalism",
+            weight: 20,
+            maxScore: 10,
+            description: "Clarity, tone, and communication quality.",
+          },
+          {
+            id: "grammar-mechanics",
+            name: "Grammar & Mechanics",
+            weight: 20,
+            maxScore: 10,
+            description: "Accuracy of grammar, spelling, and punctuation.",
+          },
+        ] as Prisma.InputJsonArray,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
   console.info("Creating IELTS assignments...");
   const assignmentSeeds: Array<{
     courseTitle: string;

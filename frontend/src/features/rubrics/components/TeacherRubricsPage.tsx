@@ -19,8 +19,10 @@ import { toast } from 'sonner@2.0.3';
 import { useCoursesQuery } from '@features/courses/api';
 import {
   type RubricCriterion,
+  type RubricTemplateCriterion,
   useCourseRubricsQuery,
   useCreateRubricMutation,
+  useDefaultRubricsQuery,
 } from '@features/rubrics/api';
 
 const DEFAULT_CRITERIA: RubricCriterion[] = [
@@ -36,6 +38,33 @@ const DEFAULT_CRITERIA: RubricCriterion[] = [
     ],
   },
 ];
+
+const toRubricCriteriaFromTemplate = (
+  criteria: RubricTemplateCriterion[],
+): RubricCriterion[] => {
+  if (criteria.length === 0) {
+    return DEFAULT_CRITERIA;
+  }
+
+  return criteria.map((criterion) => ({
+    criterion: criterion.name,
+    weight: criterion.weight,
+    levels:
+      criterion.levels && criterion.levels.length > 0
+        ? criterion.levels.map((level) => ({
+            label: level.label,
+            points: level.points,
+            desc: level.desc ?? '',
+          }))
+        : [
+            {
+              label: 'Meets expectations',
+              points: 100,
+              desc: 'Meets the rubric requirements.',
+            },
+          ],
+  }));
+};
 
 type TeacherRubricsPageProps = {
   embedded?: boolean;
@@ -66,8 +95,21 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
 
   const rubricsQuery = useCourseRubricsQuery(effectiveCourseId);
   const createRubricMutation = useCreateRubricMutation(effectiveCourseId);
+  const defaultRubricsQuery = useDefaultRubricsQuery('assignment', 'writing');
 
   const courseOptions = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
+  const createRubricCriteria = useMemo(() => {
+    const template =
+      defaultRubricsQuery.data?.templates.find(
+        (item) => item.context === 'assignment' && item.assignmentType === 'writing',
+      ) ?? defaultRubricsQuery.data?.templates[0];
+
+    if (!template) {
+      return DEFAULT_CRITERIA;
+    }
+
+    return toRubricCriteriaFromTemplate(template.criteria);
+  }, [defaultRubricsQuery.data?.templates]);
 
   const handleCreateRubric = async () => {
     if (!selectedCourseId) {
@@ -84,7 +126,7 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
     try {
       await createRubricMutation.mutateAsync({
         name: trimmedName,
-        criteria: DEFAULT_CRITERIA,
+        criteria: createRubricCriteria,
       });
       toast.success('Rubric created successfully.');
       setRubricName('');
@@ -221,6 +263,7 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
             </div>
             <div className="rounded-lg border p-4 text-sm text-muted-foreground">
               Default criteria: Overall Performance (100%) with one level: Meets expectations.
+              {defaultRubricsQuery.isFetching ? ' Syncing backend template...' : ''}
             </div>
           </div>
           <DialogFooter>
@@ -236,5 +279,4 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
     </div>
   );
 }
-
 
