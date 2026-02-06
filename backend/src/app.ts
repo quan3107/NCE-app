@@ -10,6 +10,7 @@ import helmet from "helmet";
 import { logger } from "./config/logger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { rlsContext } from "./middleware/rlsContext.js";
+import { getIeltsConfigReadinessReport } from "./modules/ielts-config/ielts-config.readiness.js";
 import { apiRouter } from "./modules/router.js";
 
 const app = express();
@@ -29,8 +30,28 @@ app.use((req, _res, next) => {
   next();
 });
 
-app.get("/health", (_req: Request, res: Response) => {
-  res.status(200).json({ ok: true });
+app.get("/health", async (_req: Request, res: Response) => {
+  try {
+    const report = await getIeltsConfigReadinessReport();
+    const status = report.ready ? 200 : 503;
+    res.status(status).json({
+      ok: report.ready,
+      checks: {
+        ieltsConfig: report,
+      },
+    });
+  } catch (error) {
+    logger.error({ err: error }, "Health check failed while checking IELTS config");
+    res.status(503).json({
+      ok: false,
+      checks: {
+        ieltsConfig: {
+          ready: false,
+          reason: "Health check query failed.",
+        },
+      },
+    });
+  }
 });
 
 app.use("/api/v1", rlsContext, apiRouter);
