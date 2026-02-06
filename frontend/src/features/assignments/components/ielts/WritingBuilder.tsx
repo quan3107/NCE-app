@@ -12,7 +12,6 @@ import { Textarea } from '@components/ui/textarea';
 import { RichTextEditor } from '@components/ui/rich-text-editor';
 import type { IeltsWritingConfig } from '@lib/ielts';
 import type { UploadFile } from '@lib/mock-data';
-import { FILE_UPLOAD_LIMITS } from '@features/files/fileUpload';
 import { FileUploader } from '@components/common/FileUploader';
 
 type WritingBuilderProps = {
@@ -66,8 +65,6 @@ export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
           <FileUploader
             value={task1Files}
             onChange={handleTask1Files}
-            maxFileSize={FILE_UPLOAD_LIMITS.maxFileSize}
-            maxTotalSize={FILE_UPLOAD_LIMITS.maxTotalSize}
           />
           <p className="text-xs text-muted-foreground">
             Upload a chart or diagram for Task 1. Students will see it during the test.
