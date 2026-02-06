@@ -18,6 +18,11 @@ import ieltsConfigRouter from "./ielts-config/ielts-config.routes.js";
 import { meRouter } from "./me/me.routes.js";
 import { navigationRouter } from "./navigation/navigation.routes.js";
 import { notificationRouter } from "./notifications/notifications.routes.js";
+import {
+  courseDefaultRubricTemplateRouter,
+  defaultRubricTemplateRouter,
+  rubricTemplatesRouter,
+} from "./rubric-templates/rubric-templates.routes.js";
 import { rubricRouter } from "./rubrics/rubrics.routes.js";
 import { submissionsTopLevelRouter } from "./submissions/submissions-top-level.routes.js";
 import { submissionRouter } from "./submissions/submissions.routes.js";
@@ -35,6 +40,9 @@ apiRouter.use("/courses", courseRouter);
 apiRouter.use("/assignments", assignmentsTopLevelRouter);
 apiRouter.use("/courses/:courseId/assignments", assignmentRouter);
 apiRouter.use("/courses/:courseId/rubrics", rubricRouter);
+apiRouter.use("/courses/:courseId/default-rubric-template", courseDefaultRubricTemplateRouter);
+apiRouter.use("/config/default-rubrics", defaultRubricTemplateRouter);
+apiRouter.use("/rubrics/templates", rubricTemplatesRouter);
 apiRouter.use("/submissions", submissionsTopLevelRouter);
 apiRouter.use(
   "/assignments/:assignmentId/submissions",
