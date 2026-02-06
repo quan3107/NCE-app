@@ -390,6 +390,39 @@ model FeatureFlagRole {
 }
 
 // ============================================================================
+// File Upload Configuration Models
+// ============================================================================
+
+model FileUploadPolicy {
+  id                String                  @id @default(uuid()) @db.Uuid
+  role              UserRole                @unique
+  maxFileSize       Int                     @map("max_file_size")
+  maxTotalSize      Int                     @map("max_total_size")
+  maxFilesPerUpload Int                     @default(5) @map("max_files_per_upload")
+  allowedTypes      FileUploadAllowedType[]
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("file_upload_policies")
+}
+
+model FileUploadAllowedType {
+  id          String           @id @default(uuid()) @db.Uuid
+  policyId    String           @map("policy_id") @db.Uuid
+  policy      FileUploadPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  mimeType    String           @map("mime_type")
+  extensions  String[]
+  label       String
+  acceptToken String           @map("accept_token")
+  sortOrder   Int              @default(0) @map("sort_order")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([policyId, sortOrder])
+  @@map("file_upload_allowed_types")
+}
+
+// ============================================================================
 // IELTS Domain Configuration Models
 // ============================================================================
 
