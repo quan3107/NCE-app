@@ -4,11 +4,19 @@
  * Why: Keeps database role switching centralized so RLS policies are enforced.
  */
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { Pool } from 'pg'
+import { config as loadEnv } from 'dotenv'
 
 import { Prisma, PrismaClient } from './generated/client/client.js'
 import { PrismaPg } from '@prisma/adapter-pg'
+
+if (process.env.NODE_ENV !== 'production') {
+  const envPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../.env')
+  loadEnv({ path: envPath })
+}
 
 type PrismaRole = 'authenticated' | 'anon' | 'service_role'
 
