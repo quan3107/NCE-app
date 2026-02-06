@@ -3,7 +3,7 @@
  * Purpose: Seed IELTS domain configuration reference data.
  * Why: Ensures /api/v1/config/ielts has baseline data in fresh environments.
  */
-import { Prisma } from "./generated/client/client.js";
+import { Prisma } from "./generated.js";
 import { basePrisma } from "./client.js";
 
 const prisma = basePrisma;

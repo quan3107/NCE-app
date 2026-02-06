@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "../../prisma/client.js";
-import type { UserRole } from "../../prisma/generated/client/client.js";
+import type { UserRole } from "../../prisma/index.js";
 
 /**
  * Get all permissions for a specific role.

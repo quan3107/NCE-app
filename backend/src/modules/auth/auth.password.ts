@@ -3,7 +3,7 @@
  * Purpose: Handle password login and account registration flows.
  * Why: Keeps password-based auth logic focused and testable.
  */
-import { UserStatus } from "../../prisma/generated/client/client.js"
+import { UserStatus } from "../../prisma/index.js"
 import bcrypt from 'bcrypt'
 
 import { prisma } from '../../config/prismaClient.js'

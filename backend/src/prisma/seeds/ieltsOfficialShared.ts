@@ -3,7 +3,7 @@
  * Purpose: Provide shared constants and helpers for official IELTS seed fixtures.
  * Why: Keeps full/lite builders consistent across reading, listening, writing, and speaking.
  */
-import type { Prisma } from "../generated/client/client.js";
+import type { Prisma } from "../generated.js";
 
 export type IeltsFixtureVariant = "full" | "lite";
 

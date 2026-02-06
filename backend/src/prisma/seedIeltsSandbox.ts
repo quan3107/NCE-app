@@ -11,7 +11,7 @@ import {
   type Prisma,
   UserRole,
   UserStatus,
-} from "./generated/client/client.js";
+} from "./generated.js";
 import { basePrisma as prisma } from "./client.js";
 import { buildSandboxIeltsAssignmentConfig } from "./seeds/ieltsOfficialFixtures.js";
 

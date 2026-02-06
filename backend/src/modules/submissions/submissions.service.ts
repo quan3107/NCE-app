@@ -3,7 +3,7 @@
  * Purpose: Implement submission workflows with Prisma-backed persistence.
  * Why: Keeps submission domain code organized and testable.
  */
-import { Prisma } from "../../prisma/generated/client/client.js";
+import { Prisma } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
 import {

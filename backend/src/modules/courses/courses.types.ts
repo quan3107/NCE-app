@@ -3,7 +3,7 @@
  * Purpose: Centralize shared course domain types for service layers.
  * Why: Keeps service files lean while reusing consistent response contracts.
  */
-import type { UserRole, UserStatus } from "../../prisma/generated/client/client.js";
+import type { UserRole, UserStatus } from "../../prisma/index.js";
 
 export type CourseManager = {
   id: string;

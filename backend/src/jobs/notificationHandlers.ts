@@ -3,7 +3,7 @@
  * Purpose: Provide notification job handlers for due-soon and weekly digest flows.
  * Why: Keeps scheduling logic isolated from pg-boss registration boilerplate.
  */
-import type { NotificationChannel, Prisma } from "../prisma/generated/client/client.js";
+import type { NotificationChannel, Prisma } from "../prisma/index.js";
 
 import { logger } from "../config/logger.js";
 import { prisma } from "../prisma/client.js";

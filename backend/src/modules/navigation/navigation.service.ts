@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "../../prisma/client.js";
-import type { UserRole } from "../../prisma/generated/client/client.js";
+import type { UserRole } from "../../prisma/index.js";
 import { getPermissionsForRole } from "../permissions/permissions.service.js";
 import { getFeatureFlagsForRole } from "../feature-flags/feature-flags.service.js";
 import type { NavigationResponse, NavigationItem } from "./navigation.types.js";

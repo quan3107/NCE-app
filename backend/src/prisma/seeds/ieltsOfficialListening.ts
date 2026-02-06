@@ -3,7 +3,7 @@
  * Purpose: Build official-structure IELTS Listening assignment configs.
  * Why: Ensures seeds match realistic 4-section IELTS progression with authentic prompts and transcripts.
  */
-import type { Prisma } from "../generated/client/client.js";
+import type { Prisma } from "../generated.js";
 import { nullAttempts, type IeltsFixtureVariant } from "./ieltsOfficialShared.js";
 
 const QUESTIONS_PER_SECTION = 10;

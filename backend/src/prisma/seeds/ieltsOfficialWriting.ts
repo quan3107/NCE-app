@@ -3,7 +3,7 @@
  * Purpose: Build official-structure IELTS Writing assignment configs.
  * Why: Keeps Academic and General Training seeds aligned to 2-task/60-minute requirements.
  */
-import type { Prisma } from "../generated/client/client.js";
+import type { Prisma } from "../generated.js";
 import { nullAttempts, type IeltsFixtureVariant } from "./ieltsOfficialShared.js";
 
 export function buildWritingAcademicConfigOfficial(

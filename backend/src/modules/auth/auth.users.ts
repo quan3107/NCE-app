@@ -3,7 +3,7 @@
  * Purpose: Share user status checks and response mapping for auth flows.
  * Why: Keeps access-control assertions consistent across auth modules.
  */
-import { UserRole, UserStatus } from "../../prisma/generated/client/client.js";
+import { UserRole, UserStatus } from "../../prisma/index.js";
 
 import { AUTH_ERROR, createAuthError } from "./auth.errors.js";
 import type { AuthenticatedUser } from "./auth.types.js";

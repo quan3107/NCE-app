@@ -3,7 +3,7 @@
  * Purpose: Implement assignment data access and validation via Prisma.
  * Why: Keeps assignment-specific operations encapsulated away from controllers.
  */
-import { Prisma, UserRole } from "../../prisma/generated/client/client.js";
+import { Prisma, UserRole } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
 import {

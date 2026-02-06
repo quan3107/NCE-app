@@ -3,7 +3,7 @@
  * Purpose: Export official IELTS fixture builders and title-based seed mappings.
  * Why: Lets all seed scripts share one deterministic source of assignmentConfig payloads.
  */
-import { AssignmentType, type Prisma } from "../generated/client/client.js";
+import { AssignmentType, type Prisma } from "../generated.js";
 import {
   buildListeningConfigOfficialFullComputer,
   buildListeningConfigOfficialLiteComputer,

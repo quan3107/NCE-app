@@ -4,7 +4,7 @@
  * Why: Ensures band conversion and idempotent scoring behave as expected.
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { AssignmentType } from '../../../src/prisma/generated/client/client.js';
+import { AssignmentType } from '../../../src/prisma/index.js';
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {

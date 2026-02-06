@@ -3,7 +3,7 @@
  * Purpose: Implement course data workflows backed by Prisma.
  * Why: Encapsulates course-specific logic to keep controllers slim.
  */
-import { Prisma } from "../../prisma/generated/client/client.js";
+import { Prisma } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";

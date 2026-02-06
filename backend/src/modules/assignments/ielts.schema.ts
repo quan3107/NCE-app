@@ -3,7 +3,7 @@
  * Purpose: Define IELTS assignment config + submission payload schemas by type/version.
  * Why: Ensures IELTS-specific payloads are validated consistently across create/update flows.
  */
-import { AssignmentType } from "../../prisma/generated/client/client.js";
+import { AssignmentType } from "../../prisma/index.js";
 import { z } from "zod";
 
 const IELTS_ASSIGNMENT_TYPES = [

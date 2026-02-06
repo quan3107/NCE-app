@@ -3,7 +3,7 @@
  * Purpose: Convert IELTS raw reading/listening scores to band values.
  * Why: Centralizes conversion tables for auto-scoring consistency.
  */
-import { AssignmentType } from "../../prisma/generated/client/client.js";
+import { AssignmentType } from "../../prisma/index.js";
 
 export type ReadingModule = "academic" | "general";
 

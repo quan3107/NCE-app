@@ -7,7 +7,7 @@ import {
   EnrollmentRole,
   Prisma,
   UserRole,
-} from "../../prisma/generated/client/client.js";
+} from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
 import { createHttpError } from "../../utils/httpError.js";

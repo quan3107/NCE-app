@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { Pool } from 'pg'
 import { config as loadEnv } from 'dotenv'
 
-import { Prisma, PrismaClient } from './generated/client/client.js'
+import { Prisma, PrismaClient } from './generated.js'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 if (process.env.NODE_ENV !== 'production') {

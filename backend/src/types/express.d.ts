@@ -3,7 +3,7 @@
  * Purpose: Augment Express request typing with the authenticated user context.
  * Why: Allows middleware to attach the logged-in user while keeping TypeScript aware downstream.
  */
-import type { UserRole } from "../prisma/generated/client/client.js";
+import type { UserRole } from "../prisma/index.js";
 
 declare module "express-serve-static-core" {
   interface Request {

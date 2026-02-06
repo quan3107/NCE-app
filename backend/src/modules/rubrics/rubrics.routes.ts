@@ -3,7 +3,7 @@
  * Purpose: Register course-scoped rubric endpoints.
  * Why: Keeps routing consistent with the PRD's course/rubric structure.
  */
-import { UserRole } from "../../prisma/generated/client/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";

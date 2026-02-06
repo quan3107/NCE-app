@@ -3,7 +3,7 @@
  * Purpose: Aggregate grade and submission analytics for teacher dashboards.
  * Why: Centralizes analytics computations so controllers remain thin and consistent.
  */
-import { EnrollmentRole, Prisma } from "../../prisma/generated/client/client.js";
+import { EnrollmentRole, Prisma } from "../../prisma/index.js";
 
 import { prisma } from "../../config/prismaClient.js";
 import { createHttpError } from "../../utils/httpError.js";

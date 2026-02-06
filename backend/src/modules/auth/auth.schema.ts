@@ -3,7 +3,7 @@
  * Purpose: Define validation schemas for upcoming authentication endpoints.
  * Why: Ensures request parsing is explicit and reusable once logic lands.
  */
-import { UserRole } from "../../prisma/generated/client/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { z } from "zod";
 
 const REGISTERABLE_ROLES = [
