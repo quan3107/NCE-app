@@ -18,6 +18,7 @@ import {
 
 const REFRESH_COOKIE_NAME = "refreshToken";
 const REFRESH_COOKIE_PATH = "/api/v1/auth";
+const REFRESH_COOKIE_LEGACY_PATH = "/";
 
 const secureCookie = config.nodeEnv === "production";
 const GOOGLE_OAUTH_COOKIE_MAX_AGE_MS = 1000 * 60 * 5; // 5 minutes
@@ -33,22 +34,29 @@ const readCookie = (req: Request, name: string): string | null => {
   }
 
   const pairs = cookieHeader.split(";");
+  const matches: string[] = [];
   for (const pair of pairs) {
     const [rawKey, ...rest] = pair.trim().split("=");
     if (!rawKey) {
       continue;
     }
     if (rawKey === name) {
-      const rawValue = rest.join("=") ?? "";
-      try {
-        return decodeURIComponent(rawValue);
-      } catch {
-        return rawValue;
-      }
+      matches.push(rest.join("=") ?? "");
     }
   }
 
-  return null;
+  if (matches.length === 0) {
+    return null;
+  }
+
+  // Prefer the most recently serialized cookie when duplicate names exist.
+  // This helps recover from old refreshToken cookies left on legacy paths.
+  const rawValue = matches[matches.length - 1] ?? "";
+  try {
+    return decodeURIComponent(rawValue);
+  } catch {
+    return rawValue;
+  }
 };
 
 const sessionContextFromRequest = (req: Request) => ({
@@ -61,6 +69,14 @@ const setRefreshCookie = (
   res: Response,
   value: string,
 ): void => {
+  // Clear historical root-path cookie variants before setting the scoped cookie.
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: secureCookie,
+    sameSite: "lax",
+    path: REFRESH_COOKIE_LEGACY_PATH,
+  });
+
   res.cookie(REFRESH_COOKIE_NAME, value, {
     httpOnly: true,
     secure: secureCookie,
@@ -71,6 +87,13 @@ const setRefreshCookie = (
 };
 
 const clearRefreshCookie = (res: Response): void => {
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: secureCookie,
+    sameSite: "lax",
+    path: REFRESH_COOKIE_LEGACY_PATH,
+  });
+
   res.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
     secure: secureCookie,
