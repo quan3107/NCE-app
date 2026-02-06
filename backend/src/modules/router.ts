@@ -13,6 +13,10 @@ import { auditLogRouter } from "./audit-logs/audit-logs.routes.js";
 import { courseRouter } from "./courses/courses.routes.js";
 import { enrollmentRouter } from "./enrollments/enrollments.routes.js";
 import { fileRouter } from "./files/files.routes.js";
+import {
+  fileUploadAllowedTypesRouter,
+  fileUploadLimitsRouter,
+} from "./file-upload-config/file-upload-config.routes.js";
 import { gradeRouter } from "./grades/grades.routes.js";
 import ieltsConfigRouter from "./ielts-config/ielts-config.routes.js";
 import { meRouter } from "./me/me.routes.js";
@@ -51,5 +55,7 @@ apiRouter.use(
 apiRouter.use("/submissions/:submissionId/grade", gradeRouter);
 apiRouter.use("/notifications", notificationRouter);
 apiRouter.use("/files", fileRouter);
+apiRouter.use("/config/file-upload-limits", fileUploadLimitsRouter);
+apiRouter.use("/config/allowed-file-types", fileUploadAllowedTypesRouter);
 apiRouter.use("/config/ielts", ieltsConfigRouter);
 apiRouter.use("/navigation", navigationRouter);
