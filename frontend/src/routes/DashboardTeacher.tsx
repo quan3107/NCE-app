@@ -4,7 +4,8 @@
  * Why: Keeps role-specific overview logic within the routing layer.
  */
 
-import { Clock, FileText, Gauge, Timer, Users } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, SlidersHorizontal } from 'lucide-react';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
@@ -14,9 +15,15 @@ import { formatDistanceToNow } from '@lib/utils';
 import { useTeacherAnalyticsQuery } from '@features/analytics/api';
 import { useAssignmentResources } from '@features/assignments/api';
 import { useCoursesQuery } from '@features/courses/api';
+import { DashboardStatsGrid } from '@features/dashboard-config/components/DashboardStatsGrid';
+import { DashboardWidgetEditor } from '@features/dashboard-config/components/DashboardWidgetEditor';
+import type { DashboardWidget } from '@features/dashboard-config/types';
+import { useDashboardConfig } from '@features/dashboard-config/useDashboardConfig';
 
 export function DashboardTeacherRoute() {
   const { navigate } = useRouter();
+  const [isWidgetEditorOpen, setIsWidgetEditorOpen] = useState(false);
+  const dashboardConfig = useDashboardConfig();
   const { assignments, submissions, isLoading: assignmentsLoading, error: assignmentsError } =
     useAssignmentResources();
   const coursesQuery = useCoursesQuery();
@@ -36,18 +43,24 @@ export function DashboardTeacherRoute() {
     (sum, course) => sum + course.enrolled,
     0,
   );
-  const formatRate = (value: number | null) =>
-    value === null ? 'N/A' : `${value.toFixed(1)}%`;
-  const formatDays = (value: number | null) =>
-    value === null ? 'N/A' : `${value.toFixed(1)} days`;
+  const widgetMetrics = {
+    'teacher.assignments_active': assignments.filter((assignment) => assignment.status === 'published').length,
+    'teacher.submissions_pending_grading': openSubmissions,
+    'teacher.students_total': totalStudents,
+    'teacher.submissions_on_time_rate': onTimeRate,
+    'teacher.grading_average_turnaround_days': avgTurnaround,
+  };
 
-  const stats = [
-    { label: 'Active Assignments', value: assignments.filter(a => a.status === 'published').length, icon: <FileText className="size-5" /> },
-    { label: 'Pending Grading', value: openSubmissions, icon: <Clock className="size-5 text-orange-500" /> },
-    { label: 'Total Students', value: totalStudents, icon: <Users className="size-5 text-blue-500" /> },
-    { label: 'On-time Rate', value: formatRate(onTimeRate), icon: <Gauge className="size-5 text-blue-500" /> },
-    { label: 'Avg Turnaround', value: formatDays(avgTurnaround), icon: <Timer className="size-5 text-green-500" /> },
-  ];
+  const handleSaveWidgetConfig = async (widgets: DashboardWidget[]) => {
+    await dashboardConfig.saveConfig({
+      widgets: widgets.map((widget) => ({
+        id: widget.id,
+        visible: widget.visible,
+        order: widget.order,
+        position: widget.position,
+      })),
+    });
+  };
 
   if (isLoading) {
     return (
@@ -84,23 +97,29 @@ export function DashboardTeacherRoute() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" description="Welcome back! Here's your overview." />
+      <PageHeader
+        title="Dashboard"
+        description="Welcome back! Here's your overview."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setIsWidgetEditorOpen(true)}
+            disabled={!dashboardConfig.config}
+          >
+            <SlidersHorizontal className="size-4" />
+            Customize
+          </Button>
+        }
+      />
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {stats.map((stat, index) => (
-            <Card key={index}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{stat.label}</p>
-                    <p className="text-3xl font-medium mt-1">{stat.value}</p>
-                  </div>
-                  <div>{stat.icon}</div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <DashboardStatsGrid
+          widgets={dashboardConfig.config?.widgets ?? []}
+          metrics={widgetMetrics}
+          gridClassName="grid sm:grid-cols-2 lg:grid-cols-5 gap-4"
+        />
 
         <div className="grid lg:grid-cols-2 gap-6">
           <Card>
@@ -158,6 +177,18 @@ export function DashboardTeacherRoute() {
           </Card>
         </div>
       </div>
+
+      {dashboardConfig.config && (
+        <DashboardWidgetEditor
+          open={isWidgetEditorOpen}
+          onOpenChange={setIsWidgetEditorOpen}
+          widgets={dashboardConfig.config.widgets}
+          onSave={handleSaveWidgetConfig}
+          onReset={dashboardConfig.resetConfig}
+          isSaving={dashboardConfig.isSaving}
+          isResetting={dashboardConfig.isResetting}
+        />
+      )}
     </div>
   );
 }

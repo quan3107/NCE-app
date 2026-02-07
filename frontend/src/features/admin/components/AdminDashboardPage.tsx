@@ -6,17 +6,36 @@
 
 import { Card, CardContent } from '@components/ui/card';
 import { PageHeader } from '@components/common/PageHeader';
-import { Users, BookOpen, CheckCircle2, FileText, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { Button } from '@components/ui/button';
 import { useAdminDashboardMetrics } from '@features/admin/api';
+import { DashboardStatsGrid } from '@features/dashboard-config/components/DashboardStatsGrid';
+import { DashboardWidgetEditor } from '@features/dashboard-config/components/DashboardWidgetEditor';
+import type { DashboardWidget } from '@features/dashboard-config/types';
+import { useDashboardConfig } from '@features/dashboard-config/useDashboardConfig';
 
 export function AdminDashboardPage() {
+  const [isWidgetEditorOpen, setIsWidgetEditorOpen] = useState(false);
+  const dashboardConfig = useDashboardConfig();
   const { metrics, isLoading, error, refetch } = useAdminDashboardMetrics();
-  const stats = [
-    { label: 'Total Users', value: metrics.users, icon: <Users className="size-5" /> },
-    { label: 'Courses', value: metrics.courses, icon: <BookOpen className="size-5" /> },
-    { label: 'Enrollments', value: metrics.enrollments, icon: <CheckCircle2 className="size-5" /> },
-    { label: 'Assignments', value: metrics.assignments, icon: <FileText className="size-5" /> },
-  ];
+  const widgetMetrics = {
+    'admin.users_total': metrics.users,
+    'admin.courses_total': metrics.courses,
+    'admin.enrollments_total': metrics.enrollments,
+    'admin.assignments_total': metrics.assignments,
+  };
+
+  const handleSaveWidgetConfig = async (widgets: DashboardWidget[]) => {
+    await dashboardConfig.saveConfig({
+      widgets: widgets.map((widget) => ({
+        id: widget.id,
+        visible: widget.visible,
+        order: widget.order,
+        position: widget.position,
+      })),
+    });
+  };
 
   return (
     <div>
@@ -24,19 +43,32 @@ export function AdminDashboardPage() {
         title="Admin Dashboard"
         description="System overview and management"
         actions={
-          <Card>
-            <CardContent className="py-2 px-3">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-                onClick={() => refetch()}
-                disabled={isLoading}
-              >
-                <RefreshCw className="size-4" />
-                Refresh
-              </button>
-            </CardContent>
-          </Card>
+          <div className="flex items-center gap-2">
+            <Card>
+              <CardContent className="py-2 px-3">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => refetch()}
+                  disabled={isLoading}
+                >
+                  <RefreshCw className="size-4" />
+                  Refresh
+                </button>
+              </CardContent>
+            </Card>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setIsWidgetEditorOpen(true)}
+              disabled={!dashboardConfig.config}
+            >
+              <SlidersHorizontal className="size-4" />
+              Customize
+            </Button>
+          </div>
         }
       />
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -53,23 +85,25 @@ export function AdminDashboardPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid sm:grid-cols-4 gap-4">
-            {stats.map((stat, index) => (
-              <Card key={index}>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
-                      <p className="text-3xl font-medium mt-1">{stat.value}</p>
-                    </div>
-                    <div className="text-muted-foreground">{stat.icon}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <DashboardStatsGrid
+            widgets={dashboardConfig.config?.widgets ?? []}
+            metrics={widgetMetrics}
+            gridClassName="grid sm:grid-cols-4 gap-4"
+          />
         )}
       </div>
+
+      {dashboardConfig.config && (
+        <DashboardWidgetEditor
+          open={isWidgetEditorOpen}
+          onOpenChange={setIsWidgetEditorOpen}
+          widgets={dashboardConfig.config.widgets}
+          onSave={handleSaveWidgetConfig}
+          onReset={dashboardConfig.resetConfig}
+          isSaving={dashboardConfig.isSaving}
+          isResetting={dashboardConfig.isResetting}
+        />
+      )}
     </div>
   );
 }
