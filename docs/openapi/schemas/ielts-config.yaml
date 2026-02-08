@@ -1,0 +1,39 @@
+# File: docs/openapi/schemas/ielts-config.yaml
+# Purpose: Define reusable IELTS config schemas for OpenAPI.
+# Why: Documents backend-driven option values consumed by IELTS authoring UIs.
+
+IeltsQuestionOption:
+  type: object
+  required: [value, label, score, enabled, sort_order]
+  properties:
+    value:
+      type: string
+      example: not_given
+    label:
+      type: string
+      example: Not Given
+    score:
+      type: integer
+      example: 0
+    enabled:
+      type: boolean
+      example: true
+    sort_order:
+      type: integer
+      example: 3
+
+IeltsQuestionOptionsResponse:
+  type: object
+  required: [type, version, options]
+  properties:
+    type:
+      type: string
+      enum: [true_false, yes_no]
+    version:
+      type: integer
+      minimum: 1
+      example: 1
+    options:
+      type: array
+      items:
+        $ref: '#/IeltsQuestionOption'
