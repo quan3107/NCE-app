@@ -26,6 +26,7 @@ tags:
   - name: files
   - name: navigation
   - name: dashboard-config
+  - name: ielts-config
   - name: cms
 
 paths:
@@ -47,6 +48,8 @@ paths:
 
   /api/v1/navigation:
     $ref: './paths/navigation.yaml#/Navigation'
+  /api/v1/config/ielts/question-options:
+    $ref: './paths/ielts-config.yaml#/QuestionOptions'
   /api/v1/config/dashboard-widgets:
     $ref: './paths/dashboard-config.yaml#/DashboardWidgetDefaults'
   /api/v1/me/dashboard-config:
