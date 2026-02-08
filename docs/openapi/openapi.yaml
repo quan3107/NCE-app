@@ -26,6 +26,7 @@ tags:
   - name: files
   - name: navigation
   - name: dashboard-config
+  - name: cms
 
 paths:
   /api/v1/auth/login:
@@ -50,6 +51,12 @@ paths:
     $ref: './paths/dashboard-config.yaml#/DashboardWidgetDefaults'
   /api/v1/me/dashboard-config:
     $ref: './paths/dashboard-config.yaml#/MeDashboardConfig'
+  /api/v1/cms/homepage-content:
+    $ref: './paths/cms.yaml#/HomepageContent'
+  /api/v1/cms/about-page-content:
+    $ref: './paths/cms.yaml#/AboutPageContent'
+  /api/v1/cms/refresh-stats:
+    $ref: './paths/cms.yaml#/RefreshStats'
 
   /api/v1/assignments/pending-count:
     $ref: './paths/assignments.yaml#/PendingAssignmentsCount'
