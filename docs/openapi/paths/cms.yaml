@@ -1,0 +1,71 @@
+# File: docs/openapi/paths/cms.yaml
+# Purpose: Define CMS marketing content OpenAPI path items.
+# Why: Documents public marketing reads and admin-only stats refresh behavior.
+
+HomepageContent:
+  get:
+    tags: [cms]
+    summary: Get homepage marketing content
+    responses:
+      '200':
+        description: Homepage CMS content
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/HomepageContent'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+
+AboutPageContent:
+  get:
+    tags: [cms]
+    summary: Get about page marketing content
+    responses:
+      '200':
+        description: About page CMS content
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/AboutPageContent'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+
+RefreshStats:
+  post:
+    tags: [cms]
+    summary: Refresh homepage stats with realtime data (admin only)
+    responses:
+      '200':
+        description: Homepage stats refreshed successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/RefreshStatsResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

@@ -1,7 +1,7 @@
 /**
  * Location: components/marketing/HowItWorks.tsx
- * Purpose: Render the How It Works component within the Marketing layer.
- * Why: Supports reuse under the refactored frontend structure.
+ * Purpose: Render the "How It Works" marketing section with CMS-driven copy.
+ * Why: Keeps heading, description, and cards editable from backend content.
  */
 
 import type { ReactNode } from 'react';
@@ -15,19 +15,22 @@ type Feature = {
 };
 
 type HowItWorksProps = {
+  sectionTitle: string;
+  sectionDescription: string;
   features: Feature[];
 };
 
-export function HowItWorks({ features }: HowItWorksProps) {
+export function HowItWorks({
+  sectionTitle,
+  sectionDescription,
+  features,
+}: HowItWorksProps) {
   return (
     <section className="py-20 bg-muted/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="mb-4">How It Works</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Our structured approach helps you improve systematically across all IELTS test components with expert guidance every
-            step of the way.
-          </p>
+          <h2 className="mb-4">{sectionTitle}</h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">{sectionDescription}</p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">

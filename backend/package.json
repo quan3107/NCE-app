@@ -31,6 +31,7 @@
     "verify:ielts-config": "tsx src/prisma/verifyIeltsConfig.ts",
     "seed:ielts": "tsx src/prisma/seedIeltsAssignments.ts",
     "seed:ielts-sandbox": "tsx src/prisma/seedIeltsSandbox.ts",
+    "seed:cms": "tsx src/prisma/seeds/cmsContent.seed.ts",
     "seed:navigation": "tsx src/prisma/seeds/navigation.seed.ts"
   },
   "exports": {
