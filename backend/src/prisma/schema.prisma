@@ -588,3 +588,46 @@ model IeltsSampleTimingOption {
   @@unique([id, configVersion])
   @@map("ielts_sample_timing_options")
 }
+
+// CMS Content models
+model CmsPageContent {
+id  String   @id @default(uuid()) @db.Uuid
+pageKey String @unique @map("page_key")
+label String
+isActive Boolean @default(true) @map("is_active")
+createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+sections CmsSection[]
+@@map("cms_page_contents")
+}
+
+model CmsSection {
+id String @id @default(uuid()) @db.Uuid
+pageId String @map("page_id") @db.Uuid
+sectionKey String @map("section_key") // 'hero', 'stats', 'features'
+label String
+sortOrder Int @default(0) @map("sort_order")
+isActive Boolean @default(true) @map("is_active")
+createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+page CmsPageContent @relation(fields: [pageId], references: [id], onDelete: Cascade)
+items CmsContentItem[]
+@@unique([pageId, sectionKey])
+@@index([pageId, sectionKey])
+@@map("cms_sections")
+}
+
+model CmsContentItem {
+id String @id @default(uuid()) @db.Uuid
+sectionId String @map("section_id") @db.Uuid
+itemKey String? @map("item_key") //optional identifier
+sortOrder Int @default(0) @map("sort_order")
+contentType String @map("content_type")
+contentJson Json @map("content_json")
+isActive Boolean @default(true) @map("is_active")
+createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+section CmsSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+@@index([sectionId, sortOrder, isActive])
+@@map("cms_content_items")
+}
