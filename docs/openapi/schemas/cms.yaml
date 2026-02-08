@@ -1,0 +1,120 @@
+# File: docs/openapi/schemas/cms.yaml
+# Purpose: Define CMS marketing response schemas.
+# Why: Documents homepage/about payload contracts consumed by the frontend.
+
+HeroContent:
+  type: object
+  properties:
+    badge:
+      type: string
+    title:
+      type: string
+    description:
+      type: string
+    cta_primary:
+      type: string
+    cta_secondary:
+      type: string
+  required: [badge, title, description, cta_primary, cta_secondary]
+
+StatItem:
+  type: object
+  properties:
+    label:
+      type: string
+    value:
+      type: number
+    format:
+      type: string
+      enum: [number, decimal, percentage]
+    suffix:
+      type: string
+  required: [label, value, format]
+
+FeatureItem:
+  type: object
+  properties:
+    icon:
+      type: string
+    title:
+      type: string
+    description:
+      type: string
+  required: [icon, title, description]
+
+HowItWorksContent:
+  type: object
+  properties:
+    title:
+      type: string
+    description:
+      type: string
+    features:
+      type: array
+      items:
+        $ref: './cms.yaml#/FeatureItem'
+  required: [title, description, features]
+
+HomepageContent:
+  type: object
+  properties:
+    hero:
+      $ref: './cms.yaml#/HeroContent'
+    stats:
+      type: array
+      items:
+        $ref: './cms.yaml#/StatItem'
+    howItWorks:
+      $ref: './cms.yaml#/HowItWorksContent'
+  required: [hero, stats, howItWorks]
+
+AboutHeroContent:
+  type: object
+  properties:
+    title:
+      type: string
+    description:
+      type: string
+  required: [title, description]
+
+ValueItem:
+  type: object
+  properties:
+    icon:
+      type: string
+    title:
+      type: string
+    description:
+      type: string
+  required: [icon, title, description]
+
+AboutStory:
+  type: object
+  properties:
+    sections:
+      type: array
+      items:
+        type: string
+  required: [sections]
+
+AboutPageContent:
+  type: object
+  properties:
+    hero:
+      $ref: './cms.yaml#/AboutHeroContent'
+    values:
+      type: array
+      items:
+        $ref: './cms.yaml#/ValueItem'
+    story:
+      $ref: './cms.yaml#/AboutStory'
+  required: [hero, values, story]
+
+RefreshStatsResponse:
+  type: object
+  properties:
+    message:
+      type: string
+    content:
+      $ref: './cms.yaml#/HomepageContent'
+  required: [message, content]
