@@ -61,6 +61,16 @@ export const ieltsSampleTimingOptionSchema = z.object({
   sort_order: z.number(),
 });
 
+export const ieltsQuestionOptionTypeSchema = z.enum(["true_false", "yes_no"]);
+
+export const ieltsQuestionOptionSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+  score: z.number(),
+  enabled: z.boolean(),
+  sort_order: z.number(),
+});
+
 export const ieltsConfigVersionSchema = z.object({
   version: z.number(),
   name: z.string(),
@@ -95,6 +105,12 @@ export const ieltsConfigVersionsResponseSchema = z.object({
   active_version: z.number(),
 });
 
+export const ieltsQuestionOptionsResponseSchema = z.object({
+  type: ieltsQuestionOptionTypeSchema,
+  version: z.number().int().positive(),
+  options: z.array(ieltsQuestionOptionSchema).min(1),
+});
+
 // ============================================================================
 // Inferred Types
 // ============================================================================
@@ -108,3 +124,6 @@ export type IeltsSampleTimingOption = z.infer<typeof ieltsSampleTimingOptionSche
 export type IeltsConfigVersion = z.infer<typeof ieltsConfigVersionSchema>;
 export type IeltsConfigResponse = z.infer<typeof ieltsConfigResponseSchema>;
 export type IeltsConfigVersionsResponse = z.infer<typeof ieltsConfigVersionsResponseSchema>;
+export type IeltsQuestionOptionType = z.infer<typeof ieltsQuestionOptionTypeSchema>;
+export type IeltsQuestionOption = z.infer<typeof ieltsQuestionOptionSchema>;
+export type IeltsQuestionOptionsResponse = z.infer<typeof ieltsQuestionOptionsResponseSchema>;
