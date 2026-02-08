@@ -5,6 +5,7 @@
  */
 import { Router } from "express";
 
+import cmsRoutes from './cms/cms.routes.js'
 import { analyticsRouter } from "./analytics/analytics.routes.js";
 import { assignmentsTopLevelRouter } from "./assignments/assignments-top-level.routes.js";
 import { assignmentRouter } from "./assignments/assignments.routes.js";
@@ -65,3 +66,4 @@ apiRouter.use("/config/allowed-file-types", fileUploadAllowedTypesRouter);
 apiRouter.use("/config/ielts", ieltsConfigRouter);
 apiRouter.use("/navigation", navigationRouter);
 apiRouter.use("/me/dashboard-config", meDashboardConfigRouter);
+apiRouter.use("/cms", cmsRoutes);
