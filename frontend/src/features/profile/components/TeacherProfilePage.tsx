@@ -11,14 +11,52 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Switch } from '@components/ui/switch';
 import { PageHeader } from '@components/common/PageHeader';
+import {
+  useMyNotificationPreferences,
+  useResetMyNotificationPreferences,
+  useSaveMyNotificationPreferences,
+} from '@features/notifications/preferences.api';
 import { useAuthStore } from '@store/authStore';
 import { Edit } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
 
 export function TeacherProfilePage() {
   const { currentUser } = useAuthStore();
   const [editing, setEditing] = useState(false);
+  const preferencesQuery = useMyNotificationPreferences();
+  const savePreferencesMutation = useSaveMyNotificationPreferences();
+  const resetPreferencesMutation = useResetMyNotificationPreferences();
 
   if (!currentUser) return null;
+
+  const preferenceTypes = preferencesQuery.data?.types ?? [];
+  const isSavingPreferences =
+    savePreferencesMutation.isPending || resetPreferencesMutation.isPending;
+
+  const handleTogglePreference = async (id: string, enabled: boolean) => {
+    try {
+      await savePreferencesMutation.mutateAsync({
+        types: [{ id, enabled }],
+      });
+    } catch (error) {
+      console.error('[notifications] failed to save teacher preference', {
+        id,
+        enabled,
+        error,
+      });
+      toast.error('Unable to save notification preference. Please try again.');
+    }
+  };
+
+  const handleResetPreferences = async () => {
+    try {
+      await resetPreferencesMutation.mutateAsync();
+      toast.success('Notification preferences reset to defaults.');
+    } catch (error) {
+      console.error('[notifications] failed to reset teacher preferences', { error });
+      toast.error('Unable to reset preferences. Please try again.');
+    }
+  };
 
   return (
     <div>
@@ -65,30 +103,48 @@ export function TeacherProfilePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Teaching Preferences</CardTitle>
+              <div className="flex items-center justify-between gap-4">
+                <CardTitle>Teaching Preferences</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetPreferences}
+                  disabled={isSavingPreferences}
+                >
+                  Reset
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Course Updates</Label>
-                  <p className="text-sm text-muted-foreground">Notifications about course changes</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Submission Alerts</Label>
-                  <p className="text-sm text-muted-foreground">Get alerted when students submit work</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Grading Reminders</Label>
-                  <p className="text-sm text-muted-foreground">Weekly reminders for pending grading</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
+              {preferencesQuery.isLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading notification preferences...
+                </p>
+              ) : preferencesQuery.error ? (
+                <p className="text-sm text-destructive">
+                  Unable to load notification preferences right now.
+                </p>
+              ) : preferenceTypes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No notification types are available for this role.
+                </p>
+              ) : (
+                preferenceTypes.map((type) => (
+                  <div key={type.id} className="flex items-center justify-between">
+                    <div>
+                      <Label>{type.label}</Label>
+                      <p className="text-sm text-muted-foreground">{type.description}</p>
+                    </div>
+                    <Switch
+                      checked={type.enabled}
+                      onCheckedChange={(enabled) =>
+                        void handleTogglePreference(type.id, enabled)
+                      }
+                      disabled={isSavingPreferences}
+                    />
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
