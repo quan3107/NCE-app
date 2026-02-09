@@ -168,6 +168,7 @@ export function AppRoutes() {
           <Route path="teacher/assignments/:assignmentId/detail" element={<TeacherAssignmentDetailWrapper />} />
           <Route path="teacher/assignments/:assignmentId/edit" element={<TeacherAssignmentEditWrapper />} />
           <Route path="teacher/submissions" element={<TeacherSubmissionsPage />} />
+          <Route path="teacher/notifications" element={<StudentNotificationsPage />} />
           <Route path="teacher/grade/:submissionId" element={<TeacherGradeFormWrapper />} />
           <Route path="teacher/rubrics" element={<TeacherRubricsPage />} />
           <Route path="teacher/analytics" element={<TeacherAnalyticsPage />} />
