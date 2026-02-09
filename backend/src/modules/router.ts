@@ -12,6 +12,7 @@ import { assignmentRouter } from "./assignments/assignments.routes.js";
 import { authRouter } from "./auth/auth.routes.js";
 import { auditLogRouter } from "./audit-logs/audit-logs.routes.js";
 import { courseRouter } from "./courses/courses.routes.js";
+import { courseManagementTabsRouter } from "./course-management-tabs/course-management-tabs.routes.js";
 import {
   dashboardWidgetsRouter,
   meDashboardConfigRouter,
@@ -66,6 +67,7 @@ apiRouter.use("/files", fileRouter);
 apiRouter.use("/config/file-upload-limits", fileUploadLimitsRouter);
 apiRouter.use("/config/allowed-file-types", fileUploadAllowedTypesRouter);
 apiRouter.use("/config/notification-types", notificationTypesConfigRouter);
+apiRouter.use("/config/course-management-tabs", courseManagementTabsRouter);
 apiRouter.use("/me/notification-preferences", meNotificationPreferencesRouter);
 apiRouter.use("/config/ielts", ieltsConfigRouter);
 apiRouter.use("/navigation", navigationRouter);
