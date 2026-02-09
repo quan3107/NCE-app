@@ -29,16 +29,17 @@ type ApiNotificationsReadResponse = {
   updatedCount: number;
 };
 
-const toNotification = (notification: ApiNotification): Notification => {
+export const mapApiNotificationToNotification = (
+  notification: ApiNotification,
+): Notification => {
   const payload = notification.payload ?? {};
   const payloadRecord = payload as Record<string, unknown>;
 
   return {
     id: notification.id,
     userId: notification.userId,
-    type: ['assignment_published', 'due_soon', 'graded', 'reminder'].includes(notification.type)
-      ? (notification.type as Notification['type'])
-      : 'reminder',
+    // Preserve raw backend notification keys so new types work without frontend deploys.
+    type: notification.type,
     title:
       typeof payloadRecord.title === 'string'
         ? payloadRecord.title
@@ -55,7 +56,7 @@ const toNotification = (notification: ApiNotification): Notification => {
 
 const fetchNotifications = async (): Promise<Notification[]> => {
   const response = await apiClient<ApiNotification[]>('/api/v1/notifications');
-  return response.map(toNotification);
+  return response.map(mapApiNotificationToNotification);
 };
 
 export function useNotificationsQuery() {
