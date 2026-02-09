@@ -4,7 +4,7 @@
  * Why: Keeps the feature module organized under the new structure.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@components/ui/tabs';
@@ -15,13 +15,75 @@ import { CheckCircle2, Clock, Bell } from 'lucide-react';
 import { formatDistanceToNow } from '@lib/utils';
 import { toast } from 'sonner@2.0.3';
 import { markNotificationsRead, useUserNotifications } from '@features/notifications/api';
+import {
+  getNotificationTypeFallback,
+  getNotificationTypeLabel,
+  useNotificationTypes,
+} from '@features/notifications/config.api';
+
+function getNotificationAccentClass(type: string): string {
+  if (type === 'graded') {
+    return 'text-green-500';
+  }
+  if (type === 'due_soon') {
+    return 'text-orange-500';
+  }
+  return 'text-blue-500';
+}
+
+function getNotificationIcon(type: string) {
+  if (type === 'graded') {
+    return <CheckCircle2 className="size-5" />;
+  }
+  if (type === 'due_soon') {
+    return <Clock className="size-5" />;
+  }
+  return <Bell className="size-5" />;
+}
 
 export function StudentNotificationsPage() {
   const { currentUser } = useAuthStore();
   const [filter, setFilter] = useState('all');
   const { notifications, isLoading, error } = useUserNotifications(currentUser?.id);
+  const notificationTypesQuery = useNotificationTypes();
 
   if (!currentUser) return null;
+
+  const configuredTypes = notificationTypesQuery.data ?? getNotificationTypeFallback();
+
+  const filterTypes = useMemo(() => {
+    const types = configuredTypes.map(type => ({
+      id: type.id,
+      label: type.label,
+      sortOrder: type.sortOrder,
+    }));
+    const known = new Set(types.map(type => type.id));
+
+    // Keep unknown backend types filterable even before config rows are added.
+    for (const notification of notifications) {
+      if (known.has(notification.type)) {
+        continue;
+      }
+      types.push({
+        id: notification.type,
+        label: getNotificationTypeLabel(notification.type, configuredTypes),
+        sortOrder: Number.MAX_SAFE_INTEGER,
+      });
+      known.add(notification.type);
+    }
+
+    return types.sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder || left.label.localeCompare(right.label),
+    );
+  }, [configuredTypes, notifications]);
+
+  useEffect(() => {
+    const validFilters = new Set(['all', 'unread', ...filterTypes.map(type => type.id)]);
+    if (!validFilters.has(filter)) {
+      setFilter('all');
+    }
+  }, [filter, filterTypes]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -60,8 +122,11 @@ export function StudentNotificationsPage() {
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="unread">Unread</TabsTrigger>
-                <TabsTrigger value="graded">Graded</TabsTrigger>
-                <TabsTrigger value="due_soon">Due Soon</TabsTrigger>
+                {filterTypes.map(type => (
+                  <TabsTrigger key={type.id} value={type.id}>
+                    {type.label}
+                  </TabsTrigger>
+                ))}
               </TabsList>
             </Tabs>
           </CardContent>
@@ -94,8 +159,8 @@ export function StudentNotificationsPage() {
                 <Card key={notification.id} className={notification.read ? 'opacity-60' : ''}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
-                      <div className={`mt-1 ${notification.type === 'graded' ? 'text-green-500' : notification.type === 'due_soon' ? 'text-orange-500' : 'text-blue-500'}`}>
-                        {notification.type === 'graded' ? <CheckCircle2 className="size-5" /> : notification.type === 'due_soon' ? <Clock className="size-5" /> : <Bell className="size-5" />}
+                      <div className={`mt-1 ${getNotificationAccentClass(notification.type)}`}>
+                        {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="mb-1">{notification.title}</h4>
