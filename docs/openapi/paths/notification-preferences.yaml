@@ -1,0 +1,85 @@
+# File: docs/openapi/paths/notification-preferences.yaml
+# Purpose: Define authenticated notification preference path items.
+# Why: Documents teacher filter endpoints that control backend notification delivery.
+
+MeNotificationPreferences:
+  get:
+    tags: [notification-preferences]
+    summary: Get notification preferences for the authenticated user
+    responses:
+      '200':
+        description: Notification preference configuration
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/notification-preferences.yaml#/MyNotificationPreferencesResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  put:
+    tags: [notification-preferences]
+    summary: Update notification preferences for the authenticated user
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/notification-preferences.yaml#/UpdateMyNotificationPreferencesRequest'
+    responses:
+      '200':
+        description: Updated notification preference configuration
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/notification-preferences.yaml#/MyNotificationPreferencesResponse'
+      '400':
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  delete:
+    tags: [notification-preferences]
+    summary: Reset notification preferences for the authenticated user
+    responses:
+      '204':
+        description: Preferences reset
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
