@@ -63,15 +63,40 @@ export type CourseStudentsResponse = {
   students: CourseStudentResponse[];
 };
 
+export type CourseAssignmentResponse = {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string | null;
+  type:
+    | 'file'
+    | 'link'
+    | 'text'
+    | 'quiz'
+    | 'reading'
+    | 'listening'
+    | 'writing'
+    | 'speaking';
+  dueAt: string | null;
+  latePolicy: Record<string, unknown> | string | null;
+  publishedAt: string | null;
+  assignmentConfig?: Record<string, unknown> | string | null;
+};
+
 export const courseDetailKey = (courseId: string) => ['courses', 'detail', courseId] as const;
 export const courseStudentsKey = (courseId: string) =>
   ['courses', courseId, 'students'] as const;
+export const courseAssignmentsKey = (courseId: string) =>
+  ['courses', courseId, 'assignments'] as const;
 
 export const fetchCourseDetail = (courseId: string): Promise<CourseDetailResponse> =>
   apiClient<CourseDetailResponse>(`/api/v1/courses/${courseId}`);
 
 export const fetchCourseStudents = (courseId: string): Promise<CourseStudentsResponse> =>
   apiClient<CourseStudentsResponse>(`/api/v1/courses/${courseId}/students`);
+
+export const fetchCourseAssignments = (courseId: string): Promise<CourseAssignmentResponse[]> =>
+  apiClient<CourseAssignmentResponse[]>(`/api/v1/courses/${courseId}/assignments`);
 
 export type AddCourseStudentPayload = {
   email: string;
@@ -118,5 +143,13 @@ export function useCourseStudentsQuery(courseId: string) {
   return useQuery({
     queryKey: courseStudentsKey(courseId),
     queryFn: () => fetchCourseStudents(courseId),
+  });
+}
+
+export function useCourseAssignmentsQuery(courseId: string) {
+  return useQuery({
+    queryKey: courseAssignmentsKey(courseId),
+    queryFn: () => fetchCourseAssignments(courseId),
+    enabled: Boolean(courseId),
   });
 }
