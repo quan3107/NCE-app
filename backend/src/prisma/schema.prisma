@@ -212,6 +212,23 @@ model NotificationTypeConfig {
   @@map("notification_type_configs")
 }
 
+model CourseManagementTabConfig {
+  id                 String   @id @default(uuid()) @db.Uuid
+  role               UserRole
+  tabId              String   @map("tab_id")
+  label              String
+  icon               String
+  requiredPermission String?  @map("required_permission")
+  sortOrder          Int      @default(0) @map("sort_order")
+  enabled            Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([role, tabId], map: "course_mgmt_tab_cfg_role_tab_key")
+  @@index([role, enabled, sortOrder], map: "course_mgmt_tab_cfg_role_enabled_sort_idx")
+  @@map("course_management_tab_configs")
+}
+
 model UserNotificationPreference {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @map("user_id") @db.Uuid
