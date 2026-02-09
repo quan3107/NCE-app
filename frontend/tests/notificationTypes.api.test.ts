@@ -191,3 +191,24 @@ test('fetchNotificationTypes logs error and falls back when request fails', asyn
     true,
   );
 });
+
+test('fetchNotificationTypes teacher fallback excludes graded type', async () => {
+  await withPatchedGlobals(
+    {
+      fetch: async () =>
+        new Response(JSON.stringify({ message: 'Service unavailable' }), {
+          status: 503,
+          headers: { 'content-type': 'application/json' },
+        }),
+      localStorage: createStorage(),
+    },
+    async () => {
+      const types = await fetchNotificationTypes('teacher');
+      assert.equal(types.some((type) => type.id === 'graded'), false);
+      assert.deepEqual(
+        types.map((type) => type.id),
+        ['new_submission', 'reminder', 'weekly_digest'],
+      );
+    },
+  );
+});
