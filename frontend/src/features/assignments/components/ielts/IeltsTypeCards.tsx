@@ -1,91 +1,83 @@
 /**
  * Location: features/assignments/components/ielts/IeltsTypeCards.tsx
- * Purpose: Render the IELTS skill type selector as a card grid.
- * Why: Matches PRD requirement for a visual 4-skill selector and improves scanability.
+ * Purpose: Render IELTS skill type cards using backend-driven metadata.
+ * Why: Keeps assignment type copy/icons/theme configurable and aligned across teacher flows.
  */
-
-import { BookOpenText, Headphones, Mic2, PenLine } from 'lucide-react';
 
 import { Card } from '@components/ui/card';
 import { cn } from '@components/ui/utils';
+import {
+  getIeltsTypeMetadataFallback,
+  useIeltsTypeMetadata,
+} from '@features/ielts-config/typeMetadata.api';
 import type { IeltsAssignmentType } from '@lib/ielts';
+
+import {
+  resolveTypeIcon,
+  resolveTypeTheme,
+} from './typeMetadata.ui';
 
 type IeltsTypeCardsProps = {
   value: IeltsAssignmentType | null;
   onChange: (value: IeltsAssignmentType) => void;
 };
 
-const IELTS_TYPES: Array<{
-  value: IeltsAssignmentType;
-  label: string;
-  description: string;
-  icon: typeof BookOpenText;
-}> = [
-  {
-    value: 'reading',
-    label: 'Reading',
-    description: 'Passage-based questions and answer keys.',
-    icon: BookOpenText,
-  },
-  {
-    value: 'listening',
-    label: 'Listening',
-    description: 'Audio sections with playback control.',
-    icon: Headphones,
-  },
-  {
-    value: 'writing',
-    label: 'Writing',
-    description: 'Task 1 visuals + Task 2 essays.',
-    icon: PenLine,
-  },
-  {
-    value: 'speaking',
-    label: 'Speaking',
-    description: 'Part 1-3 prompts and cue cards.',
-    icon: Mic2,
-  },
-];
-
 export function IeltsTypeCards({ value, onChange }: IeltsTypeCardsProps) {
+  const { data } = useIeltsTypeMetadata();
+  const types = data ?? getIeltsTypeMetadataFallback();
+
+  if (types.length === 0) {
+    return (
+      <Card className="p-4 text-sm text-muted-foreground border-dashed">
+        No IELTS assignment types are currently available.
+      </Card>
+    );
+  }
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {IELTS_TYPES.map((item) => {
-        const Icon = item.icon;
-        const isActive = value === item.value;
+      {types.map((item) => {
+        const Icon = resolveTypeIcon(item.icon);
+        const theme = resolveTypeTheme(item.theme);
+        const isActive = value === item.id;
+
         return (
           <button
-            key={item.value}
+            key={item.id}
             type="button"
-            onClick={() => onChange(item.value)}
+            onClick={() => onChange(item.id)}
             className="text-left group"
             aria-pressed={isActive}
-            aria-label={`${item.label}: ${item.description}`}
+            aria-label={`${item.title}: ${item.description}`}
           >
             <Card
               className={cn(
                 'p-5 transition-all duration-200 border-2',
-                'hover:border-primary/60 hover:shadow-md hover:scale-[1.02]',
-                isActive && 'border-primary/70 ring-2 ring-primary/40 shadow-md ielts-card-active',
-                !isActive && 'border-border'
+                'hover:shadow-md hover:scale-[1.02]',
+                isActive && 'ring-2 ring-primary/40 shadow-md ielts-card-active',
               )}
+              style={{ borderColor: isActive ? theme.borderColor : undefined }}
             >
               <div className="flex items-start gap-4">
                 <span
                   className={cn(
-                    'mt-0.5 inline-flex size-10 items-center justify-center rounded-full border-2 bg-white text-muted-foreground transition-colors',
-                    isActive && 'border-primary/50 text-primary bg-primary/5',
-                    !isActive && 'group-hover:border-primary/30 group-hover:text-primary/70'
+                    'mt-0.5 inline-flex size-10 items-center justify-center rounded-full border-2 bg-white transition-colors',
                   )}
+                  style={{
+                    borderColor: theme.borderColor,
+                    color: theme.borderColor,
+                    backgroundColor: isActive ? theme.colorFrom : '#FFFFFF',
+                  }}
                 >
                   <Icon className="size-5" />
                 </span>
                 <div className="space-y-1.5">
-                  <div className={cn(
-                    "font-semibold text-base",
-                    isActive && "text-primary"
-                  )}>{item.label}</div>
-                  <div className="text-xs text-muted-foreground leading-relaxed">{item.description}</div>
+                  <div className={cn('font-semibold text-base', isActive && 'text-primary')}>
+                    {item.title}
+                  </div>
+                  <div className="text-xs text-muted-foreground leading-relaxed">
+                    {item.description}
+                  </div>
                 </div>
               </div>
             </Card>

@@ -571,6 +571,9 @@ model IeltsAssignmentType {
   label          String
   description    String?
   icon           String?
+  themeColorFrom String?  @map("theme_color_from")
+  themeColorTo   String?  @map("theme_color_to")
+  themeBorderColor String? @map("theme_border_color")
   enabled        Boolean  @default(true)
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
