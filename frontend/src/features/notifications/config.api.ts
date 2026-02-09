@@ -96,22 +96,13 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       sortOrder: 1,
     },
     {
-      id: 'graded',
-      label: 'Graded',
-      description: 'When grading activity is completed.',
-      category: 'grading',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 2,
-    },
-    {
       id: 'reminder',
       label: 'Reminder',
       description: 'General reminders and workflow nudges.',
       category: 'general',
       defaultEnabled: true,
       enabled: true,
-      sortOrder: 3,
+      sortOrder: 2,
     },
     {
       id: 'weekly_digest',
@@ -120,7 +111,7 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       category: 'digest',
       defaultEnabled: true,
       enabled: true,
-      sortOrder: 4,
+      sortOrder: 3,
     },
   ],
   admin: [
