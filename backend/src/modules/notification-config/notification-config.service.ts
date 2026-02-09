@@ -53,6 +53,15 @@ const FALLBACK_NOTIFICATION_TYPES: Record<UserRole, NotificationTypeConfigItem[]
       enabled: true,
       sort_order: 4,
     },
+    {
+      id: "weekly_digest",
+      label: "Weekly Digest",
+      description: "A weekly summary of upcoming coursework.",
+      category: "digest",
+      default_enabled: true,
+      enabled: true,
+      sort_order: 5,
+    },
   ],
   teacher: [
     {
@@ -82,6 +91,15 @@ const FALLBACK_NOTIFICATION_TYPES: Record<UserRole, NotificationTypeConfigItem[]
       enabled: true,
       sort_order: 3,
     },
+    {
+      id: "weekly_digest",
+      label: "Weekly Digest",
+      description: "A weekly summary of assignment activity.",
+      category: "digest",
+      default_enabled: true,
+      enabled: true,
+      sort_order: 4,
+    },
   ],
   admin: [
     {
@@ -94,13 +112,22 @@ const FALLBACK_NOTIFICATION_TYPES: Record<UserRole, NotificationTypeConfigItem[]
       sort_order: 1,
     },
     {
+      id: "weekly_digest",
+      label: "Weekly Digest",
+      description: "A weekly platform activity summary.",
+      category: "digest",
+      default_enabled: true,
+      enabled: true,
+      sort_order: 2,
+    },
+    {
       id: "schedule_update",
       label: "Schedule Update",
       description: "When class schedules or events are updated.",
       category: "system",
       default_enabled: true,
       enabled: true,
-      sort_order: 2,
+      sort_order: 3,
     },
   ],
 };
