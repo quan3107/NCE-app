@@ -3,8 +3,9 @@
  * Purpose: Implement submission workflows with Prisma-backed persistence.
  * Why: Keeps submission domain code organized and testable.
  */
-import { Prisma } from "../../prisma/index.js";
+import { NotificationChannel, Prisma } from "../../prisma/index.js";
 
+import { logger } from "../../config/logger.js";
 import { prisma } from "../../prisma/client.js";
 import {
   createHttpError,
@@ -21,7 +22,12 @@ import {
   isIeltsAssignmentType,
   parseSubmissionPayloadForType,
 } from "../assignments/ielts.schema.js";
+import { resolveNotificationTypeEnabledForUsers } from "../notification-preferences/notification-preferences.service.js";
+import { enqueueNotification } from "../notifications/notifications.service.js";
 import { autoScoreSubmission } from "../scoring/ieltsScoring.service.js";
+
+const TEACHER_SUBMISSION_NOTIFICATION_TYPE = "new_submission";
+const TEACHER_SUBMISSION_CHANNELS: NotificationChannel[] = ["inapp", "email"];
 
 function parseOptionalDate(
   value: string | undefined,
@@ -50,6 +56,78 @@ function readNumber(value: unknown): number | undefined {
 }
 function readString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+async function enqueueTeacherSubmissionNotifications(input: {
+  assignmentId: string;
+  assignmentTitle: string;
+  courseId: string;
+  courseTitle: string;
+  studentId: string;
+  submissionId: string;
+  status: "submitted" | "late";
+  submittedAt: Date | null;
+}): Promise<void> {
+  const teacherEnrollments = await prisma.enrollment.findMany({
+    where: {
+      courseId: input.courseId,
+      roleInCourse: "teacher",
+      deletedAt: null,
+    },
+    select: {
+      userId: true,
+    },
+  });
+
+  const teacherIds = Array.from(
+    new Set(teacherEnrollments.map((enrollment) => enrollment.userId)),
+  );
+
+  if (teacherIds.length === 0) {
+    return;
+  }
+
+  const enabledByTeacher = await resolveNotificationTypeEnabledForUsers({
+    role: "teacher",
+    type: TEACHER_SUBMISSION_NOTIFICATION_TYPE,
+    userIds: teacherIds,
+  });
+
+  for (const teacherId of teacherIds) {
+    if (!enabledByTeacher.get(teacherId)) {
+      logger.info(
+        {
+          event: "teacher_notification_suppressed_by_preference",
+          teacher_id: teacherId,
+          type: TEACHER_SUBMISSION_NOTIFICATION_TYPE,
+          assignment_id: input.assignmentId,
+          submission_id: input.submissionId,
+        },
+        "Teacher notification suppressed because preference is disabled",
+      );
+      continue;
+    }
+
+    const payload: Prisma.InputJsonObject = {
+      submissionId: input.submissionId,
+      assignmentId: input.assignmentId,
+      assignmentTitle: input.assignmentTitle,
+      courseId: input.courseId,
+      courseTitle: input.courseTitle,
+      studentId: input.studentId,
+      submittedAt: input.submittedAt?.toISOString() ?? null,
+      status: input.status,
+      title: "New submission received",
+      message: `A student submitted work for ${input.assignmentTitle}.`,
+    };
+
+    await enqueueNotification({
+      userId: teacherId,
+      type: TEACHER_SUBMISSION_NOTIFICATION_TYPE,
+      payload,
+      channels: TEACHER_SUBMISSION_CHANNELS,
+    });
+  }
 }
 export async function listSubmissions(
   params: unknown,
@@ -96,7 +174,18 @@ export async function createSubmission(
 
   const assignment = await prisma.assignment.findFirst({
     where: { id: assignmentId, deletedAt: null },
-    select: { id: true, type: true, assignmentConfig: true },
+    select: {
+      id: true,
+      courseId: true,
+      title: true,
+      type: true,
+      assignmentConfig: true,
+      course: {
+        select: {
+          title: true,
+        },
+      },
+    },
   });
 
   if (!assignment) {
@@ -249,6 +338,30 @@ export async function createSubmission(
     ) {
       await autoScoreSubmission(updatedSubmission.id);
     }
+    if (status === "submitted" || status === "late") {
+      try {
+        await enqueueTeacherSubmissionNotifications({
+          assignmentId: assignment.id,
+          assignmentTitle: assignment.title,
+          courseId: assignment.courseId,
+          courseTitle: assignment.course?.title ?? "",
+          studentId: payload.studentId,
+          submissionId: updatedSubmission.id,
+          status,
+          submittedAt: updatedSubmission.submittedAt,
+        });
+      } catch (error) {
+        logger.error(
+          {
+            err: error,
+            event: "teacher_submission_notification_enqueue_failed",
+            assignment_id: assignment.id,
+            submission_id: updatedSubmission.id,
+          },
+          "Failed to enqueue teacher submission notifications",
+        );
+      }
+    }
     return updatedSubmission;
   }
 
@@ -282,6 +395,30 @@ export async function createSubmission(
     (assignment.type === "reading" || assignment.type === "listening")
   ) {
     await autoScoreSubmission(createdSubmission.id);
+  }
+  if (status === "submitted" || status === "late") {
+    try {
+      await enqueueTeacherSubmissionNotifications({
+        assignmentId: assignment.id,
+        assignmentTitle: assignment.title,
+        courseId: assignment.courseId,
+        courseTitle: assignment.course?.title ?? "",
+        studentId: payload.studentId,
+        submissionId: createdSubmission.id,
+        status,
+        submittedAt: createdSubmission.submittedAt,
+      });
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          event: "teacher_submission_notification_enqueue_failed",
+          assignment_id: assignment.id,
+          submission_id: createdSubmission.id,
+        },
+        "Failed to enqueue teacher submission notifications",
+      );
+    }
   }
   return createdSubmission;
 }
