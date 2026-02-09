@@ -435,6 +435,31 @@ const toString = (value: unknown, fallback = '') =>
 const toBoolean = (value: unknown, fallback: boolean) =>
   typeof value === 'boolean' ? value : fallback;
 
+const normalizeBooleanQuestionAnswer = (
+  type: IeltsQuestionType,
+  value: string,
+): string => {
+  if (type !== 'true_false_not_given' && type !== 'yes_no_not_given') {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === 'not given' || normalized === 'not_given') {
+    return 'not_given';
+  }
+
+  if (type === 'true_false_not_given' && (normalized === 'true' || normalized === 'false')) {
+    return normalized;
+  }
+
+  if (type === 'yes_no_not_given' && (normalized === 'yes' || normalized === 'no')) {
+    return normalized;
+  }
+
+  return value;
+};
+
 const normalizeQuestions = (value: unknown): IeltsQuestion[] => {
   if (!Array.isArray(value)) {
     return [createQuestion()];
@@ -476,14 +501,16 @@ const normalizeQuestions = (value: unknown): IeltsQuestion[] => {
         return null;
       }
       const record = item as Record<string, unknown>;
+      const questionType = (record.type as IeltsQuestionType) ?? 'multiple_choice';
+      const rawCorrectAnswer = toString(record.correctAnswer);
       const question: IeltsQuestion = {
         id: toString(record.id, createId()),
-        type: (record.type as IeltsQuestionType) ?? 'multiple_choice',
+        type: questionType,
         prompt: toString(record.prompt),
         options: Array.isArray(record.options)
           ? record.options.map((option) => toString(option))
           : [''],
-        correctAnswer: toString(record.correctAnswer),
+        correctAnswer: normalizeBooleanQuestionAnswer(questionType, rawCorrectAnswer),
       };
       // Preserve format field for completion questions
       if (record.format && typeof record.format === 'string') {

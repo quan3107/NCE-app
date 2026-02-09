@@ -83,6 +83,20 @@ const buildSampleTimingOptions = (
     sortOrder,
   }));
 
+const buildQuestionOptions = (
+  optionType: "true_false" | "yes_no",
+  rows: Array<[string, string, number, number]>,
+): Prisma.IeltsQuestionOptionCreateManyInput[] =>
+  rows.map(([value, label, score, sortOrder]) => ({
+    configVersion: CONFIG_VERSION,
+    optionType,
+    value,
+    label,
+    score,
+    enabled: true,
+    sortOrder,
+  }));
+
 const assignmentTypes = buildAssignmentTypes([
   ["reading", "Reading", "Reading comprehension test", "book-open", 1],
   [
@@ -178,6 +192,19 @@ const sampleTimingOptions = buildSampleTimingOptions([
   ],
 ]);
 
+const questionOptions = [
+  ...buildQuestionOptions("true_false", [
+    ["true", "True", 1, 1],
+    ["false", "False", 0, 2],
+    ["not_given", "Not Given", 0, 3],
+  ]),
+  ...buildQuestionOptions("yes_no", [
+    ["yes", "Yes", 1, 1],
+    ["no", "No", 0, 2],
+    ["not_given", "Not Given", 0, 3],
+  ]),
+];
+
 async function ensureConfigVersion(): Promise<void> {
   const active = await prisma.ieltsConfigVersion.findFirst({
     where: { isActive: true },
@@ -235,6 +262,10 @@ async function seedConfigTables(): Promise<void> {
     }),
     prisma.ieltsSampleTimingOption.createMany({
       data: sampleTimingOptions,
+      skipDuplicates: true,
+    }),
+    prisma.ieltsQuestionOption.createMany({
+      data: questionOptions,
       skipDuplicates: true,
     }),
   ]);

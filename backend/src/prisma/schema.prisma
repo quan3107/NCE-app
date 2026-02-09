@@ -492,8 +492,27 @@ model IeltsConfigVersion {
   speakingPartTypes    IeltsSpeakingPartType[]
   completionFormats    IeltsCompletionFormat[]
   sampleTimingOptions  IeltsSampleTimingOption[]
+  questionOptions      IeltsQuestionOption[]
 
   @@map("ielts_config_versions")
+}
+
+model IeltsQuestionOption {
+  id             String   @id @default(uuid()) @db.Uuid
+  configVersion  Int      @map("config_version")
+  optionType     String   @map("option_type") // 'true_false' or 'yes_no'
+  value          String
+  label          String
+  score          Int      @default(0)
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+
+  @@unique([configVersion, optionType, value], map: "ielts_question_opts_cfg_type_value_key")
+  @@index([configVersion, optionType, enabled, sortOrder], map: "ielts_question_opts_lookup_idx")
+  @@map("ielts_question_options")
 }
 
 model IeltsAssignmentType {

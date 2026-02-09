@@ -14,6 +14,7 @@ export type IeltsConfigReadinessCounts = {
   speakingPartTypes: number;
   completionFormats: number;
   sampleTimingOptions: number;
+  questionOptions: number;
 };
 
 export type IeltsConfigReadinessReport = {
@@ -33,6 +34,7 @@ function emptyCounts(): IeltsConfigReadinessCounts {
     speakingPartTypes: 0,
     completionFormats: 0,
     sampleTimingOptions: 0,
+    questionOptions: 0,
   };
 }
 
@@ -66,6 +68,7 @@ export async function getIeltsConfigReadinessReport(): Promise<IeltsConfigReadin
     speakingPartTypes,
     completionFormats,
     sampleTimingOptions,
+    questionOptions,
   ] = await Promise.all([
     prisma.ieltsConfigVersion.count(),
     prisma.ieltsAssignmentType.count({ where: { configVersion: activeVersion } }),
@@ -74,6 +77,7 @@ export async function getIeltsConfigReadinessReport(): Promise<IeltsConfigReadin
     prisma.ieltsSpeakingPartType.count({ where: { configVersion: activeVersion } }),
     prisma.ieltsCompletionFormat.count({ where: { configVersion: activeVersion } }),
     prisma.ieltsSampleTimingOption.count({ where: { configVersion: activeVersion } }),
+    prisma.ieltsQuestionOption.count({ where: { configVersion: activeVersion } }),
   ]);
 
   const counts: IeltsConfigReadinessCounts = {
@@ -84,6 +88,7 @@ export async function getIeltsConfigReadinessReport(): Promise<IeltsConfigReadin
     speakingPartTypes,
     completionFormats,
     sampleTimingOptions,
+    questionOptions,
   };
 
   const missing = Object.entries(counts)
@@ -98,4 +103,3 @@ export async function getIeltsConfigReadinessReport(): Promise<IeltsConfigReadin
     counts,
   };
 }
-

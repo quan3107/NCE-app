@@ -9,8 +9,12 @@ import {
   getIeltsConfigHandler,
   getIeltsConfigVersionsHandler,
 } from "./ielts-config.controller.js";
+import { getIeltsQuestionOptionsHandler } from "./ielts-question-options.controller.js";
 
 const router = Router();
+
+// GET /api/v1/config/ielts/question-options?type=true_false|yes_no
+router.get("/question-options", getIeltsQuestionOptionsHandler);
 
 // GET /api/v1/config/ielts - Get active config (or specific version via ?version=)
 router.get("/", getIeltsConfigHandler);

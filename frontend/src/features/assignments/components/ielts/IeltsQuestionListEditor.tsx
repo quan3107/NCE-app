@@ -22,6 +22,10 @@ import type {
   DiagramLabel,
 } from '@lib/ielts';
 import type { UploadFile } from '@lib/mock-data';
+import {
+  normalizeQuestionOptionValue,
+  useBooleanQuestionOptions,
+} from '@features/ielts-config/questionOptions.api';
 import { StringListEditor } from './StringListEditor';
 import { MatchingEditor } from './MatchingEditor';
 import { DiagramLabelingEditor } from './DiagramLabelingEditor';
@@ -62,9 +66,6 @@ const DIAGRAM_LABELING_TYPES = new Set<IeltsQuestionType>([
   'diagram_labeling',
   'map_diagram_labeling',
 ]);
-
-const TRUE_FALSE_OPTIONS = ['true', 'false', 'not given'];
-const YES_NO_OPTIONS = ['yes', 'no', 'not given'];
 
 const createId = () => globalThis.crypto?.randomUUID?.() ?? `q-${Date.now()}`;
 
@@ -121,6 +122,9 @@ export function IeltsQuestionListEditor({
   uploadedImages = {},
 }: IeltsQuestionListEditorProps) {
   const [localUploads, setLocalUploads] = useState<Record<string, Record<string, UploadFile[]>>>({});
+  const { trueFalseOptions, yesNoOptions } = useBooleanQuestionOptions();
+  const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? 'true';
+  const defaultYesNoValue = yesNoOptions[0]?.value ?? 'yes';
 
   const updateQuestion = (id: string, patch: Partial<IeltsQuestion>) => {
     onChange(questions.map((question) => (question.id === id ? { ...question, ...patch } : question)));
@@ -189,9 +193,9 @@ export function IeltsQuestionListEditor({
 
     // Reset correct answer for specific types
     if (newType === 'true_false_not_given') {
-      updates.correctAnswer = 'true';
+      updates.correctAnswer = defaultTrueFalseValue;
     } else if (newType === 'yes_no_not_given') {
-      updates.correctAnswer = 'yes';
+      updates.correctAnswer = defaultYesNoValue;
     } else if (!MATCHING_TYPES.has(newType) && !DIAGRAM_LABELING_TYPES.has(newType)) {
       updates.correctAnswer = '';
     }
@@ -356,20 +360,40 @@ export function IeltsQuestionListEditor({
                   <div className="space-y-2">
                     <Label>Correct Answer</Label>
                     <Select
-                      value={question.correctAnswer}
-                      onValueChange={(value) => updateQuestion(question.id, { correctAnswer: value })}
+                      value={
+                        (
+                          question.type === 'true_false_not_given'
+                            ? trueFalseOptions
+                            : yesNoOptions
+                        ).some(
+                          (option) =>
+                            option.value ===
+                            normalizeQuestionOptionValue(question.correctAnswer || ''),
+                        )
+                          ? normalizeQuestionOptionValue(question.correctAnswer || '')
+                          : question.type === 'true_false_not_given'
+                            ? defaultTrueFalseValue
+                            : defaultYesNoValue
+                      }
+                      onValueChange={(value) =>
+                        updateQuestion(question.id, {
+                          correctAnswer: normalizeQuestionOptionValue(value),
+                        })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select answer" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(question.type === 'true_false_not_given' ? TRUE_FALSE_OPTIONS : YES_NO_OPTIONS).map(
-                          (option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
+                        {(
+                          question.type === 'true_false_not_given'
+                            ? trueFalseOptions
+                            : yesNoOptions
+                        ).map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
                             </SelectItem>
-                          )
-                        )}
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>

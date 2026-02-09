@@ -1,0 +1,32 @@
+# File: docs/openapi/paths/ielts-config.yaml
+# Purpose: Document IELTS configuration endpoints.
+# Why: Keeps the OpenAPI contract aligned with backend-driven IELTS authoring config.
+
+QuestionOptions:
+  get:
+    tags: [ielts-config]
+    summary: Get option values for IELTS boolean-style question types
+    parameters:
+      - in: query
+        name: type
+        required: true
+        schema:
+          type: string
+          enum: [true_false, yes_no]
+      - in: query
+        name: version
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: IELTS question options for the requested type
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsQuestionOptionsResponse'
+      '400':
+        description: Invalid query parameters
+      '404':
+        description: Config version or options not found

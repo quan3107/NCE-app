@@ -26,11 +26,12 @@ import {
 } from '@components/ui/select';
 import { Trash2, Plus, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
 import type { UploadFile } from '@lib/mock-data';
+import {
+  normalizeQuestionOptionValue,
+  useBooleanQuestionOptions,
+} from '@features/ielts-config/questionOptions.api';
 import { MatchingEditor } from './MatchingEditor';
 import { DiagramLabelingEditor } from './DiagramLabelingEditor';
-
-const TRUE_FALSE_OPTIONS = ['true', 'false', 'not given'];
-const YES_NO_OPTIONS = ['yes', 'no', 'not given'];
 
 // Types that require options (multiple choice, etc.)
 const OPTION_BASED_TYPES: IeltsQuestionType[] = ['multiple_choice'];
@@ -88,6 +89,7 @@ export function QuestionEditor({
   canMoveDown,
 }: QuestionEditorProps) {
   const [localUploads, setLocalUploads] = useState<Record<string, UploadFile[]>>({});
+  const { trueFalseOptions, yesNoOptions } = useBooleanQuestionOptions();
 
   const needsOptions = OPTION_BASED_TYPES.includes(question.type);
   const isTrueFalse = question.type === 'true_false_not_given';
@@ -95,6 +97,8 @@ export function QuestionEditor({
   const isCompletion = question.type === 'completion';
   const isMatching = MATCHING_TYPES.includes(question.type);
   const isDiagramLabeling = DIAGRAM_LABELING_TYPES.includes(question.type);
+  const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? 'true';
+  const defaultYesNoValue = yesNoOptions[0]?.value ?? 'yes';
 
   const createId = () =>
     globalThis.crypto?.randomUUID?.() ?? `q-${Date.now()}-${Math.random()}`;
@@ -111,9 +115,9 @@ export function QuestionEditor({
     // Reset correct answer when switching to true/false/not given or yes/no/not given
     let newCorrectAnswer = question.correctAnswer;
     if (newType === 'true_false_not_given') {
-      newCorrectAnswer = 'true';
+      newCorrectAnswer = defaultTrueFalseValue;
     } else if (newType === 'yes_no_not_given') {
-      newCorrectAnswer = 'yes';
+      newCorrectAnswer = defaultYesNoValue;
     } else if (question.type === 'true_false_not_given' || question.type === 'yes_no_not_given') {
       newCorrectAnswer = '';
     }
@@ -400,32 +404,56 @@ export function QuestionEditor({
               <p className="text-xs text-muted-foreground">Correct Answer</p>
               {isTrueFalse ? (
                 <Select
-                  value={question.correctAnswer || 'true'}
-                  onValueChange={(value) => onChange({ ...question, correctAnswer: value })}
+                  value={
+                    trueFalseOptions.some(
+                      (option) =>
+                        option.value === normalizeQuestionOptionValue(question.correctAnswer || ''),
+                    )
+                      ? normalizeQuestionOptionValue(question.correctAnswer || '')
+                      : defaultTrueFalseValue
+                  }
+                  onValueChange={(value) =>
+                    onChange({
+                      ...question,
+                      correctAnswer: normalizeQuestionOptionValue(value),
+                    })
+                  }
                 >
                   <SelectTrigger className="w-[180px] h-8 text-xs">
                     <SelectValue placeholder="Select answer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {TRUE_FALSE_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option} className="text-xs capitalize">
-                        {option}
+                    {trueFalseOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value} className="text-xs">
+                        {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : isYesNo ? (
                 <Select
-                  value={question.correctAnswer || 'yes'}
-                  onValueChange={(value) => onChange({ ...question, correctAnswer: value })}
+                  value={
+                    yesNoOptions.some(
+                      (option) =>
+                        option.value === normalizeQuestionOptionValue(question.correctAnswer || ''),
+                    )
+                      ? normalizeQuestionOptionValue(question.correctAnswer || '')
+                      : defaultYesNoValue
+                  }
+                  onValueChange={(value) =>
+                    onChange({
+                      ...question,
+                      correctAnswer: normalizeQuestionOptionValue(value),
+                    })
+                  }
                 >
                   <SelectTrigger className="w-[180px] h-8 text-xs">
                     <SelectValue placeholder="Select answer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {YES_NO_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option} className="text-xs capitalize">
-                        {option}
+                    {yesNoOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value} className="text-xs">
+                        {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
