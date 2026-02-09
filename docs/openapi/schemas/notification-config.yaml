@@ -1,0 +1,38 @@
+# File: docs/openapi/schemas/notification-config.yaml
+# Purpose: Define role-scoped notification type config schemas for OpenAPI.
+# Why: Documents backend-driven notification filter metadata consumed by the frontend.
+
+NotificationTypeConfigItem:
+  type: object
+  required: [id, label, description, category, default_enabled, enabled, sort_order]
+  properties:
+    id:
+      type: string
+      example: due_soon
+    label:
+      type: string
+      example: Due Soon
+    description:
+      type: string
+      example: When an assignment deadline is approaching.
+    category:
+      type: string
+      example: assignments
+    default_enabled:
+      type: boolean
+      example: true
+    enabled:
+      type: boolean
+      example: true
+    sort_order:
+      type: integer
+      example: 2
+
+NotificationTypesResponse:
+  type: object
+  required: [types]
+  properties:
+    types:
+      type: array
+      items:
+        $ref: '#/NotificationTypeConfigItem'

@@ -22,6 +22,7 @@ tags:
   - name: submissions
   - name: grades
   - name: notifications
+  - name: notification-config
   - name: audit-logs
   - name: files
   - name: navigation
@@ -50,6 +51,8 @@ paths:
     $ref: './paths/navigation.yaml#/Navigation'
   /api/v1/config/ielts/question-options:
     $ref: './paths/ielts-config.yaml#/QuestionOptions'
+  /api/v1/config/notification-types:
+    $ref: './paths/notification-config.yaml#/NotificationTypes'
   /api/v1/config/dashboard-widgets:
     $ref: './paths/dashboard-config.yaml#/DashboardWidgetDefaults'
   /api/v1/me/dashboard-config:

@@ -1,0 +1,23 @@
+# File: docs/openapi/paths/notification-config.yaml
+# Purpose: Document notification type configuration endpoints.
+# Why: Keeps API contracts aligned with backend-driven notification filter metadata.
+
+NotificationTypes:
+  get:
+    tags: [notification-config]
+    summary: Get role-scoped notification type metadata
+    responses:
+      '200':
+        description: Notification type configuration
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/notification-config.yaml#/NotificationTypesResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

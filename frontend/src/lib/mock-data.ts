@@ -111,7 +111,8 @@ export type Grade = {
 export type Notification = {
   id: string;
   userId: string;
-  type: 'assignment_published' | 'due_soon' | 'graded' | 'reminder';
+  // Notification type keys are backend-driven and may expand over time.
+  type: string;
   title: string;
   message: string;
   timestamp: Date;
