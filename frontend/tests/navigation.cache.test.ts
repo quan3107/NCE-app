@@ -107,3 +107,14 @@ test('readNavigationCache expires stale entries', async () => {
     assert.equal(storage.getItem(key), null);
   });
 });
+
+test('teacher fallback navigation includes notifications entry', () => {
+  const payload = getFallbackNavigation('teacher');
+  const notificationsItem = payload.items.find((item) => item.path === '/teacher/notifications');
+
+  assert.ok(notificationsItem);
+  assert.equal(notificationsItem.label, 'Notifications');
+  assert.equal(notificationsItem.badgeSource, 'notifications');
+  assert.equal(notificationsItem.requiredPermission, 'notifications:read');
+  assert.equal(notificationsItem.orderIndex, 4);
+});
