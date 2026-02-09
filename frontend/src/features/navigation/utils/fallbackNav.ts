@@ -8,7 +8,7 @@ import type { Role } from '@lib/mock-data';
 
 import type { NavigationItem, NavigationPayload } from '../types';
 
-const FALLBACK_VERSION = 'fallback-2026-02-06-001';
+const FALLBACK_VERSION = 'fallback-2026-02-09-001';
 
 const n = (
   id: string,
@@ -54,9 +54,10 @@ const teacherItems: NavigationItem[] = [
   n('teacher-courses', 'Courses', '/teacher/courses', 'book-open', 1, { requiredPermission: 'courses:read' }),
   n('teacher-assignments', 'Assignments', '/teacher/assignments', 'file-text', 2, { requiredPermission: 'assignments:create' }),
   n('teacher-submissions', 'Submissions', '/teacher/submissions', 'scroll-text', 3, { requiredPermission: 'submissions:read', badgeSource: 'submissions' }),
-  n('teacher-rubrics', 'Rubrics', '/teacher/rubrics', 'book-marked', 4, { requiredPermission: 'rubrics:manage' }),
-  n('teacher-analytics', 'Analytics', '/teacher/analytics', 'bar-chart-3', 5, { requiredPermission: 'analytics:view' }),
-  n('teacher-profile', 'Profile', '/teacher/profile', 'user', 6, { requiredPermission: 'profile:view' }),
+  n('teacher-notifications', 'Notifications', '/teacher/notifications', 'bell', 4, { requiredPermission: 'notifications:read', badgeSource: 'notifications' }),
+  n('teacher-rubrics', 'Rubrics', '/teacher/rubrics', 'book-marked', 5, { requiredPermission: 'rubrics:manage' }),
+  n('teacher-analytics', 'Analytics', '/teacher/analytics', 'bar-chart-3', 6, { requiredPermission: 'analytics:view' }),
+  n('teacher-profile', 'Profile', '/teacher/profile', 'user', 7, { requiredPermission: 'profile:view' }),
 ];
 
 const adminItems: NavigationItem[] = [
@@ -78,7 +79,7 @@ const fallbackByRole: Record<Role, NavigationPayload> = {
   },
   teacher: {
     items: teacherItems,
-    permissions: ['dashboard:view', 'courses:read', 'courses:manage', 'assignments:create', 'assignments:edit', 'assignments:delete', 'submissions:read', 'submissions:grade', 'rubrics:manage', 'analytics:view', 'profile:view', 'profile:edit'],
+    permissions: ['dashboard:view', 'courses:read', 'courses:manage', 'assignments:create', 'assignments:edit', 'assignments:delete', 'submissions:read', 'submissions:grade', 'notifications:read', 'rubrics:manage', 'analytics:view', 'profile:view', 'profile:edit'],
     featureFlags: {},
     version: FALLBACK_VERSION,
   },
