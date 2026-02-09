@@ -11,17 +11,22 @@ const prisma = basePrisma;
 const CONFIG_VERSION = 1;
 
 const buildAssignmentTypes = (
-  rows: Array<[string, string, string, string, number]>,
+  rows: Array<[string, string, string, string, number, string, string, string]>,
 ): Prisma.IeltsAssignmentTypeCreateManyInput[] =>
-  rows.map(([id, label, description, icon, sortOrder]) => ({
+  rows.map(
+    ([id, label, description, icon, sortOrder, themeColorFrom, themeColorTo, themeBorderColor]) => ({
     id,
     configVersion: CONFIG_VERSION,
     label,
     description,
     icon,
+    themeColorFrom,
+    themeColorTo,
+    themeBorderColor,
     enabled: true,
     sortOrder,
-  }));
+  }),
+  );
 
 const buildQuestionTypes = (
   skillType: "reading" | "listening",
@@ -98,22 +103,46 @@ const buildQuestionOptions = (
   }));
 
 const assignmentTypes = buildAssignmentTypes([
-  ["reading", "Reading", "Reading comprehension test", "book-open", 1],
+  [
+    "reading",
+    "Reading",
+    "Create a reading test with passages and questions",
+    "book-open",
+    1,
+    "#EFF6FF",
+    "#DBEAFE",
+    "#BFDBFE",
+  ],
   [
     "listening",
     "Listening",
-    "Listening comprehension test",
+    "Build a listening test with audio sections",
     "headphones",
     2,
+    "#FAF5FF",
+    "#F3E8FF",
+    "#E9D5FF",
   ],
   [
     "writing",
     "Writing",
-    "Writing test with Task 1 and Task 2",
+    "Design Task 1 and Task 2 writing prompts",
     "pen-tool",
     3,
+    "#F0FDF4",
+    "#DCFCE7",
+    "#BBF7D0",
   ],
-  ["speaking", "Speaking", "Speaking test with three parts", "mic", 4],
+  [
+    "speaking",
+    "Speaking",
+    "Set up speaking test with all three parts",
+    "mic",
+    4,
+    "#FFF7ED",
+    "#FFEDD5",
+    "#FED7AA",
+  ],
 ]);
 
 const readingQuestionTypes = buildQuestionTypes("reading", [
