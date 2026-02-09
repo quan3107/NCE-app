@@ -16,7 +16,6 @@ import { formatDistanceToNow } from '@lib/utils';
 import { toast } from 'sonner@2.0.3';
 import { markNotificationsRead, useUserNotifications } from '@features/notifications/api';
 import {
-  getNotificationTypeFallback,
   getNotificationTypeLabel,
   useNotificationTypes,
 } from '@features/notifications/config.api';
@@ -43,18 +42,13 @@ function getNotificationIcon(type: string) {
 
 export function StudentNotificationsPage() {
   const { currentUser } = useAuthStore();
-  const notificationRole =
-    currentUser?.role === 'teacher' || currentUser?.role === 'admin'
-      ? currentUser.role
-      : 'student';
   const [filter, setFilter] = useState('all');
   const { notifications, isLoading, error } = useUserNotifications(currentUser?.id);
-  const notificationTypesQuery = useNotificationTypes(notificationRole);
+  const notificationTypesQuery = useNotificationTypes();
 
   if (!currentUser) return null;
 
-  const configuredTypes =
-    notificationTypesQuery.data ?? getNotificationTypeFallback(notificationRole);
+  const configuredTypes = notificationTypesQuery.data ?? [];
 
   const filterTypes = useMemo(() => {
     const types = configuredTypes.map(type => ({
