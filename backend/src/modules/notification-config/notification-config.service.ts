@@ -74,22 +74,13 @@ const FALLBACK_NOTIFICATION_TYPES: Record<UserRole, NotificationTypeConfigItem[]
       sort_order: 1,
     },
     {
-      id: "graded",
-      label: "Graded",
-      description: "When grading activity is completed.",
-      category: "grading",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 2,
-    },
-    {
       id: "reminder",
       label: "Reminder",
       description: "General reminders and workflow nudges.",
       category: "general",
       default_enabled: true,
       enabled: true,
-      sort_order: 3,
+      sort_order: 2,
     },
     {
       id: "weekly_digest",
@@ -98,7 +89,7 @@ const FALLBACK_NOTIFICATION_TYPES: Record<UserRole, NotificationTypeConfigItem[]
       category: "digest",
       default_enabled: true,
       enabled: true,
-      sort_order: 4,
+      sort_order: 3,
     },
   ],
   admin: [
