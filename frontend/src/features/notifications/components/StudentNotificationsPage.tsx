@@ -43,13 +43,18 @@ function getNotificationIcon(type: string) {
 
 export function StudentNotificationsPage() {
   const { currentUser } = useAuthStore();
+  const notificationRole =
+    currentUser?.role === 'teacher' || currentUser?.role === 'admin'
+      ? currentUser.role
+      : 'student';
   const [filter, setFilter] = useState('all');
   const { notifications, isLoading, error } = useUserNotifications(currentUser?.id);
-  const notificationTypesQuery = useNotificationTypes();
+  const notificationTypesQuery = useNotificationTypes(notificationRole);
 
   if (!currentUser) return null;
 
-  const configuredTypes = notificationTypesQuery.data ?? getNotificationTypeFallback();
+  const configuredTypes =
+    notificationTypesQuery.data ?? getNotificationTypeFallback(notificationRole);
 
   const filterTypes = useMemo(() => {
     const types = configuredTypes.map(type => ({

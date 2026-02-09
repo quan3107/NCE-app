@@ -23,6 +23,7 @@ tags:
   - name: grades
   - name: notifications
   - name: notification-config
+  - name: notification-preferences
   - name: audit-logs
   - name: files
   - name: navigation
@@ -46,6 +47,8 @@ paths:
 
   /api/v1/me:
     $ref: './paths/me.yaml#/Me'
+  /api/v1/me/notification-preferences:
+    $ref: './paths/notification-preferences.yaml#/MeNotificationPreferences'
 
   /api/v1/navigation:
     $ref: './paths/navigation.yaml#/Navigation'

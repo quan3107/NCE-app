@@ -11,6 +11,9 @@ vi.mock("../../../src/prisma/client.js", () => ({
     assignment: {
       findFirst: vi.fn(),
     },
+    enrollment: {
+      findMany: vi.fn(),
+    },
     submission: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -21,9 +24,32 @@ vi.mock("../../../src/prisma/client.js", () => ({
 vi.mock("../../../src/modules/scoring/ieltsScoring.service.js", () => ({
   autoScoreSubmission: vi.fn(),
 }));
+vi.mock(
+  "../../../src/modules/notification-preferences/notification-preferences.service.js",
+  () => ({
+    resolveNotificationTypeEnabledForUsers: vi.fn(),
+  }),
+);
+vi.mock("../../../src/modules/notifications/notifications.service.js", () => ({
+  enqueueNotification: vi.fn(),
+}));
 
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
+const notificationPreferencesModule = await import(
+  "../../../src/modules/notification-preferences/notification-preferences.service.js"
+);
+const notificationsModule = await import(
+  "../../../src/modules/notifications/notifications.service.js"
+);
+const resolveNotificationTypeEnabledForUsers = vi.mocked(
+  notificationPreferencesModule.resolveNotificationTypeEnabledForUsers,
+  true,
+);
+const enqueueNotification = vi.mocked(
+  notificationsModule.enqueueNotification,
+  true,
+);
 
 const { createSubmission } = await import(
   "../../../src/modules/submissions/submissions.service.js"
@@ -35,6 +61,8 @@ const studentId = "b9a2031b-9eac-4c77-9f11-4e7fbf3b5c2b";
 describe("submissions.service.createSubmission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.enrollment.findMany.mockResolvedValue([]);
+    resolveNotificationTypeEnabledForUsers.mockResolvedValue(new Map());
   });
 
   it("persists valid IELTS submission payloads", async () => {
@@ -191,5 +219,59 @@ describe("submissions.service.createSubmission", () => {
         { id: studentId, role: "student" },
       ),
     ).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it("enqueues teacher notifications only for enabled teachers on submission", async () => {
+    const assignmentRecord = {
+      id: assignmentId,
+      courseId: "course-1",
+      title: "Reading Practice",
+      type: "reading",
+      assignmentConfig: null,
+      course: {
+        title: "IELTS Reading",
+      },
+    };
+
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
+    prisma.submission.findUnique.mockResolvedValueOnce(null);
+    prisma.enrollment.findMany.mockResolvedValueOnce([
+      { userId: "teacher-1" },
+      { userId: "teacher-2" },
+      { userId: "teacher-1" },
+    ]);
+    resolveNotificationTypeEnabledForUsers.mockResolvedValueOnce(
+      new Map([
+        ["teacher-1", true],
+        ["teacher-2", false],
+      ]),
+    );
+    prisma.submission.create.mockResolvedValueOnce({
+      id: "submission-4",
+      submittedAt: new Date("2026-02-09T10:00:00.000Z"),
+    } as Submission);
+
+    await createSubmission(
+      { assignmentId },
+      {
+        studentId,
+        submittedAt: "2026-02-09T10:00:00.000Z",
+        payload: { version: 1, answers: [] },
+      },
+      { id: studentId, role: "student" },
+    );
+
+    expect(resolveNotificationTypeEnabledForUsers).toHaveBeenCalledWith({
+      role: "teacher",
+      type: "new_submission",
+      userIds: ["teacher-1", "teacher-2"],
+    });
+    expect(enqueueNotification).toHaveBeenCalledTimes(1);
+    expect(enqueueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "teacher-1",
+        type: "new_submission",
+      }),
+    );
   });
 });

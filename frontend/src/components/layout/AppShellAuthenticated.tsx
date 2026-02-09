@@ -4,7 +4,7 @@
  * Why: Removes hardcoded role navigation while preserving existing shell behavior and UX.
  */
 
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { BookOpen, Bell, GraduationCap, Info, LogOut, Menu, Settings, User, X } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
@@ -69,10 +69,10 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
   const showRoleSwitcher = ENABLE_DEV_AUTH_FALLBACK && authMode === 'persona';
   const profilePath = resolveProfilePath(currentUser.role);
 
-  const notificationPath = useMemo(
-    () => items.find((item) => item.badgeSource === 'notifications')?.path ?? '/student/notifications',
-    [items],
-  );
+  const defaultNotificationPath =
+    currentUser.role === 'teacher' ? '/teacher/notifications' : '/student/notifications';
+  const notificationPath =
+    items.find((item) => item.badgeSource === 'notifications')?.path ?? defaultNotificationPath;
 
   useEffect(() => {
     if (!import.meta.env.DEV) {
@@ -140,7 +140,7 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
 
         <div className="flex-1" />
 
-        {currentUser.role === 'student' && (
+        {(currentUser.role === 'student' || currentUser.role === 'teacher') && (
           <Button
             variant="ghost"
             size="icon"

@@ -97,6 +97,7 @@ describe("notification-config.service", () => {
     const payload = await getNotificationTypesForRole("teacher");
 
     expect(payload.types.length).toBeGreaterThan(0);
+    expect(payload.types.some((type) => type.id === "graded")).toBe(false);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         event: "notification_types_fallback_used",

@@ -1,0 +1,54 @@
+# File: docs/openapi/schemas/notification-preferences.yaml
+# Purpose: Define authenticated user notification preference payloads.
+# Why: Documents backend-managed teacher filter settings used to suppress delivery.
+
+NotificationPreferenceType:
+  type: object
+  properties:
+    id:
+      type: string
+    label:
+      type: string
+    description:
+      type: string
+    category:
+      type: string
+    default_enabled:
+      type: boolean
+    enabled:
+      type: boolean
+    sort_order:
+      type: integer
+  required: [id, label, description, category, default_enabled, enabled, sort_order]
+
+MyNotificationPreferencesResponse:
+  type: object
+  properties:
+    role:
+      type: string
+      enum: [student, teacher, admin]
+    version:
+      type: string
+    personalized:
+      type: boolean
+    types:
+      type: array
+      items:
+        $ref: '#/NotificationPreferenceType'
+  required: [role, version, personalized, types]
+
+UpdateMyNotificationPreferencesRequest:
+  type: object
+  properties:
+    types:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          enabled:
+            type: boolean
+        required: [id, enabled]
+  required: [types]

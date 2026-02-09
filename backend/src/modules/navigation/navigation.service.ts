@@ -10,7 +10,7 @@ import { getPermissionsForRole } from "../permissions/permissions.service.js";
 import { getFeatureFlagsForRole } from "../feature-flags/feature-flags.service.js";
 import type { NavigationResponse, NavigationItem } from "./navigation.types.js";
 
-const NAVIGATION_VERSION = "2025-02-05-001";
+const NAVIGATION_VERSION = "2026-02-09-001";
 
 /**
  * Get navigation items for a specific role.
