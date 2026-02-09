@@ -4,6 +4,7 @@
  * Why: Separates delivery concerns from scheduling and reminder logic.
  */
 import { logger } from "../config/logger.js";
+import { resolveNotificationTypeEnabledForUsers } from "../modules/notification-preferences/notification-preferences.service.js";
 import { prisma } from "../prisma/client.js";
 import { sendNotificationEmail } from "../utils/emailClient.js";
 
@@ -12,6 +13,7 @@ const DELIVERY_BATCH_SIZE = 50;
 const EMAIL_SUBJECTS: Record<string, string> = {
   due_soon: "Assignment due soon",
   graded: "Assignment graded",
+  new_submission: "New student submission",
   weekly_digest: "Weekly assignment digest",
 };
 
@@ -26,6 +28,7 @@ export async function handleDeliverQueuedJob(): Promise<void> {
         select: {
           email: true,
           fullName: true,
+          role: true,
         },
       },
     },
@@ -40,8 +43,43 @@ export async function handleDeliverQueuedJob(): Promise<void> {
     return;
   }
 
+  const teacherPreferenceCache = new Map<string, boolean>();
+
   for (const notification of queuedNotifications) {
     try {
+      if (notification.user.role === "teacher") {
+        const cacheKey = `${notification.userId}:${notification.type}`;
+        let enabled = teacherPreferenceCache.get(cacheKey);
+        if (enabled === undefined) {
+          const enabledMap = await resolveNotificationTypeEnabledForUsers({
+            role: "teacher",
+            type: notification.type,
+            userIds: [notification.userId],
+          });
+          enabled = enabledMap.get(notification.userId) ?? false;
+          teacherPreferenceCache.set(cacheKey, enabled);
+        }
+
+        if (!enabled) {
+          logger.info(
+            {
+              event: "notification_delivery_suppressed_by_preference",
+              notification_id: notification.id,
+              user_id: notification.userId,
+              type: notification.type,
+            },
+            "Queued notification delivery suppressed because preference is disabled",
+          );
+          await prisma.notification.update({
+            where: { id: notification.id },
+            data: {
+              status: "failed",
+            },
+          });
+          continue;
+        }
+      }
+
       if (notification.channel === "email") {
         const subject =
           EMAIL_SUBJECTS[notification.type] ?? "Notification update";
