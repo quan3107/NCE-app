@@ -4,36 +4,37 @@
  * Why: Keeps the screen orchestrator lean while sharing state via the course management hook.
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader } from '@components/common/PageHeader';
 import { Button } from '@components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
-import { ArrowLeft, BookOpen, Clock, Megaphone, Settings, Users } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useRouter } from '@lib/router';
 
 import { AddStudentDialog } from './components/dialogs/AddStudentDialog';
 import { AnnouncementDialog } from './components/dialogs/AnnouncementDialog';
+import { RubricDialog } from './components/dialogs/RubricDialog';
 import { AnnouncementsTab } from './components/tabs/AnnouncementsTab';
 import { DeadlinesTab } from './components/tabs/DeadlinesTab';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { StudentsTab } from './components/tabs/StudentsTab';
+import {
+  getCourseManagementTabsFallback,
+  useCourseManagementTabs,
+} from './courseTabs.config.api';
+import {
+  type ResolvedCourseTab,
+  isSupportedTabId,
+  toResolvedCourseTabs,
+  type TabValue,
+} from './courseTabs.ui';
 import { useTeacherCourseManagement } from './hooks/useTeacherCourseManagement';
-import { RubricDialog } from './components/dialogs/RubricDialog';
-
-const tabConfig = [
-  { value: 'overview', label: 'Overview', icon: BookOpen },
-  { value: 'students', label: 'Students', icon: Users },
-  { value: 'deadlines', label: 'Deadlines', icon: Clock },
-  { value: 'announcements', label: 'Announcements', icon: Megaphone },
-  { value: 'settings', label: 'Settings', icon: Settings },
-] as const;
-
-type TabValue = (typeof tabConfig)[number]['value'];
 
 export function TeacherCourseManagement({ courseId }: { courseId: string }) {
   const { navigate } = useRouter();
-  const [activeTab, setActiveTab] = useState<TabValue>('overview');
+  const [activeTab, setActiveTab] = useState<TabValue | ''>('');
+  const unsupportedTabWarningsRef = useRef(new Set<string>());
 
   const {
     course,
@@ -51,6 +52,32 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
     rubricHandlers,
     dialogs,
   } = useTeacherCourseManagement(courseId);
+
+  const tabsQuery = useCourseManagementTabs();
+
+  const configuredTabs = tabsQuery.data ?? getCourseManagementTabsFallback();
+
+  const visibleTabs = useMemo<ResolvedCourseTab[]>(
+    () => toResolvedCourseTabs(configuredTabs, unsupportedTabWarningsRef.current),
+    [configuredTabs],
+  );
+
+  const enabledTabIds = useMemo(() => new Set(visibleTabs.map((tab) => tab.value)), [visibleTabs]);
+
+  useEffect(() => {
+    if (visibleTabs.length === 0) {
+      if (activeTab !== '') {
+        setActiveTab('');
+      }
+      return;
+    }
+
+    if (activeTab && enabledTabIds.has(activeTab)) {
+      return;
+    }
+
+    setActiveTab(visibleTabs[0].value);
+  }, [activeTab, enabledTabIds, visibleTabs]);
 
   if (isLoading) {
     return (
@@ -114,44 +141,70 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
       />
 
       <div className="p-4 sm:p-6 lg:p-8">
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)}>
-          <TabsList className="mb-6 !flex w-full flex-wrap gap-2 md:flex-nowrap">
-            {tabConfig.map(({ value, label, icon: Icon }) => (
-              <TabsTrigger key={value} value={value}>
-                <Icon className="mr-2 size-4" />
-                {label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        {visibleTabs.length === 0 || !activeTab ? (
+          <div className="rounded-lg border border-dashed p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No course management tabs are currently available for this role.
+            </p>
+          </div>
+        ) : (
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              if (!isSupportedTabId(value)) {
+                return;
+              }
+              setActiveTab(value);
+            }}
+          >
+            <TabsList className="mb-6 !flex w-full flex-wrap gap-2 md:flex-nowrap">
+              {visibleTabs.map(({ value, label, Icon }) => (
+                <TabsTrigger key={value} value={value}>
+                  <Icon className="mr-2 size-4" />
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-          <TabsContent value="overview">
-            <OverviewTab details={details} handlers={detailsHandlers} stats={overviewStats} />
-          </TabsContent>
+            {enabledTabIds.has('overview') && (
+              <TabsContent value="overview">
+                <OverviewTab details={details} handlers={detailsHandlers} stats={overviewStats} />
+              </TabsContent>
+            )}
 
-          <TabsContent value="students">
-            <StudentsTab
-              enrollment={enrollment}
-              handlers={enrollmentHandlers}
-              onOpenAddStudent={() => dialogs.setShowAddStudent(true)}
-            />
-          </TabsContent>
+            {enabledTabIds.has('students') && (
+              <TabsContent value="students">
+                <StudentsTab
+                  enrollment={enrollment}
+                  handlers={enrollmentHandlers}
+                  onOpenAddStudent={() => dialogs.setShowAddStudent(true)}
+                />
+              </TabsContent>
+            )}
 
-          <TabsContent value="deadlines">
-            <DeadlinesTab assignments={assignments} onCreateAssignment={handleNavigateToAssignments} />
-          </TabsContent>
+            {enabledTabIds.has('deadlines') && (
+              <TabsContent value="deadlines">
+                <DeadlinesTab assignments={assignments} onCreateAssignment={handleNavigateToAssignments} />
+              </TabsContent>
+            )}
 
-          <TabsContent value="announcements">
-            <AnnouncementsTab onCreateAnnouncement={() => dialogs.setShowAnnouncement(true)} />
-          </TabsContent>
+            {enabledTabIds.has('announcements') && (
+              <TabsContent value="announcements">
+                <AnnouncementsTab onCreateAnnouncement={() => dialogs.setShowAnnouncement(true)} />
+              </TabsContent>
+            )}
 
-          <TabsContent value="settings">
-            <SettingsTab
-              rubric={rubric}
-              handlers={rubricHandlers}
-              onEditRubric={() => dialogs.setShowEditRubric(true)}
-            />
-          </TabsContent>
-        </Tabs>
+            {enabledTabIds.has('settings') && (
+              <TabsContent value="settings">
+                <SettingsTab
+                  rubric={rubric}
+                  handlers={rubricHandlers}
+                  onEditRubric={() => dialogs.setShowEditRubric(true)}
+                />
+              </TabsContent>
+            )}
+          </Tabs>
+        )}
       </div>
 
       <AddStudentDialog
