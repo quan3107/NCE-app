@@ -24,6 +24,7 @@ model User {
   submissions   Submission[]   @relation("SubmissionStudent")
   grades        Grade[]        @relation("SubmissionGrader")
   notifications Notification[]
+  notificationPreferences UserNotificationPreference[]
   files         File[]
   sessions      AuthSession[]
   identities    Identity[]
@@ -209,6 +210,20 @@ model NotificationTypeConfig {
   @@unique([role, type], map: "notification_type_cfg_role_type_key")
   @@index([role, enabled, sortOrder], map: "notification_type_cfg_role_enabled_sort_idx")
   @@map("notification_type_configs")
+}
+
+model UserNotificationPreference {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String
+  enabled   Boolean  @default(true)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, type], map: "user_notification_prefs_user_type_key")
+  @@index([userId, type, enabled], map: "user_notification_prefs_user_type_enabled_idx")
+  @@map("user_notification_preferences")
 }
 
 model File {
