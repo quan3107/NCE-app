@@ -26,6 +26,7 @@ import { gradeRouter } from "./grades/grades.routes.js";
 import ieltsConfigRouter from "./ielts-config/ielts-config.routes.js";
 import { meRouter } from "./me/me.routes.js";
 import { navigationRouter } from "./navigation/navigation.routes.js";
+import { notificationTypesConfigRouter } from "./notification-config/notification-config.routes.js";
 import { notificationRouter } from "./notifications/notifications.routes.js";
 import {
   courseDefaultRubricTemplateRouter,
@@ -63,6 +64,7 @@ apiRouter.use("/notifications", notificationRouter);
 apiRouter.use("/files", fileRouter);
 apiRouter.use("/config/file-upload-limits", fileUploadLimitsRouter);
 apiRouter.use("/config/allowed-file-types", fileUploadAllowedTypesRouter);
+apiRouter.use("/config/notification-types", notificationTypesConfigRouter);
 apiRouter.use("/config/ielts", ieltsConfigRouter);
 apiRouter.use("/navigation", navigationRouter);
 apiRouter.use("/me/dashboard-config", meDashboardConfigRouter);
