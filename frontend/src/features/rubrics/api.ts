@@ -8,6 +8,10 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
+import type {
+  RubricTemplateAssignmentType,
+  RubricTemplateContext,
+} from '@lib/backend-schema';
 
 export type RubricLevel = {
   label: string;
@@ -36,14 +40,6 @@ export type CreateRubricRequest = {
   criteria: RubricCriterion[];
 };
 
-export type RubricTemplateContext = 'course' | 'assignment' | 'grading';
-export type RubricTemplateAssignmentType =
-  | 'reading'
-  | 'listening'
-  | 'writing'
-  | 'speaking'
-  | 'generic';
-
 export type RubricTemplateLevel = {
   label: string;
   points: number;
@@ -64,7 +60,7 @@ export type RubricTemplate = {
   name: string;
   context: RubricTemplateContext;
   assignmentType: RubricTemplateAssignmentType;
-  source: 'system' | 'course';
+  source: string;
   criteria: RubricTemplateCriterion[];
 };
 
