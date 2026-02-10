@@ -13,7 +13,7 @@ import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import { Card, CardContent } from '@components/ui/card';
 import type { DiagramLabel } from '@lib/ielts';
-import type { UploadFile } from '@types/domain';
+import type { UploadFile } from '@domain';
 import { FileUploader } from '@components/common/FileUploader';
 
 type DiagramLabelingEditorProps = {
