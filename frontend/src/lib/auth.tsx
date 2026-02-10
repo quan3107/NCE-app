@@ -25,7 +25,7 @@ import {
   isPersonaKey,
   roleToPersonaKey,
 } from './devPersonas';
-import type { Role, User } from '@types/domain';
+import type { Role, User } from '@domain';
 
 type AuthMode = 'live' | 'persona';
 type SupportedRole = Exclude<Role, 'public'>;
@@ -49,7 +49,7 @@ type AuthSuccessResponse = {
   accessToken: string;
 };
 
-type RegisterRole = Extract<SupportedRole, 'admin' | 'student' | 'teacher'>;
+type RegisterRole = SupportedRole;
 
 export type RegisterPayload = {
   fullName: string;
