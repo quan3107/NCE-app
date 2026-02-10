@@ -4,7 +4,7 @@
  * Why: Keeps frontend mock auth aligned with backend guard requirements during development.
  */
 
-import type { Role, User } from '@types/domain';
+import type { Role, User } from '@domain';
 
 export type PersonaKey = 'admin' | 'teacher' | 'student';
 
