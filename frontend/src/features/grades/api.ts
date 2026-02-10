@@ -9,7 +9,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { ApiError, apiClient } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
-import type { Assignment, Grade, Submission } from '@types/domain';
+import type { Assignment, Grade, Submission } from '@domain';
 import { queryClient } from '@lib/queryClient';
 
 const GRADES_KEY = 'grades:list';
