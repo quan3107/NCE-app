@@ -4,7 +4,9 @@
  * Why: Keeps core role/user contracts independent from any mock data module.
  */
 
-export type Role = 'student' | 'teacher' | 'admin' | 'public';
+import type { UserRole } from '@lib/backend-schema';
+
+export type Role = UserRole | 'public';
 
 export type User = {
   id: string;
