@@ -4,7 +4,7 @@
  * Why: Keeps the main assignment detail page concise and focused.
  */
 
-import type { Assignment } from '@types/domain';
+import type { Assignment } from '@domain';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Label } from '@components/ui/label';
