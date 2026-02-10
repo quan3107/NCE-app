@@ -15,6 +15,7 @@ import { Checkbox } from '@components/ui/checkbox';
 import { useAuth } from '@lib/auth';
 import { ApiError } from '@lib/apiClient';
 import { useRouter } from '@lib/router';
+import type { UserRole } from '@lib/backend-schema';
 import { GraduationCap, Mail, Lock, Chrome, User, UserCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
@@ -89,7 +90,7 @@ export function AuthRegister() {
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
-        role: formData.role as 'admin' | 'student' | 'teacher',
+        role: formData.role as UserRole,
       });
 
       toast.success('Account created successfully!');
