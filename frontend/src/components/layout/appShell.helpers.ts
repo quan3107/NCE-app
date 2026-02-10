@@ -5,7 +5,7 @@
  */
 
 import type { BadgeCounts, BadgeSource } from '@features/navigation/types';
-import type { Role } from '@types/domain';
+import type { Role } from '@domain';
 
 export const DASHBOARD_PATH_BY_ROLE: Record<Role, string> = {
   student: '/student/dashboard',
