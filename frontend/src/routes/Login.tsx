@@ -15,7 +15,7 @@ import { Label } from '@components/ui/label';
 import { Separator } from '@components/ui/separator';
 import { ApiError } from '@lib/apiClient';
 import { ENABLE_DEV_AUTH_FALLBACK } from '@lib/constants';
-import type { Role } from '@types/domain';
+import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
 import { toast } from 'sonner@2.0.3';
