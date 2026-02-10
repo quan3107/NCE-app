@@ -7,8 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
-
-export type IeltsQuestionOptionType = 'true_false' | 'yes_no';
+import type { IeltsQuestionOptionType } from '@lib/backend-schema';
 
 export type IeltsQuestionOption = {
   value: string;
