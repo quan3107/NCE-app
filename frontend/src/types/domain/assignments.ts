@@ -4,18 +4,15 @@
  * Why: Centralizes frontend contracts without relying on mock data modules.
  */
 
-export type AssignmentType =
-  | 'file'
-  | 'link'
-  | 'text'
-  | 'quiz'
-  | 'reading'
-  | 'listening'
-  | 'writing'
-  | 'speaking';
+import type {
+  AssignmentType as BackendAssignmentType,
+  SubmissionStatus as BackendSubmissionStatus,
+} from '@lib/backend-schema';
+
+export type AssignmentType = BackendAssignmentType;
 
 export type AssignmentStatus = 'draft' | 'published' | 'archived';
-export type SubmissionStatus = 'not_submitted' | 'draft' | 'submitted' | 'late' | 'graded';
+export type SubmissionStatus = 'not_submitted' | BackendSubmissionStatus;
 
 export type SubmissionFile = {
   id: string;
