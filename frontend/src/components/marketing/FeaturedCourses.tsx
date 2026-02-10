@@ -1,15 +1,15 @@
 /**
  * Location: components/marketing/FeaturedCourses.tsx
- * Purpose: Render top courses, preferring live backend data with mock fallback during outages.
- * Why: Keeps the landing page resilient while we transition from mock-driven previews.
+ * Purpose: Render top courses from backend data on the public marketing surface.
+ * Why: Prevents fabricated fallback course content when backend data is unavailable.
  */
 
-import type { MouseEvent } from 'react';
+import { useEffect, useRef, type MouseEvent } from 'react';
 
 import { ArrowRight, CheckCircle2, Users } from 'lucide-react';
 
 import { useCoursesQuery } from '@features/courses/api';
-import { mockCourses, type Course } from '@lib/mock-data';
+import type { Course } from '@types/domain';
 import { Button } from '@components/ui/button';
 import { Badge } from '@components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
@@ -21,17 +21,48 @@ type FeaturedCoursesProps = {
 
 export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesProps) {
   const { data: backendCourses, isLoading, error } = useCoursesQuery();
+  const loggedErrorRef = useRef(false);
 
   const hasBackendCourses = Array.isArray(backendCourses) && backendCourses.length > 0;
-  const shouldUseFallback = (!isLoading && !hasBackendCourses) || Boolean(error);
-
-  const resolvedCourses: Course[] = shouldUseFallback
-    ? mockCourses
-    : backendCourses ?? [];
+  const courses: Course[] = backendCourses ?? [];
   const showSkeletons = isLoading && !hasBackendCourses;
 
-  // Prefer live data while keeping the marketing surface populated when the API is offline.
-  const courses = resolvedCourses;
+  useEffect(() => {
+    if (!error || loggedErrorRef.current) {
+      return;
+    }
+
+    console.warn('[marketing] backend featured courses unavailable; no fallback courses rendered', {
+      endpoint: '/api/v1/courses',
+      reason: 'request_failed',
+      fallbackCount: 0,
+    });
+    loggedErrorRef.current = true;
+  }, [error]);
+
+  if (error) {
+    return (
+      <section className="py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-12">
+            <div>
+              <h2 className="mb-2">Featured IELTS Courses</h2>
+              <p className="text-muted-foreground">Comprehensive training for all IELTS test sections</p>
+            </div>
+            <Button variant="outline" onClick={onViewAll}>
+              View All
+              <ArrowRight className="ml-2 size-4" />
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">Featured courses are currently unavailable.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-20">
@@ -62,7 +93,8 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
                   </CardContent>
                 </Card>
               ))
-            : courses.map(course => (
+            : courses.length > 0
+              ? courses.map(course => (
                 <Card
                   key={course.id}
                   className="hover:shadow-md transition-shadow cursor-pointer"
@@ -97,7 +129,14 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
                     </Button>
                   </CardContent>
                 </Card>
-              ))}
+                ))
+              : (
+                <Card className="md:col-span-3">
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground">No featured courses are available right now.</p>
+                  </CardContent>
+                </Card>
+                )}
         </div>
       </div>
     </section>
