@@ -4,7 +4,8 @@
  * Why: Keeps components and hooks aligned on data/state shapes after splitting files.
  */
 
-import type { Assignment } from '@types/domain';
+import type { Assignment } from '@domain';
+import type { UserStatus } from '@lib/backend-schema';
 
 export type ManagedCourse = {
   id: string;
@@ -30,7 +31,7 @@ export type EnrolledStudent = {
   id: string;
   name: string;
   email: string;
-  status: 'active' | 'invited' | 'suspended';
+  status: UserStatus;
   enrolledAt: string;
 };
 
