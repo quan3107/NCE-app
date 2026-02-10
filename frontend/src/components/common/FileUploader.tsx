@@ -10,7 +10,7 @@ import { Button } from '@components/ui/button';
 import { Progress } from '@components/ui/progress';
 import { cn } from '@components/ui/utils';
 import { formatFileSize } from '@lib/utils';
-import type { SubmissionFile, UploadFile } from '@types/domain';
+import type { SubmissionFile, UploadFile } from '@domain';
 import {
   FALLBACK_FILE_UPLOAD_POLICY,
   UploadStage,
