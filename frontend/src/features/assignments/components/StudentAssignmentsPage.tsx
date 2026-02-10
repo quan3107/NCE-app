@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
-import type { SubmissionStatus } from '@types/domain';
+import type { SubmissionStatus } from '@domain';
 import { Search, FileText, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow, formatDate } from '@lib/utils';
 import { useAssignmentResources } from '@features/assignments/api';
