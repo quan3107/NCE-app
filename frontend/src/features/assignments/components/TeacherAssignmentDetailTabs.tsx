@@ -5,7 +5,7 @@
  */
 
 import type { ReactNode } from 'react';
-import type { Assignment, Submission } from '@types/domain';
+import type { Assignment, Submission } from '@domain';
 import type { IeltsAssignmentConfig, IeltsAssignmentType } from '@lib/ielts';
 import { Badge } from '@components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
