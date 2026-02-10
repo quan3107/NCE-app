@@ -9,7 +9,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
-import type { Assignment, Enrollment, Submission, SubmissionFile } from '@lib/mock-data';
+import type { Assignment, Enrollment, Submission, SubmissionFile } from '@types/domain';
 import { queryClient } from '@lib/queryClient';
 import { useCoursesQuery } from '@features/courses/api';
 

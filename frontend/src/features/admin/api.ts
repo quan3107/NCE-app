@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
-import { AuditLog, User } from '@lib/mock-data';
+import type { AuditLog, User } from '@types/domain';
 import { queryClient } from '@lib/queryClient';
 import { useAssignmentResources } from '@features/assignments/api';
 import { useCoursesQuery } from '@features/courses/api';

@@ -4,7 +4,7 @@
  * Why: Supports fast startup and short offline resilience with safe parsing/expiry checks.
  */
 
-import type { Role } from '@lib/mock-data';
+import type { Role } from '@types/domain';
 
 import type {
   BadgeCacheRecord,

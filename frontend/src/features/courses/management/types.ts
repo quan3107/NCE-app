@@ -4,7 +4,7 @@
  * Why: Keeps components and hooks aligned on data/state shapes after splitting files.
  */
 
-import type { Assignment } from '@lib/mock-data';
+import type { Assignment } from '@types/domain';
 
 export type ManagedCourse = {
   id: string;

@@ -30,7 +30,7 @@ import { StudentProfilePage } from '@features/profile/components/StudentProfileP
 import { TeacherProfilePage } from '@features/profile/components/TeacherProfilePage';
 import { TeacherRubricsPage } from '@features/rubrics/components/TeacherRubricsPage';
 import { NavigationProvider } from '@features/navigation';
-import { Role } from '@lib/mock-data';
+import type { Role } from '@types/domain';
 import { useAuthStore } from '@store/authStore';
 import { AboutRoute } from '@routes/About';
 import { ContactRoute } from '@routes/Contact';

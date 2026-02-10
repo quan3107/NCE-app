@@ -25,7 +25,7 @@ import {
   isPersonaKey,
   roleToPersonaKey,
 } from './devPersonas';
-import type { Role, User } from './mock-data';
+import type { Role, User } from '@types/domain';
 
 type AuthMode = 'live' | 'persona';
 type SupportedRole = Exclude<Role, 'public'>;

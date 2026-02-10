@@ -15,7 +15,7 @@ import { PageHeader } from '@components/common/PageHeader';
 import { toast } from 'sonner@2.0.3';
 
 import { useRouter } from '@lib/router';
-import type { Assignment } from '@lib/mock-data';
+import type { Assignment } from '@types/domain';
 import { cn } from '@components/ui/utils';
 import {
   createIeltsAssignmentConfig,

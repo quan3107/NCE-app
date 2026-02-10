@@ -4,7 +4,7 @@
  * Why: Preserves baseline navigation behavior during API failures or first-load offline cases.
  */
 
-import type { Role } from '@lib/mock-data';
+import type { Role } from '@types/domain';
 
 import type { NavigationItem, NavigationPayload } from '../types';
 

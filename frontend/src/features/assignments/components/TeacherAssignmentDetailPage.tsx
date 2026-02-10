@@ -31,7 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import type { Assignment } from '@lib/mock-data';
+import type { Assignment } from '@types/domain';
 
 export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
   const { navigate } = useRouter();

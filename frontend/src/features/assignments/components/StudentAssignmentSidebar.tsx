@@ -4,7 +4,7 @@
  * Why: Keeps the main assignment detail page concise and focused.
  */
 
-import { Assignment } from '@lib/mock-data';
+import type { Assignment } from '@types/domain';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Label } from '@components/ui/label';

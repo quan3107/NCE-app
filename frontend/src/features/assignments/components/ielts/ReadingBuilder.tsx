@@ -14,7 +14,7 @@ import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import type { IeltsReadingConfig, IeltsReadingSection } from '@lib/ielts';
 import { useEnabledReadingQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
-import type { UploadFile } from '@lib/mock-data';
+import type { UploadFile } from '@types/domain';
 import { IeltsQuestionListEditor } from './IeltsQuestionListEditor';
 
 type ReadingBuilderProps = {

@@ -16,7 +16,7 @@ import { useRouter } from '@lib/router';
 import { Clock, FileText, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { formatDate, formatFileSize } from '@lib/utils';
 import { toast } from 'sonner@2.0.3';
-import type { Submission, SubmissionFile } from '@lib/mock-data';
+import type { Submission, SubmissionFile } from '@types/domain';
 import { useAssignmentResources, useCreateSubmissionMutation } from '@features/assignments/api';
 import { StudentAssignmentSubmitDialog } from '@features/assignments/components/StudentAssignmentSubmitDialog';
 import { StudentAssignmentSidebar } from '@features/assignments/components/StudentAssignmentSidebar';

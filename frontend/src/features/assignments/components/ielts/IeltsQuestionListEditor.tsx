@@ -21,7 +21,7 @@ import type {
   MatchingOption,
   DiagramLabel,
 } from '@lib/ielts';
-import type { UploadFile } from '@lib/mock-data';
+import type { UploadFile } from '@types/domain';
 import {
   normalizeQuestionOptionValue,
   useBooleanQuestionOptions,
