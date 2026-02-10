@@ -22,6 +22,7 @@ import {
   useRemoveEnrollmentMutation,
 } from '@features/admin/api';
 import { useCoursesQuery } from '@features/courses/api';
+import type { EnrollmentRole } from '@lib/backend-schema';
 
 export function AdminEnrollmentsPage() {
   const enrollmentsQuery = useAdminEnrollmentsQuery();
@@ -225,7 +226,7 @@ export function AdminEnrollmentsPage() {
                   await createEnrollmentMutation.mutateAsync({
                     courseId: formState.courseId,
                     userId: formState.userId,
-                    roleInCourse: formState.roleInCourse as 'student' | 'teacher',
+                    roleInCourse: formState.roleInCourse as EnrollmentRole,
                   });
                   toast.success('Enrollment created.');
                   setShowCreateDialog(false);
