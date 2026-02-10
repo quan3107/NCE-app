@@ -15,7 +15,7 @@ import { Switch } from '@components/ui/switch';
 import { Textarea } from '@components/ui/textarea';
 import type { IeltsListeningConfig, IeltsListeningSection } from '@lib/ielts';
 import { useEnabledListeningQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
-import type { UploadFile } from '@types/domain';
+import type { UploadFile } from '@domain';
 import { FileUploader } from '@components/common/FileUploader';
 import { IeltsQuestionListEditor } from './IeltsQuestionListEditor';
 
