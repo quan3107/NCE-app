@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@comp
 import { formatDate } from '@lib/utils';
 import { Calendar, Clock, Edit, Plus } from 'lucide-react';
 
-import type { Assignment } from '@types/domain';
+import type { Assignment } from '@domain';
 
 type DeadlinesTabProps = {
   assignments: Assignment[];
