@@ -7,7 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
-import type { Course } from '@types/domain';
+import type { Course } from '@domain';
 import { queryClient } from '@lib/queryClient';
 
 const COURSES_KEY = ['courses', 'list'] as const;
