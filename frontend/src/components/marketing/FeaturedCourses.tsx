@@ -9,7 +9,7 @@ import { useEffect, useRef, type MouseEvent } from 'react';
 import { ArrowRight, CheckCircle2, Users } from 'lucide-react';
 
 import { useCoursesQuery } from '@features/courses/api';
-import type { Course } from '@types/domain';
+import type { Course } from '@domain';
 import { Button } from '@components/ui/button';
 import { Badge } from '@components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
