@@ -8,7 +8,8 @@ import { useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
-import type { AuditLog, User } from '@types/domain';
+import type { EnrollmentRole, UserRole, UserStatus } from '@lib/backend-schema';
+import type { AuditLog, User } from '@domain';
 import { queryClient } from '@lib/queryClient';
 import { useAssignmentResources } from '@features/assignments/api';
 import { useCoursesQuery } from '@features/courses/api';
@@ -21,15 +22,15 @@ type ApiUser = {
   id: string;
   email: string;
   fullName: string;
-  role: User['role'];
-  status: string;
+  role: UserRole;
+  status: UserStatus;
 };
 
 type ApiEnrollment = {
   id: string;
   courseId: string;
   userId: string;
-  roleInCourse: 'student' | 'teacher';
+  roleInCourse: EnrollmentRole;
   createdAt: string;
 };
 
@@ -65,14 +66,14 @@ type ApiAuditLogPage = {
 type CreateUserRequest = {
   email: string;
   fullName: string;
-  role: User['role'];
-  status: 'active' | 'invited' | 'suspended';
+  role: UserRole;
+  status: UserStatus;
 };
 
 type CreateEnrollmentRequest = {
   courseId: string;
   userId: string;
-  roleInCourse: 'student' | 'teacher';
+  roleInCourse: EnrollmentRole;
 };
 
 type CreateCourseRequest = {
