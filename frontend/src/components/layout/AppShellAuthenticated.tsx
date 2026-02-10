@@ -20,7 +20,7 @@ import { useNavigationContext } from '@features/navigation';
 import { NavigationItem as NavigationItemRow } from '@features/navigation/components/NavigationItem';
 import { clearBadgeCache, clearNavigationCache } from '@features/navigation/utils/cache';
 import { ENABLE_DEV_AUTH_FALLBACK } from '@lib/constants';
-import { type Role } from '@types/domain';
+import { type Role } from '@domain';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
