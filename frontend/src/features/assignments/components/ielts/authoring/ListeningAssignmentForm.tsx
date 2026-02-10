@@ -38,7 +38,7 @@ import {
 import type { IeltsListeningConfig, IeltsQuestion } from '@lib/ielts';
 import { createIeltsAssignmentConfig } from '@lib/ielts';
 import { useEnabledListeningQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
-import type { UploadFile } from '@types/domain';
+import type { UploadFile } from '@domain';
 import { QuestionEditor } from '../QuestionEditor';
 import { SortableSectionCard } from './SortableSectionCard';
 import { AudioPlayer } from '@components/ui/audio-player';
