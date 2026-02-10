@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search, Edit } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useAdminUsersQuery, useCreateUserMutation } from '@features/admin/api';
+import type { UserRole, UserStatus } from '@lib/backend-schema';
 
 export function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -198,8 +199,8 @@ export function AdminUsersPage() {
                   await createUserMutation.mutateAsync({
                     fullName: formState.fullName.trim(),
                     email: formState.email.trim(),
-                    role: formState.role as 'admin' | 'teacher' | 'student',
-                    status: formState.status as 'active' | 'invited' | 'suspended',
+                    role: formState.role as UserRole,
+                    status: formState.status as UserStatus,
                   });
                   toast.success('User created.');
                   setShowCreateDialog(false);
