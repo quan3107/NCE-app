@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@components/ui/textarea';
 import { toast } from 'sonner@2.0.3';
 
-import type { Assignment, Course } from '@types/domain';
+import type { Assignment, Course } from '@domain';
 import {
   createIeltsAssignmentConfig,
   isIeltsAssignmentType,
