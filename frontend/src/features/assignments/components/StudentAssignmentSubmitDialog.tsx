@@ -4,7 +4,7 @@
  * Why: Keeps the detail page lean while reusing the same submit form UI.
  */
 
-import type { Assignment, SubmissionFile } from '@types/domain';
+import type { Assignment, SubmissionFile } from '@domain';
 import { Button } from '@components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
 import { Input } from '@components/ui/input';
