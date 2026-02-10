@@ -31,7 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import type { Assignment } from '@types/domain';
+import type { Assignment } from '@domain';
 
 export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
   const { navigate } = useRouter();
