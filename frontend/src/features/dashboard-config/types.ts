@@ -4,7 +4,7 @@
  * Why: Keeps dashboard pages and config hooks aligned on a validated payload shape.
  */
 
-export type DashboardRole = 'student' | 'teacher' | 'admin';
+import type { DashboardRole } from '@lib/backend-schema';
 
 export type DashboardWidgetPosition = {
   x: number;
@@ -13,7 +13,7 @@ export type DashboardWidgetPosition = {
   h: number;
 };
 
-export type DashboardWidgetValueFormat = 'number' | 'percent' | 'days' | string;
+export type DashboardWidgetValueFormat = string;
 
 export type DashboardWidgetDefault = {
   id: string;
@@ -63,8 +63,6 @@ export type UpdateMyDashboardConfigRequest = {
   }>;
 };
 
-const DASHBOARD_ROLES: DashboardRole[] = ['student', 'teacher', 'admin'];
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
@@ -82,7 +80,7 @@ const isPosition = (value: unknown): value is DashboardWidgetPosition => {
 };
 
 const isDashboardRole = (value: unknown): value is DashboardRole =>
-  typeof value === 'string' && DASHBOARD_ROLES.includes(value as DashboardRole);
+  typeof value === 'string' && value.length > 0;
 
 const isDashboardWidgetDefault = (value: unknown): value is DashboardWidgetDefault => {
   if (!isRecord(value)) {
