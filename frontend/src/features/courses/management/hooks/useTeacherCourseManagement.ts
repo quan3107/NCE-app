@@ -8,13 +8,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner@2.0.3';
 
 import { ApiError } from '@lib/apiClient';
-import { mockAssignments, type Assignment } from '@lib/mock-data';
+import type { Assignment } from '@lib/mock-data';
 import { useCourseDefaultRubricTemplateQuery } from '@features/rubrics/api';
 
 import {
   addCourseStudent,
+  type CourseAssignmentResponse,
   type CourseDetailResponse,
   type CourseStudentResponse,
+  useCourseAssignmentsQuery,
   useCourseDetailQuery,
   useCourseStudentsQuery,
 } from '../api';
@@ -147,9 +149,59 @@ const toAddStudentErrorMessage = (error: unknown): string => {
   return 'Unable to add student right now';
 };
 
+const toLatePolicy = (value: Record<string, unknown> | string | null): string => {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  return JSON.stringify(value);
+};
+
+const toAssignmentConfig = (
+  value: CourseAssignmentResponse['assignmentConfig'],
+): Record<string, unknown> | null => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as Record<string, unknown>;
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return value;
+};
+
+const toManagedAssignment = (
+  assignment: CourseAssignmentResponse,
+  courseName: string,
+): Assignment => ({
+  id: assignment.id,
+  title: assignment.title,
+  description: assignment.description ?? '',
+  type: assignment.type,
+  courseId: assignment.courseId,
+  courseName,
+  dueAt: assignment.dueAt ? new Date(assignment.dueAt) : new Date(),
+  publishedAt: assignment.publishedAt ? new Date(assignment.publishedAt) : undefined,
+  status: assignment.publishedAt ? 'published' : 'draft',
+  latePolicy: toLatePolicy(assignment.latePolicy),
+  maxScore: 100,
+  assignmentConfig: toAssignmentConfig(assignment.assignmentConfig),
+});
+
 export function useTeacherCourseManagement(courseId: string): CourseManagementViewModel {
   const courseQuery = useCourseDetailQuery(courseId);
   const studentsQuery = useCourseStudentsQuery(courseId);
+  const assignmentsQuery = useCourseAssignmentsQuery(courseId);
   const courseDefaultRubricTemplateQuery = useCourseDefaultRubricTemplateQuery(courseId);
 
   const course = useMemo(
@@ -169,6 +221,7 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
   const [addStudentError, setAddStudentError] = useState<string | null>(null);
 
   const hydrationRef = useRef(false);
+  const assignmentErrorLogRef = useRef(false);
 
   const handleNewStudentEmailChange = useCallback(
     (value: string) => {
@@ -181,7 +234,26 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
   useEffect(() => {
     hydrationRef.current = false;
     rubricHydrationRef.current = false;
+    assignmentErrorLogRef.current = false;
   }, [courseId]);
+
+  useEffect(() => {
+    if (!assignmentsQuery.isError || assignmentErrorLogRef.current) {
+      return;
+    }
+
+    const status =
+      assignmentsQuery.error instanceof ApiError ? assignmentsQuery.error.status : undefined;
+    console.warn('[course-management] backend course assignments unavailable; using empty fallback', {
+      endpoint: '/api/v1/courses/:courseId/assignments',
+      courseId,
+      status,
+      reason: 'request_failed',
+      fallbackCount: 0,
+    });
+
+    assignmentErrorLogRef.current = true;
+  }, [assignmentsQuery.error, assignmentsQuery.isError, courseId]);
 
   useEffect(() => {
     if (rubricHydrationRef.current) {
@@ -236,10 +308,12 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
       );
   }, [studentsQuery.data]);
 
-  const courseAssignments = useMemo(
-    () => mockAssignments.filter((assignment) => assignment.courseId === courseId),
-    [courseId],
-  );
+  const courseAssignments = useMemo(() => {
+    const courseName = course?.title ?? 'Unknown Course';
+    return (assignmentsQuery.data ?? []).map((assignment) =>
+      toManagedAssignment(assignment, courseName),
+    );
+  }, [assignmentsQuery.data, course?.title]);
 
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
@@ -333,9 +407,8 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
 
   const reload = useCallback(async () => {
     hydrationRef.current = false;
-    await courseQuery.refetch();
-    await studentsQuery.refetch();
-  }, [courseQuery, studentsQuery]);
+    await Promise.all([courseQuery.refetch(), studentsQuery.refetch(), assignmentsQuery.refetch()]);
+  }, [assignmentsQuery, courseQuery, studentsQuery]);
 
   const data: CourseManagementData = {
     course,
@@ -370,10 +443,12 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
     isLoading:
       courseQuery.isLoading ||
       studentsQuery.isLoading ||
+      assignmentsQuery.isLoading ||
       courseDefaultRubricTemplateQuery.isLoading,
     error:
       courseQuery.error?.message ??
       studentsQuery.error?.message ??
+      assignmentsQuery.error?.message ??
       courseDefaultRubricTemplateQuery.error?.message ??
       null,
     reload,
