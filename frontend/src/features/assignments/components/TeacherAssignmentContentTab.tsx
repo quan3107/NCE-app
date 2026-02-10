@@ -4,7 +4,7 @@
  * Why: Conditionally shows either read-only preview or inline editor for IELTS content.
  */
 
-import type { Assignment } from '@types/domain';
+import type { Assignment } from '@domain';
 import type { IeltsAssignmentConfig, IeltsAssignmentType } from '@lib/ielts';
 import { isIeltsAssignmentType } from '@lib/ielts';
 import { IeltsAssignmentContentPreview } from './ielts/IeltsAssignmentContentPreview';
