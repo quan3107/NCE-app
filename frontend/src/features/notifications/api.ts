@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
-import type { Notification } from '@types/domain';
+import type { Notification } from '@domain';
 import { queryClient } from '@lib/queryClient';
 
 const NOTIFICATIONS_KEY = ['notifications', 'list'] as const;
