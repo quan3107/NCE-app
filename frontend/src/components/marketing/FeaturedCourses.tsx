@@ -9,10 +9,10 @@ import { useEffect, useRef, type MouseEvent } from 'react';
 import { ArrowRight, CheckCircle2, Users } from 'lucide-react';
 
 import { useCoursesQuery } from '@features/courses/api';
-import type { Course } from '@domain';
 import { Button } from '@components/ui/button';
 import { Badge } from '@components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
+import { buildFeaturedCoursesFallbackLog, resolveFeaturedCoursesState } from './featuredCourses.state';
 
 type FeaturedCoursesProps = {
   onSelectCourse: (courseId: string) => void;
@@ -22,25 +22,21 @@ type FeaturedCoursesProps = {
 export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesProps) {
   const { data: backendCourses, isLoading, error } = useCoursesQuery();
   const loggedErrorRef = useRef(false);
-
-  const hasBackendCourses = Array.isArray(backendCourses) && backendCourses.length > 0;
-  const courses: Course[] = backendCourses ?? [];
-  const showSkeletons = isLoading && !hasBackendCourses;
+  const featuredState = resolveFeaturedCoursesState({ backendCourses, isLoading, error });
 
   useEffect(() => {
     if (!error || loggedErrorRef.current) {
       return;
     }
 
-    console.warn('[marketing] backend featured courses unavailable; no fallback courses rendered', {
-      endpoint: '/api/v1/courses',
-      reason: 'request_failed',
-      fallbackCount: 0,
-    });
+    console.warn(
+      '[marketing] backend featured courses unavailable; no fallback courses rendered',
+      buildFeaturedCoursesFallbackLog(),
+    );
     loggedErrorRef.current = true;
   }, [error]);
 
-  if (error) {
+  if (featuredState.mode === 'unavailable') {
     return (
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -79,7 +75,7 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {showSkeletons
+          {featuredState.mode === 'loading'
             ? Array.from({ length: 3 }).map((_, index) => (
                 <Card key={`skeleton-${index}`} className="animate-pulse">
                   <CardHeader>
@@ -93,8 +89,8 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
                   </CardContent>
                 </Card>
               ))
-            : courses.length > 0
-              ? courses.map(course => (
+            : featuredState.mode === 'list'
+              ? featuredState.courses.map(course => (
                 <Card
                   key={course.id}
                   className="hover:shadow-md transition-shadow cursor-pointer"
