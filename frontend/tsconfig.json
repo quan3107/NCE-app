@@ -17,6 +17,8 @@
     "baseUrl": "./src",
     "paths": {
       "@components/*": ["components/*"],
+      "@domain": ["types/domain/index"],
+      "@domain/*": ["types/domain/*"],
       "@features/*": ["features/*"],
       "@lib/*": ["lib/*"],
       "@routes/*": ["routes/*"],

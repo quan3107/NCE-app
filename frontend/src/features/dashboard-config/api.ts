@@ -5,6 +5,7 @@
  */
 
 import { ApiError, apiClient } from '@lib/apiClient';
+import type { DashboardRole } from '@lib/backend-schema';
 
 import {
   getFallbackDashboardWidgetDefaults,
@@ -32,7 +33,7 @@ function toErrorMessage(error: unknown, fallback: string): string {
 }
 
 export async function fetchDashboardWidgetDefaults(
-  role: 'student' | 'teacher' | 'admin',
+  role: DashboardRole,
 ): Promise<DashboardWidgetDefaultsResponse> {
   try {
     const response = await apiClient<unknown>('/api/v1/config/dashboard-widgets');

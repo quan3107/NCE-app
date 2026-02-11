@@ -10,7 +10,7 @@ import { Button } from '@components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@components/ui/table';
 import { useRouter } from '@lib/router';
 import { formatDistanceToNow } from '@lib/utils';
-import type { Submission } from '@lib/mock-data';
+import type { Submission } from '@domain';
 import { Eye, FileText } from 'lucide-react';
 
 type TeacherAssignmentSubmissionsTabProps = {

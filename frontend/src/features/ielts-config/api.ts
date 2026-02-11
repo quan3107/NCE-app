@@ -6,91 +6,32 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, apiClient } from '@lib/apiClient';
+import type {
+  IeltsAssignmentTypeRecord as IeltsAssignmentType,
+  IeltsConfigResponse as IeltsConfig,
+  IeltsConfigVersion as IeltsConfigVersion,
+  IeltsConfigVersionsResponse,
+  IeltsQuestionTypeRecord as IeltsQuestionType,
+  IeltsWritingTaskTypeRecord as IeltsWritingTaskType,
+  IeltsSpeakingPartTypeRecord as IeltsSpeakingPartType,
+  IeltsCompletionFormatRecord as IeltsCompletionFormat,
+  IeltsSampleTimingOptionRecord as IeltsSampleTimingOption,
+} from '@lib/backend-schema';
 
 const IELTS_CONFIG_KEY = 'ielts:config';
 const IELTS_CONFIG_VERSIONS_KEY = 'ielts:config:versions';
 
-// Types matching backend API response
-export interface IeltsAssignmentType {
-  id: string;
-  label: string;
-  description?: string;
-  icon?: string;
-  enabled: boolean;
-  sort_order: number;
-}
-
-export interface IeltsQuestionType {
-  id: string;
-  skill_type: 'reading' | 'listening';
-  label: string;
-  description?: string;
-  enabled: boolean;
-  sort_order: number;
-}
-
-export interface IeltsWritingTaskType {
-  id: string;
-  task_number: number;
-  label: string;
-  description?: string;
-  enabled: boolean;
-  sort_order: number;
-}
-
-export interface IeltsSpeakingPartType {
-  id: string;
-  label: string;
-  description?: string;
-  enabled: boolean;
-  sort_order: number;
-}
-
-export interface IeltsCompletionFormat {
-  id: string;
-  label: string;
-  description?: string;
-  enabled: boolean;
-  sort_order: number;
-}
-
-export interface IeltsSampleTimingOption {
-  id: string;
-  label: string;
-  description?: string;
-  enabled: boolean;
-  sort_order: number;
-}
-
-export interface IeltsConfig {
-  version: number;
-  assignment_types: IeltsAssignmentType[];
-  question_types: {
-    reading: IeltsQuestionType[];
-    listening: IeltsQuestionType[];
-  };
-  writing_task_types: {
-    task1: IeltsWritingTaskType[];
-    task2: IeltsWritingTaskType[];
-  };
-  speaking_part_types: IeltsSpeakingPartType[];
-  completion_formats: IeltsCompletionFormat[];
-  sample_timing_options: IeltsSampleTimingOption[];
-}
-
-export interface IeltsConfigVersion {
-  version: number;
-  name: string;
-  description?: string;
-  is_active: boolean;
-  activated_at?: string;
-  created_at: string;
-}
-
-export interface IeltsConfigVersionsResponse {
-  versions: IeltsConfigVersion[];
-  active_version: number;
-}
+export type {
+  IeltsAssignmentType,
+  IeltsQuestionType,
+  IeltsWritingTaskType,
+  IeltsSpeakingPartType,
+  IeltsCompletionFormat,
+  IeltsSampleTimingOption,
+  IeltsConfig,
+  IeltsConfigVersion,
+  IeltsConfigVersionsResponse,
+};
 
 // API Error type
 export interface IeltsConfigError {

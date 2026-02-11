@@ -8,7 +8,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
-import type { Role } from '@lib/mock-data';
+import type { Role } from '@domain';
 
 type NotificationRole = Exclude<Role, 'public'>;
 

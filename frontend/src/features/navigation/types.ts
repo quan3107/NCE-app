@@ -4,7 +4,7 @@
  * Why: Keeps API parsing, cache validation, and context contracts consistent.
  */
 
-import type { Role } from '@lib/mock-data';
+import type { Role } from '@domain';
 
 export const BADGE_SOURCES = ['notifications', 'assignments', 'submissions'] as const;
 

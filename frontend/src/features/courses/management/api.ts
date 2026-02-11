@@ -7,6 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
+import type { AssignmentType, UserStatus } from '@lib/backend-schema';
 import { queryClient } from '@lib/queryClient';
 
 export type CourseMetricsResponse = {
@@ -54,7 +55,7 @@ export type CourseStudentResponse = {
   id: string;
   fullName: string;
   email: string;
-  status: 'active' | 'invited' | 'suspended';
+  status: UserStatus;
   enrolledAt: string;
 };
 
@@ -68,15 +69,7 @@ export type CourseAssignmentResponse = {
   courseId: string;
   title: string;
   description: string | null;
-  type:
-    | 'file'
-    | 'link'
-    | 'text'
-    | 'quiz'
-    | 'reading'
-    | 'listening'
-    | 'writing'
-    | 'speaking';
+  type: AssignmentType;
   dueAt: string | null;
   latePolicy: Record<string, unknown> | string | null;
   publishedAt: string | null;

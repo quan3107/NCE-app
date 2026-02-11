@@ -5,12 +5,21 @@
  */
 
 import { stripHtml } from './rich-text';
+import type {
+  IeltsAssignmentTypeRecord,
+  IeltsCompletionFormatRecord,
+  IeltsQuestionTypeRecord,
+  IeltsSampleTimingOptionRecord,
+  IeltsSpeakingPartTypeRecord,
+  IeltsWritingTaskTypeRecord,
+} from '@lib/backend-schema';
 
-export type IeltsAssignmentType = 'reading' | 'listening' | 'writing' | 'speaking';
+export type IeltsAssignmentType = IeltsAssignmentTypeRecord['id'];
 
 /**
  * Check if a value is a valid IELTS assignment type
- * Note: This now checks against the type definition rather than a hardcoded array
+ * Note: Runtime validation remains explicit because backend currently serves
+ * IELTS assignment IDs as dynamic strings in schema contracts.
  */
 export const isIeltsAssignmentType = (value: string): value is IeltsAssignmentType =>
   ['reading', 'listening', 'writing', 'speaking'].includes(value as IeltsAssignmentType);
@@ -35,11 +44,7 @@ export type IeltsAttemptsConfig = {
  * Use: import { useEnabledCompletionFormats } from '@features/ielts-config/api'
  */
 export type IeltsCompletionFormat =
-  | 'form'
-  | 'note'
-  | 'table'
-  | 'flow_chart'
-  | 'summary';
+  IeltsCompletionFormatRecord['id'];
 
 /**
  * IELTS Reading Question Types (10 types)
@@ -48,16 +53,7 @@ export type IeltsCompletionFormat =
  * Use: import { useEnabledReadingQuestionTypes } from '@features/ielts-config/api'
  */
 export type IeltsReadingQuestionType =
-  | 'multiple_choice'
-  | 'true_false_not_given'
-  | 'yes_no_not_given'
-  | 'matching_headings'
-  | 'matching_information'
-  | 'matching_features'
-  | 'sentence_completion'
-  | 'completion'
-  | 'diagram_labeling'
-  | 'short_answer';
+  IeltsQuestionTypeRecord['id'];
 
 /**
  * IELTS Listening Question Types (6 types)
@@ -66,12 +62,7 @@ export type IeltsReadingQuestionType =
  * Use: import { useEnabledListeningQuestionTypes } from '@features/ielts-config/api'
  */
 export type IeltsListeningQuestionType =
-  | 'multiple_choice'
-  | 'matching'
-  | 'map_diagram_labeling'
-  | 'completion'
-  | 'sentence_completion'
-  | 'short_answer';
+  IeltsQuestionTypeRecord['id'];
 
 /**
  * Legacy union type for backward compatibility
@@ -85,13 +76,7 @@ export type IeltsQuestionType = IeltsReadingQuestionType | IeltsListeningQuestio
  * Use: import { useEnabledWritingTaskTypes } from '@features/ielts-config/api'
  */
 export type IeltsWritingTask1Type =
-  | 'line_graph'
-  | 'bar_chart'
-  | 'pie_chart'
-  | 'table'
-  | 'diagram'
-  | 'map'
-  | 'process';
+  IeltsWritingTaskTypeRecord['id'];
 
 /**
  * Sample visibility timing options
@@ -99,10 +84,7 @@ export type IeltsWritingTask1Type =
  * Use: import { useEnabledSampleTimingOptions } from '@features/ielts-config/api'
  */
 export type ShowSampleTiming =
-  | 'immediate'
-  | 'after_submission'
-  | 'after_grading'
-  | 'specific_date';
+  IeltsSampleTimingOptionRecord['id'];
 
 /**
  * IELTS Writing Task 2 Essay Types
@@ -110,11 +92,7 @@ export type ShowSampleTiming =
  * Use: import { useEnabledWritingTaskTypes } from '@features/ielts-config/api'
  */
 export type IeltsWritingTask2Type =
-  | 'opinion'
-  | 'discussion'
-  | 'problem_solution'
-  | 'advantages_disadvantages'
-  | 'double_question';
+  IeltsWritingTaskTypeRecord['id'];
 
 /**
  * IELTS Speaking Part Types
@@ -122,9 +100,7 @@ export type IeltsWritingTask2Type =
  * Use: import { useEnabledSpeakingPartTypes } from '@features/ielts-config/api'
  */
 export type IeltsSpeakingPartType =
-  | 'part1_personal'
-  | 'part2_cue_card'
-  | 'part3_discussion';
+  IeltsSpeakingPartTypeRecord['id'];
 
 /**
  * Matching types for drag-and-drop matching questions

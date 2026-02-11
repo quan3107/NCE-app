@@ -7,7 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { ApiError, apiClient } from '@lib/apiClient';
-import type { Role } from '@lib/mock-data';
+import type { Role } from '@domain';
 
 export type NotificationTypeConfig = {
   id: string;

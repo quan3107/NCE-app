@@ -4,54 +4,22 @@
  * Why: Type safety for API responses and component props
  */
 
-export type HeroContent = {
-  badge: string;
-  title: string;
-  description: string;
-  cta_primary: string;
-  cta_secondary: string;
-}
+import type {
+  CmsAboutHeroContent as BackendAboutHeroContent,
+  CmsAboutPageContent as BackendAboutPageContent,
+  CmsFeatureItem as BackendFeatureItem,
+  CmsHeroContent as BackendHeroContent,
+  CmsHomepageContent as BackendHomepageContent,
+  CmsHowItWorksContent as BackendHowItWorksContent,
+  CmsStatItem as BackendStatItem,
+  CmsValueItem as BackendValueItem,
+} from '@lib/backend-schema';
 
-export type StatItem = {
-  label: string;
-  value: number;
-  format: 'number' | 'decimal' | 'percentage';
-  suffix?: string;
-}
-
-export type FeatureItem = {
-  icon: string;
-  title: string;
-  description: string;
-}
-
-export type HowItWorksContent = {
-  title: string;
-  description: string;
-  features: FeatureItem[];
-}
-
-export type HomepageContent = {
-  hero: HeroContent;
-  stats: StatItem[];
-  howItWorks: HowItWorksContent;
-}
-
-export type AboutHeroContent = {
-  title: string;
-  description: string;
-}
-
-export type ValueItem = {
-  icon: string;
-  title: string;
-  description: string;
-}
-
-export type AboutPageContent = {
-  hero: AboutHeroContent;
-  values: ValueItem[];
-  story: {
-    sections: string[];
-  };
-}
+export type HeroContent = BackendHeroContent;
+export type StatItem = BackendStatItem;
+export type FeatureItem = BackendFeatureItem;
+export type HowItWorksContent = BackendHowItWorksContent;
+export type HomepageContent = BackendHomepageContent;
+export type AboutHeroContent = BackendAboutHeroContent;
+export type ValueItem = BackendValueItem;
+export type AboutPageContent = BackendAboutPageContent;

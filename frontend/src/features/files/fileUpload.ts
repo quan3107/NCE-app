@@ -5,7 +5,7 @@
  */
 
 import { apiClient } from '@lib/apiClient';
-import type { SubmissionFile } from '@lib/mock-data';
+import type { SubmissionFile } from '@domain';
 
 export {
   FALLBACK_FILE_UPLOAD_POLICY,

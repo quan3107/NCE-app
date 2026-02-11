@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner@2.0.3';
 
 import { ApiError } from '@lib/apiClient';
-import type { Assignment } from '@lib/mock-data';
+import type { Assignment } from '@domain';
 import { useCourseDefaultRubricTemplateQuery } from '@features/rubrics/api';
 
 import {

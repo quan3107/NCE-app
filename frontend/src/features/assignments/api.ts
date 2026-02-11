@@ -9,7 +9,11 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
-import type { Assignment, Enrollment, Submission, SubmissionFile } from '@lib/mock-data';
+import type {
+  CreateSubmissionStatus,
+  SubmissionStatus as BackendSubmissionStatus,
+} from '@lib/backend-schema';
+import type { Assignment, Enrollment, Submission, SubmissionFile } from '@domain';
 import { queryClient } from '@lib/queryClient';
 import { useCoursesQuery } from '@features/courses/api';
 
@@ -33,7 +37,7 @@ type ApiSubmission = {
   id: string;
   assignmentId: string;
   studentId: string;
-  status: 'draft' | 'submitted' | 'late' | 'graded';
+  status: BackendSubmissionStatus;
   submittedAt: string | null;
   payload: Record<string, unknown>;
 };
@@ -65,7 +69,7 @@ type CreateSubmissionRequest = {
   studentId: string;
   payload: Record<string, unknown>;
   submittedAt?: string;
-  status?: 'draft' | 'submitted' | 'late';
+  status?: CreateSubmissionStatus;
 };
 
 const safeParseJson = (value: string): Record<string, unknown> | null => {

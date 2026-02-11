@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@components/ui/select';
 import { Trash2, Plus, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
-import type { UploadFile } from '@lib/mock-data';
+import type { UploadFile } from '@domain';
 import {
   normalizeQuestionOptionValue,
   useBooleanQuestionOptions,
