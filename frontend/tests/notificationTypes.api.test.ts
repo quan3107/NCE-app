@@ -101,6 +101,8 @@ test('fetchNotificationTypes maps backend payload into runtime config', async ()
                 label: 'Graded',
                 description: 'Grade released',
                 category: 'grading',
+                icon: 'check-circle',
+                accent: 'success',
                 default_enabled: true,
                 enabled: true,
                 sort_order: 3,
@@ -110,6 +112,8 @@ test('fetchNotificationTypes maps backend payload into runtime config', async ()
                 label: 'Due Soon',
                 description: 'Deadline approaching',
                 category: 'assignments',
+                icon: 'clock',
+                accent: 'warning',
                 default_enabled: true,
                 enabled: true,
                 sort_order: 2,
@@ -125,7 +129,11 @@ test('fetchNotificationTypes maps backend payload into runtime config', async ()
       const types = await fetchNotificationTypes();
       assert.equal(types.length, 2);
       assert.equal(types[0].id, 'due_soon');
+      assert.equal(types[0].icon, 'clock');
+      assert.equal(types[0].accent, 'warning');
       assert.equal(types[1].id, 'graded');
+      assert.equal(types[1].icon, 'check-circle');
+      assert.equal(types[1].accent, 'success');
     },
   );
 });
@@ -149,6 +157,8 @@ test('fetchNotificationTypes logs warning and falls back when payload is invalid
       const types = await fetchNotificationTypes();
       assert.equal(types.length >= 4, true);
       assert.equal(types[0].id, 'assignment_published');
+      assert.equal(types[0].icon, 'file-text');
+      assert.equal(types[0].accent, 'info');
     },
   );
 
@@ -180,6 +190,8 @@ test('fetchNotificationTypes logs error and falls back when request fails', asyn
       const types = await fetchNotificationTypes();
       assert.equal(types.length >= 4, true);
       assert.equal(types[1].id, 'due_soon');
+      assert.equal(types[1].icon, 'clock');
+      assert.equal(types[1].accent, 'warning');
     },
   );
 
@@ -209,6 +221,8 @@ test('fetchNotificationTypes teacher fallback excludes graded type', async () =>
         types.map((type) => type.id),
         ['new_submission', 'reminder', 'weekly_digest'],
       );
+      assert.equal(types[0].icon, 'file-text');
+      assert.equal(types[0].accent, 'info');
     },
   );
 });
