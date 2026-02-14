@@ -14,6 +14,8 @@ export type NotificationTypeConfig = {
   label: string;
   description: string;
   category: string;
+  icon?: string;
+  accent?: string;
   defaultEnabled: boolean;
   enabled: boolean;
   sortOrder: number;
@@ -24,6 +26,8 @@ type NotificationTypeConfigApi = {
   label: string;
   description: string;
   category: string;
+  icon?: string;
+  accent?: string;
   default_enabled: boolean;
   enabled: boolean;
   sort_order: number;
@@ -44,6 +48,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Assignment Published',
       description: 'When a new assignment is published.',
       category: 'assignments',
+      icon: 'file-text',
+      accent: 'info',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 1,
@@ -53,6 +59,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Due Soon',
       description: 'When an assignment deadline is approaching.',
       category: 'assignments',
+      icon: 'clock',
+      accent: 'warning',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 2,
@@ -62,6 +70,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Graded',
       description: 'When feedback and scores are released.',
       category: 'grading',
+      icon: 'check-circle',
+      accent: 'success',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 3,
@@ -71,6 +81,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Reminder',
       description: 'General reminders and nudges.',
       category: 'general',
+      icon: 'bell',
+      accent: 'info',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 4,
@@ -80,6 +92,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Weekly Digest',
       description: 'A weekly summary of upcoming coursework.',
       category: 'digest',
+      icon: 'inbox',
+      accent: 'neutral',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 5,
@@ -91,6 +105,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'New Submission',
       description: 'When a student submits new work.',
       category: 'grading',
+      icon: 'file-text',
+      accent: 'info',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 1,
@@ -100,6 +116,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Reminder',
       description: 'General reminders and workflow nudges.',
       category: 'general',
+      icon: 'bell',
+      accent: 'info',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 2,
@@ -109,6 +127,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Weekly Digest',
       description: 'A weekly summary of assignment activity.',
       category: 'digest',
+      icon: 'inbox',
+      accent: 'neutral',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 3,
@@ -120,6 +140,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Reminder',
       description: 'General operational reminders.',
       category: 'general',
+      icon: 'bell',
+      accent: 'info',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 1,
@@ -129,6 +151,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Weekly Digest',
       description: 'A weekly platform activity summary.',
       category: 'digest',
+      icon: 'inbox',
+      accent: 'neutral',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 2,
@@ -138,6 +162,8 @@ const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, Notification
       label: 'Schedule Update',
       description: 'When class schedules or events are updated.',
       category: 'system',
+      icon: 'clock',
+      accent: 'info',
       defaultEnabled: true,
       enabled: true,
       sortOrder: 3,
@@ -173,6 +199,8 @@ function mapNotificationType(value: unknown): NotificationTypeConfig | null {
     label,
     description: normalizeText(record.description),
     category: normalizeText(record.category) || 'general',
+    icon: normalizeText(record.icon) || undefined,
+    accent: normalizeText(record.accent) || undefined,
     defaultEnabled:
       typeof record.default_enabled === 'boolean' ? record.default_enabled : true,
     enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
