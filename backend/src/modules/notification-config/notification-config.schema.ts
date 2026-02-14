@@ -11,6 +11,8 @@ export const notificationTypeConfigItemSchema = z.object({
   label: z.string(),
   description: z.string(),
   category: z.string(),
+  icon: z.string().optional(),
+  accent: z.string().optional(),
   default_enabled: z.boolean(),
   enabled: z.boolean(),
   sort_order: z.number().int(),

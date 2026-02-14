@@ -43,6 +43,8 @@ describe("notification-config.service", () => {
         label: "Due Soon",
         description: "Soon due",
         category: "assignments",
+        icon: "clock",
+        accent: "warning",
         defaultEnabled: true,
         enabled: true,
         sortOrder: 2,
@@ -56,6 +58,8 @@ describe("notification-config.service", () => {
         label: "Graded",
         description: "Recently graded",
         category: "grading",
+        icon: "check-circle",
+        accent: "success",
         defaultEnabled: true,
         enabled: true,
         sortOrder: 3,
@@ -73,6 +77,8 @@ describe("notification-config.service", () => {
           label: "Due Soon",
           description: "Soon due",
           category: "assignments",
+          icon: "clock",
+          accent: "warning",
           default_enabled: true,
           enabled: true,
           sort_order: 2,
@@ -82,6 +88,8 @@ describe("notification-config.service", () => {
           label: "Graded",
           description: "Recently graded",
           category: "grading",
+          icon: "check-circle",
+          accent: "success",
           default_enabled: true,
           enabled: true,
           sort_order: 3,
@@ -98,6 +106,8 @@ describe("notification-config.service", () => {
 
     expect(payload.types.length).toBeGreaterThan(0);
     expect(payload.types.some((type) => type.id === "graded")).toBe(false);
+    expect(payload.types.every((type) => Boolean(type.icon))).toBe(true);
+    expect(payload.types.every((type) => Boolean(type.accent))).toBe(true);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         event: "notification_types_fallback_used",
@@ -106,6 +116,56 @@ describe("notification-config.service", () => {
       }),
       "Using fallback notification types configuration",
     );
+  });
+
+  it("normalizes invalid visual tokens into safe defaults", async () => {
+    prisma.notificationTypeConfig.findMany.mockResolvedValue([
+      {
+        id: "cfg-1",
+        role: "student",
+        type: "due_soon",
+        label: "Due Soon",
+        description: "Soon due",
+        category: "assignments",
+        icon: "unknown-icon",
+        accent: "unknown-accent",
+        defaultEnabled: true,
+        enabled: true,
+        sortOrder: 2,
+        createdAt: new Date("2026-02-09T00:00:00.000Z"),
+        updatedAt: new Date("2026-02-09T00:00:00.000Z"),
+      },
+      {
+        id: "cfg-2",
+        role: "student",
+        type: "weekly_digest",
+        label: "Weekly Digest",
+        description: "Digest",
+        category: "digest",
+        icon: null,
+        accent: null,
+        defaultEnabled: true,
+        enabled: true,
+        sortOrder: 3,
+        createdAt: new Date("2026-02-09T00:00:00.000Z"),
+        updatedAt: new Date("2026-02-09T00:00:00.000Z"),
+      },
+    ]);
+
+    const payload = await getNotificationTypesForRole("student");
+
+    expect(payload.types).toEqual([
+      expect.objectContaining({
+        id: "due_soon",
+        icon: "clock",
+        accent: "warning",
+      }),
+      expect.objectContaining({
+        id: "weekly_digest",
+        icon: "inbox",
+        accent: "neutral",
+      }),
+    ]);
   });
 
   it("uses fallback and logs explicit reason when query fails", async () => {

@@ -201,6 +201,8 @@ model NotificationTypeConfig {
   label          String
   description    String
   category       String
+  icon           String?
+  accent         String?
   defaultEnabled Boolean  @default(true) @map("default_enabled")
   enabled        Boolean  @default(true)
   sortOrder      Int      @default(0) @map("sort_order")

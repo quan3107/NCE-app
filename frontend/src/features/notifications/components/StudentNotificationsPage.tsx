@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { PageHeader } from '@components/common/PageHeader';
 import { useAuthStore } from '@store/authStore';
 import { Badge } from '@components/ui/badge';
-import { CheckCircle2, Clock, Bell } from 'lucide-react';
+import { CheckCircle2, Bell } from 'lucide-react';
 import { formatDistanceToNow } from '@lib/utils';
 import { toast } from 'sonner@2.0.3';
 import { markNotificationsRead, useUserNotifications } from '@features/notifications/api';
@@ -19,36 +19,28 @@ import {
   getNotificationTypeLabel,
   useNotificationTypes,
 } from '@features/notifications/config.api';
-
-function getNotificationAccentClass(type: string): string {
-  if (type === 'graded') {
-    return 'text-green-500';
-  }
-  if (type === 'due_soon') {
-    return 'text-orange-500';
-  }
-  return 'text-blue-500';
-}
-
-function getNotificationIcon(type: string) {
-  if (type === 'graded') {
-    return <CheckCircle2 className="size-5" />;
-  }
-  if (type === 'due_soon') {
-    return <Clock className="size-5" />;
-  }
-  return <Bell className="size-5" />;
-}
+import {
+  getNotificationAccentClass,
+  getNotificationIconNode,
+} from '@features/notifications/notificationVisuals';
 
 export function StudentNotificationsPage() {
   const { currentUser } = useAuthStore();
   const [filter, setFilter] = useState('all');
   const { notifications, isLoading, error } = useUserNotifications(currentUser?.id);
-  const notificationTypesQuery = useNotificationTypes();
+  const notificationRole =
+    currentUser?.role === 'teacher' || currentUser?.role === 'admin'
+      ? currentUser.role
+      : 'student';
+  const notificationTypesQuery = useNotificationTypes(notificationRole);
 
   if (!currentUser) return null;
 
   const configuredTypes = notificationTypesQuery.data ?? [];
+  const typeConfigById = useMemo(
+    () => new Map(configuredTypes.map(type => [type.id, type])),
+    [configuredTypes],
+  );
 
   const filterTypes = useMemo(() => {
     const types = configuredTypes.map(type => ({
@@ -154,27 +146,33 @@ export function StudentNotificationsPage() {
                 </CardContent>
               </Card>
             ) : (
-              filteredNotifications.map(notification => (
-                <Card key={notification.id} className={notification.read ? 'opacity-60' : ''}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className={`mt-1 ${getNotificationAccentClass(notification.type)}`}>
-                        {getNotificationIcon(notification.type)}
+              filteredNotifications.map(notification => {
+                const typeConfig = typeConfigById.get(notification.type);
+
+                return (
+                  <Card key={notification.id} className={notification.read ? 'opacity-60' : ''}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`mt-1 ${getNotificationAccentClass(typeConfig?.accent, notification.type)}`}
+                        >
+                          {getNotificationIconNode(typeConfig?.icon, notification.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="mb-1">{notification.title}</h4>
+                          <p className="text-sm text-muted-foreground">{notification.message}</p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                          </p>
+                        </div>
+                        {!notification.read && (
+                          <Badge variant="default" className="flex-shrink-0">New</Badge>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="mb-1">{notification.title}</h4>
-                        <p className="text-sm text-muted-foreground">{notification.message}</p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
-                        </p>
-                      </div>
-                      {!notification.read && (
-                        <Badge variant="default" className="flex-shrink-0">New</Badge>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </div>
         )}
