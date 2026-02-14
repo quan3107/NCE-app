@@ -18,6 +18,16 @@ NotificationTypeConfigItem:
     category:
       type: string
       example: assignments
+    icon:
+      type: string
+      enum: [check-circle, clock, bell, file-text, inbox]
+      example: clock
+      description: Optional visual token for rendering a notification icon.
+    accent:
+      type: string
+      enum: [success, warning, info, neutral]
+      example: warning
+      description: Optional visual token for rendering notification accent color.
     default_enabled:
       type: boolean
       example: true
