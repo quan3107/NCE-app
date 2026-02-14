@@ -8,127 +8,19 @@ import type { UserRole } from "../../prisma/index.js";
 
 import { logger } from "../../config/logger.js";
 import { prisma } from "../../prisma/client.js";
-import type {
-  NotificationTypeConfigItem,
-  NotificationTypesResponse,
-} from "./notification-config.schema.js";
+import { getFallbackNotificationTypes } from "./notification-config.fallback.js";
+import type { NotificationTypesResponse } from "./notification-config.schema.js";
+import { toNotificationTypeConfigItem } from "./notification-config.visuals.js";
 
 type FallbackReason = "db_empty_for_role" | "query_failed" | "invalid_rows";
-
-const FALLBACK_NOTIFICATION_TYPES: Record<UserRole, NotificationTypeConfigItem[]> = {
-  student: [
-    {
-      id: "assignment_published",
-      label: "Assignment Published",
-      description: "When a new assignment is published.",
-      category: "assignments",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 1,
-    },
-    {
-      id: "due_soon",
-      label: "Due Soon",
-      description: "When an assignment deadline is approaching.",
-      category: "assignments",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 2,
-    },
-    {
-      id: "graded",
-      label: "Graded",
-      description: "When feedback and scores are released.",
-      category: "grading",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 3,
-    },
-    {
-      id: "reminder",
-      label: "Reminder",
-      description: "General reminders and nudges.",
-      category: "general",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 4,
-    },
-    {
-      id: "weekly_digest",
-      label: "Weekly Digest",
-      description: "A weekly summary of upcoming coursework.",
-      category: "digest",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 5,
-    },
-  ],
-  teacher: [
-    {
-      id: "new_submission",
-      label: "New Submission",
-      description: "When a student submits new work.",
-      category: "grading",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 1,
-    },
-    {
-      id: "reminder",
-      label: "Reminder",
-      description: "General reminders and workflow nudges.",
-      category: "general",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 2,
-    },
-    {
-      id: "weekly_digest",
-      label: "Weekly Digest",
-      description: "A weekly summary of assignment activity.",
-      category: "digest",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 3,
-    },
-  ],
-  admin: [
-    {
-      id: "reminder",
-      label: "Reminder",
-      description: "General operational reminders.",
-      category: "general",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 1,
-    },
-    {
-      id: "weekly_digest",
-      label: "Weekly Digest",
-      description: "A weekly platform activity summary.",
-      category: "digest",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 2,
-    },
-    {
-      id: "schedule_update",
-      label: "Schedule Update",
-      description: "When class schedules or events are updated.",
-      category: "system",
-      default_enabled: true,
-      enabled: true,
-      sort_order: 3,
-    },
-  ],
-};
 
 function toFallbackTypes(
   role: UserRole,
   reason: FallbackReason,
   details: Record<string, unknown> = {},
-): NotificationTypeConfigItem[] {
-  const fallback = FALLBACK_NOTIFICATION_TYPES[role] ?? FALLBACK_NOTIFICATION_TYPES.student;
+) {
+  const fallback = getFallbackNotificationTypes(role);
+
   logger.warn(
     {
       event: "notification_types_fallback_used",
@@ -139,7 +31,8 @@ function toFallbackTypes(
     },
     "Using fallback notification types configuration",
   );
-  return fallback.map((item) => ({ ...item }));
+
+  return fallback;
 }
 
 export async function getNotificationTypesForRole(
@@ -160,15 +53,19 @@ export async function getNotificationTypesForRole(
       };
     }
 
-    const mapped = rows.map((row) => ({
-      id: row.type.trim(),
-      label: row.label.trim(),
-      description: row.description,
-      category: row.category,
-      default_enabled: row.defaultEnabled,
-      enabled: row.enabled,
-      sort_order: row.sortOrder,
-    }));
+    const mapped = rows.map((row) =>
+      toNotificationTypeConfigItem({
+        id: row.type,
+        label: row.label,
+        description: row.description,
+        category: row.category,
+        icon: row.icon,
+        accent: row.accent,
+        defaultEnabled: row.defaultEnabled,
+        enabled: row.enabled,
+        sortOrder: row.sortOrder,
+      }),
+    );
 
     const invalidCount = mapped.filter(
       (item) => item.id.length === 0 || item.label.length === 0,
