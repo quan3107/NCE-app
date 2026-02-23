@@ -122,7 +122,7 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
   const overviewStats = {
     students: enrollment.students.length,
     assignments: assignments.length,
-    completionRate: '78%',
+    completionRate: `${Math.max(0, Math.min(100, Math.round(course.metrics.completionRatePercent)))}%`,
   };
 
   const handleNavigateToAssignments = () => navigate('/teacher/assignments');

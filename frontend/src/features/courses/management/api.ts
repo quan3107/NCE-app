@@ -16,6 +16,7 @@ export type CourseMetricsResponse = {
   teacherCount: number;
   assignmentCount: number;
   rubricCount: number;
+  completionRatePercent: number;
 };
 
 export type CourseScheduleResponse = {

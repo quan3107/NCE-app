@@ -121,7 +121,12 @@ const toManagedCourse = (input: CourseDetailResponse): ManagedCourse => ({
   teacherName: input.owner.fullName,
   teacherEmail: input.owner.email,
   teacherId: input.owner.id,
-  metrics: input.metrics,
+  metrics: {
+    ...input.metrics,
+    completionRatePercent: Number.isFinite(input.metrics.completionRatePercent)
+      ? input.metrics.completionRatePercent
+      : 0,
+  },
 });
 
 const toEnrolledStudent = (input: CourseStudentResponse): EnrollmentState['students'][number] => ({

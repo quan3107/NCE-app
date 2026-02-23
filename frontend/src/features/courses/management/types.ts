@@ -24,6 +24,7 @@ export type ManagedCourse = {
     teacherCount: number;
     assignmentCount: number;
     rubricCount: number;
+    completionRatePercent: number;
   };
 };
 
