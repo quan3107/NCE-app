@@ -3,9 +3,13 @@
  * Purpose: Implement course read/query operations for controllers.
  * Why: Separates list/detail logic from enrollment actions while keeping files under guideline limits.
  */
-import { EnrollmentRole, UserRole } from "../../prisma/index.js";
+import {
+  EnrollmentRole,
+  UserRole,
+} from "../../prisma/index.js";
 
 import { prisma } from "../../config/prismaClient.js";
+import { getCourseCompletionRatePercent } from "./courses.completion-rate.js";
 import { courseIdParamsSchema } from "./courses.schema.js";
 import { canManageCourse, createHttpError } from "./courses.shared.js";
 import {
@@ -220,5 +224,14 @@ export async function getCourseById(
     );
   }
 
-  return toCourseSummary(course as CourseWithRelations);
+  const summary = toCourseSummary(course as CourseWithRelations);
+  const completionRatePercent = await getCourseCompletionRatePercent(courseId);
+
+  return {
+    ...summary,
+    metrics: {
+      ...summary.metrics,
+      completionRatePercent,
+    },
+  };
 }

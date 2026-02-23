@@ -5,7 +5,11 @@
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { Course, Prisma } from '../../../src/prisma/index.js';
-import { EnrollmentRole, UserRole, UserStatus } from '../../../src/prisma/index.js';
+import {
+  EnrollmentRole,
+  UserRole,
+  UserStatus,
+} from '../../../src/prisma/index.js';
 
 vi.mock("../../../src/config/prismaClient.js", () => ({
   prisma: {
@@ -176,6 +180,7 @@ describe("courses.read.service.listCourses", () => {
             teacherCount: 1,
             assignmentCount: 5,
             rubricCount: 2,
+            completionRatePercent: 0,
           },
           createdAt: now.toISOString(),
           updatedAt: now.toISOString(),

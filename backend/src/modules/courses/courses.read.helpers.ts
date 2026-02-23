@@ -146,6 +146,7 @@ const courseMetricsFromEnrollments = (
     teacherCount: 0,
     assignmentCount: course._count.assignments,
     rubricCount: course._count.rubrics,
+    completionRatePercent: 0,
   };
 
   for (const enrollment of course.enrollments) {
@@ -174,6 +175,7 @@ const courseMetricsFromPublicRow = (
   teacherCount: course.teacherCount ?? 0,
   assignmentCount: course.assignmentCount ?? 0,
   rubricCount: course.rubricCount ?? 0,
+  completionRatePercent: 0,
 });
 
 const toIsoString = (value: Date | string): string =>
