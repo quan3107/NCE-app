@@ -16,6 +16,7 @@ export function ImageWithFallback({ src, alt, ...rest }: ImageWithFallbackProps)
 
   if (!src || didError) {
     return <img {...rest} src={ERROR_IMG_SRC} alt={alt ?? 'Fallback image'} />;
+    console.log('Image failed to load, displaying fallback image.');
   }
 
   return (
