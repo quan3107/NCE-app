@@ -31,6 +31,9 @@ type RequestContext = {
   role?: RoleContextOptions
 }
 
+type PrismaDelegateOperation = (input: unknown) => Promise<unknown>
+type PrismaDelegateMap = Record<string, Record<string, PrismaDelegateOperation>>
+
 const prismaContext = new AsyncLocalStorage<RequestContext>()
 const databaseUrl = process.env.DATABASE_URL ?? process.env.DIRECT_URL
 if (!databaseUrl) {
@@ -92,7 +95,7 @@ const rlsPrisma = basePrisma.$extends({
           return queryFn(args)
         }
         return runWithRoleContext(roleContext, (tx) => {
-          const delegate = (tx as Record<string, any>)[model]
+          const delegate = (tx as unknown as PrismaDelegateMap)[model]
           return delegate[operation](args)
         })
       },

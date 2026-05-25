@@ -5,7 +5,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-package-lock.json
+# Keep npm lockfiles tracked for reproducible, auditable installs.
 .env
 .env.local
 .env.development.local
@@ -70,7 +70,10 @@ logs/
 docs/*
 !docs/openapi/
 !docs/openapi/**
+!docs/npm-security-update-path-2026-05-25.md
 
 # === Markdown ===
 *.md
 !README.md
+!PROGRESS.md
+!docs/npm-security-update-path-2026-05-25.md
