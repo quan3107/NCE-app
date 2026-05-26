@@ -9,8 +9,7 @@ on:
     branches:
       - main
   push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -72,9 +71,24 @@ jobs:
   backend:
     name: Backend install, audit, lint, build, and test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: nce_test
+          POSTGRES_USER: nce
+          POSTGRES_PASSWORD: nce
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nce -d nce_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://nce:nce@localhost:5432/nce_test
+      DIRECT_URL: postgresql://nce:nce@localhost:5432/nce_test
       JWT_PRIVATE_KEY_PATH: tests/fixtures/private.pem
       JWT_PUBLIC_KEY_PATH: tests/fixtures/public.pem
       GOOGLE_CLIENT_ID: test-google-client-id
@@ -102,6 +116,32 @@ jobs:
 
       - name: Audit backend dependencies
         run: npm audit --audit-level=high
+        working-directory: backend
+
+      - name: Create backend database roles
+        run: |
+          docker exec "${{ job.services.postgres.id }}" psql -U nce -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
+              CREATE ROLE anon;
+            END IF;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
+              CREATE ROLE authenticated;
+            END IF;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
+              CREATE ROLE service_role;
+            END IF;
+          END
+          $$;
+          SQL
+
+      - name: Apply backend migrations
+        run: npx prisma migrate deploy --config prisma.config.ts
+        working-directory: backend
+
+      - name: Seed backend CMS test content
+        run: npm run seed:cms
         working-directory: backend
 
       - name: Lint backend
