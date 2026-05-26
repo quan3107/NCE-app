@@ -61,7 +61,7 @@ jobs:
         working-directory: frontend
 
       - name: Test frontend
-        run: npm test
+        run: npx tsx --test tests/*.test.ts
         working-directory: frontend
 
       - name: Build frontend
@@ -124,7 +124,7 @@ jobs:
 
       - name: Create backend database roles
         run: |
-          docker exec "${{ job.services.postgres.id }}" psql -U nce -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
+          docker exec -i "${{ job.services.postgres.id }}" psql -U nce -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           BEGIN
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
