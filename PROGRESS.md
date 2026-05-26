@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-05-26:** Added the GitHub Actions CI release gate for backend dependency install/audit, explicit Prisma client generation, interactive Postgres role bootstrap, migration/seed setup, lint, build, and test checks with safe test environment values for CI.
 - **2026-05-26:** Mapped backend architecture for a project mental map: Express app bootstrap, `/api/v1` router composition, route/controller/schema/service module boundaries, Prisma/Postgres RLS context, auth/session flow, background jobs, environment requirements, tests, and stale-doc/runtime risks. No backend source changes.
 - **2026-05-26:** Added `docs/codebase-re-entry-tutorial-2026-05-26.md` with a backend-oriented re-entry map covering runtime commands, API/module boundaries, auth/RLS concepts, and a representative login flow. No backend source changes.
 - **2026-05-26:** Split `backend/tests/modules/auth/auth.service.test.ts` from 572 to 289 lines by moving shared auth mocks/builders into `auth.service.test-utils.ts` and Google OAuth coverage into `auth.google.service.test.ts`. Verified the focused auth test suite and reran the backend build with dummy Brevo env values for test runs.
@@ -26,6 +27,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-05-26:** Added the GitHub Actions CI release gate for root and frontend dependency install/audit plus Linux-compatible frontend test/build checks on pull requests to `main`.
 - **2026-05-26:** Restored Phase 0 frontend dependency/install gate health from the existing manifest and lockfile by running a clean `npm --prefix frontend ci`. Verified `npm --prefix frontend run build` resolves `@tailwindcss/vite` and completes, and `npm --prefix frontend test` resolves `@tanstack/react-query`/`isomorphic-dompurify` with all 57 tests passing. No frontend package changes were needed.
 - **2026-05-26:** Mapped frontend architecture for a project mental map: Vite/React boot path, React Router route groups, public/authenticated shells, React Query API boundary, auth context bridge, feature modules, Tailwind token system, navigation cache/fallback behavior, tests, and UI risks. No frontend source changes.
 - **2026-05-26:** Added `docs/codebase-re-entry-tutorial-2026-05-26.md` with a frontend-oriented re-entry map covering Vite runtime commands, routing, React Query/API client flow, auth context, and the current visual redesign state. No frontend source changes.
