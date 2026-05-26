@@ -1,0 +1,120 @@
+/**
+ * Location: src/styles/authoring.css
+ * Purpose: Define IELTS authoring and assignment-builder component helpers.
+ * Why: Keeps global Tailwind/theme setup separate from feature-specific utilities.
+ */
+
+@layer components {
+  .tabs-pill {
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    color: #0a0a0a;
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 8px 0 12px;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  }
+
+  .tabs-pill[data-state='active'] {
+    background-color: #030213;
+    border-color: #030213;
+    color: #ffffff;
+  }
+
+  .passage-remove-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    margin-left: 8px;
+    border-radius: 50%;
+    color: #717182;
+    cursor: pointer;
+    transition: color 150ms ease, background-color 150ms ease;
+  }
+
+  .passage-remove-btn:hover {
+    color: #dc2626;
+    background-color: rgba(220, 38, 38, 0.1);
+  }
+
+  .ielts-authoring {
+    --ielts-serif: 'Crimson Pro', serif;
+    --ielts-sans: 'Atkinson Hyperlegible', sans-serif;
+  }
+
+  .ielts-authoring h1,
+  .ielts-authoring h2,
+  .ielts-authoring h3,
+  .ielts-authoring h4 {
+    font-family: var(--ielts-serif);
+  }
+
+  .ielts-authoring,
+  .ielts-authoring input,
+  .ielts-authoring textarea,
+  .ielts-authoring select,
+  .ielts-authoring button,
+  .ielts-authoring label {
+    font-family: var(--ielts-sans);
+  }
+
+  [data-slot="dialog-overlay"] {
+    backdrop-filter: blur(4px);
+  }
+
+  .ielts-card-active {
+    background: linear-gradient(
+      to bottom right,
+      color-mix(in oklab, var(--primary) 3%, transparent),
+      color-mix(in oklab, var(--primary) 1%, transparent)
+    );
+  }
+
+  .form-input-valid {
+    border-color: color-mix(in oklab, var(--color-green-500) 50%, transparent);
+  }
+
+  .form-input-valid:focus-visible {
+    --tw-ring-color: color-mix(in oklab, var(--color-green-500) 30%, transparent);
+  }
+
+  .form-input-invalid {
+    border-color: var(--destructive);
+  }
+
+  .form-input-invalid:focus-visible {
+    --tw-ring-color: color-mix(in oklab, var(--destructive) 30%, transparent);
+  }
+
+  .section-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .btn-icon-text {
+    transition-property: all;
+    transition-duration: 0.15s;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-icon-text:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.1)),
+      0 2px 4px -2px var(--tw-shadow-color, rgba(0, 0, 0, 0.1));
+  }
+}

@@ -7,230 +7,26 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { apiClient } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
-import type {
-  CreateSubmissionStatus,
-  SubmissionStatus as BackendSubmissionStatus,
-} from '@lib/backend-schema';
-import type { Assignment, Enrollment, Submission, SubmissionFile } from '@domain';
+import type { Enrollment } from '@domain';
 import { queryClient } from '@lib/queryClient';
 import { useCoursesQuery } from '@features/courses/api';
-
-const ASSIGNMENTS_KEY = 'assignments:list';
-const SUBMISSIONS_KEY = 'assignments:submissions';
-const ENROLLMENTS_KEY = 'assignments:enrollments';
-
-type ApiAssignment = {
-  id: string;
-  courseId: string;
-  title: string;
-  description: string | null;
-  type: Assignment['type'];
-  dueAt: string | null;
-  latePolicy: Record<string, unknown> | null;
-  publishedAt: string | null;
-  assignmentConfig?: Record<string, unknown> | string | null;
-};
-
-type ApiSubmission = {
-  id: string;
-  assignmentId: string;
-  studentId: string;
-  status: BackendSubmissionStatus;
-  submittedAt: string | null;
-  payload: Record<string, unknown>;
-};
-
-type ApiMeResponse = {
-  profile: {
-    id: string;
-  };
-  enrollments: Array<{
-    id: string;
-    courseId: string;
-    enrolledAt: string;
-  }>;
-};
-
-type CreateAssignmentRequest = {
-  title: string;
-  descriptionMd?: string;
-  type: Assignment['type'];
-  dueAt?: string;
-  latePolicy?: Record<string, unknown>;
-  assignmentConfig?: Record<string, unknown>;
-  publishedAt?: string | null;
-};
-
-type UpdateAssignmentRequest = Partial<CreateAssignmentRequest>;
-
-type CreateSubmissionRequest = {
-  studentId: string;
-  payload: Record<string, unknown>;
-  submittedAt?: string;
-  status?: CreateSubmissionStatus;
-};
-
-const safeParseJson = (value: string): Record<string, unknown> | null => {
-  try {
-    const parsed = JSON.parse(value) as Record<string, unknown>;
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch {
-    return null;
-  }
-};
-
-const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment => {
-  const latePolicy = assignment.latePolicy
-    ? typeof assignment.latePolicy === 'string'
-      ? assignment.latePolicy
-      : JSON.stringify(assignment.latePolicy)
-    : '';
-
-  const assignmentConfig =
-    typeof assignment.assignmentConfig === 'string'
-      ? safeParseJson(assignment.assignmentConfig)
-      : assignment.assignmentConfig ?? null;
-
-  return {
-    id: assignment.id,
-    title: assignment.title,
-    description: assignment.description ?? '',
-    type: assignment.type,
-    courseId: assignment.courseId,
-    courseName,
-    dueAt: assignment.dueAt ? new Date(assignment.dueAt) : new Date(),
-    publishedAt: assignment.publishedAt ? new Date(assignment.publishedAt) : undefined,
-    status: assignment.publishedAt ? 'published' : 'draft',
-    latePolicy,
-    maxScore: 100,
-    assignmentConfig,
-  };
-};
-
-const toSubmission = (submission: ApiSubmission): Submission => {
-  const payload = submission.payload ?? {};
-  const payloadRecord = payload as Record<string, unknown>;
-  const files = Array.isArray(payloadRecord.files)
-    ? payloadRecord.files
-        .map((item) => {
-          if (typeof item === 'string') {
-            return {
-              id: item,
-              name: item,
-              size: 0,
-              mime: 'application/octet-stream',
-              checksum: '',
-              bucket: '',
-              objectKey: '',
-            };
-          }
-
-          if (item && typeof item === 'object') {
-            const record = item as Record<string, unknown>;
-            const name = typeof record.name === 'string' ? record.name : 'Uploaded file';
-            const id = typeof record.id === 'string' ? record.id : name;
-            const size = typeof record.size === 'number' ? record.size : 0;
-            const mime =
-              typeof record.mime === 'string' ? record.mime : 'application/octet-stream';
-            const checksum = typeof record.checksum === 'string' ? record.checksum : '';
-            const bucket = typeof record.bucket === 'string' ? record.bucket : '';
-            const objectKey = typeof record.objectKey === 'string' ? record.objectKey : '';
-
-            return { id, name, size, mime, checksum, bucket, objectKey };
-          }
-
-          return null;
-        })
-        .filter((item): item is SubmissionFile => Boolean(item))
-    : undefined;
-
-  return {
-    id: submission.id,
-    assignmentId: submission.assignmentId,
-    studentId: submission.studentId,
-    studentName:
-      typeof payloadRecord.studentName === 'string' ? payloadRecord.studentName : 'Student',
-    status: submission.status,
-    submittedAt: submission.submittedAt ? new Date(submission.submittedAt) : undefined,
-    content: typeof payloadRecord.content === 'string' ? payloadRecord.content : undefined,
-    files,
-    version: typeof payloadRecord.version === 'number' ? payloadRecord.version : 1,
-  };
-};
-
-const fetchAssignments = async (courseIds: string[]): Promise<ApiAssignment[]> => {
-  if (courseIds.length === 0) {
-    return [];
-  }
-
-  const results = await Promise.all(
-    courseIds.map(courseId =>
-      apiClient<ApiAssignment[]>(`/api/v1/courses/${courseId}/assignments`),
-    ),
-  );
-
-  return results.flat();
-};
-
-const createAssignment = async (
-  courseId: string,
-  payload: CreateAssignmentRequest,
-): Promise<ApiAssignment> => {
-  return apiClient<ApiAssignment, CreateAssignmentRequest>(
-    `/api/v1/courses/${courseId}/assignments`,
-    {
-      method: 'POST',
-      body: payload,
-    },
-  );
-};
-
-const updateAssignment = async (
-  courseId: string,
-  assignmentId: string,
-  payload: UpdateAssignmentRequest,
-): Promise<ApiAssignment> => {
-  return apiClient<ApiAssignment, UpdateAssignmentRequest>(
-    `/api/v1/courses/${courseId}/assignments/${assignmentId}`,
-    {
-      method: 'PATCH',
-      body: payload,
-    },
-  );
-};
-
-const fetchSubmissions = async (assignmentIds: string[]): Promise<ApiSubmission[]> => {
-  if (assignmentIds.length === 0) {
-    return [];
-  }
-
-  const results = await Promise.all(
-    assignmentIds.map(assignmentId =>
-      apiClient<ApiSubmission[]>(`/api/v1/assignments/${assignmentId}/submissions`),
-    ),
-  );
-
-  return results.flat();
-};
-
-const createSubmission = async (
-  assignmentId: string,
-  payload: CreateSubmissionRequest,
-): Promise<ApiSubmission> => {
-  return apiClient<ApiSubmission, CreateSubmissionRequest>(
-    `/api/v1/assignments/${assignmentId}/submissions`,
-    {
-      method: 'POST',
-      body: payload,
-    },
-  );
-};
-
-const fetchEnrollments = async (): Promise<ApiMeResponse> => {
-  return apiClient<ApiMeResponse>('/api/v1/me');
-};
+import { toAssignment, toSubmission } from './api.mappers';
+import {
+  createAssignment,
+  createSubmission,
+  fetchAssignments,
+  fetchEnrollments,
+  fetchSubmissions,
+  updateAssignment,
+} from './api.requests';
+import type {
+  ApiSubmission,
+  CreateAssignmentRequest,
+  CreateSubmissionRequest,
+  UpdateAssignmentRequest,
+} from './api.types';
+import { ASSIGNMENTS_KEY, ENROLLMENTS_KEY, SUBMISSIONS_KEY } from './api.types';
 
 function useAssignmentsQuery(courseIds: string[], enabled: boolean) {
   return useQuery({

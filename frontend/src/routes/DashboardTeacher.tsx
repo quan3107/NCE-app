@@ -114,18 +114,18 @@ export function DashboardTeacherRoute() {
           </Button>
         }
       />
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-5">
         <DashboardStatsGrid
           widgets={dashboardConfig.config?.widgets ?? []}
           metrics={widgetMetrics}
           gridClassName="grid sm:grid-cols-2 lg:grid-cols-5 gap-4"
         />
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Recent Submissions</CardTitle>
+                <CardTitle className="text-xl font-semibold tracking-normal">Recent Submissions</CardTitle>
                 <Button variant="ghost" size="sm" onClick={() => navigate('/teacher/submissions')}>
                   View All
                 </Button>
@@ -136,8 +136,10 @@ export function DashboardTeacherRoute() {
                 {processedSubmissions.slice(0, 3).map(submission => {
                   const assignment = assignments.find(a => a.id === submission.assignmentId);
                   return (
-                    <div key={submission.id} className="flex items-start gap-3 p-3 rounded-lg border">
-                      <FileText className="size-4 mt-0.5 text-muted-foreground" />
+                    <div key={submission.id} className="flex items-start gap-3 rounded-[8px] border bg-background/45 p-3">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-[8px] bg-secondary text-primary">
+                        <FileText className="size-4" />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{assignment?.title}</p>
                         <p className="text-sm text-muted-foreground">{submission.studentName}</p>
@@ -158,7 +160,7 @@ export function DashboardTeacherRoute() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>My Courses</CardTitle>
+                <CardTitle className="text-xl font-semibold tracking-normal">My Courses</CardTitle>
                 <Button variant="ghost" size="sm" onClick={() => navigate('/teacher/courses')}>
                   View All
                 </Button>
@@ -167,7 +169,7 @@ export function DashboardTeacherRoute() {
             <CardContent>
               <div className="space-y-3">
                 {courses.map(course => (
-                  <div key={course.id} className="p-3 rounded-lg border hover:bg-accent/50 cursor-pointer" onClick={() => navigate('/teacher/courses')}>
+                  <div key={course.id} className="p-3 rounded-[8px] border bg-background/45 hover:bg-accent/60 cursor-pointer transition-colors" onClick={() => navigate('/teacher/courses')}>
                     <h4 className="mb-1">{course.title}</h4>
                     <p className="text-sm text-muted-foreground">{course.enrolled} students enrolled</p>
                   </div>

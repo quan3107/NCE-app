@@ -19,29 +19,29 @@ export function AboutRoute() {
 
   return (
     <div>
-      <section className="bg-gradient-to-br from-[#E6F0FF] via-[#BFD9FF]/30 to-background py-20">
+      <section className="content-band py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
-            <h1 className="text-4xl sm:text-5xl mb-6">{content.hero.title}</h1>
-            <p className="text-xl text-muted-foreground">{content.hero.description}</p>
+            <h1 className="text-4xl sm:text-5xl font-semibold tracking-normal mb-6">{content.hero.title}</h1>
+            <p className="text-lg text-muted-foreground">{content.hero.description}</p>
           </div>
         </div>
       </section>
 
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="mb-4">Our Values</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
+          <div className="mb-10 max-w-2xl">
+            <h2 className="mb-4 text-3xl font-semibold tracking-normal">Our Values</h2>
+            <p className="text-muted-foreground">
               The principles that guide everything we do
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-4">
             {content.values.map((value, index) => (
               <Card key={`${value.title}-${index}`}>
                 <CardHeader>
-                  <div className="size-12 rounded-lg bg-gradient-to-br from-[#E6F0FF] to-[#BFD9FF] flex items-center justify-center mb-4">
+                  <div className="size-11 rounded-[8px] bg-secondary flex items-center justify-center mb-4">
                     {getIconComponent(value.icon, 'size-6 text-primary')}
                   </div>
                   <CardTitle>{value.title}</CardTitle>
@@ -53,11 +53,11 @@ export function AboutRoute() {
         </div>
       </section>
 
-      <section className="py-20 bg-muted/30">
+      <section className="content-band py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="mb-4">Our Story</h2>
-            <div className="max-w-3xl mx-auto space-y-4 text-muted-foreground">
+          <div className="quiet-panel max-w-3xl px-6 py-8 sm:px-8">
+            <h2 className="mb-4 text-3xl font-semibold tracking-normal">Our Story</h2>
+            <div className="space-y-4 text-muted-foreground">
               {content.story.sections.map((section, index) => (
                 <p key={index}>{section}</p>
               ))}

@@ -26,18 +26,18 @@ export function HowItWorks({
   features,
 }: HowItWorksProps) {
   return (
-    <section className="py-20 bg-muted/30">
+    <section className="content-band py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="mb-4">{sectionTitle}</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">{sectionDescription}</p>
+        <div className="mb-12 max-w-2xl">
+          <h2 className="mb-4 text-3xl font-semibold tracking-normal">{sectionTitle}</h2>
+          <p className="text-muted-foreground">{sectionDescription}</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-3 gap-4">
           {features.map(feature => (
             <Card key={feature.title}>
               <CardHeader>
-                <div className="size-12 rounded-lg bg-gradient-to-br from-[#E6F0FF] to-[#BFD9FF] flex items-center justify-center mb-4">
+                <div className="size-11 rounded-[8px] bg-secondary flex items-center justify-center mb-4">
                   {feature.icon}
                 </div>
                 <CardTitle>{feature.title}</CardTitle>

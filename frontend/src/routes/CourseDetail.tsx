@@ -17,7 +17,7 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
 
   if (isLoading) {
     return (
-      <div className="py-20">
+      <div className="content-band py-16 sm:py-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <Button variant="ghost" onClick={() => navigate('/courses')} className="mb-6">
             <ChevronLeft className="mr-2 size-4" />
@@ -35,7 +35,7 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
 
   if (error) {
     return (
-      <div className="py-20">
+      <div className="content-band py-16 sm:py-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-destructive font-medium mb-4">Unable to load the course.</p>
           <p className="text-muted-foreground mb-6">{error.message}</p>
@@ -47,8 +47,8 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
 
   if (!course) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="quiet-panel max-w-md px-6 py-8 text-center">
           <p className="text-muted-foreground mb-4">Course not found</p>
           <Button onClick={() => navigate('/courses')}>Back to Courses</Button>
         </div>
@@ -66,18 +66,18 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
       : 'Duration shared at enrollment';
 
   return (
-    <div className="py-20">
+    <div className="content-band py-16 sm:py-20">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <Button variant="ghost" onClick={() => navigate('/courses')} className="mb-6">
           <ChevronLeft className="mr-2 size-4" />
           Back to Courses
         </Button>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-6">
             <div>
-              <h1 className="mb-4">{course.title}</h1>
-              <p className="text-xl text-muted-foreground">{course.description}</p>
+              <h1 className="mb-4 text-4xl font-semibold tracking-normal">{course.title}</h1>
+              <p className="text-lg text-muted-foreground">{course.description}</p>
             </div>
 
             <Card>
@@ -90,7 +90,10 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
                   {hasLearningOutcomes ? (
                     <ul className="space-y-2 text-muted-foreground">
                       {learningOutcomes.map(outcome => (
-                        <li key={outcome}>- {outcome}</li>
+                        <li key={outcome} className="flex gap-2">
+                          <span className="mt-2 size-1.5 rounded-full bg-primary" />
+                          <span>{outcome}</span>
+                        </li>
                       ))}
                     </ul>
                   ) : (
@@ -121,32 +124,32 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
                 <CardTitle>Course Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Users className="size-5 text-muted-foreground" />
+                <div className="flex items-center gap-3 rounded-[8px] border bg-background/45 p-3">
+                  <Users className="size-5 text-primary" />
                   <div>
                     <p className="text-sm text-muted-foreground">Instructor</p>
                     <p className="font-medium">{course.teacher}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <Calendar className="size-5 text-muted-foreground" />
+                <div className="flex items-center gap-3 rounded-[8px] border bg-background/45 p-3">
+                  <Calendar className="size-5 text-primary" />
                   <div>
                     <p className="text-sm text-muted-foreground">Schedule</p>
                     <p className="font-medium">{course.schedule}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <Clock className="size-5 text-muted-foreground" />
+                <div className="flex items-center gap-3 rounded-[8px] border bg-background/45 p-3">
+                  <Clock className="size-5 text-primary" />
                   <div>
                     <p className="text-sm text-muted-foreground">Duration</p>
                     <p className="font-medium">{durationLabel}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <BookOpen className="size-5 text-muted-foreground" />
+                <div className="flex items-center gap-3 rounded-[8px] border bg-background/45 p-3">
+                  <BookOpen className="size-5 text-primary" />
                   <div>
                     <p className="text-sm text-muted-foreground">Enrolled</p>
                     <p className="font-medium">{course.enrolled} students</p>
@@ -155,7 +158,7 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-[#E6F0FF] to-[#BFD9FF]/50 border-0">
+            <Card className="border-primary/15 bg-secondary/70">
               <CardHeader>
                 <CardTitle>Interested?</CardTitle>
                 <CardDescription>Join this course and start learning today</CardDescription>

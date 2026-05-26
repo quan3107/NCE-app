@@ -18,17 +18,14 @@ import {
   type IeltsAssignmentConfig,
 } from '@lib/ielts';
 import { TeacherAssignmentDetailTabs } from './TeacherAssignmentDetailTabs';
+import { TeacherAssignmentDetailHeaderActions } from './TeacherAssignmentDetailHeaderActions';
 import { RubricManagementOverlay } from '@features/rubrics/components/RubricManagementOverlay';
 import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  Edit,
   FileText,
-  EyeOff,
   Users,
-  Save,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import type { Assignment } from '@domain';
@@ -38,26 +35,16 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const { assignments, submissions, courses, isLoading, error } = useAssignmentResources();
   const updateAssignmentMutation = useUpdateAssignmentMutation();
 
-  // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [draftConfig, setDraftConfig] = useState<IeltsAssignmentConfig | null>(null);
   const [draftAssignment, setDraftAssignment] = useState<Assignment | null>(null);
 
-  // Rubric management modal state
   const [isRubricModalOpen, setIsRubricModalOpen] = useState(false);
 
   const assignment = assignments.find(item => item.id === assignmentId) ?? null;
 
-  // Fetch rubrics for the assignment's course (for writing assignments)
   const rubricsQuery = useCourseRubricsQuery(assignment?.courseId ?? '');
   const rubrics = rubricsQuery.data ?? [];
-
-  // Debug logging
-  console.log('[TeacherAssignmentDetailPage] assignment?.courseId:', assignment?.courseId);
-  console.log('[TeacherAssignmentDetailPage] rubricsQuery.data:', rubricsQuery.data);
-  console.log('[TeacherAssignmentDetailPage] rubricsQuery.isLoading:', rubricsQuery.isLoading);
-  console.log('[TeacherAssignmentDetailPage] rubricsQuery.error:', rubricsQuery.error);
-  console.log('[TeacherAssignmentDetailPage] final rubrics array:', rubrics);
 
   const course = courses.find(item => item.id === assignment?.courseId) ?? null;
   const assignmentSubmissions = useMemo(
@@ -89,12 +76,7 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     );
   }, [assignment]);
 
-  // Use draft config when editing, otherwise use the saved config
   const activeConfig = isEditing && draftConfig ? draftConfig : ieltsConfig;
-
-  // Debug logging for config
-  console.log('[TeacherAssignmentDetailPage] ieltsConfig:', ieltsConfig);
-  console.log('[TeacherAssignmentDetailPage] activeConfig:', activeConfig);
 
   const statsCards = [
     { label: 'Total Students', value: totalStudents, icon: <Users className="size-5 text-blue-600" /> },
@@ -103,7 +85,6 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     { label: 'Graded', value: gradedCount, icon: <CheckCircle2 className="size-5 text-purple-600" /> },
   ];
 
-  // Edit mode handlers
   const handleEnterEditMode = useCallback(() => {
     if (ieltsConfig && assignment) {
       setDraftConfig(ieltsConfig);
@@ -124,7 +105,6 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     try {
       const payload: Record<string, unknown> = {};
       
-      // Save assignment metadata changes if draft exists
       if (draftAssignment) {
         payload.title = draftAssignment.title;
         payload.descriptionMd = draftAssignment.description;
@@ -135,7 +115,6 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
         };
       }
       
-      // Save IELTS config changes if draft exists
       if (draftConfig) {
         payload.assignmentConfig = draftConfig;
       }
@@ -257,8 +236,8 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
     );
   }
 
-  // Use draft assignment when editing, otherwise use the saved assignment
   const activeAssignment = isEditing && draftAssignment ? draftAssignment : assignment;
+  const canEditAssignment = isIeltsAssignmentType(assignment.type) && Boolean(ieltsConfig);
 
   return (
     <div>
@@ -266,48 +245,17 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
         title={assignment.title}
         description={assignment.courseName}
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/teacher/assignments')}>
-              <ArrowLeft className="mr-2 size-4" />
-              Back
-            </Button>
-            {isEditing ? (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={handleCancelEdit}
-                  disabled={updateAssignmentMutation.isPending}
-                >
-                  <X className="mr-2 size-4" />
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveEdit}
-                  disabled={updateAssignmentMutation.isPending}
-                >
-                  <Save className="mr-2 size-4" />
-                  {updateAssignmentMutation.isPending ? 'Saving...' : 'Save'}
-                </Button>
-              </>
-            ) : (
-              <>
-                {isIeltsAssignmentType(assignment.type) && ieltsConfig && (
-                  <Button variant="outline" onClick={handleEnterEditMode}>
-                    <Edit className="mr-2 size-4" />
-                    Edit
-                  </Button>
-                )}
-                <Button
-                  onClick={handleUnpublish}
-                  variant="secondary"
-                  disabled={assignment.status !== 'published' || updateAssignmentMutation.isPending}
-                >
-                  <EyeOff className="mr-2 size-4" />
-                  {updateAssignmentMutation.isPending ? 'Unpublishing...' : 'Unpublish'}
-                </Button>
-              </>
-            )}
-          </div>
+          <TeacherAssignmentDetailHeaderActions
+            canEdit={canEditAssignment}
+            isEditing={isEditing}
+            isPending={updateAssignmentMutation.isPending}
+            isPublished={assignment.status === 'published'}
+            onBack={() => navigate('/teacher/assignments')}
+            onCancelEdit={handleCancelEdit}
+            onEnterEdit={handleEnterEditMode}
+            onSaveEdit={handleSaveEdit}
+            onUnpublish={handleUnpublish}
+          />
         }
       />
 
@@ -337,13 +285,11 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
         </div>
       </div>
 
-      {/* Rubric Management Overlay */}
       {assignment?.courseId && (
         <RubricManagementOverlay
           isOpen={isRubricModalOpen}
           onClose={() => {
             setIsRubricModalOpen(false);
-            // Auto-save assignment config when closing the modal
             if (isEditing) {
               handleAutoSave();
             }

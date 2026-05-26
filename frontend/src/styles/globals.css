@@ -18,42 +18,42 @@
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
-  --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
+  --background: #f7f5ef;
+  --foreground: #1f2520;
+  --card: #fffdf8;
+  --card-foreground: #1f2520;
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #030213;
+  --primary: #385449;
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
-  --muted: #ececf0;
-  --muted-foreground: #717182;
-  --accent: #e9ebef;
-  --accent-foreground: #030213;
+  --secondary: #e8efe8;
+  --secondary-foreground: #1f2520;
+  --muted: #eee9df;
+  --muted-foreground: #6b716d;
+  --accent: #dbe6df;
+  --accent-foreground: #1f2520;
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
+  --border: rgba(31, 37, 32, 0.12);
   --input: transparent;
-  --input-background: #f3f3f5;
-  --switch-background: #cbced4;
+  --input-background: #fffaf1;
+  --switch-background: #cbd5ce;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #030213;
+  --chart-1: #385449;
+  --chart-2: #8aa99b;
+  --chart-3: #d7a13a;
+  --chart-4: #7fa8c9;
+  --chart-5: #a56b62;
+  --radius: 0.5rem;
+  --sidebar: #fffcf5;
+  --sidebar-foreground: #1f2520;
+  --sidebar-primary: #385449;
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-accent: #eef3ed;
+  --sidebar-accent-foreground: #1f2520;
+  --sidebar-border: rgba(31, 37, 32, 0.12);
   --sidebar-ring: oklch(0.708 0 0);
 }
 
@@ -142,70 +142,36 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Atkinson Hyperlegible', sans-serif;
+    letter-spacing: 0;
+    text-rendering: optimizeLegibility;
   }
 }
 
 @layer components {
-  .tabs-pill {
-    height: 32px;
+  .brand-mark {
+    align-items: center;
+    background: #385449;
+    border: 1px solid rgba(255, 255, 255, 0.42);
     border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    background-color: #ffffff;
-    color: #0a0a0a;
-    font-size: 0.875rem;
-    font-weight: 400;
-    line-height: 1.25rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 8px 0 12px;
-    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
-  }
-
-  .tabs-pill[data-state='active'] {
-    background-color: #030213;
-    border-color: #030213;
-    color: #ffffff;
-  }
-
-  .passage-remove-btn {
-    display: flex;
-    align-items: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    color: #fffdf8;
+    display: inline-flex;
     justify-content: center;
-    padding: 2px;
-    margin-left: 8px;
-    border-radius: 50%;
-    color: #717182;
-    cursor: pointer;
-    transition: color 150ms ease, background-color 150ms ease;
   }
 
-  .passage-remove-btn:hover {
-    color: #dc2626;
-    background-color: rgba(220, 38, 38, 0.1);
+  .quiet-panel {
+    background:
+      linear-gradient(180deg, rgba(255, 253, 248, 0.95), rgba(255, 250, 241, 0.95)),
+      var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
   }
 
-  /* Custom scrollbar styles for reading panels */
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: #d1d5db transparent;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: #d1d5db;
-    border-radius: 4px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: #9ca3af;
+  .content-band {
+    background:
+      linear-gradient(90deg, rgba(56, 84, 73, 0.05), transparent 38%),
+      var(--background);
   }
 }
 
@@ -264,365 +230,6 @@
   }
 }
 
-@layer components {
-  .ielts-authoring {
-    --ielts-serif: 'Crimson Pro', serif;
-    --ielts-sans: 'Atkinson Hyperlegible', sans-serif;
-  }
-
-  .ielts-authoring h1,
-  .ielts-authoring h2,
-  .ielts-authoring h3,
-  .ielts-authoring h4 {
-    font-family: var(--ielts-serif);
-  }
-
-  .ielts-authoring,
-  .ielts-authoring input,
-  .ielts-authoring textarea,
-  .ielts-authoring select,
-  .ielts-authoring button,
-  .ielts-authoring label {
-    font-family: var(--ielts-sans);
-  }
-
-  /* Enhanced dialog overlay with blur */
-  [data-slot="dialog-overlay"] {
-    backdrop-filter: blur(4px);
-  }
-
-  /* IELTS type card active state enhancement */
-  .ielts-card-active {
-    background: linear-gradient(
-      to bottom right,
-      color-mix(in oklab, var(--primary) 3%, transparent),
-      color-mix(in oklab, var(--primary) 1%, transparent)
-    );
-  }
-
-  /* Form validation states */
-  .form-input-valid {
-    border-color: color-mix(in oklab, var(--color-green-500) 50%, transparent);
-  }
-
-  .form-input-valid:focus-visible {
-    --tw-ring-color: color-mix(in oklab, var(--color-green-500) 30%, transparent);
-  }
-
-  .form-input-invalid {
-    border-color: var(--destructive);
-  }
-
-  .form-input-invalid:focus-visible {
-    --tw-ring-color: color-mix(in oklab, var(--destructive) 30%, transparent);
-  }
-
-  /* Section badge for IELTS builders */
-  .section-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 9999px;
-    background-color: var(--primary);
-    color: var(--primary-foreground);
-    font-size: var(--text-sm);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  /* Enhanced button states */
-  .btn-icon-text {
-    transition-property: all;
-    transition-duration: 0.15s;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .btn-icon-text:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.1)),
-      0 2px 4px -2px var(--tw-shadow-color, rgba(0, 0, 0, 0.1));
-  }
-}
-
 html {
   font-size: var(--font-size);
 }
-
-/* Custom utilities for rich text editor */
-@utility min-h-500 {
-  min-height: 500px;
-}
-
-@utility min-h-600 {
-  min-height: 600px;
-}
-
-@layer components {
-  /* Rich text editor content styles */
-  .rich-text-editor-content {
-    @apply leading-relaxed min-h-[500px];
-  }
-
-  .rich-text-editor-content .ProseMirror {
-    @apply min-h-[500px];
-  }
-
-  .rich-text-editor-content p {
-    @apply mb-3;
-  }
-
-  .rich-text-editor-content p:last-child {
-    @apply mb-0;
-  }
-
-  .rich-text-editor-content ul,
-  .rich-text-editor-content ol {
-    @apply mb-3 pl-6;
-  }
-
-  .rich-text-editor-content ul {
-    @apply list-disc;
-  }
-
-  .rich-text-editor-content ol {
-    @apply list-decimal;
-  }
-
-  .rich-text-editor-content li {
-    @apply mb-1;
-  }
-
-  .rich-text-editor-content li:last-child {
-    @apply mb-0;
-  }
-
-  .rich-text-editor-content a {
-    @apply text-primary underline underline-offset-2;
-  }
-
-  /* Prose mirror placeholder styles */
-  .rich-text-editor-content .ProseMirror-placeholder {
-    @apply text-muted-foreground opacity-60;
-  }
-
-  /* Rich text content styles for rendered HTML */
-  .rich-text-content {
-    @apply leading-relaxed;
-  }
-
-  .rich-text-content p {
-    @apply mb-3;
-  }
-
-  .rich-text-content p:last-child {
-    @apply mb-0;
-  }
-
-  .rich-text-content ul,
-  .rich-text-content ol {
-    @apply mb-3 pl-6;
-  }
-
-  .rich-text-content ul {
-    @apply list-disc;
-  }
-
-  .rich-text-content ol {
-    @apply list-decimal;
-  }
-
-  .rich-text-content li {
-    @apply mb-1;
-  }
-
-  .rich-text-content li:last-child {
-    @apply mb-0;
-  }
-
-  .rich-text-content strong,
-  .rich-text-content b {
-    @apply font-semibold;
-  }
-
-  .rich-text-content em,
-  .rich-text-content i {
-    @apply italic;
-  }
-
-  .rich-text-content u {
-    @apply underline;
-  }
-
-  .rich-text-content a {
-    @apply text-primary underline underline-offset-2;
-  }
-
-  .rich-text-content a:hover {
-    @apply opacity-80;
-  }
-
-  .rich-text-content br {
-    @apply block mb-2;
-    content: "";
-  }
-}
-
-@utility reading-panels-container {
-  @apply h-[calc(100vh-280px)];
-}
-
-@utility reading-panels-container-child {
-  @apply h-[calc(100vh-280px)];
-}
-
-/* Scrollbar styles for reading panels - kept as plain CSS because 
-   ::-webkit-scrollbar pseudo-elements are browser-specific and not 
-   supported by Tailwind utilities */
-.scrollbar-visible {
-  scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
-}
-
-.scrollbar-visible::-webkit-scrollbar {
-  width: 8px;
-}
-
-.scrollbar-visible::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scrollbar-visible::-webkit-scrollbar-thumb {
-  background-color: #d1d5db;
-  border-radius: 4px;
-}
-
-.scrollbar-visible::-webkit-scrollbar-thumb:hover {
-  background-color: #9ca3af;
-}
-
-/* BACKUP: Remove after 1 week if no issues with Tailwind refactor
-   Original custom CSS - commented out 2026-02-04
-   
-.reading-panels-container {
-  height: calc(100vh - 280px);
-}
-
-.reading-panels-container > div {
-  height: calc(100vh - 280px);
-}
-
-.rich-text-content {
-  line-height: 1.6;
-}
-
-.rich-text-content p {
-  margin-bottom: 0.75rem;
-}
-
-.rich-text-content p:last-child {
-  margin-bottom: 0;
-}
-
-.rich-text-content ul,
-.rich-text-content ol {
-  margin-bottom: 0.75rem;
-  padding-left: 1.5rem;
-}
-
-.rich-text-content ul {
-  list-style-type: disc;
-}
-
-.rich-text-content ol {
-  list-style-type: decimal;
-}
-
-.rich-text-content li {
-  margin-bottom: 0.25rem;
-}
-
-.rich-text-content li:last-child {
-  margin-bottom: 0;
-}
-
-.rich-text-content strong,
-.rich-text-content b {
-  font-weight: 600;
-}
-
-.rich-text-content em,
-.rich-text-content i {
-  font-style: italic;
-}
-
-.rich-text-content u {
-  text-decoration: underline;
-}
-
-.rich-text-content a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.rich-text-content a:hover {
-  opacity: 0.8;
-}
-
-.rich-text-content br {
-  display: block;
-  content: "";
-  margin-bottom: 0.5rem;
-}
-
-.rich-text-editor-content {
-  line-height: 1.6;
-  min-height: 500px;
-}
-
-.rich-text-editor-content .ProseMirror {
-  min-height: 500px;
-}
-
-.rich-text-editor-content p {
-  margin-bottom: 0.75rem;
-}
-
-.rich-text-editor-content p:last-child {
-  margin-bottom: 0;
-}
-
-.rich-text-editor-content ul,
-.rich-text-editor-content ol {
-  margin-bottom: 0.75rem;
-  padding-left: 1.5rem;
-}
-
-.rich-text-editor-content ul {
-  list-style-type: disc;
-}
-
-.rich-text-editor-content ol {
-  list-style-type: decimal;
-}
-
-.rich-text-editor-content li {
-  margin-bottom: 0.25rem;
-}
-
-.rich-text-editor-content li:last-child {
-  margin-bottom: 0;
-}
-
-.rich-text-editor-content a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.rich-text-editor-content .ProseMirror-placeholder {
-  color: var(--muted-foreground);
-  opacity: 0.6;
-}
-*/

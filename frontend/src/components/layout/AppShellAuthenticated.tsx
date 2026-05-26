@@ -121,7 +121,7 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <header className="h-16 border-b bg-card flex items-center px-4 gap-4 sticky top-0 z-50">
+      <header className="h-16 border-b bg-card/90 backdrop-blur flex items-center px-4 gap-4 sticky top-0 z-50">
         <Button
           variant="ghost"
           size="icon"
@@ -132,10 +132,10 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
         </Button>
 
         <button onClick={() => navigate('/')} className="flex items-center gap-2" type="button">
-          <div className="size-8 rounded-lg bg-gradient-to-br from-[#E6F0FF] to-[#BFD9FF] flex items-center justify-center">
-            <GraduationCap className="size-5 text-primary" />
+          <div className="brand-mark size-8">
+            <GraduationCap className="size-5" />
           </div>
-          <span className="font-medium hidden sm:inline">NCE</span>
+          <span className="font-semibold hidden sm:inline tracking-normal">NCE</span>
         </button>
 
         <div className="flex-1" />
@@ -209,11 +209,11 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
           className={[
             sidebarOpen ? 'translate-x-0' : '-translate-x-full',
             'md:translate-x-0 fixed md:relative inset-y-0 left-0 z-40',
-            'w-64 border-r bg-card transition-transform duration-200 ease-in-out',
+            'w-64 border-r bg-sidebar transition-transform duration-200 ease-in-out',
             'flex flex-col mt-16 md:mt-0',
           ].join(' ')}
         >
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             {items.map((item) => (
               <NavigationItemRow
                 key={item.id}
@@ -232,7 +232,7 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
           </nav>
 
           {showRoleSwitcher && (
-            <div className="p-4 border-t bg-muted/30">
+            <div className="p-4 border-t bg-background/60">
               <p className="text-xs text-muted-foreground mb-2">Demo: Switch Role</p>
               <RoleSwitcher currentRole={currentUser.role} />
             </div>

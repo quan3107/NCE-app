@@ -7,6 +7,7 @@ import { UserRole } from "../prisma/index.js";
 import { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 
+import { config } from "../config/env.js";
 import { withRoleContext } from "../prisma/client.js";
 import { verifyAccessToken } from "../modules/auth/auth.tokens.js";
 
@@ -59,7 +60,16 @@ function parseHeaderActor(req: Request): Actor | null {
 }
 
 function resolveActor(req: Request): Actor | null {
-  return parseBearerActor(req) ?? parseHeaderActor(req);
+  const bearer = parseBearerActor(req);
+  if (bearer) {
+    return bearer;
+  }
+  // Header-based auth is only allowed in dev/test to support persona-based
+  // development flows. In production, only Bearer tokens are accepted.
+  if (config.nodeEnv !== "production") {
+    return parseHeaderActor(req);
+  }
+  return null;
 }
 
 export async function rlsContext(

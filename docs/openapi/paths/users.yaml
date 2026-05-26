@@ -32,6 +32,7 @@ Users:
   post:
     tags: [users]
     summary: Create user (admin)
+    description: Admin-only provisioning flow for student, teacher, and administrator accounts.
     requestBody:
       required: true
       content:

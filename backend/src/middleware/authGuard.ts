@@ -1,12 +1,13 @@
 /**
  * File: src/middleware/authGuard.ts
- * Purpose: Enforce authenticated requests by validating lightweight header-based credentials.
- * Why: Provides a temporary access guard until full token verification is wired up.
+ * Purpose: Enforce authenticated requests by validating Bearer tokens (production) or header-based credentials (dev/test only).
+ * Why: Prevents unauthenticated access while preserving developer convenience in non-production environments.
  */
 import { UserRole } from "../prisma/index.js";
 import { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 
+import { config } from "../config/env.js";
 import { verifyAccessToken } from "../modules/auth/auth.tokens.js";
 
 const headerSchema = z.object({
@@ -69,20 +70,23 @@ export function authGuard(
     return;
   }
 
-  const parseResult = headerSchema.safeParse({
-    userId: req.header("x-user-id"),
-    role: req.header("x-user-role"),
-  });
+  // Header-based auth is only allowed in dev/test to support persona-based
+  // development flows. In production, only Bearer tokens are accepted.
+  if (config.nodeEnv !== "production") {
+    const parseResult = headerSchema.safeParse({
+      userId: req.header("x-user-id"),
+      role: req.header("x-user-role"),
+    });
 
-  if (!parseResult.success) {
-    res.status(401).json(unauthorizedResponse);
-    return;
+    if (parseResult.success) {
+      req.user = {
+        id: parseResult.data.userId,
+        role: parseResult.data.role,
+      };
+      next();
+      return;
+    }
   }
 
-  req.user = {
-    id: parseResult.data.userId,
-    role: parseResult.data.role,
-  };
-
-  next();
+  res.status(401).json(unauthorizedResponse);
 }

@@ -30,6 +30,8 @@ describe('modules.router cms routes', () => {
   })
 
   it('forbids non-admin users for POST /api/v1/cms/refresh-stats', async () => {
+    // Header-based auth (x-user-id/x-user-role) is dev/test-only and is
+    // rejected in production. This test relies on NODE_ENV=test to use headers.
     const response = await request(app)
       .post('/api/v1/cms/refresh-stats')
       .set('x-user-id', '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2')

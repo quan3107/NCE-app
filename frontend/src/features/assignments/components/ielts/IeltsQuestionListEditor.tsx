@@ -29,16 +29,15 @@ import {
 import { StringListEditor } from './StringListEditor';
 import { MatchingEditor } from './MatchingEditor';
 import { DiagramLabelingEditor } from './DiagramLabelingEditor';
-
-type QuestionTypeOption = {
-  value: IeltsQuestionType;
-  label: string;
-};
-
-type CompletionFormatOption = {
-  value: IeltsCompletionFormat;
-  label: string;
-};
+import {
+  DIAGRAM_LABELING_TYPES,
+  MATCHING_TYPES,
+  OPTION_TYPES,
+  buildQuestionTypePatch,
+  createQuestion,
+  type CompletionFormatOption,
+  type QuestionTypeOption,
+} from './questionListEditor.logic';
 
 type IeltsQuestionListEditorProps = {
   questions: IeltsQuestion[];
@@ -49,67 +48,6 @@ type IeltsQuestionListEditorProps = {
   onImageUpload?: (file: File) => Promise<string>;
   onImageRemove?: (imageId: string) => void;
   uploadedImages?: Record<string, UploadFile>;
-};
-
-const OPTION_TYPES = new Set<IeltsQuestionType>([
-  'multiple_choice',
-]);
-
-const MATCHING_TYPES = new Set<IeltsQuestionType>([
-  'matching',
-  'matching_headings',
-  'matching_information',
-  'matching_features',
-]);
-
-const DIAGRAM_LABELING_TYPES = new Set<IeltsQuestionType>([
-  'diagram_labeling',
-  'map_diagram_labeling',
-]);
-
-const createId = () => globalThis.crypto?.randomUUID?.() ?? `q-${Date.now()}`;
-
-const createQuestion = (type: IeltsQuestionType): IeltsQuestion => {
-  const baseOptions = type === 'completion' ? ['', ''] : [''];
-  const question: IeltsQuestion = {
-    id: createId(),
-    type,
-    prompt: '',
-    options: baseOptions,
-    correctAnswer: '',
-  };
-
-  // Initialize format for completion types
-  if (type === 'completion') {
-    question.format = 'summary';
-  }
-
-  // Initialize matching data for matching types
-  if (MATCHING_TYPES.has(type)) {
-    question.matchingItems = [
-      { id: createId(), statement: '', matchId: null },
-      { id: createId(), statement: '', matchId: null },
-      { id: createId(), statement: '', matchId: null },
-    ];
-    question.matchingOptions = [
-      { id: createId(), label: 'A' },
-      { id: createId(), label: 'B' },
-      { id: createId(), label: 'C' },
-      { id: createId(), label: 'D' },
-    ];
-  }
-
-  // Initialize diagram data for labeling types
-  if (DIAGRAM_LABELING_TYPES.has(type)) {
-    question.diagramImageIds = [];
-    question.diagramLabels = [
-      { id: createId(), letter: 'A', position: '', answer: '' },
-      { id: createId(), letter: 'B', position: '', answer: '' },
-      { id: createId(), letter: 'C', position: '', answer: '' },
-    ];
-  }
-
-  return question;
 };
 
 export function IeltsQuestionListEditor({
@@ -144,63 +82,10 @@ export function IeltsQuestionListEditor({
     const question = questions.find((q) => q.id === id);
     if (!question) return;
 
-    const updates: Partial<IeltsQuestion> = { type: newType };
-
-    // Initialize matching data for matching types
-    if (MATCHING_TYPES.has(newType) && !MATCHING_TYPES.has(question.type)) {
-      updates.matchingItems = [
-        { id: createId(), statement: '', matchId: null },
-        { id: createId(), statement: '', matchId: null },
-        { id: createId(), statement: '', matchId: null },
-      ];
-      updates.matchingOptions = [
-        { id: createId(), label: 'A' },
-        { id: createId(), label: 'B' },
-        { id: createId(), label: 'C' },
-        { id: createId(), label: 'D' },
-      ];
-    } else if (!MATCHING_TYPES.has(newType)) {
-      updates.matchingItems = undefined;
-      updates.matchingOptions = undefined;
-    }
-
-    // Initialize diagram data for labeling types
-    if (DIAGRAM_LABELING_TYPES.has(newType) && !DIAGRAM_LABELING_TYPES.has(question.type)) {
-      updates.diagramImageIds = [];
-      updates.diagramLabels = [
-        { id: createId(), letter: 'A', position: '', answer: '' },
-        { id: createId(), letter: 'B', position: '', answer: '' },
-        { id: createId(), letter: 'C', position: '', answer: '' },
-      ];
-    } else if (!DIAGRAM_LABELING_TYPES.has(newType)) {
-      updates.diagramImageIds = undefined;
-      updates.diagramLabels = undefined;
-    }
-
-    // Reset options when switching types
-    if (OPTION_TYPES.has(newType) && !OPTION_TYPES.has(question.type)) {
-      updates.options = ['', ''];
-    } else if (!OPTION_TYPES.has(newType) && OPTION_TYPES.has(question.type)) {
-      updates.options = [];
-    }
-
-    // Reset format
-    if (newType !== 'completion') {
-      updates.format = undefined;
-    } else {
-      updates.format = 'summary';
-    }
-
-    // Reset correct answer for specific types
-    if (newType === 'true_false_not_given') {
-      updates.correctAnswer = defaultTrueFalseValue;
-    } else if (newType === 'yes_no_not_given') {
-      updates.correctAnswer = defaultYesNoValue;
-    } else if (!MATCHING_TYPES.has(newType) && !DIAGRAM_LABELING_TYPES.has(newType)) {
-      updates.correctAnswer = '';
-    }
-
-    updateQuestion(id, updates);
+    updateQuestion(
+      id,
+      buildQuestionTypePatch(question, newType, defaultTrueFalseValue, defaultYesNoValue),
+    );
   };
 
   const handleMatchingChange = (id: string, items: MatchingItem[], options: MatchingOption[]) => {

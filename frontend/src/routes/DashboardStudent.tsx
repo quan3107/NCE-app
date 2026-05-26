@@ -147,7 +147,7 @@ export function DashboardStudentRoute() {
         }
       />
 
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-5">
         {/* Stats */}
         <DashboardStatsGrid
           widgets={dashboardConfig.config?.widgets ?? []}
@@ -156,14 +156,16 @@ export function DashboardStudentRoute() {
         />
 
         {/* Progress Overview */}
-        <Card>
+        <Card className="border-primary/15 bg-card">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Overall Progress</CardTitle>
+                <CardTitle className="text-xl font-semibold tracking-normal">Overall Progress</CardTitle>
                 <CardDescription>Your completion rate across all courses</CardDescription>
               </div>
-              <TrendingUp className="size-5 text-green-500" />
+              <div className="flex size-10 items-center justify-center rounded-[8px] bg-secondary text-primary">
+                <TrendingUp className="size-5" />
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -180,7 +182,7 @@ export function DashboardStudentRoute() {
           </CardContent>
         </Card>
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid lg:grid-cols-2 gap-4">
           <StudentDueSoonPanel dueSoon={dueSoon} now={now} navigate={navigate} />
           <StudentRecentActivityPanel
             studentSubmissions={studentSubmissions}

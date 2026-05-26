@@ -24,15 +24,15 @@ export function CoursesRoute() {
   );
 
   return (
-    <div className="py-20">
+    <div className="content-band py-16 sm:py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto mb-12 text-center">
-          <h1 className="mb-4">IELTS Preparation Courses</h1>
-          <p className="text-xl text-muted-foreground mb-8">
+        <div className="max-w-3xl mb-10">
+          <h1 className="mb-4 text-4xl font-semibold tracking-normal">IELTS Preparation Courses</h1>
+          <p className="text-lg text-muted-foreground mb-8">
             Comprehensive training for all four IELTS skills - Reading, Writing, Listening, and Speaking
           </p>
           
-          <div className="relative max-w-md mx-auto">
+          <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="Search courses..."
@@ -44,7 +44,7 @@ export function CoursesRoute() {
         </div>
 
         {isLoading ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, index) => (
               <Card key={`course-skeleton-${index}`} className="animate-pulse">
                 <CardHeader>
@@ -70,9 +70,9 @@ export function CoursesRoute() {
           </div>
         ) : (
           <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredCourses.map(course => (
-                <Card key={course.id} className="hover:shadow-lg transition-shadow">
+                <Card key={course.id} className="transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
                   <CardHeader>
                     <div className="flex items-start justify-between mb-2">
                       {course.enrolled != null && <Badge variant="secondary">{course.enrolled} enrolled</Badge>}
@@ -93,7 +93,7 @@ export function CoursesRoute() {
                     </div>
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full justify-between"
                       onClick={() => navigate(`/courses/${course.id}`)}
                     >
                       Learn More

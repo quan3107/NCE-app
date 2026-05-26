@@ -43,6 +43,7 @@ backend/src/prisma/generated/
 tmp/
 temp/
 .cache/
+.factory/
 *.pid
 *.seed
 *.bak
@@ -66,6 +67,8 @@ logs/
 *.err
 
 # === Project-specific exclusions ===
+
+CODEBASE_AUDIT_*.txt
 
 docs/*
 !docs/openapi/
