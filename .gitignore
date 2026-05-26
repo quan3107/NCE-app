@@ -74,9 +74,11 @@ docs/*
 !docs/openapi/
 !docs/openapi/**
 !docs/npm-security-update-path-2026-05-25.md
+!docs/project-completion-implementation-tasks-2026-05-26.md
 
 # === Markdown ===
 *.md
 !README.md
 !PROGRESS.md
 !docs/npm-security-update-path-2026-05-25.md
+!docs/project-completion-implementation-tasks-2026-05-26.md
