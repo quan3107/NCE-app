@@ -26,6 +26,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-05-26:** Restored Phase 0 frontend dependency/install gate health from the existing manifest and lockfile by running a clean `npm --prefix frontend ci`. Verified `npm --prefix frontend run build` resolves `@tailwindcss/vite` and completes, and `npm --prefix frontend test` resolves `@tanstack/react-query`/`isomorphic-dompurify` with all 57 tests passing. No frontend package changes were needed.
 - **2026-05-26:** Mapped frontend architecture for a project mental map: Vite/React boot path, React Router route groups, public/authenticated shells, React Query API boundary, auth context bridge, feature modules, Tailwind token system, navigation cache/fallback behavior, tests, and UI risks. No frontend source changes.
 - **2026-05-26:** Added `docs/codebase-re-entry-tutorial-2026-05-26.md` with a frontend-oriented re-entry map covering Vite runtime commands, routing, React Query/API client flow, auth context, and the current visual redesign state. No frontend source changes.
 - **2026-05-26:** Removed the committed generated Tailwind output file `frontend/index.css`, switched the app to rely on `frontend/src/styles/globals.css` as the single Tailwind entry point, removed an expired commented CSS backup block, ignored local Factory/audit artifacts, and deleted the untracked `.factory/` screenshot/log cache plus regenerated `frontend/build` output.
