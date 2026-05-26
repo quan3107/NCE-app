@@ -4,7 +4,7 @@
  * Why: Matches the dedicated create experience for IELTS reading/listening/writing/speaking.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Eye } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
@@ -17,113 +17,28 @@ import {
   createIeltsAssignmentConfig,
   type IeltsAssignmentConfig,
   type IeltsAssignmentType,
-  type IeltsReadingConfig,
-  type IeltsListeningConfig,
-  type IeltsWritingConfig,
-  type IeltsSpeakingConfig,
 } from '@lib/ielts';
+import type { AssignmentType } from '@domain';
 import { useAssignmentResources, useCreateAssignmentMutation } from '@features/assignments/api';
-import { uploadFileWithProgress } from '@features/files/fileUpload';
 import { IeltsTypeSelection } from './ielts/authoring/IeltsTypeSelection';
-import { ReadingAssignmentForm } from './ielts/authoring/ReadingAssignmentForm';
-import { ListeningAssignmentForm } from './ielts/authoring/ListeningAssignmentForm';
-import { WritingAssignmentForm } from './ielts/authoring/WritingAssignmentForm';
-import { SpeakingAssignmentForm } from './ielts/authoring/SpeakingAssignmentForm';
-import { IeltsAuthoringBasicDetailsCard } from './ielts/authoring/IeltsAuthoringBasicDetailsCard';
-import { IeltsAuthoringActionsCard } from './ielts/authoring/IeltsAuthoringActionsCard';
-
-type UploadMap = Record<string, File | null>;
-
-// Narrow assignment config by expected shape to avoid passing wrong type to editors.
-const isReadingConfig = (config: IeltsAssignmentConfig | null): config is IeltsReadingConfig => {
-  if (!config || !('sections' in config) || !Array.isArray(config.sections)) {
-    return false;
-  }
-  if (config.sections.length === 0) {
-    return false;
-  }
-  return config.sections.every(section => typeof (section as IeltsReadingConfig['sections'][0]).passage === 'string');
-};
-
-const isListeningConfig = (config: IeltsAssignmentConfig | null): config is IeltsListeningConfig => {
-  if (!config || !('sections' in config) || !Array.isArray(config.sections)) {
-    return false;
-  }
-  if (config.sections.length === 0) {
-    return false;
-  }
-  return config.sections.every(section => 'audioFileId' in section);
-};
-
-const isWritingConfig = (config: IeltsAssignmentConfig | null): config is IeltsWritingConfig => {
-  if (!config || !('task1' in config) || !('task2' in config)) {
-    return false;
-  }
-  return typeof config.task1 === 'object' && typeof config.task2 === 'object';
-};
-
-const isSpeakingConfig = (config: IeltsAssignmentConfig | null): config is IeltsSpeakingConfig => {
-  if (!config || !('part1' in config) || !('part2' in config) || !('part3' in config)) {
-    return false;
-  }
-  return typeof config.part1 === 'object' && typeof config.part2 === 'object' && typeof config.part3 === 'object';
-};
-
-// Helper to get initial state from localStorage draft
-function getInitialStateFromDraft() {
-  if (typeof window === 'undefined') return null;
-  
-  try {
-    // Check all possible draft keys for the most recent one
-    const possibleTypes: IeltsAssignmentType[] = ['reading', 'listening', 'writing', 'speaking'];
-    let foundDraft: { type: IeltsAssignmentType; data: any; timestamp: number } | null = null;
-    
-    for (const type of possibleTypes) {
-      const saved = localStorage.getItem(`ielts_autosave_ielts_${type}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
-        const isExpired = Date.now() - parsed.timestamp > maxAgeMs;
-        
-        if (!isExpired && parsed.data?.selectedType === type) {
-          if (!foundDraft || parsed.timestamp > foundDraft.timestamp) {
-            foundDraft = { type, data: parsed.data, timestamp: parsed.timestamp };
-          }
-        }
-      }
-    }
-    
-    // Also check the generic 'create' key
-    const saved = localStorage.getItem('ielts_autosave_ielts_create');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
-      const isExpired = Date.now() - parsed.timestamp > maxAgeMs;
-      
-      if (!isExpired && parsed.data?.selectedType) {
-        if (!foundDraft || parsed.timestamp > foundDraft.timestamp) {
-          foundDraft = { 
-            type: parsed.data.selectedType, 
-            data: parsed.data, 
-            timestamp: parsed.timestamp 
-          };
-        }
-      }
-    }
-    
-    return foundDraft;
-  } catch (error) {
-    console.error('Error reading draft from localStorage:', error);
-    return null;
-  }
-}
+import { TeacherIeltsAssignmentEditor } from './TeacherIeltsAssignmentEditor';
+import {
+  formatTimeAgo,
+  getInitialStateFromDraft,
+  isListeningConfig,
+  isReadingConfig,
+  isSpeakingConfig,
+  isWritingConfig,
+  uploadListeningAudioFiles,
+  uploadWritingTaskImage,
+  type UploadMap,
+} from './teacherIeltsCreate.logic';
 
 export function TeacherIeltsAssignmentCreatePage() {
   const { navigate } = useRouter();
   const { courses } = useAssignmentResources();
   const createAssignmentMutation = useCreateAssignmentMutation();
 
-  // Initialize state from localStorage draft if available
   const draft = getInitialStateFromDraft();
   const didRestore = !!draft;
   
@@ -142,12 +57,8 @@ export function TeacherIeltsAssignmentCreatePage() {
   const [listeningFiles, setListeningFiles] = useState<UploadMap>({});
   const [writingTask1File, setWritingTask1File] = useState<File | null>(null);
   
-  // Track if we're restoring from draft to prevent auto-save indicator during restoration
   const [isRestoring, setIsRestoring] = useState(didRestore);
-  const hasRestoredRef = useRef(didRestore);
 
-  // Auto-save functionality - use a stable key based on whether we've selected a type
-  // We use 'create' initially, then switch to the type-specific key after restoration
   const autoSaveKey = useMemo(() => {
     if (selectedType) {
       return `ielts_${selectedType}`;
@@ -184,22 +95,17 @@ export function TeacherIeltsAssignmentCreatePage() {
     status: autoSaveStatus, 
     lastSaved, 
     clearDraft, 
-    draftData, 
-    hasDraft, 
     draftTimestamp
   } = useAutoSave(autoSaveData, {
     key: autoSaveKey,
     debounceMs: 1000,
   });
 
-  // Show toast notification when draft is restored (state already initialized synchronously)
   useEffect(() => {
     if (draft && didRestore) {
-      // Show toast notification
       const timeAgo = formatTimeAgo(new Date(draft.timestamp));
       toast.success(`Draft restored from ${timeAgo}`);
       
-      // Reset restoration flag after auto-save debounce period + buffer
       setTimeout(() => {
         setIsRestoring(false);
       }, 1500);
@@ -274,46 +180,6 @@ export function TeacherIeltsAssignmentCreatePage() {
   const writingConfig = assignmentConfig && isWritingConfig(assignmentConfig) ? assignmentConfig : null;
   const speakingConfig = assignmentConfig && isSpeakingConfig(assignmentConfig) ? assignmentConfig : null;
 
-  const uploadAudioFiles = async (config: IeltsAssignmentConfig) => {
-    if (config && selectedType === 'listening' && isListeningConfig(config)) {
-      const nextSections = await Promise.all(
-        config.sections.map(async (section) => {
-          const file = listeningFiles[section.id];
-          if (!file) {
-            return section;
-          }
-          const uploaded = await uploadFileWithProgress({
-            file,
-            onProgress: () => undefined,
-          });
-          return {
-            ...section,
-            audioFileId: uploaded.id,
-          };
-        }),
-      );
-      return { ...config, sections: nextSections } as IeltsAssignmentConfig;
-    }
-    return config;
-  };
-
-  const uploadWritingImage = async (config: IeltsAssignmentConfig) => {
-    if (config && selectedType === 'writing' && writingTask1File && isWritingConfig(config)) {
-      const uploaded = await uploadFileWithProgress({
-        file: writingTask1File,
-        onProgress: () => undefined,
-      });
-      return {
-        ...config,
-        task1: {
-          ...config.task1,
-          imageFileId: uploaded.id,
-        },
-      } as IeltsAssignmentConfig;
-    }
-    return config;
-  };
-
   const handleSubmit = async (publish: boolean) => {
     if (!selectedType || !assignmentConfig) {
       toast.error('Select an IELTS assignment type to continue.');
@@ -330,15 +196,15 @@ export function TeacherIeltsAssignmentCreatePage() {
 
     try {
       let config = assignmentConfig;
-      config = await uploadAudioFiles(config);
-      config = await uploadWritingImage(config);
+      config = await uploadListeningAudioFiles(config, selectedType, listeningFiles);
+      config = await uploadWritingTaskImage(config, selectedType, writingTask1File);
 
       await createAssignmentMutation.mutateAsync({
         courseId,
         payload: {
           title: assignmentTitle.trim(),
           descriptionMd: instructions.trim() || undefined,
-          type: selectedType,
+          type: selectedType as AssignmentType,
           dueAt: dueDate ? new Date(dueDate).toISOString() : undefined,
           assignmentConfig: config,
           publishedAt: publish ? new Date().toISOString() : undefined,
@@ -347,7 +213,6 @@ export function TeacherIeltsAssignmentCreatePage() {
       toast.success(
         publish ? 'Assignment published successfully' : 'Assignment draft saved successfully',
       );
-      // Clear auto-save draft on successful submission
       clearDraft();
       navigate('/teacher/assignments');
     } catch (error) {
@@ -397,86 +262,37 @@ export function TeacherIeltsAssignmentCreatePage() {
         }
       />
 
-      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
-        <div className="space-y-6">
-          <IeltsAuthoringBasicDetailsCard
-            courses={courses}
-            assignmentTitle={assignmentTitle}
-            onAssignmentTitleChange={setAssignmentTitle}
-            courseId={courseId}
-            onCourseChange={setCourseId}
-            instructions={instructions}
-            onInstructionsChange={setInstructions}
-            timingEnabled={timingEnabled}
-            onTimingEnabledChange={setTimingEnabled}
-            durationMinutes={durationMinutes}
-            onDurationMinutesChange={setDurationMinutes}
-            enforceTime={enforceTime}
-            onEnforceTimeChange={setEnforceTime}
-            dueDate={dueDate}
-            onDueDateChange={setDueDate}
-          />
-
-          {selectedType === 'reading' && readingConfig && (
-            <ReadingAssignmentForm
-              value={readingConfig}
-              onChange={setAssignmentConfig}
-            />
-          )}
-          {selectedType === 'listening' && listeningConfig && (
-            <ListeningAssignmentForm
-              value={listeningConfig}
-              onChange={setAssignmentConfig}
-              onAudioSelect={handleAudioSelect}
-            />
-          )}
-          {selectedType === 'writing' && writingConfig && (
-            <WritingAssignmentForm
-              value={writingConfig}
-              onChange={setAssignmentConfig}
-              onImageSelect={setWritingTask1File}
-              selectedImageFile={writingTask1File}
-              courseId={courseId}
-              onManageRubrics={handleManageRubrics}
-            />
-          )}
-          {selectedType === 'speaking' && speakingConfig && (
-            <SpeakingAssignmentForm
-              value={speakingConfig}
-              onChange={setAssignmentConfig}
-            />
-          )}
-
-          <IeltsAuthoringActionsCard
-            canSave={canSave}
-            isLoading={createAssignmentMutation.isPending}
-            onSaveDraft={() => handleSubmit(false)}
-            onPublish={() => handleSubmit(true)}
-          />
-        </div>
-      </div>
+      <TeacherIeltsAssignmentEditor
+        assignmentTitle={assignmentTitle}
+        canSave={canSave}
+        courseId={courseId}
+        courses={courses}
+        dueDate={dueDate}
+        durationMinutes={durationMinutes}
+        enforceTime={enforceTime}
+        instructions={instructions}
+        isLoading={createAssignmentMutation.isPending}
+        listeningConfig={listeningConfig}
+        onAssignmentConfigChange={setAssignmentConfig}
+        onAssignmentTitleChange={setAssignmentTitle}
+        onAudioSelect={handleAudioSelect}
+        onCourseChange={setCourseId}
+        onDueDateChange={setDueDate}
+        onDurationMinutesChange={setDurationMinutes}
+        onEnforceTimeChange={setEnforceTime}
+        onInstructionsChange={setInstructions}
+        onManageRubrics={handleManageRubrics}
+        onPublish={() => handleSubmit(true)}
+        onSaveDraft={() => handleSubmit(false)}
+        onTimingEnabledChange={setTimingEnabled}
+        onWritingImageSelect={setWritingTask1File}
+        readingConfig={readingConfig}
+        selectedType={selectedType}
+        speakingConfig={speakingConfig}
+        timingEnabled={timingEnabled}
+        writingConfig={writingConfig}
+        writingTask1File={writingTask1File}
+      />
     </div>
   );
-}
-
-// Helper function to format time ago for toast messages
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffSecs < 60) {
-    return 'just now';
-  } else if (diffMins < 60) {
-    return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
-  } else if (diffHours < 24) {
-    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
-  } else if (diffDays < 7) {
-    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
-  } else {
-    return date.toLocaleDateString();
-  }
 }

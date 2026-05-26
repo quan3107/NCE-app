@@ -40,9 +40,9 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
     return (
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-12">
+          <div className="flex items-end justify-between gap-4 mb-10">
             <div>
-              <h2 className="mb-2">Featured IELTS Courses</h2>
+              <h2 className="mb-2 text-3xl font-semibold tracking-normal">Featured IELTS Courses</h2>
               <p className="text-muted-foreground">Comprehensive training for all IELTS test sections</p>
             </div>
             <Button variant="outline" onClick={onViewAll}>
@@ -63,9 +63,9 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
   return (
     <section className="py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-12">
+        <div className="flex items-end justify-between gap-4 mb-10">
           <div>
-            <h2 className="mb-2">Featured IELTS Courses</h2>
+            <h2 className="mb-2 text-3xl font-semibold tracking-normal">Featured IELTS Courses</h2>
             <p className="text-muted-foreground">Comprehensive training for all IELTS test sections</p>
           </div>
           <Button variant="outline" onClick={onViewAll}>
@@ -74,7 +74,7 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
           </Button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-4">
           {featuredState.mode === 'loading'
             ? Array.from({ length: 3 }).map((_, index) => (
                 <Card key={`skeleton-${index}`} className="animate-pulse">
@@ -93,7 +93,7 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
               ? featuredState.courses.map(course => (
                 <Card
                   key={course.id}
-                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  className="cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
                   onClick={() => onSelectCourse(course.id)}
                 >
                   <CardHeader>
@@ -114,7 +114,7 @@ export function FeaturedCourses({ onSelectCourse, onViewAll }: FeaturedCoursesPr
                     </div>
                     <Button
                       variant="ghost"
-                      className="w-full mt-4"
+                      className="w-full mt-4 justify-between shadow-none"
                       onClick={(event: MouseEvent<HTMLButtonElement>) => {
                         event.stopPropagation();
                         onSelectCourse(course.id);

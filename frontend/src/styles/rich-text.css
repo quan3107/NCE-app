@@ -1,0 +1,122 @@
+/**
+ * Location: src/styles/rich-text.css
+ * Purpose: Define rich-text editor and rendered HTML content styling.
+ * Why: Keeps TipTap/ProseMirror utilities out of the global token stylesheet.
+ */
+
+@reference "./globals.css";
+
+@utility min-h-500 {
+  min-height: 500px;
+}
+
+@utility min-h-600 {
+  min-height: 600px;
+}
+
+@layer components {
+  .rich-text-editor-content {
+    @apply leading-relaxed min-h-[500px];
+  }
+
+  .rich-text-editor-content .ProseMirror {
+    @apply min-h-[500px];
+  }
+
+  .rich-text-editor-content p {
+    @apply mb-3;
+  }
+
+  .rich-text-editor-content p:last-child {
+    @apply mb-0;
+  }
+
+  .rich-text-editor-content ul,
+  .rich-text-editor-content ol {
+    @apply mb-3 pl-6;
+  }
+
+  .rich-text-editor-content ul {
+    @apply list-disc;
+  }
+
+  .rich-text-editor-content ol {
+    @apply list-decimal;
+  }
+
+  .rich-text-editor-content li {
+    @apply mb-1;
+  }
+
+  .rich-text-editor-content li:last-child {
+    @apply mb-0;
+  }
+
+  .rich-text-editor-content a {
+    @apply text-primary underline underline-offset-2;
+  }
+
+  .rich-text-editor-content .ProseMirror-placeholder {
+    @apply text-muted-foreground opacity-60;
+  }
+
+  .rich-text-content {
+    @apply leading-relaxed;
+  }
+
+  .rich-text-content p {
+    @apply mb-3;
+  }
+
+  .rich-text-content p:last-child {
+    @apply mb-0;
+  }
+
+  .rich-text-content ul,
+  .rich-text-content ol {
+    @apply mb-3 pl-6;
+  }
+
+  .rich-text-content ul {
+    @apply list-disc;
+  }
+
+  .rich-text-content ol {
+    @apply list-decimal;
+  }
+
+  .rich-text-content li {
+    @apply mb-1;
+  }
+
+  .rich-text-content li:last-child {
+    @apply mb-0;
+  }
+
+  .rich-text-content strong,
+  .rich-text-content b {
+    @apply font-semibold;
+  }
+
+  .rich-text-content em,
+  .rich-text-content i {
+    @apply italic;
+  }
+
+  .rich-text-content u {
+    @apply underline;
+  }
+
+  .rich-text-content a {
+    @apply text-primary underline underline-offset-2;
+  }
+
+  .rich-text-content a:hover {
+    @apply opacity-80;
+  }
+
+  .rich-text-content br {
+    @apply block mb-2;
+    content: "";
+  }
+}

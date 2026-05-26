@@ -37,6 +37,7 @@ Register:
   post:
     tags: [auth]
     summary: Register a new account
+    description: Public registration is limited to student and teacher accounts. Admin accounts must be provisioned through the authenticated admin users API.
     requestBody:
       required: true
       content:

@@ -58,15 +58,15 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <nav className="border-b bg-card sticky top-0 z-50">
+      <nav className="border-b bg-card/90 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
               <button onClick={() => navigate('/')} className="flex items-center gap-2" type="button">
-                <div className="size-8 rounded-lg bg-gradient-to-br from-[#E6F0FF] to-[#BFD9FF] flex items-center justify-center">
-                  <GraduationCap className="size-5 text-primary" />
+                <div className="brand-mark size-8">
+                  <GraduationCap className="size-5" />
                 </div>
-                <span className="font-medium">NCE</span>
+                <span className="font-semibold tracking-normal">NCE</span>
               </button>
               <div className="hidden md:flex items-center gap-1">
                 {publicNavigationItems.map((item) => {
@@ -139,13 +139,13 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t bg-muted/30 py-12 mt-auto">
+      <footer className="border-t bg-card/70 py-12 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="size-8 rounded-lg bg-gradient-to-br from-[#E6F0FF] to-[#BFD9FF] flex items-center justify-center">
-                  <GraduationCap className="size-5 text-primary" />
+                <div className="brand-mark size-8">
+                  <GraduationCap className="size-5" />
                 </div>
                 <span className="font-medium">NCE</span>
               </div>

@@ -23,28 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@components/ui/tooltip';
-
-const createId = () => {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-  return `ielts-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
-
-const createQuestion = (): IeltsQuestion => ({
-  id: createId(),
-  type: 'multiple_choice',
-  prompt: '',
-  options: ['', ''],
-  correctAnswer: '',
-});
-
-const createReadingSection = (index: number): IeltsReadingSection => ({
-  id: createId(),
-  title: `Passage ${index + 1}`,
-  passage: '',
-  questions: [createQuestion()],
-});
+import { createReadingQuestion, createReadingSection } from './readingContentEditor.logic';
 
 type IeltsReadingContentEditorProps = {
   value: IeltsReadingConfig;
@@ -104,7 +83,7 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
     const section = sections.find((s) => s.id === sectionId);
     if (!section) return;
     
-    const newQuestions = [...section.questions, createQuestion()];
+    const newQuestions = [...section.questions, createReadingQuestion()];
     handleUpdateSection(sectionId, { questions: newQuestions });
   };
 
@@ -115,7 +94,7 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
     const newQuestions = section.questions.filter((q) => q.id !== questionId);
     if (newQuestions.length === 0) {
       // Keep at least one question
-      newQuestions.push(createQuestion());
+      newQuestions.push(createReadingQuestion());
     }
     handleUpdateSection(sectionId, { questions: newQuestions });
   };

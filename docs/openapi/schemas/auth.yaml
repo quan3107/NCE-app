@@ -25,7 +25,8 @@ RegisterAccountRequest:
       type: string
       minLength: 8
     role:
-      $ref: './common.yaml#/UserRole'
+      type: string
+      enum: [student, teacher]
   required: [fullName, email, password, role]
 
 RefreshSessionRequest:

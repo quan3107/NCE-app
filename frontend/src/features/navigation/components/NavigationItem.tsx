@@ -31,7 +31,11 @@ export function NavigationItem({
   return (
     <Button
       variant={isActive ? 'secondary' : 'ghost'}
-      className={cn('w-full justify-start gap-3', className)}
+      className={cn(
+        'w-full justify-start gap-3 shadow-none',
+        isActive && 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground',
+        className,
+      )}
       onClick={() => onClick(item.path)}
       type="button"
     >

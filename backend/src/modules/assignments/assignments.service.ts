@@ -16,6 +16,11 @@ import {
   type CreateAssignmentPayload,
   type UpdateAssignmentPayload,
 } from "./assignments.schema.js";
+import {
+  filterWritingAssignmentForStudent,
+  shouldFilterWritingAssignmentForStudent,
+  validateWritingRubrics,
+} from "./assignments.helpers.js";
 import { parseAssignmentConfigForType } from "./ielts.schema.js";
 
 function parseOptionalDate(
@@ -30,52 +35,6 @@ function parseOptionalDate(
     throw createHttpError(400, `${fieldName} must be an ISO date string.`);
   }
   return parsed;
-}
-
-/**
- * Validate that rubricIds in writing assignment config exist and belong to the course
- */
-async function validateWritingRubrics(
-  config: unknown,
-  courseId: string,
-): Promise<void> {
-  if (!config || typeof config !== 'object') {
-    return;
-  }
-
-  const configRecord = config as Record<string, unknown>;
-  const task1 = configRecord.task1 as Record<string, unknown> | undefined;
-  const task2 = configRecord.task2 as Record<string, unknown> | undefined;
-
-  const rubricIds: string[] = [];
-
-  if (task1?.rubricId && typeof task1.rubricId === 'string') {
-    rubricIds.push(task1.rubricId);
-  }
-  if (task2?.rubricId && typeof task2.rubricId === 'string') {
-    rubricIds.push(task2.rubricId);
-  }
-
-  if (rubricIds.length === 0) {
-    return;
-  }
-
-  // Check that all rubrics exist and belong to the course
-  const rubrics = await prisma.rubric.findMany({
-    where: {
-      id: { in: rubricIds },
-      courseId,
-      deletedAt: null,
-    },
-    select: { id: true },
-  });
-
-  if (rubrics.length !== rubricIds.length) {
-    throw createHttpError(
-      400,
-      "One or more selected rubrics are invalid or do not belong to this course",
-    );
-  }
 }
 
 export async function listAssignments(params: unknown) {
@@ -174,70 +133,8 @@ export async function getAssignment(
     throw createNotFoundError("Assignment", assignmentId);
   }
 
-  // Role-based filtering for writing assignments
-  if (assignment.type === 'writing' && user?.role === UserRole.student) {
-    const config = assignment.assignmentConfig as Record<string, unknown>;
-    const studentSubmission = assignment.submissions?.[0];
-
-    const shouldShowSample = (task: Record<string, unknown>): boolean => {
-      if (!task?.showSampleToStudents || !task?.sampleResponse) {
-        return false;
-      }
-
-      const timing = task.showSampleTiming || 'immediate';
-
-      switch (timing) {
-        case 'immediate':
-          return true;
-
-        case 'after_submission':
-          // Show if student has submitted
-          return studentSubmission?.status === 'submitted' ||
-                 studentSubmission?.status === 'graded';
-
-        case 'after_grading':
-          // Show if student's submission has been graded
-          return studentSubmission?.grade?.gradedAt != null;
-
-        case 'specific_date':
-          if (!task.showSampleDate) return false;
-          const showDate = new Date(task.showSampleDate as string);
-          const now = new Date();
-          return now >= showDate;
-
-        default:
-          return true;
-      }
-    };
-
-    const task1 = (config.task1 as Record<string, unknown>) || {};
-    const task2 = (config.task2 as Record<string, unknown>) || {};
-
-    // Filter config for students - only include allowed fields
-    const filteredConfig = {
-      ...config,
-      task1: {
-        prompt: task1.prompt,
-        imageFileId: task1.imageFileId,
-        // Only include sample response if allowed by timing
-        sampleResponse: shouldShowSample(task1)
-          ? task1.sampleResponse
-          : undefined,
-      },
-      task2: {
-        prompt: task2.prompt,
-        // Only include sample response if allowed by timing
-        sampleResponse: shouldShowSample(task2)
-          ? task2.sampleResponse
-          : undefined,
-      },
-    };
-
-    return {
-      ...assignment,
-      assignmentConfig: filteredConfig,
-      submissions: undefined, // Don't expose submission data
-    };
+  if (shouldFilterWritingAssignmentForStudent(assignment, user)) {
+    return filterWritingAssignmentForStudent(assignment);
   }
 
   // Admins and teachers get full data (remove submissions from response)

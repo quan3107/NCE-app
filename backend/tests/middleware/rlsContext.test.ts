@@ -14,6 +14,14 @@ vi.mock("../../src/modules/auth/auth.tokens.js", () => ({
   verifyAccessToken: vi.fn(),
 }));
 
+// Mock env config so we can toggle nodeEnv between test/production.
+const mockConfig = { nodeEnv: "test" as string };
+vi.mock("../../src/config/env.js", () => ({
+  get config() {
+    return mockConfig;
+  },
+}));
+
 const prismaModule = await import("../../src/prisma/client.js");
 const authTokensModule = await import("../../src/modules/auth/auth.tokens.js");
 const { rlsContext } = await import("../../src/middleware/rlsContext.js");
@@ -33,9 +41,10 @@ function makeRequest(path: string, headers: Record<string, string>): Request {
 describe("middleware.rlsContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConfig.nodeEnv = "test";
   });
 
-  it("attaches a header-authenticated actor to req.user and role context", async () => {
+  it("attaches a header-authenticated actor to req.user and role context (dev/test only)", async () => {
     const req = makeRequest("/courses", {
       "x-user-id": "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
       "x-user-role": "teacher",
@@ -75,6 +84,30 @@ describe("middleware.rlsContext", () => {
       expect.any(Function),
     );
     expect(verifyAccessTokenMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores header-based auth when NODE_ENV is production", async () => {
+    mockConfig.nodeEnv = "production";
+
+    const req = makeRequest("/courses", {
+      "x-user-id": "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+      "x-user-role": "teacher",
+    });
+    const next = vi.fn();
+
+    await rlsContext(req, {} as Response, next as NextFunction);
+
+    // Header auth should be ignored in production; no Bearer token present means anonymous.
+    expect(req.user).toBeUndefined();
+    expect(withRoleContextMock).toHaveBeenCalledWith(
+      {
+        role: "anon",
+        userId: "",
+        userRole: "anon",
+      },
+      expect.any(Function),
+    );
     expect(next).toHaveBeenCalledTimes(1);
   });
 });

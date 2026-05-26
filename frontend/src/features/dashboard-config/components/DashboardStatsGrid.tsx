@@ -33,14 +33,14 @@ export function DashboardStatsGrid({ widgets, metrics, gridClassName }: Dashboar
         const value = formatDashboardWidgetValue(rawValue, widget.value_format);
 
         return (
-          <Card key={widget.id}>
+          <Card key={widget.id} className="overflow-hidden">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">{widget.label}</p>
-                  <p className="text-3xl font-medium mt-1">{value}</p>
+                  <p className="text-3xl font-semibold mt-1 tracking-normal">{value}</p>
                 </div>
-                <div className={widget.color}>
+                <div className="flex size-10 items-center justify-center rounded-[8px] bg-secondary text-primary">
                   <Icon className="size-5" />
                 </div>
               </div>

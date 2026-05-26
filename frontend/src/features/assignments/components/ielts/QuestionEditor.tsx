@@ -24,34 +24,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@components/ui/select';
-import { Trash2, Plus, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
 import type { UploadFile } from '@domain';
-import {
-  normalizeQuestionOptionValue,
-  useBooleanQuestionOptions,
-} from '@features/ielts-config/questionOptions.api';
+import { useBooleanQuestionOptions } from '@features/ielts-config/questionOptions.api';
 import { MatchingEditor } from './MatchingEditor';
 import { DiagramLabelingEditor } from './DiagramLabelingEditor';
-
-// Types that require options (multiple choice, etc.)
-const OPTION_BASED_TYPES: IeltsQuestionType[] = ['multiple_choice'];
-
-// Matching types
-const MATCHING_TYPES: IeltsQuestionType[] = [
-  'matching',
-  'matching_headings',
-  'matching_information',
-  'matching_features',
-];
-
-// Diagram labeling types
-const DIAGRAM_LABELING_TYPES: IeltsQuestionType[] = [
-  'diagram_labeling',
-  'map_diagram_labeling',
-];
-
-type QuestionTypeOption = { value: IeltsQuestionType; label: string };
-type CompletionFormatOption = { value: IeltsCompletionFormat; label: string };
+import { QuestionAnswerControls } from './QuestionAnswerControls';
+import {
+  DIAGRAM_LABELING_TYPES,
+  MATCHING_TYPES,
+  OPTION_BASED_TYPES,
+  buildQuestionTypeChange,
+  removeOptionAtIndex,
+  type CompletionFormatOption,
+  type QuestionTypeOption,
+} from './questionEditor.logic';
 
 type QuestionEditorProps = {
   question: IeltsQuestion;
@@ -104,70 +91,15 @@ export function QuestionEditor({
     globalThis.crypto?.randomUUID?.() ?? `q-${Date.now()}-${Math.random()}`;
 
   const handleTypeChange = (newType: IeltsQuestionType) => {
-    // Reset options when switching to/from types that need them
-    let newOptions = question.options;
-    if (OPTION_BASED_TYPES.includes(newType) && !OPTION_BASED_TYPES.includes(question.type)) {
-      newOptions = ['', ''];
-    } else if (!OPTION_BASED_TYPES.includes(newType) && OPTION_BASED_TYPES.includes(question.type)) {
-      newOptions = [];
-    }
-
-    // Reset correct answer when switching to true/false/not given or yes/no/not given
-    let newCorrectAnswer = question.correctAnswer;
-    if (newType === 'true_false_not_given') {
-      newCorrectAnswer = defaultTrueFalseValue;
-    } else if (newType === 'yes_no_not_given') {
-      newCorrectAnswer = defaultYesNoValue;
-    } else if (question.type === 'true_false_not_given' || question.type === 'yes_no_not_given') {
-      newCorrectAnswer = '';
-    }
-
-    const updates: Partial<IeltsQuestion> = {
-      type: newType,
-      options: newOptions,
-      correctAnswer: newCorrectAnswer,
-    };
-
-    // Reset format when switching away from completion
-    if (newType !== 'completion') {
-      updates.format = undefined;
-    }
-
-    // Initialize matching data for matching types
-    if (MATCHING_TYPES.includes(newType) && !MATCHING_TYPES.includes(question.type)) {
-      updates.matchingItems = [
-        { id: createId(), statement: '', matchId: null },
-        { id: createId(), statement: '', matchId: null },
-        { id: createId(), statement: '', matchId: null },
-      ];
-      updates.matchingOptions = [
-        { id: createId(), label: 'A' },
-        { id: createId(), label: 'B' },
-        { id: createId(), label: 'C' },
-        { id: createId(), label: 'D' },
-      ];
-    } else if (!MATCHING_TYPES.includes(newType)) {
-      updates.matchingItems = undefined;
-      updates.matchingOptions = undefined;
-    }
-
-    // Initialize diagram data for labeling types
-    if (DIAGRAM_LABELING_TYPES.includes(newType) && !DIAGRAM_LABELING_TYPES.includes(question.type)) {
-      updates.diagramImageIds = [];
-      updates.diagramLabels = [
-        { id: createId(), letter: 'A', position: '', answer: '' },
-        { id: createId(), letter: 'B', position: '', answer: '' },
-        { id: createId(), letter: 'C', position: '', answer: '' },
-      ];
-    } else if (!DIAGRAM_LABELING_TYPES.includes(newType)) {
-      updates.diagramImageIds = undefined;
-      updates.diagramLabels = undefined;
-    }
-
-    onChange({
-      ...question,
-      ...updates,
-    });
+    onChange(
+      buildQuestionTypeChange({
+        question,
+        newType,
+        defaultTrueFalseValue,
+        defaultYesNoValue,
+        createId,
+      }),
+    );
   };
 
   const handleFormatChange = (format: IeltsCompletionFormat) => {
@@ -185,21 +117,7 @@ export function QuestionEditor({
   };
 
   const handleRemoveOption = (index: number) => {
-    const newOptions = question.options.filter((_, i) => i !== index);
-    let newCorrectAnswer = question.correctAnswer;
-    if (question.correctAnswer === `${index}`) {
-      newCorrectAnswer = '';
-    } else {
-      const parsed = parseInt(question.correctAnswer);
-      if (!isNaN(parsed) && parsed > index) {
-        newCorrectAnswer = `${parsed - 1}`;
-      }
-    }
-    onChange({
-      ...question,
-      options: newOptions,
-      correctAnswer: newCorrectAnswer,
-    });
+    onChange(removeOptionAtIndex(question, index));
   };
 
   const handleOptionChange = (index: number, value: string) => {
@@ -358,132 +276,22 @@ export function QuestionEditor({
             />
           )}
 
-          {/* Options editor for option-based types */}
-          {needsOptions && (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Answer Options</p>
-              <div className="space-y-2">
-                {question.options.map((option, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-muted-foreground w-6">
-                      {String.fromCharCode(65 + index)}.
-                    </span>
-                    <Input
-                      value={option}
-                      onChange={(e) => handleOptionChange(index, e.target.value)}
-                      placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                      className="flex-1 h-8 text-sm"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7"
-                      onClick={() => handleRemoveOption(index)}
-                      disabled={question.options.length <= 2}
-                    >
-                      <Trash2 className="size-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-8 text-xs"
-                  onClick={handleAddOption}
-                >
-                  <Plus className="size-3.5 mr-1" />
-                  Add Option
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Correct answer input */}
-          {!isMatching && !isDiagramLabeling && (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Correct Answer</p>
-              {isTrueFalse ? (
-                <Select
-                  value={
-                    trueFalseOptions.some(
-                      (option) =>
-                        option.value === normalizeQuestionOptionValue(question.correctAnswer || ''),
-                    )
-                      ? normalizeQuestionOptionValue(question.correctAnswer || '')
-                      : defaultTrueFalseValue
-                  }
-                  onValueChange={(value) =>
-                    onChange({
-                      ...question,
-                      correctAnswer: normalizeQuestionOptionValue(value),
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-[180px] h-8 text-xs">
-                    <SelectValue placeholder="Select answer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {trueFalseOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value} className="text-xs">
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : isYesNo ? (
-                <Select
-                  value={
-                    yesNoOptions.some(
-                      (option) =>
-                        option.value === normalizeQuestionOptionValue(question.correctAnswer || ''),
-                    )
-                      ? normalizeQuestionOptionValue(question.correctAnswer || '')
-                      : defaultYesNoValue
-                  }
-                  onValueChange={(value) =>
-                    onChange({
-                      ...question,
-                      correctAnswer: normalizeQuestionOptionValue(value),
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-[180px] h-8 text-xs">
-                    <SelectValue placeholder="Select answer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {yesNoOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value} className="text-xs">
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : needsOptions ? (
-                <Select
-                  value={question.correctAnswer}
-                  onValueChange={(value) => onChange({ ...question, correctAnswer: value })}
-                >
-                  <SelectTrigger className="w-[180px] h-8 text-xs">
-                    <SelectValue placeholder="Select correct option" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {question.options.map((_, index) => (
-                      <SelectItem key={index} value={`${index}`} className="text-xs">
-                        {String.fromCharCode(65 + index)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  value={question.correctAnswer}
-                  onChange={(e) => onChange({ ...question, correctAnswer: e.target.value })}
-                  placeholder="Enter correct answer..."
-                  className="h-8 text-sm"
-                />
-              )}
-            </div>
-          )}
+          <QuestionAnswerControls
+            question={question}
+            needsOptions={needsOptions}
+            isTrueFalse={isTrueFalse}
+            isYesNo={isYesNo}
+            isMatching={isMatching}
+            isDiagramLabeling={isDiagramLabeling}
+            trueFalseOptions={trueFalseOptions}
+            yesNoOptions={yesNoOptions}
+            defaultTrueFalseValue={defaultTrueFalseValue}
+            defaultYesNoValue={defaultYesNoValue}
+            onChange={onChange}
+            onAddOption={handleAddOption}
+            onRemoveOption={handleRemoveOption}
+            onOptionChange={handleOptionChange}
+          />
         </div>
 
         {/* Delete button */}

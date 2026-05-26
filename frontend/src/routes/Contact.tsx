@@ -19,16 +19,16 @@ export function ContactRoute() {
   };
 
   return (
-    <div className="py-20">
+    <div className="content-band py-16 sm:py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto mb-12 text-center">
-          <h1 className="mb-4">Contact Us</h1>
-          <p className="text-xl text-muted-foreground">
+        <div className="max-w-3xl mb-10">
+          <h1 className="mb-4 text-4xl font-semibold tracking-normal">Contact Us</h1>
+          <p className="text-lg text-muted-foreground">
             Have questions about our IELTS courses or need guidance? We'd love to hear from you. Send us a message and we'll respond within 24 hours.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -40,24 +40,24 @@ export function ContactRoute() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" required />
+                      <Input id="firstName" name="given-name" autoComplete="given-name" required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" required />
+                      <Input id="lastName" name="family-name" autoComplete="family-name" required />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" required />
+                    <Input id="email" name="email" type="email" autoComplete="email" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" required />
+                    <Input id="subject" name="subject" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>
-                    <Textarea id="message" rows={6} required />
+                    <Textarea id="message" name="message" rows={6} required />
                   </div>
                   <Button type="submit" className="w-full sm:w-auto">Send Message</Button>
                 </form>
@@ -65,28 +65,28 @@ export function ContactRoute() {
             </Card>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Contact Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-3">
-                  <Mail className="size-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="flex gap-3 rounded-[8px] border bg-background/45 p-3">
+                  <Mail className="size-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium mb-1">Email</p>
                     <p className="text-sm text-muted-foreground">support@nce.com</p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <Phone className="size-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="flex gap-3 rounded-[8px] border bg-background/45 p-3">
+                  <Phone className="size-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium mb-1">Phone</p>
                     <p className="text-sm text-muted-foreground">+1 (555) 123-4567</p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <MapPin className="size-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="flex gap-3 rounded-[8px] border bg-background/45 p-3">
+                  <MapPin className="size-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium mb-1">Office</p>
                     <p className="text-sm text-muted-foreground">

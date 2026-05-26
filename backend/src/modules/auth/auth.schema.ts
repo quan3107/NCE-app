@@ -7,7 +7,6 @@ import { UserRole } from "../../prisma/index.js";
 import { z } from "zod";
 
 const REGISTERABLE_ROLES = [
-  UserRole.admin,
   UserRole.student,
   UserRole.teacher,
 ] as const;

@@ -24,10 +24,10 @@ export function formatStatValue(stat: StatItem): string {
 
 export function StatsOverview({ stats }: StatsOverviewProps) {
   return (
-    <div className="mt-16 grid grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {stats.map((stat) => (
-        <div key={stat.label} className="text-center">
-          <div className="text-3xl sm:text-4xl font-medium mb-1">
+        <div key={stat.label} className="quiet-panel px-5 py-4">
+          <div className="text-2xl sm:text-3xl font-semibold mb-1">
             {formatStatValue(stat)}
           </div>
           <div className="text-sm text-muted-foreground">{stat.label}</div>

@@ -34,7 +34,7 @@ export function PageHeader({ title, description, actions, showBack, breadcrumbs 
   const { navigate, goBack } = useRouter();
 
   return (
-    <div className="border-b bg-card">
+    <div className="border-b bg-card/70">
       <div className="p-4 sm:p-6 lg:p-8">
         {breadcrumbs && (
           <Breadcrumb className="mb-4">
@@ -68,9 +68,9 @@ export function PageHeader({ title, description, actions, showBack, breadcrumbs 
               </Button>
             )}
             <div className="flex-1 min-w-0">
-              <h1 className="mb-1">{title}</h1>
+              <h1 className="mb-1 text-2xl font-semibold tracking-normal text-foreground">{title}</h1>
               {description && (
-                <p className="text-muted-foreground">{description}</p>
+                <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
               )}
             </div>
           </div>

@@ -6,8 +6,10 @@
 
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import '../index.css';
 import './styles/globals.css';
+import './styles/authoring.css';
+import './styles/rich-text.css';
+import './styles/reading-panels.css';
 
 createRoot(document.getElementById('root')!).render(<App />);
 

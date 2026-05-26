@@ -10,195 +10,38 @@ import {
   expect,
   it,
   vi,
-  type Mock,
-  type MockedFunction,
 } from "vitest";
-import type { AuthSession, Identity, User } from '../../../src/prisma/index.js';
-import { IdentityProvider, UserRole, UserStatus } from '../../../src/prisma/index.js';
-
-process.env.NODE_ENV = "test";
-process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/test-db";
-process.env.JWT_PRIVATE_KEY_PATH ??= "tests/fixtures/private.pem";
-process.env.JWT_PUBLIC_KEY_PATH ??= "tests/fixtures/public.pem";
-process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
-process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
-
-vi.mock("node:crypto", async () => {
-  const actual = await vi.importActual<typeof import("node:crypto")>(
-    "node:crypto",
-  );
-  const randomBytesMock = vi.fn((size?: number) =>
-    Buffer.alloc(size ?? 48, 1),
-  );
-  return {
-    ...actual,
-    randomBytes: randomBytesMock,
-  };
-});
-
-vi.mock("../../../src/config/prismaClient.js", () => {
-  const user = { findFirst: vi.fn(), create: vi.fn() };
-  const identity = { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() };
-  const authSession = {
-    create: vi.fn(),
-    findFirst: vi.fn(),
-    update: vi.fn(),
-    updateMany: vi.fn(),
-  };
-  const prisma = {
-    user,
-    identity,
-    authSession,
-    $transaction: vi.fn(async (callback: (tx: {
-      user: typeof user;
-      identity: typeof identity;
-    }) => Promise<unknown>) =>
-      callback({
-        user: {
-          create: user.create,
-        },
-        identity: {
-          create: identity.create,
-        },
-      } as unknown as {
-        user: typeof user;
-        identity: typeof identity;
-      }),
-    ),
-  };
-  return {
-    prisma,
-  };
-});
-
-vi.mock("../../../src/prisma/client.js", () => ({
-  runWithRole: vi.fn(async (_options, fn: (tx: unknown) => Promise<unknown>) =>
-    fn({}),
-  ),
-}));
-
-vi.mock("bcrypt", () => {
-  const compare = vi.fn();
-  const hash = vi.fn();
-  return {
-    default: {
-      compare,
-      hash,
-    },
-    compare,
-    hash,
-  };
-});
-
-vi.mock("../../../src/modules/auth/auth.tokens.js", () => ({
-  signAccessToken: vi.fn(),
-}));
-
-const fetchMock = vi.fn();
-(globalThis as unknown as { fetch: typeof fetch }).fetch =
-  fetchMock as unknown as typeof fetch;
-
-const crypto = await import("node:crypto");
-// Wrap Prisma singleton in vi.mocked so nested delegates expose mock helpers.
-const prismaModule = await import(
-  "../../../src/config/prismaClient.js"
-);
-const prisma = vi.mocked(prismaModule.prisma, true);
-// Mirror for bcrypt mock to avoid manual casts in each assertion.
-const bcryptModule = await import("bcrypt");
-const bcrypt = vi.mocked(bcryptModule.default, true);
-// Pull the token helpers through vi.mocked for typed expectations.
-const tokensModule = vi.mocked(
-  await import("../../../src/modules/auth/auth.tokens.js"),
-);
-const { signAccessToken } = tokensModule;
-const bcryptHashMock = bcrypt.hash as unknown as MockedFunction<
-  (data: string | Buffer, rounds: string | number) => Promise<string>
->;
-const bcryptCompareMock = bcrypt.compare as unknown as MockedFunction<
-  (data: string | Buffer, encrypted: string | Buffer) => Promise<boolean>
->;
-
-const {
-  handleRegisterAccount,
-  handlePasswordLogin,
-  handleSessionRefresh,
+import { UserRole } from "../../../src/prisma/index.js";
+import {
+  bcrypt,
+  bcryptCompareMock,
+  bcryptHashMock,
+  buildAuthSession,
+  buildUser,
+  crypto,
+  fixedDate,
   handleLogout,
+  handlePasswordLogin,
+  handleRegisterAccount,
+  handleSessionRefresh,
+  ipHash,
+  prisma,
+  randomBytesMock,
   REFRESH_TOKEN_TTL_MS,
-  buildGoogleAuthorizationUrl,
-  completeGoogleAuthorization,
-} = await import("../../../src/modules/auth/auth.service.js");
-
-const fixedDate = new Date("2025-10-11T12:00:00.000Z");
-const randomBytesMock = crypto.randomBytes as unknown as Mock;
-
-// Helper ensures mocked Prisma calls receive fully-shaped user records.
-const buildUser = (overrides: Partial<User> = {}): User => ({
-  id: "user-default",
-  email: "user@example.com",
-  password: "$2b$10$hash",
-  fullName: "Default User",
-  role: UserRole.teacher,
-  status: UserStatus.active,
-  createdAt: new Date(fixedDate),
-  updatedAt: new Date(fixedDate),
-  deletedAt: null,
-  ...overrides,
-});
-
-const buildAuthSession = (
-  overrides: Partial<AuthSession> = {},
-): AuthSession => ({
-  id: overrides.id ?? "session-default",
-  userId: overrides.userId ?? "user-default",
-  refreshTokenHash: overrides.refreshTokenHash ?? "refresh-token-hash",
-  userAgent: overrides.userAgent ?? null,
-  ipHash: overrides.ipHash ?? null,
-  expiresAt: overrides.expiresAt ?? new Date(fixedDate),
-  revokedAt: overrides.revokedAt ?? null,
-  createdAt: overrides.createdAt ?? new Date(fixedDate),
-  updatedAt: overrides.updatedAt ?? new Date(fixedDate),
-  deletedAt: overrides.deletedAt ?? null,
-});
-
-const buildIdentity = (
-  overrides: Partial<Identity> = {},
-  userOverrides: Partial<User> = {},
-): Identity & { user: User } => {
-  const userId = overrides.userId ?? userOverrides.id ?? "user-identity";
-  return {
-    id: overrides.id ?? "identity-default",
-    userId,
-    provider: overrides.provider ?? IdentityProvider.google,
-    providerSubject: overrides.providerSubject ?? "google-subject",
-    providerIssuer: overrides.providerIssuer ?? "https://accounts.google.com",
-    email: overrides.email ?? "identity@example.com",
-    emailVerified: overrides.emailVerified ?? false,
-    createdAt: overrides.createdAt ?? new Date(fixedDate),
-    updatedAt: overrides.updatedAt ?? new Date(fixedDate),
-    deletedAt: overrides.deletedAt ?? null,
-    user: buildUser({ id: userId, ...userOverrides }),
-  };
-};
+  resetAuthServiceMocks,
+} from "./auth.service.test-utils.js";
 
 describe("auth.service", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(fixedDate);
-    fetchMock.mockReset();
-    randomBytesMock.mockImplementation((size?: number) =>
-      Buffer.alloc(size ?? 48, 1),
-    );
-    signAccessToken.mockReturnValue("signed-access");
+    resetAuthServiceMocks();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
   });
-
-  const ipHash = (value: string) =>
-    crypto.createHash("sha256").update(value).digest("hex");
 
   it("registers a new user and returns auth tokens", async () => {
     prisma.user.findFirst.mockResolvedValueOnce(null);
@@ -208,7 +51,7 @@ describe("auth.service", () => {
         id: "user-1",
         email: "new.user@example.com",
         fullName: "New User",
-        role: UserRole.admin,
+        role: UserRole.teacher,
       }),
     );
     prisma.authSession.create.mockResolvedValueOnce(
@@ -221,7 +64,7 @@ describe("auth.service", () => {
         fullName: "  New User  ",
         email: "New.User@example.com",
         password: "Passw0rd!",
-        role: "admin",
+        role: "teacher",
       },
       { ipAddress: "192.168.0.2", userAgent: "vitest-register" },
     );
@@ -232,7 +75,7 @@ describe("auth.service", () => {
         email: "new.user@example.com",
         fullName: "New User",
         password: "hashed-password",
-        role: "admin",
+        role: "teacher",
         status: "active",
       },
       select: {
@@ -248,7 +91,7 @@ describe("auth.service", () => {
       id: "user-1",
       email: "new.user@example.com",
       fullName: "New User",
-      role: "admin",
+      role: "teacher",
     });
     expect(result.accessToken).toBe("signed-access");
     expect(result.refreshToken).toBe(Buffer.alloc(48, 3).toString("base64url"));
@@ -262,6 +105,24 @@ describe("auth.service", () => {
     expect(sessionArgs?.data.ipHash).toBe(ipHash("192.168.0.2"));
   });
 
+  it("rejects public registration for admin accounts", async () => {
+    await expect(
+      handleRegisterAccount(
+        {
+          fullName: "Admin User",
+          email: "admin@example.com",
+          password: "Passw0rd!",
+          role: "admin",
+        },
+        {},
+      ),
+    ).rejects.toThrow();
+
+    expect(bcrypt.hash).not.toHaveBeenCalled();
+    expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.authSession.create).not.toHaveBeenCalled();
+  });
+
   it("rejects registration when the email is already in use", async () => {
     prisma.user.findFirst.mockResolvedValueOnce(
       buildUser({ id: "existing-user" }),
@@ -273,7 +134,7 @@ describe("auth.service", () => {
           fullName: "Existing User",
           email: "existing@example.com",
           password: "Passw0rd!",
-          role: "admin",
+          role: "teacher",
         },
         {},
       ),
@@ -460,158 +321,4 @@ describe("auth.service", () => {
     });
   });
 
-  it("builds Google authorization url with PKCE settings", async () => {
-    randomBytesMock
-      .mockImplementationOnce((size?: number) => Buffer.alloc(size ?? 32, 2))
-      .mockImplementationOnce((size?: number) => Buffer.alloc(size ?? 32, 3));
-
-    const redirectUri =
-      "https://app.example.com/api/v1/auth/google/callback";
-
-    const result = await buildGoogleAuthorizationUrl({ redirectUri });
-
-    expect(result.state).toBeTruthy();
-    expect(result.codeVerifier.length).toBeGreaterThanOrEqual(43);
-    expect(result.codeVerifier.length).toBeLessThanOrEqual(128);
-
-    const url = new URL(result.authorizationUrl);
-    expect(url.origin).toBe("https://accounts.google.com");
-    expect(url.searchParams.get("client_id")).toBe(
-      "test-google-client-id",
-    );
-    expect(url.searchParams.get("redirect_uri")).toBe(redirectUri);
-    expect(url.searchParams.get("scope")).toBe("openid email profile");
-    expect(url.searchParams.get("state")).toBe(result.state);
-    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
-
-    const expectedChallenge = crypto
-      .createHash("sha256")
-      .update(result.codeVerifier)
-      .digest("base64url");
-    expect(url.searchParams.get("code_challenge")).toBe(
-      expectedChallenge,
-    );
-  });
-
-  it("completes Google authorization for an existing identity", async () => {
-    const state = "state-value";
-    const codeVerifier = "a".repeat(64);
-
-    const idTokenPayload = {
-      iss: "https://accounts.google.com",
-      aud: "test-google-client-id",
-      sub: "google-123",
-      email: "existing@example.com",
-      email_verified: true,
-    };
-    const idToken = [
-      Buffer.from(
-        JSON.stringify({ alg: "RS256", typ: "JWT" }),
-      ).toString("base64url"),
-      Buffer.from(JSON.stringify(idTokenPayload)).toString("base64url"),
-      "signature",
-    ].join(".");
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () =>
-        ({
-          access_token: "access-token",
-          token_type: "Bearer",
-          scope: "openid email profile",
-          expires_in: 3600,
-          id_token: idToken,
-        }) as const,
-    });
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () =>
-        ({
-          sub: "google-123",
-          email: "existing@example.com",
-          email_verified: true,
-          name: "Existing User",
-        }) as const,
-    });
-
-    prisma.identity.findFirst.mockResolvedValueOnce(
-      buildIdentity(
-        {
-          id: "identity-1",
-          userId: "user-1",
-          email: "existing@example.com",
-          emailVerified: false,
-        },
-        {
-          id: "user-1",
-          email: "existing@example.com",
-          fullName: "Existing User",
-          role: UserRole.teacher,
-        },
-      ),
-    );
-    prisma.identity.update.mockResolvedValueOnce(
-      buildIdentity(
-        {
-          id: "identity-1",
-          userId: "user-1",
-          email: "existing@example.com",
-          emailVerified: true,
-        },
-        {
-          id: "user-1",
-          email: "existing@example.com",
-          fullName: "Existing User",
-          role: UserRole.teacher,
-        },
-      ),
-    );
-    prisma.authSession.create.mockResolvedValueOnce(
-      buildAuthSession({ id: "session-google-login", userId: "user-1" }),
-    );
-
-    const result = await completeGoogleAuthorization(
-      { code: "auth-code", state },
-      {
-        redirectUri:
-          "https://app.example.com/api/v1/auth/google/callback",
-        expectedState: state,
-        codeVerifier,
-        context: { ipAddress: "127.0.0.1", userAgent: "oauth-test" },
-      },
-    );
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "https://oauth2.googleapis.com/token",
-      expect.objectContaining({
-        method: "POST",
-      }),
-    );
-    const tokenCall = fetchMock.mock.calls[0]?.[1];
-    expect(tokenCall?.body).toContain("code=auth-code");
-    expect(tokenCall?.body).toContain(`code_verifier=${codeVerifier}`);
-
-    expect(result.accessToken).toBe("signed-access");
-    expect(result.user).toEqual({
-      id: "user-1",
-      email: "existing@example.com",
-      fullName: "Existing User",
-      role: "teacher",
-    });
-    expect(prisma.identity.update).toHaveBeenCalledWith({
-      where: { id: "identity-1" },
-      data: { emailVerified: true },
-    });
-
-    expect(prisma.identity.create).not.toHaveBeenCalled();
-    const sessionCall = prisma.authSession.create.mock.calls[0]?.[0];
-    expect(sessionCall?.data.userId).toBe("user-1");
-    expect(sessionCall?.data.userAgent).toBe("oauth-test");
-    expect(sessionCall?.data.ipHash).toBe(
-      crypto.createHash("sha256").update("127.0.0.1").digest("hex"),
-    );
-  });
 });

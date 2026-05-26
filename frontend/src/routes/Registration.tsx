@@ -95,11 +95,7 @@ export function AuthRegister() {
 
       toast.success('Account created successfully!');
       const destination =
-        formData.role === 'teacher'
-          ? '/teacher/dashboard'
-          : formData.role === 'admin'
-            ? '/admin/dashboard'
-            : '/student/dashboard';
+        formData.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
       navigate(destination);
     } catch (error) {
       if (error instanceof ApiError) {
@@ -212,7 +208,6 @@ export function AuthRegister() {
                   <SelectContent>
                     <SelectItem value="student">Student</SelectItem>
                     <SelectItem value="teacher">Teacher</SelectItem>
-                    <SelectItem value="admin">Administrator</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -305,7 +300,6 @@ export function AuthRegister() {
             <p className="font-medium mb-1">Registration Information:</p>
             <p>- Students can enroll in courses and submit assignments</p>
             <p>- Teachers can create courses and grade submissions</p>
-            <p>- Administrators can manage platform-wide settings</p>
             <p>- All data is securely encrypted</p>
           </div>
         </CardContent>
