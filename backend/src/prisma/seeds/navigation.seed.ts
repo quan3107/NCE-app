@@ -9,7 +9,7 @@ import { config as loadEnv } from "dotenv";
 import { UserRole } from "../generated.js";
 
 if (process.env.NODE_ENV !== "production") {
-  loadEnv();
+  loadEnv({ quiet: process.env.NODE_ENV === "test" });
 }
 
 const { basePrisma: prisma } = await import("../client.js");
