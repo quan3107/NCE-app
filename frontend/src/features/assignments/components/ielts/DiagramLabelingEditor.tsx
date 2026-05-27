@@ -15,7 +15,7 @@ import type { DiagramLabel } from '@lib/ielts';
 import type { UploadFile } from '@domain';
 import { FileUploader } from '@components/common/FileUploader';
 import {
-  createAuthoringUploadFile,
+  createAuthoringUploadFn,
   createDiagramImageUploadFn,
 } from './diagramLabelingUpload';
 
@@ -40,7 +40,10 @@ export function DiagramLabelingEditor({
 }: DiagramLabelingEditorProps) {
   const [uploads, setUploads] = useState<Record<string, UploadFile[]>>({});
 
-  const uploadImage = onImageUpload ?? (async (file: File) => createAuthoringUploadFile(file));
+  const uploadImage = onImageUpload;
+  const uploadFn = uploadImage
+    ? createDiagramImageUploadFn(uploadImage)
+    : createAuthoringUploadFn();
 
   const handleFilesChange = async (slotId: string, files: UploadFile[]) => {
     const resolvedImageId = files[0]?.id ?? slotId;
@@ -163,7 +166,7 @@ export function DiagramLabelingEditor({
                       <FileUploader<UploadFile>
                         value={uploadFiles}
                         onChange={(files) => handleFilesChange(imageId, files)}
-                        uploadFn={createDiagramImageUploadFn(uploadImage)}
+                        uploadFn={uploadFn}
                       />
                     )}
                   </CardContent>

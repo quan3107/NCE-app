@@ -18,7 +18,7 @@ import { useEnabledListeningQuestionTypes, useEnabledCompletionFormats } from '@
 import type { UploadFile } from '@domain';
 import { FileUploader } from '@components/common/FileUploader';
 import { IeltsQuestionListEditor } from './IeltsQuestionListEditor';
-import { createAuthoringUploadFile } from './diagramLabelingUpload';
+import { createAuthoringUploadFn } from './diagramLabelingUpload';
 
 type ListeningBuilderProps = {
   value: IeltsListeningConfig;
@@ -35,17 +35,7 @@ const createSection = (index: number): IeltsListeningSection => ({
 
 export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
   const [uploads, setUploads] = useState<Record<string, UploadFile[]>>({});
-  const uploadAudio = async (
-    file: File,
-    onProgress: (progress: number) => void,
-    onStageChange: (stage: 'hashing' | 'signing' | 'uploading' | 'completing') => void,
-  ): Promise<UploadFile> => {
-    onStageChange('uploading');
-    const uploadedFile = createAuthoringUploadFile(file);
-    onProgress(100);
-    onStageChange('completing');
-    return uploadedFile;
-  };
+  const uploadAudio = createAuthoringUploadFn();
 
   const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledListeningQuestionTypes();
   const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();

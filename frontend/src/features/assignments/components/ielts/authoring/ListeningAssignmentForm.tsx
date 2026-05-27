@@ -35,7 +35,7 @@ import {
   createListeningAuthoringId,
   createListeningQuestion,
 } from './listeningAuthoring.logic';
-import { createAuthoringUploadFile } from '../diagramLabelingUpload';
+import { uploadAuthoringFile } from '../diagramLabelingUpload';
 
 type ListeningAssignmentFormProps = {
   value: IeltsListeningConfig;
@@ -152,7 +152,7 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
   };
 
   const handleImageUpload = async (file: File): Promise<UploadFile> => {
-    const uploadFile = createAuthoringUploadFile(file);
+    const uploadFile = await uploadAuthoringFile(file);
     setUploadedImages((prev) => ({ ...prev, [uploadFile.id]: uploadFile }));
     return uploadFile;
   };

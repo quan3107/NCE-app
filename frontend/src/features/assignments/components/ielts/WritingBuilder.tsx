@@ -12,7 +12,7 @@ import { RichTextEditor } from '@components/ui/rich-text-editor';
 import type { IeltsWritingConfig } from '@lib/ielts';
 import type { UploadFile } from '@domain';
 import { FileUploader } from '@components/common/FileUploader';
-import { createAuthoringUploadFile } from './diagramLabelingUpload';
+import { createAuthoringUploadFn } from './diagramLabelingUpload';
 
 type WritingBuilderProps = {
   value: IeltsWritingConfig;
@@ -21,17 +21,7 @@ type WritingBuilderProps = {
 
 export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
   const [task1Files, setTask1Files] = useState<UploadFile[]>([]);
-  const uploadVisual = async (
-    file: File,
-    onProgress: (progress: number) => void,
-    onStageChange: (stage: 'hashing' | 'signing' | 'uploading' | 'completing') => void,
-  ): Promise<UploadFile> => {
-    onStageChange('uploading');
-    const uploadedFile = createAuthoringUploadFile(file);
-    onProgress(100);
-    onStageChange('completing');
-    return uploadedFile;
-  };
+  const uploadVisual = createAuthoringUploadFn();
 
   const handleTask1Files = (files: UploadFile[]) => {
     setTask1Files(files);

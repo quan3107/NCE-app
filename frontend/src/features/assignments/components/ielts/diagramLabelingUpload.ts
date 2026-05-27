@@ -1,8 +1,18 @@
 import type { UploadFile } from '@domain';
-import type { UploadStage } from '@features/files/fileUpload';
+import {
+  uploadFileWithProgress,
+  type UploadStage,
+} from '@features/files/fileUpload';
 
 type ProgressCallback = (progress: number) => void;
 type StageCallback = (stage: UploadStage) => void;
+type UploadFileWithProgress = typeof uploadFileWithProgress;
+
+type AuthoringUploadDeps = {
+  createObjectUrl?: (input: File) => string;
+  now?: () => string;
+  uploadFile?: UploadFileWithProgress;
+};
 
 const createUploadId = () =>
   globalThis.crypto?.randomUUID?.() ?? `diagram-${Date.now()}-${Math.random()}`;
@@ -18,6 +28,41 @@ export const createAuthoringUploadFile = (
   url: createObjectUrl(file),
   createdAt: new Date().toISOString(),
 });
+
+export const createAuthoringUploadFn = ({
+  createObjectUrl = (input: File) => URL.createObjectURL(input),
+  now = () => new Date().toISOString(),
+  uploadFile = uploadFileWithProgress,
+}: AuthoringUploadDeps = {}) => async (
+  file: File,
+  onProgress: ProgressCallback,
+  onStageChange: StageCallback,
+): Promise<UploadFile> => {
+  const uploaded = await uploadFile({
+    file,
+    onProgress,
+    onStageChange,
+  });
+
+  return {
+    id: uploaded.id,
+    name: uploaded.name,
+    size: uploaded.size,
+    mime: uploaded.mime,
+    url: createObjectUrl(file),
+    createdAt: now(),
+  };
+};
+
+export const uploadAuthoringFile = async (
+  file: File,
+  deps?: AuthoringUploadDeps,
+): Promise<UploadFile> =>
+  createAuthoringUploadFn(deps)(
+    file,
+    () => undefined,
+    () => undefined,
+  );
 
 export const createDiagramImageUploadFn = (
   uploadImage: (file: File) => Promise<UploadFile>,
