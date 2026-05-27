@@ -11,13 +11,6 @@ import {
   UserStatus,
 } from "../../../src/prisma/index.js";
 
-process.env.NODE_ENV = "test";
-process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/test-db";
-process.env.JWT_PRIVATE_KEY_PATH ??= "tests/fixtures/private.pem";
-process.env.JWT_PUBLIC_KEY_PATH ??= "tests/fixtures/public.pem";
-process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
-process.env.GOOGLE_CLIENT_SECRET = "test-google-client-placeholder";
-
 vi.mock("node:crypto", async () => {
   const actual = await vi.importActual<typeof import("node:crypto")>(
     "node:crypto",
