@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
 
-test('frontend test scripts pass the tsx glob without shell quotes', async () => {
+test('frontend test scripts use CI-expandable test globs', async () => {
   const filePath = path.resolve(import.meta.dirname, '../package.json');
   const packageJson = JSON.parse(await readFile(filePath, 'utf8')) as {
     scripts?: Record<string, string>;
@@ -11,12 +11,12 @@ test('frontend test scripts pass the tsx glob without shell quotes', async () =>
 
   assert.equal(
     packageJson.scripts?.test,
-    'tsx --test tests/**/*.test.ts',
-    'frontend test script should not quote the tsx test glob',
+    'tsx --test tests/*.test.ts',
+    'frontend test script should use a glob that expands in the CI shell',
   );
   assert.equal(
     packageJson.scripts?.['test:coverage'],
-    'c8 --reporter=text-summary --reporter=json-summary tsx --test tests/**/*.test.ts',
-    'frontend coverage script should not quote the tsx test glob',
+    'c8 --reporter=text-summary --reporter=json-summary tsx --test tests/*.test.ts',
+    'frontend coverage script should use a glob that expands in the CI shell',
   );
 });
