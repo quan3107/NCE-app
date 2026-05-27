@@ -5,7 +5,36 @@
  */
 
 import request from 'supertest'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../../../src/modules/cms/cms.service.js', () => ({
+  getHomepageContent: vi.fn(async () => ({
+    hero: {
+      title: 'Test hero',
+      subtitle: 'Test subtitle',
+      description: 'Test description',
+      image: '/test.png',
+      cta: { label: 'Start', href: '/courses' },
+    },
+    stats: [],
+    howItWorks: {
+      title: 'How it works',
+      description: 'Test description',
+      features: [],
+    },
+  })),
+  getAboutPageContent: vi.fn(async () => ({
+    hero: {
+      title: 'About NCE',
+      subtitle: 'Test subtitle',
+      description: 'Test description',
+      image: '/about.png',
+    },
+    values: [],
+    story: { sections: [] },
+  })),
+  updateHomepageStatsWithRealtimeData: vi.fn(async () => undefined),
+}))
 
 import { app } from '../../../src/app.js'
 
