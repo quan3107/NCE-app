@@ -43,7 +43,7 @@ type IeltsQuestionListEditorProps = {
   typeOptions: QuestionTypeOption[];
   completionFormats?: CompletionFormatOption[];
   // Optional image upload handlers for diagram labeling
-  onImageUpload?: (file: File) => Promise<string>;
+  onImageUpload?: (file: File) => Promise<UploadFile>;
   onImageRemove?: (imageId: string) => void;
   uploadedImages?: Record<string, UploadFile>;
 };
@@ -200,7 +200,7 @@ export function IeltsQuestionListEditor({
                 imageIds={question.diagramImageIds || []}
                 labels={question.diagramLabels || []}
                 uploadedImages={uploadedImages}
-                onImageUpload={onImageUpload || (async () => '')}
+                onImageUpload={onImageUpload}
                 onImageRemove={(imageId) => handleDiagramImageRemove(question.id, imageId)}
                 onLabelsChange={(labels) => handleDiagramLabelsChange(question.id, labels)}
                 onImageFilesChange={(imageId, files) =>

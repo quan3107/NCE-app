@@ -35,7 +35,7 @@ type ListeningSectionEditorProps = {
   onAudioSelect: (sectionId: string, file: File | null) => void;
   onDeleteQuestion: (sectionIndex: number, questionId: string) => void;
   onImageRemove: (imageId: string) => void;
-  onImageUpload: (file: File) => Promise<string>;
+  onImageUpload: (file: File) => Promise<UploadFile>;
   onMoveQuestion: (sectionIndex: number, questionId: string, direction: 'up' | 'down') => void;
   onUpdateQuestion: (
     sectionIndex: number,

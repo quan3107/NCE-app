@@ -16,6 +16,7 @@ import type { IeltsReadingConfig, IeltsReadingSection } from '@lib/ielts';
 import { useEnabledReadingQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
 import type { UploadFile } from '@domain';
 import { IeltsQuestionListEditor } from './IeltsQuestionListEditor';
+import { createAuthoringUploadFile } from './diagramLabelingUpload';
 
 type ReadingBuilderProps = {
   value: IeltsReadingConfig;
@@ -60,19 +61,10 @@ export function ReadingBuilder({ value, onChange }: ReadingBuilderProps) {
   };
 
   // Image upload handler for diagram labeling
-  const handleImageUpload = async (file: File): Promise<string> => {
-    const imageId = createId();
-    const uploadFile: UploadFile = {
-      id: imageId,
-      name: file.name,
-      size: file.size,
-      mime: file.type,
-      url: URL.createObjectURL(file),
-      createdAt: new Date().toISOString(),
-    };
-
-    setUploadedImages((prev) => ({ ...prev, [imageId]: uploadFile }));
-    return imageId;
+  const handleImageUpload = async (file: File): Promise<UploadFile> => {
+    const uploadFile = createAuthoringUploadFile(file);
+    setUploadedImages((prev) => ({ ...prev, [uploadFile.id]: uploadFile }));
+    return uploadFile;
   };
 
   // Image removal handler

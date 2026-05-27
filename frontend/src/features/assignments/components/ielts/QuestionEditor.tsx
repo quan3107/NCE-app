@@ -44,7 +44,7 @@ type QuestionEditorProps = {
   questionTypes: QuestionTypeOption[];
   completionFormats?: CompletionFormatOption[];
   // Optional image upload handlers for diagram labeling
-  onImageUpload?: (file: File) => Promise<string>;
+  onImageUpload?: (file: File) => Promise<UploadFile>;
   onImageRemove?: (imageId: string) => void;
   uploadedImages?: Record<string, UploadFile>;
   // Reordering props
@@ -262,7 +262,7 @@ export function QuestionEditor({
               imageIds={question.diagramImageIds || []}
               labels={question.diagramLabels || []}
               uploadedImages={uploadedImages}
-              onImageUpload={onImageUpload || (async () => '')}
+              onImageUpload={onImageUpload}
               onImageRemove={handleDiagramImageRemove}
               onLabelsChange={handleDiagramLabelsChange}
               onImageFilesChange={handleDiagramImageFilesChange}

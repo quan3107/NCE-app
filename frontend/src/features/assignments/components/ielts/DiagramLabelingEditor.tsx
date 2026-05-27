@@ -14,12 +14,16 @@ import { Card, CardContent } from '@components/ui/card';
 import type { DiagramLabel } from '@lib/ielts';
 import type { UploadFile } from '@domain';
 import { FileUploader } from '@components/common/FileUploader';
+import {
+  createAuthoringUploadFile,
+  createDiagramImageUploadFn,
+} from './diagramLabelingUpload';
 
 type DiagramLabelingEditorProps = {
   imageIds: string[];
   labels: DiagramLabel[];
   uploadedImages: Record<string, UploadFile>;
-  onImageUpload: (file: File) => Promise<string>;
+  onImageUpload?: (file: File) => Promise<UploadFile>;
   onImageRemove: (imageId: string) => void;
   onLabelsChange: (labels: DiagramLabel[]) => void;
   onImageFilesChange: (imageId: string, files: UploadFile[]) => void;
@@ -29,16 +33,25 @@ export function DiagramLabelingEditor({
   imageIds,
   labels,
   uploadedImages,
-  onImageUpload: _onImageUpload,
+  onImageUpload,
   onImageRemove,
   onLabelsChange,
   onImageFilesChange,
 }: DiagramLabelingEditorProps) {
   const [uploads, setUploads] = useState<Record<string, UploadFile[]>>({});
 
-  const handleFilesChange = async (imageId: string, files: UploadFile[]) => {
-    setUploads((prev) => ({ ...prev, [imageId]: files }));
-    onImageFilesChange(imageId, files);
+  const uploadImage = onImageUpload ?? (async (file: File) => createAuthoringUploadFile(file));
+
+  const handleFilesChange = async (slotId: string, files: UploadFile[]) => {
+    const resolvedImageId = files[0]?.id ?? slotId;
+
+    setUploads((prev) => {
+      const next = { ...prev };
+      delete next[slotId];
+      next[resolvedImageId] = files;
+      return next;
+    });
+    onImageFilesChange(resolvedImageId, files);
   };
 
   const addImage = async () => {
@@ -115,8 +128,8 @@ export function DiagramLabelingEditor({
         ) : (
           <div className="space-y-3">
             {allImageIds.map((imageId, index) => {
-              const imageFile = uploadedImages[imageId];
               const uploadFiles = uploads[imageId] || [];
+              const imageFile = uploadedImages[imageId] ?? uploadFiles[0];
 
               return (
                 <Card key={imageId} className="overflow-hidden">
@@ -147,9 +160,10 @@ export function DiagramLabelingEditor({
                         </p>
                       </div>
                     ) : (
-                      <FileUploader
+                      <FileUploader<UploadFile>
                         value={uploadFiles}
                         onChange={(files) => handleFilesChange(imageId, files)}
+                        uploadFn={createDiagramImageUploadFn(uploadImage)}
                       />
                     )}
                   </CardContent>
