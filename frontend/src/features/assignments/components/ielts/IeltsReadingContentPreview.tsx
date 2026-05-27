@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import type { IeltsReadingConfig, IeltsQuestion } from '@lib/ielts';
+import type { IeltsReadingConfig } from '@lib/ielts';
 import { Badge } from '@components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { getQuestionTypeLabel } from './IeltsPreviewShared';
@@ -24,11 +24,6 @@ type QuestionGroup = {
 
 export function IeltsReadingContentPreview({ value }: IeltsReadingContentPreviewProps) {
   const sections = value.sections ?? [];
-  const totalQuestions = sections.reduce(
-    (sum, section) => sum + (section.questions?.length ?? 0),
-    0,
-  );
-
   const ranges = useMemo(() => {
     let cursor = 1;
     return sections.map(section => {
@@ -80,7 +75,6 @@ export function IeltsReadingContentPreview({ value }: IeltsReadingContentPreview
                 questions={section.questions}
                 startIndex={ranges[index]?.start ?? 1}
                 endIndex={ranges[index]?.end ?? ranges[index]?.start ?? 1}
-                totalQuestions={totalQuestions}
               />
             </TabsContent>
           ))}
@@ -102,7 +96,6 @@ function ReadingSectionContent({
   questions: ReadingQuestion[];
   startIndex: number;
   endIndex: number;
-  totalQuestions: number;
 }) {
   const groups = useMemo(() => groupQuestionsByType(questions), [questions]);
   const questionRangeLabel = questions.length > 0 ? `Questions ${startIndex}-${endIndex}` : '';

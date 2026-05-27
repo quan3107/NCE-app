@@ -4,7 +4,7 @@
  * Why: Gives teachers a structured editor aligned with IELTS reading format.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@components/ui/button';
@@ -16,10 +16,17 @@ import type { IeltsReadingConfig, IeltsReadingSection } from '@lib/ielts';
 import { useEnabledReadingQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
 import type { UploadFile } from '@domain';
 import { IeltsQuestionListEditor } from './IeltsQuestionListEditor';
+import { uploadAuthoringFile } from './diagramLabelingUpload';
+import {
+  clearBusyUploadScope,
+  hasBusyUploads,
+  setBusyUploadState,
+} from './uploadBusyState.logic';
 
 type ReadingBuilderProps = {
   value: IeltsReadingConfig;
   onChange: (value: IeltsReadingConfig) => void;
+  onUploadBusyChange?: (busy: boolean) => void;
 };
 
 const createId = () => globalThis.crypto?.randomUUID?.() ?? `reading-${Date.now()}`;
@@ -31,12 +38,36 @@ const createSection = (index: number): IeltsReadingSection => ({
   questions: [],
 });
 
-export function ReadingBuilder({ value, onChange }: ReadingBuilderProps) {
+export function ReadingBuilder({
+  value,
+  onChange,
+  onUploadBusyChange,
+}: ReadingBuilderProps) {
   // Track uploaded images for diagram labeling questions
   const [uploadedImages, setUploadedImages] = useState<Record<string, UploadFile>>({});
+  const [uploadBusyState, setUploadBusyStateState] = useState<Record<string, boolean>>({});
 
   const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledReadingQuestionTypes();
   const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();
+
+  useEffect(() => {
+    onUploadBusyChange?.(hasBusyUploads(uploadBusyState));
+  }, [onUploadBusyChange, uploadBusyState]);
+
+  useEffect(
+    () => () => {
+      onUploadBusyChange?.(false);
+    },
+    [onUploadBusyChange],
+  );
+
+  const handleUploadBusyChange = (scopeId: string, busy: boolean) => {
+    setUploadBusyStateState((current) => setBusyUploadState(current, scopeId, busy));
+  };
+
+  const resetUploadBusyScope = (scopePrefix: string) => {
+    setUploadBusyStateState((current) => clearBusyUploadScope(current, scopePrefix));
+  };
 
   const updateSection = (id: string, patch: Partial<IeltsReadingSection>) => {
     onChange({
@@ -55,24 +86,16 @@ export function ReadingBuilder({ value, onChange }: ReadingBuilderProps) {
   };
 
   const removeSection = (id: string) => {
+    resetUploadBusyScope(`section:${id}:`);
     const next = value.sections.filter((section) => section.id !== id);
     onChange({ ...value, sections: next.length ? next : [createSection(0)] });
   };
 
   // Image upload handler for diagram labeling
-  const handleImageUpload = async (file: File): Promise<string> => {
-    const imageId = createId();
-    const uploadFile: UploadFile = {
-      id: imageId,
-      name: file.name,
-      size: file.size,
-      mime: file.type,
-      url: URL.createObjectURL(file),
-      createdAt: new Date().toISOString(),
-    };
-
-    setUploadedImages((prev) => ({ ...prev, [imageId]: uploadFile }));
-    return imageId;
+  const handleImageUpload = async (file: File): Promise<UploadFile> => {
+    const uploadFile = await uploadAuthoringFile(file);
+    setUploadedImages((prev) => ({ ...prev, [uploadFile.id]: uploadFile }));
+    return uploadFile;
   };
 
   // Image removal handler
@@ -162,6 +185,12 @@ export function ReadingBuilder({ value, onChange }: ReadingBuilderProps) {
               typeOptions={questionTypeOptions}
               completionFormats={completionFormatOptions}
               onImageUpload={handleImageUpload}
+              onUploadBusyChange={(scopeId, busy) =>
+                handleUploadBusyChange(`section:${section.id}:${scopeId}`, busy)
+              }
+              onUploadBusyReset={(scopePrefix) =>
+                resetUploadBusyScope(`section:${section.id}:${scopePrefix}`)
+              }
               onImageRemove={handleImageRemove}
               uploadedImages={uploadedImages}
             />

@@ -10,7 +10,7 @@ import { Button } from '@components/ui/button';
 import { Progress } from '@components/ui/progress';
 import { cn } from '@components/ui/utils';
 import { formatFileSize } from '@lib/utils';
-import type { SubmissionFile, UploadFile } from '@domain';
+import type { SubmissionFile } from '@domain';
 import {
   FALLBACK_FILE_UPLOAD_POLICY,
   UploadStage,
@@ -18,6 +18,7 @@ import {
   uploadFileWithProgress,
 } from '@features/files/fileUpload';
 import { useFileUploadConfig } from '@features/files/configApi';
+
 // Base file type - common properties for both SubmissionFile and UploadFile
 type BaseFile = {
   id: string;
@@ -25,6 +26,7 @@ type BaseFile = {
   size: number;
   mime: string;
 };
+
 type UploadStatus = UploadStage | 'error';
 type UploadItem = {
   id: string;
@@ -33,15 +35,25 @@ type UploadItem = {
   status: UploadStatus;
   error?: string;
 };
-type FileUploaderProps<T extends BaseFile = SubmissionFile> = {
+
+type UploadFn<T extends BaseFile> = (
+  file: File,
+  onProgress: (progress: number) => void,
+  onStageChange: (stage: UploadStage) => void,
+) => Promise<T>;
+
+type SharedFileUploaderProps<T extends BaseFile> = {
   value: T[];
   onChange: (files: T[]) => void;
   onBusyChange?: (busy: boolean) => void;
-  /**
-   * Custom upload function. If not provided, uses the default server upload.
-   * Use this for temporary uploads (e.g., authoring) that return UploadFile with blob URLs.
-   */
-  uploadFn?: (file: File, onProgress: (progress: number) => void, onStageChange: (stage: UploadStage) => void) => Promise<T>;
+};
+
+type DefaultFileUploaderProps = SharedFileUploaderProps<SubmissionFile> & {
+  uploadFn?: undefined;
+};
+
+type CustomFileUploaderProps<T extends BaseFile> = SharedFileUploaderProps<T> & {
+  uploadFn: UploadFn<T>;
 };
 const stageLabels: Record<UploadStatus, string> = {
   hashing: 'Preparing',
@@ -56,12 +68,15 @@ const createUploadId = (): string => {
   }
   return `upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
-export function FileUploader<T extends BaseFile = SubmissionFile>({
-  value,
-  onChange,
-  onBusyChange,
-  uploadFn,
-}: FileUploaderProps<T>) {
+
+export function FileUploader(props: DefaultFileUploaderProps): JSX.Element;
+export function FileUploader<T extends BaseFile>(
+  props: CustomFileUploaderProps<T>,
+): JSX.Element;
+export function FileUploader<T extends BaseFile>(
+  props: DefaultFileUploaderProps | CustomFileUploaderProps<T>,
+): JSX.Element {
+  const { value, onChange, onBusyChange } = props;
   const policyQuery = useFileUploadConfig();
   const policy = policyQuery.data ?? FALLBACK_FILE_UPLOAD_POLICY;
   const { maxFileSize, maxTotalSize } = policy.limits;
@@ -97,25 +112,33 @@ export function FileUploader<T extends BaseFile = SubmissionFile>({
     setUploads((prev) => prev.filter((item) => item.id !== id));
   };
   const removeCompletedFile = (id: string) => {
-    onChange(value.filter((file) => file.id !== id));
+    (onChange as (files: typeof value) => void)(
+      value.filter((file) => file.id !== id) as typeof value,
+    );
   };
   const handleUpload = async (uploadId: string, file: File) => {
     try {
-      const result = uploadFn
-        ? await uploadFn(
-            file,
-            (progress) => updateUpload(uploadId, { progress }),
-            (stage) => updateUpload(uploadId, { status: stage })
-          )
-        : await uploadFileWithProgress({
-            file,
-            onProgress: (progress) => updateUpload(uploadId, { progress }),
-            onStageChange: (stage) =>
-              updateUpload(uploadId, { status: stage }),
-          });
-
-      const nextFiles = [...valueRef.current, result];
-      onChange(nextFiles);
+      if (props.uploadFn) {
+        const result = await props.uploadFn(
+          file,
+          (progress) => updateUpload(uploadId, { progress }),
+          (stage) => updateUpload(uploadId, { status: stage }),
+        );
+        (props.onChange as (files: T[]) => void)([
+          ...(valueRef.current as T[]),
+          result,
+        ]);
+      } else {
+        const result = await uploadFileWithProgress({
+          file,
+          onProgress: (progress) => updateUpload(uploadId, { progress }),
+          onStageChange: (stage) => updateUpload(uploadId, { status: stage }),
+        });
+        (onChange as (files: SubmissionFile[]) => void)([
+          ...(valueRef.current as SubmissionFile[]),
+          result,
+        ]);
+      }
       removeUpload(uploadId);
     } catch (error) {
       updateUpload(uploadId, {

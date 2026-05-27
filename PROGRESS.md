@@ -27,6 +27,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-05-27:** Completed PR-02 by adding frontend ESLint, `tsc --noEmit` typecheck, and `c8` coverage scripts; aligned React type packages back to the React 18 runtime; fixed the newly surfaced frontend typing/lint issues; and expanded GitHub Actions frontend checks to run lint, typecheck, tests, coverage, and build after a clean install/audit.
 - **2026-05-26:** Added the GitHub Actions CI release gate for root and frontend dependency install/audit plus Linux-compatible frontend test/build checks on pull requests to `main`.
 - **2026-05-26:** Restored Phase 0 frontend dependency/install gate health from the existing manifest and lockfile by running a clean `npm --prefix frontend ci`. Verified `npm --prefix frontend run build` resolves `@tailwindcss/vite` and completes, and `npm --prefix frontend test` resolves `@tanstack/react-query`/`isomorphic-dompurify` with all 57 tests passing. No frontend package changes were needed.
 - **2026-05-26:** Mapped frontend architecture for a project mental map: Vite/React boot path, React Router route groups, public/authenticated shells, React Query API boundary, auth context bridge, feature modules, Tailwind token system, navigation cache/fallback behavior, tests, and UI risks. No frontend source changes.

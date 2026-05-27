@@ -110,9 +110,6 @@ export function IeltsListeningContentEditor({ value, onChange }: IeltsListeningC
     handleUpdateSection(sectionId, { questions: newQuestions });
   };
 
-  const activeSection = sections.find((s) => s.id === activeSectionId);
-  const activeSectionIndex = sections.findIndex((s) => s.id === activeSectionId);
-
   // Show loading or error state
   if (isLoadingQuestionTypes || isLoadingCompletionFormats) {
     return (

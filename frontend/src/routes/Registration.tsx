@@ -14,8 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@components/ui/checkbox';
 import { useAuth } from '@lib/auth';
 import { ApiError } from '@lib/apiClient';
+import type { RegisterRole } from '@lib/auth-types';
 import { useRouter } from '@lib/router';
-import type { UserRole } from '@lib/backend-schema';
 import { GraduationCap, Mail, Lock, Chrome, User, UserCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
@@ -90,7 +90,7 @@ export function AuthRegister() {
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
-        role: formData.role as UserRole,
+        role: formData.role as RegisterRole,
       });
 
       toast.success('Account created successfully!');

@@ -59,6 +59,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
   const [assignmentConfig, setAssignmentConfig] = useState<IeltsAssignmentConfig | null>(
     null,
   );
+  const [isUploadBusy, setIsUploadBusy] = useState(false);
   const isIelts = isIeltsAssignmentType(formState.type);
 
   useEffect(() => {
@@ -78,7 +79,14 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
     } else {
       setAssignmentConfig(null);
     }
+    setIsUploadBusy(false);
   }, [assignment]);
+
+  useEffect(() => {
+    if (!isIelts) {
+      setIsUploadBusy(false);
+    }
+  }, [isIelts]);
 
   const handleTypeChange = (value: string) => {
     setFormState((current) => ({ ...current, type: value }));
@@ -103,6 +111,10 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
     }
     if (isIeltsAssignmentType(formState.type) && !assignmentConfig) {
       toast.error('IELTS assignments require a full configuration.');
+      return;
+    }
+    if (isUploadBusy) {
+      toast.error('Wait for file uploads to finish before saving this assignment.');
       return;
     }
 
@@ -260,6 +272,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
                 setFormState((current) => ({ ...current, type: nextType }));
                 setAssignmentConfig(nextConfig);
               }}
+              onUploadBusyChange={setIsUploadBusy}
               showTypeSelector={false}
             />
           )}
@@ -280,16 +293,16 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
             <Button
               variant="secondary"
               onClick={() => handleSave(false)}
-              disabled={updateAssignmentMutation.isLoading}
+              disabled={updateAssignmentMutation.isPending || isUploadBusy}
             >
               Save Changes
             </Button>
             {assignment.status !== 'published' && (
               <Button
                 onClick={() => handleSave(true)}
-                disabled={updateAssignmentMutation.isLoading}
+                disabled={updateAssignmentMutation.isPending || isUploadBusy}
               >
-                {updateAssignmentMutation.isLoading ? 'Publishing...' : 'Publish Now'}
+                {updateAssignmentMutation.isPending ? 'Publishing...' : 'Publish Now'}
               </Button>
             )}
           </div>

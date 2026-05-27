@@ -216,9 +216,9 @@ export function AdminUsersPage() {
                   );
                 }
               }}
-              disabled={createUserMutation.isLoading}
+              disabled={createUserMutation.isPending}
             >
-              {createUserMutation.isLoading ? 'Creating...' : 'Create User'}
+              {createUserMutation.isPending ? 'Creating...' : 'Create User'}
             </Button>
           </DialogFooter>
         </DialogContent>

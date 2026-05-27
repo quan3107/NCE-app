@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
 
 import { fetchNavigationFromMe } from '../api';
@@ -18,7 +19,20 @@ const NAVIGATION_QUERY_KEY = 'navigation:me';
 export function useNavigation() {
   const { currentUser, isAuthenticated } = useAuthStore();
 
-  const role = isAuthenticated && currentUser.role !== 'public' ? currentUser.role : 'public';
+  const role = useMemo<Role>(() => {
+    if (!isAuthenticated) {
+      return 'public';
+    }
+
+    switch (currentUser.role) {
+      case 'student':
+      case 'teacher':
+      case 'admin':
+        return currentUser.role;
+      default:
+        return 'public';
+    }
+  }, [currentUser.role, isAuthenticated]);
   const userId = currentUser.id || 'public';
 
   const cacheIdentity = useMemo(

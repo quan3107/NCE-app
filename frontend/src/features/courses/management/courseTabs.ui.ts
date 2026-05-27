@@ -70,7 +70,7 @@ export function toResolvedCourseTabs(
   warnedUnsupportedTabIds: Set<string>,
 ): ResolvedCourseTab[] {
   return tabs
-    .filter((tab) => {
+    .filter((tab): tab is CourseManagementTabConfig & { id: TabValue } => {
       if (isSupportedTabId(tab.id)) {
         return true;
       }

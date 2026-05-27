@@ -23,7 +23,7 @@ interface SortableSectionCardProps {
 
 export function SortableSectionCard({
   id,
-  index,
+  index: _index,
   title,
   questionCount,
   hasAudio = false,

@@ -15,7 +15,6 @@ import {
   SheetTitle,
 } from "./sheet";
 import {
-  SIDEBAR_WIDTH_ICON,
   SIDEBAR_WIDTH_MOBILE,
   SidebarProvider,
   useSidebar,

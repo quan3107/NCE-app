@@ -59,6 +59,7 @@ export function TeacherAssignmentCreateDialog({
   const createAssignmentMutation = useCreateAssignmentMutation();
   const [formState, setFormState] = useState<AssignmentFormState>(emptyForm);
   const [assignmentConfig, setAssignmentConfig] = useState<IeltsAssignmentConfig | null>(null);
+  const [isUploadBusy, setIsUploadBusy] = useState(false);
   const selectedIeltsType = useMemo(
     () => (isIeltsAssignmentType(formState.type) ? formState.type : null),
     [formState.type],
@@ -78,8 +79,15 @@ export function TeacherAssignmentCreateDialog({
         courseId: courses[0]?.id ?? '',
       });
       setAssignmentConfig(null);
+      setIsUploadBusy(false);
     }
   }, [open, courses]);
+
+  useEffect(() => {
+    if (!selectedIeltsType) {
+      setIsUploadBusy(false);
+    }
+  }, [selectedIeltsType]);
 
   const handleTypeChange = (value: string) => {
     setFormState((current) => ({ ...current, type: value }));
@@ -106,6 +114,10 @@ export function TeacherAssignmentCreateDialog({
 
     if (isIeltsAssignmentType(formState.type) && !assignmentConfig) {
       toast.error('IELTS assignments require a full configuration.');
+      return;
+    }
+    if (isUploadBusy) {
+      toast.error('Wait for file uploads to finish before saving this assignment.');
       return;
     }
 
@@ -254,6 +266,7 @@ export function TeacherAssignmentCreateDialog({
                 setFormState((current) => ({ ...current, type: nextType }));
                 setAssignmentConfig(nextConfig);
               }}
+              onUploadBusyChange={setIsUploadBusy}
               showTypeSelector={false}
             />
           )}
@@ -269,17 +282,17 @@ export function TeacherAssignmentCreateDialog({
           <Button
             variant="secondary"
             onClick={() => handleCreateAssignment(false)}
-            disabled={createAssignmentMutation.isLoading}
+            disabled={createAssignmentMutation.isPending || isUploadBusy}
             className="min-w-[120px]"
           >
             Save Draft
           </Button>
           <Button
             onClick={() => handleCreateAssignment(true)}
-            disabled={createAssignmentMutation.isLoading}
+            disabled={createAssignmentMutation.isPending || isUploadBusy}
             className="min-w-[140px] shadow-sm"
           >
-            {createAssignmentMutation.isLoading ? 'Saving...' : 'Create & Publish'}
+            {createAssignmentMutation.isPending ? 'Saving...' : 'Create & Publish'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -5,8 +5,6 @@
  */
 
 import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
-
 import { Button } from '@components/ui/button';
 import { Card } from '@components/ui/card';
 import { Input } from '@components/ui/input';
@@ -45,7 +43,9 @@ type IeltsQuestionListEditorProps = {
   typeOptions: QuestionTypeOption[];
   completionFormats?: CompletionFormatOption[];
   // Optional image upload handlers for diagram labeling
-  onImageUpload?: (file: File) => Promise<string>;
+  onImageUpload?: (file: File) => Promise<UploadFile>;
+  onUploadBusyChange?: (scopeId: string, busy: boolean) => void;
+  onUploadBusyReset?: (scopePrefix: string) => void;
   onImageRemove?: (imageId: string) => void;
   uploadedImages?: Record<string, UploadFile>;
 };
@@ -56,10 +56,11 @@ export function IeltsQuestionListEditor({
   typeOptions,
   completionFormats = [],
   onImageUpload,
+  onUploadBusyChange,
+  onUploadBusyReset,
   onImageRemove,
   uploadedImages = {},
 }: IeltsQuestionListEditorProps) {
-  const [localUploads, setLocalUploads] = useState<Record<string, Record<string, UploadFile[]>>>({});
   const { trueFalseOptions, yesNoOptions } = useBooleanQuestionOptions();
   const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? 'true';
   const defaultYesNoValue = yesNoOptions[0]?.value ?? 'yes';
@@ -74,6 +75,7 @@ export function IeltsQuestionListEditor({
   };
 
   const removeQuestion = (id: string) => {
+    onUploadBusyReset?.(`question:${id}:`);
     const next = questions.filter((question) => question.id !== id);
     onChange(next.length ? next : [createQuestion(typeOptions[0]?.value ?? 'multiple_choice')]);
   };
@@ -97,14 +99,6 @@ export function IeltsQuestionListEditor({
   };
 
   const handleDiagramImageFilesChange = (questionId: string, imageId: string, files: UploadFile[]) => {
-    setLocalUploads((prev) => ({
-      ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        [imageId]: files,
-      },
-    }));
-
     // Update question's image IDs if new image added
     const question = questions.find((q) => q.id === questionId);
     if (question && files.length > 0 && !question.diagramImageIds?.includes(imageId)) {
@@ -115,12 +109,6 @@ export function IeltsQuestionListEditor({
   };
 
   const handleDiagramImageRemove = (questionId: string, imageId: string) => {
-    setLocalUploads((prev) => {
-      const questionUploads = { ...prev[questionId] };
-      delete questionUploads[imageId];
-      return { ...prev, [questionId]: questionUploads };
-    });
-
     if (onImageRemove) {
       onImageRemove(imageId);
     }
@@ -217,7 +205,10 @@ export function IeltsQuestionListEditor({
                 imageIds={question.diagramImageIds || []}
                 labels={question.diagramLabels || []}
                 uploadedImages={uploadedImages}
-                onImageUpload={onImageUpload || (async () => '')}
+                onImageUpload={onImageUpload}
+                onUploadBusyChange={(scopeId, busy) =>
+                  onUploadBusyChange?.(`question:${question.id}:${scopeId}`, busy)
+                }
                 onImageRemove={(imageId) => handleDiagramImageRemove(question.id, imageId)}
                 onLabelsChange={(labels) => handleDiagramLabelsChange(question.id, labels)}
                 onImageFilesChange={(imageId, files) =>

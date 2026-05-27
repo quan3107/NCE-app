@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
 
 import { useUserNotifications } from '@features/notifications/api';
@@ -29,7 +30,20 @@ const EMPTY_BADGES: BadgeCounts = {
 export function useBadgeCounts() {
   const { currentUser, isAuthenticated } = useAuthStore();
 
-  const role = isAuthenticated && currentUser.role !== 'public' ? currentUser.role : 'public';
+  const role = useMemo<Role>(() => {
+    if (!isAuthenticated) {
+      return 'public';
+    }
+
+    switch (currentUser.role) {
+      case 'student':
+      case 'teacher':
+      case 'admin':
+        return currentUser.role;
+      default:
+        return 'public';
+    }
+  }, [currentUser.role, isAuthenticated]);
   const userId = currentUser.id || 'public';
 
   const cacheIdentity = useMemo(

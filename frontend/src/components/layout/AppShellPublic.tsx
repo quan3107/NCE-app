@@ -5,7 +5,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { BookOpen, GraduationCap, LayoutDashboard, LogOut, User } from 'lucide-react';
+import { GraduationCap, LayoutDashboard, LogOut, User } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import {

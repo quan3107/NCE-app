@@ -40,7 +40,7 @@ export function DashboardTeacherRoute() {
   const avgTurnaround = analyticsQuery.data?.averageTurnaroundDays ?? null;
   const onTimeRate = analyticsQuery.data?.onTimeRate ?? null;
   const totalStudents = (coursesQuery.data ?? []).reduce(
-    (sum, course) => sum + course.enrolled,
+    (sum, course) => sum + (course.enrolled ?? 0),
     0,
   );
   const widgetMetrics = {

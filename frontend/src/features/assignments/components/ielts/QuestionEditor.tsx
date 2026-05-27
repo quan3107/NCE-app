@@ -5,16 +5,11 @@
  * Why: Centralizes question editing logic to be reused across reading/listening editors.
  */
 
-import { useState } from 'react';
 import type {
   IeltsQuestion,
   IeltsQuestionType,
   IeltsCompletionFormat,
-  MatchingItem,
-  MatchingOption,
-  DiagramLabel,
 } from '@lib/ielts';
-import { Input } from '@components/ui/input';
 import { Textarea } from '@components/ui/textarea';
 import { Button } from '@components/ui/button';
 import {
@@ -49,7 +44,7 @@ type QuestionEditorProps = {
   questionTypes: QuestionTypeOption[];
   completionFormats?: CompletionFormatOption[];
   // Optional image upload handlers for diagram labeling
-  onImageUpload?: (file: File) => Promise<string>;
+  onImageUpload?: (file: File) => Promise<UploadFile>;
   onImageRemove?: (imageId: string) => void;
   uploadedImages?: Record<string, UploadFile>;
   // Reordering props
@@ -75,7 +70,6 @@ export function QuestionEditor({
   canMoveUp,
   canMoveDown,
 }: QuestionEditorProps) {
-  const [localUploads, setLocalUploads] = useState<Record<string, UploadFile[]>>({});
   const { trueFalseOptions, yesNoOptions } = useBooleanQuestionOptions();
 
   const needsOptions = OPTION_BASED_TYPES.includes(question.type);
@@ -130,7 +124,10 @@ export function QuestionEditor({
   };
 
   // Matching handlers
-  const handleMatchingChange = (items: MatchingItem[], options: MatchingOption[]) => {
+  const handleMatchingChange = (
+    items: NonNullable<IeltsQuestion['matchingItems']>,
+    options: NonNullable<IeltsQuestion['matchingOptions']>,
+  ) => {
     onChange({
       ...question,
       matchingItems: items,
@@ -139,7 +136,9 @@ export function QuestionEditor({
   };
 
   // Diagram labeling handlers
-  const handleDiagramLabelsChange = (labels: DiagramLabel[]) => {
+  const handleDiagramLabelsChange = (
+    labels: NonNullable<IeltsQuestion['diagramLabels']>,
+  ) => {
     onChange({
       ...question,
       diagramLabels: labels,
@@ -147,7 +146,6 @@ export function QuestionEditor({
   };
 
   const handleDiagramImageFilesChange = (imageId: string, files: UploadFile[]) => {
-    setLocalUploads((prev) => ({ ...prev, [imageId]: files }));
     // Update question's image IDs if new image added
     if (files.length > 0 && !question.diagramImageIds?.includes(imageId)) {
       onChange({
@@ -158,11 +156,6 @@ export function QuestionEditor({
   };
 
   const handleDiagramImageRemove = (imageId: string) => {
-    setLocalUploads((prev) => {
-      const next = { ...prev };
-      delete next[imageId];
-      return next;
-    });
     if (onImageRemove) {
       onImageRemove(imageId);
     }
@@ -269,7 +262,7 @@ export function QuestionEditor({
               imageIds={question.diagramImageIds || []}
               labels={question.diagramLabels || []}
               uploadedImages={uploadedImages}
-              onImageUpload={onImageUpload || (async () => '')}
+              onImageUpload={onImageUpload}
               onImageRemove={handleDiagramImageRemove}
               onLabelsChange={handleDiagramLabelsChange}
               onImageFilesChange={handleDiagramImageFilesChange}

@@ -4,23 +4,36 @@
  * Why: Supports prompt editing and optional Task 1 visual upload.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Card } from '@components/ui/card';
 import { Label } from '@components/ui/label';
-import { Textarea } from '@components/ui/textarea';
 import { RichTextEditor } from '@components/ui/rich-text-editor';
 import type { IeltsWritingConfig } from '@lib/ielts';
 import type { UploadFile } from '@domain';
 import { FileUploader } from '@components/common/FileUploader';
+import { createAuthoringUploadFn } from './diagramLabelingUpload';
 
 type WritingBuilderProps = {
   value: IeltsWritingConfig;
   onChange: (value: IeltsWritingConfig) => void;
+  onUploadBusyChange?: (busy: boolean) => void;
 };
 
-export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
+export function WritingBuilder({
+  value,
+  onChange,
+  onUploadBusyChange,
+}: WritingBuilderProps) {
   const [task1Files, setTask1Files] = useState<UploadFile[]>([]);
+  const uploadVisual = createAuthoringUploadFn();
+
+  useEffect(
+    () => () => {
+      onUploadBusyChange?.(false);
+    },
+    [onUploadBusyChange],
+  );
 
   const handleTask1Files = (files: UploadFile[]) => {
     setTask1Files(files);
@@ -62,9 +75,11 @@ export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
               Linked image file ID: {value.task1.imageFileId}
             </p>
           )}
-          <FileUploader
+          <FileUploader<UploadFile>
             value={task1Files}
             onChange={handleTask1Files}
+            onBusyChange={onUploadBusyChange}
+            uploadFn={uploadVisual}
           />
           <p className="text-xs text-muted-foreground">
             Upload a chart or diagram for Task 1. Students will see it during the test.

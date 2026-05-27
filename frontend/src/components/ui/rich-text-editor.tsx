@@ -53,7 +53,7 @@ const TabHandler = Extension.create({
         }
         
         // Check if we should remove indentation or move focus
-        const { from, to } = editor.state.selection;
+        const { from } = editor.state.selection;
         
         // Get text before cursor
         const textBefore = editor.state.doc.textBetween(Math.max(0, from - 4), from);

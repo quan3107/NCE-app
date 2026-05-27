@@ -31,7 +31,7 @@ export function TimerPreview({
   seconds,
   label,
   variant,
-  isActive = false,
+  isActive: _isActive = false,
 }: TimerPreviewProps) {
   const [displayTime, setDisplayTime] = useState(seconds);
   const [isRunning, setIsRunning] = useState(false);

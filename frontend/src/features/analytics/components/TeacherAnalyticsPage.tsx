@@ -173,7 +173,7 @@ export function TeacherAnalyticsPage() {
                         <ChartTooltip
                           content={
                             <ChartTooltipContent
-                              formatter={(value, name, item) => (
+                              formatter={(value, name) => (
                                 <div className="flex flex-1 justify-between gap-4">
                                   <span className="text-muted-foreground">{name}</span>
                                   <span className="font-mono font-medium tabular-nums">

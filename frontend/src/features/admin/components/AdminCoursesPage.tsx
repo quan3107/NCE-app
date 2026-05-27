@@ -182,9 +182,9 @@ export function AdminCoursesPage() {
                   );
                 }
               }}
-              disabled={createCourseMutation.isLoading}
+              disabled={createCourseMutation.isPending}
             >
-              {createCourseMutation.isLoading ? 'Creating...' : 'Create Course'}
+              {createCourseMutation.isPending ? 'Creating...' : 'Create Course'}
             </Button>
           </DialogFooter>
         </DialogContent>
