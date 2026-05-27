@@ -5,7 +5,7 @@
  */
 
 import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@components/ui/button';
 import { Card } from '@components/ui/card';
@@ -19,10 +19,16 @@ import type { UploadFile } from '@domain';
 import { FileUploader } from '@components/common/FileUploader';
 import { IeltsQuestionListEditor } from './IeltsQuestionListEditor';
 import { createAuthoringUploadFn } from './diagramLabelingUpload';
+import {
+  clearBusyUploadScope,
+  hasBusyUploads,
+  setBusyUploadState,
+} from './uploadBusyState.logic';
 
 type ListeningBuilderProps = {
   value: IeltsListeningConfig;
   onChange: (value: IeltsListeningConfig) => void;
+  onUploadBusyChange?: (busy: boolean) => void;
 };
 
 const createSection = (index: number): IeltsListeningSection => ({
@@ -33,12 +39,36 @@ const createSection = (index: number): IeltsListeningSection => ({
   questions: [],
 });
 
-export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
+export function ListeningBuilder({
+  value,
+  onChange,
+  onUploadBusyChange,
+}: ListeningBuilderProps) {
   const [uploads, setUploads] = useState<Record<string, UploadFile[]>>({});
+  const [uploadBusyState, setUploadBusyStateState] = useState<Record<string, boolean>>({});
   const uploadAudio = createAuthoringUploadFn();
 
   const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledListeningQuestionTypes();
   const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();
+
+  useEffect(() => {
+    onUploadBusyChange?.(hasBusyUploads(uploadBusyState));
+  }, [onUploadBusyChange, uploadBusyState]);
+
+  useEffect(
+    () => () => {
+      onUploadBusyChange?.(false);
+    },
+    [onUploadBusyChange],
+  );
+
+  const handleUploadBusyChange = (scopeId: string, busy: boolean) => {
+    setUploadBusyStateState((current) => setBusyUploadState(current, scopeId, busy));
+  };
+
+  const resetUploadBusyScope = (scopePrefix: string) => {
+    setUploadBusyStateState((current) => clearBusyUploadScope(current, scopePrefix));
+  };
 
   const updateSection = (id: string, patch: Partial<IeltsListeningSection>) => {
     onChange({
@@ -57,6 +87,12 @@ export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
   };
 
   const removeSection = (id: string) => {
+    resetUploadBusyScope(`section:${id}:`);
+    setUploads((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     const next = value.sections.filter((section) => section.id !== id);
     onChange({ ...value, sections: next.length ? next : [createSection(0)] });
   };
@@ -128,6 +164,9 @@ export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
               <FileUploader<UploadFile>
                 value={sectionFiles}
                 onChange={(files) => handleFilesChange(section.id, files)}
+                onBusyChange={(busy) =>
+                  handleUploadBusyChange(`section:${section.id}:audio`, busy)
+                }
                 uploadFn={uploadAudio}
               />
             </div>
@@ -175,6 +214,12 @@ export function ListeningBuilder({ value, onChange }: ListeningBuilderProps) {
                 onChange={(questions) => updateSection(section.id, { questions })}
                 typeOptions={questionTypeOptions}
                 completionFormats={completionFormatOptions}
+                onUploadBusyChange={(scopeId, busy) =>
+                  handleUploadBusyChange(`section:${section.id}:${scopeId}`, busy)
+                }
+                onUploadBusyReset={(scopePrefix) =>
+                  resetUploadBusyScope(`section:${section.id}:${scopePrefix}`)
+                }
               />
             </div>
           </Card>

@@ -24,6 +24,7 @@ type DiagramLabelingEditorProps = {
   labels: DiagramLabel[];
   uploadedImages: Record<string, UploadFile>;
   onImageUpload?: (file: File) => Promise<UploadFile>;
+  onUploadBusyChange?: (scopeId: string, busy: boolean) => void;
   onImageRemove: (imageId: string) => void;
   onLabelsChange: (labels: DiagramLabel[]) => void;
   onImageFilesChange: (imageId: string, files: UploadFile[]) => void;
@@ -34,6 +35,7 @@ export function DiagramLabelingEditor({
   labels,
   uploadedImages,
   onImageUpload,
+  onUploadBusyChange,
   onImageRemove,
   onLabelsChange,
   onImageFilesChange,
@@ -47,6 +49,7 @@ export function DiagramLabelingEditor({
 
   const handleFilesChange = async (slotId: string, files: UploadFile[]) => {
     const resolvedImageId = files[0]?.id ?? slotId;
+    onUploadBusyChange?.(`image:${slotId}`, false);
 
     setUploads((prev) => {
       const next = { ...prev };
@@ -67,6 +70,7 @@ export function DiagramLabelingEditor({
   };
 
   const removeImage = (imageId: string) => {
+    onUploadBusyChange?.(`image:${imageId}`, false);
     setUploads((prev) => {
       const next = { ...prev };
       delete next[imageId];
@@ -166,6 +170,9 @@ export function DiagramLabelingEditor({
                       <FileUploader<UploadFile>
                         value={uploadFiles}
                         onChange={(files) => handleFilesChange(imageId, files)}
+                        onBusyChange={(busy) =>
+                          onUploadBusyChange?.(`image:${imageId}`, busy)
+                        }
                         uploadFn={uploadFn}
                       />
                     )}

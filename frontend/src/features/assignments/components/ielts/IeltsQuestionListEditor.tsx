@@ -44,6 +44,8 @@ type IeltsQuestionListEditorProps = {
   completionFormats?: CompletionFormatOption[];
   // Optional image upload handlers for diagram labeling
   onImageUpload?: (file: File) => Promise<UploadFile>;
+  onUploadBusyChange?: (scopeId: string, busy: boolean) => void;
+  onUploadBusyReset?: (scopePrefix: string) => void;
   onImageRemove?: (imageId: string) => void;
   uploadedImages?: Record<string, UploadFile>;
 };
@@ -54,6 +56,8 @@ export function IeltsQuestionListEditor({
   typeOptions,
   completionFormats = [],
   onImageUpload,
+  onUploadBusyChange,
+  onUploadBusyReset,
   onImageRemove,
   uploadedImages = {},
 }: IeltsQuestionListEditorProps) {
@@ -71,6 +75,7 @@ export function IeltsQuestionListEditor({
   };
 
   const removeQuestion = (id: string) => {
+    onUploadBusyReset?.(`question:${id}:`);
     const next = questions.filter((question) => question.id !== id);
     onChange(next.length ? next : [createQuestion(typeOptions[0]?.value ?? 'multiple_choice')]);
   };
@@ -201,6 +206,9 @@ export function IeltsQuestionListEditor({
                 labels={question.diagramLabels || []}
                 uploadedImages={uploadedImages}
                 onImageUpload={onImageUpload}
+                onUploadBusyChange={(scopeId, busy) =>
+                  onUploadBusyChange?.(`question:${question.id}:${scopeId}`, busy)
+                }
                 onImageRemove={(imageId) => handleDiagramImageRemove(question.id, imageId)}
                 onLabelsChange={(labels) => handleDiagramLabelsChange(question.id, labels)}
                 onImageFilesChange={(imageId, files) =>

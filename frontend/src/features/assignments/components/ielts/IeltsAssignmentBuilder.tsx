@@ -32,6 +32,7 @@ type IeltsAssignmentBuilderProps = {
   value: IeltsAssignmentConfig;
   onChange: (value: IeltsAssignmentConfig) => void;
   onTypeChange: (type: IeltsAssignmentType, value: IeltsAssignmentConfig) => void;
+  onUploadBusyChange?: (busy: boolean) => void;
   showTypeSelector?: boolean;
 };
 
@@ -40,6 +41,7 @@ export function IeltsAssignmentBuilder({
   value,
   onChange,
   onTypeChange,
+  onUploadBusyChange,
   showTypeSelector = true,
 }: IeltsAssignmentBuilderProps) {
   const handleTypeChange = (nextType: IeltsAssignmentType) => {
@@ -164,13 +166,25 @@ export function IeltsAssignmentBuilder({
           </Card>
 
           {type === 'reading' && (
-            <ReadingBuilder value={value as IeltsReadingConfig} onChange={onChange} />
+            <ReadingBuilder
+              value={value as IeltsReadingConfig}
+              onChange={onChange}
+              onUploadBusyChange={onUploadBusyChange}
+            />
           )}
           {type === 'listening' && (
-            <ListeningBuilder value={value as IeltsListeningConfig} onChange={onChange} />
+            <ListeningBuilder
+              value={value as IeltsListeningConfig}
+              onChange={onChange}
+              onUploadBusyChange={onUploadBusyChange}
+            />
           )}
           {type === 'writing' && (
-            <WritingBuilder value={value as IeltsWritingConfig} onChange={onChange} />
+            <WritingBuilder
+              value={value as IeltsWritingConfig}
+              onChange={onChange}
+              onUploadBusyChange={onUploadBusyChange}
+            />
           )}
           {type === 'speaking' && (
             <SpeakingBuilder value={value as IeltsSpeakingConfig} onChange={onChange} />

@@ -4,7 +4,7 @@
  * Why: Supports prompt editing and optional Task 1 visual upload.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Card } from '@components/ui/card';
 import { Label } from '@components/ui/label';
@@ -17,11 +17,23 @@ import { createAuthoringUploadFn } from './diagramLabelingUpload';
 type WritingBuilderProps = {
   value: IeltsWritingConfig;
   onChange: (value: IeltsWritingConfig) => void;
+  onUploadBusyChange?: (busy: boolean) => void;
 };
 
-export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
+export function WritingBuilder({
+  value,
+  onChange,
+  onUploadBusyChange,
+}: WritingBuilderProps) {
   const [task1Files, setTask1Files] = useState<UploadFile[]>([]);
   const uploadVisual = createAuthoringUploadFn();
+
+  useEffect(
+    () => () => {
+      onUploadBusyChange?.(false);
+    },
+    [onUploadBusyChange],
+  );
 
   const handleTask1Files = (files: UploadFile[]) => {
     setTask1Files(files);
@@ -66,6 +78,7 @@ export function WritingBuilder({ value, onChange }: WritingBuilderProps) {
           <FileUploader<UploadFile>
             value={task1Files}
             onChange={handleTask1Files}
+            onBusyChange={onUploadBusyChange}
             uploadFn={uploadVisual}
           />
           <p className="text-xs text-muted-foreground">
