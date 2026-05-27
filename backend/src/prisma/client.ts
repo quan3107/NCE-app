@@ -15,7 +15,7 @@ import { PrismaPg } from '@prisma/adapter-pg'
 
 if (process.env.NODE_ENV !== 'production') {
   const envPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../.env')
-  loadEnv({ path: envPath })
+  loadEnv({ path: envPath, quiet: process.env.NODE_ENV === 'test' })
 }
 
 type PrismaRole = 'authenticated' | 'anon' | 'service_role'
