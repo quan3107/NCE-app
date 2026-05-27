@@ -18,7 +18,7 @@ describe('test environment defaults', () => {
     expect(config.google).toEqual({
       clientId: 'test-google-client-id',
       clientSecret: 'test-google-client-secret',
-      redirectUri: 'http://localhost:4000/api/auth/google/callback',
+      redirectUri: 'http://localhost:4000/api/v1/auth/google/callback',
     })
     expect(config.email).toEqual({
       brevoApiKey: 'test-brevo-api-key',
