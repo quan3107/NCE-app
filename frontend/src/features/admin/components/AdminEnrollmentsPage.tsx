@@ -243,9 +243,9 @@ export function AdminEnrollmentsPage() {
                   );
                 }
               }}
-              disabled={createEnrollmentMutation.isLoading}
+              disabled={createEnrollmentMutation.isPending}
             >
-              {createEnrollmentMutation.isLoading ? 'Saving...' : 'Create Enrollment'}
+              {createEnrollmentMutation.isPending ? 'Saving...' : 'Create Enrollment'}
             </Button>
           </DialogFooter>
         </DialogContent>

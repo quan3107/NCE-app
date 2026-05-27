@@ -4,7 +4,7 @@
  * Why: Provides user feedback about save state without being intrusive.
  */
 
-import { Check, Loader2, AlertCircle, History } from 'lucide-react';
+import { Check, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@components/ui/utils';
 import type { SaveStatus } from '@lib/use-auto-save';
 
@@ -19,7 +19,7 @@ interface AutoSaveIndicatorProps {
 export function AutoSaveIndicator({ 
   status, 
   lastSaved, 
-  draftTimestamp,
+  draftTimestamp: _draftTimestamp,
   isRestoring = false,
   className 
 }: AutoSaveIndicatorProps) {

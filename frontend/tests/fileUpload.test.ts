@@ -204,7 +204,7 @@ test('uploadFileWithProgress signs, uploads, and completes a file', async () => 
 
   await withPatchedGlobals(
     {
-      fetch: async (input, init) => {
+      fetch: async (input, _init) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.endsWith('/files/sign')) {
           signCalled = true;

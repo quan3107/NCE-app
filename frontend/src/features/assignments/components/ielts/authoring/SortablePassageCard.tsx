@@ -23,7 +23,7 @@ interface SortablePassageCardProps {
 
 export function SortablePassageCard({
   id,
-  index,
+  index: _index,
   title,
   questionCount,
   isExpanded,

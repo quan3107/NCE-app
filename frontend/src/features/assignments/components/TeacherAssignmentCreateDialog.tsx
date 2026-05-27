@@ -269,17 +269,17 @@ export function TeacherAssignmentCreateDialog({
           <Button
             variant="secondary"
             onClick={() => handleCreateAssignment(false)}
-            disabled={createAssignmentMutation.isLoading}
+            disabled={createAssignmentMutation.isPending}
             className="min-w-[120px]"
           >
             Save Draft
           </Button>
           <Button
             onClick={() => handleCreateAssignment(true)}
-            disabled={createAssignmentMutation.isLoading}
+            disabled={createAssignmentMutation.isPending}
             className="min-w-[140px] shadow-sm"
           >
-            {createAssignmentMutation.isLoading ? 'Saving...' : 'Create & Publish'}
+            {createAssignmentMutation.isPending ? 'Saving...' : 'Create & Publish'}
           </Button>
         </DialogFooter>
       </DialogContent>

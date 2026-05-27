@@ -5,8 +5,6 @@
  */
 
 import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
-
 import { Button } from '@components/ui/button';
 import { Card } from '@components/ui/card';
 import { Input } from '@components/ui/input';
@@ -59,7 +57,6 @@ export function IeltsQuestionListEditor({
   onImageRemove,
   uploadedImages = {},
 }: IeltsQuestionListEditorProps) {
-  const [localUploads, setLocalUploads] = useState<Record<string, Record<string, UploadFile[]>>>({});
   const { trueFalseOptions, yesNoOptions } = useBooleanQuestionOptions();
   const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? 'true';
   const defaultYesNoValue = yesNoOptions[0]?.value ?? 'yes';
@@ -97,14 +94,6 @@ export function IeltsQuestionListEditor({
   };
 
   const handleDiagramImageFilesChange = (questionId: string, imageId: string, files: UploadFile[]) => {
-    setLocalUploads((prev) => ({
-      ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        [imageId]: files,
-      },
-    }));
-
     // Update question's image IDs if new image added
     const question = questions.find((q) => q.id === questionId);
     if (question && files.length > 0 && !question.diagramImageIds?.includes(imageId)) {
@@ -115,12 +104,6 @@ export function IeltsQuestionListEditor({
   };
 
   const handleDiagramImageRemove = (questionId: string, imageId: string) => {
-    setLocalUploads((prev) => {
-      const questionUploads = { ...prev[questionId] };
-      delete questionUploads[imageId];
-      return { ...prev, [questionId]: questionUploads };
-    });
-
     if (onImageRemove) {
       onImageRemove(imageId);
     }

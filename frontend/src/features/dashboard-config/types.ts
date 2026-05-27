@@ -4,7 +4,9 @@
  * Why: Keeps dashboard pages and config hooks aligned on a validated payload shape.
  */
 
-import type { DashboardRole } from '@lib/backend-schema';
+import type { DashboardRole as BackendDashboardRole } from '@lib/backend-schema';
+
+export type DashboardRole = BackendDashboardRole;
 
 export type DashboardWidgetPosition = {
   x: number;

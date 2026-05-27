@@ -5,15 +5,6 @@
  */
 
 import type {
-  AssignmentType as PrismaAssignmentType,
-  EnrollmentRole as PrismaEnrollmentRole,
-  NotificationChannel as PrismaNotificationChannel,
-  NotificationStatus as PrismaNotificationStatus,
-  SubmissionStatus as PrismaSubmissionStatus,
-  UserRole as PrismaUserRole,
-  UserStatus as PrismaUserStatus,
-} from '../../../backend/src/prisma/generated/client/enums';
-import type {
   DashboardWidgetDefaultsResponse as BackendDashboardWidgetDefaultsResponse,
 } from '../../../backend/src/modules/dashboard-config/dashboard-config.schema';
 import type {
@@ -46,13 +37,22 @@ import type {
 } from '../../../backend/src/modules/rubric-templates/rubric-templates.schema';
 import type { CreateSubmissionPayload as BackendCreateSubmissionPayload } from '../../../backend/src/modules/submissions/submissions.schema';
 
-export type UserRole = PrismaUserRole;
-export type UserStatus = PrismaUserStatus;
-export type EnrollmentRole = PrismaEnrollmentRole;
-export type AssignmentType = PrismaAssignmentType;
-export type SubmissionStatus = PrismaSubmissionStatus;
-export type NotificationChannel = PrismaNotificationChannel;
-export type NotificationStatus = PrismaNotificationStatus;
+// Mirror backend/src/prisma/schema.prisma enums so frontend typecheck stays independent of Prisma codegen.
+export type UserRole = 'admin' | 'teacher' | 'student';
+export type UserStatus = 'active' | 'invited' | 'suspended';
+export type EnrollmentRole = 'teacher' | 'student';
+export type AssignmentType =
+  | 'file'
+  | 'link'
+  | 'text'
+  | 'quiz'
+  | 'reading'
+  | 'listening'
+  | 'writing'
+  | 'speaking';
+export type SubmissionStatus = 'draft' | 'submitted' | 'late' | 'graded';
+export type NotificationChannel = 'inapp' | 'email' | 'push' | 'sms';
+export type NotificationStatus = 'queued' | 'sent' | 'failed' | 'read';
 
 export type DashboardRole = BackendDashboardWidgetDefaultsResponse['role'];
 export type CmsStatFormat = BackendCmsStatItem['format'];

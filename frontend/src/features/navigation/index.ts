@@ -13,5 +13,5 @@ export * from './hooks/useNavigation';
 export * from './hooks/useBadgeCounts';
 export * from './hooks/usePermissions';
 export * from './components/NavigationProvider';
-export * from './components/NavigationItem';
 export * from './components/NavigationBadge';
+export { NavigationItem as NavigationItemRow } from './components/NavigationItem';

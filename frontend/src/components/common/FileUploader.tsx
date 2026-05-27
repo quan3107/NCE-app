@@ -10,7 +10,7 @@ import { Button } from '@components/ui/button';
 import { Progress } from '@components/ui/progress';
 import { cn } from '@components/ui/utils';
 import { formatFileSize } from '@lib/utils';
-import type { SubmissionFile, UploadFile } from '@domain';
+import type { SubmissionFile } from '@domain';
 import {
   FALLBACK_FILE_UPLOAD_POLICY,
   UploadStage,
@@ -107,12 +107,12 @@ export function FileUploader<T extends BaseFile = SubmissionFile>({
             (progress) => updateUpload(uploadId, { progress }),
             (stage) => updateUpload(uploadId, { status: stage })
           )
-        : await uploadFileWithProgress({
+        : ((await uploadFileWithProgress({
             file,
             onProgress: (progress) => updateUpload(uploadId, { progress }),
             onStageChange: (stage) =>
               updateUpload(uploadId, { status: stage }),
-          });
+          })) as unknown as T);
 
       const nextFiles = [...valueRef.current, result];
       onChange(nextFiles);

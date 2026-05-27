@@ -16,7 +16,7 @@ interface AudioMetadata {
 
 interface UseAudioMetadataReturn {
   metadata: AudioMetadata;
-  audioRef: React.RefObject<HTMLAudioElement | null>;
+  audioRef: React.MutableRefObject<HTMLAudioElement | null>;
   play: () => void;
   pause: () => void;
   toggle: () => void;
@@ -25,7 +25,7 @@ interface UseAudioMetadataReturn {
 }
 
 export function useAudioMetadata(audioUrl: string | null): UseAudioMetadataReturn {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [metadata, setMetadata] = useState<AudioMetadata>({
     duration: 0,
     currentTime: 0,

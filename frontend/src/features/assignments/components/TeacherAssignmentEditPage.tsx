@@ -280,16 +280,16 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
             <Button
               variant="secondary"
               onClick={() => handleSave(false)}
-              disabled={updateAssignmentMutation.isLoading}
+              disabled={updateAssignmentMutation.isPending}
             >
               Save Changes
             </Button>
             {assignment.status !== 'published' && (
               <Button
                 onClick={() => handleSave(true)}
-                disabled={updateAssignmentMutation.isLoading}
+                disabled={updateAssignmentMutation.isPending}
               >
-                {updateAssignmentMutation.isLoading ? 'Publishing...' : 'Publish Now'}
+                {updateAssignmentMutation.isPending ? 'Publishing...' : 'Publish Now'}
               </Button>
             )}
           </div>
