@@ -3,6 +3,8 @@
  * Purpose: Load and validate environment variables so the backend has strongly typed configuration.
  * Why: Centralizes runtime configuration parsing to prevent scattered `process.env` access and runtime surprises.
  */
+import { isIP } from "node:net";
+
 import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 
@@ -36,8 +38,12 @@ const defaultAuthRateLimit =
 
 const defaultTrustProxy =
   process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test"
-    ? "true"
-    : "false";
+    ? "loopback"
+    : "";
+
+const trustedProxyAddressNames = new Set(["loopback", "linklocal", "uniquelocal"]);
+const trustProxyErrorMessage =
+  "TRUST_PROXY must list trusted proxy IPs, CIDRs, or proxy address names";
 
 function parseCorsAllowedOrigins(value: string, context: z.RefinementCtx): string[] {
   const origins = value
@@ -63,6 +69,49 @@ function parseCorsAllowedOrigins(value: string, context: z.RefinementCtx): strin
   }
 
   return origins;
+}
+
+function parseTrustProxy(value: string, context: z.RefinementCtx): string[] {
+  const trustedProxies = value
+    .split(",")
+    .map((proxy) => proxy.trim())
+    .filter((proxy) => proxy.length > 0);
+
+  for (const trustedProxy of trustedProxies) {
+    if (trustedProxy === "true" || trustedProxy === "false") {
+      context.addIssue({
+        code: "custom",
+        message: trustProxyErrorMessage,
+      });
+      continue;
+    }
+
+    if (trustedProxyAddressNames.has(trustedProxy)) {
+      continue;
+    }
+
+    const slashIndex = trustedProxy.lastIndexOf("/");
+    const address =
+      slashIndex === -1 ? trustedProxy : trustedProxy.slice(0, slashIndex);
+    const prefix =
+      slashIndex === -1 ? null : Number(trustedProxy.slice(slashIndex + 1));
+    const ipVersion = isIP(address);
+
+    const validPrefix =
+      prefix === null ||
+      (Number.isInteger(prefix) &&
+        prefix >= 0 &&
+        ((ipVersion === 4 && prefix <= 32) || (ipVersion === 6 && prefix <= 128)));
+
+    if (ipVersion === 0 || !validPrefix) {
+      context.addIssue({
+        code: "custom",
+        message: trustProxyErrorMessage,
+      });
+    }
+  }
+
+  return trustedProxies;
 }
 
 const envSchema = z
@@ -119,10 +168,7 @@ const envSchema = z
       .int()
       .positive()
       .default(defaultAuthRateLimit.maxTrackedKeys),
-    TRUST_PROXY: z
-      .enum(["true", "false"])
-      .default(defaultTrustProxy)
-      .transform((value) => value === "true"),
+    TRUST_PROXY: z.string().default(defaultTrustProxy).transform(parseTrustProxy),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
   })
