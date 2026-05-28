@@ -218,6 +218,114 @@ describe("auth.service", () => {
     expect(prisma.authSession.create).not.toHaveBeenCalled();
   });
 
+  it("locks password login after repeated failed attempts and releases it after lockout expires", async () => {
+    const mockUser = buildUser({
+      id: "user-1",
+      email: "alice@example.com",
+      fullName: "Alice Doe",
+      role: UserRole.student,
+    });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      prisma.user.findFirst.mockResolvedValueOnce(mockUser);
+      bcryptCompareMock.mockResolvedValueOnce(false);
+
+      await expect(
+        handlePasswordLogin(
+          { email: "Alice@example.com", password: "wrongpass" },
+          { ipAddress: "198.51.100.50" },
+        ),
+      ).rejects.toMatchObject({ statusCode: 401 });
+    }
+
+    await expect(
+      handlePasswordLogin(
+        { email: "alice@example.com", password: "wrongpass" },
+        { ipAddress: "198.51.100.50" },
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 429,
+      details: {
+        code: "AUTH_RATE_LIMITED",
+        retryAfterSeconds: 60,
+      },
+    });
+
+    expect(prisma.authSession.create).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(60_000);
+    prisma.user.findFirst
+      .mockResolvedValueOnce(mockUser)
+      .mockResolvedValueOnce(mockUser);
+    prisma.authSession.create.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-login", userId: mockUser.id }),
+    );
+    bcryptCompareMock.mockResolvedValueOnce(true);
+
+    await expect(
+      handlePasswordLogin(
+        { email: "alice@example.com", password: "Passw0rd!" },
+        { ipAddress: "198.51.100.50" },
+      ),
+    ).resolves.toMatchObject({
+      user: {
+        id: mockUser.id,
+        email: mockUser.email,
+      },
+    });
+  });
+
+  it("clears the account failure counter after a successful password login", async () => {
+    const mockUser = buildUser({
+      id: "user-1",
+      email: "alice@example.com",
+      fullName: "Alice Doe",
+      role: UserRole.student,
+    });
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      prisma.user.findFirst.mockResolvedValueOnce(mockUser);
+      bcryptCompareMock.mockResolvedValueOnce(false);
+
+      await expect(
+        handlePasswordLogin(
+          { email: "alice@example.com", password: "wrongpass" },
+          { ipAddress: `198.51.100.${attempt + 1}` },
+        ),
+      ).rejects.toMatchObject({ statusCode: 401 });
+    }
+
+    prisma.user.findFirst
+      .mockResolvedValueOnce(mockUser)
+      .mockResolvedValueOnce(mockUser);
+    prisma.authSession.create.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-login", userId: mockUser.id }),
+    );
+    bcryptCompareMock.mockResolvedValueOnce(true);
+
+    await expect(
+      handlePasswordLogin(
+        { email: "alice@example.com", password: "Passw0rd!" },
+        { ipAddress: "198.51.100.20" },
+      ),
+    ).resolves.toMatchObject({
+      user: {
+        id: mockUser.id,
+        email: mockUser.email,
+      },
+    });
+
+    prisma.user.findFirst.mockResolvedValueOnce(mockUser);
+    bcryptCompareMock.mockResolvedValueOnce(false);
+
+    await expect(
+      handlePasswordLogin(
+        { email: "alice@example.com", password: "wrongpass" },
+        { ipAddress: "198.51.100.30" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 401 });
+  });
+
   it("rotates sessions and returns a new refresh token during refresh", async () => {
     const existingToken = "existing-refresh";
     const nextTokenBuffer = Buffer.alloc(48, 2);
