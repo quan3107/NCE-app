@@ -16,6 +16,8 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.BREVO_API_KEY ??= 'test-brevo-api-key'
   process.env.BREVO_SENDER_NAME ??= 'NCE Test Mailer'
   process.env.BREVO_SENDER_EMAIL ??= 'noreply.test@example.com'
+  process.env.CORS_ALLOWED_ORIGINS ??=
+    'http://localhost:5173,http://127.0.0.1:5173'
   process.env.LOG_LEVEL ??= 'silent'
   process.env.LOG_PRETTY ??= 'false'
 }

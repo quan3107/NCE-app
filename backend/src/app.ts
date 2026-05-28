@@ -7,6 +7,7 @@ import cors from "cors";
 import express, { type Request, type Response } from "express";
 import helmet from "helmet";
 
+import { config } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { rlsContext } from "./middleware/rlsContext.js";
@@ -14,11 +15,14 @@ import { getIeltsConfigReadinessReport } from "./modules/ielts-config/ielts-conf
 import { apiRouter } from "./modules/router.js";
 
 const app = express();
+const corsAllowedOrigins = new Set(config.cors.allowedOrigins);
 
 app.use(helmet());
 app.use(
   cors({
-    origin: true,
+    origin(origin, callback) {
+      callback(null, origin !== undefined && corsAllowedOrigins.has(origin) ? origin : false);
+    },
     credentials: true,
   }),
 );

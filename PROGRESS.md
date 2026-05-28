@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-05-28:** Completed PR-05 credentialed CORS hardening by replacing origin reflection with a validated `CORS_ALLOWED_ORIGINS` allowlist, documenting the new environment key, and adding preflight regression coverage for allowed, denied, and no-origin requests.
 - **2026-05-28:** Completed PR-04 backend lint cleanup by removing a stale `eslint-disable`, aligning intentionally unused bindings with the current lint naming policy, trimming unused CMS/dashboard types, and marking the Prisma proxy receiver as intentionally unused. Verified root/frontend/backend install and audit checks, frontend lint/typecheck/tests/coverage/build, backend lint/build, focused RLS coverage, and the full backend test suite.
 - **2026-05-27:** Completed PR-03 backend test environment hardening by adding shared Vitest/Prisma test defaults, test-only JWT fixtures, a tracked `backend/.env.example`, and coverage that proves missing provider secrets no longer break test config collection.
 - **2026-05-26:** Added the GitHub Actions CI release gate for backend dependency install/audit, explicit Prisma client generation, interactive Postgres role bootstrap, migration/seed setup, lint, build, and test checks with safe test environment values for CI.

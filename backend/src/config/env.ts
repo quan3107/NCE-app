@@ -10,6 +10,37 @@ if (process.env.NODE_ENV !== "production") {
   loadEnv({ quiet: process.env.NODE_ENV === "test" });
 }
 
+const defaultCorsAllowedOrigins =
+  process.env.NODE_ENV === "production"
+    ? ""
+    : "http://localhost:5173,http://127.0.0.1:5173";
+
+function parseCorsAllowedOrigins(value: string, context: z.RefinementCtx): string[] {
+  const origins = value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
+  for (const origin of origins) {
+    try {
+      const url = new URL(origin);
+      if (url.origin !== origin) {
+        context.addIssue({
+          code: "custom",
+          message: `${origin} must not include a path, query, or hash`,
+        });
+      }
+    } catch {
+      context.addIssue({
+        code: "custom",
+        message: `${origin} must be a valid URL origin`,
+      });
+    }
+  }
+
+  return origins;
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z
@@ -30,8 +61,21 @@ const envSchema = z
       .string()
       .min(1, "BREVO_SENDER_EMAIL is required")
       .email("BREVO_SENDER_EMAIL must be a valid email"),
+    CORS_ALLOWED_ORIGINS: z
+      .string()
+      .default(defaultCorsAllowedOrigins)
+      .transform(parseCorsAllowedOrigins),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
+  })
+  .superRefine((env, context) => {
+    if (env.NODE_ENV === "production" && env.CORS_ALLOWED_ORIGINS.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["CORS_ALLOWED_ORIGINS"],
+        message: "CORS_ALLOWED_ORIGINS must list at least one origin in production",
+      });
+    }
   });
 
 const parseResult = envSchema.safeParse(process.env);
@@ -65,6 +109,9 @@ const envConfig = {
     brevoApiKey: parseResult.data.BREVO_API_KEY,
     senderName: parseResult.data.BREVO_SENDER_NAME,
     senderEmail: parseResult.data.BREVO_SENDER_EMAIL,
+  },
+  cors: {
+    allowedOrigins: parseResult.data.CORS_ALLOWED_ORIGINS,
   },
   logLevel: parseResult.data.LOG_LEVEL,
   logPretty: shouldPrettyLog,
