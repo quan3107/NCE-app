@@ -8,9 +8,16 @@ import { fileURLToPath } from 'node:url'
 import { config as loadEnv } from 'dotenv'
 import { defineConfig } from 'prisma/config'
 
+import { applyBackendTestEnvDefaults } from './tests/setup/testEnvDefaults.js'
+
 const currentDir = dirname(fileURLToPath(import.meta.url))
+
+if (process.env.NODE_ENV === 'test') {
+  applyBackendTestEnvDefaults()
+}
+
 // Load backend/.env regardless of where Prisma CLI is invoked.
-loadEnv({ path: resolve(currentDir, '.env') })
+loadEnv({ path: resolve(currentDir, '.env'), quiet: process.env.NODE_ENV === 'test' })
 
 // Prisma 7 moved datasource URLs out of schema.prisma into this config.
 // DIRECT_URL is for Prisma CLI operations (migrate/introspect) and typically

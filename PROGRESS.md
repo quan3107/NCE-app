@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-05-27:** Completed PR-03 backend test environment hardening by adding shared Vitest/Prisma test defaults, test-only JWT fixtures, a tracked `backend/.env.example`, and coverage that proves missing provider secrets no longer break test config collection.
 - **2026-05-26:** Added the GitHub Actions CI release gate for backend dependency install/audit, explicit Prisma client generation, interactive Postgres role bootstrap, migration/seed setup, lint, build, and test checks with safe test environment values for CI.
 - **2026-05-26:** Mapped backend architecture for a project mental map: Express app bootstrap, `/api/v1` router composition, route/controller/schema/service module boundaries, Prisma/Postgres RLS context, auth/session flow, background jobs, environment requirements, tests, and stale-doc/runtime risks. No backend source changes.
 - **2026-05-26:** Added `docs/codebase-re-entry-tutorial-2026-05-26.md` with a backend-oriented re-entry map covering runtime commands, API/module boundaries, auth/RLS concepts, and a representative login flow. No backend source changes.

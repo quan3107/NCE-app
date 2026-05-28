@@ -7,7 +7,7 @@ import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 
 if (process.env.NODE_ENV !== "production") {
-  loadEnv();
+  loadEnv({ quiet: process.env.NODE_ENV === "test" });
 }
 
 const envSchema = z
