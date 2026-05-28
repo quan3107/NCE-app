@@ -265,17 +265,25 @@ model File {
 model AuthSession {
   id               String    @id @default(uuid()) @db.Uuid
   userId           String    @map("user_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  rotatedFromId    String?   @map("rotated_from_id") @db.Uuid
   refreshTokenHash String    @map("refresh_token_hash")
   userAgent        String?   @map("user_agent")
   ipHash           String?   @map("ip_hash")
   expiresAt        DateTime  @map("expires_at") @db.Timestamptz
   revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+  replacedAt       DateTime? @map("replaced_at") @db.Timestamptz
+  reuseDetectedAt  DateTime? @map("reuse_detected_at") @db.Timestamptz
   user             User      @relation(fields: [userId], references: [id])
+  rotatedFrom      AuthSession?  @relation("AuthSessionRotation", fields: [rotatedFromId], references: [id])
+  rotatedTo        AuthSession[] @relation("AuthSessionRotation")
   createdAt        DateTime  @default(now()) @db.Timestamptz
   updatedAt        DateTime  @updatedAt @db.Timestamptz
   deletedAt        DateTime? @db.Timestamptz
 
   @@index([refreshTokenHash, revokedAt], map: "auth_sessions_refresh_token_hash_revoked_at_idx")
+  @@index([familyId, revokedAt], map: "auth_sessions_family_id_revoked_at_idx")
+  @@index([rotatedFromId], map: "auth_sessions_rotated_from_id_idx")
   @@index([userId, expiresAt])
   @@map("auth_sessions")
 }
