@@ -35,7 +35,7 @@ export const readCookie = (req: Request, name: string): string | null => {
     return null;
   }
 
-  const rawValue = matches[matches.length - 1] ?? "";
+  const rawValue = matches[0] ?? "";
   try {
     return decodeURIComponent(rawValue);
   } catch {
