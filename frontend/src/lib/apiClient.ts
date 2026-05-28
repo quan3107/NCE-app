@@ -5,7 +5,8 @@
  */
 
 import { authBridge } from './authBridge';
-import { API_BASE_URL, ENABLE_DEV_AUTH_FALLBACK, STORAGE_KEYS } from './constants';
+import { API_BASE_URL } from './apiBaseUrl';
+import { ENABLE_DEV_AUTH_FALLBACK, STORAGE_KEYS } from './constants';
 import {
   DEFAULT_PERSONA,
   PERSONA_HEADERS,
