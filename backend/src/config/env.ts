@@ -93,14 +93,16 @@ function parseTrustProxy(value: string, context: z.RefinementCtx): string[] {
     const slashIndex = trustedProxy.lastIndexOf("/");
     const address =
       slashIndex === -1 ? trustedProxy : trustedProxy.slice(0, slashIndex);
-    const prefix =
-      slashIndex === -1 ? null : Number(trustedProxy.slice(slashIndex + 1));
+    const rawPrefix =
+      slashIndex === -1 ? null : trustedProxy.slice(slashIndex + 1);
+    const prefix = rawPrefix === null ? null : Number(rawPrefix);
     const ipVersion = isIP(address);
 
     const validPrefix =
       prefix === null ||
-      (Number.isInteger(prefix) &&
-        prefix >= 0 &&
+      (rawPrefix !== "" &&
+        Number.isInteger(prefix) &&
+        prefix > 0 &&
         ((ipVersion === 4 && prefix <= 32) || (ipVersion === 6 && prefix <= 128)));
 
     if (ipVersion === 0 || !validPrefix) {
