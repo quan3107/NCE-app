@@ -3,6 +3,8 @@
  * Purpose: Persist, rotate, and sanitize refresh session data.
  * Why: Keeps session logic consistent across password, refresh, and OAuth flows.
  */
+import { randomUUID } from "node:crypto";
+
 import { prisma } from "../../config/prismaClient.js";
 import { hashValue } from "./auth.crypto.js";
 import type { SessionContext } from "./auth.types.js";
@@ -36,12 +38,15 @@ export async function persistSession(
 ): Promise<{ refreshToken: string; expiresAt: Date }> {
   const { userAgent, ipHash } = sanitizeSessionMetadata(context);
 
+  const sessionId = randomUUID();
   const refreshTokenHash = hashValue(refreshToken);
   const expiresAt = computeExpiry();
 
   await prisma.authSession.create({
     data: {
+      id: sessionId,
       userId,
+      familyId: sessionId,
       refreshTokenHash,
       expiresAt,
       userAgent,
@@ -56,7 +61,7 @@ export async function persistSession(
 }
 
 export async function rotateSession(
-  sessionId: string,
+  session: { id: string; userId: string; familyId: string },
   refreshToken: string,
   context: SessionContext,
 ): Promise<{ refreshToken: string; expiresAt: Date }> {
@@ -64,20 +69,47 @@ export async function rotateSession(
 
   const refreshTokenHash = hashValue(refreshToken);
   const expiresAt = computeExpiry();
+  const replacedAt = new Date();
 
-  await prisma.authSession.update({
-    where: { id: sessionId },
-    data: {
-      refreshTokenHash,
-      expiresAt,
-      userAgent,
-      ipHash,
-      revokedAt: null,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.authSession.update({
+      where: { id: session.id },
+      data: {
+        replacedAt,
+      },
+    });
+
+    await tx.authSession.create({
+      data: {
+        userId: session.userId,
+        familyId: session.familyId,
+        rotatedFromId: session.id,
+        refreshTokenHash,
+        expiresAt,
+        userAgent,
+        ipHash,
+      },
+    });
   });
 
   return {
     refreshToken,
     expiresAt,
   };
+}
+
+export async function revokeSessionFamily(
+  familyId: string,
+  revokedAt: Date,
+): Promise<void> {
+  await prisma.authSession.updateMany({
+    where: {
+      familyId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt,
+      reuseDetectedAt: revokedAt,
+    },
+  });
 }
