@@ -14,7 +14,6 @@ type HttpError = Error & {
   details?: unknown;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(
   err: HttpError,
   _req: Request,

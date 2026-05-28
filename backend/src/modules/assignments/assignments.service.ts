@@ -139,7 +139,7 @@ export async function getAssignment(
 
   // Admins and teachers get full data (remove submissions from response)
   if ('submissions' in assignment) {
-    const { submissions: _, ...rest } = assignment;
+    const { submissions: ignoredSubmissions, ...rest } = assignment;
     return rest;
   }
 

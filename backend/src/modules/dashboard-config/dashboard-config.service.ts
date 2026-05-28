@@ -19,10 +19,6 @@ type DashboardWidgetDefinition = Awaited<
   ReturnType<typeof prisma.dashboardWidgetDefinition.findMany>
 >[number];
 
-type DashboardWidgetPreference = Awaited<
-  ReturnType<typeof prisma.userDashboardWidgetPreference.findMany>
->[number];
-
 async function getActiveDefinitionsForRole(
   role: UserRole,
 ): Promise<DashboardWidgetDefinition[]> {
