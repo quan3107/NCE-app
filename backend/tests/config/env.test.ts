@@ -4,6 +4,8 @@
  * Why: Keeps test collection independent from developer .env files and provider secrets.
  */
 import { describe, expect, it } from 'vitest'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { config } from '../../src/config/env.js'
 
@@ -13,8 +15,10 @@ describe('test environment defaults', () => {
     expect(config.databaseUrl).toBe(
       'postgres://test_user:test_password@localhost:5432/nce_test',
     )
-    expect(config.jwt.privateKeyPath).toBe('tests/fixtures/private.pem')
-    expect(config.jwt.publicKeyPath).toBe('tests/fixtures/public.pem')
+    expect(config.jwt.privateKeyPath).toBe('tests/runtime/generated-jwt-private.pem')
+    expect(config.jwt.publicKeyPath).toBe('tests/runtime/generated-jwt-public.pem')
+    expect(existsSync(resolve(process.cwd(), config.jwt.privateKeyPath))).toBe(false)
+    expect(existsSync(resolve(process.cwd(), config.jwt.publicKeyPath))).toBe(false)
     expect(config.google).toEqual({
       clientId: 'test-google-client-id',
       clientSecret: 'test-google-client-secret',
