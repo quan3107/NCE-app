@@ -13,10 +13,21 @@ import {
   crypto,
   fetchMock,
   fixedDate,
+  googleRemoteJwksMock,
+  jwtVerifyMock,
   prisma,
   randomBytesMock,
   resetAuthServiceMocks,
 } from "./auth.service.test-utils.js";
+
+const buildGoogleIdToken = (payload: Record<string, unknown>): string =>
+  [
+    Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString(
+      "base64url",
+    ),
+    Buffer.from(JSON.stringify(payload)).toString("base64url"),
+    "signature",
+  ].join(".");
 
 describe("auth.service Google OAuth", () => {
   beforeEach(() => {
@@ -73,14 +84,15 @@ describe("auth.service Google OAuth", () => {
       sub: "google-123",
       email: "existing@example.com",
       email_verified: true,
+      iat: Math.floor(fixedDate.getTime() / 1000),
+      exp: Math.floor(fixedDate.getTime() / 1000) + 3600,
     };
-    const idToken = [
-      Buffer.from(
-        JSON.stringify({ alg: "RS256", typ: "JWT" }),
-      ).toString("base64url"),
-      Buffer.from(JSON.stringify(idTokenPayload)).toString("base64url"),
-      "signature",
-    ].join(".");
+    const idToken = buildGoogleIdToken(idTokenPayload);
+
+    jwtVerifyMock.mockResolvedValueOnce({
+      payload: idTokenPayload,
+      protectedHeader: { alg: "RS256", typ: "JWT" },
+    });
 
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -161,6 +173,19 @@ describe("auth.service Google OAuth", () => {
     const tokenCall = fetchMock.mock.calls[0]?.[1];
     expect(tokenCall?.body).toContain("code=auth-code");
     expect(tokenCall?.body).toContain(`code_verifier=${codeVerifier}`);
+    expect(jwtVerifyMock).toHaveBeenCalledWith(
+      idToken,
+      googleRemoteJwksMock,
+      expect.objectContaining({
+        algorithms: ["RS256"],
+        audience: "test-google-client-id",
+        clockTolerance: "5 minutes",
+        issuer: ["https://accounts.google.com", "accounts.google.com"],
+        maxTokenAge: "1 hour",
+        requiredClaims: ["exp", "iat", "sub"],
+        typ: "JWT",
+      }),
+    );
 
     expect(result.accessToken).toBe("signed-access");
     expect(result.user).toEqual({

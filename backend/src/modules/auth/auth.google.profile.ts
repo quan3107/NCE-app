@@ -3,16 +3,23 @@
  * Purpose: Exchange Google auth codes for profile data.
  * Why: Separates token exchange and profile normalization from controller logic.
  */
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+
 import { config } from "../../config/env.js";
 import { createAuthError } from "./auth.errors.js";
 
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_ENDPOINT =
   "https://openidconnect.googleapis.com/v1/userinfo";
-const GOOGLE_ALLOWED_ISSUERS = new Set([
+const GOOGLE_JWKS_ENDPOINT = "https://www.googleapis.com/oauth2/v3/certs";
+const GOOGLE_ALLOWED_ISSUERS = [
   "https://accounts.google.com",
   "accounts.google.com",
-]);
+] as const;
+const GOOGLE_ID_TOKEN_CLOCK_TOLERANCE = "5 minutes";
+const GOOGLE_ID_TOKEN_MAX_AGE = "1 hour";
+const GOOGLE_ID_TOKEN_REQUIRED_CLAIMS = ["exp", "iat", "sub"];
+const googleRemoteJwks = createRemoteJWKSet(new URL(GOOGLE_JWKS_ENDPOINT));
 
 type GoogleTokenResponse = {
   access_token: string;
@@ -25,7 +32,6 @@ type GoogleTokenResponse = {
 
 type GoogleIdTokenPayload = {
   iss: string;
-  aud: string | string[];
   sub: string;
   email?: string;
   email_verified?: boolean;
@@ -54,22 +60,59 @@ export type GoogleProfile = {
   fullName: string;
 };
 
-const decodeIdToken = (idToken: string): GoogleIdTokenPayload => {
-  const parts = idToken.split(".");
-  if (parts.length !== 3) {
-    throw createAuthError(401, "Google sign-in returned an invalid token.");
+const optionalStringClaim = (
+  payload: JWTPayload,
+  claimName: string,
+): string | undefined => {
+  const value = payload[claimName];
+  return typeof value === "string" ? value : undefined;
+};
+
+const optionalBooleanClaim = (
+  payload: JWTPayload,
+  claimName: string,
+): boolean | undefined => {
+  const value = payload[claimName];
+  return typeof value === "boolean" ? value : undefined;
+};
+
+const verifyGoogleIdToken = async (
+  idToken: string,
+): Promise<GoogleIdTokenPayload> => {
+  let payload: JWTPayload;
+  try {
+    const verifiedToken = await jwtVerify(idToken, googleRemoteJwks, {
+      algorithms: ["RS256"],
+      audience: config.google.clientId,
+      clockTolerance: GOOGLE_ID_TOKEN_CLOCK_TOLERANCE,
+      issuer: [...GOOGLE_ALLOWED_ISSUERS],
+      maxTokenAge: GOOGLE_ID_TOKEN_MAX_AGE,
+      requiredClaims: GOOGLE_ID_TOKEN_REQUIRED_CLAIMS,
+      typ: "JWT",
+    });
+    payload = verifiedToken.payload;
+  } catch {
+    throw createAuthError(401, "Google identity token could not be verified.");
   }
 
-  try {
-    const payloadSegment = parts[1] ?? "";
-    const payloadJson = Buffer.from(payloadSegment, "base64url").toString(
-      "utf8",
-    );
-    const payload = JSON.parse(payloadJson) as GoogleIdTokenPayload;
-    return payload;
-  } catch {
-    throw createAuthError(401, "Unable to read Google identity token.");
+  if (!payload.sub || payload.sub.trim().length === 0) {
+    throw createAuthError(401, "Google identity token subject is missing.");
   }
+
+  if (!payload.iss || payload.iss.trim().length === 0) {
+    throw createAuthError(401, "Google identity token issuer is not trusted.");
+  }
+
+  return {
+    iss: payload.iss,
+    sub: payload.sub,
+    email: optionalStringClaim(payload, "email"),
+    email_verified: optionalBooleanClaim(payload, "email_verified"),
+    name: optionalStringClaim(payload, "name"),
+    given_name: optionalStringClaim(payload, "given_name"),
+    family_name: optionalStringClaim(payload, "family_name"),
+    picture: optionalStringClaim(payload, "picture"),
+  };
 };
 
 const exchangeAuthorizationCode = async (params: {
@@ -147,18 +190,7 @@ export async function fetchGoogleProfile(params: {
     );
   }
 
-  const idToken = decodeIdToken(tokenPayload.id_token);
-  const audience = Array.isArray(idToken.aud) ? idToken.aud : [idToken.aud];
-  if (!audience.includes(config.google.clientId)) {
-    throw createAuthError(
-      401,
-      "Google identity token audience mismatch detected.",
-    );
-  }
-
-  if (!GOOGLE_ALLOWED_ISSUERS.has(idToken.iss)) {
-    throw createAuthError(401, "Google identity token issuer is not trusted.");
-  }
+  const idToken = await verifyGoogleIdToken(tokenPayload.id_token);
 
   const profile = await fetchGoogleUserInfo(tokenPayload.access_token);
 
