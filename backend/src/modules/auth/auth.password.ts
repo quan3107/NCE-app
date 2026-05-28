@@ -12,6 +12,7 @@ import { passwordLoginSchema, registerAccountSchema } from './auth.schema.js'
 import { signAccessToken } from './auth.tokens.js'
 import { AUTH_ERROR, createAuthError, isUniqueConstraintError } from './auth.errors.js'
 import { generateRefreshToken } from './auth.crypto.js'
+import { authRateLimiter } from './auth.rate-limit.js'
 import { persistSession } from './auth.sessions.js'
 import {
   assertActiveUser,
@@ -26,7 +27,11 @@ export async function handlePasswordLogin(
   payload: unknown,
   context: SessionContext,
 ): Promise<AuthSessionResult> {
-  const { email, password } = passwordLoginSchema.parse(payload)
+  const { email: rawEmail, password } = passwordLoginSchema.parse(payload)
+  const email = rawEmail.trim().toLowerCase()
+  const loginAttempt = { email, ipAddress: context.ipAddress }
+
+  authRateLimiter.assertPasswordLoginAllowed(loginAttempt)
 
   const candidate = await runWithRole(
     { role: 'service_role', userRole: 'service_role' },
@@ -48,14 +53,21 @@ export async function handlePasswordLogin(
   )
 
   if (!candidate) {
+    authRateLimiter.recordPasswordLoginFailure(loginAttempt)
     throw createAuthError(401, AUTH_ERROR)
   }
 
-  assertActiveUser(candidate)
+  try {
+    assertActiveUser(candidate)
+  } catch (error) {
+    authRateLimiter.recordPasswordLoginFailure(loginAttempt)
+    throw error
+  }
 
   const passwordValid = await bcrypt.compare(password, candidate.password!)
 
   if (!passwordValid) {
+    authRateLimiter.recordPasswordLoginFailure(loginAttempt)
     throw createAuthError(401, AUTH_ERROR)
   }
 
@@ -94,6 +106,8 @@ export async function handlePasswordLogin(
     userId: user.id,
     role: user.role,
   })
+
+  authRateLimiter.recordPasswordLoginSuccess(loginAttempt)
 
   return {
     user: toAuthenticatedUser(user),
