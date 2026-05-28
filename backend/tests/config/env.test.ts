@@ -27,6 +27,8 @@ const defaultedEnvKeys = [
   'AUTH_PASSWORD_LOGIN_LOCKOUT_MS',
   'AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS',
   'AUTH_IP_RATE_LIMIT_WINDOW_MS',
+  'AUTH_RATE_LIMIT_MAX_TRACKED_KEYS',
+  'TRUST_PROXY',
   'LOG_LEVEL',
   'LOG_PRETTY',
 ] as const
@@ -70,6 +72,8 @@ describe('test environment defaults', () => {
       expect(process.env.AUTH_PASSWORD_LOGIN_LOCKOUT_MS).toBe('60000')
       expect(process.env.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS).toBe('3')
       expect(process.env.AUTH_IP_RATE_LIMIT_WINDOW_MS).toBe('60000')
+      expect(process.env.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS).toBe('100')
+      expect(process.env.TRUST_PROXY).toBe('true')
       expect(process.env.LOG_LEVEL).toBe('silent')
       expect(process.env.LOG_PRETTY).toBe('false')
     } finally {
@@ -108,7 +112,9 @@ describe('test environment defaults', () => {
         maxAttempts: 3,
         windowMs: 60_000,
       },
+      maxTrackedKeys: 100,
     })
+    expect(config.trustProxy).toBe(true)
     expect(config.logLevel).toBe('silent')
     expect(config.logPretty).toBe(false)
   })
