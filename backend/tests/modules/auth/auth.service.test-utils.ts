@@ -88,6 +88,7 @@ export const bcryptCompareMock = bcrypt.compare as unknown as MockedFunction<
 >;
 
 export const {
+  resetAuthRateLimiter,
   handleRegisterAccount,
   handlePasswordLogin,
   handleSessionRefresh,
@@ -105,6 +106,7 @@ export const ipHash = (value: string) =>
 
 export function resetAuthServiceMocks(): void {
   fetchMock.mockReset();
+  resetAuthRateLimiter();
   randomBytesMock.mockImplementation((size?: number) =>
     Buffer.alloc(size ?? 48, 1),
   );
