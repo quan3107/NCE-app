@@ -44,6 +44,7 @@ type AuthRateLimitConfig = {
     maxAttempts: number;
     windowMs: number;
   };
+  maxTrackedKeys: number;
 };
 
 type Counter = {
@@ -67,6 +68,10 @@ const ipKey = (ipAddress?: string | null): string =>
 
 const retryAfterSeconds = (until: number, now: number): number =>
   Math.max(1, Math.ceil((until - now) / 1000));
+
+const counterExpired = (counter: Counter, now: number): boolean =>
+  counter.expiresAt <= now &&
+  (counter.lockedUntil === null || counter.lockedUntil <= now);
 
 const createRateLimitError = (retryAfter: number) => {
   const error = createAuthError(429, AUTH_RATE_LIMITED_MESSAGE) as ReturnType<
@@ -111,7 +116,24 @@ export function createAuthRateLimiter(
 
     const next = createCounter(now, windowMs);
     counters.set(key, next);
+    trimCounters(counters, now);
     return next;
+  };
+
+  const trimCounters = (counters: Map<string, Counter>, now: number): void => {
+    for (const [key, counter] of counters) {
+      if (counterExpired(counter, now)) {
+        counters.delete(key);
+      }
+    }
+
+    while (counters.size > rateLimitConfig.maxTrackedKeys) {
+      const oldestKey = counters.keys().next().value as string | undefined;
+      if (oldestKey === undefined) {
+        return;
+      }
+      counters.delete(oldestKey);
+    }
   };
 
   const assertPasswordCounterAllowed = (counter: Counter, now: number): void => {
