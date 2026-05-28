@@ -67,6 +67,15 @@ const envSchema = z
       .transform(parseCorsAllowedOrigins),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
+  })
+  .superRefine((env, context) => {
+    if (env.NODE_ENV === "production" && env.CORS_ALLOWED_ORIGINS.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["CORS_ALLOWED_ORIGINS"],
+        message: "CORS_ALLOWED_ORIGINS must list at least one origin in production",
+      });
+    }
   });
 
 const parseResult = envSchema.safeParse(process.env);
