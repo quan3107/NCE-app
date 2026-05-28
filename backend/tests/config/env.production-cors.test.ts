@@ -72,4 +72,13 @@ describe("production CORS environment validation", () => {
       "https://admin.example.com",
     ]);
   });
+
+  it("rejects boolean production trust proxy settings", async () => {
+    process.env.CORS_ALLOWED_ORIGINS = "https://app.example.com";
+    process.env.TRUST_PROXY = "true";
+
+    await expect(import("../../src/config/env.js")).rejects.toThrow(
+      "TRUST_PROXY must list trusted proxy IPs, CIDRs, or proxy address names",
+    );
+  });
 });
