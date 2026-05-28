@@ -4,7 +4,7 @@
  * Why: Provides a TypeScript-based script that exercises core relations after migrating to Prisma.
  */
 import bcrypt from "bcrypt";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   AssignmentType,
   EnrollmentRole,
@@ -1217,12 +1217,15 @@ async function main(): Promise<void> {
       if (!user) {
         throw new Error(`Missing user for session ${seed.userEmail}`);
       }
+      const sessionId = randomUUID();
       const ipHash = seed.ip
         ? createHash("sha256").update(seed.ip).digest("hex")
         : null;
       return prisma.authSession.create({
         data: {
+          id: sessionId,
           userId: user.id,
+          familyId: sessionId,
           refreshTokenHash: sessionHashes[index],
           userAgent: seed.userAgent,
           ipHash,
