@@ -15,6 +15,23 @@ const defaultCorsAllowedOrigins =
     ? ""
     : "http://localhost:5173,http://127.0.0.1:5173";
 
+const defaultAuthRateLimit =
+  process.env.NODE_ENV === "test"
+    ? {
+        passwordLoginMaxFailures: 3,
+        passwordLoginWindowMs: 60_000,
+        passwordLoginLockoutMs: 60_000,
+        ipMaxAttempts: 3,
+        ipWindowMs: 60_000,
+      }
+    : {
+        passwordLoginMaxFailures: 5,
+        passwordLoginWindowMs: 15 * 60_000,
+        passwordLoginLockoutMs: 15 * 60_000,
+        ipMaxAttempts: 30,
+        ipWindowMs: 60_000,
+      };
+
 function parseCorsAllowedOrigins(value: string, context: z.RefinementCtx): string[] {
   const origins = value
     .split(",")
@@ -65,6 +82,31 @@ const envSchema = z
       .string()
       .default(defaultCorsAllowedOrigins)
       .transform(parseCorsAllowedOrigins),
+    AUTH_PASSWORD_LOGIN_MAX_FAILURES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.passwordLoginMaxFailures),
+    AUTH_PASSWORD_LOGIN_WINDOW_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.passwordLoginWindowMs),
+    AUTH_PASSWORD_LOGIN_LOCKOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.passwordLoginLockoutMs),
+    AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.ipMaxAttempts),
+    AUTH_IP_RATE_LIMIT_WINDOW_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.ipWindowMs),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
   })
@@ -112,6 +154,17 @@ const envConfig = {
   },
   cors: {
     allowedOrigins: parseResult.data.CORS_ALLOWED_ORIGINS,
+  },
+  authRateLimit: {
+    passwordLogin: {
+      maxFailures: parseResult.data.AUTH_PASSWORD_LOGIN_MAX_FAILURES,
+      windowMs: parseResult.data.AUTH_PASSWORD_LOGIN_WINDOW_MS,
+      lockoutMs: parseResult.data.AUTH_PASSWORD_LOGIN_LOCKOUT_MS,
+    },
+    ipAttempts: {
+      maxAttempts: parseResult.data.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS,
+      windowMs: parseResult.data.AUTH_IP_RATE_LIMIT_WINDOW_MS,
+    },
   },
   logLevel: parseResult.data.LOG_LEVEL,
   logPretty: shouldPrettyLog,
