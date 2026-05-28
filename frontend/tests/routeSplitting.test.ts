@@ -10,7 +10,7 @@ const routeLoadingPath = path.join(frontendRoot, 'src/routes/RouteLoading.tsx');
 test('AppRoutes lazy-loads heavy route modules behind a shared loading fallback', async () => {
   const source = await readFile(appRoutesPath, 'utf8');
 
-  assert.match(source, /import\s+\{\s*Suspense,\s*lazy,\s*type ReactNode\s*\}\s+from\s+'react';/);
+  assert.match(source, /import\s+\{[^}]*Suspense[^}]*lazy[^}]*type ReactNode[^}]*\}\s+from\s+'react';/);
   assert.match(source, /import\s+\{\s*RouteLoading\s*\}\s+from\s+'@routes\/RouteLoading';/);
   assert.match(source, /const\s+TeacherAssignmentsPage\s*=\s*lazy\(/);
   assert.match(source, /const\s+TeacherAnalyticsPage\s*=\s*lazy\(/);

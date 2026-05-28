@@ -4,13 +4,17 @@
  * Why: Replace the custom router with declarative routes and centralized guards.
  */
 
-import { Suspense, lazy, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { AppShell } from '@components/layout/AppShell';
 import { NavigationProvider } from '@features/navigation';
 import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
 import { RouteLoading } from '@routes/RouteLoading';
+import {
+  buildAuthReturnTo,
+  resolveProtectedRouteAuthDecision,
+} from '@lib/auth-restore';
 
 const AdminAuditLogsPage = lazy(() =>
   import('@features/admin/components/AdminAuditLogsPage').then((module) => ({ default: module.AdminAuditLogsPage })),
@@ -132,12 +136,40 @@ const roleLanding: Record<Role, string> = {
 const resolveLanding = (role: Role) => roleLanding[role] ?? '/';
 
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { isAuthenticated, currentUser } = useAuthStore();
+  const {
+    authMode,
+    isAuthenticated,
+    isRestoringSession,
+    currentUser,
+    restoreLiveSession,
+  } = useAuthStore();
   const location = useLocation();
+  const returnTo = buildAuthReturnTo(location);
+  const [restoreAttemptedFor, setRestoreAttemptedFor] = useState<string | null>(null);
+  const restoreAttempted = restoreAttemptedFor === returnTo;
+  const decision = resolveProtectedRouteAuthDecision({
+    authMode,
+    currentUserRole: currentUser.role,
+    isAuthenticated,
+    isRestoringSession,
+    requiresAuth: true,
+    restoreAttempted,
+  });
 
-  // Guard protected areas from unauthenticated sessions.
-  if (!isAuthenticated || currentUser.role === 'public') {
-    const returnTo = `${location.pathname}${location.search}${location.hash}`;
+  useEffect(() => {
+    if (decision !== 'restore') {
+      return;
+    }
+
+    setRestoreAttemptedFor(returnTo);
+    void restoreLiveSession();
+  }, [decision, restoreLiveSession, returnTo]);
+
+  if (decision === 'loading' || decision === 'restore') {
+    return <RouteLoading />;
+  }
+
+  if (decision === 'redirect') {
     return <Navigate to="/login" replace state={{ from: returnTo }} />;
   }
 
