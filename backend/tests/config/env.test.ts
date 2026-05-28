@@ -21,6 +21,7 @@ const defaultedEnvKeys = [
   'BREVO_API_KEY',
   'BREVO_SENDER_NAME',
   'BREVO_SENDER_EMAIL',
+  'CORS_ALLOWED_ORIGINS',
   'LOG_LEVEL',
   'LOG_PRETTY',
 ] as const
@@ -56,6 +57,9 @@ describe('test environment defaults', () => {
       expect(process.env.BREVO_API_KEY).toBe('test-brevo-api-key')
       expect(process.env.BREVO_SENDER_NAME).toBe('NCE Test Mailer')
       expect(process.env.BREVO_SENDER_EMAIL).toBe('noreply.test@example.com')
+      expect(process.env.CORS_ALLOWED_ORIGINS).toBe(
+        'http://localhost:5173,http://127.0.0.1:5173',
+      )
       expect(process.env.LOG_LEVEL).toBe('silent')
       expect(process.env.LOG_PRETTY).toBe('false')
     } finally {
@@ -80,6 +84,10 @@ describe('test environment defaults', () => {
     expect(config.google.clientId).toBeTruthy()
     expect(config.google.clientSecret).toBeTruthy()
     expect(config.email.brevoApiKey).toBeTruthy()
+    expect(config.cors.allowedOrigins).toEqual([
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    ])
     expect(config.logLevel).toBe('silent')
     expect(config.logPretty).toBe(false)
   })
