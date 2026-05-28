@@ -16,7 +16,6 @@ import {
 } from './cms.schema.js'
 
 import type {
-  HeroContent,
   StatItem,
   FeatureItem,
   HowItWorksContent,

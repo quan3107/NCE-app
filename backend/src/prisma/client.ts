@@ -162,7 +162,7 @@ const rlsPrisma = basePrisma.$extends({
 })
 
 const prismaProxy = new Proxy(rlsPrisma, {
-  get(target, prop, receiver) {
+  get(target, prop, _receiver) {
     if (
       prop === '$connect' ||
       prop === '$disconnect' ||

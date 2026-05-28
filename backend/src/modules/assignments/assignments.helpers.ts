@@ -106,7 +106,10 @@ export function filterWritingAssignmentForStudent<
   const task1 = asRecord(config.task1);
   const task2 = asRecord(config.task2);
   const studentSubmission = assignment.submissions?.[0];
-  const { submissions: _, ...assignmentWithoutSubmissions } = assignment;
+  const {
+    submissions: ignoredSubmissions,
+    ...assignmentWithoutSubmissions
+  } = assignment;
 
   return {
     ...assignmentWithoutSubmissions,
