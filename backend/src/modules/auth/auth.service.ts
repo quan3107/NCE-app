@@ -16,3 +16,4 @@ export {
   buildGoogleAuthorizationUrl,
   completeGoogleAuthorization,
 } from "./auth.google.js";
+export { resetAuthRateLimiter } from "./auth.rate-limit.js";
