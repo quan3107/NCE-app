@@ -31,6 +31,15 @@ const sanitizeSessionMetadata = (context: SessionContext) => ({
       : null,
 });
 
+export class RefreshSessionClaimError extends Error {
+  constructor(
+    readonly familyId: string,
+    readonly detectedAt: Date,
+  ) {
+    super("Refresh session was already claimed.");
+  }
+}
+
 export async function persistSession(
   userId: string,
   refreshToken: string,
@@ -72,12 +81,20 @@ export async function rotateSession(
   const replacedAt = new Date();
 
   await prisma.$transaction(async (tx) => {
-    await tx.authSession.update({
-      where: { id: session.id },
+    const claim = await tx.authSession.updateMany({
+      where: {
+        id: session.id,
+        revokedAt: null,
+        replacedAt: null,
+      },
       data: {
         replacedAt,
       },
     });
+
+    if (claim.count !== 1) {
+      throw new RefreshSessionClaimError(session.familyId, replacedAt);
+    }
 
     await tx.authSession.create({
       data: {
