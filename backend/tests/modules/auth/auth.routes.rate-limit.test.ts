@@ -64,4 +64,20 @@ describe("auth route rate limiting", () => {
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ message: "Not Found" });
   });
+
+  it("uses the forwarded client address instead of collapsing clients behind a proxy", async () => {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await request(app)
+        .post("/api/v1/auth/register")
+        .set("X-Forwarded-For", "203.0.113.10")
+        .send({});
+    }
+
+    const response = await request(app)
+      .post("/api/v1/auth/register")
+      .set("X-Forwarded-For", "203.0.113.20")
+      .send({});
+
+    expect(response.status).not.toBe(429);
+  });
 });
