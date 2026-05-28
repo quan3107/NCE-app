@@ -8,10 +8,13 @@ import { runWithRole } from '../../prisma/client.js'
 import { refreshSessionSchema } from './auth.schema.js'
 import { createAuthError } from './auth.errors.js'
 import { generateRefreshToken, hashValue } from './auth.crypto.js'
-import { rotateSession } from './auth.sessions.js'
+import { revokeSessionFamily, rotateSession } from './auth.sessions.js'
 import { assertActiveUser, toAuthenticatedUser } from './auth.users.js'
 import { signAccessToken } from './auth.tokens.js'
 import type { AuthSessionResult, SessionContext } from './auth.types.js'
+
+const invalidRefreshTokenError = () =>
+  createAuthError(401, 'Refresh token is invalid or expired.')
 
 export async function handleSessionRefresh(
   payload: unknown,
@@ -40,6 +43,7 @@ export async function handleSessionRefresh(
         where: {
           refreshTokenHash,
           revokedAt: null,
+          replacedAt: null,
           expiresAt: {
             gt: now,
           },
@@ -47,11 +51,37 @@ export async function handleSessionRefresh(
         select: {
           id: true,
           userId: true,
+          familyId: true,
         },
       })
 
       if (!session) {
-        throw createAuthError(401, 'Refresh token is invalid or expired.')
+        const reusedSession = await prisma.authSession.findFirst({
+          where: {
+            refreshTokenHash,
+            OR: [
+              {
+                replacedAt: {
+                  not: null,
+                },
+              },
+              {
+                revokedAt: {
+                  not: null,
+                },
+              },
+            ],
+          },
+          select: {
+            familyId: true,
+          },
+        })
+
+        if (reusedSession) {
+          await revokeSessionFamily(reusedSession.familyId, now)
+        }
+
+        throw invalidRefreshTokenError()
       }
 
       const user = await prisma.user.findFirst({
@@ -78,7 +108,7 @@ export async function handleSessionRefresh(
 
       assertActiveUser(user, { requirePassword: false })
 
-      const rotated = await rotateSession(session.id, nextRefreshToken, context)
+      const rotated = await rotateSession(session, nextRefreshToken, context)
 
       return { rotated, user }
     },
