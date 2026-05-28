@@ -331,9 +331,13 @@ describe("auth.service", () => {
     const nextTokenBuffer = Buffer.alloc(48, 2);
     randomBytesMock.mockReturnValueOnce(nextTokenBuffer);
 
-    prisma.authSession.findFirst.mockResolvedValueOnce(
-      buildAuthSession({ id: "session-1", userId: "user-1" }),
-    );
+    const activeSession = {
+      ...buildAuthSession({ id: "session-1", userId: "user-1" }),
+      familyId: "family-1",
+      replacedAt: null,
+      reuseDetectedAt: null,
+    };
+    prisma.authSession.findFirst.mockResolvedValueOnce(activeSession);
     prisma.user.findFirst.mockResolvedValueOnce(
       buildUser({
         id: "user-1",
@@ -359,8 +363,15 @@ describe("auth.service", () => {
     expect(prisma.authSession.update).toHaveBeenCalledTimes(1);
     const updateArgs = prisma.authSession.update.mock.calls[0]?.[0];
     expect(updateArgs?.where.id).toBe("session-1");
-    expect(updateArgs?.data.userAgent).toBe("vitest-refresh");
-    expect(updateArgs?.data.refreshTokenHash).toBe(
+    expect(updateArgs?.data.replacedAt).toEqual(fixedDate);
+
+    expect(prisma.authSession.create).toHaveBeenCalledTimes(1);
+    const createArgs = prisma.authSession.create.mock.calls[0]?.[0];
+    expect(createArgs?.data.userId).toBe("user-1");
+    expect(createArgs?.data.familyId).toBe("family-1");
+    expect(createArgs?.data.rotatedFromId).toBe("session-1");
+    expect(createArgs?.data.userAgent).toBe("vitest-refresh");
+    expect(createArgs?.data.refreshTokenHash).toBe(
       crypto
         .createHash("sha256")
         .update(result.refreshToken)
@@ -373,9 +384,13 @@ describe("auth.service", () => {
     const nextTokenBuffer = Buffer.alloc(48, 3);
     randomBytesMock.mockReturnValueOnce(nextTokenBuffer);
 
-    prisma.authSession.findFirst.mockResolvedValueOnce(
-      buildAuthSession({ id: "session-google", userId: "user-google" }),
-    );
+    const activeSession = {
+      ...buildAuthSession({ id: "session-google", userId: "user-google" }),
+      familyId: "family-google",
+      replacedAt: null,
+      reuseDetectedAt: null,
+    };
+    prisma.authSession.findFirst.mockResolvedValueOnce(activeSession);
     prisma.user.findFirst.mockResolvedValueOnce(
       buildUser({
         id: "user-google",
@@ -407,7 +422,52 @@ describe("auth.service", () => {
     expect(prisma.authSession.update).toHaveBeenCalledTimes(1);
     const updateArgs = prisma.authSession.update.mock.calls[0]?.[0];
     expect(updateArgs?.where.id).toBe("session-google");
-    expect(updateArgs?.data.userAgent).toBe("oauth-refresh");
+    expect(updateArgs?.data.replacedAt).toEqual(fixedDate);
+
+    expect(prisma.authSession.create).toHaveBeenCalledTimes(1);
+    const createArgs = prisma.authSession.create.mock.calls[0]?.[0];
+    expect(createArgs?.data.userId).toBe("user-google");
+    expect(createArgs?.data.familyId).toBe("family-google");
+    expect(createArgs?.data.rotatedFromId).toBe("session-google");
+    expect(createArgs?.data.userAgent).toBe("oauth-refresh");
+  });
+
+  it("revokes the compromised session family when a rotated token is reused", async () => {
+    const reusedTokenHash = crypto
+      .createHash("sha256")
+      .update("old-refresh")
+      .digest("hex");
+    const replacedSession = {
+      ...buildAuthSession({
+        id: "session-old",
+        userId: "user-1",
+        refreshTokenHash: reusedTokenHash,
+      }),
+      familyId: "family-1",
+      replacedAt: fixedDate,
+      reuseDetectedAt: null,
+    };
+
+    prisma.authSession.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(replacedSession);
+    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 2 });
+
+    await expect(
+      handleSessionRefresh({}, { refreshToken: "old-refresh" }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+
+    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        familyId: "family-1",
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: fixedDate,
+        reuseDetectedAt: fixedDate,
+      },
+    });
+    expect(prisma.authSession.create).not.toHaveBeenCalled();
   });
 
   it("revokes matching sessions on logout when a token is present", async () => {
