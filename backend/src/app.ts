@@ -17,6 +17,7 @@ import { apiRouter } from "./modules/router.js";
 const app = express();
 const corsAllowedOrigins = new Set(config.cors.allowedOrigins);
 
+app.set("trust proxy", config.trustProxy);
 app.use(helmet());
 app.use(
   cors({
