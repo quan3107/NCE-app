@@ -8,7 +8,11 @@ import { runWithRole } from '../../prisma/client.js'
 import { refreshSessionSchema } from './auth.schema.js'
 import { createAuthError } from './auth.errors.js'
 import { generateRefreshToken, hashValue } from './auth.crypto.js'
-import { revokeSessionFamily, rotateSession } from './auth.sessions.js'
+import {
+  RefreshSessionClaimError,
+  revokeSessionFamily,
+  rotateSession,
+} from './auth.sessions.js'
 import { assertActiveUser, toAuthenticatedUser } from './auth.users.js'
 import { signAccessToken } from './auth.tokens.js'
 import type { AuthSessionResult, SessionContext } from './auth.types.js'
@@ -108,7 +112,16 @@ export async function handleSessionRefresh(
 
       assertActiveUser(user, { requirePassword: false })
 
-      const rotated = await rotateSession(session, nextRefreshToken, context)
+      let rotated
+      try {
+        rotated = await rotateSession(session, nextRefreshToken, context)
+      } catch (error) {
+        if (error instanceof RefreshSessionClaimError) {
+          await revokeSessionFamily(error.familyId, error.detectedAt)
+          throw invalidRefreshTokenError()
+        }
+        throw error
+      }
 
       return { rotated, user }
     },
