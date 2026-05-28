@@ -11,6 +11,15 @@ import {
   UserStatus,
 } from "../../../src/prisma/index.js";
 
+const joseMocks = vi.hoisted(() => {
+  const remoteJwks = vi.fn();
+  return {
+    createRemoteJWKSet: vi.fn(() => remoteJwks),
+    jwtVerify: vi.fn(),
+    remoteJwks,
+  };
+});
+
 vi.mock("node:crypto", async () => {
   const actual = await vi.importActual<typeof import("node:crypto")>(
     "node:crypto",
@@ -67,6 +76,11 @@ vi.mock("../../../src/modules/auth/auth.tokens.js", () => ({
   signAccessToken: vi.fn(),
 }));
 
+vi.mock("jose", () => ({
+  createRemoteJWKSet: joseMocks.createRemoteJWKSet,
+  jwtVerify: joseMocks.jwtVerify,
+}));
+
 export const fetchMock = vi.fn();
 (globalThis as unknown as { fetch: typeof fetch }).fetch =
   fetchMock as unknown as typeof fetch;
@@ -86,6 +100,9 @@ export const bcryptHashMock = bcrypt.hash as unknown as MockedFunction<
 export const bcryptCompareMock = bcrypt.compare as unknown as MockedFunction<
   (data: string | Buffer, encrypted: string | Buffer) => Promise<boolean>
 >;
+export const createRemoteJWKSetMock = joseMocks.createRemoteJWKSet;
+export const jwtVerifyMock = joseMocks.jwtVerify;
+export const googleRemoteJwksMock = joseMocks.remoteJwks;
 
 export const {
   resetAuthRateLimiter,
@@ -107,6 +124,7 @@ export const ipHash = (value: string) =>
 export function resetAuthServiceMocks(): void {
   fetchMock.mockReset();
   resetAuthRateLimiter();
+  jwtVerifyMock.mockReset();
   randomBytesMock.mockImplementation((size?: number) =>
     Buffer.alloc(size ?? 48, 1),
   );
