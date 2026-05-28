@@ -23,6 +23,8 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.AUTH_PASSWORD_LOGIN_LOCKOUT_MS ??= '60000'
   process.env.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS ??= '3'
   process.env.AUTH_IP_RATE_LIMIT_WINDOW_MS ??= '60000'
+  process.env.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS ??= '100'
+  process.env.TRUST_PROXY ??= 'true'
   process.env.LOG_LEVEL ??= 'silent'
   process.env.LOG_PRETTY ??= 'false'
 }
