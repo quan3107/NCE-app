@@ -23,6 +23,7 @@ const defaultAuthRateLimit =
         passwordLoginLockoutMs: 60_000,
         ipMaxAttempts: 3,
         ipWindowMs: 60_000,
+        maxTrackedKeys: 100,
       }
     : {
         passwordLoginMaxFailures: 5,
@@ -30,7 +31,13 @@ const defaultAuthRateLimit =
         passwordLoginLockoutMs: 15 * 60_000,
         ipMaxAttempts: 30,
         ipWindowMs: 60_000,
+        maxTrackedKeys: 50_000,
       };
+
+const defaultTrustProxy =
+  process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test"
+    ? "true"
+    : "false";
 
 function parseCorsAllowedOrigins(value: string, context: z.RefinementCtx): string[] {
   const origins = value
@@ -107,6 +114,15 @@ const envSchema = z
       .int()
       .positive()
       .default(defaultAuthRateLimit.ipWindowMs),
+    AUTH_RATE_LIMIT_MAX_TRACKED_KEYS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.maxTrackedKeys),
+    TRUST_PROXY: z
+      .enum(["true", "false"])
+      .default(defaultTrustProxy)
+      .transform((value) => value === "true"),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
   })
@@ -165,7 +181,9 @@ const envConfig = {
       maxAttempts: parseResult.data.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS,
       windowMs: parseResult.data.AUTH_IP_RATE_LIMIT_WINDOW_MS,
     },
+    maxTrackedKeys: parseResult.data.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS,
   },
+  trustProxy: parseResult.data.TRUST_PROXY,
   logLevel: parseResult.data.LOG_LEVEL,
   logPretty: shouldPrettyLog,
 };
