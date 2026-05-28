@@ -11,10 +11,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useState,
 } from 'react';
 
 import { ApiError, apiClient } from './apiClient';
 import { authBridge } from './authBridge';
+import { shouldClearSessionAfterRefreshFailure } from './auth-refresh';
 import { ENABLE_DEV_AUTH_FALLBACK } from './constants';
 import {
   PERSONA_USERS,
@@ -50,6 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSession,
     mutatePersonaState,
   } = useAuthSession();
+  const [isRestoringSession, setIsRestoringSession] = useState(
+    shouldRefreshOnMountRef.current,
+  );
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     if (authMode !== 'live') {
@@ -60,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return refreshPromiseRef.current;
     }
 
+    const tokenAtRefreshStart = tokenRef.current;
     const refreshPromise = (async () => {
       try {
         const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
@@ -70,7 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         applyLiveSession(result);
         return tokenRef.current;
       } catch {
-        clearSession(ENABLE_DEV_AUTH_FALLBACK ? 'persona' : 'live');
+        if (shouldClearSessionAfterRefreshFailure(tokenAtRefreshStart, tokenRef.current)) {
+          clearSession(ENABLE_DEV_AUTH_FALLBACK ? 'persona' : 'live');
+        }
         return null;
       } finally {
         refreshPromiseRef.current = null;
@@ -80,6 +88,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshPromiseRef.current = refreshPromise;
     return refreshPromise;
   }, [applyLiveSession, authMode, clearSession]);
+
+  const restoreLiveSession = useCallback(async (): Promise<boolean> => {
+    if (authMode !== 'live') {
+      return false;
+    }
+
+    setIsRestoringSession(true);
+    try {
+      const token = await refreshAccessToken();
+      return Boolean(token);
+    } finally {
+      setIsRestoringSession(false);
+    }
+  }, [authMode, refreshAccessToken]);
 
   useEffect(() => {
     authBridge.configure({
@@ -94,11 +116,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!shouldRefreshOnMountRef.current) {
+      setIsRestoringSession(false);
       return;
     }
     shouldRefreshOnMountRef.current = false;
-    void refreshAccessToken();
-  }, [refreshAccessToken]);
+    void restoreLiveSession();
+  }, [restoreLiveSession, shouldRefreshOnMountRef]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -280,12 +303,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authMode,
       currentUser,
       isAuthenticated,
+      isRestoringSession,
       actingRole,
       isImpersonating,
       login,
       register,
       loginWithGoogle,
       completeGoogleLogin,
+      restoreLiveSession,
       logout,
       switchRole,
       viewAs,
@@ -296,11 +321,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authMode,
       currentUser,
       isAuthenticated,
+      isRestoringSession,
       isImpersonating,
       login,
       register,
       loginWithGoogle,
       completeGoogleLogin,
+      restoreLiveSession,
       logout,
       stopImpersonating,
       switchRole,

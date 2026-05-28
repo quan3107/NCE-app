@@ -57,12 +57,14 @@ export type AuthContextType = {
   authMode: AuthMode;
   currentUser: User;
   isAuthenticated: boolean;
+  isRestoringSession: boolean;
   actingRole: Role | null;
   isImpersonating: boolean;
   login: (email: string, password: string) => Promise<AuthMode | null>;
   register: (payload: RegisterPayload) => Promise<'live'>;
   loginWithGoogle: () => Promise<void>;
   completeGoogleLogin: () => Promise<'live'>;
+  restoreLiveSession: () => Promise<boolean>;
   logout: () => Promise<void>;
   switchRole: (role: Role) => void;
   viewAs: (role: Role) => void;
