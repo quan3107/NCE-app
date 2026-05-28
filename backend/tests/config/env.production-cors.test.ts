@@ -81,4 +81,16 @@ describe("production CORS environment validation", () => {
       "TRUST_PROXY must list trusted proxy IPs, CIDRs, or proxy address names",
     );
   });
+
+  it.each(["0.0.0.0/0", "127.0.0.1/"])(
+    "rejects trust proxy CIDR value %s before app bootstrap",
+    async (trustProxy) => {
+      process.env.CORS_ALLOWED_ORIGINS = "https://app.example.com";
+      process.env.TRUST_PROXY = trustProxy;
+
+      await expect(import("../../src/config/env.js")).rejects.toThrow(
+        "TRUST_PROXY must list trusted proxy IPs, CIDRs, or proxy address names",
+      );
+    },
+  );
 });
