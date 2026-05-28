@@ -3,6 +3,8 @@
  * Purpose: Load and validate environment variables so the backend has strongly typed configuration.
  * Why: Centralizes runtime configuration parsing to prevent scattered `process.env` access and runtime surprises.
  */
+import { isIP } from "node:net";
+
 import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 
@@ -14,6 +16,34 @@ const defaultCorsAllowedOrigins =
   process.env.NODE_ENV === "production"
     ? ""
     : "http://localhost:5173,http://127.0.0.1:5173";
+
+const defaultAuthRateLimit =
+  process.env.NODE_ENV === "test"
+    ? {
+        passwordLoginMaxFailures: 3,
+        passwordLoginWindowMs: 60_000,
+        passwordLoginLockoutMs: 60_000,
+        ipMaxAttempts: 3,
+        ipWindowMs: 60_000,
+        maxTrackedKeys: 100,
+      }
+    : {
+        passwordLoginMaxFailures: 5,
+        passwordLoginWindowMs: 15 * 60_000,
+        passwordLoginLockoutMs: 15 * 60_000,
+        ipMaxAttempts: 30,
+        ipWindowMs: 60_000,
+        maxTrackedKeys: 50_000,
+      };
+
+const defaultTrustProxy =
+  process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test"
+    ? "loopback"
+    : "";
+
+const trustedProxyAddressNames = new Set(["loopback", "linklocal", "uniquelocal"]);
+const trustProxyErrorMessage =
+  "TRUST_PROXY must list trusted proxy IPs, CIDRs, or proxy address names";
 
 function parseCorsAllowedOrigins(value: string, context: z.RefinementCtx): string[] {
   const origins = value
@@ -41,6 +71,51 @@ function parseCorsAllowedOrigins(value: string, context: z.RefinementCtx): strin
   return origins;
 }
 
+function parseTrustProxy(value: string, context: z.RefinementCtx): string[] {
+  const trustedProxies = value
+    .split(",")
+    .map((proxy) => proxy.trim())
+    .filter((proxy) => proxy.length > 0);
+
+  for (const trustedProxy of trustedProxies) {
+    if (trustedProxy === "true" || trustedProxy === "false") {
+      context.addIssue({
+        code: "custom",
+        message: trustProxyErrorMessage,
+      });
+      continue;
+    }
+
+    if (trustedProxyAddressNames.has(trustedProxy)) {
+      continue;
+    }
+
+    const slashIndex = trustedProxy.lastIndexOf("/");
+    const address =
+      slashIndex === -1 ? trustedProxy : trustedProxy.slice(0, slashIndex);
+    const rawPrefix =
+      slashIndex === -1 ? null : trustedProxy.slice(slashIndex + 1);
+    const prefix = rawPrefix === null ? null : Number(rawPrefix);
+    const ipVersion = isIP(address);
+
+    const validPrefix =
+      prefix === null ||
+      (rawPrefix !== "" &&
+        Number.isInteger(prefix) &&
+        prefix > 0 &&
+        ((ipVersion === 4 && prefix <= 32) || (ipVersion === 6 && prefix <= 128)));
+
+    if (ipVersion === 0 || !validPrefix) {
+      context.addIssue({
+        code: "custom",
+        message: trustProxyErrorMessage,
+      });
+    }
+  }
+
+  return trustedProxies;
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z
@@ -65,6 +140,37 @@ const envSchema = z
       .string()
       .default(defaultCorsAllowedOrigins)
       .transform(parseCorsAllowedOrigins),
+    AUTH_PASSWORD_LOGIN_MAX_FAILURES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.passwordLoginMaxFailures),
+    AUTH_PASSWORD_LOGIN_WINDOW_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.passwordLoginWindowMs),
+    AUTH_PASSWORD_LOGIN_LOCKOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.passwordLoginLockoutMs),
+    AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.ipMaxAttempts),
+    AUTH_IP_RATE_LIMIT_WINDOW_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.ipWindowMs),
+    AUTH_RATE_LIMIT_MAX_TRACKED_KEYS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(defaultAuthRateLimit.maxTrackedKeys),
+    TRUST_PROXY: z.string().default(defaultTrustProxy).transform(parseTrustProxy),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
   })
@@ -113,6 +219,19 @@ const envConfig = {
   cors: {
     allowedOrigins: parseResult.data.CORS_ALLOWED_ORIGINS,
   },
+  authRateLimit: {
+    passwordLogin: {
+      maxFailures: parseResult.data.AUTH_PASSWORD_LOGIN_MAX_FAILURES,
+      windowMs: parseResult.data.AUTH_PASSWORD_LOGIN_WINDOW_MS,
+      lockoutMs: parseResult.data.AUTH_PASSWORD_LOGIN_LOCKOUT_MS,
+    },
+    ipAttempts: {
+      maxAttempts: parseResult.data.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS,
+      windowMs: parseResult.data.AUTH_IP_RATE_LIMIT_WINDOW_MS,
+    },
+    maxTrackedKeys: parseResult.data.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS,
+  },
+  trustProxy: parseResult.data.TRUST_PROXY,
   logLevel: parseResult.data.LOG_LEVEL,
   logPretty: shouldPrettyLog,
 };

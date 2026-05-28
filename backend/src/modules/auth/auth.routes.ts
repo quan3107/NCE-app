@@ -13,12 +13,17 @@ import {
   refreshSession,
   startGoogleAuth,
 } from "./auth.controller.js";
+import { limitAuthRoute } from "./auth.rate-limit.js";
 
 export const authRouter = Router();
 
 authRouter.post("/login", passwordLogin);
-authRouter.post("/register", registerAccount);
-authRouter.post("/refresh", refreshSession);
+authRouter.post("/register", limitAuthRoute("register"), registerAccount);
+authRouter.post("/refresh", limitAuthRoute("refresh"), refreshSession);
 authRouter.post("/logout", logout);
-authRouter.get("/google", startGoogleAuth);
-authRouter.get("/google/callback", completeGoogleAuth);
+authRouter.get("/google", limitAuthRoute("googleStart"), startGoogleAuth);
+authRouter.get(
+  "/google/callback",
+  limitAuthRoute("googleCallback"),
+  completeGoogleAuth,
+);

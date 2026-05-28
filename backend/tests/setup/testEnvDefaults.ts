@@ -18,6 +18,13 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.BREVO_SENDER_EMAIL ??= 'noreply.test@example.com'
   process.env.CORS_ALLOWED_ORIGINS ??=
     'http://localhost:5173,http://127.0.0.1:5173'
+  process.env.AUTH_PASSWORD_LOGIN_MAX_FAILURES ??= '3'
+  process.env.AUTH_PASSWORD_LOGIN_WINDOW_MS ??= '60000'
+  process.env.AUTH_PASSWORD_LOGIN_LOCKOUT_MS ??= '60000'
+  process.env.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS ??= '3'
+  process.env.AUTH_IP_RATE_LIMIT_WINDOW_MS ??= '60000'
+  process.env.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS ??= '100'
+  process.env.TRUST_PROXY ??= 'loopback'
   process.env.LOG_LEVEL ??= 'silent'
   process.env.LOG_PRETTY ??= 'false'
 }

@@ -22,6 +22,13 @@ const defaultedEnvKeys = [
   'BREVO_SENDER_NAME',
   'BREVO_SENDER_EMAIL',
   'CORS_ALLOWED_ORIGINS',
+  'AUTH_PASSWORD_LOGIN_MAX_FAILURES',
+  'AUTH_PASSWORD_LOGIN_WINDOW_MS',
+  'AUTH_PASSWORD_LOGIN_LOCKOUT_MS',
+  'AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS',
+  'AUTH_IP_RATE_LIMIT_WINDOW_MS',
+  'AUTH_RATE_LIMIT_MAX_TRACKED_KEYS',
+  'TRUST_PROXY',
   'LOG_LEVEL',
   'LOG_PRETTY',
 ] as const
@@ -60,6 +67,13 @@ describe('test environment defaults', () => {
       expect(process.env.CORS_ALLOWED_ORIGINS).toBe(
         'http://localhost:5173,http://127.0.0.1:5173',
       )
+      expect(process.env.AUTH_PASSWORD_LOGIN_MAX_FAILURES).toBe('3')
+      expect(process.env.AUTH_PASSWORD_LOGIN_WINDOW_MS).toBe('60000')
+      expect(process.env.AUTH_PASSWORD_LOGIN_LOCKOUT_MS).toBe('60000')
+      expect(process.env.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS).toBe('3')
+      expect(process.env.AUTH_IP_RATE_LIMIT_WINDOW_MS).toBe('60000')
+      expect(process.env.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS).toBe('100')
+      expect(process.env.TRUST_PROXY).toBe('loopback')
       expect(process.env.LOG_LEVEL).toBe('silent')
       expect(process.env.LOG_PRETTY).toBe('false')
     } finally {
@@ -88,6 +102,19 @@ describe('test environment defaults', () => {
       'http://localhost:5173',
       'http://127.0.0.1:5173',
     ])
+    expect(config.authRateLimit).toEqual({
+      passwordLogin: {
+        maxFailures: 3,
+        windowMs: 60_000,
+        lockoutMs: 60_000,
+      },
+      ipAttempts: {
+        maxAttempts: 3,
+        windowMs: 60_000,
+      },
+      maxTrackedKeys: 100,
+    })
+    expect(config.trustProxy).toEqual(['loopback'])
     expect(config.logLevel).toBe('silent')
     expect(config.logPretty).toBe(false)
   })
