@@ -20,6 +20,7 @@ const config = {
     maxAttempts: 2,
     windowMs: 10_000,
   },
+  maxTrackedKeys: 100,
 };
 
 describe("auth.rate-limit", () => {
@@ -116,5 +117,50 @@ describe("auth.rate-limit", () => {
     now += config.ipAttempts.windowMs;
 
     expect(() => limiter.recordRouteAttempt("register", ipAddress)).not.toThrow();
+  });
+
+  it("bounds tracked counters by evicting the oldest expired-safe key", () => {
+    const limiter = createAuthRateLimiter(
+      {
+        ...config,
+        passwordLogin: {
+          maxFailures: 1,
+          windowMs: 60_000,
+          lockoutMs: 60_000,
+        },
+        maxTrackedKeys: 2,
+      },
+      { now: () => 10_000 },
+    );
+
+    limiter.recordPasswordLoginFailure({
+      email: "first@example.com",
+      ipAddress: "203.0.113.1",
+    });
+    limiter.recordPasswordLoginFailure({
+      email: "second@example.com",
+      ipAddress: "203.0.113.2",
+    });
+    limiter.recordPasswordLoginFailure({
+      email: "third@example.com",
+      ipAddress: "203.0.113.3",
+    });
+
+    expect(() =>
+      limiter.assertPasswordLoginAllowed({
+        email: "first@example.com",
+        ipAddress: "203.0.113.4",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      limiter.assertPasswordLoginAllowed({
+        email: "third@example.com",
+        ipAddress: "203.0.113.5",
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        statusCode: 429,
+      }),
+    );
   });
 });
