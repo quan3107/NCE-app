@@ -50,6 +50,11 @@ vi.mock("../../../src/config/prismaClient.js", () => {
       callback({
         user: { create: user.create },
         identity: { create: identity.create },
+        authSession: {
+          create: authSession.create,
+          update: authSession.update,
+          updateMany: authSession.updateMany,
+        },
       }),
     ),
   };
@@ -149,11 +154,15 @@ export const buildAuthSession = (
 ): AuthSession => ({
   id: overrides.id ?? "session-default",
   userId: overrides.userId ?? "user-default",
+  familyId: overrides.familyId ?? overrides.id ?? "session-default",
+  rotatedFromId: overrides.rotatedFromId ?? null,
   refreshTokenHash: overrides.refreshTokenHash ?? "refresh-token-hash",
   userAgent: overrides.userAgent ?? null,
   ipHash: overrides.ipHash ?? null,
   expiresAt: overrides.expiresAt ?? new Date(fixedDate),
   revokedAt: overrides.revokedAt ?? null,
+  replacedAt: overrides.replacedAt ?? null,
+  reuseDetectedAt: overrides.reuseDetectedAt ?? null,
   createdAt: overrides.createdAt ?? new Date(fixedDate),
   updatedAt: overrides.updatedAt ?? new Date(fixedDate),
   deletedAt: overrides.deletedAt ?? null,
