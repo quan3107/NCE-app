@@ -5,7 +5,7 @@
  */
 
 export type UserRole = 'admin' | 'teacher' | 'student';
-export type UserStatus = 'active' | 'invited' | 'suspended';
+export type UserStatus = 'active' | 'pending' | 'invited' | 'suspended';
 export type EnrollmentRole = 'teacher' | 'student';
 export type AssignmentType =
   | 'file'
