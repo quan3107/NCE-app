@@ -3,6 +3,11 @@
  * Purpose: Implement enrollment listing and creation logic using Prisma.
  * Why: Supports admin enrollment management endpoints required by the PRD.
  */
+import {
+  EnrollmentRole,
+  UserRole,
+  UserStatus,
+} from "../../prisma/index.js";
 import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import {
@@ -35,6 +40,49 @@ const enrollmentSelect = {
     },
   },
 };
+
+const expectedUserRoleByEnrollmentRole = {
+  [EnrollmentRole.student]: UserRole.student,
+  [EnrollmentRole.teacher]: UserRole.teacher,
+} satisfies Record<EnrollmentRole, UserRole>;
+
+type EnrollmentUser = {
+  role: UserRole;
+  status: UserStatus;
+};
+
+function assertUserCanHoldEnrollmentRole(
+  user: EnrollmentUser,
+  roleInCourse: EnrollmentRole,
+) {
+  const expectedRole = expectedUserRoleByEnrollmentRole[roleInCourse];
+
+  if (user.role !== expectedRole) {
+    throw createHttpError(
+      409,
+      "Enrollment role must match the user's account role.",
+      {
+        code: "invalid_role_pairing",
+        expectedRole,
+        actualRole: user.role,
+        roleInCourse,
+      },
+    );
+  }
+
+  if (user.status === UserStatus.suspended) {
+    throw createHttpError(
+      409,
+      "Suspended users cannot be enrolled in courses.",
+      {
+        code: "invalid_role_pairing",
+        expectedStatus: "not_suspended",
+        actualStatus: user.status,
+        roleInCourse,
+      },
+    );
+  }
+}
 
 export async function listEnrollments(query: unknown) {
   const filters = enrollmentQuerySchema.parse(query);
@@ -71,12 +119,18 @@ export async function createEnrollment(payload: unknown) {
 
   const user = await prisma.user.findFirst({
     where: { id: data.userId, deletedAt: null },
-    select: { id: true },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+    },
   });
 
   if (!user) {
     throw createNotFoundError("User", data.userId);
   }
+
+  assertUserCanHoldEnrollmentRole(user, data.roleInCourse);
 
   const existing = await prisma.enrollment.findUnique({
     where: {
@@ -92,7 +146,9 @@ export async function createEnrollment(payload: unknown) {
   });
 
   if (existing && !existing.deletedAt) {
-    throw createHttpError(409, "Enrollment already exists");
+    throw createHttpError(409, "Enrollment already exists", {
+      code: "duplicate_active_enrollment",
+    });
   }
 
   return prisma.enrollment.upsert({

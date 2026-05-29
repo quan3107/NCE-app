@@ -173,6 +173,7 @@ export async function addStudentToCourse(
     },
     update: {
       deletedAt: null,
+      roleInCourse: EnrollmentRole.student,
     },
     create: {
       courseId,
