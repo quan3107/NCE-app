@@ -333,6 +333,7 @@ enum UserRole {
 
 enum UserStatus {
   active
+  pending
   invited
   suspended
 }
