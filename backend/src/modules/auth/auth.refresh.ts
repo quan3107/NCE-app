@@ -130,6 +130,7 @@ export async function handleSessionRefresh(
   const accessToken = signAccessToken({
     userId: user.id,
     role: user.role,
+    status: user.status,
   })
 
   return {
