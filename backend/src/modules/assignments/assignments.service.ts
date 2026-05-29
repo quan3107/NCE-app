@@ -3,46 +3,48 @@
  * Purpose: Implement assignment data access and validation via Prisma.
  * Why: Keeps assignment-specific operations encapsulated away from controllers.
  */
-import { Prisma, UserRole } from "../../prisma/index.js";
+import { Prisma, UserRole } from '../../prisma/index.js'
 
-import { prisma } from "../../prisma/client.js";
+import { prisma } from '../../prisma/client.js'
+import type { CourseManager } from '../courses/courses.types.js'
+import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
 import {
-  createHttpError,
-  createNotFoundError,
-} from "../../utils/httpError.js";
+  assignmentAccessWhere,
+  ensureCourseAssignmentAccess,
+} from './assignments.authorization.js'
 import {
   assignmentIdParamsSchema,
   courseScopedParamsSchema,
   type CreateAssignmentPayload,
   type UpdateAssignmentPayload,
-} from "./assignments.schema.js";
+} from './assignments.schema.js'
 import {
   filterWritingAssignmentForStudent,
   shouldFilterWritingAssignmentForStudent,
   validateWritingRubrics,
-} from "./assignments.helpers.js";
-import { parseAssignmentConfigForType } from "./ielts.schema.js";
+} from './assignments.helpers.js'
+import { parseAssignmentConfigForType } from './ielts.schema.js'
 
 function parseOptionalDate(
   value: string | undefined,
   fieldName: string,
 ): Date | undefined {
   if (!value) {
-    return undefined;
+    return undefined
   }
-  const parsed = new Date(value);
+  const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
-    throw createHttpError(400, `${fieldName} must be an ISO date string.`);
+    throw createHttpError(400, `${fieldName} must be an ISO date string.`)
   }
-  return parsed;
+  return parsed
 }
 
-export async function listAssignments(params: unknown) {
-  const { courseId } = courseScopedParamsSchema.parse(params);
+export async function listAssignments(params: unknown, actor: CourseManager) {
+  const { courseId } = courseScopedParamsSchema.parse(params)
   return prisma.assignment.findMany({
-    where: { courseId, deletedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
+    where: assignmentAccessWhere(courseId, actor, 'read'),
+    orderBy: { createdAt: 'desc' },
+  })
 }
 
 /**
@@ -50,7 +52,7 @@ export async function listAssignments(params: unknown) {
  * Pending = published, not submitted, not past due date.
  */
 export async function getPendingAssignmentsCount(studentId: string): Promise<number> {
-  const now = new Date();
+  const now = new Date()
 
   const count = await prisma.assignment.count({
     where: {
@@ -72,48 +74,46 @@ export async function getPendingAssignmentsCount(studentId: string): Promise<num
         },
       },
     },
-  });
+  })
 
-  return count;
+  return count
 }
 
 type AssignmentWithSubmissions = {
-  type: string;
-  id: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-  title: string;
-  description: string | null;
-  courseId: string;
-  dueAt: Date | null;
-  latePolicy: unknown;
-  assignmentConfig: unknown;
-  publishedAt: Date | null;
+  type: string
+  id: string
+  createdAt: Date
+  updatedAt: Date
+  deletedAt: Date | null
+  title: string
+  description: string | null
+  courseId: string
+  dueAt: Date | null
+  latePolicy: unknown
+  assignmentConfig: unknown
+  publishedAt: Date | null
   submissions?: Array<{
-    id: string;
-    status: string;
+    id: string
+    status: string
     grade?: {
-      gradedAt: Date | null;
-    } | null;
-  }>;
-};
+      gradedAt: Date | null
+    } | null
+  }>
+}
 
-export async function getAssignment(
-  params: unknown,
-  user?: { id: string; role: string }
-) {
-  const { assignmentId } = assignmentIdParamsSchema.parse(params);
+export async function getAssignment(params: unknown, user: CourseManager) {
+  const { assignmentId } = assignmentIdParamsSchema.parse(params)
+  const { courseId } = courseScopedParamsSchema.parse(params)
 
   // For students, include their submission and grade info to check visibility
-  const includeSubmissions = user?.role === UserRole.student;
+  const includeSubmissions = user.role === UserRole.student
 
-  const assignment = await prisma.assignment.findFirst({
-    where: { id: assignmentId, deletedAt: null },
+  const assignment = (await prisma.assignment.findFirst({
+    where: assignmentAccessWhere(courseId, user, 'read', assignmentId),
     include: includeSubmissions
       ? {
           submissions: {
-            where: { studentId: user!.id, deletedAt: null },
+            where: { studentId: user.id, deletedAt: null },
             select: {
               id: true,
               status: true,
@@ -127,50 +127,53 @@ export async function getAssignment(
           },
         }
       : undefined,
-  }) as AssignmentWithSubmissions | null;
+  })) as AssignmentWithSubmissions | null
 
   if (!assignment) {
-    throw createNotFoundError("Assignment", assignmentId);
+    throw createNotFoundError('Assignment', assignmentId)
   }
 
   if (shouldFilterWritingAssignmentForStudent(assignment, user)) {
-    return filterWritingAssignmentForStudent(assignment);
+    return filterWritingAssignmentForStudent(assignment)
   }
 
   // Admins and teachers get full data (remove submissions from response)
   if ('submissions' in assignment) {
-    const { submissions: ignoredSubmissions, ...rest } = assignment;
-    return rest;
+    const { submissions: ignoredSubmissions, ...rest } = assignment
+    return rest
   }
 
-  return assignment;
+  return assignment
 }
 
 export async function createAssignment(
   params: unknown,
   payload: CreateAssignmentPayload,
+  actor: CourseManager,
 ) {
-  const { courseId } = courseScopedParamsSchema.parse(params);
-  const dueAt = parseOptionalDate(payload.dueAt, "dueAt");
-  const publishedAt = parseOptionalDate(payload.publishedAt, "publishedAt");
+  const { courseId } = courseScopedParamsSchema.parse(params)
+  const dueAt = parseOptionalDate(payload.dueAt, 'dueAt')
+  const publishedAt = parseOptionalDate(payload.publishedAt, 'publishedAt')
   // Cast validated maps to Prisma JSON input, since Zod cannot enforce JsonValue types.
   const latePolicy = payload.latePolicy
     ? (payload.latePolicy as Prisma.InputJsonObject)
-    : undefined;
+    : undefined
   const validatedAssignmentConfig = parseAssignmentConfigForType(
     payload.type,
     payload.assignmentConfig,
-  );
+  )
+
+  await ensureCourseAssignmentAccess(courseId, actor)
 
   // Validate rubric IDs for writing assignments
   if (payload.type === 'writing') {
-    await validateWritingRubrics(validatedAssignmentConfig, courseId);
+    await validateWritingRubrics(validatedAssignmentConfig, courseId)
   }
 
   const assignmentConfig =
     validatedAssignmentConfig !== undefined
       ? (validatedAssignmentConfig as Prisma.InputJsonObject)
-      : undefined;
+      : undefined
 
   return prisma.assignment.create({
     data: {
@@ -183,88 +186,89 @@ export async function createAssignment(
       assignmentConfig,
       publishedAt,
     },
-  });
+  })
 }
 
 export async function updateAssignment(
   params: unknown,
   payload: UpdateAssignmentPayload,
+  actor: CourseManager,
 ) {
-  const { assignmentId } = assignmentIdParamsSchema.parse(params);
-  const { courseId } = courseScopedParamsSchema.parse(params);
-  const dueAt = parseOptionalDate(payload.dueAt, "dueAt");
-  const publishedAt = parseOptionalDate(payload.publishedAt, "publishedAt");
+  const { assignmentId } = assignmentIdParamsSchema.parse(params)
+  const { courseId } = courseScopedParamsSchema.parse(params)
+  const dueAt = parseOptionalDate(payload.dueAt, 'dueAt')
+  const publishedAt = parseOptionalDate(payload.publishedAt, 'publishedAt')
   const latePolicy = payload.latePolicy
     ? (payload.latePolicy as Prisma.InputJsonObject)
-    : undefined;
+    : undefined
 
   const existing = await prisma.assignment.findFirst({
-    where: { id: assignmentId, courseId, deletedAt: null },
-  });
+    where: assignmentAccessWhere(courseId, actor, 'manage', assignmentId),
+  })
   if (!existing) {
-    throw createNotFoundError("Assignment", assignmentId);
+    throw createNotFoundError('Assignment', assignmentId)
   }
 
-  const targetType = payload.type ?? existing.type;
+  const targetType = payload.type ?? existing.type
 
-  let assignmentConfig: Prisma.InputJsonObject | undefined;
+  let assignmentConfig: Prisma.InputJsonObject | undefined
   if (payload.assignmentConfig !== undefined) {
     const validatedConfig = parseAssignmentConfigForType(
       targetType,
       payload.assignmentConfig,
-    );
+    )
 
     // Validate rubric IDs for writing assignments
     if (targetType === 'writing') {
-      await validateWritingRubrics(validatedConfig, courseId);
+      await validateWritingRubrics(validatedConfig, courseId)
     }
 
-    assignmentConfig = validatedConfig as Prisma.InputJsonObject;
+    assignmentConfig = validatedConfig as Prisma.InputJsonObject
   }
 
-  const updateData: Prisma.AssignmentUpdateInput = {};
+  const updateData: Prisma.AssignmentUpdateInput = {}
   if (payload.title !== undefined) {
-    updateData.title = payload.title;
+    updateData.title = payload.title
   }
   if (payload.descriptionMd !== undefined) {
-    updateData.description = payload.descriptionMd;
+    updateData.description = payload.descriptionMd
   }
   if (payload.type !== undefined) {
-    updateData.type = payload.type;
+    updateData.type = payload.type
   }
   if (payload.dueAt !== undefined) {
-    updateData.dueAt = dueAt;
+    updateData.dueAt = dueAt
   }
   if (payload.latePolicy !== undefined) {
-    updateData.latePolicy = latePolicy;
+    updateData.latePolicy = latePolicy
   }
   if (payload.assignmentConfig !== undefined) {
-    updateData.assignmentConfig = assignmentConfig;
+    updateData.assignmentConfig = assignmentConfig
   }
   if (payload.publishedAt !== undefined) {
-    updateData.publishedAt = publishedAt;
+    updateData.publishedAt = publishedAt
   }
 
   return prisma.assignment.update({
     where: { id: assignmentId },
     data: updateData,
-  });
+  })
 }
 
-export async function deleteAssignment(params: unknown) {
-  const { assignmentId } = assignmentIdParamsSchema.parse(params);
-  const { courseId } = courseScopedParamsSchema.parse(params);
+export async function deleteAssignment(params: unknown, actor: CourseManager) {
+  const { assignmentId } = assignmentIdParamsSchema.parse(params)
+  const { courseId } = courseScopedParamsSchema.parse(params)
 
   const existing = await prisma.assignment.findFirst({
-    where: { id: assignmentId, courseId, deletedAt: null },
+    where: assignmentAccessWhere(courseId, actor, 'manage', assignmentId),
     select: { id: true },
-  });
+  })
   if (!existing) {
-    throw createNotFoundError("Assignment", assignmentId);
+    throw createNotFoundError('Assignment', assignmentId)
   }
 
   await prisma.assignment.update({
     where: { id: assignmentId },
     data: { deletedAt: new Date() },
-  });
+  })
 }
