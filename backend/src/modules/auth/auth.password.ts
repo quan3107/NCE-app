@@ -3,7 +3,7 @@
  * Purpose: Handle password login and account registration flows.
  * Why: Keeps password-based auth logic focused and testable.
  */
-import { UserStatus } from "../../prisma/index.js"
+import { UserRole, UserStatus } from "../../prisma/index.js"
 import bcrypt from 'bcrypt'
 
 import { prisma } from '../../config/prismaClient.js'
@@ -19,9 +19,17 @@ import {
   assertUserIsActive,
   toAuthenticatedUser,
 } from './auth.users.js'
-import type { AuthSessionResult, SessionContext } from './auth.types.js'
+import type {
+  AuthSessionResult,
+  RegisterAccountResult,
+  SessionContext,
+} from './auth.types.js'
 
 const PASSWORD_SALT_ROUNDS = 12
+
+function getInitialRegistrationStatus(role: UserRole): UserStatus {
+  return role === UserRole.teacher ? UserStatus.pending : UserStatus.active
+}
 
 export async function handlePasswordLogin(
   payload: unknown,
@@ -105,6 +113,7 @@ export async function handlePasswordLogin(
   const accessToken = signAccessToken({
     userId: user.id,
     role: user.role,
+    status: user.status,
   })
 
   authRateLimiter.recordPasswordLoginSuccess(loginAttempt)
@@ -120,10 +129,10 @@ export async function handlePasswordLogin(
 export async function handleRegisterAccount(
   payload: unknown,
   context: SessionContext,
-): Promise<AuthSessionResult> {
+): Promise<RegisterAccountResult> {
   const parsed = registerAccountSchema.parse(payload)
   const passwordHash = await bcrypt.hash(parsed.password, PASSWORD_SALT_ROUNDS)
-  const refreshToken = generateRefreshToken()
+  const initialStatus = getInitialRegistrationStatus(parsed.role)
 
   const { session, userRecord } = await runWithRole(
     { role: 'service_role', userRole: 'service_role' },
@@ -149,7 +158,7 @@ export async function handleRegisterAccount(
             fullName: parsed.fullName,
             password: passwordHash,
             role: parsed.role,
-            status: UserStatus.active,
+            status: initialStatus,
           },
           select: {
             id: true,
@@ -160,6 +169,11 @@ export async function handleRegisterAccount(
           },
         })
 
+        if (initialStatus !== UserStatus.active) {
+          return { session: null, userRecord }
+        }
+
+        const refreshToken = generateRefreshToken()
         const session = await persistSession(userRecord.id, refreshToken, context)
 
         return { session, userRecord }
@@ -172,9 +186,24 @@ export async function handleRegisterAccount(
     },
   )
 
+  if (userRecord.status === UserStatus.pending) {
+    return {
+      status: 'pending_approval',
+      user: {
+        ...toAuthenticatedUser(userRecord),
+        status: userRecord.status,
+      },
+    }
+  }
+
+  if (!session) {
+    throw createAuthError(500, 'Unable to create account session.')
+  }
+
   const accessToken = signAccessToken({
     userId: userRecord.id,
     role: userRecord.role,
+    status: userRecord.status,
   })
 
   return {
