@@ -3,74 +3,10 @@
  * Purpose: Set per-request database role + RLS context for Prisma queries.
  * Why: Ensures RLS policies enforce tenant access for all API requests.
  */
-import { UserRole } from "../prisma/index.js";
 import { type NextFunction, type Request, type Response } from "express";
-import { z } from "zod";
 
-import { config } from "../config/env.js";
 import { withRoleContext } from "../prisma/client.js";
-import { verifyAccessToken } from "../modules/auth/auth.tokens.js";
-
-const headerSchema = z.object({
-  userId: z.string().uuid(),
-  role: z.nativeEnum(UserRole),
-});
-
-type Actor = { id: string; role: UserRole };
-
-function parseBearerActor(req: Request): Actor | null {
-  const authorizationHeader = req.header("authorization");
-  if (!authorizationHeader) {
-    return null;
-  }
-
-  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
-  if (!match) {
-    return null;
-  }
-
-  const token = match[1]?.trim();
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const claims = verifyAccessToken(token);
-    if (!claims.sub || typeof claims.role !== "string") {
-      return null;
-    }
-    if (!Object.values(UserRole).includes(claims.role as UserRole)) {
-      return null;
-    }
-    return { id: claims.sub, role: claims.role as UserRole };
-  } catch {
-    return null;
-  }
-}
-
-function parseHeaderActor(req: Request): Actor | null {
-  const parseResult = headerSchema.safeParse({
-    userId: req.header("x-user-id"),
-    role: req.header("x-user-role"),
-  });
-  if (!parseResult.success) {
-    return null;
-  }
-  return { id: parseResult.data.userId, role: parseResult.data.role };
-}
-
-function resolveActor(req: Request): Actor | null {
-  const bearer = parseBearerActor(req);
-  if (bearer) {
-    return bearer;
-  }
-  // Header-based auth is only allowed in dev/test to support persona-based
-  // development flows. In production, only Bearer tokens are accepted.
-  if (config.nodeEnv !== "production") {
-    return parseHeaderActor(req);
-  }
-  return null;
-}
+import { isActiveActor, resolveRequestActor } from "./requestActor.js";
 
 export async function rlsContext(
   req: Request,
@@ -82,7 +18,11 @@ export async function rlsContext(
     return;
   }
 
-  const actor = resolveActor(req);
+  const resolvedActor = resolveRequestActor(req);
+  const actor =
+    resolvedActor.kind === "authenticated" && isActiveActor(resolvedActor.actor)
+      ? resolvedActor.actor
+      : null;
   // Share parsed actor with downstream handlers so optional-auth routes can
   // still apply role-scoped service logic without requiring authGuard.
   req.user = actor ?? undefined;
