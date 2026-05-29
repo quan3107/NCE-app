@@ -41,10 +41,111 @@ const studentEnrollmentPayload = {
   roleInCourse: EnrollmentRole.student,
 };
 
+const buildEnrollment = (
+  roleInCourse: EnrollmentRole,
+  userRole: UserRole,
+) => ({
+  id: "33333333-3333-4333-8333-333333333333",
+  courseId,
+  userId,
+  roleInCourse,
+  createdAt: new Date("2026-05-29T00:00:00.000Z"),
+  updatedAt: new Date("2026-05-29T00:00:00.000Z"),
+  user: {
+    id: userId,
+    fullName: "Amelia Chan",
+    email: "amelia.chan@example.com",
+    role: userRole,
+    status: UserStatus.active,
+  },
+  course: {
+    id: courseId,
+    title: "IELTS Writing Intensive",
+  },
+});
+
 describe("enrollments.service.createEnrollment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.course.findFirst.mockResolvedValue({ id: courseId });
+  });
+
+  it("creates a student enrollment for an active student", async () => {
+    const createdEnrollment = buildEnrollment(
+      EnrollmentRole.student,
+      UserRole.student,
+    );
+    prisma.user.findFirst.mockResolvedValueOnce({
+      id: userId,
+      role: UserRole.student,
+      status: UserStatus.active,
+    });
+    prisma.enrollment.findUnique.mockResolvedValueOnce(null);
+    prisma.enrollment.upsert.mockResolvedValueOnce(createdEnrollment);
+
+    const result = await createEnrollment(studentEnrollmentPayload);
+
+    expect(prisma.enrollment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          courseId_userId: {
+            courseId,
+            userId,
+          },
+        },
+        update: {
+          deletedAt: null,
+          roleInCourse: EnrollmentRole.student,
+        },
+        create: {
+          courseId,
+          userId,
+          roleInCourse: EnrollmentRole.student,
+        },
+      }),
+    );
+    expect(result).toBe(createdEnrollment);
+  });
+
+  it("creates a teacher enrollment for an active teacher", async () => {
+    const teacherEnrollmentPayload = {
+      ...studentEnrollmentPayload,
+      roleInCourse: EnrollmentRole.teacher,
+    };
+    const createdEnrollment = buildEnrollment(
+      EnrollmentRole.teacher,
+      UserRole.teacher,
+    );
+    prisma.user.findFirst.mockResolvedValueOnce({
+      id: userId,
+      role: UserRole.teacher,
+      status: UserStatus.active,
+    });
+    prisma.enrollment.findUnique.mockResolvedValueOnce(null);
+    prisma.enrollment.upsert.mockResolvedValueOnce(createdEnrollment);
+
+    const result = await createEnrollment(teacherEnrollmentPayload);
+
+    expect(prisma.enrollment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          courseId_userId: {
+            courseId,
+            userId,
+          },
+        },
+        update: {
+          deletedAt: null,
+          roleInCourse: EnrollmentRole.teacher,
+        },
+        create: {
+          courseId,
+          userId,
+          roleInCourse: EnrollmentRole.teacher,
+        },
+      }),
+    );
+    expect(result).toBe(createdEnrollment);
   });
 
   it("rejects a teacher enrolled with the student course role", async () => {
