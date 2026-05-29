@@ -36,6 +36,37 @@ describe("courses.service.createCourse", () => {
     vi.clearAllMocks();
   });
 
+  it("creates a course when the owner is an active teacher", async () => {
+    const createdCourse = {
+      id: "22222222-2222-4222-8222-222222222222",
+      title: validCoursePayload.title,
+      description: null,
+      ownerId: validCoursePayload.ownerTeacherId,
+      scheduleJson: null,
+      createdAt: new Date("2026-05-29T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-29T00:00:00.000Z"),
+      deletedAt: null,
+    };
+    prisma.user.findFirst.mockResolvedValueOnce({
+      id: validCoursePayload.ownerTeacherId,
+      role: UserRole.teacher,
+      status: UserStatus.active,
+    });
+    prisma.course.create.mockResolvedValueOnce(createdCourse);
+
+    const result = await createCourse(validCoursePayload);
+
+    expect(prisma.course.create).toHaveBeenCalledWith({
+      data: {
+        title: validCoursePayload.title,
+        description: undefined,
+        ownerId: validCoursePayload.ownerTeacherId,
+        scheduleJson: undefined,
+      },
+    });
+    expect(result).toBe(createdCourse);
+  });
+
   it("rejects a student as the course owner", async () => {
     prisma.user.findFirst.mockResolvedValueOnce({
       id: validCoursePayload.ownerTeacherId,
