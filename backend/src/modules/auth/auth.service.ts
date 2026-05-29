@@ -6,6 +6,7 @@
 export type {
   AuthenticatedUser,
   AuthSessionResult,
+  RegisterAccountResult,
   SessionContext,
 } from "./auth.types.js";
 
