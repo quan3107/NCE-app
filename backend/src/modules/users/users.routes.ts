@@ -8,7 +8,14 @@ import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
-import { getUser, getUsers, postUser } from "./users.controller.js";
+import {
+  getUser,
+  getUsers,
+  postTeacherApproval,
+  postTeacherRejection,
+  postUser,
+  postUserInvite,
+} from "./users.controller.js";
 
 export const userRouter = Router();
 
@@ -17,4 +24,7 @@ userRouter.use(roleGuard([UserRole.admin]));
 
 userRouter.get("/", getUsers);
 userRouter.post("/", postUser);
+userRouter.post("/invite", postUserInvite);
+userRouter.post("/:userId/approve-teacher", postTeacherApproval);
+userRouter.post("/:userId/reject-teacher", postTeacherRejection);
 userRouter.get("/:userId", getUser);

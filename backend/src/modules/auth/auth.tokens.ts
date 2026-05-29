@@ -10,10 +10,12 @@ import { generateKeyPairSync } from "node:crypto";
 import jwt from "jsonwebtoken";
 
 import { config } from "../../config/env.js";
+import type { UserRole, UserStatus } from "../../prisma/index.js";
 
 type AccessTokenClaims = {
   sub: string;
-  role: string;
+  role: UserRole;
+  status: UserStatus;
   iat: number;
   exp: number;
   iss: string;
@@ -29,10 +31,11 @@ const { privateKey, publicKey } = loadJwtKeys();
 
 export function signAccessToken(payload: {
   userId: string;
-  role: string;
+  role: UserRole;
+  status: UserStatus;
 }): string {
   return jwt.sign(
-    { role: payload.role },
+    { role: payload.role, status: payload.status },
     privateKey,
     {
       algorithm: "RS256",

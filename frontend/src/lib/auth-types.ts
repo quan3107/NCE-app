@@ -29,7 +29,16 @@ export type AuthSuccessResponse = {
   accessToken: string;
 };
 
+export type AuthPendingApprovalResponse = {
+  status: 'pending_approval';
+  message: string;
+  user: BackendAuthUser & {
+    status: 'pending';
+  };
+};
+
 export type RegisterRole = Exclude<SupportedRole, 'admin'>;
+export type RegisterResult = 'live' | 'pending_approval';
 
 export type RegisterPayload = {
   fullName: string;
@@ -61,7 +70,7 @@ export type AuthContextType = {
   actingRole: Role | null;
   isImpersonating: boolean;
   login: (email: string, password: string) => Promise<AuthMode | null>;
-  register: (payload: RegisterPayload) => Promise<'live'>;
+  register: (payload: RegisterPayload) => Promise<RegisterResult>;
   loginWithGoogle: () => Promise<void>;
   completeGoogleLogin: () => Promise<'live'>;
   restoreLiveSession: () => Promise<boolean>;

@@ -11,7 +11,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { UserRole } from "../../../src/prisma/index.js";
+import { UserRole, UserStatus } from "../../../src/prisma/index.js";
 import {
   bcrypt,
   bcryptCompareMock,
@@ -29,7 +29,10 @@ import {
   randomBytesMock,
   REFRESH_TOKEN_TTL_MS,
   resetAuthServiceMocks,
+  signAccessToken,
 } from "./auth.service.test-utils.js";
+
+const VALID_AUTH_INPUT = "valid-login-input";
 
 describe("auth.service", () => {
   beforeEach(() => {
@@ -43,7 +46,7 @@ describe("auth.service", () => {
     vi.clearAllMocks();
   });
 
-  it("registers a new user and returns auth tokens", async () => {
+  it("registers public teachers in a pending state", async () => {
     prisma.user.findFirst.mockResolvedValueOnce(null);
     bcryptHashMock.mockResolvedValueOnce("hashed-password");
     prisma.user.create.mockResolvedValueOnce(
@@ -52,31 +55,28 @@ describe("auth.service", () => {
         email: "new.user@example.com",
         fullName: "New User",
         role: UserRole.teacher,
+        status: UserStatus.pending,
       }),
     );
-    prisma.authSession.create.mockResolvedValueOnce(
-      buildAuthSession({ id: "session-register", userId: "user-1" }),
-    );
-    randomBytesMock.mockReturnValueOnce(Buffer.alloc(48, 3));
 
     const result = await handleRegisterAccount(
       {
         fullName: "  New User  ",
         email: "New.User@example.com",
-        password: "Passw0rd!",
+        password: VALID_AUTH_INPUT,
         role: "teacher",
       },
       { ipAddress: "192.168.0.2", userAgent: "vitest-register" },
     );
 
-    expect(bcrypt.hash).toHaveBeenCalledWith("Passw0rd!", 12);
+    expect(bcrypt.hash).toHaveBeenCalledWith(VALID_AUTH_INPUT, 12);
     expect(prisma.user.create).toHaveBeenCalledWith({
       data: {
         email: "new.user@example.com",
         fullName: "New User",
         password: "hashed-password",
         role: "teacher",
-        status: "active",
+        status: "pending",
       },
       select: {
         id: true,
@@ -92,15 +92,76 @@ describe("auth.service", () => {
       email: "new.user@example.com",
       fullName: "New User",
       role: "teacher",
+      status: "pending",
     });
-    expect(result.accessToken).toBe("signed-access");
+    expect("status" in result ? result.status : null).toBe("pending_approval");
+    expect(randomBytesMock).not.toHaveBeenCalled();
+    expect(prisma.authSession.create).not.toHaveBeenCalled();
+    expect(signAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("registers public students and returns auth tokens", async () => {
+    prisma.user.findFirst.mockResolvedValueOnce(null);
+    bcryptHashMock.mockResolvedValueOnce("hashed-password");
+    prisma.user.create.mockResolvedValueOnce(
+      buildUser({
+        id: "student-1",
+        email: "new.student@example.com",
+        fullName: "New Student",
+        role: UserRole.student,
+        status: UserStatus.active,
+      }),
+    );
+    prisma.authSession.create.mockResolvedValueOnce(
+      buildAuthSession({ id: "session-register", userId: "student-1" }),
+    );
+    randomBytesMock.mockReturnValueOnce(Buffer.alloc(48, 3));
+
+    const result = await handleRegisterAccount(
+      {
+        fullName: "  New Student  ",
+        email: "New.Student@example.com",
+        password: VALID_AUTH_INPUT,
+        role: "student",
+      },
+      { ipAddress: "192.168.0.2", userAgent: "vitest-register" },
+    );
+
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: {
+        email: "new.student@example.com",
+        fullName: "New Student",
+        password: "hashed-password",
+        role: "student",
+        status: "active",
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        status: true,
+      },
+    });
+    expect(result).toMatchObject({
+      user: {
+        id: "student-1",
+        email: "new.student@example.com",
+        fullName: "New Student",
+        role: "student",
+      },
+      accessToken: "signed-access",
+    });
+    if ("status" in result) {
+      throw new Error("Student registration should authenticate immediately");
+    }
     expect(result.refreshToken).toBe(Buffer.alloc(48, 3).toString("base64url"));
     expect(result.refreshTokenExpiresAt.toISOString()).toBe(
       new Date(fixedDate.getTime() + REFRESH_TOKEN_TTL_MS).toISOString(),
     );
 
     const sessionArgs = prisma.authSession.create.mock.calls[0]?.[0];
-    expect(sessionArgs?.data.userId).toBe("user-1");
+    expect(sessionArgs?.data.userId).toBe("student-1");
     expect(sessionArgs?.data.userAgent).toBe("vitest-register");
     expect(sessionArgs?.data.ipHash).toBe(ipHash("192.168.0.2"));
   });
@@ -111,7 +172,7 @@ describe("auth.service", () => {
         {
           fullName: "Admin User",
           email: "admin@example.com",
-          password: "Passw0rd!",
+          password: VALID_AUTH_INPUT,
           role: "admin",
         },
         {},
@@ -133,7 +194,7 @@ describe("auth.service", () => {
         {
           fullName: "Existing User",
           email: "existing@example.com",
-          password: "Passw0rd!",
+          password: VALID_AUTH_INPUT,
           role: "teacher",
         },
         {},
@@ -162,7 +223,7 @@ describe("auth.service", () => {
     bcryptCompareMock.mockResolvedValueOnce(true);
 
     const result = await handlePasswordLogin(
-      { email: mockUser.email, password: "Passw0rd!" },
+      { email: mockUser.email, password: VALID_AUTH_INPUT },
       { ipAddress: "127.0.0.1", userAgent: "vitest" },
     );
 
@@ -264,7 +325,7 @@ describe("auth.service", () => {
 
     await expect(
       handlePasswordLogin(
-        { email: "alice@example.com", password: "Passw0rd!" },
+        { email: "alice@example.com", password: VALID_AUTH_INPUT },
         { ipAddress: "198.51.100.50" },
       ),
     ).resolves.toMatchObject({
@@ -305,7 +366,7 @@ describe("auth.service", () => {
 
     await expect(
       handlePasswordLogin(
-        { email: "alice@example.com", password: "Passw0rd!" },
+        { email: "alice@example.com", password: VALID_AUTH_INPUT },
         { ipAddress: "198.51.100.20" },
       ),
     ).resolves.toMatchObject({

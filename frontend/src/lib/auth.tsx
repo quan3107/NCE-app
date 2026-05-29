@@ -31,13 +31,21 @@ import {
 import { useAuthSession } from './auth-session';
 import type {
   AuthContextType,
+  AuthPendingApprovalResponse,
   AuthSuccessResponse,
   RegisterPayload,
+  RegisterResult,
 } from './auth-types';
 
 export type { RegisterPayload } from './auth-types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function isPendingApprovalResponse(
+  response: AuthSuccessResponse | AuthPendingApprovalResponse,
+): response is AuthPendingApprovalResponse {
+  return 'status' in response && response.status === 'pending_approval';
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const {
@@ -169,8 +177,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(
-    async (payload: RegisterPayload): Promise<'live'> => {
-      const result = await apiClient<AuthSuccessResponse>('/auth/register', {
+    async (payload: RegisterPayload): Promise<RegisterResult> => {
+      const result = await apiClient<
+        AuthSuccessResponse | AuthPendingApprovalResponse
+      >('/auth/register', {
         method: 'POST',
         withAuth: false,
         credentials: 'include',
@@ -181,6 +191,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: payload.role,
         },
       });
+      if (isPendingApprovalResponse(result)) {
+        return 'pending_approval';
+      }
       applyLiveSession(result);
       return 'live';
     },

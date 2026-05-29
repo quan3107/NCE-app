@@ -30,7 +30,7 @@ export function AdminCoursesPage() {
   });
 
   const teacherOptions = useMemo(
-    () => users.filter(user => user.role === 'teacher'),
+    () => users.filter(user => user.role === 'teacher' && user.status === 'active'),
     [users],
   );
 
