@@ -86,17 +86,23 @@ export function AuthRegister() {
     }
 
     try {
-      await register({
+      const result = await register({
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
         role: formData.role as RegisterRole,
       });
 
+      if (result === 'pending_approval') {
+        toast.success(
+          'Teacher account request submitted. Please wait for admin approval before signing in.',
+        );
+        navigate('/login');
+        return;
+      }
+
       toast.success('Account created successfully!');
-      const destination =
-        formData.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
-      navigate(destination);
+      navigate('/student/dashboard');
     } catch (error) {
       if (error instanceof ApiError) {
         toast.error(error.message || 'Registration failed. Please try again.');
