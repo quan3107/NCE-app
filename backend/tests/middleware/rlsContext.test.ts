@@ -56,6 +56,7 @@ describe("middleware.rlsContext", () => {
     expect(req.user).toEqual({
       id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
       role: "teacher",
+      status: "active",
     });
     expect(withRoleContextMock).toHaveBeenCalledWith(
       {
@@ -84,6 +85,28 @@ describe("middleware.rlsContext", () => {
       expect.any(Function),
     );
     expect(verifyAccessTokenMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to anonymous context for non-active actors", async () => {
+    const req = makeRequest("/courses", {
+      "x-user-id": "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+      "x-user-role": "teacher",
+      "x-user-status": "pending",
+    });
+    const next = vi.fn();
+
+    await rlsContext(req, {} as Response, next as NextFunction);
+
+    expect(req.user).toBeUndefined();
+    expect(withRoleContextMock).toHaveBeenCalledWith(
+      {
+        role: "anon",
+        userId: "",
+        userRole: "anon",
+      },
+      expect.any(Function),
+    );
     expect(next).toHaveBeenCalledTimes(1);
   });
 
