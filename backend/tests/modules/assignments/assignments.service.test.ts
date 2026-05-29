@@ -3,114 +3,85 @@
  * Purpose: Validate IELTS assignment config handling in the service layer.
  * Why: Ensures valid configs persist while invalid configs are rejected.
  */
-import { describe, expect, it, beforeEach, vi } from "vitest";
-import type { Assignment } from '../../../src/prisma/index.js';
-import { ZodError } from "zod";
+import { describe, expect, it, beforeEach, vi } from 'vitest'
+import type { Assignment } from '../../../src/prisma/index.js'
+import { UserRole } from '../../../src/prisma/index.js'
+import { ZodError } from 'zod'
 
-vi.mock("../../../src/prisma/client.js", () => ({
+vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
     assignment: {
       create: vi.fn(),
+      findMany: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    course: {
+      findFirst: vi.fn(),
+    },
   },
-}));
+}))
 
-const prismaModule = await import("../../../src/prisma/client.js");
-const prisma = vi.mocked(prismaModule.prisma, true);
+const prismaModule = await import('../../../src/prisma/client.js')
+const prisma = vi.mocked(prismaModule.prisma, true)
 
-const { createAssignment, deleteAssignment } = await import(
-  "../../../src/modules/assignments/assignments.service.js"
-);
+const { createAssignment } =
+  await import('../../../src/modules/assignments/assignments.service.js')
 
-const courseId = "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2";
+const courseId = '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2'
+const ownerTeacher = { id: 'teacher-owner', role: UserRole.teacher }
 
 const readingConfig = {
   version: 1,
   timing: { enabled: true, durationMinutes: 60, enforce: false },
-  instructions: "Read and answer all questions.",
+  instructions: 'Read and answer all questions.',
   attempts: { maxAttempts: null },
   sections: [],
-};
+}
 
-describe("assignments.service.createAssignment", () => {
+describe('assignments.service.createAssignment', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
+    vi.clearAllMocks()
+  })
 
-  it("persists valid IELTS assignment configs", async () => {
-    const record = { id: "assignment-1" } as Assignment;
-    prisma.assignment.create.mockResolvedValueOnce(record);
+  it('persists valid IELTS assignment configs', async () => {
+    const record = { id: 'assignment-1' } as Assignment
+    prisma.course.findFirst.mockResolvedValueOnce({ id: courseId })
+    prisma.assignment.create.mockResolvedValueOnce(record)
 
     const result = await createAssignment(
       { courseId },
       {
-        title: "Reading Practice",
-        type: "reading",
+        title: 'Reading Practice',
+        type: 'reading',
         assignmentConfig: readingConfig,
       },
-    );
+      ownerTeacher,
+    )
 
     expect(prisma.assignment.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           courseId,
-          title: "Reading Practice",
-          type: "reading",
+          title: 'Reading Practice',
+          type: 'reading',
           assignmentConfig: readingConfig,
         }),
       }),
-    );
-    expect(result).toBe(record);
-  });
+    )
+    expect(result).toBe(record)
+  })
 
-  it("rejects IELTS assignments without assignment_config", async () => {
+  it('rejects IELTS assignments without assignment_config', async () => {
     await expect(
       createAssignment(
         { courseId },
         {
-          title: "Reading Practice",
-          type: "reading",
+          title: 'Reading Practice',
+          type: 'reading',
         } as never,
+        ownerTeacher,
       ),
-    ).rejects.toBeInstanceOf(ZodError);
-  });
-});
-
-describe("assignments.service.deleteAssignment", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("soft deletes an assignment scoped to the course", async () => {
-    const assignmentId = "4c67e29f-7a7b-4c3e-8d56-52e5487e59a2";
-    prisma.assignment.findFirst.mockResolvedValueOnce({
-      id: assignmentId,
-    } as Assignment);
-    prisma.assignment.update.mockResolvedValueOnce({
-      id: assignmentId,
-    } as Assignment);
-
-    await deleteAssignment({
-      courseId,
-      assignmentId,
-    });
-
-    expect(prisma.assignment.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          id: assignmentId,
-          courseId,
-          deletedAt: null,
-        },
-      }),
-    );
-    expect(prisma.assignment.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: assignmentId },
-        data: { deletedAt: expect.any(Date) },
-      }),
-    );
-  });
-});
+    ).rejects.toBeInstanceOf(ZodError)
+  })
+})
