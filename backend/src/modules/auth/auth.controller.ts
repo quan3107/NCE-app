@@ -29,6 +29,16 @@ import {
   setGoogleCookie,
   setRefreshCookie,
 } from "./auth.cookies.js";
+import type {
+  PendingApprovalResult,
+  RegisterAccountResult,
+} from "./auth.types.js";
+
+function isPendingApprovalResult(
+  result: RegisterAccountResult,
+): result is PendingApprovalResult {
+  return "status" in result && result.status === "pending_approval";
+}
 
 export async function passwordLogin(
   req: Request,
@@ -54,6 +64,16 @@ export async function registerAccount(
     req.body,
     sessionContextFromRequest(req),
   );
+
+  if (isPendingApprovalResult(result)) {
+    clearRefreshCookie(res);
+    res.status(202).json({
+      status: result.status,
+      user: result.user,
+      message: "Account is pending administrator approval.",
+    });
+    return;
+  }
 
   setRefreshCookie(res, result.refreshToken);
   res.status(201).json({
