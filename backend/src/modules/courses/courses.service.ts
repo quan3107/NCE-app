@@ -3,7 +3,7 @@
  * Purpose: Implement course data workflows backed by Prisma.
  * Why: Encapsulates course-specific logic to keep controllers slim.
  */
-import { Prisma } from "../../prisma/index.js";
+import { Prisma, UserRole, UserStatus } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
@@ -42,13 +42,30 @@ export async function createCourse(payload: unknown) {
 
   const data = parseResult.data;
 
-  const owner = await prisma.user.findUnique({
-    where: { id: data.ownerTeacherId },
-    select: { id: true },
+  const owner = await prisma.user.findFirst({
+    where: {
+      id: data.ownerTeacherId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+    },
   });
 
   if (!owner) {
     throw createNotFoundError("Owner teacher", data.ownerTeacherId);
+  }
+
+  if (owner.role !== UserRole.teacher || owner.status !== UserStatus.active) {
+    throw createHttpError(409, "Course owner must be an active teacher.", {
+      code: "invalid_role_pairing",
+      expectedRole: UserRole.teacher,
+      actualRole: owner.role,
+      expectedStatus: UserStatus.active,
+      actualStatus: owner.status,
+    });
   }
 
   return prisma.course.create({
