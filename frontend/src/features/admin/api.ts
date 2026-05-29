@@ -83,11 +83,17 @@ type CreateCourseRequest = {
   schedule?: Record<string, unknown>;
 };
 
-const toUser = (user: ApiUser): User => ({
+export type AdminUser = Omit<User, 'role'> & {
+  role: UserRole;
+  status: UserStatus;
+};
+
+const toUser = (user: ApiUser): AdminUser => ({
   id: user.id,
   name: user.fullName,
   email: user.email,
   role: user.role,
+  status: user.status,
 });
 
 const toEnrollment = (enrollment: ApiEnrollment): AdminEnrollment => ({
@@ -112,7 +118,7 @@ const toAuditLog = (log: ApiAuditLog): AuditLog => {
   };
 };
 
-const fetchUsers = async (): Promise<User[]> => {
+const fetchUsers = async (): Promise<AdminUser[]> => {
   const response = await apiClient<ApiUser[]>('/api/v1/users');
   return response.map(toUser);
 };
@@ -132,6 +138,26 @@ const createUser = async (payload: CreateUserRequest): Promise<ApiUser> => {
     method: 'POST',
     body: payload,
   });
+};
+
+const approveTeacher = async (userId: string): Promise<AdminUser> => {
+  const response = await apiClient<ApiUser>(
+    `/api/v1/users/${userId}/approve-teacher`,
+    {
+      method: 'POST',
+    },
+  );
+  return toUser(response);
+};
+
+const rejectTeacher = async (userId: string): Promise<AdminUser> => {
+  const response = await apiClient<ApiUser>(
+    `/api/v1/users/${userId}/reject-teacher`,
+    {
+      method: 'POST',
+    },
+  );
+  return toUser(response);
 };
 
 const createEnrollment = async (
@@ -182,6 +208,26 @@ export function useCreateUserMutation() {
     mutationFn: createUser,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_USERS_KEY });
+    },
+  });
+}
+
+export function useApproveTeacherMutation() {
+  return useMutation({
+    mutationFn: approveTeacher,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_USERS_KEY });
+      queryClient.invalidateQueries({ queryKey: ADMIN_AUDIT_LOGS_KEY });
+    },
+  });
+}
+
+export function useRejectTeacherMutation() {
+  return useMutation({
+    mutationFn: rejectTeacher,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_USERS_KEY });
+      queryClient.invalidateQueries({ queryKey: ADMIN_AUDIT_LOGS_KEY });
     },
   });
 }
