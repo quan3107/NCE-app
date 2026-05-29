@@ -14,22 +14,56 @@ import { PageHeader } from '@components/common/PageHeader';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
 import { Label } from '@components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
-import { Plus, Search, Edit } from 'lucide-react';
+import { Check, Plus, Search, X } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { useAdminUsersQuery, useCreateUserMutation } from '@features/admin/api';
+import {
+  useAdminUsersQuery,
+  useApproveTeacherMutation,
+  useCreateUserMutation,
+  useRejectTeacherMutation,
+} from '@features/admin/api';
 import type { UserRole, UserStatus } from '@lib/backend-schema';
+
+const statusLabels: Record<UserStatus, string> = {
+  active: 'Active',
+  pending: 'Pending',
+  invited: 'Invited',
+  suspended: 'Suspended',
+};
+
+type UserFormState = {
+  fullName: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+};
+
+const initialFormState: UserFormState = {
+  fullName: '',
+  email: '',
+  role: 'student',
+  status: 'active',
+};
+
+function statusBadgeVariant(status: UserStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
+  if (status === 'active') {
+    return 'default';
+  }
+  if (status === 'suspended') {
+    return 'destructive';
+  }
+  return 'outline';
+}
 
 export function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [formState, setFormState] = useState({
-    fullName: '',
-    email: '',
-    role: 'student',
-    status: 'active',
-  });
+  const [transitioningUserId, setTransitioningUserId] = useState<string | null>(null);
+  const [formState, setFormState] = useState<UserFormState>(initialFormState);
   const { data: users = [], isLoading, error, refetch } = useAdminUsersQuery();
   const createUserMutation = useCreateUserMutation();
+  const approveTeacherMutation = useApproveTeacherMutation();
+  const rejectTeacherMutation = useRejectTeacherMutation();
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -37,6 +71,30 @@ export function AdminUsersPage() {
       user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query),
     );
   }, [users, searchQuery]);
+
+  const handleTeacherDecision = async (
+    userId: string,
+    decision: 'approve' | 'reject',
+  ) => {
+    setTransitioningUserId(userId);
+    try {
+      if (decision === 'approve') {
+        await approveTeacherMutation.mutateAsync(userId);
+        toast.success('Teacher approved.');
+      } else {
+        await rejectTeacherMutation.mutateAsync(userId);
+        toast.success('Teacher request rejected.');
+      }
+    } catch (errorValue) {
+      toast.error(
+        errorValue instanceof Error
+          ? errorValue.message
+          : 'Unable to update teacher request.',
+      );
+    } finally {
+      setTransitioningUserId(null);
+    }
+  };
 
   return (
     <div>
@@ -91,24 +149,56 @@ export function AdminUsersPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map(user => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize">{user.role}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
-                          <Edit className="size-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredUsers.map(user => {
+                    const canReviewTeacher =
+                      user.role === 'teacher' && user.status === 'pending';
+                    const isTransitioning = transitioningUserId === user.id;
+
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="capitalize">{user.role}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusBadgeVariant(user.status)}>
+                            {statusLabels[user.status]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canReviewTeacher ? (
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleTeacherDecision(user.id, 'approve')}
+                                disabled={isTransitioning}
+                              >
+                                <Check className="size-4" />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleTeacherDecision(user.id, 'reject')}
+                                disabled={isTransitioning}
+                              >
+                                <X className="size-4" />
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">None</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -148,7 +238,7 @@ export function AdminUsersPage() {
               <Select
                 value={formState.role}
                 onValueChange={(value) =>
-                  setFormState((current) => ({ ...current, role: value }))
+                  setFormState((current) => ({ ...current, role: value as UserRole }))
                 }
               >
                 <SelectTrigger>
@@ -166,7 +256,7 @@ export function AdminUsersPage() {
               <Select
                 value={formState.status}
                 onValueChange={(value) =>
-                  setFormState((current) => ({ ...current, status: value }))
+                  setFormState((current) => ({ ...current, status: value as UserStatus }))
                 }
               >
                 <SelectTrigger>
@@ -174,6 +264,7 @@ export function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="invited">Invited</SelectItem>
                   <SelectItem value="suspended">Suspended</SelectItem>
                 </SelectContent>
@@ -199,17 +290,12 @@ export function AdminUsersPage() {
                   await createUserMutation.mutateAsync({
                     fullName: formState.fullName.trim(),
                     email: formState.email.trim(),
-                    role: formState.role as UserRole,
-                    status: formState.status as UserStatus,
+                    role: formState.role,
+                    status: formState.status,
                   });
                   toast.success('User created.');
                   setShowCreateDialog(false);
-                  setFormState({
-                    fullName: '',
-                    email: '',
-                    role: 'student',
-                    status: 'active',
-                  });
+                  setFormState(initialFormState);
                 } catch (errorValue) {
                   toast.error(
                     errorValue instanceof Error ? errorValue.message : 'Unable to create user.',
