@@ -3,19 +3,80 @@
  * Purpose: Implement grading persistence and retrieval via Prisma.
  * Why: Keeps scoring routines decoupled from controllers.
  */
-import { NotificationChannel, Prisma } from "../../prisma/index.js";
+import {
+  EnrollmentRole,
+  NotificationChannel,
+  Prisma,
+  UserRole,
+} from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
-import { createNotFoundError } from "../../utils/httpError.js";
+import {
+  createHttpError,
+  createNotFoundError,
+} from "../../utils/httpError.js";
 import { enqueueNotification } from "../notifications/notifications.service.js";
 import {
   gradePayloadSchema,
   submissionScopedParamsSchema,
 } from "./grades.schema.js";
 
+type GradingActor = {
+  id: string;
+  role: UserRole;
+};
+
+type SubmissionForGrading = {
+  assignment: {
+    course: {
+      ownerId: string;
+      enrollments: Array<{
+        userId: string;
+        roleInCourse: EnrollmentRole;
+        deletedAt: Date | null;
+      }>;
+    } | null;
+  };
+};
+
+function assertCanGradeSubmission(
+  submission: SubmissionForGrading,
+  actor: GradingActor | undefined,
+): asserts actor is GradingActor {
+  if (!actor) {
+    throw createHttpError(401, "Authentication is required to grade.");
+  }
+
+  if (actor.role === UserRole.admin) {
+    return;
+  }
+
+  if (actor.role !== UserRole.teacher) {
+    throw createHttpError(403, "Only teachers and admins can grade.");
+  }
+
+  const course = submission.assignment.course;
+  const teachesCourse =
+    course?.ownerId === actor.id ||
+    course?.enrollments.some(
+      (enrollment) =>
+        enrollment.userId === actor.id &&
+        enrollment.roleInCourse === EnrollmentRole.teacher &&
+        enrollment.deletedAt === null,
+    );
+
+  if (!teachesCourse) {
+    throw createHttpError(
+      403,
+      "You do not have permission to grade this submission.",
+    );
+  }
+}
+
 export async function upsertGrade(
   params: unknown,
   payload: unknown,
+  actor?: GradingActor,
 ) {
   const { submissionId } = submissionScopedParamsSchema.parse(params);
   const data = gradePayloadSchema.parse(payload);
@@ -30,6 +91,21 @@ export async function upsertGrade(
           course: {
             select: {
               title: true,
+              ownerId: true,
+              enrollments: {
+                where: actor
+                  ? {
+                      userId: actor.id,
+                      roleInCourse: EnrollmentRole.teacher,
+                      deletedAt: null,
+                    }
+                  : undefined,
+                select: {
+                  userId: true,
+                  roleInCourse: true,
+                  deletedAt: true,
+                },
+              },
             },
           },
         },
@@ -44,6 +120,8 @@ export async function upsertGrade(
   if (!submission) {
     throw createNotFoundError("Submission", submissionId);
   }
+  assertCanGradeSubmission(submission, actor);
+
   // Cast arrays to Prisma JSON inputs because Zod cannot enforce JsonValue types.
   const rubricBreakdown = data.rubricBreakdown
     ? (data.rubricBreakdown as Prisma.InputJsonArray)
@@ -58,7 +136,7 @@ export async function upsertGrade(
       where: { submissionId },
       create: {
         submissionId,
-        graderId: data.graderId,
+        graderId: actor.id,
         rubricBreakdown,
         rawScore: data.rawScore,
         adjustments,
@@ -68,7 +146,7 @@ export async function upsertGrade(
         gradedAt,
       },
       update: {
-        graderId: data.graderId,
+        graderId: actor.id,
         rubricBreakdown,
         rawScore: data.rawScore,
         adjustments,
