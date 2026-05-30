@@ -115,7 +115,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       const response = await createSubmissionMutation.mutateAsync({
         assignmentId,
         payload: {
-          studentId: currentUser.id,
           payload: payloadRecord,
           submittedAt: new Date().toISOString(),
           status: dueDate < now ? 'late' : 'submitted',
