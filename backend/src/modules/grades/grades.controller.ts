@@ -8,7 +8,7 @@ import { type Request, type Response } from "express";
 import { getGrade, upsertGrade } from "./grades.service.js";
 
 export async function putGrade(req: Request, res: Response): Promise<void> {
-  const grade = await upsertGrade(req.params, req.body);
+  const grade = await upsertGrade(req.params, req.body, req.user);
   res.status(200).json(grade);
 }
 
