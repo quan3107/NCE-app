@@ -111,6 +111,31 @@ describe("grades.service.upsertGrade", () => {
     expect(grade).toEqual({ id: "grade-1" });
   });
 
+  it("loads grade targets only from active assignments and courses", async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce(buildSubmission() as never);
+
+    await upsertGrade(
+      { submissionId },
+      { finalScore: 7 },
+      { id: teacherId, role: UserRole.teacher },
+    );
+
+    expect(prisma.submission.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: submissionId,
+          deletedAt: null,
+          assignment: {
+            deletedAt: null,
+            course: {
+              deletedAt: null,
+            },
+          },
+        },
+      }),
+    );
+  });
+
   it("rejects client-supplied grader identity fields", () => {
     expect(() =>
       gradePayloadSchema.parse({
