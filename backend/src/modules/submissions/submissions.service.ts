@@ -65,13 +65,6 @@ export async function createSubmission(
     throw createHttpError(403, "Only students can submit assignments.");
   }
 
-  if (payload.studentId !== user.id) {
-    throw createHttpError(
-      403,
-      "Student ID must match the authenticated user.",
-    );
-  }
-
   const assignment = await prisma.assignment.findFirst({
     where: { id: assignmentId, deletedAt: null },
     select: {
@@ -106,7 +99,6 @@ export async function createSubmission(
     validatedPayload,
   }));
 
-  // Accept explicit studentId while preserving auth verification.
   // Cast validated payloads to Prisma JSON input for storage.
   const payloadJson = validatedPayload as Prisma.InputJsonObject;
 
@@ -114,7 +106,7 @@ export async function createSubmission(
     where: {
       assignmentId_studentId: {
         assignmentId,
-        studentId: payload.studentId,
+        studentId: user.id,
       },
     },
   });
@@ -172,7 +164,7 @@ export async function createSubmission(
           assignmentTitle: assignment.title,
           courseId: assignment.courseId,
           courseTitle: assignment.course?.title ?? "",
-          studentId: payload.studentId,
+          studentId: user.id,
           submissionId: updatedSubmission.id,
           status,
           submittedAt: updatedSubmission.submittedAt,
@@ -214,7 +206,7 @@ export async function createSubmission(
   const createdSubmission = await prisma.submission.create({
     data: {
       assignmentId,
-      studentId: payload.studentId,
+      studentId: user.id,
       status,
       submittedAt,
       payload: payloadWithVersion,
@@ -233,7 +225,7 @@ export async function createSubmission(
         assignmentTitle: assignment.title,
         courseId: assignment.courseId,
         courseTitle: assignment.course?.title ?? "",
-        studentId: payload.studentId,
+        studentId: user.id,
         submissionId: createdSubmission.id,
         status,
         submittedAt: createdSubmission.submittedAt,
