@@ -4,6 +4,7 @@
  * Why: Provides deterministic scoring for objective sections without manual grading.
  */
 import { prisma } from "../../prisma/client.js";
+import { UserRole } from "../../prisma/index.js";
 import { upsertGrade } from "../grades/grades.service.js";
 import {
   AUTO_SCORE_TYPES,
@@ -66,10 +67,10 @@ export async function autoScoreSubmission(
   return upsertGrade(
     { submissionId },
     {
-      graderId: submission.assignment.course.ownerId,
       rawScore: score.rawScore,
       finalScore: score.finalScore,
       band: score.band,
     },
+    { id: submission.assignment.course.ownerId, role: UserRole.teacher },
   );
 }
