@@ -81,7 +81,16 @@ export async function upsertGrade(
   const { submissionId } = submissionScopedParamsSchema.parse(params);
   const data = gradePayloadSchema.parse(payload);
   const submission = await prisma.submission.findFirst({
-    where: { id: submissionId, deletedAt: null },
+    where: {
+      id: submissionId,
+      deletedAt: null,
+      assignment: {
+        deletedAt: null,
+        course: {
+          deletedAt: null,
+        },
+      },
+    },
     include: {
       assignment: {
         select: {
