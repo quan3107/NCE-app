@@ -30,7 +30,6 @@ export const submissionQuerySchema = z
 
 export const createSubmissionSchema = z
   .object({
-    studentId: z.string().uuid(),
     payload: z.record(z.string(), z.unknown()),
     submittedAt: z.string().optional(),
     status: z.enum(["draft", "submitted", "late"]).optional(),
