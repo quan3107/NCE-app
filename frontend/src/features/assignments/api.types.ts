@@ -59,7 +59,6 @@ export type CreateAssignmentRequest = {
 export type UpdateAssignmentRequest = Partial<CreateAssignmentRequest>;
 
 export type CreateSubmissionRequest = {
-  studentId: string;
   payload: Record<string, unknown>;
   submittedAt?: string;
   status?: CreateSubmissionStatus;

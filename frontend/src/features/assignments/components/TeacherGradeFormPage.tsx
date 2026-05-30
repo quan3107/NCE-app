@@ -101,7 +101,6 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       await upsertGradeMutation.mutateAsync({
         submissionId,
         payload: {
-          graderId: currentUser.id,
           rubricBreakdown,
           rawScore,
           adjustments: adjustmentsList,

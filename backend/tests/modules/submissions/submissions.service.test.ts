@@ -54,6 +54,9 @@ const enqueueNotification = vi.mocked(
 const { createSubmission } = await import(
   "../../../src/modules/submissions/submissions.service.js"
 );
+const { createSubmissionSchema } = await import(
+  "../../../src/modules/submissions/submissions.schema.js"
+);
 
 const assignmentId = "4c67e29f-7a7b-4c3e-8d56-52e5487e59a1";
 const studentId = "b9a2031b-9eac-4c77-9f11-4e7fbf3b5c2b";
@@ -65,7 +68,7 @@ describe("submissions.service.createSubmission", () => {
     resolveNotificationTypeEnabledForUsers.mockResolvedValue(new Map());
   });
 
-  it("persists valid IELTS submission payloads", async () => {
+  it("persists valid IELTS submission payloads for the authenticated student", async () => {
     const assignmentRecord: Assignment = {
       id: assignmentId,
       courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
@@ -87,7 +90,6 @@ describe("submissions.service.createSubmission", () => {
     prisma.submission.create.mockResolvedValueOnce(record);
 
     const payload = {
-      studentId,
       payload: {
         version: 1,
         answers: [{ questionId: "q1", value: "A" }],
@@ -113,6 +115,18 @@ describe("submissions.service.createSubmission", () => {
       }),
     );
     expect(result).toBe(record);
+  });
+
+  it("rejects client-supplied student identity fields", () => {
+    expect(() =>
+      createSubmissionSchema.parse({
+        studentId: "b5eb3d3c-b13f-4b3b-a93f-910fbb2a3c13",
+        payload: {
+          version: 1,
+          answers: [{ questionId: "q1", value: "A" }],
+        },
+      }),
+    ).toThrow();
   });
 
   it("auto-submits when the time limit is exceeded", async () => {
@@ -150,7 +164,6 @@ describe("submissions.service.createSubmission", () => {
     prisma.submission.create.mockResolvedValueOnce(record);
 
     const payload = {
-      studentId,
       payload: {
         version: 1,
         startedAt: "2026-01-02T00:00:00.000Z",
@@ -205,7 +218,6 @@ describe("submissions.service.createSubmission", () => {
     } as Submission);
 
     const payload = {
-      studentId,
       payload: {
         version: 1,
         answers: [{ questionId: "q1", value: "A" }],
@@ -254,7 +266,6 @@ describe("submissions.service.createSubmission", () => {
     await createSubmission(
       { assignmentId },
       {
-        studentId,
         submittedAt: "2026-02-09T10:00:00.000Z",
         payload: { version: 1, answers: [] },
       },

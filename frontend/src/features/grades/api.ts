@@ -27,7 +27,6 @@ type ApiGrade = {
 };
 
 type UpsertGradeRequest = {
-  graderId: string;
   rubricBreakdown?: Array<{ criterion: string; points: number }>;
   rawScore?: number;
   adjustments?: Array<{ reason: string; delta: number }>;
