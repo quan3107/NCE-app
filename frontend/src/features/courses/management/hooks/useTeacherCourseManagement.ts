@@ -17,6 +17,7 @@ import {
 import type { CourseManagementData, RubricCriterion } from '../types';
 import {
   defaultRubric,
+  toCourseManagementPageError,
   toCourseRubricCriteria,
   toEnrolledStudent,
   toManagedAssignment,
@@ -162,12 +163,11 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
       studentsQuery.isLoading ||
       assignmentsQuery.isLoading ||
       courseDefaultRubricTemplateQuery.isLoading,
-    error:
-      courseQuery.error?.message ??
-      studentsQuery.error?.message ??
-      assignmentsQuery.error?.message ??
-      courseDefaultRubricTemplateQuery.error?.message ??
-      null,
+    error: toCourseManagementPageError({
+      courseError: courseQuery.error,
+      studentsError: studentsQuery.error,
+      assignmentsError: assignmentsQuery.error,
+    }),
     reload,
     details: data.details,
     detailsHandlers,
