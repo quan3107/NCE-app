@@ -4,7 +4,7 @@
  * Why: Keeps the main management view-model hook focused on data composition.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner@2.0.3';
 
 import {
@@ -24,6 +24,11 @@ type Refetchable = {
   refetch: () => Promise<unknown>;
 };
 
+export const shouldHydrateCourseDetails = (
+  hydratedCourseId: string | null,
+  nextCourseId: string,
+) => hydratedCourseId !== nextCourseId;
+
 export function useCourseDetailsActions(
   courseId: string,
   course: ManagedCourse | undefined,
@@ -37,13 +42,18 @@ export function useCourseDetailsActions(
   const [price, setPrice] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hydratedCourseIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setErrorMessage(null);
+    hydratedCourseIdRef.current = null;
   }, [courseId]);
 
   useEffect(() => {
     if (!course) {
+      return;
+    }
+    if (!shouldHydrateCourseDetails(hydratedCourseIdRef.current, course.id)) {
       return;
     }
 
@@ -53,6 +63,7 @@ export function useCourseDetailsActions(
     setDuration(course.duration ?? '');
     setLevel(course.level ?? '');
     setPrice(course.price !== null ? String(course.price) : '');
+    hydratedCourseIdRef.current = course.id;
   }, [course]);
 
   const save = useCallback(async () => {
