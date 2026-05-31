@@ -16,7 +16,7 @@ test('frontend test scripts use CI-expandable test globs', async () => {
   );
   assert.equal(
     packageJson.scripts?.['test:coverage'],
-    'c8 --reporter=text-summary --reporter=json-summary tsx --test tests/*.test.ts',
-    'frontend coverage script should use a glob that expands in the CI shell',
+    'node --import tsx --test --experimental-test-coverage tests/*.test.ts',
+    'frontend coverage script should use Node coverage with a glob that expands in the CI shell',
   );
 });

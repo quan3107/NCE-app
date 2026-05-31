@@ -101,6 +101,10 @@ paths:
     $ref: './paths/courses.yaml#/CourseStudents'
   /api/v1/courses/{courseId}/students/{studentId}:
     $ref: './paths/courses.yaml#/CourseStudentById'
+  /api/v1/courses/{courseId}/teachers:
+    $ref: './paths/courses.yaml#/CourseTeachers'
+  /api/v1/courses/{courseId}/teachers/{teacherId}:
+    $ref: './paths/courses.yaml#/CourseTeacherById'
 
   /api/v1/courses/{courseId}/assignments:
     $ref: './paths/assignments.yaml#/CourseAssignments'

@@ -10,14 +10,17 @@ import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
 import {
   deleteCourseStudent,
+  deleteCourseTeacher,
   getCourse,
   getCourses,
   getCourseStudents,
+  getCourseTeachers,
   patchCourse,
   postCourse,
   postCourseArchive,
   postCourseRestore,
   postCourseStudent,
+  postCourseTeacher,
 } from "./courses.controller.js";
 
 export const courseRouter = Router();
@@ -46,6 +49,24 @@ courseRouter.delete(
   authGuard,
   roleGuard([UserRole.admin, UserRole.teacher]),
   deleteCourseStudent,
+);
+courseRouter.get(
+  "/:courseId/teachers",
+  authGuard,
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  getCourseTeachers,
+);
+courseRouter.post(
+  "/:courseId/teachers",
+  authGuard,
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  postCourseTeacher,
+);
+courseRouter.delete(
+  "/:courseId/teachers/:teacherId",
+  authGuard,
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  deleteCourseTeacher,
 );
 courseRouter.post(
   "/:courseId/archive",

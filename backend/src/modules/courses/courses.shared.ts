@@ -24,6 +24,42 @@ export const canManageCourse = (ownerId: string, actor: CourseManager): boolean 
   actor.role === UserRole.admin ||
   (actor.role === UserRole.teacher && actor.id === ownerId)
 
+export type CourseAccessRole = 'admin' | 'owner' | 'coTeacher' | 'student' | 'none'
+
+export type CourseAccessEnrollment = {
+  userId: string
+  roleInCourse: EnrollmentRole
+  deletedAt?: Date | null
+}
+
+export function getCourseAccessRole(
+  ownerId: string,
+  enrollments: CourseAccessEnrollment[],
+  actor: CourseManager,
+): CourseAccessRole {
+  if (actor.role === UserRole.admin) {
+    return 'admin'
+  }
+
+  if (actor.role === UserRole.teacher && actor.id === ownerId) {
+    return 'owner'
+  }
+
+  const activeEnrollment = enrollments.find(
+    (enrollment) => enrollment.userId === actor.id && !enrollment.deletedAt,
+  )
+
+  if (actor.role === UserRole.teacher && activeEnrollment?.roleInCourse === EnrollmentRole.teacher) {
+    return 'coTeacher'
+  }
+
+  if (actor.role === UserRole.student && activeEnrollment?.roleInCourse === EnrollmentRole.student) {
+    return 'student'
+  }
+
+  return 'none'
+}
+
 export function courseAssignmentAccessWhere(
   actor: CourseManager,
   mode: 'read' | 'manage',

@@ -20,6 +20,11 @@ import {
   listStudentsForCourse,
   removeStudentFromCourse,
 } from "./courses.students.service.js";
+import {
+  addCoTeacherToCourse,
+  listCoTeachersForCourse,
+  removeCoTeacherFromCourse,
+} from "./courses.teachers.service.js";
 
 export async function getCourses(req: Request, res: Response): Promise<void> {
   const courses = await listCourses(req.user, req.query);
@@ -133,5 +138,50 @@ export async function deleteCourseStudent(
   }
 
   await removeStudentFromCourse(req.params, actor);
+  res.status(204).send();
+}
+
+export async function getCourseTeachers(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const payload = await listCoTeachersForCourse(req.params, actor);
+  res.status(200).json(payload);
+}
+
+export async function postCourseTeacher(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const teacher = await addCoTeacherToCourse(req.params, req.body, actor);
+  res.status(201).json(teacher);
+}
+
+export async function deleteCourseTeacher(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  await removeCoTeacherFromCourse(req.params, actor);
   res.status(204).send();
 }
