@@ -60,6 +60,7 @@ export async function getPendingAssignmentsCount(studentId: string): Promise<num
       publishedAt: { not: null },
       dueAt: { gt: now },
       course: {
+        deletedAt: null,
         enrollments: {
           some: {
             userId: studentId,
