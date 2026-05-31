@@ -96,13 +96,17 @@ Course:
     prerequisitesSummary:
       type: string
       nullable: true
+    archivedAt:
+      type: string
+      format: date-time
+      nullable: true
     createdAt:
       type: string
       format: date-time
     updatedAt:
       type: string
       format: date-time
-  required: [id, title, schedule, metadata, owner, metrics, createdAt, updatedAt]
+  required: [id, title, schedule, metadata, owner, metrics, archivedAt, createdAt, updatedAt]
 
 CourseListResponse:
   type: object
