@@ -64,9 +64,11 @@ export async function createSubmission(
   user?: { id: string; role: string },
 ) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
-  let submittedAt = parseSubmittedAt(payload.submittedAt);
+  const requestedSubmittedAt = parseSubmittedAt(payload.submittedAt);
   let status =
-    payload.status ?? (submittedAt ? "submitted" : "draft");
+    payload.status ?? (requestedSubmittedAt ? "submitted" : "draft");
+  let submittedAt =
+    status === "draft" ? requestedSubmittedAt : new Date();
   if (!user || user.role !== "student") {
     throw createHttpError(403, "Only students can submit assignments.");
   }
