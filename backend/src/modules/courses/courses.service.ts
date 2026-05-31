@@ -7,10 +7,56 @@ import { Prisma, UserRole, UserStatus } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
+import { canManageCourse } from "./courses.shared.js";
 import {
   courseIdParamsSchema,
   createCourseSchema,
+  updateCourseSchema,
 } from "./courses.schema.js";
+
+type CourseMutationActor = {
+  id: string;
+  role: UserRole;
+};
+
+const jsonInput = (
+  value: unknown,
+): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue =>
+  value === null
+    ? Prisma.JsonNull
+    : (value as Prisma.InputJsonValue);
+
+async function getCourseForMutation(
+  params: unknown,
+  actor: CourseMutationActor,
+  mode: "active" | "archived",
+) {
+  const { courseId } = courseIdParamsSchema.parse(params);
+  const course = await prisma.course.findFirst({
+    where: {
+      id: courseId,
+      deletedAt: mode === "active" ? null : { not: null },
+    },
+    select: {
+      id: true,
+      ownerId: true,
+      deletedAt: true,
+    },
+  });
+
+  if (!course) {
+    throw createNotFoundError("Course", courseId);
+  }
+
+  if (!canManageCourse(course.ownerId, actor)) {
+    throw createHttpError(
+      403,
+      "You do not have permission to manage this course",
+    );
+  }
+
+  return course;
+}
 
 export async function listCourses() {
   return prisma.course.findMany({
@@ -78,5 +124,71 @@ export async function createCourse(payload: unknown) {
         ? (data.schedule as Prisma.InputJsonObject)
         : undefined,
     },
+  });
+}
+
+export async function updateCourse(
+  params: unknown,
+  payload: unknown,
+  actor: CourseMutationActor,
+) {
+  const course = await getCourseForMutation(params, actor, "active");
+  const parseResult = updateCourseSchema.safeParse(payload);
+
+  if (!parseResult.success) {
+    throw createHttpError(400, "Invalid course update payload.", {
+      issues: parseResult.error.flatten(),
+    });
+  }
+
+  const data = parseResult.data;
+  const updateData: Prisma.CourseUpdateInput = {};
+
+  if ("title" in data) {
+    updateData.title = data.title;
+  }
+  if ("description" in data) {
+    updateData.description = data.description;
+  }
+  if ("learningOutcomes" in data) {
+    updateData.learningOutcomes = jsonInput(data.learningOutcomes);
+  }
+  if ("structureSummary" in data) {
+    updateData.structureSummary = data.structureSummary;
+  }
+  if ("prerequisitesSummary" in data) {
+    updateData.prerequisitesSummary = data.prerequisitesSummary;
+  }
+  if ("schedule" in data) {
+    updateData.scheduleJson = jsonInput(data.schedule);
+  }
+
+  return prisma.course.update({
+    where: { id: course.id },
+    data: updateData,
+  });
+}
+
+export async function archiveCourse(
+  params: unknown,
+  actor: CourseMutationActor,
+) {
+  const course = await getCourseForMutation(params, actor, "active");
+
+  return prisma.course.update({
+    where: { id: course.id },
+    data: { deletedAt: new Date() },
+  });
+}
+
+export async function restoreCourse(
+  params: unknown,
+  actor: CourseMutationActor,
+) {
+  const course = await getCourseForMutation(params, actor, "archived");
+
+  return prisma.course.update({
+    where: { id: course.id },
+    data: { deletedAt: null },
   });
 }
