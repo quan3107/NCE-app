@@ -10,6 +10,8 @@ import assert from 'node:assert/strict';
 type AddCourseStudent = typeof import('../src/features/courses/management/api').addCourseStudent;
 type ArchiveCourse = typeof import('../src/features/courses/management/api').archiveCourse;
 type CourseStudentsKey = typeof import('../src/features/courses/management/api').courseStudentsKey;
+type ShouldHydrateCourseDetails =
+  typeof import('../src/features/courses/management/hooks/useTeacherCourseActions').shouldHydrateCourseDetails;
 type RemoveCourseStudent =
   typeof import('../src/features/courses/management/api').removeCourseStudent;
 type RestoreCourse = typeof import('../src/features/courses/management/api').restoreCourse;
@@ -22,6 +24,7 @@ const API_BASE_URL = 'http://localhost:4000/api/v1';
 let addCourseStudent: AddCourseStudent;
 let archiveCourse: ArchiveCourse;
 let courseStudentsKey: CourseStudentsKey;
+let shouldHydrateCourseDetails: ShouldHydrateCourseDetails;
 let removeCourseStudent: RemoveCourseStudent;
 let restoreCourse: RestoreCourse;
 let updateCourseDetails: UpdateCourseDetails;
@@ -39,6 +42,11 @@ before(async () => {
   removeCourseStudent = apiModule.removeCourseStudent;
   restoreCourse = apiModule.restoreCourse;
   updateCourseDetails = apiModule.updateCourseDetails;
+
+  const courseActionsModule = await import(
+    '../src/features/courses/management/hooks/useTeacherCourseActions'
+  );
+  shouldHydrateCourseDetails = courseActionsModule.shouldHydrateCourseDetails;
 
   const queryClientModule = await import('../src/lib/queryClient');
   queryClient = queryClientModule.queryClient;
@@ -325,7 +333,7 @@ test('removeCourseStudent deletes enrollment, updates roster cache, and invalida
   }
 });
 
-test('archiveCourse and restoreCourse post to backend and invalidate course caches', async () => {
+test('archiveCourse posts to backend without invalidating active detail query', async () => {
   queryClient.clear();
   queryClient.setQueryData(['courses', 'detail', 'course-123'], { id: 'course-123' });
 
@@ -351,13 +359,50 @@ test('archiveCourse and restoreCourse post to backend and invalidate course cach
 
   try {
     await archiveCourse('course-123');
-    await restoreCourse('course-123');
 
     assert.deepEqual(requests, [
       {
         url: 'http://localhost:4000/api/v1/courses/course-123/archive',
         method: 'POST',
       },
+    ]);
+    assert.equal(
+      queryClient.getQueryState(['courses', 'detail', 'course-123'])?.isInvalidated,
+      false,
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('restoreCourse posts to backend and invalidates active detail query', async () => {
+  queryClient.clear();
+  queryClient.setQueryData(['courses', 'detail', 'course-123'], { id: 'course-123' });
+
+  const requests: Array<{ url: string; method?: string }> = [];
+  const restore = installCourseManagementFetchMock((url, init) => {
+    requests.push({ url, method: init?.method });
+    return new Response(
+      JSON.stringify({
+        id: 'course-123',
+        title: 'Course',
+        description: null,
+        ownerId: 'teacher-1',
+        createdAt: '2026-05-31T00:00:00.000Z',
+        updatedAt: '2026-05-31T00:00:00.000Z',
+        deletedAt: null,
+      }),
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      },
+    );
+  });
+
+  try {
+    await restoreCourse('course-123');
+
+    assert.deepEqual(requests, [
       {
         url: 'http://localhost:4000/api/v1/courses/course-123/restore',
         method: 'POST',
@@ -370,4 +415,10 @@ test('archiveCourse and restoreCourse post to backend and invalidate course cach
   } finally {
     restore();
   }
+});
+
+test('shouldHydrateCourseDetails only replaces form state once per course id', () => {
+  assert.equal(shouldHydrateCourseDetails(null, 'course-123'), true);
+  assert.equal(shouldHydrateCourseDetails('course-123', 'course-123'), false);
+  assert.equal(shouldHydrateCourseDetails('course-123', 'course-456'), true);
 });
