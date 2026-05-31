@@ -3,7 +3,7 @@
  * Purpose: Verify assignment eligibility and late-policy submission guards.
  * Why: Prevents students from submitting unavailable or closed assignment work.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Assignment, Enrollment, Submission } from "../../../src/prisma/index.js";
 
 vi.mock("../../../src/prisma/client.js", () => ({
@@ -79,6 +79,10 @@ async function submit(payload = {}) {
 }
 
 describe("submissions.service eligibility", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.assignment.findFirst.mockResolvedValue(buildAssignment());
@@ -114,6 +118,8 @@ describe("submissions.service eligibility", () => {
   });
 
   it("accepts on-time submissions before the due date", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T10:00:00.000Z"));
     prisma.assignment.findFirst.mockResolvedValueOnce(
       buildAssignment({ dueAt: new Date("2026-01-02T00:00:00.000Z") }),
     );
@@ -131,6 +137,8 @@ describe("submissions.service eligibility", () => {
   });
 
   it("marks late submissions when a v1 percent penalty policy allows late work", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-02T10:00:00.000Z"));
     prisma.assignment.findFirst.mockResolvedValueOnce(
       buildAssignment({
         dueAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -151,6 +159,8 @@ describe("submissions.service eligibility", () => {
   });
 
   it("marks late submissions when a v1 per-day penalty policy allows late work", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-02T10:00:00.000Z"));
     prisma.assignment.findFirst.mockResolvedValueOnce(
       buildAssignment({
         dueAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -171,6 +181,8 @@ describe("submissions.service eligibility", () => {
   });
 
   it("rejects late submissions when the policy is omitted", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-02T10:00:00.000Z"));
     prisma.assignment.findFirst.mockResolvedValueOnce(
       buildAssignment({
         dueAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -186,6 +198,8 @@ describe("submissions.service eligibility", () => {
   });
 
   it("rejects submitted work after the due date when the late policy is closed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-02T10:00:00.000Z"));
     prisma.assignment.findFirst.mockResolvedValueOnce(
       buildAssignment({
         dueAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -196,6 +210,23 @@ describe("submissions.service eligibility", () => {
     await expect(submit({ submittedAt: "2026-01-02T10:00:00.000Z" })).rejects.toMatchObject({
       statusCode: 409,
       details: { code: "submission_closed" },
+    });
+    expect(prisma.submission.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects backdated submittedAt after the due date when late work is disallowed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-02T10:00:00.000Z"));
+    prisma.assignment.findFirst.mockResolvedValueOnce(
+      buildAssignment({
+        dueAt: new Date("2026-01-01T00:00:00.000Z"),
+        latePolicy: null,
+      }),
+    );
+
+    await expect(submit({ submittedAt: "2025-12-31T10:00:00.000Z" })).rejects.toMatchObject({
+      statusCode: 409,
+      details: { code: "submission_late_disallowed" },
     });
     expect(prisma.submission.create).not.toHaveBeenCalled();
   });
@@ -212,7 +243,6 @@ describe("submissions.service eligibility", () => {
       details: { code: "submission_invalid_draft_transition" },
     });
     expect(prisma.submission.create).not.toHaveBeenCalled();
-    vi.useRealTimers();
   });
 
   it("rejects changing a submitted attempt back to draft", async () => {
