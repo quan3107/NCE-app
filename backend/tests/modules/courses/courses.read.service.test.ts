@@ -160,6 +160,7 @@ describe("courses.read.service.listCourses", () => {
           learningOutcomes: null,
           structureSummary: null,
           prerequisitesSummary: null,
+          archivedAt: null,
           schedule: {
             cadence: "weekly",
             startTime: "2025-10-15T11:00:00Z",
@@ -214,5 +215,6 @@ describe("courses.read.service.listCourses", () => {
     );
     expect(result.courses).toHaveLength(1);
     expect(result.courses[0]?.id).toBe("course-archived");
+    expect(result.courses[0]?.archivedAt).toBe(archivedAt.toISOString());
   });
 });
