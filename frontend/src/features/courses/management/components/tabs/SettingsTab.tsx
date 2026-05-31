@@ -6,20 +6,18 @@
 
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
-import { Input } from '@components/ui/input';
-import { Switch } from '@components/ui/switch';
-import { Edit } from 'lucide-react';
+import { Archive, RotateCcw } from 'lucide-react';
 
-import type { RubricHandlers } from '../../hooks/useTeacherCourseManagement';
-import type { RubricState } from '../../types';
+import type { CourseArchiveHandlers } from '../../hooks/useTeacherCourseManagement';
+import type { CourseArchiveState, RubricState } from '../../types';
 
 type SettingsTabProps = {
   rubric: RubricState;
-  handlers: RubricHandlers;
-  onEditRubric: () => void;
+  archive: CourseArchiveState;
+  archiveHandlers: CourseArchiveHandlers;
 };
 
-export function SettingsTab({ rubric, handlers, onEditRubric }: SettingsTabProps) {
+export function SettingsTab({ rubric, archive, archiveHandlers }: SettingsTabProps) {
   return (
     <div className="space-y-6">
       <Card>
@@ -29,75 +27,42 @@ export function SettingsTab({ rubric, handlers, onEditRubric }: SettingsTabProps
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
-            {rubric.criteria.map((criterion, index) => (
+            {rubric.criteria.map((criterion) => (
               <div key={criterion.name} className="flex items-center gap-4 p-3 rounded-lg border">
                 <div className="flex-1">
                   <p className="font-medium">{criterion.name}</p>
                   <p className="text-sm text-muted-foreground">{criterion.description}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    value={criterion.weight}
-                    onChange={(event) => handlers.updateWeight(index, parseInt(event.target.value, 10) || 0)}
-                    className="w-20 text-center"
-                  />
+                  <span className="font-medium tabular-nums">{criterion.weight}</span>
                   <span className="text-sm text-muted-foreground">%</span>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t">
+          <div className="pt-4 border-t">
             <p className="text-sm text-muted-foreground">Total: {rubric.totalWeight}%</p>
-            <Button onClick={onEditRubric}>
-              <Edit className="mr-2 size-4" />
-              Edit Rubric
-            </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Course Visibility</CardTitle>
-          <CardDescription>Control who can see and enroll in this course</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <VisibilityToggle
-            title="Published"
-            description="Make this course visible to students"
-            defaultChecked
-          />
-          <VisibilityToggle
-            title="Allow Self-Enrollment"
-            description="Students can enroll without invitation"
-          />
-          <VisibilityToggle
-            title="Email Notifications"
-            description="Send automatic updates to students"
-            defaultChecked
-          />
         </CardContent>
       </Card>
 
       <Card className="border-destructive/50">
         <CardHeader>
           <CardTitle className="text-destructive">Danger Zone</CardTitle>
-          <CardDescription>Irreversible actions for this course</CardDescription>
+          <CardDescription>Course lifecycle controls</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <DangerRow
-            title="Archive Course"
-            description="Hide from active courses list"
-            actionLabel="Archive"
-            variant="outline"
-          />
-          <DangerRow
-            title="Delete Course"
-            description="Permanently remove all data"
-            actionLabel="Delete"
-            variant="destructive"
+          {archive.errorMessage ? (
+            <p role="alert" className="text-sm text-destructive">
+              {archive.errorMessage}
+            </p>
+          ) : null}
+          <ArchiveRow
+            isArchived={archive.isArchived}
+            isMutating={archive.isMutating}
+            onArchive={archiveHandlers.archive}
+            onRestore={archiveHandlers.restore}
           />
         </CardContent>
       </Card>
@@ -105,39 +70,35 @@ export function SettingsTab({ rubric, handlers, onEditRubric }: SettingsTabProps
   );
 }
 
-type VisibilityToggleProps = {
-  title: string;
-  description: string;
-  defaultChecked?: boolean;
+type ArchiveRowProps = {
+  isArchived: boolean;
+  isMutating: boolean;
+  onArchive: () => Promise<void>;
+  onRestore: () => Promise<void>;
 };
 
-function VisibilityToggle({ title, description, defaultChecked }: VisibilityToggleProps) {
+function ArchiveRow({ isArchived, isMutating, onArchive, onRestore }: ArchiveRowProps) {
+  const Icon = isArchived ? RotateCcw : Archive;
+  const actionLabel = isArchived ? 'Restore' : 'Archive';
+
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="font-medium">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="font-medium">{isArchived ? 'Restore Course' : 'Archive Course'}</p>
+        <p className="text-sm text-muted-foreground">
+          {isArchived ? 'Return to active course lists' : 'Hide from active course lists'}
+        </p>
       </div>
-      <Switch defaultChecked={defaultChecked} />
-    </div>
-  );
-}
-
-type DangerRowProps = {
-  title: string;
-  description: string;
-  actionLabel: string;
-  variant: 'outline' | 'destructive';
-};
-
-function DangerRow({ title, description, actionLabel, variant }: DangerRowProps) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="font-medium">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <Button variant={variant}>{actionLabel}</Button>
+      <Button
+        variant="outline"
+        disabled={isMutating}
+        onClick={() => {
+          void (isArchived ? onRestore() : onArchive());
+        }}
+      >
+        <Icon className="mr-2 size-4" />
+        {isMutating ? 'Saving...' : actionLabel}
+      </Button>
     </div>
   );
 }

@@ -48,6 +48,7 @@ export type CourseDetailResponse = {
   metadata: CourseMetadataResponse;
   owner: CourseOwnerResponse;
   metrics: CourseMetricsResponse;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -92,6 +93,127 @@ export const fetchCourseStudents = (courseId: string): Promise<CourseStudentsRes
 export const fetchCourseAssignments = (courseId: string): Promise<CourseAssignmentResponse[]> =>
   apiClient<CourseAssignmentResponse[]>(`/api/v1/courses/${courseId}/assignments`);
 
+export type CourseMutationResponse = {
+  id: string;
+  title: string;
+  description: string | null;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type UpdateCourseDetailsPayload = {
+  title: string;
+  description: string;
+  schedule: string;
+  duration: string;
+  level: string;
+  price: string;
+};
+
+type UpdateCourseRequest = {
+  title: string;
+  description: string | null;
+  schedule: {
+    label: string | null;
+    duration: string | null;
+    level: string | null;
+    price: number | null;
+  };
+};
+
+const nullableText = (value: string): string | null => {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const nullablePrice = (value: string): number | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const invalidateCourseList = async () => {
+  await queryClient.invalidateQueries({ queryKey: ['courses', 'list'] });
+};
+
+const invalidateActiveCourseCaches = async (courseId: string) => {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['courses', 'detail', courseId] }),
+    queryClient.invalidateQueries({ queryKey: courseStudentsKey(courseId) }),
+    queryClient.invalidateQueries({ queryKey: courseAssignmentsKey(courseId) }),
+    invalidateCourseList(),
+  ]);
+};
+
+export const updateCourseDetails = async (
+  courseId: string,
+  payload: UpdateCourseDetailsPayload,
+): Promise<CourseMutationResponse> => {
+  const response = await apiClient<CourseMutationResponse, UpdateCourseRequest>(
+    `/api/v1/courses/${courseId}`,
+    {
+      method: 'PATCH',
+      body: {
+        title: payload.title.trim(),
+        description: nullableText(payload.description),
+        schedule: {
+          label: nullableText(payload.schedule),
+          duration: nullableText(payload.duration),
+          level: nullableText(payload.level),
+          price: nullablePrice(payload.price),
+        },
+      },
+    },
+  );
+
+  await invalidateActiveCourseCaches(courseId);
+  return response;
+};
+
+export const removeCourseStudent = async (
+  courseId: string,
+  studentId: string,
+): Promise<void> => {
+  await apiClient<void>(`/api/v1/courses/${courseId}/students/${studentId}`, {
+    method: 'DELETE',
+    parseJson: false,
+  });
+
+  queryClient.setQueryData<CourseStudentsResponse>(courseStudentsKey(courseId), (existing) => {
+    if (!existing) {
+      return existing;
+    }
+
+    return {
+      courseId: existing.courseId,
+      students: existing.students.filter((student) => student.id !== studentId),
+    };
+  });
+  await invalidateActiveCourseCaches(courseId);
+};
+
+export const archiveCourse = async (courseId: string): Promise<CourseMutationResponse> => {
+  const response = await apiClient<CourseMutationResponse>(`/api/v1/courses/${courseId}/archive`, {
+    method: 'POST',
+  });
+  await invalidateCourseList();
+  return response;
+};
+
+export const restoreCourse = async (courseId: string): Promise<CourseMutationResponse> => {
+  const response = await apiClient<CourseMutationResponse>(`/api/v1/courses/${courseId}/restore`, {
+    method: 'POST',
+  });
+  await invalidateActiveCourseCaches(courseId);
+  return response;
+};
+
 export type AddCourseStudentPayload = {
   email: string;
 };
@@ -122,6 +244,7 @@ export const addCourseStudent = async (
         new Date(a.enrolledAt).getTime() - new Date(b.enrolledAt).getTime(),
     ),
   });
+  await invalidateActiveCourseCaches(courseId);
 
   return student;
 };

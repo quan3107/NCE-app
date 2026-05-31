@@ -20,6 +20,24 @@ export const defaultRubric: RubricCriterion[] = [
   { name: 'Grammatical Range', weight: 25, description: 'Grammar variety and accuracy' },
 ];
 
+type CourseManagementPageErrorInput = {
+  courseError?: Error | null;
+  studentsError?: Error | null;
+  assignmentsError?: Error | null;
+};
+
+export const toCourseManagementPageError = ({
+  courseError,
+  studentsError,
+  assignmentsError,
+}: CourseManagementPageErrorInput): string | null =>
+  courseError?.message ?? studentsError?.message ?? assignmentsError?.message ?? null;
+
+const toRubricWeightPercent = (weight: number, shouldScaleFractionalWeights: boolean): number => {
+  const nextWeight = shouldScaleFractionalWeights ? weight * 100 : weight;
+  return Number(nextWeight.toFixed(2));
+};
+
 export const toCourseRubricCriteria = (
   criteria: Array<{
     name: string;
@@ -27,9 +45,11 @@ export const toCourseRubricCriteria = (
     description?: string;
   }>,
 ): RubricCriterion[] => {
+  const totalWeight = criteria.reduce((sum, item) => sum + item.weight, 0);
+  const shouldScaleFractionalWeights = totalWeight > 0 && totalWeight <= 1;
   const mapped = criteria.map((item) => ({
     name: item.name,
-    weight: item.weight,
+    weight: toRubricWeightPercent(item.weight, shouldScaleFractionalWeights),
     description: item.description ?? '',
   }));
 
@@ -47,6 +67,7 @@ export const toManagedCourse = (input: CourseDetailResponse): ManagedCourse => (
   teacherName: input.owner.fullName,
   teacherEmail: input.owner.email,
   teacherId: input.owner.id,
+  archivedAt: input.archivedAt ?? null,
   metrics: {
     ...input.metrics,
     completionRatePercent: Number.isFinite(input.metrics.completionRatePercent)
@@ -80,6 +101,20 @@ export const toAddStudentErrorMessage = (error: unknown): string => {
   }
 
   return 'Unable to add student right now';
+};
+
+export const toCourseMutationErrorMessage = (
+  error: unknown,
+  fallback: string,
+): string => {
+  if (error instanceof ApiError) {
+    if (error.status === 401 || error.status === 403) {
+      return 'You do not have permission to manage this course';
+    }
+    return error.message || fallback;
+  }
+
+  return fallback;
 };
 
 const toLatePolicy = (value: Record<string, unknown> | string | null): string => {

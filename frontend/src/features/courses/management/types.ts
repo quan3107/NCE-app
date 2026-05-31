@@ -18,6 +18,7 @@ export type ManagedCourse = {
   teacherName: string;
   teacherId: string;
   teacherEmail: string;
+  archivedAt: string | null;
   metrics: {
     activeStudentCount: number;
     invitedStudentCount: number;
@@ -49,6 +50,8 @@ export type CourseDetailsState = {
   duration: string;
   level: string;
   price: string;
+  isSaving: boolean;
+  errorMessage: string | null;
 };
 
 export type EnrollmentState = {
@@ -56,12 +59,8 @@ export type EnrollmentState = {
   newStudentEmail: string;
   isAddingStudent: boolean;
   addStudentError: string | null;
-};
-
-export type AnnouncementDraft = {
-  title: string;
-  message: string;
-  sendEmail: boolean;
+  removingStudentIds: string[];
+  removeStudentError: string | null;
 };
 
 export type RubricState = {
@@ -69,11 +68,17 @@ export type RubricState = {
   totalWeight: number;
 };
 
+export type CourseArchiveState = {
+  isArchived: boolean;
+  isMutating: boolean;
+  errorMessage: string | null;
+};
+
 export type CourseManagementData = {
   course?: ManagedCourse;
   details: CourseDetailsState;
   enrollment: EnrollmentState;
-  announcements: AnnouncementDraft;
   assignments: Assignment[];
   rubric: RubricState;
+  archive: CourseArchiveState;
 };

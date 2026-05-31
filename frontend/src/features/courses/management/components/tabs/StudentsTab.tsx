@@ -37,6 +37,11 @@ export function StudentsTab({ enrollment, handlers, onOpenAddStudent }: Students
           </div>
         </CardHeader>
         <CardContent>
+          {enrollment.removeStudentError ? (
+            <p role="alert" className="mb-4 text-sm text-destructive">
+              {enrollment.removeStudentError}
+            </p>
+          ) : null}
           {enrollment.students.length === 0 ? (
             <EmptyState onAddStudent={onOpenAddStudent} />
           ) : (
@@ -52,25 +57,12 @@ export function StudentsTab({ enrollment, handlers, onOpenAddStudent }: Students
               </TableHeader>
               <TableBody>
                 {enrollment.students.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell>{student.name}</TableCell>
-                    <TableCell>{student.email}</TableCell>
-                    <TableCell>
-                      {formatDate(new Date(student.enrolledAt), 'date')}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{formatStatus(student.status)}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handlers.removeStudent(student.id, student.name)}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <StudentRow
+                    key={student.id}
+                    student={student}
+                    isRemoving={enrollment.removingStudentIds.includes(student.id)}
+                    onRemove={handlers.removeStudent}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -78,6 +70,37 @@ export function StudentsTab({ enrollment, handlers, onOpenAddStudent }: Students
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+type StudentRowProps = {
+  student: EnrollmentState['students'][number];
+  isRemoving: boolean;
+  onRemove: (studentId: string, studentName: string) => Promise<void>;
+};
+
+function StudentRow({ student, isRemoving, onRemove }: StudentRowProps) {
+  return (
+    <TableRow>
+      <TableCell>{student.name}</TableCell>
+      <TableCell>{student.email}</TableCell>
+      <TableCell>{formatDate(new Date(student.enrolledAt), 'date')}</TableCell>
+      <TableCell>
+        <Badge variant="secondary">{formatStatus(student.status)}</Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isRemoving}
+          onClick={() => {
+            void onRemove(student.id, student.name);
+          }}
+        >
+          <Trash2 className="size-4 text-destructive" />
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }
 
