@@ -37,6 +37,7 @@ export type CourseWithRelations = {
   learningOutcomes?: unknown;
   structureSummary?: string | null;
   prerequisitesSummary?: string | null;
+  deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -56,6 +57,7 @@ export type PublicCourseRow = {
   learningOutcomes?: unknown;
   structureSummary?: string | null;
   prerequisitesSummary?: string | null;
+  archivedAt?: Date | string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 };
@@ -193,6 +195,7 @@ export const toCourseSummary = (
   learningOutcomes: course.learningOutcomes,
   structureSummary: course.structureSummary ?? null,
   prerequisitesSummary: course.prerequisitesSummary ?? null,
+  archivedAt: course.deletedAt ? course.deletedAt.toISOString() : null,
   createdAt: course.createdAt.toISOString(),
   updatedAt: course.updatedAt.toISOString(),
 });
@@ -213,6 +216,7 @@ export const toPublicCourseSummary = (
   learningOutcomes: course.learningOutcomes,
   structureSummary: course.structureSummary ?? null,
   prerequisitesSummary: course.prerequisitesSummary ?? null,
+  archivedAt: course.archivedAt ? toIsoString(course.archivedAt) : null,
   createdAt: toIsoString(course.createdAt),
   updatedAt: toIsoString(course.updatedAt),
 });
