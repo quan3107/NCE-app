@@ -5,12 +5,16 @@
  */
 import {
   EnrollmentRole,
+  Prisma,
   UserRole,
 } from "../../prisma/index.js";
 
 import { prisma } from "../../config/prismaClient.js";
 import { getCourseCompletionRatePercent } from "./courses.completion-rate.js";
-import { courseIdParamsSchema } from "./courses.schema.js";
+import {
+  courseIdParamsSchema,
+  courseListQuerySchema,
+} from "./courses.schema.js";
 import { canManageCourse, createHttpError } from "./courses.shared.js";
 import {
   type CourseWithRelations,
@@ -36,6 +40,7 @@ const teacherCanAccess = (
 
 export async function listCourses(
   actor?: CourseManager,
+  query?: unknown,
 ): Promise<CourseListResponse> {
   if (!actor) {
     const courses = await prisma.$queryRaw<PublicCourseRow[]>`
@@ -54,6 +59,7 @@ export async function listCourses(
         learning_outcomes as "learningOutcomes",
         structure_summary as "structureSummary",
         prerequisites_summary as "prerequisitesSummary",
+        null as "archivedAt",
         created_at as "createdAt",
         updated_at as "updatedAt"
       from public.courses_public
@@ -65,7 +71,13 @@ export async function listCourses(
     };
   }
 
-  const baseWhere = { deletedAt: null };
+  const filters = courseListQuerySchema.parse(query ?? {});
+  const baseWhere: Prisma.CourseWhereInput =
+    filters.status === "archived"
+      ? { deletedAt: { not: null } }
+      : filters.status === "all" || filters.includeArchived
+        ? {}
+        : { deletedAt: null };
   // Authenticated requests scope courses by role, while admins see everything.
   const where =
     !actor || actor.role === UserRole.admin
@@ -143,6 +155,7 @@ export async function listCourses(
       },
       createdAt: true,
       updatedAt: true,
+      deletedAt: true,
     },
     orderBy: {
       createdAt: "desc",
@@ -207,6 +220,7 @@ export async function getCourseById(
       },
       createdAt: true,
       updatedAt: true,
+      deletedAt: true,
     },
   });
 

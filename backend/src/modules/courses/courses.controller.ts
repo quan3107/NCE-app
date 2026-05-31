@@ -6,7 +6,10 @@
 import { type Request, type Response } from "express";
 
 import {
+  archiveCourse,
   createCourse,
+  restoreCourse,
+  updateCourse,
 } from "./courses.service.js";
 import {
   getCourseById,
@@ -19,7 +22,7 @@ import {
 } from "./courses.students.service.js";
 
 export async function getCourses(req: Request, res: Response): Promise<void> {
-  const courses = await listCourses(req.user);
+  const courses = await listCourses(req.user, req.query);
   res.status(200).json(courses);
 }
 
@@ -41,6 +44,51 @@ export async function postCourse(
 ): Promise<void> {
   const course = await createCourse(req.body);
   res.status(201).json(course);
+}
+
+export async function patchCourse(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const course = await updateCourse(req.params, req.body, actor);
+  res.status(200).json(course);
+}
+
+export async function postCourseArchive(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const course = await archiveCourse(req.params, actor);
+  res.status(200).json(course);
+}
+
+export async function postCourseRestore(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const course = await restoreCourse(req.params, actor);
+  res.status(200).json(course);
 }
 
 export async function getCourseStudents(

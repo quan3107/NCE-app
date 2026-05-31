@@ -12,6 +12,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
       create: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      update: vi.fn(),
     },
     user: {
       findFirst: vi.fn(),
@@ -25,10 +26,27 @@ const prisma = vi.mocked(prismaModule.prisma, true);
 const { createCourse } = await import(
   "../../../src/modules/courses/courses.service.js"
 );
+const { archiveCourse, restoreCourse, updateCourse } = await import(
+  "../../../src/modules/courses/courses.service.js"
+);
 
 const validCoursePayload = {
   title: "IELTS Writing Intensive",
   ownerTeacherId: "11111111-1111-4111-8111-111111111111",
+};
+const courseId = "22222222-2222-4222-8222-222222222222";
+const ownerId = validCoursePayload.ownerTeacherId;
+const adminActor = {
+  id: "33333333-3333-4333-8333-333333333333",
+  role: UserRole.admin,
+};
+const ownerActor = {
+  id: ownerId,
+  role: UserRole.teacher,
+};
+const studentActor = {
+  id: "44444444-4444-4444-8444-444444444444",
+  role: UserRole.student,
 };
 
 describe("courses.service.createCourse", () => {
@@ -105,5 +123,102 @@ describe("courses.service.createCourse", () => {
     });
 
     expect(prisma.course.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("courses.service course settings mutations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("allows the course owner to update editable course metadata", async () => {
+    const updatedCourse = {
+      id: courseId,
+      title: "Updated IELTS Writing",
+      description: "New cohort settings",
+      ownerId,
+      learningOutcomes: ["Write clearer task responses"],
+      structureSummary: "Two lessons per week",
+      prerequisitesSummary: "Band 5.5+",
+      scheduleJson: { cadence: "weekly" },
+      createdAt: new Date("2026-05-29T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-30T00:00:00.000Z"),
+      deletedAt: null,
+    };
+    prisma.course.findFirst.mockResolvedValueOnce({
+      id: courseId,
+      ownerId,
+      deletedAt: null,
+    });
+    prisma.course.update.mockResolvedValueOnce(updatedCourse);
+
+    const result = await updateCourse(
+      { courseId },
+      {
+        title: updatedCourse.title,
+        description: updatedCourse.description,
+        learningOutcomes: updatedCourse.learningOutcomes,
+        structureSummary: updatedCourse.structureSummary,
+        prerequisitesSummary: updatedCourse.prerequisitesSummary,
+        schedule: updatedCourse.scheduleJson,
+      },
+      ownerActor,
+    );
+
+    expect(prisma.course.update).toHaveBeenCalledWith({
+      where: { id: courseId },
+      data: {
+        title: updatedCourse.title,
+        description: updatedCourse.description,
+        learningOutcomes: updatedCourse.learningOutcomes,
+        structureSummary: updatedCourse.structureSummary,
+        prerequisitesSummary: updatedCourse.prerequisitesSummary,
+        scheduleJson: updatedCourse.scheduleJson,
+      },
+    });
+    expect(result).toBe(updatedCourse);
+  });
+
+  it("allows admins to archive and restore a course", async () => {
+    const archivedAt = new Date("2026-05-30T00:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(archivedAt);
+    prisma.course.findFirst
+      .mockResolvedValueOnce({ id: courseId, ownerId, deletedAt: null })
+      .mockResolvedValueOnce({ id: courseId, ownerId, deletedAt: archivedAt });
+    prisma.course.update
+      .mockResolvedValueOnce({ id: courseId, ownerId, deletedAt: archivedAt })
+      .mockResolvedValueOnce({ id: courseId, ownerId, deletedAt: null });
+
+    await archiveCourse({ courseId }, adminActor);
+    await restoreCourse({ courseId }, adminActor);
+
+    expect(prisma.course.update).toHaveBeenNthCalledWith(1, {
+      where: { id: courseId },
+      data: { deletedAt: archivedAt },
+    });
+    expect(prisma.course.update).toHaveBeenNthCalledWith(2, {
+      where: { id: courseId },
+      data: { deletedAt: null },
+    });
+
+    vi.useRealTimers();
+  });
+
+  it("rejects students mutating course settings", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce({
+      id: courseId,
+      ownerId,
+      deletedAt: null,
+    });
+
+    await expect(
+      updateCourse({ courseId }, { title: "Nope" }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "You do not have permission to manage this course",
+    });
+
+    expect(prisma.course.update).not.toHaveBeenCalled();
   });
 });

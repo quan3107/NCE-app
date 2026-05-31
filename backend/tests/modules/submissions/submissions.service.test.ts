@@ -17,6 +17,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
     },
     submission: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -52,7 +53,7 @@ const enqueueNotification = vi.mocked(
   true,
 );
 
-const { createSubmission } = await import(
+const { createSubmission, listSubmissions } = await import(
   "../../../src/modules/submissions/submissions.service.js"
 );
 const { createSubmissionSchema } = await import(
@@ -119,6 +120,45 @@ describe("submissions.service.createSubmission", () => {
       }),
     );
     expect(result).toBe(record);
+  });
+
+  it("does not create submissions for assignments in archived courses", async () => {
+    prisma.assignment.findFirst.mockImplementationOnce(async (args) =>
+      args?.where?.course?.deletedAt === null ? null : ({} as Assignment),
+    );
+
+    await expect(
+      createSubmission(
+        { assignmentId },
+        {
+          payload: {
+            version: 1,
+            answers: [{ questionId: "q1", value: "A" }],
+          },
+        },
+        { id: studentId, role: "student" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(prisma.submission.create).not.toHaveBeenCalled();
+  });
+
+  it("lists submissions only for assignments in active courses", async () => {
+    prisma.submission.findMany.mockResolvedValueOnce([]);
+
+    await listSubmissions({ assignmentId }, {}, { id: studentId, role: "student" });
+
+    expect(prisma.submission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          assignment: {
+            course: {
+              deletedAt: null,
+            },
+          },
+        }),
+      }),
+    );
   });
 
   it("rejects client-supplied student identity fields", () => {

@@ -6,6 +6,18 @@ Courses:
   get:
     tags: [courses]
     summary: List courses (public or scoped)
+    parameters:
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum: [active, archived, all]
+        description: Authenticated lists default to active courses; admins and scoped users can request archived or all visible courses.
+      - in: query
+        name: includeArchived
+        schema:
+          type: boolean
+        description: Authenticated shortcut for including archived courses alongside active courses.
     responses:
       '200':
         description: Courses
@@ -48,6 +60,12 @@ Courses:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Conflict
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
 
@@ -83,6 +101,133 @@ CourseById:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  patch:
+    tags: [courses]
+    summary: Update course settings (admin/owner teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/courses.yaml#/UpdateCourseRequest'
+    responses:
+      '200':
+        description: Course updated
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/CourseMutationResponse'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Course not found or archived
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseArchive:
+  post:
+    tags: [courses]
+    summary: Archive course (admin/owner teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course archived
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/CourseMutationResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Active course not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseRestore:
+  post:
+    tags: [courses]
+    summary: Restore archived course (admin/owner teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course restored
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/CourseMutationResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Archived course not found
         content:
           application/json:
             schema:

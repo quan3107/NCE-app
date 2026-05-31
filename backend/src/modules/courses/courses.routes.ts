@@ -13,7 +13,10 @@ import {
   getCourse,
   getCourses,
   getCourseStudents,
+  patchCourse,
   postCourse,
+  postCourseArchive,
+  postCourseRestore,
   postCourseStudent,
 } from "./courses.controller.js";
 
@@ -44,4 +47,22 @@ courseRouter.delete(
   roleGuard([UserRole.admin, UserRole.teacher]),
   deleteCourseStudent,
 );
+courseRouter.post(
+  "/:courseId/archive",
+  authGuard,
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  postCourseArchive,
+);
+courseRouter.post(
+  "/:courseId/restore",
+  authGuard,
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  postCourseRestore,
+);
 courseRouter.get("/:courseId", authGuard, getCourse);
+courseRouter.patch(
+  "/:courseId",
+  authGuard,
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  patchCourse,
+);
