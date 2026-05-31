@@ -5,29 +5,16 @@
  */
 
 import { Alert, AlertDescription } from '@components/ui/alert';
-import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
-import { Edit, Megaphone, Plus } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 
-type AnnouncementsTabProps = {
-  onCreateAnnouncement: () => void;
-};
-
-export function AnnouncementsTab({ onCreateAnnouncement }: AnnouncementsTabProps) {
+export function AnnouncementsTab() {
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Course Announcements</CardTitle>
-              <CardDescription>Communicate important updates to all students</CardDescription>
-            </div>
-            <Button onClick={onCreateAnnouncement}>
-              <Plus className="mr-2 size-4" />
-              New Announcement
-            </Button>
-          </div>
+          <CardTitle>Course Announcements</CardTitle>
+          <CardDescription>Communicate important updates to all students</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -59,15 +46,10 @@ function AnnouncementCard({ title, message, footer }: AnnouncementCardProps) {
     <Alert>
       <Megaphone className="size-4" />
       <AlertDescription>
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="font-medium mb-1">{title}</p>
-            <p className="text-sm text-muted-foreground">{message}</p>
-            <p className="text-xs text-muted-foreground mt-2">{footer}</p>
-          </div>
-          <Button variant="ghost" size="sm">
-            <Edit className="size-4" />
-          </Button>
+        <div>
+          <p className="font-medium mb-1">{title}</p>
+          <p className="text-sm text-muted-foreground">{message}</p>
+          <p className="text-xs text-muted-foreground mt-2">{footer}</p>
         </div>
       </AlertDescription>
     </Alert>
