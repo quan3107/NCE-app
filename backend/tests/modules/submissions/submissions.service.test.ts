@@ -12,6 +12,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
       findFirst: vi.fn(),
     },
     enrollment: {
+      findFirst: vi.fn(),
       findMany: vi.fn(),
     },
     submission: {
@@ -64,6 +65,9 @@ const studentId = "b9a2031b-9eac-4c77-9f11-4e7fbf3b5c2b";
 describe("submissions.service.createSubmission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.enrollment.findFirst.mockResolvedValue({
+      id: "a0c0fb2e-f9ef-4b4c-8c7e-69235fd247c8",
+    });
     prisma.enrollment.findMany.mockResolvedValue([]);
     resolveNotificationTypeEnabledForUsers.mockResolvedValue(new Map());
   });
@@ -78,7 +82,7 @@ describe("submissions.service.createSubmission", () => {
       dueAt: null,
       latePolicy: null,
       assignmentConfig: null,
-      publishedAt: null,
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -152,7 +156,7 @@ describe("submissions.service.createSubmission", () => {
         attempts: { maxAttempts: null },
         sections: [],
       },
-      publishedAt: null,
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -204,7 +208,7 @@ describe("submissions.service.createSubmission", () => {
         attempts: { maxAttempts: 1 },
         sections: [],
       },
-      publishedAt: null,
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -240,6 +244,9 @@ describe("submissions.service.createSubmission", () => {
       title: "Reading Practice",
       type: "reading",
       assignmentConfig: null,
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: new Date("2026-02-01T00:00:00.000Z"),
       course: {
         title: "IELTS Reading",
       },
