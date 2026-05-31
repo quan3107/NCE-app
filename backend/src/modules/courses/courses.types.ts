@@ -18,9 +18,16 @@ export type CourseStudent = {
   enrolledAt: string;
 };
 
+export type CourseTeacher = CourseStudent;
+
 export type CourseStudentsResponse = {
   courseId: string;
   students: CourseStudent[];
+};
+
+export type CourseTeachersResponse = {
+  courseId: string;
+  teachers: CourseTeacher[];
 };
 
 export type CourseMetrics = {
