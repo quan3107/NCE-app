@@ -13,6 +13,10 @@ export const courseStudentParamsSchema = courseIdParamsSchema.extend({
   studentId: z.string().uuid(),
 });
 
+export const courseTeacherParamsSchema = courseIdParamsSchema.extend({
+  teacherId: z.string().uuid(),
+});
+
 export const courseListQuerySchema = z.object({
   status: z.enum(["active", "archived", "all"]).optional(),
   includeArchived: z
@@ -42,5 +46,9 @@ export const updateCourseSchema = z
   });
 
 export const addCourseStudentSchema = z.object({
+  email: z.string().email(),
+});
+
+export const addCourseTeacherSchema = z.object({
   email: z.string().email(),
 });
