@@ -20,6 +20,24 @@ export const defaultRubric: RubricCriterion[] = [
   { name: 'Grammatical Range', weight: 25, description: 'Grammar variety and accuracy' },
 ];
 
+type CourseManagementPageErrorInput = {
+  courseError?: Error | null;
+  studentsError?: Error | null;
+  assignmentsError?: Error | null;
+};
+
+export const toCourseManagementPageError = ({
+  courseError,
+  studentsError,
+  assignmentsError,
+}: CourseManagementPageErrorInput): string | null =>
+  courseError?.message ?? studentsError?.message ?? assignmentsError?.message ?? null;
+
+const toRubricWeightPercent = (weight: number, shouldScaleFractionalWeights: boolean): number => {
+  const nextWeight = shouldScaleFractionalWeights ? weight * 100 : weight;
+  return Number(nextWeight.toFixed(2));
+};
+
 export const toCourseRubricCriteria = (
   criteria: Array<{
     name: string;
@@ -27,9 +45,11 @@ export const toCourseRubricCriteria = (
     description?: string;
   }>,
 ): RubricCriterion[] => {
+  const totalWeight = criteria.reduce((sum, item) => sum + item.weight, 0);
+  const shouldScaleFractionalWeights = totalWeight > 0 && totalWeight <= 1;
   const mapped = criteria.map((item) => ({
     name: item.name,
-    weight: item.weight,
+    weight: toRubricWeightPercent(item.weight, shouldScaleFractionalWeights),
     description: item.description ?? '',
   }));
 
