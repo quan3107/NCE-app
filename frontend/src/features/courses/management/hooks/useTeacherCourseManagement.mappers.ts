@@ -47,6 +47,7 @@ export const toManagedCourse = (input: CourseDetailResponse): ManagedCourse => (
   teacherName: input.owner.fullName,
   teacherEmail: input.owner.email,
   teacherId: input.owner.id,
+  archivedAt: input.archivedAt ?? null,
   metrics: {
     ...input.metrics,
     completionRatePercent: Number.isFinite(input.metrics.completionRatePercent)
@@ -80,6 +81,20 @@ export const toAddStudentErrorMessage = (error: unknown): string => {
   }
 
   return 'Unable to add student right now';
+};
+
+export const toCourseMutationErrorMessage = (
+  error: unknown,
+  fallback: string,
+): string => {
+  if (error instanceof ApiError) {
+    if (error.status === 401 || error.status === 403) {
+      return 'You do not have permission to manage this course';
+    }
+    return error.message || fallback;
+  }
+
+  return fallback;
 };
 
 const toLatePolicy = (value: Record<string, unknown> | string | null): string => {
