@@ -12,8 +12,6 @@ import { ArrowLeft } from 'lucide-react';
 import { useRouter } from '@lib/router';
 
 import { AddStudentDialog } from './components/dialogs/AddStudentDialog';
-import { AnnouncementDialog } from './components/dialogs/AnnouncementDialog';
-import { RubricDialog } from './components/dialogs/RubricDialog';
 import { AnnouncementsTab } from './components/tabs/AnnouncementsTab';
 import { DeadlinesTab } from './components/tabs/DeadlinesTab';
 import { OverviewTab } from './components/tabs/OverviewTab';
@@ -46,10 +44,9 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
     enrollment,
     enrollmentHandlers,
     assignments,
-    announcements,
-    announcementHandlers,
     rubric,
-    rubricHandlers,
+    archive,
+    archiveHandlers,
     dialogs,
   } = useTeacherCourseManagement(courseId);
 
@@ -190,7 +187,7 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
 
             {enabledTabIds.has('announcements') && (
               <TabsContent value="announcements">
-                <AnnouncementsTab onCreateAnnouncement={() => dialogs.setShowAnnouncement(true)} />
+                <AnnouncementsTab />
               </TabsContent>
             )}
 
@@ -198,8 +195,8 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
               <TabsContent value="settings">
                 <SettingsTab
                   rubric={rubric}
-                  handlers={rubricHandlers}
-                  onEditRubric={() => dialogs.setShowEditRubric(true)}
+                  archive={archive}
+                  archiveHandlers={archiveHandlers}
                 />
               </TabsContent>
             )}
@@ -215,25 +212,6 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
         isSubmitting={enrollment.isAddingStudent}
         errorMessage={enrollment.addStudentError}
         onSubmit={enrollmentHandlers.addStudent}
-      />
-
-      <AnnouncementDialog
-        open={dialogs.showAnnouncement}
-        onOpenChange={dialogs.setShowAnnouncement}
-        title={announcements.title}
-        message={announcements.message}
-        sendEmail={announcements.sendEmail}
-        onTitleChange={announcementHandlers.setTitle}
-        onMessageChange={announcementHandlers.setMessage}
-        onSendEmailChange={announcementHandlers.setSendEmail}
-        onSubmit={announcementHandlers.create}
-      />
-
-      <RubricDialog
-        open={dialogs.showEditRubric}
-        onOpenChange={dialogs.setShowEditRubric}
-        rubric={rubric}
-        handlers={rubricHandlers}
       />
     </div>
   );
