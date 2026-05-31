@@ -111,7 +111,7 @@ export function applyAssignmentSubmissionPolicy(input: {
     return { status: "draft", submittedAt: undefined };
   }
 
-  const effectiveSubmittedAt = input.submittedAt ?? now;
+  const effectiveSubmittedAt = now;
   if (!dueAt || effectiveSubmittedAt.getTime() <= dueAt.getTime()) {
     return { status: "submitted", submittedAt: effectiveSubmittedAt };
   }
