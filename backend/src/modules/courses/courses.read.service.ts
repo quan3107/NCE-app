@@ -59,6 +59,7 @@ export async function listCourses(
         learning_outcomes as "learningOutcomes",
         structure_summary as "structureSummary",
         prerequisites_summary as "prerequisitesSummary",
+        null as "archivedAt",
         created_at as "createdAt",
         updated_at as "updatedAt"
       from public.courses_public
@@ -154,6 +155,7 @@ export async function listCourses(
       },
       createdAt: true,
       updatedAt: true,
+      deletedAt: true,
     },
     orderBy: {
       createdAt: "desc",
@@ -218,6 +220,7 @@ export async function getCourseById(
       },
       createdAt: true,
       updatedAt: true,
+      deletedAt: true,
     },
   });
 
