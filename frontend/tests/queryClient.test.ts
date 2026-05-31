@@ -8,13 +8,23 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 type AddCourseStudent = typeof import('../src/features/courses/management/api').addCourseStudent;
+type ArchiveCourse = typeof import('../src/features/courses/management/api').archiveCourse;
 type CourseStudentsKey = typeof import('../src/features/courses/management/api').courseStudentsKey;
+type RemoveCourseStudent =
+  typeof import('../src/features/courses/management/api').removeCourseStudent;
+type RestoreCourse = typeof import('../src/features/courses/management/api').restoreCourse;
+type UpdateCourseDetails =
+  typeof import('../src/features/courses/management/api').updateCourseDetails;
 type QueryClientInstance = typeof import('../src/lib/queryClient').queryClient;
 
 const API_BASE_URL = 'http://localhost:4000/api/v1';
 
 let addCourseStudent: AddCourseStudent;
+let archiveCourse: ArchiveCourse;
 let courseStudentsKey: CourseStudentsKey;
+let removeCourseStudent: RemoveCourseStudent;
+let restoreCourse: RestoreCourse;
+let updateCourseDetails: UpdateCourseDetails;
 let queryClient: QueryClientInstance;
 
 before(async () => {
@@ -24,11 +34,50 @@ before(async () => {
 
   const apiModule = await import('../src/features/courses/management/api');
   addCourseStudent = apiModule.addCourseStudent;
+  archiveCourse = apiModule.archiveCourse;
   courseStudentsKey = apiModule.courseStudentsKey;
+  removeCourseStudent = apiModule.removeCourseStudent;
+  restoreCourse = apiModule.restoreCourse;
+  updateCourseDetails = apiModule.updateCourseDetails;
 
   const queryClientModule = await import('../src/lib/queryClient');
   queryClient = queryClientModule.queryClient;
 });
+
+function installCourseManagementFetchMock(
+  handler: (input: string, init?: RequestInit) => Response | Promise<Response>,
+) {
+  const originalFetch = globalThis.fetch;
+  const originalLocalStorage = (globalThis as Record<string, unknown>).localStorage;
+
+  const storageMock: Storage = {
+    get length() {
+      return 0;
+    },
+    clear: () => undefined,
+    getItem: () => null,
+    key: () => null,
+    removeItem: () => undefined,
+    setItem: () => undefined,
+  };
+
+  (globalThis as typeof globalThis & { localStorage: Storage }).localStorage = storageMock;
+  (globalThis as typeof globalThis & { fetch: typeof fetch }).fetch = async (input, init) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    return handler(url, init);
+  };
+
+  return () => {
+    (globalThis as typeof globalThis & { fetch: typeof fetch }).fetch = originalFetch;
+
+    if (originalLocalStorage === undefined) {
+      delete (globalThis as Record<string, unknown>).localStorage;
+    } else {
+      (globalThis as typeof globalThis & { localStorage: Storage }).localStorage =
+        originalLocalStorage as Storage;
+    }
+  };
+}
 
 test('caches fetch results until invalidated', async () => {
   queryClient.clear();
@@ -163,5 +212,162 @@ test('addCourseStudent posts to backend and updates roster cache', async () => {
       (globalThis as typeof globalThis & { localStorage: Storage }).localStorage =
         originalLocalStorage as Storage;
     }
+  }
+});
+
+test('updateCourseDetails patches editable course fields and invalidates course caches', async () => {
+  queryClient.clear();
+  queryClient.setQueryData(['courses', 'list'], [{ id: 'course-123' }]);
+  queryClient.setQueryData(['courses', 'detail', 'course-123'], { id: 'course-123' });
+
+  let capturedUrl: string | null = null;
+  let capturedInit: RequestInit | undefined;
+
+  const restore = installCourseManagementFetchMock((url, init) => {
+    capturedUrl = url;
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        id: 'course-123',
+        title: 'Updated IELTS',
+        description: null,
+        ownerId: 'teacher-1',
+        createdAt: '2026-05-31T00:00:00.000Z',
+        updatedAt: '2026-05-31T00:00:00.000Z',
+        deletedAt: null,
+      }),
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      },
+    );
+  });
+
+  try {
+    await updateCourseDetails('course-123', {
+      title: ' Updated IELTS ',
+      description: '   ',
+      schedule: ' Tuesdays ',
+      duration: '8 weeks',
+      level: 'Advanced',
+      price: '299',
+    });
+
+    assert.equal(capturedUrl, 'http://localhost:4000/api/v1/courses/course-123');
+    assert.equal(capturedInit?.method, 'PATCH');
+    assert.equal(
+      capturedInit?.body,
+      JSON.stringify({
+        title: 'Updated IELTS',
+        description: null,
+        schedule: {
+          label: 'Tuesdays',
+          duration: '8 weeks',
+          level: 'Advanced',
+          price: 299,
+        },
+      }),
+    );
+    assert.equal(queryClient.getQueryState(['courses', 'list'])?.isInvalidated, true);
+    assert.equal(
+      queryClient.getQueryState(['courses', 'detail', 'course-123'])?.isInvalidated,
+      true,
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('removeCourseStudent deletes enrollment, updates roster cache, and invalidates course caches', async () => {
+  queryClient.clear();
+  queryClient.setQueryData(courseStudentsKey('course-123'), {
+    courseId: 'course-123',
+    students: [
+      { id: 'student-1', fullName: 'Kept', email: 'kept@example.com' },
+      { id: 'student-2', fullName: 'Removed', email: 'removed@example.com' },
+    ],
+  });
+
+  let capturedUrl: string | null = null;
+  let capturedInit: RequestInit | undefined;
+
+  const restore = installCourseManagementFetchMock((url, init) => {
+    capturedUrl = url;
+    capturedInit = init;
+    return new Response(null, { status: 204 });
+  });
+
+  try {
+    await removeCourseStudent('course-123', 'student-2');
+
+    assert.equal(
+      capturedUrl,
+      'http://localhost:4000/api/v1/courses/course-123/students/student-2',
+    );
+    assert.equal(capturedInit?.method, 'DELETE');
+
+    const cached = queryClient.getQueryData<{
+      courseId: string;
+      students: Array<{ id: string }>;
+    }>(courseStudentsKey('course-123'));
+
+    assert.deepEqual(
+      cached?.students.map((student) => student.id),
+      ['student-1'],
+    );
+    assert.equal(
+      queryClient.getQueryState(courseStudentsKey('course-123'))?.isInvalidated,
+      true,
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('archiveCourse and restoreCourse post to backend and invalidate course caches', async () => {
+  queryClient.clear();
+  queryClient.setQueryData(['courses', 'detail', 'course-123'], { id: 'course-123' });
+
+  const requests: Array<{ url: string; method?: string }> = [];
+  const restore = installCourseManagementFetchMock((url, init) => {
+    requests.push({ url, method: init?.method });
+    return new Response(
+      JSON.stringify({
+        id: 'course-123',
+        title: 'Course',
+        description: null,
+        ownerId: 'teacher-1',
+        createdAt: '2026-05-31T00:00:00.000Z',
+        updatedAt: '2026-05-31T00:00:00.000Z',
+        deletedAt: null,
+      }),
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      },
+    );
+  });
+
+  try {
+    await archiveCourse('course-123');
+    await restoreCourse('course-123');
+
+    assert.deepEqual(requests, [
+      {
+        url: 'http://localhost:4000/api/v1/courses/course-123/archive',
+        method: 'POST',
+      },
+      {
+        url: 'http://localhost:4000/api/v1/courses/course-123/restore',
+        method: 'POST',
+      },
+    ]);
+    assert.equal(
+      queryClient.getQueryState(['courses', 'detail', 'course-123'])?.isInvalidated,
+      true,
+    );
+  } finally {
+    restore();
   }
 });
