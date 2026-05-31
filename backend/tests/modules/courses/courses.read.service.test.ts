@@ -188,4 +188,31 @@ describe("courses.read.service.listCourses", () => {
       ],
     });
   });
+
+  it("lists archived courses only when explicitly requested", async () => {
+    const archivedAt = new Date("2026-05-30T00:00:00.000Z");
+    const course = buildCourse({
+      id: "course-archived",
+      deletedAt: archivedAt,
+      title: "Archived Course",
+    });
+
+    prisma.course.findMany.mockResolvedValueOnce([course]);
+
+    const result = await listCourses(
+      {
+        id: "admin-1",
+        role: UserRole.admin,
+      },
+      { status: "archived" },
+    );
+
+    expect(prisma.course.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { deletedAt: { not: null } },
+      }),
+    );
+    expect(result.courses).toHaveLength(1);
+    expect(result.courses[0]?.id).toBe("course-archived");
+  });
 });
