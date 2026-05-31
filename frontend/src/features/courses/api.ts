@@ -52,6 +52,7 @@ type CourseSummaryResponse = {
   learningOutcomes?: unknown;
   structureSummary?: string | null;
   prerequisitesSummary?: string | null;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
