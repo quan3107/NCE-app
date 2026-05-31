@@ -23,9 +23,7 @@ Assignment:
       format: date-time
       nullable: true
     latePolicy:
-      type: object
-      additionalProperties: true
-      nullable: true
+      $ref: '#/NullableLatePolicy'
     assignmentConfig:
       nullable: true
       description: IELTS assignment configuration payload (shape depends on assignment type).
@@ -61,8 +59,7 @@ CreateAssignmentRequest:
     dueAt:
       type: string
     latePolicy:
-      type: object
-      additionalProperties: true
+      $ref: '#/LatePolicy'
     assignmentConfig:
       description: IELTS assignment configuration payload (shape depends on assignment type).
       anyOf:
@@ -85,8 +82,7 @@ UpdateAssignmentRequest:
     dueAt:
       type: string
     latePolicy:
-      type: object
-      additionalProperties: true
+      $ref: '#/LatePolicy'
     assignmentConfig:
       description: IELTS assignment configuration payload (shape depends on assignment type).
       anyOf:
@@ -95,6 +91,55 @@ UpdateAssignmentRequest:
           additionalProperties: true
     publishedAt:
       type: string
+
+LatePolicy:
+  type: object
+  oneOf:
+    - $ref: '#/ClosedLatePolicy'
+    - $ref: '#/PercentLatePolicy'
+    - $ref: '#/PerDayLatePolicy'
+
+NullableLatePolicy:
+  type: object
+  nullable: true
+  oneOf:
+    - $ref: '#/ClosedLatePolicy'
+    - $ref: '#/PercentLatePolicy'
+    - $ref: '#/PerDayLatePolicy'
+
+ClosedLatePolicy:
+  type: object
+  properties:
+    type:
+      type: string
+      enum: [closed, none, no_late]
+  required: [type]
+  additionalProperties: false
+
+PercentLatePolicy:
+  type: object
+  properties:
+    type:
+      type: string
+      enum: [percent, percent_penalty]
+    value:
+      type: number
+      minimum: 0
+      maximum: 100
+  required: [type, value]
+  additionalProperties: false
+
+PerDayLatePolicy:
+  type: object
+  properties:
+    type:
+      type: string
+      enum: [per_day, per_day_penalty]
+    value:
+      type: number
+      minimum: 0
+  required: [type, value]
+  additionalProperties: false
 
 IeltsAssignmentConfig:
   oneOf:

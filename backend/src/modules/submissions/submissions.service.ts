@@ -25,6 +25,12 @@ import {
 import { autoScoreSubmission } from "../scoring/ieltsScoring.service.js";
 import { enqueueTeacherSubmissionNotifications } from "./submissions.notifications.js";
 import {
+  applyAssignmentSubmissionPolicy,
+  assertAssignmentPublishedForSubmission,
+  assertExistingSubmissionCanTransition,
+  assertStudentEnrolledForSubmission,
+} from "./submissions.eligibility.js";
+import {
   applyIeltsTimingRules,
   parseSubmittedAt,
   readMaxAttempts,
@@ -58,9 +64,11 @@ export async function createSubmission(
   user?: { id: string; role: string },
 ) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
-  let submittedAt = parseSubmittedAt(payload.submittedAt);
+  const requestedSubmittedAt = parseSubmittedAt(payload.submittedAt);
   let status =
-    payload.status ?? (submittedAt ? "submitted" : "draft");
+    payload.status ?? (requestedSubmittedAt ? "submitted" : "draft");
+  let submittedAt =
+    status === "draft" ? requestedSubmittedAt : new Date();
   if (!user || user.role !== "student") {
     throw createHttpError(403, "Only students can submit assignments.");
   }
@@ -73,6 +81,9 @@ export async function createSubmission(
       title: true,
       type: true,
       assignmentConfig: true,
+      dueAt: true,
+      latePolicy: true,
+      publishedAt: true,
       course: {
         select: {
           title: true,
@@ -84,6 +95,9 @@ export async function createSubmission(
   if (!assignment) {
     throw createNotFoundError("Assignment", assignmentId);
   }
+
+  assertAssignmentPublishedForSubmission(assignment);
+  await assertStudentEnrolledForSubmission(assignment, user.id);
 
   const validatedPayload = parseSubmissionPayloadForType(
     assignment.type,
@@ -97,6 +111,11 @@ export async function createSubmission(
     status,
     submittedAt,
     validatedPayload,
+  }));
+  ({ status, submittedAt } = applyAssignmentSubmissionPolicy({
+    assignment,
+    status,
+    submittedAt,
   }));
 
   // Cast validated payloads to Prisma JSON input for storage.
@@ -112,12 +131,10 @@ export async function createSubmission(
   });
 
   if (existing) {
-    if (existing.status === "graded") {
-      throw createHttpError(
-        409,
-        "This submission has already been graded and cannot be resubmitted.",
-      );
-    }
+    assertExistingSubmissionCanTransition({
+      existingStatus: existing.status,
+      nextStatus: status,
+    });
 
     const existingPayload = existing.payload as Prisma.InputJsonObject;
     const existingVersion =

@@ -13,6 +13,26 @@ export const courseScopedParamsSchema = z.object({
   courseId: z.string().uuid(),
 });
 
+const latePolicySchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.enum(["closed", "none", "no_late"]),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.enum(["percent", "percent_penalty"]),
+      value: z.number().min(0).max(100),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.enum(["per_day", "per_day_penalty"]),
+      value: z.number().min(0),
+    })
+    .strict(),
+]);
+
 export const createAssignmentSchema = z
   .object({
     title: z.string().min(1),
@@ -28,7 +48,7 @@ export const createAssignmentSchema = z
       "speaking",
     ]),
     dueAt: z.string().optional(),
-    latePolicy: z.record(z.string(), z.unknown()).optional(),
+    latePolicy: latePolicySchema.optional(),
     assignmentConfig: z.record(z.string(), z.unknown()).optional(),
     publishedAt: z.string().optional(),
   })
@@ -51,7 +71,7 @@ export const updateAssignmentSchema = z
       ])
       .optional(),
     dueAt: z.string().optional(),
-    latePolicy: z.record(z.string(), z.unknown()).optional(),
+    latePolicy: latePolicySchema.optional(),
     assignmentConfig: z.record(z.string(), z.unknown()).optional(),
     publishedAt: z.string().optional(),
   })
