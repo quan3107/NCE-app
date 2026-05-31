@@ -362,3 +362,137 @@ CourseStudentById:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+
+CourseTeachers:
+  get:
+    tags: [courses]
+    summary: List course co-teachers (admin/owner/co-teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course co-teachers
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/CourseTeachersResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  post:
+    tags: [courses]
+    summary: Add course co-teacher (admin/owner teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/courses.yaml#/AddCourseTeacherRequest'
+    responses:
+      '201':
+        description: Co-teacher added
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/courses.yaml#/CourseTeacher'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Teacher account or course not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Conflict
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseTeacherById:
+  delete:
+    tags: [courses]
+    summary: Remove course co-teacher (admin/owner teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: teacherId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '204': { description: Co-teacher removed }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Owner removal or role conflict
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
