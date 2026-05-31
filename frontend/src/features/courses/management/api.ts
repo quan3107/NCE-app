@@ -138,14 +138,17 @@ const nullablePrice = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const invalidateCourseCaches = async (courseId: string) => {
-  await queryClient.invalidateQueries({
-    predicate: (query) => {
-      const [scope, maybeCourseId] = query.queryKey;
-      return scope === 'courses' && (maybeCourseId === courseId || maybeCourseId !== undefined);
-    },
-  });
+const invalidateCourseList = async () => {
   await queryClient.invalidateQueries({ queryKey: ['courses', 'list'] });
+};
+
+const invalidateActiveCourseCaches = async (courseId: string) => {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['courses', 'detail', courseId] }),
+    queryClient.invalidateQueries({ queryKey: courseStudentsKey(courseId) }),
+    queryClient.invalidateQueries({ queryKey: courseAssignmentsKey(courseId) }),
+    invalidateCourseList(),
+  ]);
 };
 
 export const updateCourseDetails = async (
@@ -169,7 +172,7 @@ export const updateCourseDetails = async (
     },
   );
 
-  await invalidateCourseCaches(courseId);
+  await invalidateActiveCourseCaches(courseId);
   return response;
 };
 
@@ -192,14 +195,14 @@ export const removeCourseStudent = async (
       students: existing.students.filter((student) => student.id !== studentId),
     };
   });
-  await invalidateCourseCaches(courseId);
+  await invalidateActiveCourseCaches(courseId);
 };
 
 export const archiveCourse = async (courseId: string): Promise<CourseMutationResponse> => {
   const response = await apiClient<CourseMutationResponse>(`/api/v1/courses/${courseId}/archive`, {
     method: 'POST',
   });
-  await invalidateCourseCaches(courseId);
+  await invalidateCourseList();
   return response;
 };
 
@@ -207,7 +210,7 @@ export const restoreCourse = async (courseId: string): Promise<CourseMutationRes
   const response = await apiClient<CourseMutationResponse>(`/api/v1/courses/${courseId}/restore`, {
     method: 'POST',
   });
-  await invalidateCourseCaches(courseId);
+  await invalidateActiveCourseCaches(courseId);
   return response;
 };
 
@@ -241,7 +244,7 @@ export const addCourseStudent = async (
         new Date(a.enrolledAt).getTime() - new Date(b.enrolledAt).getTime(),
     ),
   });
-  await invalidateCourseCaches(courseId);
+  await invalidateActiveCourseCaches(courseId);
 
   return student;
 };
