@@ -93,6 +93,10 @@ paths:
     $ref: './paths/courses.yaml#/Courses'
   /api/v1/courses/{courseId}:
     $ref: './paths/courses.yaml#/CourseById'
+  /api/v1/courses/{courseId}/archive:
+    $ref: './paths/courses.yaml#/CourseArchive'
+  /api/v1/courses/{courseId}/restore:
+    $ref: './paths/courses.yaml#/CourseRestore'
   /api/v1/courses/{courseId}/students:
     $ref: './paths/courses.yaml#/CourseStudents'
   /api/v1/courses/{courseId}/students/{studentId}:
