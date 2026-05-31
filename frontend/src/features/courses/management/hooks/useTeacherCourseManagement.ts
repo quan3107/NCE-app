@@ -5,13 +5,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner@2.0.3';
 
 import { ApiError } from '@lib/apiClient';
 import { useCourseDefaultRubricTemplateQuery } from '@features/rubrics/api';
 
 import {
-  addCourseStudent,
   useCourseAssignmentsQuery,
   useCourseDetailQuery,
   useCourseStudentsQuery,
@@ -19,21 +17,24 @@ import {
 import type { CourseManagementData, RubricCriterion } from '../types';
 import {
   defaultRubric,
-  toAddStudentErrorMessage,
   toCourseRubricCriteria,
   toEnrolledStudent,
   toManagedAssignment,
   toManagedCourse,
 } from './useTeacherCourseManagement.mappers';
+import {
+  useArchiveActions,
+  useCourseDetailsActions,
+  useEnrollmentActions,
+} from './useTeacherCourseActions';
 import type { CourseManagementViewModel } from './useTeacherCourseManagement.types';
 
 export type {
-  AnnouncementHandlers,
+  CourseArchiveHandlers,
   CourseDetailsHandlers,
   CourseManagementViewModel,
   DialogState,
   EnrollmentHandlers,
-  RubricHandlers,
 } from './useTeacherCourseManagement.types';
 
 export function useTeacherCourseManagement(courseId: string): CourseManagementViewModel {
@@ -47,30 +48,24 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
     [courseQuery.data],
   );
 
-  const [courseTitle, setCourseTitle] = useState('');
-  const [courseDescription, setCourseDescription] = useState('');
-  const [courseSchedule, setCourseSchedule] = useState('');
-  const [courseDuration, setCourseDuration] = useState('');
-  const [courseLevel, setCourseLevel] = useState('');
-  const [coursePrice, setCoursePrice] = useState('');
-
-  const [newStudentEmail, setNewStudentEmail] = useState('');
-  const [isAddingStudent, setIsAddingStudent] = useState(false);
-  const [addStudentError, setAddStudentError] = useState<string | null>(null);
-
-  const hydrationRef = useRef(false);
   const assignmentErrorLogRef = useRef(false);
 
-  const handleNewStudentEmailChange = useCallback(
-    (value: string) => {
-      setNewStudentEmail(value);
-      setAddStudentError(null);
-    },
-    [setAddStudentError, setNewStudentEmail],
+  const { details, detailsHandlers } = useCourseDetailsActions(
+    courseId,
+    course,
+    courseQuery,
   );
+  const { enrollmentActionState, enrollmentHandlers, addStudentDialog } = useEnrollmentActions(
+    courseId,
+    courseQuery,
+    studentsQuery,
+  );
+  const { archiveState, archiveHandlers } = useArchiveActions(courseId, course, courseQuery);
+
+  const [rubricCriteria, setRubricCriteria] = useState<RubricCriterion[]>(defaultRubric);
+  const rubricHydrationRef = useRef(false);
 
   useEffect(() => {
-    hydrationRef.current = false;
     rubricHydrationRef.current = false;
     assignmentErrorLogRef.current = false;
   }, [courseId]);
@@ -120,23 +115,6 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
     courseDefaultRubricTemplateQuery.isError,
   ]);
 
-  useEffect(() => {
-    if (!course) {
-      return;
-    }
-    if (hydrationRef.current) {
-      return;
-    }
-
-    setCourseTitle(course.title);
-    setCourseDescription(course.description ?? '');
-    setCourseSchedule(course.scheduleLabel ?? '');
-    setCourseDuration(course.duration ?? '');
-    setCourseLevel(course.level ?? '');
-    setCoursePrice(course.price !== null ? String(course.price) : '');
-    hydrationRef.current = true;
-  }, [course]);
-
   const enrolledStudents = useMemo(() => {
     const rawStudents = studentsQuery.data?.students ?? [];
     return rawStudents
@@ -153,127 +131,28 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
     );
   }, [assignmentsQuery.data, course?.title]);
 
-  const [announcementTitle, setAnnouncementTitle] = useState('');
-  const [announcementMessage, setAnnouncementMessage] = useState('');
-  const [sendEmail, setSendEmail] = useState(true);
-
-  const [rubricCriteria, setRubricCriteria] = useState<RubricCriterion[]>(defaultRubric);
-  const [showAddStudentDialog, setShowAddStudentDialog] = useState(false);
-  const [showCreateAnnouncementDialog, setShowCreateAnnouncementDialog] = useState(false);
-  const [showEditRubricDialog, setShowEditRubricDialog] = useState(false);
-  const rubricHydrationRef = useRef(false);
-
-  const handleSaveCourseDetails = useCallback(() => {
-    toast.success('Course details updated successfully');
-  }, []);
-
-  const handleAddStudent = useCallback(async () => {
-    const email = newStudentEmail.trim();
-
-    if (!email) {
-      const message = 'Please enter a student email';
-      setAddStudentError(message);
-      toast.error(message);
-      return;
-    }
-
-    setIsAddingStudent(true);
-    setAddStudentError(null);
-
-    try {
-      await addCourseStudent(courseId, { email });
-      toast.success(`Invitation sent to ${email}`);
-      setNewStudentEmail('');
-      setShowAddStudentDialog(false);
-    } catch (error) {
-      const message = toAddStudentErrorMessage(error);
-      setAddStudentError(message);
-      toast.error(message);
-    } finally {
-      setIsAddingStudent(false);
-    }
-  }, [
-    courseId,
-    newStudentEmail,
-    setAddStudentError,
-    setIsAddingStudent,
-    setNewStudentEmail,
-    setShowAddStudentDialog,
-  ]);
-
-  const handleRemoveStudent = useCallback((studentId: string, studentName: string) => {
-    toast.success(`${studentName} removed from course`);
-  }, []);
-
-  const handleCreateAnnouncement = useCallback(() => {
-    if (!announcementTitle || !announcementMessage) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-    toast.success(`Announcement posted${sendEmail ? ' and sent via email' : ''}`);
-    setAnnouncementTitle('');
-    setAnnouncementMessage('');
-    setShowCreateAnnouncementDialog(false);
-  }, [announcementMessage, announcementTitle, sendEmail]);
-
   const totalRubricWeight = useMemo(
     () => rubricCriteria.reduce((sum, criterion) => sum + criterion.weight, 0),
     [rubricCriteria],
   );
 
-  const handleSaveRubric = useCallback(() => {
-    if (totalRubricWeight !== 100) {
-      toast.error('Rubric criteria weights must total 100%');
-      return;
-    }
-    toast.success('Rubric updated successfully');
-    setShowEditRubricDialog(false);
-  }, [totalRubricWeight]);
-
-  const updateRubricWeight = useCallback(
-    (index: number, weight: number) => {
-      setRubricCriteria((criteria) => {
-        const updated = [...criteria];
-        if (updated[index]) {
-          updated[index] = { ...updated[index], weight };
-        }
-        return updated;
-      });
-    },
-    [],
-  );
-
   const reload = useCallback(async () => {
-    hydrationRef.current = false;
     await Promise.all([courseQuery.refetch(), studentsQuery.refetch(), assignmentsQuery.refetch()]);
   }, [assignmentsQuery, courseQuery, studentsQuery]);
 
   const data: CourseManagementData = {
     course,
-    details: {
-      title: courseTitle,
-      description: courseDescription,
-      schedule: courseSchedule,
-      duration: courseDuration,
-      level: courseLevel,
-      price: coursePrice,
-    },
+    details,
     enrollment: {
       students: enrolledStudents,
-      newStudentEmail,
-      isAddingStudent,
-      addStudentError,
-    },
-    announcements: {
-      title: announcementTitle,
-      message: announcementMessage,
-      sendEmail,
+      ...enrollmentActionState,
     },
     assignments: courseAssignments,
     rubric: {
       criteria: rubricCriteria,
       totalWeight: totalRubricWeight,
     },
+    archive: archiveState,
   };
 
   return {
@@ -291,42 +170,19 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
       null,
     reload,
     details: data.details,
-    detailsHandlers: {
-      setTitle: setCourseTitle,
-      setDescription: setCourseDescription,
-      setSchedule: setCourseSchedule,
-      setDuration: setCourseDuration,
-      setLevel: setCourseLevel,
-      setPrice: setCoursePrice,
-      save: handleSaveCourseDetails,
-    },
+    detailsHandlers,
     enrollment: data.enrollment,
     enrollmentHandlers: {
-      setNewStudentEmail: handleNewStudentEmailChange,
-      addStudent: handleAddStudent,
-      removeStudent: handleRemoveStudent,
+      ...enrollmentHandlers,
     },
     assignments: data.assignments,
-    announcements: data.announcements,
-    announcementHandlers: {
-      setTitle: setAnnouncementTitle,
-      setMessage: setAnnouncementMessage,
-      setSendEmail,
-      create: handleCreateAnnouncement,
-    },
     rubric: data.rubric,
-    rubricHandlers: {
-      setCriteria: setRubricCriteria,
-      updateWeight: updateRubricWeight,
-      save: handleSaveRubric,
+    archive: data.archive,
+    archiveHandlers: {
+      ...archiveHandlers,
     },
     dialogs: {
-      showAddStudent: showAddStudentDialog,
-      setShowAddStudent: setShowAddStudentDialog,
-      showAnnouncement: showCreateAnnouncementDialog,
-      setShowAnnouncement: setShowCreateAnnouncementDialog,
-      showEditRubric: showEditRubricDialog,
-      setShowEditRubric: setShowEditRubricDialog,
+      ...addStudentDialog,
     },
   };
 }
