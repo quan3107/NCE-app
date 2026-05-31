@@ -80,6 +80,6 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "test": "tsx --test tests/*.test.ts",
-    "test:coverage": "c8 --reporter=text-summary --reporter=json-summary tsx --test tests/*.test.ts"
+    "test:coverage": "node --import tsx --test --experimental-test-coverage tests/*.test.ts"
   }
 }
