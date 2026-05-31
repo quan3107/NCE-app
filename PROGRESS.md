@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-05-31:** Completed PR-15 co-teacher management by adding owner/admin co-teacher list/add/remove APIs, role-safe teacher enrollment upsert/reactivation, owner-removal protection, and shared course access classification for admin, owner, co-teacher, student, and no-access states. Documented the co-teacher endpoints in OpenAPI and added focused service coverage.
 - **2026-05-31:** Completed PR-14 course settings mutations by adding owner/admin course metadata updates, archive and restore endpoints, authenticated active/archived/all listing filters, and soft-delete-backed archived behavior that keeps roster and assignment mutations on active-course guards. Added focused course service/listing coverage and updated the OpenAPI course contract.
 - **2026-05-31:** Completed PR-13 submission eligibility and late-policy enforcement by requiring published assignments and active student enrollment before persistence, deriving submitted/late status from server-side time, supporting closed, percent-penalty, per-day-penalty, and omitted late policies, rejecting invalid draft transitions and graded resubmissions with typed codes, and documenting the supported late-policy contract. Added focused submission eligibility and assignment schema coverage.
 - **2026-05-29:** Completed PR-11 assignment course authorization by passing authenticated actors into assignment services, scoping list/read/create/update/publish/delete paths to admin, owner-teacher, co-teacher, and enrolled-student course access, and preserving published-only student reads. Added focused assignment authorization coverage for cross-course teachers, co-teachers, students, unpublished reads, publish updates, and deletes.
@@ -36,6 +37,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-05-31:** Replaced the frontend coverage command with Node's built-in test coverage runner so the quality gate works on the current Node 26 line, and updated the package script guard test accordingly.
 - **2026-05-27:** Completed PR-02 by adding frontend ESLint, `tsc --noEmit` typecheck, and `c8` coverage scripts; aligned React type packages back to the React 18 runtime; fixed the newly surfaced frontend typing/lint issues; and expanded GitHub Actions frontend checks to run lint, typecheck, tests, coverage, and build after a clean install/audit.
 - **2026-05-26:** Added the GitHub Actions CI release gate for root and frontend dependency install/audit plus Linux-compatible frontend test/build checks on pull requests to `main`.
 - **2026-05-26:** Restored Phase 0 frontend dependency/install gate health from the existing manifest and lockfile by running a clean `npm --prefix frontend ci`. Verified `npm --prefix frontend run build` resolves `@tailwindcss/vite` and completes, and `npm --prefix frontend test` resolves `@tanstack/react-query`/`isomorphic-dompurify` with all 57 tests passing. No frontend package changes were needed.
