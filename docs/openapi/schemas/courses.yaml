@@ -87,6 +87,15 @@ Course:
       $ref: '#/CourseOwner'
     metrics:
       $ref: '#/CourseMetrics'
+    learningOutcomes:
+      nullable: true
+      description: JSON learning outcomes content for the course.
+    structureSummary:
+      type: string
+      nullable: true
+    prerequisitesSummary:
+      type: string
+      nullable: true
     createdAt:
       type: string
       format: date-time
@@ -118,6 +127,68 @@ CreateCourseRequest:
       type: object
       additionalProperties: true
   required: [title, ownerTeacherId]
+
+UpdateCourseRequest:
+  type: object
+  minProperties: 1
+  properties:
+    title:
+      type: string
+      minLength: 1
+    description:
+      type: string
+      nullable: true
+    learningOutcomes:
+      nullable: true
+      description: JSON learning outcomes content.
+    structureSummary:
+      type: string
+      nullable: true
+    prerequisitesSummary:
+      type: string
+      nullable: true
+    schedule:
+      type: object
+      nullable: true
+      additionalProperties: true
+
+CourseMutationResponse:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    learningOutcomes:
+      nullable: true
+    structureSummary:
+      type: string
+      nullable: true
+    prerequisitesSummary:
+      type: string
+      nullable: true
+    scheduleJson:
+      type: object
+      nullable: true
+      additionalProperties: true
+    ownerId:
+      type: string
+      format: uuid
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    deletedAt:
+      type: string
+      format: date-time
+      nullable: true
+  required: [id, title, description, ownerId, createdAt, updatedAt, deletedAt]
 
 CourseStudent:
   type: object
