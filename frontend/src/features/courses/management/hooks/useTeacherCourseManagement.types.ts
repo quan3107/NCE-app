@@ -6,7 +6,7 @@
 
 import type { Assignment } from '@domain';
 import type {
-  AnnouncementDraft,
+  CourseArchiveState,
   CourseDetailsState,
   EnrollmentState,
   ManagedCourse,
@@ -16,7 +16,7 @@ import type {
 export type EnrollmentHandlers = {
   setNewStudentEmail: (value: string) => void;
   addStudent: () => Promise<void>;
-  removeStudent: (studentId: string, studentName: string) => void;
+  removeStudent: (studentId: string, studentName: string) => Promise<void>;
 };
 
 export type CourseDetailsHandlers = {
@@ -26,29 +26,17 @@ export type CourseDetailsHandlers = {
   setDuration: (value: string) => void;
   setLevel: (value: string) => void;
   setPrice: (value: string) => void;
-  save: () => void;
+  save: () => Promise<void>;
 };
 
-export type AnnouncementHandlers = {
-  setTitle: (value: string) => void;
-  setMessage: (value: string) => void;
-  setSendEmail: (value: boolean) => void;
-  create: () => void;
-};
-
-export type RubricHandlers = {
-  setCriteria: (criteria: RubricCriterion[]) => void;
-  updateWeight: (index: number, weight: number) => void;
-  save: () => void;
+export type CourseArchiveHandlers = {
+  archive: () => Promise<void>;
+  restore: () => Promise<void>;
 };
 
 export type DialogState = {
   showAddStudent: boolean;
   setShowAddStudent: (open: boolean) => void;
-  showAnnouncement: boolean;
-  setShowAnnouncement: (open: boolean) => void;
-  showEditRubric: boolean;
-  setShowEditRubric: (open: boolean) => void;
 };
 
 export type CourseManagementViewModel = {
@@ -61,12 +49,11 @@ export type CourseManagementViewModel = {
   enrollment: EnrollmentState;
   enrollmentHandlers: EnrollmentHandlers;
   assignments: Assignment[];
-  announcements: AnnouncementDraft;
-  announcementHandlers: AnnouncementHandlers;
   rubric: {
     criteria: RubricCriterion[];
     totalWeight: number;
   };
-  rubricHandlers: RubricHandlers;
+  archive: CourseArchiveState;
+  archiveHandlers: CourseArchiveHandlers;
   dialogs: DialogState;
 };
