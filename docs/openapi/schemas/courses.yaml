@@ -212,6 +212,9 @@ CourseStudent:
       format: date-time
   required: [id, fullName, email, status, enrolledAt]
 
+CourseTeacher:
+  $ref: '#/CourseStudent'
+
 CourseStudentsResponse:
   type: object
   properties:
@@ -224,7 +227,27 @@ CourseStudentsResponse:
         $ref: '#/CourseStudent'
   required: [courseId, students]
 
+CourseTeachersResponse:
+  type: object
+  properties:
+    courseId:
+      type: string
+      format: uuid
+    teachers:
+      type: array
+      items:
+        $ref: '#/CourseTeacher'
+  required: [courseId, teachers]
+
 AddCourseStudentRequest:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+  required: [email]
+
+AddCourseTeacherRequest:
   type: object
   properties:
     email:
