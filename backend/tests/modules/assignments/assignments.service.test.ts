@@ -12,6 +12,7 @@ vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
     assignment: {
       create: vi.fn(),
+      count: vi.fn(),
       findMany: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock('../../../src/prisma/client.js', () => ({
 const prismaModule = await import('../../../src/prisma/client.js')
 const prisma = vi.mocked(prismaModule.prisma, true)
 
-const { createAssignment } =
+const { createAssignment, getPendingAssignmentsCount } =
   await import('../../../src/modules/assignments/assignments.service.js')
 
 const courseId = '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2'
@@ -83,5 +84,27 @@ describe('assignments.service.createAssignment', () => {
         ownerTeacher,
       ),
     ).rejects.toBeInstanceOf(ZodError)
+  })
+})
+
+describe('assignments.service.getPendingAssignmentsCount', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('counts only pending assignments in active courses', async () => {
+    prisma.assignment.count.mockResolvedValueOnce(0)
+
+    await getPendingAssignmentsCount('student-1')
+
+    expect(prisma.assignment.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          course: expect.objectContaining({
+            deletedAt: null,
+          }),
+        }),
+      }),
+    )
   })
 })
