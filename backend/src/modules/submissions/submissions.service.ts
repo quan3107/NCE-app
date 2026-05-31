@@ -50,6 +50,11 @@ export async function listSubmissions(
     where: {
       assignmentId,
       deletedAt: null,
+      assignment: {
+        course: {
+          deletedAt: null,
+        },
+      },
       ...(isStudent ? { studentId: user?.id } : {}),
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -74,7 +79,13 @@ export async function createSubmission(
   }
 
   const assignment = await prisma.assignment.findFirst({
-    where: { id: assignmentId, deletedAt: null },
+    where: {
+      id: assignmentId,
+      deletedAt: null,
+      course: {
+        deletedAt: null,
+      },
+    },
     select: {
       id: true,
       courseId: true,
