@@ -93,8 +93,21 @@ export function OverviewTab({ details, handlers, stats }: OverviewTabProps) {
             </div>
           </div>
 
+          {details.errorMessage ? (
+            <p role="alert" className="text-sm text-destructive">
+              {details.errorMessage}
+            </p>
+          ) : null}
+
           <div className="flex justify-end">
-            <Button onClick={handlers.save}>Save Changes</Button>
+            <Button
+              onClick={() => {
+                void handlers.save();
+              }}
+              disabled={details.isSaving}
+            >
+              {details.isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
           </div>
         </CardContent>
       </Card>
