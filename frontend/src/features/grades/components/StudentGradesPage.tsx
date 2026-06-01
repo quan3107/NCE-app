@@ -105,6 +105,9 @@ export function StudentGradesPage() {
                             {grade.finalScore}/{grade.maxScore}
                           </div>
                           <div className="text-sm text-muted-foreground">{percentage.toFixed(0)}%</div>
+                          {grade.band !== undefined && (
+                            <div className="text-sm text-muted-foreground">Band {grade.band}</div>
+                          )}
                         </div>
                       </div>
 
