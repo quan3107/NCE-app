@@ -13,6 +13,7 @@ export type Grade = {
   rawScore: number;
   adjustments: number;
   finalScore: number;
+  band?: number;
   maxScore: number;
   feedback: string;
   gradedAt: Date;
