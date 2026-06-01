@@ -13,6 +13,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
       update: vi.fn(),
     },
     grade: {
+      findFirst: vi.fn(),
       upsert: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -33,7 +34,7 @@ const enqueueNotification = vi.mocked(
   true,
 );
 
-const { upsertGrade } = await import(
+const { getGrade, upsertGrade } = await import(
   "../../../src/modules/grades/grades.service.js"
 );
 const { gradePayloadSchema } = await import(
@@ -44,6 +45,7 @@ const submissionId = "2520f0dd-918a-4c2b-9544-b922eac066e5";
 const teacherId = "db2b572b-ef7d-44b3-96c6-a61c498cf673";
 const adminId = "d5ef35a6-6907-47e8-9c34-5849656d827f";
 const studentId = "4335e34e-7ecb-4a31-ae53-b04c44cd7c09";
+const otherStudentId = "153c2d0e-1b97-47c5-9644-5d2f2fd52929";
 
 function buildSubmission(overrides: Record<string, unknown> = {}) {
   return {
@@ -220,5 +222,158 @@ describe("grades.service.upsertGrade", () => {
 
     expect(prisma.grade.upsert).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("grades.service.getGrade", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("allows students to read grades for their own active submissions", async () => {
+    const gradeRecord = {
+      id: "b82c0f6c-73ac-4c42-bc4f-a6c2d507f612",
+      submissionId,
+      graderId: teacherId,
+      grader: {
+        fullName: "Teacher One",
+      },
+    };
+    prisma.grade.findFirst.mockResolvedValueOnce(gradeRecord as never);
+
+    const grade = await getGrade(
+      { submissionId },
+      { id: studentId, role: UserRole.student },
+    );
+
+    expect(prisma.grade.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          submissionId,
+          deletedAt: null,
+          submission: expect.objectContaining({
+            studentId,
+            deletedAt: null,
+            assignment: {
+              deletedAt: null,
+              course: {
+                deletedAt: null,
+              },
+            },
+          }),
+        }),
+        include: {
+          grader: {
+            select: {
+              fullName: true,
+            },
+          },
+        },
+      }),
+    );
+    expect(grade).toEqual(
+      expect.objectContaining({
+        id: gradeRecord.id,
+        graderName: "Teacher One",
+      }),
+    );
+  });
+
+  it("does not expose another student's grade to students", async () => {
+    prisma.grade.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      getGrade(
+        { submissionId },
+        { id: otherStudentId, role: UserRole.student },
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(prisma.grade.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          submission: expect.objectContaining({
+            studentId: otherStudentId,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("allows course teachers to read grades for submissions in their courses", async () => {
+    prisma.grade.findFirst.mockResolvedValueOnce({
+      id: "grade-2",
+      submissionId,
+      graderId: teacherId,
+      grader: {
+        fullName: "Teacher One",
+      },
+    } as never);
+
+    await getGrade(
+      { submissionId },
+      { id: teacherId, role: UserRole.teacher },
+    );
+
+    expect(prisma.grade.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          submission: expect.objectContaining({
+            assignment: {
+              deletedAt: null,
+              course: {
+                deletedAt: null,
+                OR: [
+                  { ownerId: teacherId },
+                  {
+                    enrollments: {
+                      some: {
+                        userId: teacherId,
+                        roleInCourse: EnrollmentRole.teacher,
+                        deletedAt: null,
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("allows admins to read active grades without course ownership filters", async () => {
+    prisma.grade.findFirst.mockResolvedValueOnce({
+      id: "grade-3",
+      submissionId,
+      graderId: teacherId,
+      grader: {
+        fullName: "Teacher One",
+      },
+    } as never);
+
+    await getGrade(
+      { submissionId },
+      { id: adminId, role: UserRole.admin },
+    );
+
+    expect(prisma.grade.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          submissionId,
+          deletedAt: null,
+          submission: {
+            deletedAt: null,
+            assignment: {
+              deletedAt: null,
+              course: {
+                deletedAt: null,
+              },
+            },
+          },
+        },
+      }),
+    );
   });
 });

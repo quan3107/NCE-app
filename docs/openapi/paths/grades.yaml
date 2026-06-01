@@ -5,7 +5,11 @@
 SubmissionGrade:
   get:
     tags: [grades]
-    summary: Get grade (admin/teacher)
+    summary: Get grade (admin/teacher/student owner)
+    description: >
+      Admins can read any active grade, teachers can read grades for submissions in
+      courses they own or teach, and students can read grades only for their own
+      submissions.
     parameters:
       - in: path
         name: submissionId

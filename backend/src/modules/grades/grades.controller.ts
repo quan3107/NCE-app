@@ -16,6 +16,6 @@ export async function getSubmissionGrade(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const grade = await getGrade(req.params);
+  const grade = await getGrade(req.params, req.user);
   res.status(200).json(grade);
 }

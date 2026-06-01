@@ -39,6 +39,74 @@ type SubmissionForGrading = {
   };
 };
 
+function buildGradeReadWhere(
+  submissionId: string,
+  actor: GradingActor | undefined,
+): Prisma.GradeWhereInput {
+  if (!actor) {
+    throw createHttpError(401, "Authentication is required to view grades.");
+  }
+
+  const activeSubmission = {
+    deletedAt: null,
+    assignment: {
+      deletedAt: null,
+      course: {
+        deletedAt: null,
+      },
+    },
+  };
+
+  if (actor.role === UserRole.admin) {
+    return {
+      submissionId,
+      deletedAt: null,
+      submission: activeSubmission,
+    };
+  }
+
+  if (actor.role === UserRole.student) {
+    return {
+      submissionId,
+      deletedAt: null,
+      submission: {
+        ...activeSubmission,
+        studentId: actor.id,
+      },
+    };
+  }
+
+  if (actor.role === UserRole.teacher) {
+    return {
+      submissionId,
+      deletedAt: null,
+      submission: {
+        deletedAt: null,
+        assignment: {
+          deletedAt: null,
+          course: {
+            deletedAt: null,
+            OR: [
+              { ownerId: actor.id },
+              {
+                enrollments: {
+                  some: {
+                    userId: actor.id,
+                    roleInCourse: EnrollmentRole.teacher,
+                    deletedAt: null,
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    };
+  }
+
+  throw createHttpError(403, "You do not have permission to view this grade.");
+}
+
 function assertCanGradeSubmission(
   submission: SubmissionForGrading,
   actor: GradingActor | undefined,
@@ -192,13 +260,24 @@ export async function upsertGrade(
   return grade;
 }
 
-export async function getGrade(params: unknown) {
+export async function getGrade(params: unknown, actor?: GradingActor) {
   const { submissionId } = submissionScopedParamsSchema.parse(params);
   const grade = await prisma.grade.findFirst({
-    where: { submissionId, deletedAt: null },
+    where: buildGradeReadWhere(submissionId, actor),
+    include: {
+      grader: {
+        select: {
+          fullName: true,
+        },
+      },
+    },
   });
   if (!grade) {
     throw createNotFoundError("Grade", submissionId);
   }
-  return grade;
+  const { grader, ...gradePayload } = grade;
+  return {
+    ...gradePayload,
+    graderName: grader.fullName,
+  };
 }

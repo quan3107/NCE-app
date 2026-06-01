@@ -19,7 +19,7 @@ gradeRouter.use(authGuard);
 
 gradeRouter.get(
   "/",
-  roleGuard([UserRole.admin, UserRole.teacher]),
+  roleGuard([UserRole.admin, UserRole.teacher, UserRole.student]),
   getSubmissionGrade,
 );
 gradeRouter.put(

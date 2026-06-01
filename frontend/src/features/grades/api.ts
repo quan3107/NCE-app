@@ -22,8 +22,10 @@ type ApiGrade = {
   rawScore?: number | null;
   adjustments?: Array<{ reason: string; delta: number }> | null;
   finalScore?: number | null;
+  band?: number | null;
   feedback?: string | null;
   gradedAt?: string | null;
+  graderName?: string | null;
 };
 
 type UpsertGradeRequest = {
@@ -59,10 +61,11 @@ const toGrade = (
     rawScore: grade.rawScore ?? 0,
     adjustments,
     finalScore: grade.finalScore ?? grade.rawScore ?? 0,
+    band: grade.band ?? undefined,
     maxScore: assignment?.maxScore ?? 100,
     feedback: grade.feedback ?? '',
     gradedAt: grade.gradedAt ? new Date(grade.gradedAt) : new Date(),
-    gradedBy: grade.graderId,
+    gradedBy: grade.graderName ?? grade.graderId,
   };
 };
 
@@ -118,7 +121,10 @@ export function useGradesQuery(submissions: Submission[], assignments: Assignmen
     () => submissions.map(submission => submission.id),
     [submissions],
   );
-  const canViewGrades = currentUser.role === 'admin' || currentUser.role === 'teacher';
+  const canViewGrades =
+    currentUser.role === 'admin' ||
+    currentUser.role === 'teacher' ||
+    currentUser.role === 'student';
 
   return useQuery({
     queryKey: [GRADES_KEY, ...submissionIds],
