@@ -14,6 +14,8 @@ Grade:
     graderId:
       type: string
       format: uuid
+    graderName:
+      type: string
     rubricBreakdown:
       type: array
       nullable: true
@@ -65,9 +67,6 @@ Grade:
 UpsertGradeRequest:
   type: object
   properties:
-    graderId:
-      type: string
-      format: uuid
     rubricBreakdown:
       type: array
       items:
@@ -94,4 +93,3 @@ UpsertGradeRequest:
       type: number
     feedbackMd:
       type: string
-  required: [graderId]
