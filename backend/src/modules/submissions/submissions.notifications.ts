@@ -85,3 +85,41 @@ export async function enqueueTeacherSubmissionNotifications(input: {
     });
   }
 }
+
+export async function notifyTeachersAboutSubmittedWork(input: {
+  assignment: {
+    id: string;
+    title: string;
+    courseId: string;
+    course?: { title: string } | null;
+  };
+  studentId: string;
+  submission: { id: string; submittedAt: Date | null };
+  status: SubmissionStatus;
+}) {
+  if (input.status !== "submitted" && input.status !== "late") {
+    return;
+  }
+  try {
+    await enqueueTeacherSubmissionNotifications({
+      assignmentId: input.assignment.id,
+      assignmentTitle: input.assignment.title,
+      courseId: input.assignment.courseId,
+      courseTitle: input.assignment.course?.title ?? "",
+      studentId: input.studentId,
+      submissionId: input.submission.id,
+      status: input.status,
+      submittedAt: input.submission.submittedAt,
+    });
+  } catch (error) {
+    logger.error(
+      {
+        err: error,
+        event: "teacher_submission_notification_enqueue_failed",
+        assignment_id: input.assignment.id,
+        submission_id: input.submission.id,
+      },
+      "Failed to enqueue teacher submission notifications",
+    );
+  }
+}
