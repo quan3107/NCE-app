@@ -11,7 +11,13 @@ function hasNonEmptyAnswer(value: unknown): boolean {
   if (Array.isArray(value)) {
     return value.some((item) => typeof item === "string" && item.trim() !== "");
   }
-  return typeof value === "string" ? value.trim() !== "" : value !== undefined;
+  if (typeof value === "string") {
+    return value.trim() !== "";
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+  return typeof value === "boolean";
 }
 
 export function assertSubmittedIeltsPayloadHasContent({
