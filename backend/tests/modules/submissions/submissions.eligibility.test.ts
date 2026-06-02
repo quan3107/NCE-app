@@ -73,7 +73,13 @@ function buildEnrollment(): Pick<Enrollment, "id"> {
 async function submit(payload = {}) {
   return createSubmission(
     { assignmentId },
-    { payload: { version: 1, answers: [] }, ...payload },
+    {
+      payload: {
+        version: 1,
+        answers: [{ questionId: "q1", value: "A" }],
+      },
+      ...payload,
+    },
     { id: studentId, role: "student" },
   );
 }
