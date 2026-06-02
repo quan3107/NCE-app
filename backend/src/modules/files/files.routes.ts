@@ -6,11 +6,15 @@
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
-import { postFileComplete, postFileSign } from "./files.controller.js";
+import {
+  getFileContent,
+  postFileComplete,
+  postFileSign,
+} from "./files.controller.js";
 
 export const fileRouter = Router();
 
+fileRouter.get("/:id/content", getFileContent);
 fileRouter.use(authGuard);
-
 fileRouter.post("/sign", postFileSign);
 fileRouter.post("/complete", postFileComplete);
