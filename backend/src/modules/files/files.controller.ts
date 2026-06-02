@@ -5,7 +5,11 @@
  */
 import { type Request, type Response } from "express";
 
-import { completeFileUpload, signFileUpload } from "./files.service.js";
+import {
+  completeFileUpload,
+  getFileContentLocation,
+  signFileUpload,
+} from "./files.service.js";
 
 export async function postFileSign(
   req: Request,
@@ -35,4 +39,18 @@ export async function postFileComplete(
 
   const file = await completeFileUpload(req.body, actor.id, actor.role);
   res.status(201).json(file);
+}
+
+export async function getFileContent(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const fileId = req.params.id;
+  if (!fileId) {
+    res.status(400).json({ message: "File id is required." });
+    return;
+  }
+
+  const location = await getFileContentLocation(fileId);
+  res.redirect(302, location.url);
 }
