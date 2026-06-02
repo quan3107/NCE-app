@@ -84,6 +84,7 @@ export function StudentAssignmentSubmitDialog({
             nextAttempt={ieltsNextAttempt}
             maxAttempts={ieltsMaxAttempts}
             onChange={ieltsForm.onChange}
+            onUploadBusyChange={onUploadBusyChange}
           />
         ) : (
           <div className="space-y-4">
