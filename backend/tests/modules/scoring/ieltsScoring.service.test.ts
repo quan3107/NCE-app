@@ -108,6 +108,89 @@ describe("ieltsScoring.service", () => {
     );
   });
 
+  it("scores teacher-authored multiple choice indexes against submitted option text", () => {
+    const result = scoreIeltsSubmission({
+      assignmentType: AssignmentType.reading,
+      assignmentConfig: {
+        version: 1,
+        sections: [
+          {
+            id: "sec-mc",
+            title: "Section MC",
+            passage: "Passage text",
+            questions: [
+              {
+                id: "q-mc",
+                type: "multiple_choice",
+                options: ["A", "B", "C"],
+                correctAnswer: "1",
+              },
+            ],
+          },
+        ],
+      },
+      submissionPayload: {
+        answers: [{ questionId: "q-mc", value: "B" }],
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        correctCount: 1,
+        totalCount: 1,
+      }),
+    );
+  });
+
+  it("scores matching item and diagram label answer targets", () => {
+    const result = scoreIeltsSubmission({
+      assignmentType: AssignmentType.listening,
+      assignmentConfig: {
+        version: 1,
+        sections: [
+          {
+            id: "sec-nested",
+            title: "Section nested",
+            audioFileId: null,
+            questions: [
+              {
+                id: "q-match",
+                type: "matching",
+                matchingOptions: [{ id: "h1", label: "Heading 1" }],
+                matchingItems: [{ id: "item-1", statement: "First item", matchId: "h1" }],
+              },
+              {
+                id: "q-diagram",
+                type: "diagram_labeling",
+                diagramLabels: [
+                  {
+                    id: "label-1",
+                    letter: "A",
+                    position: "Top left",
+                    answer: "intake valve",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      submissionPayload: {
+        answers: [
+          { questionId: "item-1", value: "h1" },
+          { questionId: "label-1", value: "Intake Valve" },
+        ],
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        correctCount: 2,
+        totalCount: 2,
+      }),
+    );
+  });
+
   it("returns the existing grade for idempotent scoring", async () => {
     const existingGrade = { id: "grade-1" };
     prisma.grade.findUnique.mockResolvedValueOnce(existingGrade as never);
