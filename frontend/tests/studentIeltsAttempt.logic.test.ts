@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import {
   buildStudentIeltsPayload,
   createInitialStudentIeltsAttempt,
+  createStudentIeltsAttemptFromPayload,
   getStudentIeltsAttemptAvailability,
   hasStudentIeltsSubmissionContent,
   type StudentIeltsAttemptState,
@@ -54,7 +55,7 @@ const readingConfig: IeltsReadingConfig = {
   ],
 };
 
-test('buildStudentIeltsPayload serializes reading answers by question id with timing metadata', () => {
+test('buildStudentIeltsPayload serializes reading option text by scorer question id with timing metadata', () => {
   const state: StudentIeltsAttemptState = {
     ...createInitialStudentIeltsAttempt(startedAt),
     answers: {
@@ -79,10 +80,55 @@ test('buildStudentIeltsPayload serializes reading answers by question id with ti
     submittedAt,
     durationSeconds: 754,
     answers: [
-      { questionId: 'q-1', value: '1' },
+      { questionId: 'q-1', value: 'B' },
       { questionId: 'q-2', value: 'A concise answer' },
     ],
   });
+});
+
+test('buildStudentIeltsPayload serializes nested answer targets for compound questions', () => {
+  const config: IeltsReadingConfig = {
+    ...readingConfig,
+    sections: [
+      {
+        ...readingConfig.sections[0],
+        questions: [
+          {
+            id: 'matching-group',
+            type: 'matching',
+            prompt: 'Match each item.',
+            options: [],
+            correctAnswer: '',
+            items: [
+              { id: 'item-1', prompt: 'First item', answer: 'Alpha' },
+              { id: 'item-2', prompt: 'Second item', answer: 'Beta' },
+            ],
+          } as IeltsReadingConfig['sections'][number]['questions'][number],
+        ],
+      },
+    ],
+  };
+  const state: StudentIeltsAttemptState = {
+    ...createInitialStudentIeltsAttempt(startedAt),
+    answers: {
+      'matching-group': 'ignored group answer',
+      'item-1': 'Alpha',
+      'item-2': 'Beta',
+    },
+  };
+
+  const payload = buildStudentIeltsPayload({
+    type: 'reading',
+    config,
+    attempt: 1,
+    state,
+    submittedAt,
+  });
+
+  assert.deepEqual((payload as { answers: unknown }).answers, [
+    { questionId: 'item-1', value: 'Alpha' },
+    { questionId: 'item-2', value: 'Beta' },
+  ]);
 });
 
 test('buildStudentIeltsPayload serializes writing task identifiers and responses', () => {
@@ -178,6 +224,26 @@ test('buildStudentIeltsPayload serializes speaking recording metadata by part', 
       durationSeconds: 75,
     },
   ]);
+});
+
+test('createStudentIeltsAttemptFromPayload recovers IELTS draft answers', () => {
+  const state = createStudentIeltsAttemptFromPayload('writing', {
+    version: 1,
+    startedAt,
+    task1: { taskId: 'task1', text: 'Draft task one.' },
+    task2: { taskId: 'task2', text: 'Draft task two.' },
+  });
+
+  assert.deepEqual(state, {
+    startedAt,
+    answers: {},
+    writing: {
+      task1: 'Draft task one.',
+      task2: 'Draft task two.',
+    },
+    speakingRecordings: {},
+    notes: {},
+  });
 });
 
 test('hasStudentIeltsSubmissionContent distinguishes empty drafts from submit-ready attempts', () => {
