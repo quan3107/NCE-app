@@ -26,6 +26,7 @@ import {
 import {
   buildStudentIeltsPayload,
   createInitialStudentIeltsAttempt,
+  createStudentIeltsAttemptFromPayload,
   getStudentIeltsAttemptAvailability,
   hasStudentIeltsSubmissionContent,
 } from '@features/assignments/components/ielts/student/studentIeltsAttempt.logic';
@@ -42,12 +43,45 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const [localSubmission, setLocalSubmission] = useState<Submission | null>(null);
   const [ieltsAttempt, setIeltsAttempt] = useState(() => createInitialStudentIeltsAttempt());
   const createSubmissionMutation = useCreateSubmissionMutation();
+  const assignment = assignments.find(a => a.id === assignmentId);
+  const submission = useMemo(
+    () =>
+      submissions.find(
+        (item) => item.assignmentId === assignmentId && item.studentId === currentUser?.id,
+      ) ?? localSubmission,
+    [assignmentId, currentUser?.id, localSubmission, submissions],
+  );
+  const ieltsType =
+    assignment && isIeltsAssignmentType(assignment.type) ? assignment.type : undefined;
+  const ieltsConfig = ieltsType
+    ? normalizeIeltsAssignmentConfig(ieltsType, assignment?.assignmentConfig)
+    : null;
+  const attemptAvailability = ieltsConfig
+    ? getStudentIeltsAttemptAvailability({
+        config: ieltsConfig,
+        existingVersion: submission?.version,
+        existingStatus: submission?.status,
+      })
+    : null;
+  const hasReachedMaxAttempts = Boolean(attemptAvailability?.hasReachedMaxAttempts);
 
   useEffect(() => {
-    if (showSubmitDialog) {
-      setIeltsAttempt(createInitialStudentIeltsAttempt());
+    if (!showSubmitDialog || !ieltsType) {
+      return;
     }
-  }, [assignmentId, showSubmitDialog]);
+    if (submission?.status === 'draft' && submission.rawPayload) {
+      setIeltsAttempt(createStudentIeltsAttemptFromPayload(ieltsType, submission.rawPayload));
+      return;
+    }
+    setIeltsAttempt(createInitialStudentIeltsAttempt());
+  }, [
+    assignmentId,
+    ieltsType,
+    showSubmitDialog,
+    submission?.id,
+    submission?.rawPayload,
+    submission?.status,
+  ]);
 
   if (isLoading) {
     return (
@@ -72,14 +106,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       </div>
     );
   }
-  const assignment = assignments.find(a => a.id === assignmentId);
-  const submission = useMemo(
-    () =>
-      submissions.find(
-        (item) => item.assignmentId === assignmentId && item.studentId === currentUser?.id,
-      ) ?? localSubmission,
-    [assignmentId, currentUser?.id, localSubmission, submissions],
-  );
   if (!assignment) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -95,18 +121,6 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const isOverdue = dueDate < now && !submission;
   const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
   const isDueSoon = hoursUntilDue <= 48 && hoursUntilDue > 0;
-  const ieltsType = isIeltsAssignmentType(assignment.type) ? assignment.type : undefined;
-  const ieltsConfig = ieltsType
-    ? normalizeIeltsAssignmentConfig(ieltsType, assignment.assignmentConfig)
-    : null;
-  const attemptAvailability = ieltsConfig
-    ? getStudentIeltsAttemptAvailability({
-        config: ieltsConfig,
-        existingVersion: submission?.version,
-        existingStatus: submission?.status,
-      })
-    : null;
-  const hasReachedMaxAttempts = Boolean(attemptAvailability?.hasReachedMaxAttempts);
   const canResubmit = Boolean(submission && submission.status !== 'graded' && !hasReachedMaxAttempts);
 
   const submitAssignment = async (mode: 'draft' | 'submitted') => {
@@ -201,13 +215,16 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
           ? (payloadRecord.files as SubmissionFile[])
           : undefined,
         version: responseVersion,
+        rawPayload: responsePayload,
       };
 
       setLocalSubmission(nextSubmission);
       setSubmissionContent('');
       setUploadedFiles([]);
       setIsUploadBusy(false);
-      setIeltsAttempt(createInitialStudentIeltsAttempt());
+      if (mode === 'submitted') {
+        setIeltsAttempt(createInitialStudentIeltsAttempt());
+      }
       toast.success(mode === 'draft' ? 'Draft saved.' : 'Assignment submitted successfully!');
       setShowSubmitDialog(false);
     } catch (errorValue) {
