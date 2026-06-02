@@ -95,6 +95,9 @@ function getAnswerValue(record: Record<string, unknown>): unknown {
   if ("answer" in record) {
     return record.answer;
   }
+  if ("matchId" in record) {
+    return record.matchId;
+  }
   if ("answerParagraph" in record) {
     return record.answerParagraph;
   }
@@ -111,6 +114,37 @@ function getAnswerValue(record: Record<string, unknown>): unknown {
     return record.correctAnswer;
   }
   return undefined;
+}
+
+function expandOptionAnswer(
+  question: Record<string, unknown>,
+  expected: unknown,
+): unknown {
+  if (typeof expected !== "string" || !Array.isArray(question.options)) {
+    return expected;
+  }
+
+  const options = question.options.filter(
+    (option): option is string => typeof option === "string",
+  );
+  const variants = new Set<string>([expected]);
+  const optionIndex = Number(expected);
+  if (
+    Number.isInteger(optionIndex) &&
+    optionIndex >= 0 &&
+    optionIndex < options.length
+  ) {
+    variants.add(options[optionIndex] ?? expected);
+  }
+
+  const matchingIndex = options.findIndex(
+    (option) => normalizeString(option) === normalizeString(expected),
+  );
+  if (matchingIndex >= 0) {
+    variants.add(String(matchingIndex));
+  }
+
+  return variants.size > 1 ? Array.from(variants) : expected;
 }
 
 function addExpectedAnswer(
@@ -136,7 +170,11 @@ function extractExpectedAnswersFromQuestion(
     typeof question.id === "string" ? question.id : "";
   const directAnswer = getAnswerValue(question);
   if (questionId) {
-    addExpectedAnswer(expectedAnswers, [questionId], directAnswer);
+    addExpectedAnswer(
+      expectedAnswers,
+      [questionId],
+      expandOptionAnswer(question, directAnswer),
+    );
   }
 
   const sentences = Array.isArray(question.sentences)
@@ -187,6 +225,34 @@ function extractExpectedAnswersFromQuestion(
         ? [paragraphId, `${questionId}:${paragraphId}`]
         : [paragraphId];
       addExpectedAnswer(expectedAnswers, keys, itemAnswer);
+    }
+  }
+
+  const matchingItems = Array.isArray(question.matchingItems)
+    ? question.matchingItems
+    : [];
+  for (const item of matchingItems) {
+    if (!isRecord(item)) {
+      continue;
+    }
+    const itemId = typeof item.id === "string" ? item.id : "";
+    const itemAnswer = getAnswerValue(item);
+    if (itemId) {
+      addExpectedAnswer(expectedAnswers, [itemId], itemAnswer);
+    }
+  }
+
+  const diagramLabels = Array.isArray(question.diagramLabels)
+    ? question.diagramLabels
+    : [];
+  for (const label of diagramLabels) {
+    if (!isRecord(label)) {
+      continue;
+    }
+    const labelId = typeof label.id === "string" ? label.id : "";
+    const labelAnswer = getAnswerValue(label);
+    if (labelId) {
+      addExpectedAnswer(expectedAnswers, [labelId], labelAnswer);
     }
   }
 
