@@ -5,7 +5,6 @@
  */
 import { Prisma } from "../../prisma/index.js";
 
-import { logger } from "../../config/logger.js";
 import { prisma } from "../../prisma/client.js";
 import {
   createHttpError,
@@ -23,7 +22,7 @@ import {
   parseSubmissionPayloadForType,
 } from "../assignments/ielts.schema.js";
 import { autoScoreSubmission } from "../scoring/ieltsScoring.service.js";
-import { enqueueTeacherSubmissionNotifications } from "./submissions.notifications.js";
+import { notifyTeachersAboutSubmittedWork } from "./submissions.notifications.js";
 import {
   applyAssignmentSubmissionPolicy,
   assertAssignmentPublishedForSubmission,
@@ -35,6 +34,8 @@ import {
   parseSubmittedAt,
   readMaxAttempts,
 } from "./submissions.timing.js";
+import { assertSubmittedIeltsPayloadHasContent } from "./submissions.ielts-content.js";
+
 export async function listSubmissions(
   params: unknown,
   query: unknown,
@@ -146,6 +147,11 @@ export async function createSubmission(
       existingStatus: existing.status,
       nextStatus: status,
     });
+    assertSubmittedIeltsPayloadHasContent({
+      type: assignment.type,
+      status,
+      payload: validatedPayload,
+    });
 
     const existingPayload = existing.payload as Prisma.InputJsonObject;
     const existingVersion =
@@ -185,30 +191,12 @@ export async function createSubmission(
     ) {
       await autoScoreSubmission(updatedSubmission.id);
     }
-    if (status === "submitted" || status === "late") {
-      try {
-        await enqueueTeacherSubmissionNotifications({
-          assignmentId: assignment.id,
-          assignmentTitle: assignment.title,
-          courseId: assignment.courseId,
-          courseTitle: assignment.course?.title ?? "",
-          studentId: user.id,
-          submissionId: updatedSubmission.id,
-          status,
-          submittedAt: updatedSubmission.submittedAt,
-        });
-      } catch (error) {
-        logger.error(
-          {
-            err: error,
-            event: "teacher_submission_notification_enqueue_failed",
-            assignment_id: assignment.id,
-            submission_id: updatedSubmission.id,
-          },
-          "Failed to enqueue teacher submission notifications",
-        );
-      }
-    }
+    await notifyTeachersAboutSubmittedWork({
+      assignment,
+      studentId: user.id,
+      submission: updatedSubmission,
+      status,
+    });
     return updatedSubmission;
   }
 
@@ -226,6 +214,11 @@ export async function createSubmission(
       "Maximum attempts reached for this assignment.",
     );
   }
+  assertSubmittedIeltsPayloadHasContent({
+    type: assignment.type,
+    status,
+    payload: validatedPayload,
+  });
   const payloadWithVersion: Prisma.InputJsonObject = {
     ...payloadJson,
     version: payloadVersion,
@@ -246,30 +239,12 @@ export async function createSubmission(
   ) {
     await autoScoreSubmission(createdSubmission.id);
   }
-  if (status === "submitted" || status === "late") {
-    try {
-      await enqueueTeacherSubmissionNotifications({
-        assignmentId: assignment.id,
-        assignmentTitle: assignment.title,
-        courseId: assignment.courseId,
-        courseTitle: assignment.course?.title ?? "",
-        studentId: user.id,
-        submissionId: createdSubmission.id,
-        status,
-        submittedAt: createdSubmission.submittedAt,
-      });
-    } catch (error) {
-      logger.error(
-        {
-          err: error,
-          event: "teacher_submission_notification_enqueue_failed",
-          assignment_id: assignment.id,
-          submission_id: createdSubmission.id,
-        },
-        "Failed to enqueue teacher submission notifications",
-      );
-    }
-  }
+  await notifyTeachersAboutSubmittedWork({
+    assignment,
+    studentId: user.id,
+    submission: createdSubmission,
+    status,
+  });
   return createdSubmission;
 }
 
