@@ -1,13 +1,16 @@
 /**
  * Location: features/assignments/components/ielts/student/StudentIeltsSpeakingAttempt.tsx
- * Purpose: Render student IELTS speaking recording metadata controls.
+ * Purpose: Render student IELTS speaking recording upload controls.
  * Why: Keeps the main IELTS attempt form focused on type orchestration.
  */
 
+import { useEffect, useState } from 'react';
 import { Mic } from 'lucide-react';
+import { FileUploader } from '@components/common/FileUploader';
 import { Badge } from '@components/ui/badge';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import type { SubmissionFile } from '@domain';
 import type { IeltsSpeakingConfig } from '@lib/ielts';
 import type { StudentIeltsAttemptState } from './studentIeltsAttempt.logic';
 
@@ -17,6 +20,7 @@ type StudentIeltsSpeakingAttemptProps = {
   config: IeltsSpeakingConfig;
   attempt: StudentIeltsAttemptState;
   onChange: (attempt: StudentIeltsAttemptState) => void;
+  onUploadBusyChange?: (busy: boolean) => void;
 };
 
 const partLabels: Record<SpeakingPart, string> = {
@@ -25,15 +29,34 @@ const partLabels: Record<SpeakingPart, string> = {
   part3: 'Part 3',
 };
 
+const toSyntheticRecordingFile = (fileId: string): SubmissionFile => ({
+  id: fileId,
+  name: 'Uploaded recording',
+  size: 0,
+  mime: 'audio/*',
+  checksum: '',
+  bucket: '',
+  objectKey: '',
+});
+
 export function StudentIeltsSpeakingAttempt({
   config,
   attempt,
   onChange,
+  onUploadBusyChange,
 }: StudentIeltsSpeakingAttemptProps) {
+  const [busyParts, setBusyParts] = useState<Partial<Record<SpeakingPart, boolean>>>({});
+
+  useEffect(() => {
+    onUploadBusyChange?.(Object.values(busyParts).some(Boolean));
+  }, [busyParts, onUploadBusyChange]);
+
   return (
     <div className="space-y-4">
       {(['part1', 'part2', 'part3'] as SpeakingPart[]).map(part => {
         const recording = attempt.speakingRecordings[part];
+        const uploadedFile =
+          recording?.file ?? (recording?.id ? toSyntheticRecordingFile(recording.id) : null);
         return (
           <section key={part} className="space-y-3 rounded-md border border-border p-3">
             <div className="flex items-center justify-between gap-3">
@@ -59,28 +82,38 @@ export function StudentIeltsSpeakingAttempt({
                 ))}
               </ul>
             )}
-            <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
               <div className="space-y-2">
-                <Label htmlFor={`${part}-file`}>Recording file ID</Label>
-                <Input
-                  id={`${part}-file`}
-                  value={recording?.id ?? ''}
-                  onChange={event =>
+                <Label>Upload recording</Label>
+                <FileUploader
+                  value={uploadedFile ? [uploadedFile] : []}
+                  onBusyChange={(busy) =>
+                    setBusyParts(current => ({
+                      ...current,
+                      [part]: busy,
+                    }))
+                  }
+                  onChange={(files) => {
+                    const file = files[files.length - 1];
+                    const nextRecordings = { ...attempt.speakingRecordings };
+                    if (!file) {
+                      delete nextRecordings[part];
+                    } else {
+                      nextRecordings[part] = {
+                        id: file.id,
+                        durationSeconds: recording?.durationSeconds ?? 1,
+                        file,
+                      };
+                    }
                     onChange({
                       ...attempt,
-                      speakingRecordings: {
-                        ...attempt.speakingRecordings,
-                        [part]: {
-                          id: event.target.value,
-                          durationSeconds: recording?.durationSeconds ?? 1,
-                        },
-                      },
-                    })
-                  }
+                      speakingRecordings: nextRecordings,
+                    });
+                  }}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor={`${part}-duration`}>Seconds</Label>
+                <Label htmlFor={`${part}-duration`}>Duration (seconds)</Label>
                 <Input
                   id={`${part}-duration`}
                   type="number"
@@ -94,6 +127,7 @@ export function StudentIeltsSpeakingAttempt({
                         [part]: {
                           id: recording?.id ?? '',
                           durationSeconds: Number(event.target.value) || 0,
+                          ...(recording?.file ? { file: recording.file } : {}),
                         },
                       },
                     })
