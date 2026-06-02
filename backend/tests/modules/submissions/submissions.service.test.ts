@@ -328,6 +328,48 @@ describe("submissions.service.createSubmission", () => {
     expect(prisma.submission.create).not.toHaveBeenCalled();
   });
 
+  it("rejects submitted IELTS reading payloads with null-only answers", async () => {
+    const assignmentRecord: Assignment = {
+      id: assignmentId,
+      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
+      title: "Reading Practice",
+      description: null,
+      type: "reading",
+      dueAt: null,
+      latePolicy: null,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: false, durationMinutes: 60, enforce: false },
+        attempts: { maxAttempts: null },
+        sections: [],
+      },
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      deletedAt: null,
+    };
+
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
+    prisma.submission.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      createSubmission(
+        { assignmentId },
+        {
+          submittedAt: "2026-01-02T00:00:00.000Z",
+          status: "submitted",
+          payload: {
+            version: 1,
+            answers: [{ questionId: "q1", value: null }],
+          },
+        },
+        { id: studentId, role: "student" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(prisma.submission.create).not.toHaveBeenCalled();
+  });
+
   it("enqueues teacher notifications only for enabled teachers on submission", async () => {
     const assignmentRecord = {
       id: assignmentId,
