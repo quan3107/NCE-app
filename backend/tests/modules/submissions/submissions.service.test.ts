@@ -277,6 +277,57 @@ describe("submissions.service.createSubmission", () => {
     ).rejects.toMatchObject({ statusCode: 409 });
   });
 
+  it("rejects submitted IELTS speaking payloads without recording metadata", async () => {
+    const assignmentRecord: Assignment = {
+      id: assignmentId,
+      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
+      title: "Speaking Practice",
+      description: null,
+      type: "speaking",
+      dueAt: null,
+      latePolicy: null,
+      assignmentConfig: {
+        version: 1,
+        timing: { enabled: false, durationMinutes: 15, enforce: false },
+        attempts: { maxAttempts: null },
+        part1: { questions: ["Where do you live?"] },
+        part2: {
+          cueCard: {
+            topic: "Describe a useful object.",
+            bulletPoints: ["what it is"],
+          },
+          prepSeconds: 60,
+          talkSeconds: 120,
+        },
+        part3: { questions: ["How has technology changed daily life?"] },
+      },
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      deletedAt: null,
+    };
+
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
+    prisma.submission.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      createSubmission(
+        { assignmentId },
+        {
+          submittedAt: "2026-01-02T00:00:00.000Z",
+          status: "submitted",
+          payload: {
+            version: 1,
+            recordings: [],
+          },
+        },
+        { id: studentId, role: "student" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(prisma.submission.create).not.toHaveBeenCalled();
+  });
+
   it("enqueues teacher notifications only for enabled teachers on submission", async () => {
     const assignmentRecord = {
       id: assignmentId,
@@ -314,7 +365,10 @@ describe("submissions.service.createSubmission", () => {
       { assignmentId },
       {
         submittedAt: "2026-02-09T10:00:00.000Z",
-        payload: { version: 1, answers: [] },
+        payload: {
+          version: 1,
+          answers: [{ questionId: "q1", value: "A" }],
+        },
       },
       { id: studentId, role: "student" },
     );
