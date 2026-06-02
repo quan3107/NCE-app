@@ -143,3 +143,32 @@ export async function completeFileUpload(
     },
   });
 }
+
+export async function getFileContentLocation(fileId: string) {
+  const file = await prisma.file.findFirst({
+    where: {
+      id: fileId,
+      deletedAt: null,
+    },
+    select: {
+      bucket: true,
+      objectKey: true,
+      mime: true,
+    },
+  });
+
+  if (!file) {
+    throw createHttpError(404, "File not found.");
+  }
+
+  const encodedBucket = encodeURIComponent(file.bucket);
+  const encodedKey = file.objectKey
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  return {
+    url: `https://storage.mock/${encodedBucket}/${encodedKey}`,
+    mime: file.mime,
+  };
+}
