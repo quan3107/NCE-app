@@ -10,6 +10,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
     file: {
       create: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -27,6 +28,9 @@ const prisma = vi.mocked(prismaModule.prisma, true);
 const getRoleFileUploadConfig = vi.mocked(fileUploadConfigModule.getRoleFileUploadConfig);
 
 const { completeFileUpload, signFileUpload } = await import(
+  "../../../src/modules/files/files.service.js"
+);
+const { getFileContentLocation } = await import(
   "../../../src/modules/files/files.service.js"
 );
 
@@ -64,6 +68,7 @@ describe("files.service upload policy enforcement", () => {
     vi.clearAllMocks();
     getRoleFileUploadConfig.mockResolvedValue(makePolicy());
     prisma.file.create.mockResolvedValue({ id: "file-1" });
+    prisma.file.findFirst.mockResolvedValue(null);
   });
 
   it("accepts exact mime type matches during signing", async () => {
@@ -165,5 +170,27 @@ describe("files.service upload policy enforcement", () => {
         }),
       }),
     );
+  });
+
+  it("resolves uploaded file metadata to a content location", async () => {
+    prisma.file.findFirst.mockResolvedValueOnce({
+      id: "22222222-2222-4222-8222-222222222222",
+      ownerId: "11111111-1111-4111-8111-111111111111",
+      bucket: "nce-mock-uploads",
+      objectKey: "uploads/user/recording.mp3",
+      mime: "audio/mpeg",
+      size: 512,
+      checksum: "abc123",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      deletedAt: null,
+    });
+
+    await expect(
+      getFileContentLocation("22222222-2222-4222-8222-222222222222"),
+    ).resolves.toEqual({
+      url: "https://storage.mock/nce-mock-uploads/uploads/user/recording.mp3",
+      mime: "audio/mpeg",
+    });
   });
 });
