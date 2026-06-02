@@ -63,6 +63,7 @@ export type Submission = {
   content?: string;
   files?: SubmissionFile[];
   version: number;
+  rawPayload?: Record<string, unknown>;
 };
 
 export type Enrollment = {
