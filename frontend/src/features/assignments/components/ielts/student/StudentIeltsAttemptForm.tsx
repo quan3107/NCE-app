@@ -4,23 +4,27 @@
  * Why: Lets students submit reading, listening, writing, and speaking IELTS payloads.
  */
 
-import { AlertCircle, Clock, PenLine } from 'lucide-react';
+import { AlertCircle, Clock, PenLine, Volume2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@components/ui/alert';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@components/ui/radio-group';
 import { Textarea } from '@components/ui/textarea';
 import { getQuestionTypeLabel } from '@features/assignments/components/ielts/IeltsPreviewShared';
+import { API_BASE_URL } from '@lib/apiBaseUrl';
 import type {
   IeltsAssignmentConfig,
   IeltsAssignmentType,
   IeltsListeningConfig,
-  IeltsQuestion,
   IeltsReadingConfig,
   IeltsSpeakingConfig,
   IeltsWritingConfig,
 } from '@lib/ielts';
-import type { StudentIeltsAttemptState } from './studentIeltsAttempt.logic';
+import {
+  getAnswerTargetsForQuestion,
+  type StudentIeltsAnswerTarget,
+  type StudentIeltsAttemptState,
+} from './studentIeltsAttempt.logic';
 import { StudentIeltsSpeakingAttempt } from './StudentIeltsSpeakingAttempt';
 
 type StudentIeltsAttemptFormProps = {
@@ -30,6 +34,7 @@ type StudentIeltsAttemptFormProps = {
   nextAttempt: number;
   maxAttempts: number | null;
   onChange: (attempt: StudentIeltsAttemptState) => void;
+  onUploadBusyChange?: (busy: boolean) => void;
 };
 
 const setAnswerValue = (
@@ -45,17 +50,19 @@ const setAnswerValue = (
 });
 
 function QuestionControl({
-  question,
+  target,
   questionNumber,
   value,
   onChange,
 }: {
-  question: IeltsQuestion;
+  target: StudentIeltsAnswerTarget;
   questionNumber: number;
   value: string;
   onChange: (value: string) => void;
 }) {
-  const options = question.options?.filter(option => option.trim().length > 0) ?? [];
+  const { question } = target;
+  const options = target.options;
+  const selectedValue = normalizeSelectedValue(value, target);
 
   return (
     <div className="rounded-md border border-border bg-background p-3 space-y-3">
@@ -64,13 +71,13 @@ function QuestionControl({
           {getQuestionTypeLabel(question.type, question.format)}
         </p>
         <Label className="text-sm font-medium">
-          {questionNumber}. {question.prompt || 'Question'}
+          {questionNumber}. {target.prompt || question.prompt || 'Question'}
         </Label>
       </div>
       {options.length > 0 ? (
-        <RadioGroup value={value} onValueChange={onChange} className="gap-2">
+        <RadioGroup value={selectedValue} onValueChange={onChange} className="gap-2">
           {options.map((option, optionIndex) => {
-            const id = `${question.id}-${optionIndex}`;
+            const id = `${target.id}-${optionIndex}`;
             const prefix = String.fromCharCode(65 + optionIndex);
             return (
               <label
@@ -78,10 +85,10 @@ function QuestionControl({
                 htmlFor={id}
                 className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm"
               >
-                <RadioGroupItem id={id} value={`${optionIndex}`} className="mt-0.5" />
+                <RadioGroupItem id={id} value={option.value} className="mt-0.5" />
                 <span>
                   <span className="font-medium mr-2">{prefix}.</span>
-                  {option}
+                  {option.label}
                 </span>
               </label>
             );
@@ -94,6 +101,48 @@ function QuestionControl({
           placeholder="Answer"
         />
       )}
+    </div>
+  );
+}
+
+const normalizeSelectedValue = (
+  value: string,
+  target: StudentIeltsAnswerTarget,
+): string => {
+  const optionIndex = Number(value);
+  if (Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < target.options.length) {
+    return target.options[optionIndex].value;
+  }
+  return value;
+};
+
+const getFileContentUrl = (fileId: string): string => {
+  const encodedId = encodeURIComponent(fileId);
+  const baseUrl = API_BASE_URL.replace(/\/$/, '');
+  return baseUrl ? `${baseUrl}/files/${encodedId}/content` : `/api/v1/files/${encodedId}/content`;
+};
+
+function ListeningAudio({ section }: { section: IeltsListeningConfig['sections'][number] }) {
+  if (!section.audioFileId) {
+    return (
+      <p className="mt-2 rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
+        Audio has not been attached for this section.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded-md bg-muted/40 p-3">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Volume2 className="size-4 text-muted-foreground" />
+        <span>Section audio</span>
+      </div>
+      <audio controls src={getFileContentUrl(section.audioFileId)} className="w-full" />
+      {section.playback?.limitPlays ? (
+        <p className="text-xs text-muted-foreground">
+          Play limit: {section.playback.limitPlays}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -121,27 +170,31 @@ function ReadingListeningAttempt({
                 {section.passage}
               </p>
             )}
-            {type === 'listening' && 'transcript' in section && section.transcript && (
-              <details className="mt-2 rounded-md bg-muted/40 p-3 text-sm">
-                <summary className="cursor-pointer font-medium">Transcript</summary>
-                <p className="mt-2 whitespace-pre-wrap">{section.transcript}</p>
-              </details>
+            {type === 'listening' && (
+              <ListeningAudio section={section as IeltsListeningConfig['sections'][number]} />
             )}
           </div>
           <div className="space-y-3">
             {section.questions.map(question => {
-              const currentNumber = questionNumber++;
-              const value = String(attempt.answers[question.id] ?? '');
+              const targets = getAnswerTargetsForQuestion(question);
               return (
-                <QuestionControl
-                  key={question.id}
-                  question={question}
-                  questionNumber={currentNumber}
-                  value={value}
-                  onChange={nextValue =>
-                    onChange(setAnswerValue(attempt, question.id, nextValue))
-                  }
-                />
+                <div key={question.id} className="space-y-3">
+                  {targets.map(target => {
+                    const currentNumber = questionNumber++;
+                    const value = String(attempt.answers[target.id] ?? '');
+                    return (
+                      <QuestionControl
+                        key={target.id}
+                        target={target}
+                        questionNumber={currentNumber}
+                        value={value}
+                        onChange={nextValue =>
+                          onChange(setAnswerValue(attempt, target.id, nextValue))
+                        }
+                      />
+                    );
+                  })}
+                </div>
               );
             })}
           </div>
@@ -198,6 +251,7 @@ export function StudentIeltsAttemptForm({
   nextAttempt,
   maxAttempts,
   onChange,
+  onUploadBusyChange,
 }: StudentIeltsAttemptFormProps) {
   return (
     <div className="space-y-4">
@@ -240,6 +294,7 @@ export function StudentIeltsAttemptForm({
           config={config as IeltsSpeakingConfig}
           attempt={attempt}
           onChange={onChange}
+          onUploadBusyChange={onUploadBusyChange}
         />
       )}
     </div>
