@@ -16,12 +16,30 @@ const safeParseJson = (value: string): Record<string, unknown> | null => {
   }
 };
 
+const formatPercent = (value: number): string =>
+  Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
+
+const formatLatePolicy = (
+  policy: Record<string, unknown> | string | null,
+): string => {
+  if (!policy) {
+    return '';
+  }
+
+  const record = typeof policy === 'string' ? safeParseJson(policy) : policy;
+  if (!record) {
+    return typeof policy === 'string' ? policy : JSON.stringify(policy);
+  }
+
+  if (record.type === 'percent' && typeof record.value === 'number') {
+    return `${formatPercent(record.value)}% late penalty`;
+  }
+
+  return JSON.stringify(record);
+};
+
 export const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment => {
-  const latePolicy = assignment.latePolicy
-    ? typeof assignment.latePolicy === 'string'
-      ? assignment.latePolicy
-      : JSON.stringify(assignment.latePolicy)
-    : '';
+  const latePolicy = formatLatePolicy(assignment.latePolicy);
 
   const assignmentConfig =
     typeof assignment.assignmentConfig === 'string'
@@ -93,5 +111,6 @@ export const toSubmission = (submission: ApiSubmission): Submission => {
     content: typeof payloadRecord.content === 'string' ? payloadRecord.content : undefined,
     files,
     version: typeof payloadRecord.version === 'number' ? payloadRecord.version : 1,
+    rawPayload: payloadRecord,
   };
 };
