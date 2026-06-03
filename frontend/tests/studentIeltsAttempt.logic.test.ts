@@ -11,11 +11,11 @@ import { test } from 'node:test';
 import {
   buildStudentIeltsPayload,
   createInitialStudentIeltsAttempt,
-  createStudentIeltsAttemptFromPayload,
   getStudentIeltsAttemptAvailability,
   hasStudentIeltsSubmissionContent,
   type StudentIeltsAttemptState,
 } from '../src/features/assignments/components/ielts/student/studentIeltsAttempt.logic';
+import { createStudentIeltsAttemptFromPayload } from '../src/features/assignments/components/ielts/student/studentIeltsAttemptHydration';
 import type {
   IeltsReadingConfig,
   IeltsSpeakingConfig,
