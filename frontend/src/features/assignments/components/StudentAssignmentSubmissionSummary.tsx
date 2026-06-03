@@ -8,6 +8,7 @@ import { FileText, Info } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Label } from '@components/ui/label';
 import type { SubmissionFile, Submission } from '@domain';
+import { FileDownloadButton } from '@features/files/FileDownloadButton';
 import { formatDate, formatFileSize } from '@lib/utils';
 
 type StudentAssignmentSubmissionSummaryProps = {
@@ -22,12 +23,13 @@ function SubmissionFiles({ files }: { files: SubmissionFile[] }) {
         {files.map(file => (
           <div key={file.id} className="flex items-center gap-2 text-sm">
             <FileText className="size-4 text-muted-foreground" />
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="font-medium">{file.name}</p>
               <p className="text-xs text-muted-foreground">
                 {formatFileSize(file.size)} · {file.mime}
               </p>
             </div>
+            <FileDownloadButton file={file} />
           </div>
         ))}
       </div>
