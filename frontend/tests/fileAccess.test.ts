@@ -67,8 +67,9 @@ test('requestSignedFileDownload calls the signed download endpoint', async () =>
   );
 });
 
-test('openSignedFileDownload opens the signed URL in a new tab', async () => {
+test('openSignedFileDownload navigates a placeholder tab to the signed URL', async () => {
   const openedTargets: Array<{ url: string; target: string; features: string }> = [];
+  const placeholder = { location: { href: 'about:blank' } } as Window;
 
   await withPatchedFetch(
     async () =>
@@ -97,19 +98,40 @@ test('openSignedFileDownload opens the signed URL in a new tab', async () => {
         },
         (url, target, features) => {
           openedTargets.push({ url, target, features });
-          return null;
+          return placeholder;
         },
       );
 
       assert.equal(result.url, 'https://storage.mock/nce-mock-uploads/uploads/student/essay.pdf');
       assert.deepEqual(openedTargets, [
         {
-          url: 'https://storage.mock/nce-mock-uploads/uploads/student/essay.pdf',
+          url: 'about:blank',
           target: '_blank',
           features: 'noopener,noreferrer',
         },
       ]);
+      assert.equal(
+        placeholder.location.href,
+        'https://storage.mock/nce-mock-uploads/uploads/student/essay.pdf',
+      );
     },
   );
 });
 
+test('openSignedFileDownload throws when the placeholder tab is blocked', async () => {
+  await assert.rejects(
+    openSignedFileDownload(
+      {
+        id: 'file-123',
+        name: 'essay.pdf',
+        size: 512,
+        mime: 'application/pdf',
+        checksum: 'checksum',
+        bucket: 'nce-mock-uploads',
+        objectKey: 'uploads/student/essay.pdf',
+      },
+      () => null,
+    ),
+    /Allow popups to open file downloads/,
+  );
+});
