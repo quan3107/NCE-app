@@ -8,7 +8,64 @@ export type GradeCriterion = {
   key: string;
   label: string;
   max: number;
+  step?: number;
+  payloadCriterion?: string;
 };
+
+const IELTS_WRITING_GRADE_CRITERIA: GradeCriterion[] = [
+  {
+    key: 'taskResponse',
+    label: 'Task Achievement / Task Response',
+    payloadCriterion: 'Task Response',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'coherenceAndCohesion',
+    label: 'Coherence and Cohesion',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'lexicalResource',
+    label: 'Lexical Resource',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'grammaticalRangeAndAccuracy',
+    label: 'Grammatical Range and Accuracy',
+    max: 9,
+    step: 0.5,
+  },
+];
+
+const IELTS_SPEAKING_GRADE_CRITERIA: GradeCriterion[] = [
+  {
+    key: 'fluencyAndCoherence',
+    label: 'Fluency and Coherence',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'lexicalResource',
+    label: 'Lexical Resource',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'grammaticalRangeAndAccuracy',
+    label: 'Grammatical Range and Accuracy',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'pronunciation',
+    label: 'Pronunciation',
+    max: 9,
+    step: 0.5,
+  },
+];
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -55,12 +112,48 @@ export const toGradeCriteria = (
   }));
 };
 
+export const getIeltsManualGradeCriteria = (
+  assignmentType: string | null | undefined,
+): GradeCriterion[] => {
+  if (assignmentType === 'writing') {
+    return IELTS_WRITING_GRADE_CRITERIA;
+  }
+  if (assignmentType === 'speaking') {
+    return IELTS_SPEAKING_GRADE_CRITERIA;
+  }
+  return [];
+};
+
+export const isValidIeltsBandScore = (score: number): boolean => {
+  if (!Number.isFinite(score) || score < 0 || score > 9) {
+    return false;
+  }
+  return Math.abs(score * 2 - Math.round(score * 2)) < 0.00001;
+};
+
+export const calculateIeltsBandFromScores = (
+  gradeCriteria: GradeCriterion[],
+  scores: Record<string, number>,
+): number => {
+  if (gradeCriteria.length === 0) {
+    return 0;
+  }
+  const total = gradeCriteria.reduce(
+    (sum, criterion) => sum + (scores[criterion.key] ?? 0),
+    0,
+  );
+  return Math.round((total / gradeCriteria.length) * 2) / 2;
+};
+
 export const calculateRawScore = (
   rubricDrivenMode: boolean,
   gradeCriteria: GradeCriterion[],
   scores: Record<string, number>,
   rawScoreInput: number,
+  mode: 'sum' | 'ieltsBand' = 'sum',
 ) =>
   rubricDrivenMode
-    ? gradeCriteria.reduce((sum, criterion) => sum + (scores[criterion.key] ?? 0), 0)
+    ? mode === 'ieltsBand'
+      ? calculateIeltsBandFromScores(gradeCriteria, scores)
+      : gradeCriteria.reduce((sum, criterion) => sum + (scores[criterion.key] ?? 0), 0)
     : rawScoreInput;
