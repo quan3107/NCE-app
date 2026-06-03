@@ -158,15 +158,45 @@ export async function completeFileUpload(
   });
 }
 
-function referencesFileId(value: unknown, fileId: string): boolean {
-  if (typeof value === "string") {
-    return value === fileId;
+function recordHasFileReference(
+  record: Record<string, unknown>,
+  fileId: string,
+): boolean {
+  if (record.audioFileId === fileId || record.imageFileId === fileId) {
+    return true;
   }
+
+  const files = Array.isArray(record.files) ? record.files : [];
+  if (
+    files.some(
+      (item) =>
+        typeof item === "object" &&
+        item !== null &&
+        (item as Record<string, unknown>).id === fileId,
+    )
+  ) {
+    return true;
+  }
+
+  const recordings = Array.isArray(record.recordings) ? record.recordings : [];
+  return recordings.some(
+    (item) =>
+      typeof item === "object" &&
+      item !== null &&
+      (item as Record<string, unknown>).fileId === fileId,
+  );
+}
+
+function referencesFileId(value: unknown, fileId: string): boolean {
   if (Array.isArray(value)) {
     return value.some((item) => referencesFileId(item, fileId));
   }
   if (typeof value === "object" && value !== null) {
-    return Object.values(value).some((item) => referencesFileId(item, fileId));
+    const record = value as Record<string, unknown>;
+    return (
+      recordHasFileReference(record, fileId) ||
+      Object.values(record).some((item) => referencesFileId(item, fileId))
+    );
   }
   return false;
 }
