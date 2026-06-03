@@ -8,6 +8,7 @@ import { Router } from "express";
 import { authGuard } from "../../middleware/authGuard.js";
 import {
   getFileContent,
+  getFileDownload,
   postFileComplete,
   postFileSign,
 } from "./files.controller.js";
@@ -15,6 +16,7 @@ import {
 export const fileRouter = Router();
 
 fileRouter.use(authGuard);
+fileRouter.get("/:id/download", getFileDownload);
 fileRouter.get("/:id/content", getFileContent);
 fileRouter.post("/sign", postFileSign);
 fileRouter.post("/complete", postFileComplete);
