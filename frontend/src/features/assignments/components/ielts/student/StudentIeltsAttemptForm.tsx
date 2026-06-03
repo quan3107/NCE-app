@@ -4,6 +4,7 @@
  * Why: Lets students submit reading, listening, writing, and speaking IELTS payloads.
  */
 
+import { useEffect, useState } from 'react';
 import { AlertCircle, Clock, PenLine, Volume2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@components/ui/alert';
 import { Input } from '@components/ui/input';
@@ -11,7 +12,7 @@ import { Label } from '@components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@components/ui/radio-group';
 import { Textarea } from '@components/ui/textarea';
 import { getQuestionTypeLabel } from '@features/assignments/components/ielts/IeltsPreviewShared';
-import { API_BASE_URL } from '@lib/apiBaseUrl';
+import { apiClient } from '@lib/apiClient';
 import type {
   IeltsAssignmentConfig,
   IeltsAssignmentType,
@@ -35,6 +36,11 @@ type StudentIeltsAttemptFormProps = {
   maxAttempts: number | null;
   onChange: (attempt: StudentIeltsAttemptState) => void;
   onUploadBusyChange?: (busy: boolean) => void;
+};
+
+type FileContentLocation = {
+  url: string;
+  mime: string;
 };
 
 const setAnswerValue = (
@@ -116,14 +122,40 @@ const normalizeSelectedValue = (
   return value;
 };
 
-const getFileContentUrl = (fileId: string): string => {
-  const encodedId = encodeURIComponent(fileId);
-  const baseUrl = API_BASE_URL.replace(/\/$/, '');
-  return baseUrl ? `${baseUrl}/files/${encodedId}/content` : `/api/v1/files/${encodedId}/content`;
-};
-
 function ListeningAudio({ section }: { section: IeltsListeningConfig['sections'][number] }) {
-  if (!section.audioFileId) {
+  const audioFileId = section.audioFileId;
+  const [contentLocation, setContentLocation] = useState<FileContentLocation | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!audioFileId) {
+      setContentLocation(null);
+      setErrorMessage('');
+      return;
+    }
+
+    let isMounted = true;
+    setContentLocation(null);
+    setErrorMessage('');
+
+    apiClient<FileContentLocation>(`/api/v1/files/${encodeURIComponent(audioFileId)}/content`)
+      .then((location) => {
+        if (isMounted) {
+          setContentLocation(location);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setErrorMessage('Audio is unavailable for this section.');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [audioFileId]);
+
+  if (!audioFileId) {
     return (
       <p className="mt-2 rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
         Audio has not been attached for this section.
@@ -137,7 +169,13 @@ function ListeningAudio({ section }: { section: IeltsListeningConfig['sections']
         <Volume2 className="size-4 text-muted-foreground" />
         <span>Section audio</span>
       </div>
-      <audio controls src={getFileContentUrl(section.audioFileId)} className="w-full" />
+      {contentLocation ? (
+        <audio controls src={contentLocation.url} className="w-full" />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {errorMessage || 'Loading audio...'}
+        </p>
+      )}
       {section.playback?.limitPlays ? (
         <p className="text-xs text-muted-foreground">
           Play limit: {section.playback.limitPlays}
