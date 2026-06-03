@@ -39,7 +39,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
-- **2026-06-03:** Completed PR-19 IELTS-aware teacher grading UI by showing official writing/speaking band criteria, using half-band controls, submitting band payloads with structured breakdowns, and rendering student band grades without forcing `/100` or percentage formatting. Added frontend grading logic and payload guard tests.
+- **2026-06-03:** Completed PR-19 IELTS-aware teacher grading UI by showing official writing/speaking band criteria, using config-aware Task Achievement/Task Response controls for writing tasks, using half-band controls, submitting band payloads with structured breakdowns, and rendering student band grades without forcing `/100` or percentage formatting. Added frontend grading logic and payload guard tests.
 - **2026-06-01:** Completed PR-17 student grade visibility by enabling student grade queries for owned submissions, mapping optional band and grader display fields, and rendering the IELTS band when available on the student grades page. Added a frontend guard test so student grade fetching remains enabled.
 - **2026-05-31:** Replaced the frontend coverage command with Node's built-in test coverage runner so the quality gate works on the current Node 26 line, and updated the package script guard test accordingly.
 - **2026-05-27:** Completed PR-02 by adding frontend ESLint, `tsc --noEmit` typecheck, and `c8` coverage scripts; aligned React type packages back to the React 18 runtime; fixed the newly surfaced frontend typing/lint issues; and expanded GitHub Actions frontend checks to run lint, typecheck, tests, coverage, and build after a clean install/audit.
