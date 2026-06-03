@@ -111,10 +111,13 @@ function QuestionControl({
   );
 }
 
-const normalizeSelectedValue = (
+export const normalizeSelectedValue = (
   value: string,
   target: StudentIeltsAnswerTarget,
 ): string => {
+  if (value.trim() === '') {
+    return '';
+  }
   const optionIndex = Number(value);
   if (Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < target.options.length) {
     return target.options[optionIndex].value;
