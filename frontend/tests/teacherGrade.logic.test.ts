@@ -7,8 +7,11 @@ import {
   isValidIeltsBandScore,
 } from '../src/features/assignments/components/teacherGrade.logic';
 
-test('writing assignments use task-specific IELTS writing grading criteria', () => {
-  const criteria = getIeltsManualGradeCriteria('writing');
+test('full IELTS writing assignments use task-scoped grading criteria', () => {
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task1: { prompt: 'Summarise the chart.' },
+    task2: { prompt: 'Discuss both views.' },
+  });
 
   assert.deepEqual(
     criteria.map(item => item.label),
@@ -35,6 +38,38 @@ test('writing assignments use task-specific IELTS writing grading criteria', () 
       'Task 2 - Coherence and Cohesion',
       'Task 2 - Lexical Resource',
       'Task 2 - Grammatical Range and Accuracy',
+    ],
+  );
+});
+
+test('Task 1-only IELTS writing assignments use Task Achievement criteria', () => {
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task1: { prompt: 'Summarise the chart.' },
+  });
+
+  assert.deepEqual(
+    criteria.map(item => item.label),
+    [
+      'Task Achievement',
+      'Coherence and Cohesion',
+      'Lexical Resource',
+      'Grammatical Range and Accuracy',
+    ],
+  );
+});
+
+test('Task 2-only IELTS writing assignments use Task Response criteria', () => {
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task2: { prompt: 'Discuss both views.' },
+  });
+
+  assert.deepEqual(
+    criteria.map(item => item.label),
+    [
+      'Task Response',
+      'Coherence and Cohesion',
+      'Lexical Resource',
+      'Grammatical Range and Accuracy',
     ],
   );
 });
@@ -66,7 +101,10 @@ test('IELTS criterion scores average to the nearest half band', () => {
 });
 
 test('IELTS writing band weights Task 2 twice as much as Task 1', () => {
-  const criteria = getIeltsManualGradeCriteria('writing');
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task1: { prompt: 'Summarise the chart.' },
+    task2: { prompt: 'Discuss both views.' },
+  });
   const scores = {
     task1TaskAchievement: 5,
     task1CoherenceAndCohesion: 5,
