@@ -33,6 +33,7 @@ type UpsertGradeRequest = {
   rawScore?: number;
   adjustments?: Array<{ reason: string; delta: number }>;
   finalScore?: number;
+  band?: number;
   feedbackMd?: string;
 };
 

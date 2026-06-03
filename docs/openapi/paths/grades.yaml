@@ -47,6 +47,11 @@ SubmissionGrade:
   put:
     tags: [grades]
     summary: Upsert grade (admin/teacher)
+    description: >
+      Creates or updates a grade. For IELTS writing and speaking assignments,
+      the server validates official IELTS criteria, requires 0.5-increment band
+      values from 0 to 9, and derives rawScore, finalScore, and band from the
+      submitted criterion breakdown.
     parameters:
       - in: path
         name: submissionId
@@ -75,6 +80,12 @@ SubmissionGrade:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '403':
         description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '400':
+        description: Invalid grade payload
         content:
           application/json:
             schema:

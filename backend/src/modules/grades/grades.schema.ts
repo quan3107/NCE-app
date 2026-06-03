@@ -5,6 +5,14 @@
  */
 import { z } from "zod";
 
+const gradeBandSchema = z
+  .number()
+  .min(0)
+  .max(9)
+  .refine((value) => Math.abs(value * 2 - Math.round(value * 2)) < 0.00001, {
+    message: "Band must use valid 0.5 increments.",
+  });
+
 export const submissionScopedParamsSchema = z.object({
   submissionId: z.string().uuid(),
 });
@@ -27,7 +35,7 @@ export const gradePayloadSchema = z
       )
       .optional(),
     finalScore: z.number().min(0).optional(),
-    band: z.number().min(0).optional(),
+    band: gradeBandSchema.optional(),
     feedbackMd: z.string().optional(),
   })
   .strict();

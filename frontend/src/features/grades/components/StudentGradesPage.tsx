@@ -89,7 +89,8 @@ export function StudentGradesPage() {
               const assignment = assignments.find(a => a.id === submission.assignmentId);
               if (!grade || !assignment) return null;
 
-              const percentage = (grade.finalScore / grade.maxScore) * 100;
+              const hasBandGrade = grade.band !== undefined;
+              const percentage = hasBandGrade ? null : (grade.finalScore / grade.maxScore) * 100;
 
               return (
                 <Card key={submission.id} className="hover:shadow-md transition-shadow">
@@ -102,11 +103,12 @@ export function StudentGradesPage() {
                         </div>
                         <div className="text-right">
                           <div className="text-3xl font-medium">
-                            {grade.finalScore}/{grade.maxScore}
+                            {hasBandGrade ? `Band ${grade.band}` : `${grade.finalScore}/${grade.maxScore}`}
                           </div>
-                          <div className="text-sm text-muted-foreground">{percentage.toFixed(0)}%</div>
-                          {grade.band !== undefined && (
-                            <div className="text-sm text-muted-foreground">Band {grade.band}</div>
+                          {percentage !== null && (
+                            <div className="text-sm text-muted-foreground">
+                              {percentage.toFixed(0)}%
+                            </div>
                           )}
                         </div>
                       </div>
@@ -120,10 +122,17 @@ export function StudentGradesPage() {
                               <div className="flex items-center justify-between text-sm mb-1">
                                 <span>{item.criteria}</span>
                                 <span className="font-medium">
-                                  {item.points}/{item.maxPoints}
+                                  {hasBandGrade ? `Band ${item.points}` : `${item.points}/${item.maxPoints}`}
                                 </span>
                               </div>
-                              <Progress value={(item.points / item.maxPoints) * 100} className="h-1.5" />
+                              <Progress
+                                value={
+                                  hasBandGrade
+                                    ? (item.points / 9) * 100
+                                    : (item.points / item.maxPoints) * 100
+                                }
+                                className="h-1.5"
+                              />
                             </div>
                           </div>
                         ))}

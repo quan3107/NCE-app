@@ -4,6 +4,7 @@
  * Why: Keeps scoring routines decoupled from controllers.
  */
 import {
+  AssignmentType,
   EnrollmentRole,
   NotificationChannel,
   Prisma,
@@ -17,6 +18,12 @@ import {
 } from "../../utils/httpError.js";
 import { enqueueNotification } from "../notifications/notifications.service.js";
 import {
+  calculateIeltsManualBand,
+  isIeltsManualAssignment,
+  validateIeltsCriterionBreakdown,
+  type IeltsCriterionScore,
+} from "../scoring/ieltsManualGrading.js";
+import {
   gradePayloadSchema,
   submissionScopedParamsSchema,
 } from "./grades.schema.js";
@@ -28,6 +35,7 @@ type GradingActor = {
 
 type SubmissionForGrading = {
   assignment: {
+    type: AssignmentType;
     course: {
       ownerId: string;
       enrollments: Array<{
@@ -141,6 +149,45 @@ function assertCanGradeSubmission(
   }
 }
 
+type GradePayload = ReturnType<typeof gradePayloadSchema.parse>;
+
+function normalizeGradePayload(
+  assignmentType: AssignmentType,
+  data: GradePayload,
+): GradePayload {
+  if (!isIeltsManualAssignment(assignmentType)) {
+    return data;
+  }
+
+  if (!data.rubricBreakdown || data.rubricBreakdown.length === 0) {
+    throw createHttpError(
+      400,
+      "IELTS writing and speaking grades require criterion breakdowns.",
+    );
+  }
+
+  try {
+    validateIeltsCriterionBreakdown(
+      assignmentType,
+      data.rubricBreakdown as IeltsCriterionScore[],
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Invalid IELTS grade breakdown.";
+    throw createHttpError(400, message);
+  }
+
+  const band = calculateIeltsManualBand(
+    data.rubricBreakdown as IeltsCriterionScore[],
+  );
+  return {
+    ...data,
+    rawScore: band,
+    finalScore: band,
+    band,
+  };
+}
+
 export async function upsertGrade(
   params: unknown,
   payload: unknown,
@@ -164,6 +211,7 @@ export async function upsertGrade(
         select: {
           id: true,
           title: true,
+          type: true,
           courseId: true,
           course: {
             select: {
@@ -198,13 +246,14 @@ export async function upsertGrade(
     throw createNotFoundError("Submission", submissionId);
   }
   assertCanGradeSubmission(submission, actor);
+  const normalizedData = normalizeGradePayload(submission.assignment.type, data);
 
   // Cast arrays to Prisma JSON inputs because Zod cannot enforce JsonValue types.
-  const rubricBreakdown = data.rubricBreakdown
-    ? (data.rubricBreakdown as Prisma.InputJsonArray)
+  const rubricBreakdown = normalizedData.rubricBreakdown
+    ? (normalizedData.rubricBreakdown as Prisma.InputJsonArray)
     : undefined;
-  const adjustments = data.adjustments
-    ? (data.adjustments as Prisma.InputJsonArray)
+  const adjustments = normalizedData.adjustments
+    ? (normalizedData.adjustments as Prisma.InputJsonArray)
     : undefined;
 
   const gradedAt = new Date();
@@ -215,21 +264,21 @@ export async function upsertGrade(
         submissionId,
         graderId: actor.id,
         rubricBreakdown,
-        rawScore: data.rawScore,
+        rawScore: normalizedData.rawScore,
         adjustments,
-        finalScore: data.finalScore,
-        band: data.band,
-        feedback: data.feedbackMd,
+        finalScore: normalizedData.finalScore,
+        band: normalizedData.band,
+        feedback: normalizedData.feedbackMd,
         gradedAt,
       },
       update: {
         graderId: actor.id,
         rubricBreakdown,
-        rawScore: data.rawScore,
+        rawScore: normalizedData.rawScore,
         adjustments,
-        finalScore: data.finalScore,
-        band: data.band,
-        feedback: data.feedbackMd,
+        finalScore: normalizedData.finalScore,
+        band: normalizedData.band,
+        feedback: normalizedData.feedbackMd,
         gradedAt,
       },
     }),

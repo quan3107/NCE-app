@@ -30,6 +30,10 @@ const { autoScoreSubmission } = await import(
 const { scoreIeltsSubmission } = await import(
   "../../../src/modules/scoring/ieltsScoring.utils.js"
 );
+const {
+  calculateIeltsManualBand,
+  validateIeltsCriterionBreakdown,
+} = await import("../../../src/modules/scoring/ieltsManualGrading.js");
 
 const assignmentConfig = {
   version: 1,
@@ -202,5 +206,73 @@ describe("ieltsScoring.service", () => {
     expect(result).toBe(existingGrade);
     expect(prisma.submission.findFirst).not.toHaveBeenCalled();
     expect(gradeService.upsertGrade).not.toHaveBeenCalled();
+  });
+});
+
+describe("ieltsManualGrading", () => {
+  it("rounds writing criterion averages to the nearest half band", () => {
+    const breakdown = [
+      { criterion: "Task Achievement", points: 6.5 },
+      { criterion: "Coherence and Cohesion", points: 7 },
+      { criterion: "Lexical Resource", points: 7.5 },
+      { criterion: "Grammatical Range and Accuracy", points: 7 },
+    ];
+
+    validateIeltsCriterionBreakdown(AssignmentType.writing, breakdown);
+
+    expect(calculateIeltsManualBand(breakdown)).toBe(7);
+  });
+
+  it("weights task-scoped writing Task 2 twice as much as Task 1", () => {
+    const breakdown = [
+      { criterion: "Task 1 - Task Achievement", points: 5 },
+      { criterion: "Task 1 - Coherence and Cohesion", points: 5 },
+      { criterion: "Task 1 - Lexical Resource", points: 5 },
+      { criterion: "Task 1 - Grammatical Range and Accuracy", points: 5 },
+      { criterion: "Task 2 - Task Response", points: 8 },
+      { criterion: "Task 2 - Coherence and Cohesion", points: 8 },
+      { criterion: "Task 2 - Lexical Resource", points: 8 },
+      { criterion: "Task 2 - Grammatical Range and Accuracy", points: 8 },
+    ];
+
+    validateIeltsCriterionBreakdown(AssignmentType.writing, breakdown);
+
+    expect(calculateIeltsManualBand(breakdown)).toBe(7);
+  });
+
+  it("accepts official speaking criteria and rejects writing-only criteria", () => {
+    const speakingBreakdown = [
+      { criterion: "Fluency and Coherence", points: 6.5 },
+      { criterion: "Lexical Resource", points: 7 },
+      { criterion: "Grammatical Range and Accuracy", points: 7 },
+      { criterion: "Pronunciation", points: 6.5 },
+    ];
+
+    expect(() =>
+      validateIeltsCriterionBreakdown(
+        AssignmentType.speaking,
+        speakingBreakdown,
+      ),
+    ).not.toThrow();
+
+    expect(() =>
+      validateIeltsCriterionBreakdown(AssignmentType.speaking, [
+        { criterion: "Task Response", points: 7 },
+        { criterion: "Coherence and Cohesion", points: 7 },
+        { criterion: "Lexical Resource", points: 7 },
+        { criterion: "Grammatical Range and Accuracy", points: 7 },
+      ]),
+    ).toThrow(/IELTS speaking criteria/);
+  });
+
+  it("rejects IELTS criteria outside half-band increments", () => {
+    expect(() =>
+      validateIeltsCriterionBreakdown(AssignmentType.writing, [
+        { criterion: "Task Response", points: 6.25 },
+        { criterion: "Coherence and Cohesion", points: 7 },
+        { criterion: "Lexical Resource", points: 7 },
+        { criterion: "Grammatical Range and Accuracy", points: 7 },
+      ]),
+    ).toThrow(/0\.5 increments/);
   });
 });

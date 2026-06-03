@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-06-03:** Completed PR-19 IELTS-aware teacher grading backend support by validating writing/speaking grades against official IELTS criteria, enforcing 0.5-increment bands from 0 to 9, deriving raw/final score and band from criterion averages, and preserving reading/listening auto-scored grades. Added focused grade service and scoring helper coverage plus OpenAPI documentation for the IELTS grading contract.
 - **2026-06-01:** Completed PR-17 student grade visibility by allowing authenticated students to read only their own submission grades, preserving teacher course-owner/co-teacher and admin grade reads, returning grader display labels, and documenting the read authorization behavior in OpenAPI. Added focused grade service coverage for student ownership, teacher course access, admin reads, and cross-student denial.
 - **2026-05-31:** Completed PR-15 co-teacher management by adding owner/admin co-teacher list/add/remove APIs, role-safe teacher enrollment upsert/reactivation, owner-removal protection, and shared course access classification for admin, owner, co-teacher, student, and no-access states. Documented the co-teacher endpoints in OpenAPI and added focused service coverage.
 - **2026-05-31:** Completed PR-14 course settings mutations by adding owner/admin course metadata updates, archive and restore endpoints, authenticated active/archived/all listing filters, and soft-delete-backed archived behavior that keeps roster and assignment mutations on active-course guards. Added focused course service/listing coverage and updated the OpenAPI course contract.
@@ -38,6 +39,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-06-03:** Completed PR-19 IELTS-aware teacher grading UI by showing official writing/speaking band criteria, using half-band controls, submitting band payloads with structured breakdowns, and rendering student band grades without forcing `/100` or percentage formatting. Added frontend grading logic and payload guard tests.
 - **2026-06-01:** Completed PR-17 student grade visibility by enabling student grade queries for owned submissions, mapping optional band and grader display fields, and rendering the IELTS band when available on the student grades page. Added a frontend guard test so student grade fetching remains enabled.
 - **2026-05-31:** Replaced the frontend coverage command with Node's built-in test coverage runner so the quality gate works on the current Node 26 line, and updated the package script guard test accordingly.
 - **2026-05-27:** Completed PR-02 by adding frontend ESLint, `tsc --noEmit` typecheck, and `c8` coverage scripts; aligned React type packages back to the React 18 runtime; fixed the newly surfaced frontend typing/lint issues; and expanded GitHub Actions frontend checks to run lint, typecheck, tests, coverage, and build after a clean install/audit.

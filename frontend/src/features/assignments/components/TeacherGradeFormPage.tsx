@@ -17,6 +17,8 @@ import { TeacherGradePanels } from './TeacherGradePanels';
 import {
   calculateRawScore,
   getAssignmentRubricIds,
+  getIeltsManualGradeCriteria,
+  isValidIeltsBandScore,
   toGradeCriteria,
 } from './teacherGrade.logic';
 
@@ -45,11 +47,21 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     }
     return (rubricsQuery.data ?? []).find((rubric) => rubric.id === rubricIds[0]) ?? null;
   }, [rubricsQuery.data, rubricIds]);
-  const gradeCriteria = useMemo(
-    () => (selectedRubric ? toGradeCriteria(selectedRubric.criteria) : []),
-    [selectedRubric],
+  const ieltsGradeCriteria = useMemo(
+    () => getIeltsManualGradeCriteria(assignment?.type),
+    [assignment?.type],
   );
-  const rubricDrivenMode = selectedRubric !== null && gradeCriteria.length > 0;
+  const ieltsGradingMode = ieltsGradeCriteria.length > 0;
+  const gradeCriteria = useMemo(
+    () =>
+      ieltsGradingMode
+        ? ieltsGradeCriteria
+        : selectedRubric
+          ? toGradeCriteria(selectedRubric.criteria)
+          : [],
+    [ieltsGradeCriteria, ieltsGradingMode, selectedRubric],
+  );
+  const rubricDrivenMode = gradeCriteria.length > 0 && (ieltsGradingMode || selectedRubric !== null);
 
   useEffect(() => {
     if (!rubricDrivenMode) {
@@ -74,8 +86,14 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     return null;
   }
 
-  const rawScore = calculateRawScore(rubricDrivenMode, gradeCriteria, scores, rawScoreInput);
-  const adjustments = submission.status === 'late' ? -5 : 0;
+  const rawScore = calculateRawScore(
+    rubricDrivenMode,
+    gradeCriteria,
+    scores,
+    rawScoreInput,
+    ieltsGradingMode ? 'ieltsBand' : 'sum',
+  );
+  const adjustments = ieltsGradingMode ? 0 : submission.status === 'late' ? -5 : 0;
   const finalScore = rawScore + adjustments;
 
   const handleSubmit = async () => {
@@ -87,10 +105,17 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       toast.error('Raw score must be a valid non-negative number.');
       return;
     }
+    if (
+      ieltsGradingMode &&
+      !gradeCriteria.every((criterion) => isValidIeltsBandScore(scores[criterion.key] ?? 0))
+    ) {
+      toast.error('IELTS criteria must use bands from 0 to 9 in 0.5 increments.');
+      return;
+    }
 
     const rubricBreakdown = rubricDrivenMode
       ? gradeCriteria.map((criterion) => ({
-          criterion: criterion.label,
+          criterion: criterion.payloadCriterion ?? criterion.label,
           points: scores[criterion.key] ?? 0,
         }))
       : undefined;
@@ -105,6 +130,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
           rawScore,
           adjustments: adjustmentsList,
           finalScore,
+          band: ieltsGradingMode ? finalScore : undefined,
           feedbackMd: feedback.trim() || undefined,
         },
       });
@@ -129,6 +155,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
         feedback={feedback}
         finalScore={finalScore}
         gradeCriteria={gradeCriteria}
+        ieltsGradingMode={ieltsGradingMode}
         isPosting={upsertGradeMutation.isPending}
         onFeedbackChange={setFeedback}
         onPostGrade={handleSubmit}
