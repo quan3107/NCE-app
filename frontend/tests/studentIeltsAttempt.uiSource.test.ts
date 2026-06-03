@@ -9,6 +9,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { getRecordingFileForUpload } from '../src/features/assignments/components/ielts/student/StudentIeltsSpeakingAttempt';
+
 const attemptFormSource = readFileSync(
   'src/features/assignments/components/ielts/student/StudentIeltsAttemptForm.tsx',
   'utf8',
@@ -28,4 +30,8 @@ test('student listening attempt renders audio controls without transcript disclo
 test('student speaking attempt uses upload UI instead of raw file id entry', () => {
   assert.doesNotMatch(speakingSource, /Recording file ID/);
   assert.match(speakingSource, /FileUploader/);
+});
+
+test('student speaking attempt does not show a completed upload for duration-only recordings', () => {
+  assert.equal(getRecordingFileForUpload({ id: '', durationSeconds: 30 }), null);
 });
