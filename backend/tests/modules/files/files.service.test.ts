@@ -12,6 +12,9 @@ vi.mock("../../../src/prisma/client.js", () => ({
       create: vi.fn(),
       findFirst: vi.fn(),
     },
+    assignment: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -69,6 +72,7 @@ describe("files.service upload policy enforcement", () => {
     getRoleFileUploadConfig.mockResolvedValue(makePolicy());
     prisma.file.create.mockResolvedValue({ id: "file-1" });
     prisma.file.findFirst.mockResolvedValue(null);
+    prisma.assignment.findMany.mockResolvedValue([]);
   });
 
   it("accepts exact mime type matches during signing", async () => {
@@ -187,9 +191,78 @@ describe("files.service upload policy enforcement", () => {
     });
 
     await expect(
-      getFileContentLocation("22222222-2222-4222-8222-222222222222"),
+      getFileContentLocation("22222222-2222-4222-8222-222222222222", {
+        id: "11111111-1111-4111-8111-111111111111",
+        role: "student",
+        status: "active",
+      }),
     ).resolves.toEqual({
       url: "https://storage.mock/nce-mock-uploads/uploads/user/recording.mp3",
+      mime: "audio/mpeg",
+    });
+  });
+
+  it("rejects content lookup for actors without file access", async () => {
+    prisma.file.findFirst.mockResolvedValueOnce({
+      id: "22222222-2222-4222-8222-222222222222",
+      ownerId: "33333333-3333-4333-8333-333333333333",
+      bucket: "nce-mock-uploads",
+      objectKey: "uploads/user/recording.mp3",
+      mime: "audio/mpeg",
+      size: 512,
+      checksum: "abc123",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      deletedAt: null,
+    });
+
+    await expect(
+      getFileContentLocation("22222222-2222-4222-8222-222222222222", {
+        id: "11111111-1111-4111-8111-111111111111",
+        role: "student",
+        status: "active",
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "Forbidden",
+    });
+  });
+
+  it("allows content lookup for files referenced by enrolled assignment configs", async () => {
+    prisma.file.findFirst.mockResolvedValueOnce({
+      id: "22222222-2222-4222-8222-222222222222",
+      ownerId: "33333333-3333-4333-8333-333333333333",
+      bucket: "nce-mock-uploads",
+      objectKey: "uploads/teacher/listening.mp3",
+      mime: "audio/mpeg",
+      size: 512,
+      checksum: "abc123",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      deletedAt: null,
+    });
+    prisma.assignment.findMany.mockResolvedValueOnce([
+      {
+        assignmentConfig: {
+          version: 1,
+          sections: [
+            {
+              id: "section-1",
+              audioFileId: "22222222-2222-4222-8222-222222222222",
+            },
+          ],
+        },
+      },
+    ]);
+
+    await expect(
+      getFileContentLocation("22222222-2222-4222-8222-222222222222", {
+        id: "11111111-1111-4111-8111-111111111111",
+        role: "student",
+        status: "active",
+      }),
+    ).resolves.toEqual({
+      url: "https://storage.mock/nce-mock-uploads/uploads/teacher/listening.mp3",
       mime: "audio/mpeg",
     });
   });
