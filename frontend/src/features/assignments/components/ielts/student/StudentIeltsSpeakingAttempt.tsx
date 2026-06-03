@@ -12,7 +12,10 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import type { SubmissionFile } from '@domain';
 import type { IeltsSpeakingConfig } from '@lib/ielts';
-import type { StudentIeltsAttemptState } from './studentIeltsAttempt.logic';
+import type {
+  StudentIeltsAttemptState,
+  StudentIeltsRecording,
+} from './studentIeltsAttempt.logic';
 
 type SpeakingPart = 'part1' | 'part2' | 'part3';
 
@@ -56,7 +59,7 @@ export function StudentIeltsSpeakingAttempt({
       {(['part1', 'part2', 'part3'] as SpeakingPart[]).map(part => {
         const recording = attempt.speakingRecordings[part];
         const uploadedFile =
-          recording?.file ?? (recording?.id ? toSyntheticRecordingFile(recording.id) : null);
+          getRecordingFile(recording);
         return (
           <section key={part} className="space-y-3 rounded-md border border-border p-3">
             <div className="flex items-center justify-between gap-3">
@@ -141,3 +144,12 @@ export function StudentIeltsSpeakingAttempt({
     </div>
   );
 }
+
+const getRecordingFile = (recording?: StudentIeltsRecording): SubmissionFile | null => {
+  if (!recording) {
+    return null;
+  }
+  return 'file' in recording && recording.file
+    ? recording.file
+    : toSyntheticRecordingFile(recording.id);
+};
