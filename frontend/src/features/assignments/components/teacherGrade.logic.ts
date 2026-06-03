@@ -71,6 +71,60 @@ const IELTS_WRITING_GRADE_CRITERIA: GradeCriterion[] = [
   },
 ];
 
+const IELTS_WRITING_TASK_1_GRADE_CRITERIA: GradeCriterion[] = [
+  {
+    key: 'taskAchievement',
+    label: 'Task Achievement',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'coherenceAndCohesion',
+    label: 'Coherence and Cohesion',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'lexicalResource',
+    label: 'Lexical Resource',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'grammaticalRangeAndAccuracy',
+    label: 'Grammatical Range and Accuracy',
+    max: 9,
+    step: 0.5,
+  },
+];
+
+const IELTS_WRITING_TASK_2_GRADE_CRITERIA: GradeCriterion[] = [
+  {
+    key: 'taskResponse',
+    label: 'Task Response',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'coherenceAndCohesion',
+    label: 'Coherence and Cohesion',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'lexicalResource',
+    label: 'Lexical Resource',
+    max: 9,
+    step: 0.5,
+  },
+  {
+    key: 'grammaticalRangeAndAccuracy',
+    label: 'Grammatical Range and Accuracy',
+    max: 9,
+    step: 0.5,
+  },
+];
+
 const IELTS_SPEAKING_GRADE_CRITERIA: GradeCriterion[] = [
   {
     key: 'fluencyAndCoherence',
@@ -145,9 +199,10 @@ export const toGradeCriteria = (
 
 export const getIeltsManualGradeCriteria = (
   assignmentType: string | null | undefined,
+  assignmentConfig?: Record<string, unknown> | null,
 ): GradeCriterion[] => {
   if (assignmentType === 'writing') {
-    return IELTS_WRITING_GRADE_CRITERIA;
+    return getIeltsWritingGradeCriteria(assignmentConfig);
   }
   if (assignmentType === 'speaking') {
     return IELTS_SPEAKING_GRADE_CRITERIA;
@@ -212,6 +267,27 @@ const averageCriterionScores = (
 };
 
 const roundIeltsBand = (score: number): number => Math.round(score * 2) / 2;
+
+const getIeltsWritingGradeCriteria = (
+  assignmentConfig?: Record<string, unknown> | null,
+): GradeCriterion[] => {
+  const config = asRecord(assignmentConfig);
+  if (!config) {
+    return IELTS_WRITING_GRADE_CRITERIA;
+  }
+
+  const hasTask1 = asRecord(config.task1) !== null;
+  const hasTask2 = asRecord(config.task2) !== null;
+
+  if (hasTask1 && !hasTask2) {
+    return IELTS_WRITING_TASK_1_GRADE_CRITERIA;
+  }
+  if (hasTask2 && !hasTask1) {
+    return IELTS_WRITING_TASK_2_GRADE_CRITERIA;
+  }
+
+  return IELTS_WRITING_GRADE_CRITERIA;
+};
 
 const isTaskScopedWritingCriteria = (gradeCriteria: GradeCriterion[]): boolean => {
   const names = new Set(
