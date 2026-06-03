@@ -21,6 +21,8 @@ const speakingSource = readFileSync(
 test('student listening attempt renders audio controls without transcript disclosure', () => {
   assert.doesNotMatch(attemptFormSource, /Transcript/);
   assert.match(attemptFormSource, /<audio\b/);
+  assert.match(attemptFormSource, /apiClient<FileContentLocation>/);
+  assert.doesNotMatch(attemptFormSource, /API_BASE_URL/);
 });
 
 test('student speaking attempt uses upload UI instead of raw file id entry', () => {
