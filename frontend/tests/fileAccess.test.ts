@@ -69,7 +69,10 @@ test('requestSignedFileDownload calls the signed download endpoint', async () =>
 
 test('openSignedFileDownload navigates a placeholder tab to the signed URL', async () => {
   const openedTargets: Array<{ url: string; target: string; features: string }> = [];
-  const placeholder = { location: { href: 'about:blank' } } as Window;
+  const placeholder = {
+    location: { href: 'about:blank' },
+    opener: { name: 'source-window' },
+  } as Window;
 
   await withPatchedFetch(
     async () =>
@@ -98,6 +101,9 @@ test('openSignedFileDownload navigates a placeholder tab to the signed URL', asy
         },
         (url, target, features) => {
           openedTargets.push({ url, target, features });
+          if (features.includes('noopener') || features.includes('noreferrer')) {
+            return null;
+          }
           return placeholder;
         },
       );
@@ -107,9 +113,10 @@ test('openSignedFileDownload navigates a placeholder tab to the signed URL', asy
         {
           url: 'about:blank',
           target: '_blank',
-          features: 'noopener,noreferrer',
+          features: '',
         },
       ]);
+      assert.equal(placeholder.opener, null);
       assert.equal(
         placeholder.location.href,
         'https://storage.mock/nce-mock-uploads/uploads/student/essay.pdf',
