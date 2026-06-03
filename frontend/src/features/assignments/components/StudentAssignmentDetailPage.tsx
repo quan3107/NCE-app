@@ -26,10 +26,10 @@ import {
 import {
   buildStudentIeltsPayload,
   createInitialStudentIeltsAttempt,
-  createStudentIeltsAttemptFromPayload,
   getStudentIeltsAttemptAvailability,
   hasStudentIeltsSubmissionContent,
 } from '@features/assignments/components/ielts/student/studentIeltsAttempt.logic';
+import { createStudentIeltsAttemptFromPayload } from '@features/assignments/components/ielts/student/studentIeltsAttemptHydration';
 
 export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
   const { currentUser } = useAuthStore();
