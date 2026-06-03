@@ -45,12 +45,19 @@ export async function getFileContent(
   req: Request,
   res: Response,
 ): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
   const fileId = req.params.id;
   if (!fileId) {
     res.status(400).json({ message: "File id is required." });
     return;
   }
 
-  const location = await getFileContentLocation(fileId);
-  res.redirect(302, location.url);
+  const location = await getFileContentLocation(fileId, actor);
+  res.status(200).json(location);
 }
