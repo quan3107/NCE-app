@@ -8,6 +8,7 @@ import { type Request, type Response } from "express";
 import {
   completeFileUpload,
   getFileContentLocation,
+  getSignedFileDownload,
   signFileUpload,
 } from "./files.service.js";
 
@@ -60,4 +61,25 @@ export async function getFileContent(
 
   const location = await getFileContentLocation(fileId, actor);
   res.status(200).json(location);
+}
+
+export async function getFileDownload(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user;
+
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const fileId = req.params.id;
+  if (!fileId) {
+    res.status(400).json({ message: "File id is required." });
+    return;
+  }
+
+  const download = await getSignedFileDownload(fileId, actor);
+  res.status(200).json(download);
 }
