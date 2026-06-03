@@ -223,6 +223,23 @@ describe("ieltsManualGrading", () => {
     expect(calculateIeltsManualBand(breakdown)).toBe(7);
   });
 
+  it("weights task-scoped writing Task 2 twice as much as Task 1", () => {
+    const breakdown = [
+      { criterion: "Task 1 - Task Achievement", points: 5 },
+      { criterion: "Task 1 - Coherence and Cohesion", points: 5 },
+      { criterion: "Task 1 - Lexical Resource", points: 5 },
+      { criterion: "Task 1 - Grammatical Range and Accuracy", points: 5 },
+      { criterion: "Task 2 - Task Response", points: 8 },
+      { criterion: "Task 2 - Coherence and Cohesion", points: 8 },
+      { criterion: "Task 2 - Lexical Resource", points: 8 },
+      { criterion: "Task 2 - Grammatical Range and Accuracy", points: 8 },
+    ];
+
+    validateIeltsCriterionBreakdown(AssignmentType.writing, breakdown);
+
+    expect(calculateIeltsManualBand(breakdown)).toBe(7);
+  });
+
   it("accepts official speaking criteria and rejects writing-only criteria", () => {
     const speakingBreakdown = [
       { criterion: "Fluency and Coherence", points: 6.5 },
