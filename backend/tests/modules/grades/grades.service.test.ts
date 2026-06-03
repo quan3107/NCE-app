@@ -323,9 +323,9 @@ describe("grades.service.upsertGrade", () => {
     expect(prisma.grade.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
-          band: 6.5,
-          finalScore: 6.5,
-          rawScore: 6.5,
+          band: 7,
+          finalScore: 7,
+          rawScore: 7,
         }),
       }),
     );
