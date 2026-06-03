@@ -6,6 +6,7 @@
 import { randomUUID } from "crypto";
 import path from "path";
 
+import type { RequestActor } from "../../middleware/requestActor.js";
 import { prisma } from "../../prisma/client.js";
 import type { UserRole } from "../../prisma/index.js";
 import { createHttpError } from "../../utils/httpError.js";
@@ -14,6 +15,13 @@ import { fileCompleteSchema, fileSignSchema } from "./files.schema.js";
 
 const UPLOAD_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_BUCKET = "nce-mock-uploads";
+
+type FileContentRecord = {
+  ownerId: string;
+  bucket: string;
+  objectKey: string;
+  mime: string;
+};
 
 function sanitizeFileName(fileName: string): string {
   const baseName = path.basename(fileName.trim());
@@ -144,13 +152,61 @@ export async function completeFileUpload(
   });
 }
 
-export async function getFileContentLocation(fileId: string) {
+function referencesFileId(value: unknown, fileId: string): boolean {
+  if (typeof value === "string") {
+    return value === fileId;
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => referencesFileId(item, fileId));
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.values(value).some((item) => referencesFileId(item, fileId));
+  }
+  return false;
+}
+
+async function actorCanAccessFile(
+  file: FileContentRecord,
+  fileId: string,
+  actor: RequestActor,
+): Promise<boolean> {
+  if (actor.role === "admin" || file.ownerId === actor.id) {
+    return true;
+  }
+
+  const accessibleAssignments = await prisma.assignment.findMany({
+    where: {
+      deletedAt: null,
+      course: {
+        enrollments: {
+          some: {
+            userId: actor.id,
+            deletedAt: null,
+          },
+        },
+      },
+    },
+    select: {
+      assignmentConfig: true,
+    },
+  });
+
+  return accessibleAssignments.some((assignment) =>
+    referencesFileId(assignment.assignmentConfig, fileId),
+  );
+}
+
+export async function getFileContentLocation(
+  fileId: string,
+  actor: RequestActor,
+) {
   const file = await prisma.file.findFirst({
     where: {
       id: fileId,
       deletedAt: null,
     },
     select: {
+      ownerId: true,
       bucket: true,
       objectKey: true,
       mime: true,
@@ -159,6 +215,11 @@ export async function getFileContentLocation(fileId: string) {
 
   if (!file) {
     throw createHttpError(404, "File not found.");
+  }
+
+  const canAccess = await actorCanAccessFile(file, fileId, actor);
+  if (!canAccess) {
+    throw createHttpError(403, "Forbidden");
   }
 
   const encodedBucket = encodeURIComponent(file.bucket);
