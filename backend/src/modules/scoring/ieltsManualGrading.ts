@@ -22,6 +22,17 @@ const WRITING_CRITERION_GROUPS = [
   ["Grammatical Range and Accuracy"],
 ];
 
+const WRITING_TASK_CRITERION_GROUPS = [
+  ["Task 1 - Task Achievement"],
+  ["Task 1 - Coherence and Cohesion"],
+  ["Task 1 - Lexical Resource"],
+  ["Task 1 - Grammatical Range and Accuracy"],
+  ["Task 2 - Task Response"],
+  ["Task 2 - Coherence and Cohesion"],
+  ["Task 2 - Lexical Resource"],
+  ["Task 2 - Grammatical Range and Accuracy"],
+];
+
 const SPEAKING_CRITERION_GROUPS = [
   ["Fluency and Coherence"],
   ["Lexical Resource"],
@@ -56,16 +67,17 @@ export function roundIeltsBand(value: number): number {
 export function getExpectedIeltsCriteria(
   assignmentType: AssignmentType,
 ): string[][] {
-  return assignmentType === AssignmentType.speaking
-    ? SPEAKING_CRITERION_GROUPS
-    : WRITING_CRITERION_GROUPS;
+  if (assignmentType === AssignmentType.speaking) {
+    return SPEAKING_CRITERION_GROUPS;
+  }
+  return WRITING_CRITERION_GROUPS;
 }
 
 export function validateIeltsCriterionBreakdown(
   assignmentType: AssignmentType,
   rubricBreakdown: IeltsCriterionScore[],
 ): void {
-  const expectedGroups = getExpectedIeltsCriteria(assignmentType);
+  const expectedGroups = resolveExpectedCriteria(assignmentType, rubricBreakdown);
   const expectedNames = new Set(expectedGroups.flat());
   const receivedNames = new Set<string>();
 
@@ -105,4 +117,20 @@ function buildCriteriaMessage(assignmentType: AssignmentType): string {
   const label =
     assignmentType === AssignmentType.speaking ? "speaking" : "writing";
   return `Grade must use the official IELTS ${label} criteria.`;
+}
+
+function resolveExpectedCriteria(
+  assignmentType: AssignmentType,
+  rubricBreakdown: IeltsCriterionScore[],
+): string[][] {
+  if (assignmentType !== AssignmentType.writing) {
+    return SPEAKING_CRITERION_GROUPS;
+  }
+
+  const names = new Set(rubricBreakdown.map((item) => item.criterion));
+  const allTaskScoped = WRITING_TASK_CRITERION_GROUPS.every((group) =>
+    group.some((name) => names.has(name)),
+  );
+
+  return allTaskScoped ? WRITING_TASK_CRITERION_GROUPS : WRITING_CRITERION_GROUPS;
 }
