@@ -150,6 +150,14 @@ The app runs on `http://localhost:3000`. `frontend/.env` should point at the ver
 VITE_API_BASE_URL=http://localhost:4000/api/v1
 ```
 
+Run the classroom browser workflow from the repo root:
+
+```bash
+npm --prefix frontend run e2e
+```
+
+The Playwright workflow starts the Vite dev server on `http://127.0.0.1:3000`, uses isolated mocked classroom API state, and captures screenshots/traces when the teacher publish, student submit, teacher grade, or student feedback visibility path fails.
+
 ## Local Accounts
 
 The main seed creates these accounts:
