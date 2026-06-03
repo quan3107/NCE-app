@@ -109,8 +109,22 @@ export function validateIeltsCriterionBreakdown(
 export function calculateIeltsManualBand(
   rubricBreakdown: IeltsCriterionScore[],
 ): number {
+  if (isTaskScopedWritingBreakdown(rubricBreakdown)) {
+    const task1Average = averageCriterionScores(
+      rubricBreakdown.filter((item) => item.criterion.startsWith("Task 1 - ")),
+    );
+    const task2Average = averageCriterionScores(
+      rubricBreakdown.filter((item) => item.criterion.startsWith("Task 2 - ")),
+    );
+    return roundIeltsBand((task1Average + task2Average * 2) / 3);
+  }
+
+  return roundIeltsBand(averageCriterionScores(rubricBreakdown));
+}
+
+function averageCriterionScores(rubricBreakdown: IeltsCriterionScore[]): number {
   const total = rubricBreakdown.reduce((sum, item) => sum + item.points, 0);
-  return roundIeltsBand(total / rubricBreakdown.length);
+  return total / rubricBreakdown.length;
 }
 
 function buildCriteriaMessage(assignmentType: AssignmentType): string {
@@ -133,4 +147,13 @@ function resolveExpectedCriteria(
   );
 
   return allTaskScoped ? WRITING_TASK_CRITERION_GROUPS : WRITING_CRITERION_GROUPS;
+}
+
+function isTaskScopedWritingBreakdown(
+  rubricBreakdown: IeltsCriterionScore[],
+): boolean {
+  const names = new Set(rubricBreakdown.map((item) => item.criterion));
+  return WRITING_TASK_CRITERION_GROUPS.every((group) =>
+    group.some((name) => names.has(name)),
+  );
 }
