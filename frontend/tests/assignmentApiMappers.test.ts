@@ -47,3 +47,36 @@ test('toSubmission preserves the raw payload for draft recovery', () => {
 
   assert.deepEqual(submission.rawPayload, payload);
 });
+
+test('toSubmission maps IELTS speaking recordings to downloadable files', () => {
+  const submission = toSubmission({
+    id: 'submission-1',
+    assignmentId: 'assignment-1',
+    studentId: 'student-1',
+    status: 'submitted',
+    submittedAt: '2026-02-01T10:00:00.000Z',
+    payload: {
+      version: 1,
+      recordings: [
+        {
+          part: 'part1',
+          fileId: 'recording-file-1',
+          fileName: 'speaking-part-1.webm',
+          durationSeconds: 42,
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(submission.files, [
+    {
+      id: 'recording-file-1',
+      name: 'speaking-part-1.webm',
+      size: 0,
+      mime: 'application/octet-stream',
+      checksum: '',
+      bucket: '',
+      objectKey: '',
+    },
+  ]);
+});
