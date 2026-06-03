@@ -1,7 +1,7 @@
 /**
  * File: src/modules/files/files.service.ts
- * Purpose: Generate mock signed upload intents and persist completed file metadata.
- * Why: Provides PRD-aligned endpoints without requiring storage infrastructure yet.
+ * Purpose: Generate mock signed upload/download intents and persist completed file metadata.
+ * Why: Provides PRD-aligned file endpoints without requiring storage infrastructure yet.
  */
 import { randomUUID } from "crypto";
 import path from "path";
@@ -11,9 +11,14 @@ import { prisma } from "../../prisma/client.js";
 import { EnrollmentRole, UserRole } from "../../prisma/index.js";
 import { createHttpError } from "../../utils/httpError.js";
 import { getRoleFileUploadConfig } from "../file-upload-config/file-upload-config.service.js";
-import { fileCompleteSchema, fileSignSchema } from "./files.schema.js";
+import {
+  fileCompleteSchema,
+  fileIdParamsSchema,
+  fileSignSchema,
+} from "./files.schema.js";
 
 const UPLOAD_TTL_MS = 15 * 60 * 1000;
+const DOWNLOAD_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_BUCKET = "nce-mock-uploads";
 
 type FileContentRecord = {
@@ -21,6 +26,7 @@ type FileContentRecord = {
   bucket: string;
   objectKey: string;
   mime: string;
+  size: number;
 };
 
 function sanitizeFileName(fileName: string): string {
@@ -152,61 +158,87 @@ export async function completeFileUpload(
   });
 }
 
-function referencesFileId(value: unknown, fileId: string): boolean {
-  if (typeof value === "string") {
-    return value === fileId;
+function recordHasFileReference(
+  record: Record<string, unknown>,
+  fileId: string,
+): boolean {
+  if (record.audioFileId === fileId || record.imageFileId === fileId) {
+    return true;
   }
+
+  const files = Array.isArray(record.files) ? record.files : [];
+  if (
+    files.some(
+      (item) =>
+        typeof item === "object" &&
+        item !== null &&
+        (item as Record<string, unknown>).id === fileId,
+    )
+  ) {
+    return true;
+  }
+
+  const recordings = Array.isArray(record.recordings) ? record.recordings : [];
+  return recordings.some(
+    (item) =>
+      typeof item === "object" &&
+      item !== null &&
+      (item as Record<string, unknown>).fileId === fileId,
+  );
+}
+
+function referencesFileId(value: unknown, fileId: string): boolean {
   if (Array.isArray(value)) {
     return value.some((item) => referencesFileId(item, fileId));
   }
   if (typeof value === "object" && value !== null) {
-    return Object.values(value).some((item) => referencesFileId(item, fileId));
+    const record = value as Record<string, unknown>;
+    return (
+      recordHasFileReference(record, fileId) ||
+      Object.values(record).some((item) => referencesFileId(item, fileId))
+    );
   }
   return false;
 }
 
-async function actorCanAccessFile(
-  file: FileContentRecord,
+function accessibleCourseWhere(actor: RequestActor) {
+  return actor.role === UserRole.teacher
+    ? {
+        deletedAt: null,
+        OR: [
+          { ownerId: actor.id },
+          {
+            enrollments: {
+              some: {
+                userId: actor.id,
+                roleInCourse: EnrollmentRole.teacher,
+                deletedAt: null,
+              },
+            },
+          },
+        ],
+      }
+    : {
+        deletedAt: null,
+        enrollments: {
+          some: {
+            userId: actor.id,
+            roleInCourse: EnrollmentRole.student,
+            deletedAt: null,
+          },
+        },
+      };
+}
+
+async function actorCanAccessAssignmentFile(
   fileId: string,
   actor: RequestActor,
 ): Promise<boolean> {
-  if (actor.role === "admin" || file.ownerId === actor.id) {
-    return true;
-  }
-
-  const courseWhere =
-    actor.role === UserRole.teacher
-      ? {
-          deletedAt: null,
-          OR: [
-            { ownerId: actor.id },
-            {
-              enrollments: {
-                some: {
-                  userId: actor.id,
-                  roleInCourse: EnrollmentRole.teacher,
-                  deletedAt: null,
-                },
-              },
-            },
-          ],
-        }
-      : {
-          deletedAt: null,
-          enrollments: {
-            some: {
-              userId: actor.id,
-              roleInCourse: EnrollmentRole.student,
-              deletedAt: null,
-            },
-          },
-        };
-
   const accessibleAssignments = await prisma.assignment.findMany({
     where: {
       deletedAt: null,
       ...(actor.role === UserRole.student ? { publishedAt: { not: null } } : {}),
-      course: courseWhere,
+      course: accessibleCourseWhere(actor),
     },
     select: {
       assignmentConfig: true,
@@ -218,13 +250,69 @@ async function actorCanAccessFile(
   );
 }
 
-export async function getFileContentLocation(
+async function actorCanAccessSubmissionFile(
   fileId: string,
   actor: RequestActor,
 ) {
+  if (actor.role !== UserRole.teacher) {
+    return false;
+  }
+
+  const submissions = await prisma.submission.findMany({
+    where: {
+      deletedAt: null,
+      assignment: {
+        deletedAt: null,
+        course: accessibleCourseWhere(actor),
+      },
+    },
+    select: {
+      payload: true,
+    },
+  });
+
+  return submissions.some((submission) =>
+    referencesFileId(submission.payload, fileId),
+  );
+}
+
+async function actorCanAccessFile(
+  file: FileContentRecord,
+  fileId: string,
+  actor: RequestActor,
+): Promise<boolean> {
+  if (actor.role === UserRole.admin || file.ownerId === actor.id) {
+    return true;
+  }
+
+  return (
+    (await actorCanAccessAssignmentFile(fileId, actor)) ||
+    (await actorCanAccessSubmissionFile(fileId, actor))
+  );
+}
+
+function buildMockStorageUrl(bucket: string, objectKey: string): string {
+  const encodedBucket = encodeURIComponent(bucket);
+  const encodedKey = objectKey
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  return `https://storage.mock/${encodedBucket}/${encodedKey}`;
+}
+
+function fileNameFromObjectKey(objectKey: string): string {
+  return path.basename(objectKey) || "download";
+}
+
+export async function getSignedFileDownload(
+  fileId: string,
+  actor: RequestActor,
+) {
+  const { id } = fileIdParamsSchema.parse({ id: fileId });
   const file = await prisma.file.findFirst({
     where: {
-      id: fileId,
+      id,
       deletedAt: null,
     },
     select: {
@@ -232,6 +320,7 @@ export async function getFileContentLocation(
       bucket: true,
       objectKey: true,
       mime: true,
+      size: true,
     },
   });
 
@@ -244,14 +333,25 @@ export async function getFileContentLocation(
     throw createHttpError(403, "Forbidden");
   }
 
-  const encodedBucket = encodeURIComponent(file.bucket);
-  const encodedKey = file.objectKey
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
+  return {
+    url: buildMockStorageUrl(file.bucket, file.objectKey),
+    method: "GET",
+    headers: {},
+    fileName: fileNameFromObjectKey(file.objectKey),
+    mime: file.mime,
+    size: file.size,
+    expiresAt: new Date(Date.now() + DOWNLOAD_TTL_MS).toISOString(),
+  };
+}
+
+export async function getFileContentLocation(
+  fileId: string,
+  actor: RequestActor,
+) {
+  const download = await getSignedFileDownload(fileId, actor);
 
   return {
-    url: `https://storage.mock/${encodedBucket}/${encodedKey}`,
-    mime: file.mime,
+    url: download.url,
+    mime: download.mime,
   };
 }

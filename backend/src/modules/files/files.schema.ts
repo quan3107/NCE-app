@@ -23,3 +23,9 @@ export const fileCompleteSchema = z
     checksum: z.string().min(1),
   })
   .strict();
+
+export const fileIdParamsSchema = z
+  .object({
+    id: z.string().uuid(),
+  })
+  .strict();

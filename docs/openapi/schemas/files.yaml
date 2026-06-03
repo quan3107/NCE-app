@@ -79,3 +79,28 @@ FileCompleteRequest:
     checksum:
       type: string
   required: [bucket, objectKey, mime, size, checksum]
+
+FileDownloadResponse:
+  type: object
+  properties:
+    url:
+      type: string
+      format: uri
+    method:
+      type: string
+      enum: [GET]
+    headers:
+      type: object
+      additionalProperties:
+        type: string
+    fileName:
+      type: string
+    mime:
+      type: string
+    size:
+      type: number
+    expiresAt:
+      type: string
+      format: date-time
+      description: Signed download URL expiry timestamp.
+  required: [url, method, headers, fileName, mime, size, expiresAt]
