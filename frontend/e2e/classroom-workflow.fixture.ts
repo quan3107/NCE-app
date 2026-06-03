@@ -83,10 +83,7 @@ export async function signInAs(
   api: ClassroomApiState,
 ) {
   api.activeUser = user;
-  await page.goto('about:blank');
-  await page.addInitScript((snapshot) => {
-    window.localStorage.setItem('currentUser', JSON.stringify(snapshot));
-  }, {
+  const snapshot = {
     mode: 'live',
     token: user.token,
     persona: { basePersona: 'admin', actingPersona: null },
@@ -96,7 +93,12 @@ export async function signInAs(
       name: user.name,
       role: user.role,
     },
-  });
+  };
+
+  await page.goto('/');
+  await page.evaluate((nextSnapshot) => {
+    window.localStorage.setItem('currentUser', JSON.stringify(nextSnapshot));
+  }, snapshot);
 }
 
 export async function installClassroomApi(page: Page): Promise<ClassroomApiState> {
