@@ -169,11 +169,22 @@ export const calculateIeltsBandFromScores = (
   if (gradeCriteria.length === 0) {
     return 0;
   }
-  const total = gradeCriteria.reduce(
-    (sum, criterion) => sum + (scores[criterion.key] ?? 0),
-    0,
-  );
-  return Math.round((total / gradeCriteria.length) * 2) / 2;
+  if (isTaskScopedWritingCriteria(gradeCriteria)) {
+    const task1Average = averageCriterionScores(
+      gradeCriteria.filter(criterion =>
+        (criterion.payloadCriterion ?? criterion.label).startsWith('Task 1 - '),
+      ),
+      scores,
+    );
+    const task2Average = averageCriterionScores(
+      gradeCriteria.filter(criterion =>
+        (criterion.payloadCriterion ?? criterion.label).startsWith('Task 2 - '),
+      ),
+      scores,
+    );
+    return roundIeltsBand((task1Average + task2Average * 2) / 3);
+  }
+  return roundIeltsBand(averageCriterionScores(gradeCriteria, scores));
 };
 
 export const calculateRawScore = (
@@ -188,3 +199,25 @@ export const calculateRawScore = (
       ? calculateIeltsBandFromScores(gradeCriteria, scores)
       : gradeCriteria.reduce((sum, criterion) => sum + (scores[criterion.key] ?? 0), 0)
     : rawScoreInput;
+
+const averageCriterionScores = (
+  gradeCriteria: GradeCriterion[],
+  scores: Record<string, number>,
+): number => {
+  const total = gradeCriteria.reduce(
+    (sum, criterion) => sum + (scores[criterion.key] ?? 0),
+    0,
+  );
+  return total / gradeCriteria.length;
+};
+
+const roundIeltsBand = (score: number): number => Math.round(score * 2) / 2;
+
+const isTaskScopedWritingCriteria = (gradeCriteria: GradeCriterion[]): boolean => {
+  const names = new Set(
+    gradeCriteria.map(criterion => criterion.payloadCriterion ?? criterion.label),
+  );
+  return IELTS_WRITING_GRADE_CRITERIA.every(criterion =>
+    names.has(criterion.payloadCriterion ?? criterion.label),
+  );
+};
