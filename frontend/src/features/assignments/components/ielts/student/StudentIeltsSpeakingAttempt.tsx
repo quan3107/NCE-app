@@ -58,8 +58,7 @@ export function StudentIeltsSpeakingAttempt({
     <div className="space-y-4">
       {(['part1', 'part2', 'part3'] as SpeakingPart[]).map(part => {
         const recording = attempt.speakingRecordings[part];
-        const uploadedFile =
-          getRecordingFile(recording);
+        const uploadedFile = getRecordingFileForUpload(recording);
         return (
           <section key={part} className="space-y-3 rounded-md border border-border p-3">
             <div className="flex items-center justify-between gap-3">
@@ -145,8 +144,13 @@ export function StudentIeltsSpeakingAttempt({
   );
 }
 
-const getRecordingFile = (recording?: StudentIeltsRecording): SubmissionFile | null => {
+export const getRecordingFileForUpload = (
+  recording?: StudentIeltsRecording,
+): SubmissionFile | null => {
   if (!recording) {
+    return null;
+  }
+  if (recording.id.trim() === '') {
     return null;
   }
   return 'file' in recording && recording.file
