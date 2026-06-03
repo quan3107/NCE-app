@@ -34,8 +34,12 @@ export async function openSignedFileDownload(
   openTarget: FileOpenTarget = (url, target, features) =>
     globalThis.window?.open(url, target, features) ?? null,
 ): Promise<SignedFileDownload> {
+  const fileWindow = openTarget('about:blank', '_blank', 'noopener,noreferrer');
+  if (!fileWindow) {
+    throw new Error('Allow popups to open file downloads.');
+  }
+
   const signed = await requestSignedFileDownload(file.id);
-  openTarget(signed.url, '_blank', 'noopener,noreferrer');
+  fileWindow.location.href = signed.url;
   return signed;
 }
-
