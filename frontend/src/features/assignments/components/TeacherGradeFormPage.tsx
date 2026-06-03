@@ -48,8 +48,8 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     return (rubricsQuery.data ?? []).find((rubric) => rubric.id === rubricIds[0]) ?? null;
   }, [rubricsQuery.data, rubricIds]);
   const ieltsGradeCriteria = useMemo(
-    () => getIeltsManualGradeCriteria(assignment?.type),
-    [assignment?.type],
+    () => getIeltsManualGradeCriteria(assignment?.type, assignment?.assignmentConfig ?? null),
+    [assignment?.assignmentConfig, assignment?.type],
   );
   const ieltsGradingMode = ieltsGradeCriteria.length > 0;
   const gradeCriteria = useMemo(
