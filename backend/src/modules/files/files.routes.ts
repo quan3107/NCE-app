@@ -14,7 +14,7 @@ import {
 
 export const fileRouter = Router();
 
-fileRouter.get("/:id/content", getFileContent);
 fileRouter.use(authGuard);
+fileRouter.get("/:id/content", getFileContent);
 fileRouter.post("/sign", postFileSign);
 fileRouter.post("/complete", postFileComplete);
