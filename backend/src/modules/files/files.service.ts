@@ -8,7 +8,7 @@ import path from "path";
 
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { prisma } from "../../prisma/client.js";
-import type { UserRole } from "../../prisma/index.js";
+import { EnrollmentRole, UserRole } from "../../prisma/index.js";
 import { createHttpError } from "../../utils/httpError.js";
 import { getRoleFileUploadConfig } from "../file-upload-config/file-upload-config.service.js";
 import { fileCompleteSchema, fileSignSchema } from "./files.schema.js";
@@ -174,17 +174,39 @@ async function actorCanAccessFile(
     return true;
   }
 
+  const courseWhere =
+    actor.role === UserRole.teacher
+      ? {
+          deletedAt: null,
+          OR: [
+            { ownerId: actor.id },
+            {
+              enrollments: {
+                some: {
+                  userId: actor.id,
+                  roleInCourse: EnrollmentRole.teacher,
+                  deletedAt: null,
+                },
+              },
+            },
+          ],
+        }
+      : {
+          deletedAt: null,
+          enrollments: {
+            some: {
+              userId: actor.id,
+              roleInCourse: EnrollmentRole.student,
+              deletedAt: null,
+            },
+          },
+        };
+
   const accessibleAssignments = await prisma.assignment.findMany({
     where: {
       deletedAt: null,
-      course: {
-        enrollments: {
-          some: {
-            userId: actor.id,
-            deletedAt: null,
-          },
-        },
-      },
+      ...(actor.role === UserRole.student ? { publishedAt: { not: null } } : {}),
+      course: courseWhere,
     },
     select: {
       assignmentConfig: true,
