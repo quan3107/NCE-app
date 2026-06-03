@@ -159,6 +159,9 @@ function addExpectedAnswer(
   if (expected === undefined) {
     return;
   }
+  if (typeof expected === "string" && expected.trim() === "") {
+    return;
+  }
   expectedAnswers.push({ keys: trimmedKeys, expected });
 }
 
