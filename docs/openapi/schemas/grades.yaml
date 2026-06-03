@@ -22,24 +22,15 @@ Grade:
       description: >
         For IELTS writing and speaking grades, contains the official IELTS
         criterion names with band values in 0.5 increments from 0 to 9.
+        Non-IELTS grades may use assignment-specific rubric criterion names and
+        point values.
       items:
         type: object
         properties:
           criterion:
             type: string
-            enum:
-              - Task Achievement
-              - Task Response
-              - Coherence and Cohesion
-              - Lexical Resource
-              - Grammatical Range and Accuracy
-              - Fluency and Coherence
-              - Pronunciation
           points:
             type: number
-            minimum: 0
-            maximum: 9
-            multipleOf: 0.5
     rawScore:
       type: number
       nullable: true
@@ -88,29 +79,19 @@ UpsertGradeRequest:
       type: array
       description: >
         Required for IELTS writing and speaking assignments. Writing grades must
-        include exactly one Task Achievement or Task Response criterion plus
-        Coherence and Cohesion, Lexical Resource, and Grammatical Range and
-        Accuracy. Speaking grades must include Fluency and Coherence, Lexical
-        Resource, Grammatical Range and Accuracy, and Pronunciation. Criterion
-        points must be IELTS bands in 0.5 increments from 0 to 9.
+        include either the single-task writing criteria or task-scoped criteria
+        for Task 1 and Task 2. Speaking grades must include Fluency and
+        Coherence, Lexical Resource, Grammatical Range and Accuracy, and
+        Pronunciation. IELTS criterion points must be bands in 0.5 increments
+        from 0 to 9. Non-IELTS grades may use assignment-specific rubric
+        criterion names and point values.
       items:
         type: object
         properties:
           criterion:
             type: string
-            enum:
-              - Task Achievement
-              - Task Response
-              - Coherence and Cohesion
-              - Lexical Resource
-              - Grammatical Range and Accuracy
-              - Fluency and Coherence
-              - Pronunciation
           points:
             type: number
-            minimum: 0
-            maximum: 9
-            multipleOf: 0.5
     rawScore:
       type: number
     adjustments:
