@@ -83,8 +83,10 @@ UpsertGradeRequest:
         for Task 1 and Task 2. Speaking grades must include Fluency and
         Coherence, Lexical Resource, Grammatical Range and Accuracy, and
         Pronunciation. IELTS criterion points must be bands in 0.5 increments
-        from 0 to 9. Non-IELTS grades may use assignment-specific rubric
-        criterion names and point values.
+        from 0 to 9. When writing grades include task-scoped criteria, Task 1
+        and Task 2 are averaged independently and Task 2 is weighted twice as
+        much as Task 1 before half-band rounding. Non-IELTS grades may use
+        assignment-specific rubric criterion names and point values.
       items:
         type: object
         properties:
