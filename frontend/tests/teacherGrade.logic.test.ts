@@ -65,6 +65,22 @@ test('IELTS criterion scores average to the nearest half band', () => {
   assert.equal(calculateIeltsBandFromScores(criteria, scores), 7);
 });
 
+test('IELTS writing band weights Task 2 twice as much as Task 1', () => {
+  const criteria = getIeltsManualGradeCriteria('writing');
+  const scores = {
+    task1TaskAchievement: 5,
+    task1CoherenceAndCohesion: 5,
+    task1LexicalResource: 5,
+    task1GrammaticalRangeAndAccuracy: 5,
+    task2TaskResponse: 8,
+    task2CoherenceAndCohesion: 8,
+    task2LexicalResource: 8,
+    task2GrammaticalRangeAndAccuracy: 8,
+  };
+
+  assert.equal(calculateIeltsBandFromScores(criteria, scores), 7);
+});
+
 test('IELTS band controls only accept half-step band values', () => {
   assert.equal(isValidIeltsBandScore(6.5), true);
   assert.equal(isValidIeltsBandScore(6.25), false);
