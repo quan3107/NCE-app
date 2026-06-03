@@ -58,6 +58,8 @@ jest-results/
 cypress/videos/
 cypress/screenshots/
 playwright-report/
+frontend/playwright-report/
+frontend/test-results/
 coverage/
 
 # === Logs and local data ===

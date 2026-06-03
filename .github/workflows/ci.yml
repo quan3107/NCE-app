@@ -60,6 +60,10 @@ jobs:
         run: npm audit --audit-level=high
         working-directory: frontend
 
+      - name: Install frontend browser dependencies
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
       - name: Lint frontend
         run: npm run lint
         working-directory: frontend
@@ -78,6 +82,10 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+        working-directory: frontend
+
+      - name: Test frontend classroom workflow
+        run: npm run e2e
         working-directory: frontend
 
   backend:
