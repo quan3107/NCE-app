@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { normalizeSelectedValue } from '../src/features/assignments/components/ielts/student/StudentIeltsAttemptForm';
 import { getRecordingFileForUpload } from '../src/features/assignments/components/ielts/student/StudentIeltsSpeakingAttempt';
 
 const attemptFormSource = readFileSync(
@@ -34,4 +35,16 @@ test('student speaking attempt uses upload UI instead of raw file id entry', () 
 
 test('student speaking attempt does not show a completed upload for duration-only recordings', () => {
   assert.equal(getRecordingFileForUpload({ id: '', durationSeconds: 30 }), null);
+});
+
+test('student radio questions do not default unanswered attempts to the first option', () => {
+  assert.equal(
+    normalizeSelectedValue('', {
+      options: [
+        { value: 'Paragraph A', label: 'Paragraph A' },
+        { value: 'Paragraph B', label: 'Paragraph B' },
+      ],
+    }),
+    '',
+  );
 });
