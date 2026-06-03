@@ -91,14 +91,47 @@ const toSubmissionFile = (item: unknown): SubmissionFile | null => {
   return { id, name, size, mime, checksum, bucket, objectKey };
 };
 
-export const toSubmission = (submission: ApiSubmission): Submission => {
-  const payload = submission.payload ?? {};
-  const payloadRecord = payload as Record<string, unknown>;
+const toSpeakingRecordingFile = (item: unknown): SubmissionFile | null => {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const record = item as Record<string, unknown>;
+  if (typeof record.fileId !== 'string') {
+    return null;
+  }
+
+  return {
+    id: record.fileId,
+    name: typeof record.fileName === 'string' ? record.fileName : 'Uploaded recording',
+    size: typeof record.size === 'number' ? record.size : 0,
+    mime: typeof record.mime === 'string' ? record.mime : 'application/octet-stream',
+    checksum: typeof record.checksum === 'string' ? record.checksum : '',
+    bucket: typeof record.bucket === 'string' ? record.bucket : '',
+    objectKey: typeof record.objectKey === 'string' ? record.objectKey : '',
+  };
+};
+
+const toSubmissionFiles = (payloadRecord: Record<string, unknown>): SubmissionFile[] | undefined => {
   const files = Array.isArray(payloadRecord.files)
     ? payloadRecord.files
         .map(toSubmissionFile)
         .filter((item): item is SubmissionFile => Boolean(item))
-    : undefined;
+    : [];
+  const recordingFiles = Array.isArray(payloadRecord.recordings)
+    ? payloadRecord.recordings
+        .map(toSpeakingRecordingFile)
+        .filter((item): item is SubmissionFile => Boolean(item))
+    : [];
+  const mergedFiles = [...files, ...recordingFiles];
+
+  return mergedFiles.length > 0 ? mergedFiles : undefined;
+};
+
+export const toSubmission = (submission: ApiSubmission): Submission => {
+  const payload = submission.payload ?? {};
+  const payloadRecord = payload as Record<string, unknown>;
+  const files = toSubmissionFiles(payloadRecord);
 
   return {
     id: submission.id,
