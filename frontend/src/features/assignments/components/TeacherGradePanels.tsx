@@ -21,6 +21,7 @@ type TeacherGradePanelsProps = {
   feedback: string;
   finalScore: number;
   gradeCriteria: GradeCriterion[];
+  ieltsGradingMode: boolean;
   isPosting: boolean;
   onFeedbackChange: (feedback: string) => void;
   onPostGrade: () => void;
@@ -41,6 +42,7 @@ export function TeacherGradePanels({
   feedback,
   finalScore,
   gradeCriteria,
+  ieltsGradingMode,
   isPosting,
   onFeedbackChange,
   onPostGrade,
@@ -55,7 +57,9 @@ export function TeacherGradePanels({
   submission,
 }: TeacherGradePanelsProps) {
   const finalPercentage =
-    assignment.maxScore > 0 ? `${((finalScore / assignment.maxScore) * 100).toFixed(0)}%` : 'N/A';
+    !ieltsGradingMode && assignment.maxScore > 0
+      ? `${((finalScore / assignment.maxScore) * 100).toFixed(0)}%`
+      : 'N/A';
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -65,6 +69,7 @@ export function TeacherGradePanels({
           <RubricPanel
             assignment={assignment}
             gradeCriteria={gradeCriteria}
+            ieltsGradingMode={ieltsGradingMode}
             onRawScoreChange={onRawScoreChange}
             onScoreChange={onScoreChange}
             rawScoreInput={rawScoreInput}
@@ -82,6 +87,7 @@ export function TeacherGradePanels({
             assignment={assignment}
             finalPercentage={finalPercentage}
             finalScore={finalScore}
+            ieltsGradingMode={ieltsGradingMode}
             rawScore={rawScore}
           />
           <SubmissionInfoPanel submission={submission} />
@@ -124,6 +130,7 @@ function StudentSubmissionPanel({ submission }: { submission: Submission }) {
 function RubricPanel({
   assignment,
   gradeCriteria,
+  ieltsGradingMode,
   onRawScoreChange,
   onScoreChange,
   rawScoreInput,
@@ -135,6 +142,7 @@ function RubricPanel({
   TeacherGradePanelsProps,
   | 'assignment'
   | 'gradeCriteria'
+  | 'ieltsGradingMode'
   | 'onRawScoreChange'
   | 'onScoreChange'
   | 'rawScoreInput'
@@ -156,18 +164,26 @@ function RubricPanel({
             <div key={criterion.key} className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>{criterion.label}</Label>
-                <span className="text-sm text-muted-foreground">/ {criterion.max}</span>
+                <span className="text-sm text-muted-foreground">
+                  {ieltsGradingMode ? 'Band' : `/ ${criterion.max}`}
+                </span>
               </div>
               <Input
                 type="number"
                 min="0"
                 max={criterion.max}
+                step={criterion.step ?? 1}
                 value={scores[criterion.key] ?? 0}
                 onChange={(event) => {
-                  const nextValue = parseInt(event.target.value, 10);
+                  const nextValue = parseFloat(event.target.value);
                   onScoreChange(criterion.key, Number.isNaN(nextValue) ? 0 : nextValue);
                 }}
               />
+              {ieltsGradingMode && (
+                <p className="text-xs text-muted-foreground">
+                  Use IELTS bands from 0 to 9 in 0.5 increments.
+                </p>
+              )}
             </div>
           ))
         ) : (
@@ -243,8 +259,12 @@ function GradeSummaryPanel({
   assignment,
   finalPercentage,
   finalScore,
+  ieltsGradingMode,
   rawScore,
-}: Pick<TeacherGradePanelsProps, 'adjustments' | 'assignment' | 'finalScore' | 'rawScore'> & {
+}: Pick<
+  TeacherGradePanelsProps,
+  'adjustments' | 'assignment' | 'finalScore' | 'ieltsGradingMode' | 'rawScore'
+> & {
   finalPercentage: string;
 }) {
   return (
@@ -254,7 +274,9 @@ function GradeSummaryPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Raw Score</span>
+          <span className="text-muted-foreground">
+            {ieltsGradingMode ? 'Average Band' : 'Raw Score'}
+          </span>
           <span className="font-medium">{rawScore}</span>
         </div>
         {adjustments !== 0 && (
@@ -266,12 +288,14 @@ function GradeSummaryPanel({
         <div className="pt-4 border-t flex justify-between items-center">
           <span className="font-medium">Final Score</span>
           <span className="text-3xl font-medium">
-            {finalScore}/{assignment.maxScore}
+            {ieltsGradingMode ? `Band ${finalScore}` : `${finalScore}/${assignment.maxScore}`}
           </span>
         </div>
-        <div className="text-center">
-          <div className="text-2xl font-medium text-muted-foreground">{finalPercentage}</div>
-        </div>
+        {!ieltsGradingMode && (
+          <div className="text-center">
+            <div className="text-2xl font-medium text-muted-foreground">{finalPercentage}</div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
