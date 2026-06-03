@@ -280,6 +280,57 @@ describe("grades.service.upsertGrade", () => {
     );
   });
 
+  it("derives IELTS writing band grades from task-specific criterion breakdowns", async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce(
+      buildSubmission({
+        assignment: {
+          id: "7a7510e2-5fac-46e6-a2d1-6d30c87bcc0c",
+          title: "Writing Full Test",
+          type: AssignmentType.writing,
+          courseId: "87ab2f6a-016b-4f4d-ab68-bc574ae3a660",
+          course: {
+            title: "IELTS Writing",
+            ownerId: teacherId,
+            enrollments: [],
+          },
+        },
+      }) as never,
+    );
+
+    await upsertGrade(
+      { submissionId },
+      {
+        rubricBreakdown: [
+          { criterion: "Task 1 - Task Achievement", points: 6 },
+          { criterion: "Task 1 - Coherence and Cohesion", points: 6.5 },
+          { criterion: "Task 1 - Lexical Resource", points: 6.5 },
+          {
+            criterion: "Task 1 - Grammatical Range and Accuracy",
+            points: 6,
+          },
+          { criterion: "Task 2 - Task Response", points: 7 },
+          { criterion: "Task 2 - Coherence and Cohesion", points: 7 },
+          { criterion: "Task 2 - Lexical Resource", points: 7.5 },
+          {
+            criterion: "Task 2 - Grammatical Range and Accuracy",
+            points: 7,
+          },
+        ],
+      },
+      { id: teacherId, role: UserRole.teacher },
+    );
+
+    expect(prisma.grade.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          band: 6.5,
+          finalScore: 6.5,
+          rawScore: 6.5,
+        }),
+      }),
+    );
+  });
+
   it("rejects IELTS writing grades with non-half-step bands", async () => {
     prisma.submission.findFirst.mockResolvedValueOnce(
       buildSubmission({
