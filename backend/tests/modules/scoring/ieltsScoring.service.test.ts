@@ -156,12 +156,14 @@ describe("ieltsScoring.service", () => {
               {
                 id: "q-match",
                 type: "matching",
+                correctAnswer: "",
                 matchingOptions: [{ id: "h1", label: "Heading 1" }],
                 matchingItems: [{ id: "item-1", statement: "First item", matchId: "h1" }],
               },
               {
                 id: "q-diagram",
                 type: "diagram_labeling",
+                correctAnswer: "",
                 diagramLabels: [
                   {
                     id: "label-1",
