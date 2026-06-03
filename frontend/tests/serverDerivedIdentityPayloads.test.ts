@@ -39,3 +39,17 @@ test('grade writes do not send client-owned identity fields', async () => {
   );
   assert.doesNotMatch(teacherGradePage, /payload:\s*\{[^}]*graderId:/s);
 });
+
+test('IELTS grade writes include server-validated band payloads', async () => {
+  const gradesApiPath = path.resolve(import.meta.dirname, '../src/features/grades/api.ts');
+  const teacherGradePagePath = path.resolve(
+    import.meta.dirname,
+    '../src/features/assignments/components/TeacherGradeFormPage.tsx',
+  );
+
+  const gradesApi = await readFile(gradesApiPath, 'utf8');
+  const teacherGradePage = await readFile(teacherGradePagePath, 'utf8');
+
+  assert.match(gradesApi, /band\?: number/);
+  assert.match(teacherGradePage, /band:\s*ieltsGradingMode/);
+});
