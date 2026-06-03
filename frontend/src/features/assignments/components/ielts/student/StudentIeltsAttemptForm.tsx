@@ -24,8 +24,8 @@ import type {
 import {
   getAnswerTargetsForQuestion,
   type StudentIeltsAnswerTarget,
-  type StudentIeltsAttemptState,
-} from './studentIeltsAttempt.logic';
+} from './studentIeltsAnswerTargets';
+import type { StudentIeltsAttemptState } from './studentIeltsAttempt.logic';
 import { StudentIeltsSpeakingAttempt } from './StudentIeltsSpeakingAttempt';
 
 type StudentIeltsAttemptFormProps = {
