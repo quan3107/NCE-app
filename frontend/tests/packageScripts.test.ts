@@ -19,4 +19,9 @@ test('frontend test scripts use CI-expandable test globs', async () => {
     'node --import tsx --test --experimental-test-coverage tests/*.test.ts',
     'frontend coverage script should use Node coverage with a glob that expands in the CI shell',
   );
+  assert.equal(
+    packageJson.scripts?.e2e,
+    'playwright test',
+    'frontend e2e script should run the Playwright classroom workflow',
+  );
 });
