@@ -266,4 +266,57 @@ describe("files.service upload policy enforcement", () => {
       mime: "audio/mpeg",
     });
   });
+
+  it("scopes student assignment-file lookup to published assignments on active courses", async () => {
+    prisma.file.findFirst.mockResolvedValueOnce({
+      id: "22222222-2222-4222-8222-222222222222",
+      ownerId: "33333333-3333-4333-8333-333333333333",
+      bucket: "nce-mock-uploads",
+      objectKey: "uploads/teacher/listening.mp3",
+      mime: "audio/mpeg",
+      size: 512,
+      checksum: "abc123",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      deletedAt: null,
+    });
+    prisma.assignment.findMany.mockResolvedValueOnce([
+      {
+        assignmentConfig: {
+          version: 1,
+          sections: [
+            {
+              id: "section-1",
+              audioFileId: "22222222-2222-4222-8222-222222222222",
+            },
+          ],
+        },
+      },
+    ]);
+
+    await getFileContentLocation("22222222-2222-4222-8222-222222222222", {
+      id: "11111111-1111-4111-8111-111111111111",
+      role: "student",
+      status: "active",
+    });
+
+    expect(prisma.assignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          deletedAt: null,
+          publishedAt: { not: null },
+          course: expect.objectContaining({
+            deletedAt: null,
+            enrollments: {
+              some: {
+                userId: "11111111-1111-4111-8111-111111111111",
+                roleInCourse: "student",
+                deletedAt: null,
+              },
+            },
+          }),
+        }),
+      }),
+    );
+  });
 });
