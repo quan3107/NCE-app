@@ -4,7 +4,7 @@
  * Why: Keeps TeacherGradeFormPage focused on data lookup and submit behavior.
  */
 
-import { Download, FileText, Send } from 'lucide-react';
+import { FileText, Send } from 'lucide-react';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
@@ -13,6 +13,7 @@ import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import { formatDate } from '@lib/utils';
 import type { Assignment, Submission } from '@domain';
+import { FileDownloadButton } from '@features/files/FileDownloadButton';
 import type { GradeCriterion } from './teacherGrade.logic';
 
 type TeacherGradePanelsProps = {
@@ -117,9 +118,7 @@ function StudentSubmissionPanel({ submission }: { submission: Submission }) {
           <div key={file.id} className="flex items-center gap-2 p-3 border rounded-lg">
             <FileText className="size-5 text-muted-foreground" />
             <span className="flex-1">{file.name}</span>
-            <Button variant="ghost" size="sm">
-              <Download className="size-4" />
-            </Button>
+            <FileDownloadButton file={file} />
           </div>
         ))}
       </CardContent>
