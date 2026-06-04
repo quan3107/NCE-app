@@ -1,0 +1,28 @@
+# File: docs/openapi/paths/ai-feedback.yaml
+# Purpose: Document AI feedback administrative endpoints.
+# Why: Keeps AI provider foundation contracts visible before assignment workflows use AI output.
+
+AiFeedbackHealth:
+  get:
+    tags: [ai-feedback]
+    summary: Check AI feedback provider readiness
+    description: Returns disabled, configured, healthy, unhealthy, timeout, or misconfigured AI provider state for active admins.
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: AI feedback is disabled, configured without probing, or provider health is healthy.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/AiFeedbackHealthResponse'
+      '401':
+        description: Authentication is required.
+      '403':
+        description: Active admin role is required.
+      '503':
+        description: AI feedback is enabled but provider health is unavailable, timed out, or misconfigured.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/AiFeedbackHealthResponse'
