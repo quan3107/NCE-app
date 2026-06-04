@@ -52,6 +52,10 @@ function buildBaseHealthResponse(
       max_output_tokens: config.maxOutputTokens,
     },
     routes: {
+      local: {
+        model: config.routes.local.model,
+        reasoning_effort: config.routes.local.reasoningEffort,
+      },
       low_cost: {
         model: config.routes.lowCost.model,
         reasoning_effort: config.routes.lowCost.reasoningEffort,
