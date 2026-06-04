@@ -168,6 +168,36 @@ describe("ai-feedback.repository", () => {
     expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
   });
 
+  it("returns a conflict when a concurrent active draft create wins the race", async () => {
+    prisma.aiFeedbackDraft.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: draftId } as never);
+    prisma.aiFeedbackDraft.create.mockRejectedValueOnce(
+      Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
+    );
+
+    const error = await createAiFeedbackDraft({
+      submissionId,
+      assignmentId,
+      requesterId,
+        promptVersion: "writing-feedback-v1",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+      inputHash: "sha256:writing-input",
+      visibilityMode: "teacher_reviewed",
+      generatedFeedback: {},
+    }).catch((caught: unknown) => caught);
+    const findFirstCallCount = prisma.aiFeedbackDraft.findFirst.mock.calls.length;
+    prisma.aiFeedbackDraft.findFirst.mockReset();
+
+    expect(error).toMatchObject({
+      statusCode: 409,
+      details: { draftId },
+    });
+    expect(findFirstCallCount).toBe(2);
+  });
+
   it("does not expose teacher-reviewed writing drafts to students", async () => {
     prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(null);
 
