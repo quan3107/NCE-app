@@ -5,7 +5,7 @@
  */
 import type { AiReasoningEffort } from "../../config/env.js";
 
-export type AiConcreteProviderRouteKey = "local" | "low_cost" | "premium";
+export type AiConcreteProviderRouteKey = "low_cost" | "premium";
 export type AiProviderRouteKey = AiConcreteProviderRouteKey | "auto";
 export type AiTaskType = "writing_feedback" | "objective_explanation";
 export type AiProviderHealthState = "healthy" | "configured" | "unhealthy" | "timeout";
@@ -69,4 +69,3 @@ export type AiProviderRouteConfig = {
   maxOutputTokens: number;
   maxResponseBytes?: number;
 };
-
