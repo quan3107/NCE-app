@@ -31,6 +31,18 @@ const defaultedEnvKeys = [
   'TRUST_PROXY',
   'LOG_LEVEL',
   'LOG_PRETTY',
+  'AI_FEEDBACK_ENABLED',
+  'AI_PROVIDER',
+  'AI_BASE_URL',
+  'AI_API_KEY',
+  'AI_TIMEOUT_MS',
+  'AI_MAX_INPUT_CHARS',
+  'AI_MAX_OUTPUT_TOKENS',
+  'AI_HEALTH_PATH',
+  'AI_LOW_COST_MODEL',
+  'AI_LOW_COST_REASONING_EFFORT',
+  'AI_PREMIUM_MODEL',
+  'AI_PREMIUM_REASONING_EFFORT',
 ] as const
 
 describe('test environment defaults', () => {
@@ -76,6 +88,18 @@ describe('test environment defaults', () => {
       expect(process.env.TRUST_PROXY).toBe('loopback')
       expect(process.env.LOG_LEVEL).toBe('silent')
       expect(process.env.LOG_PRETTY).toBe('false')
+      expect(process.env.AI_FEEDBACK_ENABLED).toBe('false')
+      expect(process.env.AI_PROVIDER).toBe('openai-compatible')
+      expect(process.env.AI_BASE_URL).toBe('https://api.openai.com/v1')
+      expect(process.env.AI_API_KEY).toBeUndefined()
+      expect(process.env.AI_TIMEOUT_MS).toBe('10000')
+      expect(process.env.AI_MAX_INPUT_CHARS).toBe('12000')
+      expect(process.env.AI_MAX_OUTPUT_TOKENS).toBe('1200')
+      expect(process.env.AI_HEALTH_PATH).toBe('/models')
+      expect(process.env.AI_LOW_COST_MODEL).toBe('gpt-5.4-nano')
+      expect(process.env.AI_LOW_COST_REASONING_EFFORT).toBe('medium')
+      expect(process.env.AI_PREMIUM_MODEL).toBe('gpt-5.4-mini')
+      expect(process.env.AI_PREMIUM_REASONING_EFFORT).toBe('high')
     } finally {
       for (const key of defaultedEnvKeys) {
         const originalValue = originalValues.get(key)
@@ -117,5 +141,25 @@ describe('test environment defaults', () => {
     expect(config.trustProxy).toEqual(['loopback'])
     expect(config.logLevel).toBe('silent')
     expect(config.logPretty).toBe(false)
+    expect(config.aiFeedback).toEqual({
+      enabled: false,
+      provider: 'openai-compatible',
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: undefined,
+      timeoutMs: 10_000,
+      maxInputChars: 12_000,
+      maxOutputTokens: 1_200,
+      healthPath: '/models',
+      routes: {
+        lowCost: {
+          model: 'gpt-5.4-nano',
+          reasoningEffort: 'medium',
+        },
+        premium: {
+          model: 'gpt-5.4-mini',
+          reasoningEffort: 'high',
+        },
+      },
+    })
   })
 })
