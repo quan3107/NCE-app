@@ -205,6 +205,23 @@ describe("OpenAIProvider", () => {
     });
   });
 
+  it("maps non-JSON provider error responses to retryable HTTP errors", async () => {
+    await expect(
+      provider(
+        vi.fn().mockResolvedValue(
+          new Response("Too many requests", {
+            status: 429,
+            headers: { "content-type": "text/plain" },
+          }),
+        ),
+      ).generate(baseRequest),
+    ).rejects.toMatchObject({
+      code: "http_error",
+      retryable: true,
+      details: { status: 429 },
+    });
+  });
+
   it.each([
     [
       "timeout",
