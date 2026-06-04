@@ -5,6 +5,36 @@
  */
 import { z } from "zod";
 
+export const aiFeedbackDraftStatusSchema = z.enum([
+  "queued",
+  "running",
+  "accepted",
+  "review_required",
+  "rejected",
+  "failed",
+  "approved",
+  "finalized",
+  "superseded",
+]);
+
+export const aiFeedbackVisibilityModeSchema = z.enum([
+  "teacher_reviewed",
+  "instant_student_visible",
+  "hidden",
+]);
+
+export const aiFeedbackDraftDecisionSchema = z.enum([
+  "accepted",
+  "approved",
+  "rejected",
+  "finalized",
+]);
+
+export const aiObjectiveExplanationStatusSchema = z.enum([
+  "completed",
+  "failed",
+]);
+
 export const aiFeedbackHealthStatusSchema = z.enum([
   "disabled",
   "configured",
@@ -21,6 +51,79 @@ export const aiReasoningEffortResponseSchema = z.enum([
   "high",
   "xhigh",
 ]);
+
+const jsonRecordSchema = z.record(z.string(), z.unknown());
+const jsonArraySchema = z.array(z.unknown());
+
+export const createAiFeedbackDraftSchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    assignmentId: z.string().uuid(),
+    requesterId: z.string().uuid(),
+    gradeId: z.string().uuid().optional(),
+    promptVersion: z.string().min(1),
+    routeKey: z.string().min(1),
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    reasoningEffort: aiReasoningEffortResponseSchema.optional(),
+    inputHash: z.string().min(1),
+    status: aiFeedbackDraftStatusSchema.default("queued"),
+    visibilityMode: aiFeedbackVisibilityModeSchema,
+    generatedFeedback: jsonRecordSchema,
+    teacherEditedFeedback: jsonRecordSchema.optional(),
+    normalizedCriterionSuggestions: jsonArraySchema.optional(),
+    criteriaVersion: z.string().min(1).optional(),
+    safetyFlags: jsonRecordSchema.optional(),
+    failureCode: z.string().min(1).optional(),
+    failureMessage: z.string().min(1).optional(),
+    retryCount: z.number().int().min(0).optional(),
+    nextRetryAt: z.date().optional(),
+    lastAttemptAt: z.date().optional(),
+  })
+  .strict();
+
+export const studentVisibleAiFeedbackDraftParamsSchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    studentId: z.string().uuid(),
+  })
+  .strict();
+
+export const aiFeedbackDraftDecisionInputSchema = z
+  .object({
+    draftId: z.string().uuid(),
+    actorId: z.string().uuid(),
+    decision: aiFeedbackDraftDecisionSchema,
+    gradeId: z.string().uuid().optional(),
+    teacherEditedFeedback: jsonRecordSchema.optional(),
+  })
+  .strict();
+
+export const supersedeAiFeedbackDraftsSchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    exceptDraftId: z.string().uuid().optional(),
+  })
+  .strict();
+
+export const upsertAiObjectiveExplanationSchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    assignmentId: z.string().uuid(),
+    requesterId: z.string().uuid(),
+    questionId: z.string().min(1),
+    deterministicResult: z.string().min(1),
+    promptVersion: z.string().min(1),
+    sourceContextHash: z.string().min(1),
+    routeKey: z.string().min(1),
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    status: aiObjectiveExplanationStatusSchema.default("completed"),
+    generatedExplanation: jsonRecordSchema.optional(),
+    failureCode: z.string().min(1).optional(),
+    failureMessage: z.string().min(1).optional(),
+  })
+  .strict();
 
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
@@ -54,4 +157,19 @@ export type AiFeedbackHealthStatus = z.infer<
 >;
 export type AiFeedbackHealthResponse = z.infer<
   typeof aiFeedbackHealthResponseSchema
+>;
+export type CreateAiFeedbackDraftInput = z.infer<
+  typeof createAiFeedbackDraftSchema
+>;
+export type StudentVisibleAiFeedbackDraftParams = z.infer<
+  typeof studentVisibleAiFeedbackDraftParamsSchema
+>;
+export type AiFeedbackDraftDecisionInput = z.infer<
+  typeof aiFeedbackDraftDecisionInputSchema
+>;
+export type SupersedeAiFeedbackDraftsInput = z.infer<
+  typeof supersedeAiFeedbackDraftsSchema
+>;
+export type UpsertAiObjectiveExplanationInput = z.infer<
+  typeof upsertAiObjectiveExplanationSchema
 >;
