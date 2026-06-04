@@ -43,7 +43,6 @@ export const aiFeedbackHealthResponseSchema = z.object({
     max_output_tokens: z.number().int().positive(),
   }),
   routes: z.object({
-    local: aiRouteMetadataSchema,
     low_cost: aiRouteMetadataSchema,
     premium: aiRouteMetadataSchema,
   }),
