@@ -20,6 +20,9 @@ vi.mock("../../../src/prisma/client.js", () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
     },
+    submission: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -36,6 +39,10 @@ const {
 describe("ai-feedback.repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.submission.findFirst.mockResolvedValue({
+      id: submissionId,
+      assignmentId,
+    } as never);
   });
 
   it("creates a writing feedback draft after checking for an active draft on the submission", async () => {
@@ -78,6 +85,19 @@ describe("ai-feedback.repository", () => {
         id: true,
       },
     });
+    expect(prisma.submission.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: submissionId,
+        deletedAt: null,
+        assignment: {
+          deletedAt: null,
+        },
+      },
+      select: {
+        id: true,
+        assignmentId: true,
+      },
+    });
     expect(prisma.aiFeedbackDraft.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -101,6 +121,30 @@ describe("ai-feedback.repository", () => {
       }),
     );
     expect(draft).toBe(created);
+  });
+
+  it("rejects writing feedback drafts when the caller assignment does not match the submission", async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      id: submissionId,
+      assignmentId,
+    } as never);
+
+    await expect(
+      createAiFeedbackDraft({
+        submissionId,
+        assignmentId: "f65b452e-e7eb-4670-9220-75b27a3d4975",
+        requesterId,
+        promptVersion: "writing-feedback-v1",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+        inputHash: "sha256:writing-input",
+        visibilityMode: "teacher_reviewed",
+        generatedFeedback: {},
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
   });
 
   it("rejects a second queued or running draft for the same submission", async () => {
