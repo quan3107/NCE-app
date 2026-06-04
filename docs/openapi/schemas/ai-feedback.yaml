@@ -64,10 +64,8 @@ AiFeedbackHealthResponse:
           example: 1200
     routes:
       type: object
-      required: [local, low_cost, premium]
+      required: [low_cost, premium]
       properties:
-        local:
-          $ref: '#/AiFeedbackRouteMetadata'
         low_cost:
           $ref: '#/AiFeedbackRouteMetadata'
         premium:
