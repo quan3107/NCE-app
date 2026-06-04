@@ -39,11 +39,6 @@ const defaultedEnvKeys = [
   'AI_MAX_INPUT_CHARS',
   'AI_MAX_OUTPUT_TOKENS',
   'AI_HEALTH_PATH',
-  'AI_LOCAL_BASE_URL',
-  'AI_LOCAL_API_KEY',
-  'AI_LOCAL_MODEL',
-  'AI_LOCAL_REASONING_EFFORT',
-  'AI_LOCAL_SUPPORTS_REASONING_EFFORT',
   'AI_LOW_COST_MODEL',
   'AI_LOW_COST_REASONING_EFFORT',
   'AI_PREMIUM_MODEL',
@@ -101,11 +96,6 @@ describe('test environment defaults', () => {
       expect(process.env.AI_MAX_INPUT_CHARS).toBe('12000')
       expect(process.env.AI_MAX_OUTPUT_TOKENS).toBe('1200')
       expect(process.env.AI_HEALTH_PATH).toBe('/models')
-      expect(process.env.AI_LOCAL_BASE_URL).toBe('http://localhost:11434/v1')
-      expect(process.env.AI_LOCAL_API_KEY).toBe('')
-      expect(process.env.AI_LOCAL_MODEL).toBe('llama3.1')
-      expect(process.env.AI_LOCAL_REASONING_EFFORT).toBe('none')
-      expect(process.env.AI_LOCAL_SUPPORTS_REASONING_EFFORT).toBe('false')
       expect(process.env.AI_LOW_COST_MODEL).toBe('gpt-5.4-nano')
       expect(process.env.AI_LOW_COST_REASONING_EFFORT).toBe('medium')
       expect(process.env.AI_PREMIUM_MODEL).toBe('gpt-5.4-mini')
@@ -161,13 +151,6 @@ describe('test environment defaults', () => {
       maxOutputTokens: 1_200,
       healthPath: '/models',
       routes: {
-        local: {
-          baseUrl: 'http://localhost:11434/v1',
-          apiKey: undefined,
-          model: 'llama3.1',
-          reasoningEffort: 'none',
-          supportsReasoningEffort: false,
-        },
         lowCost: {
           model: 'gpt-5.4-nano',
           reasoningEffort: 'medium',
