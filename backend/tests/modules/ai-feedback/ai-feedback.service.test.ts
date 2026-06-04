@@ -29,6 +29,13 @@ const baseConfig = {
   maxOutputTokens: 1_200,
   healthPath: "/models",
   routes: {
+    local: {
+      baseUrl: "http://localhost:11434/v1",
+      apiKey: undefined,
+      model: "llama3.1",
+      reasoningEffort: "none",
+      supportsReasoningEffort: false,
+    },
     lowCost: {
       model: "gpt-5.4-nano",
       reasoningEffort: "medium",
@@ -60,6 +67,8 @@ describe("ai-feedback.service", () => {
 
     expect(health.status).toBe("disabled");
     expect(health.enabled).toBe(false);
+    expect(health.routes.local.model).toBe("llama3.1");
+    expect(health.routes.local.reasoning_effort).toBe("none");
     expect(health.routes.low_cost.model).toBe("gpt-5.4-nano");
     expect(health.routes.premium.reasoning_effort).toBe("high");
     expect(probe).not.toHaveBeenCalled();
