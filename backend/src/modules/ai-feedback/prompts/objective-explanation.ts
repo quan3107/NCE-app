@@ -65,12 +65,16 @@ function routePreference(
     : undefined
 }
 
-function serializeStudentAnswer(answer: unknown): string {
+function serializeStudentAnswer(answer: unknown): string | null {
+  if (answer === null || answer === undefined) {
+    return null
+  }
+
   if (typeof answer === 'string') {
     return answer.trim()
   }
 
-  return JSON.stringify(answer)
+  return JSON.stringify(answer) ?? null
 }
 
 function buildSourceContext(context: ObjectiveSourceContextInput | undefined) {
