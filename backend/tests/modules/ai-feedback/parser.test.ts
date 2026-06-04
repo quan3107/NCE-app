@@ -119,6 +119,31 @@ describe('parseWritingFeedbackOutput', () => {
         },
       ),
     ).toMatchObject({ status: 'failed', failureCode: 'off_task_output' })
+
+    expect(
+      parseWritingFeedbackOutput(
+        JSON.stringify({
+          ...validWritingJson,
+          rationale: ' ',
+        }),
+        {
+          expectedCriterionIds: ['task_response', 'coherence_cohesion'],
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'schema_invalid' })
+
+    expect(
+      parseWritingFeedbackOutput(
+        JSON.stringify({
+          status: 'failed',
+          failureCode: 'provider_selected_code',
+          failureMessage: 'The provider should not choose parser taxonomy.',
+        }),
+        {
+          expectedCriterionIds: ['task_response'],
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'schema_invalid' })
   })
 })
 
@@ -187,5 +212,33 @@ describe('parseObjectiveExplanationOutput', () => {
         },
       ),
     ).toMatchObject({ status: 'failed', failureCode: 'unsafe_output' })
+
+    expect(
+      parseObjectiveExplanationOutput(
+        JSON.stringify({
+          result: 'incorrect',
+          short_explanation: ' ',
+          evidence: ' ',
+          misconception: ' ',
+          study_tip: ' ',
+        }),
+        {
+          deterministicResult: 'incorrect',
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'schema_invalid' })
+
+    expect(
+      parseObjectiveExplanationOutput(
+        JSON.stringify({
+          status: 'failed',
+          failureCode: 'provider_selected_code',
+          failureMessage: 'The provider should not choose parser taxonomy.',
+        }),
+        {
+          deterministicResult: 'incorrect',
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'schema_invalid' })
   })
 })
