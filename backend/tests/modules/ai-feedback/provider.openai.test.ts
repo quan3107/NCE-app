@@ -1,12 +1,12 @@
 /**
- * File: tests/modules/ai-feedback/provider.openai-compatible.test.ts
- * Purpose: Verify OpenAI-compatible chat completion provider behavior.
- * Why: Keeps hosted and local model adapters interchangeable for downstream AI services.
+ * File: tests/modules/ai-feedback/provider.openai.test.ts
+ * Purpose: Verify server-side OpenAI chat completion provider behavior.
+ * Why: Keeps downstream AI services independent from OpenAI request details.
  */
 import { describe, expect, it, vi } from "vitest";
 
 import { AiProviderError } from "../../../src/modules/ai-feedback/provider.errors.js";
-import { OpenAICompatibleProvider } from "../../../src/modules/ai-feedback/provider.openai-compatible.js";
+import { OpenAIProvider } from "../../../src/modules/ai-feedback/provider.openai.js";
 import type { AiProviderRequest } from "../../../src/modules/ai-feedback/provider.types.js";
 
 const baseRequest = {
@@ -20,9 +20,9 @@ const baseRequest = {
 
 function provider(
   fetchImpl: typeof fetch,
-  overrides: Partial<ConstructorParameters<typeof OpenAICompatibleProvider>[0]> = {},
-): OpenAICompatibleProvider {
-  return new OpenAICompatibleProvider({
+  overrides: Partial<ConstructorParameters<typeof OpenAIProvider>[0]> = {},
+): OpenAIProvider {
+  return new OpenAIProvider({
     routeKey: "low_cost",
     baseUrl: "https://provider.example/v1",
     apiKey: "sk-test",
@@ -51,7 +51,7 @@ function jsonResponse(
   });
 }
 
-describe("OpenAICompatibleProvider", () => {
+describe("OpenAIProvider", () => {
   it("posts chat completions with model, reasoning effort, JSON instructions, and returns parsed metadata", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse(
@@ -115,7 +115,7 @@ describe("OpenAICompatibleProvider", () => {
     });
   });
 
-  it("accepts structured content arrays from OpenAI-compatible runtimes", async () => {
+  it("accepts structured content arrays from provider responses", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse({
         choices: [
@@ -148,7 +148,7 @@ describe("OpenAICompatibleProvider", () => {
     );
 
     await provider(fetchImpl, {
-      routeKey: "local",
+      routeKey: "low_cost",
       supportsReasoningEffort: false,
       reasoningEffort: "none",
     }).generate({
