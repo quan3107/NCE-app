@@ -26,10 +26,11 @@ vi.mock('../../../src/prisma/client.js', () => ({
 const prismaModule = await import('../../../src/prisma/client.js')
 const prisma = vi.mocked(prismaModule.prisma, true)
 
-const { createAssignment, getPendingAssignmentsCount } =
+const { createAssignment, getPendingAssignmentsCount, updateAssignment } =
   await import('../../../src/modules/assignments/assignments.service.js')
 
 const courseId = '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2'
+const assignmentId = '6c986d3c-5d72-40d4-96b5-b5e3725c9811'
 const ownerTeacher = { id: 'teacher-owner', role: UserRole.teacher }
 
 const readingConfig = {
@@ -38,6 +39,15 @@ const readingConfig = {
   instructions: 'Read and answer all questions.',
   attempts: { maxAttempts: null },
   sections: [],
+}
+
+const readingConfigWithAiOff = {
+  ...readingConfig,
+  aiPolicy: {
+    writingFeedbackMode: 'off',
+    objectiveExplanations: 'off',
+    providerTier: 'auto',
+  },
 }
 
 describe('assignments.service.createAssignment', () => {
@@ -66,7 +76,7 @@ describe('assignments.service.createAssignment', () => {
           courseId,
           title: 'Reading Practice',
           type: 'reading',
-          assignmentConfig: readingConfig,
+          assignmentConfig: readingConfigWithAiOff,
         }),
       }),
     )
@@ -84,6 +94,39 @@ describe('assignments.service.createAssignment', () => {
         ownerTeacher,
       ),
     ).rejects.toBeInstanceOf(ZodError)
+  })
+})
+
+describe('assignments.service.updateAssignment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('rejects type-only IELTS updates when the stored AI policy is invalid for the target type', async () => {
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+      type: 'writing',
+      assignmentConfig: {
+        version: 1,
+        task1: { prompt: 'Summarize the chart.' },
+        task2: { prompt: 'Discuss both views.' },
+        aiPolicy: {
+          writingFeedbackMode: 'teacher_reviewed',
+          objectiveExplanations: 'off',
+          providerTier: 'auto',
+        },
+      },
+    })
+
+    await expect(
+      updateAssignment(
+        { courseId, assignmentId },
+        { type: 'reading' },
+        ownerTeacher,
+      ),
+    ).rejects.toBeInstanceOf(ZodError)
+
+    expect(prisma.assignment.update).not.toHaveBeenCalled()
   })
 })
 

@@ -187,6 +187,8 @@ IeltsBaseAssignmentConfig:
     version:
       type: integer
       enum: [1]
+    aiPolicy:
+      $ref: '#/AssignmentAiPolicy'
     timing:
       $ref: '#/IeltsTimingConfig'
     instructions:
@@ -195,6 +197,27 @@ IeltsBaseAssignmentConfig:
       $ref: '#/IeltsAttemptsConfig'
   required: [version]
   additionalProperties: true
+
+AssignmentAiPolicy:
+  type: object
+  description: Teacher-controlled AI behavior for the assignment.
+  properties:
+    writingFeedbackMode:
+      type: string
+      description: Writing feedback is supported only for writing assignments.
+      enum: [off, teacher_reviewed, instant_student_visible]
+      default: off
+    objectiveExplanations:
+      type: string
+      description: On-demand objective explanations are supported only for reading and listening assignments.
+      enum: [off, on_demand_student_visible]
+      default: off
+    providerTier:
+      type: string
+      enum: [auto, low_cost, premium]
+      default: auto
+  required: [writingFeedbackMode, objectiveExplanations, providerTier]
+  additionalProperties: false
 
 IeltsQuestion:
   type: object

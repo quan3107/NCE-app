@@ -9,6 +9,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { toAssignment, toSubmission } from '../src/features/assignments/api.mappers';
+import {
+  createIeltsAssignmentConfig,
+  normalizeIeltsAssignmentConfig,
+} from '../src/lib/ielts';
 
 test('toAssignment formats structured late policies for student display', () => {
   const assignment = toAssignment(
@@ -27,6 +31,34 @@ test('toAssignment formats structured late policies for student display', () => 
   );
 
   assert.equal(assignment.latePolicy, '15% late penalty');
+});
+
+test('IELTS assignment configs default AI policy to off', () => {
+  const assignmentConfig = createIeltsAssignmentConfig('writing');
+
+  assert.deepEqual(assignmentConfig.aiPolicy, {
+    writingFeedbackMode: 'off',
+    objectiveExplanations: 'off',
+    providerTier: 'auto',
+  });
+});
+
+test('normalizeIeltsAssignmentConfig preserves assignment AI policy', () => {
+  const assignmentConfig = normalizeIeltsAssignmentConfig('reading', {
+    version: 1,
+    sections: [],
+    aiPolicy: {
+      writingFeedbackMode: 'off',
+      objectiveExplanations: 'on_demand_student_visible',
+      providerTier: 'low_cost',
+    },
+  });
+
+  assert.deepEqual(assignmentConfig.aiPolicy, {
+    writingFeedbackMode: 'off',
+    objectiveExplanations: 'on_demand_student_visible',
+    providerTier: 'low_cost',
+  });
 });
 
 test('toSubmission preserves the raw payload for draft recovery', () => {

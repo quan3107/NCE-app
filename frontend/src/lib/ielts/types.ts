@@ -36,6 +36,21 @@ export type IeltsAttemptsConfig = {
   maxAttempts: number | null;
 };
 
+export type IeltsWritingFeedbackMode =
+  | 'off'
+  | 'teacher_reviewed'
+  | 'instant_student_visible';
+
+export type IeltsObjectiveExplanationsMode = 'off' | 'on_demand_student_visible';
+
+export type IeltsAiProviderTier = 'auto' | 'low_cost' | 'premium';
+
+export type IeltsAssignmentAiPolicy = {
+  writingFeedbackMode: IeltsWritingFeedbackMode;
+  objectiveExplanations: IeltsObjectiveExplanationsMode;
+  providerTier: IeltsAiProviderTier;
+};
+
 export type IeltsCompletionFormat = IeltsCompletionFormatRecord['id'];
 
 export type IeltsReadingQuestionType = IeltsQuestionTypeRecord['id'];
@@ -122,6 +137,7 @@ export type IeltsSpeakingPart = {
 
 export type IeltsAssignmentBase = {
   version: 1;
+  aiPolicy: IeltsAssignmentAiPolicy;
   timing: IeltsTimingConfig;
   instructions: string;
   attempts: IeltsAttemptsConfig;

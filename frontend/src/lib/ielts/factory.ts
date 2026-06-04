@@ -6,6 +6,7 @@
 
 import type {
   DiagramLabel,
+  IeltsAssignmentAiPolicy,
   IeltsAssignmentBase,
   IeltsAssignmentConfig,
   IeltsAssignmentType,
@@ -26,8 +27,15 @@ export const createId = () => {
   return `ielts-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+export const createDefaultIeltsAiPolicy = (): IeltsAssignmentAiPolicy => ({
+  writingFeedbackMode: 'off',
+  objectiveExplanations: 'off',
+  providerTier: 'auto',
+});
+
 export const baseConfig = (): IeltsAssignmentBase => ({
   version: 1,
+  aiPolicy: createDefaultIeltsAiPolicy(),
   timing: {
     enabled: true,
     durationMinutes: 60,
