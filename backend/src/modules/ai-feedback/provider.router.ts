@@ -75,20 +75,20 @@ function isConcreteRouteKey(
 }
 
 function routeCandidates(request: AiProviderRequest): AiConcreteProviderRouteKey[] {
-  if (request.assignmentPolicy?.preferredRoute) {
-    return uniqueRoutes([
-      request.assignmentPolicy.preferredRoute,
-      "premium",
-      "low_cost",
-    ]);
-  }
-
   if (
     request.assignmentPolicy?.highStakes ||
     request.retry?.lowConfidence ||
     (request.retry?.attempt ?? 0) > 0
   ) {
     return ["premium", "low_cost"];
+  }
+
+  if (request.assignmentPolicy?.preferredRoute) {
+    return uniqueRoutes([
+      request.assignmentPolicy.preferredRoute,
+      "premium",
+      "low_cost",
+    ]);
   }
 
   if (request.taskType === "objective_explanation") {
