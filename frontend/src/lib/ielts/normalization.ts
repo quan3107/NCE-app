@@ -13,6 +13,7 @@ import { normalizeQuestions } from './question-normalization';
 import { toBoolean, toNumber, toString } from './normalization-utils';
 import type {
   IeltsAssignmentBase,
+  IeltsAssignmentAiPolicy,
   IeltsAssignmentConfig,
   IeltsAssignmentType,
   IeltsAttemptsConfig,
@@ -24,6 +25,46 @@ import type {
   IeltsWritingTask1Type,
   ShowSampleTiming,
 } from './types';
+
+const writingFeedbackModes = [
+  'off',
+  'teacher_reviewed',
+  'instant_student_visible',
+] as const;
+const objectiveExplanationsModes = ['off', 'on_demand_student_visible'] as const;
+const providerTiers = ['auto', 'low_cost', 'premium'] as const;
+
+const normalizeEnum = <TValue extends string>(
+  value: unknown,
+  allowed: readonly TValue[],
+  fallback: TValue,
+): TValue =>
+  typeof value === 'string' && allowed.includes(value as TValue)
+    ? (value as TValue)
+    : fallback;
+
+const normalizeAiPolicy = (
+  value: unknown,
+  fallback: IeltsAssignmentAiPolicy,
+): IeltsAssignmentAiPolicy => {
+  if (!value || typeof value !== 'object') {
+    return fallback;
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    writingFeedbackMode: normalizeEnum(
+      record.writingFeedbackMode,
+      writingFeedbackModes,
+      fallback.writingFeedbackMode,
+    ),
+    objectiveExplanations: normalizeEnum(
+      record.objectiveExplanations,
+      objectiveExplanationsModes,
+      fallback.objectiveExplanations,
+    ),
+    providerTier: normalizeEnum(record.providerTier, providerTiers, fallback.providerTier),
+  };
+};
 
 const normalizeTiming = (
   value: unknown,
@@ -74,6 +115,7 @@ export const normalizeIeltsAssignmentConfig = (
   const record = config as Record<string, unknown>;
   const normalizedBase: IeltsAssignmentBase = {
     ...base,
+    aiPolicy: normalizeAiPolicy(record.aiPolicy, base.aiPolicy),
     timing: normalizeTiming(record.timing, base.timing),
     instructions: toString(record.instructions, base.instructions),
     attempts: normalizeAttempts(record.attempts, base.attempts),
