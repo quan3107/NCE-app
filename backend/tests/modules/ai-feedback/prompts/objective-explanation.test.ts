@@ -114,4 +114,37 @@ describe('buildObjectiveExplanationPrompt', () => {
       '0f15fd9a-0f42-4b3d-9bd0-9d0a261b1c0f',
     )
   })
+
+  it('keeps an explicit student answer field for missing responses', () => {
+    const prompt = buildObjectiveExplanationPrompt({
+      assignment: {
+        title: 'Reading Practice 1',
+        type: 'reading',
+        config: {
+          version: 1,
+          aiPolicy: {
+            writingFeedbackMode: 'off',
+            objectiveExplanations: 'on_demand_student_visible',
+            providerTier: 'auto',
+          },
+        },
+      },
+      question: {
+        id: 'q-3',
+        text: 'Which reason is given?',
+        acceptedAnswer: 'High demand',
+      },
+      studentAnswer: undefined,
+      deterministicResult: 'incorrect',
+      sourceContext: {
+        kind: 'reading_passage',
+        text: 'The passage states that high demand caused the delay.',
+      },
+    })
+    const userPayload = JSON.parse(prompt.request.messages[1].content) as {
+      student_answer?: unknown
+    }
+
+    expect(userPayload).toHaveProperty('student_answer', null)
+  })
 })
