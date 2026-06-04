@@ -29,6 +29,7 @@ tags:
   - name: navigation
   - name: dashboard-config
   - name: ielts-config
+  - name: ai-feedback
   - name: cms
 
 paths:
@@ -56,6 +57,8 @@ paths:
     $ref: './paths/ielts-config.yaml#/QuestionOptions'
   /api/v1/config/notification-types:
     $ref: './paths/notification-config.yaml#/NotificationTypes'
+  /api/v1/ai-feedback/health:
+    $ref: './paths/ai-feedback.yaml#/AiFeedbackHealth'
   /api/v1/config/dashboard-widgets:
     $ref: './paths/dashboard-config.yaml#/DashboardWidgetDefaults'
   /api/v1/me/dashboard-config:
