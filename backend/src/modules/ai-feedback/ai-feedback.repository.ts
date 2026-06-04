@@ -15,6 +15,11 @@ import {
   supersedeAiFeedbackDraftsSchema,
   upsertAiObjectiveExplanationSchema,
 } from "./ai-feedback.schema.js";
+import {
+  assertSubmissionAssignmentMatches,
+  getActiveSubmissionAssignment,
+  isUniqueConstraintError,
+} from "./ai-feedback.repository.integrity.js";
 
 const activeGenerationStatuses = ["queued", "running"] as const;
 const studentVisibleDraftStatuses = [
@@ -69,6 +74,9 @@ function isInstantVisibleAssignmentPolicy(assignmentConfig: unknown): boolean {
 
 export async function createAiFeedbackDraft(input: unknown) {
   const data = createAiFeedbackDraftSchema.parse(input);
+  const submission = await getActiveSubmissionAssignment(data.submissionId);
+  assertSubmissionAssignmentMatches(submission, data.assignmentId);
+
   const activeDraft = await prisma.aiFeedbackDraft.findFirst({
     where: {
       submissionId: data.submissionId,
@@ -93,7 +101,7 @@ export async function createAiFeedbackDraft(input: unknown) {
   return prisma.aiFeedbackDraft.create({
     data: {
       submissionId: data.submissionId,
-      assignmentId: data.assignmentId,
+      assignmentId: submission.assignmentId,
       requesterId: data.requesterId,
       gradeId: data.gradeId,
       promptVersion: data.promptVersion,
@@ -214,9 +222,12 @@ export async function supersedeAiFeedbackDrafts(input: unknown) {
 
 export async function upsertAiObjectiveExplanation(input: unknown) {
   const data = upsertAiObjectiveExplanationSchema.parse(input);
+  const submission = await getActiveSubmissionAssignment(data.submissionId);
+  assertSubmissionAssignmentMatches(submission, data.assignmentId);
+
   const cacheWhere = {
     submissionId: data.submissionId,
-    assignmentId: data.assignmentId,
+    assignmentId: submission.assignmentId,
     questionId: data.questionId,
     deterministicResult: data.deterministicResult,
     promptVersion: data.promptVersion,
@@ -233,24 +244,40 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
     return existingExplanation;
   }
 
-  return prisma.aiObjectiveExplanation.create({
-    data: {
-      submissionId: data.submissionId,
-      assignmentId: data.assignmentId,
-      requesterId: data.requesterId,
-      questionId: data.questionId,
-      deterministicResult: data.deterministicResult,
-      promptVersion: data.promptVersion,
-      sourceContextHash: data.sourceContextHash,
-      routeKey: data.routeKey,
-      provider: data.provider,
-      model: data.model,
-      status: data.status,
-      generatedExplanation: data.generatedExplanation
-        ? toJsonObject(data.generatedExplanation)
-        : undefined,
-      failureCode: data.failureCode,
-      failureMessage: data.failureMessage,
-    },
-  });
+  try {
+    return await prisma.aiObjectiveExplanation.create({
+      data: {
+        submissionId: data.submissionId,
+        assignmentId: submission.assignmentId,
+        requesterId: data.requesterId,
+        questionId: data.questionId,
+        deterministicResult: data.deterministicResult,
+        promptVersion: data.promptVersion,
+        sourceContextHash: data.sourceContextHash,
+        routeKey: data.routeKey,
+        provider: data.provider,
+        model: data.model,
+        status: data.status,
+        generatedExplanation: data.generatedExplanation
+          ? toJsonObject(data.generatedExplanation)
+          : undefined,
+        failureCode: data.failureCode,
+        failureMessage: data.failureMessage,
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    const concurrentExplanation = await prisma.aiObjectiveExplanation.findFirst({
+      where: cacheWhere,
+    });
+
+    if (!concurrentExplanation) {
+      throw error;
+    }
+
+    return concurrentExplanation;
+  }
 }
