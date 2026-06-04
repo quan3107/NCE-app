@@ -22,6 +22,25 @@ export const isIeltsAssignmentType = (
 
 const configVersionSchema = z.literal(1);
 
+const defaultAssignmentAiPolicy = {
+  writingFeedbackMode: "off",
+  objectiveExplanations: "off",
+  providerTier: "auto",
+} as const;
+
+const assignmentAiPolicySchema = z
+  .object({
+    writingFeedbackMode: z.enum([
+      "off",
+      "teacher_reviewed",
+      "instant_student_visible",
+    ]),
+    objectiveExplanations: z.enum(["off", "on_demand_student_visible"]),
+    providerTier: z.enum(["auto", "low_cost", "premium"]),
+  })
+  .strict()
+  .default(defaultAssignmentAiPolicy);
+
 const timingSchema = z
   .object({
     enabled: z.boolean(),
@@ -43,11 +62,53 @@ const attemptsSchema = z
 const baseAssignmentConfigSchema = z
   .object({
     version: configVersionSchema,
+    aiPolicy: assignmentAiPolicySchema,
     timing: timingSchema.optional(),
     instructions: z.string().optional(),
     attempts: attemptsSchema.optional(),
   })
   .passthrough();
+
+function validateAssignmentAiPolicy(
+  type: IeltsAssignmentType,
+  policy: z.infer<typeof assignmentAiPolicySchema>,
+  ctx: z.RefinementCtx,
+) {
+  if (
+    type !== AssignmentType.writing &&
+    policy.writingFeedbackMode !== "off"
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["aiPolicy", "writingFeedbackMode"],
+      message: "Writing AI feedback is only supported for writing assignments.",
+    });
+  }
+
+  if (
+    type !== AssignmentType.reading &&
+    type !== AssignmentType.listening &&
+    policy.objectiveExplanations !== "off"
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["aiPolicy", "objectiveExplanations"],
+      message:
+        "Objective explanations are only supported for reading and listening assignments.",
+    });
+  }
+}
+
+const withAiPolicyValidation = (
+  type: IeltsAssignmentType,
+  schema: z.ZodTypeAny,
+) =>
+  schema.superRefine((config, ctx) => {
+    const assignmentConfig = config as {
+      aiPolicy: z.infer<typeof assignmentAiPolicySchema>;
+    };
+    validateAssignmentAiPolicy(type, assignmentConfig.aiPolicy, ctx);
+  });
 
 const questionSchema = z.record(z.string(), z.unknown());
 
@@ -197,10 +258,22 @@ const assignmentConfigSchemasByType: Record<
   IeltsAssignmentType,
   z.ZodTypeAny
 > = {
-  [AssignmentType.reading]: readingAssignmentConfigSchema,
-  [AssignmentType.listening]: listeningAssignmentConfigSchema,
-  [AssignmentType.writing]: writingAssignmentConfigSchema,
-  [AssignmentType.speaking]: speakingAssignmentConfigSchema,
+  [AssignmentType.reading]: withAiPolicyValidation(
+    AssignmentType.reading,
+    readingAssignmentConfigSchema,
+  ),
+  [AssignmentType.listening]: withAiPolicyValidation(
+    AssignmentType.listening,
+    listeningAssignmentConfigSchema,
+  ),
+  [AssignmentType.writing]: withAiPolicyValidation(
+    AssignmentType.writing,
+    writingAssignmentConfigSchema,
+  ),
+  [AssignmentType.speaking]: withAiPolicyValidation(
+    AssignmentType.speaking,
+    speakingAssignmentConfigSchema,
+  ),
 };
 
 const submissionBaseSchema = z
