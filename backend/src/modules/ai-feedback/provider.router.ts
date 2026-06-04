@@ -71,7 +71,7 @@ function resolveRoute(
 function isConcreteRouteKey(
   routeKey: AiProviderRequest["routeKey"],
 ): routeKey is AiConcreteProviderRouteKey {
-  return routeKey === "local" || routeKey === "low_cost" || routeKey === "premium";
+  return routeKey === "low_cost" || routeKey === "premium";
 }
 
 function routeCandidates(request: AiProviderRequest): AiConcreteProviderRouteKey[] {
@@ -80,7 +80,6 @@ function routeCandidates(request: AiProviderRequest): AiConcreteProviderRouteKey
       request.assignmentPolicy.preferredRoute,
       "premium",
       "low_cost",
-      "local",
     ]);
   }
 
@@ -89,14 +88,14 @@ function routeCandidates(request: AiProviderRequest): AiConcreteProviderRouteKey
     request.retry?.lowConfidence ||
     (request.retry?.attempt ?? 0) > 0
   ) {
-    return ["premium", "low_cost", "local"];
+    return ["premium", "low_cost"];
   }
 
   if (request.taskType === "objective_explanation") {
-    return ["low_cost", "local", "premium"];
+    return ["low_cost", "premium"];
   }
 
-  return ["low_cost", "premium", "local"];
+  return ["low_cost", "premium"];
 }
 
 function uniqueRoutes(
