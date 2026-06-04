@@ -190,14 +190,6 @@ const envSchema = z
     AI_MAX_INPUT_CHARS: z.coerce.number().int().positive().default(12_000),
     AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1_200),
     AI_HEALTH_PATH: z.string().trim().default("/models"),
-    AI_LOCAL_BASE_URL: z.string().url().default("http://localhost:11434/v1"),
-    AI_LOCAL_API_KEY: optionalSecretSchema,
-    AI_LOCAL_MODEL: z.string().trim().min(1).default("llama3.1"),
-    AI_LOCAL_REASONING_EFFORT: aiReasoningEffortSchema.default("none"),
-    AI_LOCAL_SUPPORTS_REASONING_EFFORT: z
-      .enum(["true", "false"])
-      .default("false")
-      .transform((value) => value === "true"),
     AI_LOW_COST_MODEL: z.string().trim().min(1).default("gpt-5.4-nano"),
     AI_LOW_COST_REASONING_EFFORT: aiReasoningEffortSchema.default("medium"),
     AI_PREMIUM_MODEL: z.string().trim().min(1).default("gpt-5.4-mini"),
@@ -273,14 +265,6 @@ const envConfig = {
     maxOutputTokens: parseResult.data.AI_MAX_OUTPUT_TOKENS,
     healthPath: parseResult.data.AI_HEALTH_PATH,
     routes: {
-      local: {
-        baseUrl: parseResult.data.AI_LOCAL_BASE_URL,
-        apiKey: parseResult.data.AI_LOCAL_API_KEY,
-        model: parseResult.data.AI_LOCAL_MODEL,
-        reasoningEffort: parseResult.data.AI_LOCAL_REASONING_EFFORT,
-        supportsReasoningEffort:
-          parseResult.data.AI_LOCAL_SUPPORTS_REASONING_EFFORT,
-      },
       lowCost: {
         model: parseResult.data.AI_LOW_COST_MODEL,
         reasoningEffort: parseResult.data.AI_LOW_COST_REASONING_EFFORT,
