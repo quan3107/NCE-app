@@ -19,18 +19,30 @@ type FailedAiOutput = {
   failureMessage: string
 }
 
+type JsonParseResult =
+  | {
+      kind: 'failed'
+      failure: FailedAiOutput
+    }
+  | {
+      kind: 'json'
+      value: Record<string, unknown>
+    }
+
+const nonBlankStringSchema = z.string().trim().min(1)
+
 const safetyFlagsSchema = z
   .object({
     unsafe: z.boolean(),
-    reasons: z.array(z.string()).default([]),
+    reasons: z.array(nonBlankStringSchema).default([]),
   })
   .strict()
 
 const writingCriterionSuggestionSchema = z
   .object({
-    criterion_id: z.string().min(1),
+    criterion_id: nonBlankStringSchema,
     band: z.number().min(0).max(9),
-    rationale: z.string().min(1),
+    rationale: nonBlankStringSchema,
   })
   .strict()
 
@@ -38,11 +50,11 @@ const writingFeedbackSchema = z
   .object({
     band_estimate: z.number().min(0).max(9),
     criterion_band_suggestions: z.array(writingCriterionSuggestionSchema).min(1),
-    rationale: z.string().min(1),
-    strengths: z.array(z.string().min(1)).min(1),
-    improvement_areas: z.array(z.string().min(1)).min(1),
-    next_steps: z.array(z.string().min(1)).min(1),
-    teacher_notes: z.string().min(1),
+    rationale: nonBlankStringSchema,
+    strengths: z.array(nonBlankStringSchema).min(1),
+    improvement_areas: z.array(nonBlankStringSchema).min(1),
+    next_steps: z.array(nonBlankStringSchema).min(1),
+    teacher_notes: nonBlankStringSchema,
     confidence: z.number().min(0).max(1),
     safety_flags: safetyFlagsSchema,
   })
@@ -50,11 +62,11 @@ const writingFeedbackSchema = z
 
 const objectiveExplanationSchema = z
   .object({
-    result: z.string().min(1),
-    short_explanation: z.string().min(1),
-    evidence: z.string().min(1),
-    misconception: z.string().min(1),
-    study_tip: z.string().min(1),
+    result: nonBlankStringSchema,
+    short_explanation: nonBlankStringSchema,
+    evidence: nonBlankStringSchema,
+    misconception: nonBlankStringSchema,
+    study_tip: nonBlankStringSchema,
   })
   .strict()
 
@@ -104,15 +116,6 @@ function failed(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function isFailedOutput(value: unknown): value is FailedAiOutput {
-  return (
-    isRecord(value) &&
-    value.status === 'failed' &&
-    typeof value.failureCode === 'string' &&
-    typeof value.failureMessage === 'string'
-  )
 }
 
 function extractJsonCandidate(rawText: string): string | null {
@@ -182,25 +185,37 @@ function extractFirstBalancedObject(text: string): string | null {
   return null
 }
 
-function parseJsonObject(rawText: string): Record<string, unknown> | FailedAiOutput {
+function parseJsonObject(rawText: string): JsonParseResult {
   if (!rawText.trim()) {
-    return failed('empty_feedback', 'Provider output was empty.')
+    return {
+      kind: 'failed',
+      failure: failed('empty_feedback', 'Provider output was empty.'),
+    }
   }
 
   const candidate = extractJsonCandidate(rawText)
 
   if (!candidate) {
-    return failed('malformed_json', 'Provider output did not contain JSON.')
+    return {
+      kind: 'failed',
+      failure: failed('malformed_json', 'Provider output did not contain JSON.'),
+    }
   }
 
   try {
     const parsed = JSON.parse(candidate) as unknown
 
     return isRecord(parsed)
-      ? parsed
-      : failed('malformed_json', 'Provider output JSON must be an object.')
+      ? { kind: 'json', value: parsed }
+      : {
+          kind: 'failed',
+          failure: failed('malformed_json', 'Provider output JSON must be an object.'),
+        }
   } catch {
-    return failed('malformed_json', 'Provider output was not valid JSON.')
+    return {
+      kind: 'failed',
+      failure: failed('malformed_json', 'Provider output was not valid JSON.'),
+    }
   }
 }
 
@@ -253,13 +268,13 @@ export function parseWritingFeedbackOutput(
 ): ParsedWritingFeedbackOutput {
   const parsed = parseJsonObject(rawText)
 
-  if (isFailedOutput(parsed)) {
-    return parsed
+  if (parsed.kind === 'failed') {
+    return parsed.failure
   }
 
-  const schemaResult = writingFeedbackSchema.safeParse(parsed)
+  const schemaResult = writingFeedbackSchema.safeParse(parsed.value)
   if (!schemaResult.success) {
-    return classifySchemaFailure(parsed, 'writing_feedback')
+    return classifySchemaFailure(parsed.value, 'writing_feedback')
   }
 
   if (schemaResult.data.safety_flags.unsafe || containsUnsafeAdvice(schemaResult.data)) {
@@ -307,13 +322,13 @@ export function parseObjectiveExplanationOutput(
 ): ParsedObjectiveExplanationOutput {
   const parsed = parseJsonObject(rawText)
 
-  if (isFailedOutput(parsed)) {
-    return parsed
+  if (parsed.kind === 'failed') {
+    return parsed.failure
   }
 
-  const schemaResult = objectiveExplanationSchema.safeParse(parsed)
+  const schemaResult = objectiveExplanationSchema.safeParse(parsed.value)
   if (!schemaResult.success) {
-    return classifySchemaFailure(parsed, 'objective_explanation')
+    return classifySchemaFailure(parsed.value, 'objective_explanation')
   }
 
   if (containsUnsafeAdvice(schemaResult.data)) {
