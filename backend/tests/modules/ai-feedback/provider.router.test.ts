@@ -37,7 +37,6 @@ function provider(routeKey: AiConcreteProviderRouteKey): AiProvider {
 
 function router(options: Partial<Parameters<typeof createAiProviderRouter>[0]> = {}) {
   const providers = {
-    local: provider("local"),
     low_cost: provider("low_cost"),
     premium: provider("premium"),
   };
@@ -47,7 +46,6 @@ function router(options: Partial<Parameters<typeof createAiProviderRouter>[0]> =
     router: createAiProviderRouter({
       providers,
       health: {
-        local: "healthy",
         low_cost: "healthy",
         premium: "healthy",
       },
@@ -93,36 +91,22 @@ describe("createAiProviderRouter", () => {
     expect(setup.providers.premium.generate).toHaveBeenCalledTimes(3);
   });
 
-  it("honors local assignment policy when local provider is healthy", async () => {
-    const setup = router();
-
-    const result = await setup.router.generate({
-      ...baseRequest,
-      routeKey: "auto",
-      assignmentPolicy: { preferredRoute: "local" },
-    });
-
-    expect(result.routeKey).toBe("local");
-    expect(setup.providers.local.generate).toHaveBeenCalledOnce();
-  });
-
-  it("falls back from unhealthy preferred routes to the next healthy route", async () => {
+  it("falls back from an unhealthy preferred premium route to low cost", async () => {
     const setup = router({
       health: {
-        local: "unhealthy",
-        low_cost: "unhealthy",
-        premium: "healthy",
+        low_cost: "healthy",
+        premium: "unhealthy",
       },
     });
 
     const result = await setup.router.generate({
       ...baseRequest,
       routeKey: "auto",
-      assignmentPolicy: { preferredRoute: "local" },
+      assignmentPolicy: { preferredRoute: "premium" },
     });
 
-    expect(result.routeKey).toBe("premium");
-    expect(setup.providers.premium.generate).toHaveBeenCalledOnce();
+    expect(result.routeKey).toBe("low_cost");
+    expect(setup.providers.low_cost.generate).toHaveBeenCalledOnce();
   });
 
   it("delegates explicit concrete route keys without auto policy resolution", async () => {
