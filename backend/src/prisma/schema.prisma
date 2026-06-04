@@ -401,7 +401,6 @@ model AiObjectiveExplanation {
   updatedAt             DateTime                     @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt             DateTime?                    @map("deleted_at") @db.Timestamptz
 
-  @@unique([submissionId, assignmentId, questionId, deterministicResult, promptVersion, sourceContextHash, routeKey, requesterId], map: "ai_objective_explanations_cache_key")
   @@index([submissionId, questionId, createdAt], map: "ai_objective_explanations_submission_question_idx")
   @@index([assignmentId, questionId, createdAt], map: "ai_objective_explanations_assignment_question_idx")
   @@index([requesterId, createdAt], map: "ai_objective_explanations_requester_created_at_idx")
