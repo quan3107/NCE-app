@@ -30,6 +30,7 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.AI_FEEDBACK_ENABLED ??= 'false'
   process.env.AI_PROVIDER ??= 'openai-compatible'
   process.env.AI_BASE_URL ??= 'https://api.openai.com/v1'
+  process.env.AI_API_KEY = ''
   process.env.AI_TIMEOUT_MS ??= '10000'
   process.env.AI_MAX_INPUT_CHARS ??= '12000'
   process.env.AI_MAX_OUTPUT_TOKENS ??= '1200'
