@@ -72,14 +72,10 @@ function isInstantVisibleAssignmentPolicy(assignmentConfig: unknown): boolean {
   return instantVisibleAssignmentConfigSchema.safeParse(assignmentConfig).success;
 }
 
-export async function createAiFeedbackDraft(input: unknown) {
-  const data = createAiFeedbackDraftSchema.parse(input);
-  const submission = await getActiveSubmissionAssignment(data.submissionId);
-  assertSubmissionAssignmentMatches(submission, data.assignmentId);
-
-  const activeDraft = await prisma.aiFeedbackDraft.findFirst({
+async function findActiveAiFeedbackDraft(submissionId: string) {
+  return prisma.aiFeedbackDraft.findFirst({
     where: {
-      submissionId: data.submissionId,
+      submissionId,
       deletedAt: null,
       status: {
         in: [...activeGenerationStatuses],
@@ -89,45 +85,70 @@ export async function createAiFeedbackDraft(input: unknown) {
       id: true,
     },
   });
+}
+
+function createActiveDraftConflict(draftId: string) {
+  return createHttpError(
+    409,
+    "An AI feedback draft is already queued or running for this submission.",
+    { draftId },
+  );
+}
+
+export async function createAiFeedbackDraft(input: unknown) {
+  const data = createAiFeedbackDraftSchema.parse(input);
+  const submission = await getActiveSubmissionAssignment(data.submissionId);
+  assertSubmissionAssignmentMatches(submission, data.assignmentId);
+
+  const activeDraft = await findActiveAiFeedbackDraft(data.submissionId);
 
   if (activeDraft) {
-    throw createHttpError(
-      409,
-      "An AI feedback draft is already queued or running for this submission.",
-      { draftId: activeDraft.id },
-    );
+    throw createActiveDraftConflict(activeDraft.id);
   }
 
-  return prisma.aiFeedbackDraft.create({
-    data: {
-      submissionId: data.submissionId,
-      assignmentId: submission.assignmentId,
-      requesterId: data.requesterId,
-      gradeId: data.gradeId,
-      promptVersion: data.promptVersion,
-      routeKey: data.routeKey,
-      provider: data.provider,
-      model: data.model,
-      reasoningEffort: data.reasoningEffort,
-      inputHash: data.inputHash,
-      status: data.status,
-      visibilityMode: data.visibilityMode,
-      generatedFeedback: toJsonObject(data.generatedFeedback),
-      teacherEditedFeedback: data.teacherEditedFeedback
-        ? toJsonObject(data.teacherEditedFeedback)
-        : undefined,
-      normalizedCriterionSuggestions: data.normalizedCriterionSuggestions
-        ? toJsonArray(data.normalizedCriterionSuggestions)
-        : undefined,
-      criteriaVersion: data.criteriaVersion,
-      safetyFlags: data.safetyFlags ? toJsonObject(data.safetyFlags) : undefined,
-      failureCode: data.failureCode,
-      failureMessage: data.failureMessage,
-      retryCount: data.retryCount,
-      nextRetryAt: data.nextRetryAt,
-      lastAttemptAt: data.lastAttemptAt,
-    },
-  });
+  try {
+    return await prisma.aiFeedbackDraft.create({
+      data: {
+        submissionId: data.submissionId,
+        assignmentId: submission.assignmentId,
+        requesterId: data.requesterId,
+        gradeId: data.gradeId,
+        promptVersion: data.promptVersion,
+        routeKey: data.routeKey,
+        provider: data.provider,
+        model: data.model,
+        reasoningEffort: data.reasoningEffort,
+        inputHash: data.inputHash,
+        status: data.status,
+        visibilityMode: data.visibilityMode,
+        generatedFeedback: toJsonObject(data.generatedFeedback),
+        teacherEditedFeedback: data.teacherEditedFeedback
+          ? toJsonObject(data.teacherEditedFeedback)
+          : undefined,
+        normalizedCriterionSuggestions: data.normalizedCriterionSuggestions
+          ? toJsonArray(data.normalizedCriterionSuggestions)
+          : undefined,
+        criteriaVersion: data.criteriaVersion,
+        safetyFlags: data.safetyFlags ? toJsonObject(data.safetyFlags) : undefined,
+        failureCode: data.failureCode,
+        failureMessage: data.failureMessage,
+        retryCount: data.retryCount,
+        nextRetryAt: data.nextRetryAt,
+        lastAttemptAt: data.lastAttemptAt,
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    const concurrentDraft = await findActiveAiFeedbackDraft(data.submissionId);
+    if (!concurrentDraft) {
+      throw error;
+    }
+
+    throw createActiveDraftConflict(concurrentDraft.id);
+  }
 }
 
 export async function getStudentVisibleAiFeedbackDraft(input: unknown) {
