@@ -1,7 +1,7 @@
 /**
  * File: tests/modules/ai-feedback/provider.factory.test.ts
  * Purpose: Verify provider router construction from runtime config.
- * Why: Ensures hosted and local OpenAI-compatible routes stay config-driven.
+ * Why: Ensures hosted OpenAI routes stay config-driven and server-side.
  */
 import { describe, expect, it, vi } from "vitest";
 
@@ -11,20 +11,13 @@ import { createAiProviderRouterFromConfig } from "../../../src/modules/ai-feedba
 const config = {
   enabled: true,
   provider: "openai-compatible",
-  baseUrl: "https://hosted.example/v1",
+  baseUrl: "https://api.openai.com/v1",
   apiKey: "hosted-key",
   timeoutMs: 500,
   maxInputChars: 12_000,
   maxOutputTokens: 700,
   healthPath: "/models",
   routes: {
-    local: {
-      baseUrl: "http://localhost:11434/v1",
-      apiKey: undefined,
-      model: "llama3.1",
-      reasoningEffort: "none",
-      supportsReasoningEffort: false,
-    },
     lowCost: {
       model: "gpt-5.4-nano",
       reasoningEffort: "medium",
@@ -49,7 +42,7 @@ function jsonResponse(content: string): Response {
 }
 
 describe("createAiProviderRouterFromConfig", () => {
-  it("builds low-cost, premium, and local routes from config", async () => {
+  it("builds low-cost and premium server-side OpenAI routes from config", async () => {
     const fetchImpl = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse("{}")));
     const router = createAiProviderRouterFromConfig(config, {
       fetch: fetchImpl,
@@ -63,14 +56,14 @@ describe("createAiProviderRouterFromConfig", () => {
       expectJson: true,
     });
     await router.generate({
-      routeKey: "local",
+      routeKey: "premium",
       taskType: "writing_feedback",
       messages: [{ role: "user", content: "Grade." }],
       expectJson: true,
     });
 
     expect(fetchImpl.mock.calls[0]?.[0]).toBe(
-      "https://hosted.example/v1/chat/completions",
+      "https://api.openai.com/v1/chat/completions",
     );
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({
       model: "gpt-5.4-nano",
@@ -78,13 +71,17 @@ describe("createAiProviderRouterFromConfig", () => {
     });
 
     expect(fetchImpl.mock.calls[1]?.[0]).toBe(
-      "http://localhost:11434/v1/chat/completions",
+      "https://api.openai.com/v1/chat/completions",
     );
     expect(JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body))).toMatchObject({
-      model: "llama3.1",
+      model: "gpt-5.4-mini",
+      reasoning_effort: "high",
     });
-    expect(
-      JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body)).reasoning_effort,
-    ).toBeUndefined();
+
+    const headers = fetchImpl.mock.calls.map((call) => call[1]?.headers);
+    expect(headers).toEqual([
+      expect.objectContaining({ authorization: "Bearer hosted-key" }),
+      expect.objectContaining({ authorization: "Bearer hosted-key" }),
+    ]);
   });
 });
