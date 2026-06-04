@@ -161,7 +161,8 @@ CREATE UNIQUE INDEX "ai_objective_explanations_cache_key"
     "source_context_hash",
     "route_key",
     "requester_user_id"
-  );
+  )
+  WHERE "deleted_at" IS NULL;
 
 CREATE INDEX "ai_objective_explanations_submission_question_idx"
   ON "ai_objective_explanations"("submission_id", "question_id", "created_at");
