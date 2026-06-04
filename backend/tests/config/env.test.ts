@@ -91,7 +91,7 @@ describe('test environment defaults', () => {
       expect(process.env.AI_FEEDBACK_ENABLED).toBe('false')
       expect(process.env.AI_PROVIDER).toBe('openai-compatible')
       expect(process.env.AI_BASE_URL).toBe('https://api.openai.com/v1')
-      expect(process.env.AI_API_KEY).toBeUndefined()
+      expect(process.env.AI_API_KEY).toBe('')
       expect(process.env.AI_TIMEOUT_MS).toBe('10000')
       expect(process.env.AI_MAX_INPUT_CHARS).toBe('12000')
       expect(process.env.AI_MAX_OUTPUT_TOKENS).toBe('1200')
