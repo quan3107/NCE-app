@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-06-04:** Completed PR-24 assignment AI policy contract by adding `assignmentConfig.aiPolicy` defaults and type-specific validation for writing feedback, reading/listening objective explanations, provider tiers, and disabled speaking AI modes. Documented the policy in OpenAPI and added focused IELTS assignment policy coverage.
 - **2026-06-04:** Completed PR-23 server-side OpenAI provider routing by adding provider-neutral generation contracts, a chat-completions adapter with normalized provider errors, auto/low-cost/premium route resolution, and config-driven hosted model construction. Added focused adapter/router/factory/config coverage and kept provider credentials backend-only.
 - **2026-06-03:** Completed PR-19 IELTS-aware teacher grading backend support by validating writing/speaking grades against official IELTS criteria, enforcing 0.5-increment bands from 0 to 9, deriving raw/final score and band from criterion averages, and preserving reading/listening auto-scored grades. Added focused grade service and scoring helper coverage plus OpenAPI documentation for the IELTS grading contract.
 - **2026-06-01:** Completed PR-17 student grade visibility by allowing authenticated students to read only their own submission grades, preserving teacher course-owner/co-teacher and admin grade reads, returning grader display labels, and documenting the read authorization behavior in OpenAPI. Added focused grade service coverage for student ownership, teacher course access, admin reads, and cross-student denial.
@@ -40,6 +41,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-06-04:** Completed PR-24 frontend assignment AI policy contract support by typing the IELTS AI policy shape, defaulting new IELTS assignment configs to AI-off, preserving normalized API policy values, and adding assignment mapper coverage.
 - **2026-06-04:** Updated the frontend lockfile to resolve the React Router audit advisory surfaced by the CI audit gate, moving React Router packages to the patched 6.30.4 line without changing application code.
 - **2026-06-03:** Completed PR-19 IELTS-aware teacher grading UI by showing official writing/speaking band criteria, using config-aware Task Achievement/Task Response controls for writing tasks, using half-band controls, submitting band payloads with structured breakdowns, and rendering student band grades without forcing `/100` or percentage formatting. Added frontend grading logic and payload guard tests.
 - **2026-06-01:** Completed PR-17 student grade visibility by enabling student grade queries for owned submissions, mapping optional band and grader display fields, and rendering the IELTS band when available on the student grades page. Added a frontend guard test so student grade fetching remains enabled.
