@@ -91,6 +91,20 @@ describe("createAiProviderRouter", () => {
     expect(setup.providers.premium.generate).toHaveBeenCalledTimes(3);
   });
 
+  it("routes high-stakes assignments to premium even when policy prefers low cost", async () => {
+    const setup = router();
+
+    const result = await setup.router.generate({
+      ...baseRequest,
+      routeKey: "auto",
+      assignmentPolicy: { highStakes: true, preferredRoute: "low_cost" },
+    });
+
+    expect(result.routeKey).toBe("premium");
+    expect(setup.providers.premium.generate).toHaveBeenCalledOnce();
+    expect(setup.providers.low_cost.generate).not.toHaveBeenCalled();
+  });
+
   it("falls back from an unhealthy preferred premium route to low cost", async () => {
     const setup = router({
       health: {
