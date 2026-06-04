@@ -40,6 +40,15 @@ const readingConfig = {
   sections: [],
 }
 
+const readingConfigWithAiOff = {
+  ...readingConfig,
+  aiPolicy: {
+    writingFeedbackMode: 'off',
+    objectiveExplanations: 'off',
+    providerTier: 'auto',
+  },
+}
+
 describe('assignments.service.createAssignment', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -66,7 +75,7 @@ describe('assignments.service.createAssignment', () => {
           courseId,
           title: 'Reading Practice',
           type: 'reading',
-          assignmentConfig: readingConfig,
+          assignmentConfig: readingConfigWithAiOff,
         }),
       }),
     )
