@@ -31,8 +31,7 @@ class ProviderHealthTimeoutError extends Error {
   }
 }
 
-const sensitiveQueryNamePattern =
-  /(^|[_-])(api[_-]?key|key|token|secret|password|credential)s?($|[_-])/i;
+const safeQueryParameterNames = new Set(["api-version", "version"]);
 
 function buildBaseHealthResponse(
   config: AiFeedbackConfig,
@@ -98,11 +97,7 @@ function redactSensitiveUrl(value: string): string {
       url.password = "REDACTED";
     }
 
-    for (const key of Array.from(url.searchParams.keys())) {
-      if (sensitiveQueryNamePattern.test(key)) {
-        url.searchParams.set(key, "REDACTED");
-      }
-    }
+    redactQueryValues(url);
 
     return url.toString();
   } catch {
@@ -118,15 +113,19 @@ function redactSensitivePath(value: string): string {
   try {
     const url = new URL(value, "https://redaction.local");
 
-    for (const key of Array.from(url.searchParams.keys())) {
-      if (sensitiveQueryNamePattern.test(key)) {
-        url.searchParams.set(key, "REDACTED");
-      }
-    }
+    redactQueryValues(url);
 
     return `${url.pathname}${url.search}`;
   } catch {
     return "invalid-path";
+  }
+}
+
+function redactQueryValues(url: URL): void {
+  for (const key of Array.from(url.searchParams.keys())) {
+    if (!safeQueryParameterNames.has(key.toLowerCase())) {
+      url.searchParams.set(key, "REDACTED");
+    }
   }
 }
 
