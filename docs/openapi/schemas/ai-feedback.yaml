@@ -1,0 +1,75 @@
+# File: docs/openapi/schemas/ai-feedback.yaml
+# Purpose: Define reusable AI feedback schemas for OpenAPI.
+# Why: Documents provider readiness metadata without exposing provider secrets.
+
+AiFeedbackHealthStatus:
+  type: string
+  enum: [disabled, configured, healthy, unhealthy, timeout, misconfigured]
+
+AiReasoningEffort:
+  type: string
+  enum: [none, low, medium, high, xhigh]
+
+AiFeedbackRouteMetadata:
+  type: object
+  required: [model, reasoning_effort]
+  properties:
+    model:
+      type: string
+      example: gpt-5.4-nano
+    reasoning_effort:
+      $ref: '#/AiReasoningEffort'
+
+AiFeedbackHealthResponse:
+  type: object
+  required: [status, enabled, checked_at, provider, limits, routes]
+  properties:
+    status:
+      $ref: '#/AiFeedbackHealthStatus'
+    enabled:
+      type: boolean
+      example: false
+    checked_at:
+      type: string
+      format: date-time
+    provider:
+      type: object
+      required: [name, base_url, health_path]
+      properties:
+        name:
+          type: string
+          example: openai-compatible
+        base_url:
+          type: string
+          description: Provider base URL with credentials and sensitive query values redacted.
+          example: https://api.openai.com/v1
+        health_path:
+          type: string
+          example: /models
+        http_status:
+          type: integer
+          example: 200
+    limits:
+      type: object
+      required: [timeout_ms, max_input_chars, max_output_tokens]
+      properties:
+        timeout_ms:
+          type: integer
+          example: 10000
+        max_input_chars:
+          type: integer
+          example: 12000
+        max_output_tokens:
+          type: integer
+          example: 1200
+    routes:
+      type: object
+      required: [low_cost, premium]
+      properties:
+        low_cost:
+          $ref: '#/AiFeedbackRouteMetadata'
+        premium:
+          $ref: '#/AiFeedbackRouteMetadata'
+    problem:
+      type: string
+      example: Provider health check timed out.

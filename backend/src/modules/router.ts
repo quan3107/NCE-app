@@ -6,6 +6,7 @@
 import { Router } from "express";
 
 import cmsRoutes from './cms/cms.routes.js'
+import { aiFeedbackRouter } from "./ai-feedback/ai-feedback.routes.js";
 import { analyticsRouter } from "./analytics/analytics.routes.js";
 import { assignmentsTopLevelRouter } from "./assignments/assignments-top-level.routes.js";
 import { assignmentRouter } from "./assignments/assignments.routes.js";
@@ -45,6 +46,7 @@ export const apiRouter = Router();
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/me", meRouter);
 apiRouter.use("/users", userRouter);
+apiRouter.use("/ai-feedback", aiFeedbackRouter);
 apiRouter.use("/analytics", analyticsRouter);
 apiRouter.use("/audit-logs", auditLogRouter);
 apiRouter.use("/enrollments", enrollmentRouter);
