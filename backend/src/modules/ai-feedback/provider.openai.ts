@@ -1,7 +1,7 @@
 /**
- * File: src/modules/ai-feedback/provider.openai-compatible.ts
- * Purpose: Call OpenAI-compatible chat completion providers through one adapter.
- * Why: Supports hosted and local runtimes without provider SDK coupling.
+ * File: src/modules/ai-feedback/provider.openai.ts
+ * Purpose: Call the server-side OpenAI chat completions API through one adapter.
+ * Why: Keeps provider credentials and model selection in the backend.
  */
 import { AiProviderError } from "./provider.errors.js";
 import type {
@@ -41,7 +41,7 @@ type ChatCompletionResponse = {
 
 const defaultMaxResponseBytes = 256 * 1024;
 
-export class OpenAICompatibleProvider implements AiProvider {
+export class OpenAIProvider implements AiProvider {
   readonly routeKey: AiConcreteProviderRouteKey;
 
   private readonly baseUrl: string;
@@ -313,4 +313,3 @@ function isConnectionRefused(error: unknown): boolean {
   const code = (error as { code?: unknown }).code;
   return code === "ECONNREFUSED" || error.message.includes("ECONNREFUSED");
 }
-
