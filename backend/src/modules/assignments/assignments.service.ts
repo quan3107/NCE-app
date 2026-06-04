@@ -225,6 +225,8 @@ export async function updateAssignment(
     }
 
     assignmentConfig = validatedConfig as Prisma.InputJsonObject
+  } else if (payload.type !== undefined && payload.type !== existing.type) {
+    parseAssignmentConfigForType(targetType, existing.assignmentConfig)
   }
 
   const updateData: Prisma.AssignmentUpdateInput = {}
