@@ -30,6 +30,9 @@ model User {
   identities    Identity[]
   auditLogs     AuditLog[]     @relation("AuditActor")
   dashboardWidgetPreferences UserDashboardWidgetPreference[]
+  aiFeedbackRequests AiFeedbackDraft[] @relation("AiFeedbackDraftRequester")
+  aiFeedbackDecisions AiFeedbackDraft[] @relation("AiFeedbackDraftDecisionActor")
+  aiObjectiveExplanationRequests AiObjectiveExplanation[] @relation("AiObjectiveExplanationRequester")
   createdAt     DateTime       @default(now()) @db.Timestamptz
   updatedAt     DateTime       @updatedAt @db.Timestamptz
   deletedAt     DateTime?      @db.Timestamptz
@@ -89,6 +92,8 @@ model Assignment {
   publishedAt DateTime?      @map("published_at") @db.Timestamptz
   course      Course         @relation(fields: [courseId], references: [id])
   submissions Submission[]
+  aiFeedbackDrafts AiFeedbackDraft[]
+  aiObjectiveExplanations AiObjectiveExplanation[]
   createdAt   DateTime       @default(now()) @db.Timestamptz
   updatedAt   DateTime       @updatedAt @db.Timestamptz
   deletedAt   DateTime?      @db.Timestamptz
@@ -140,6 +145,8 @@ model Submission {
   assignment   Assignment       @relation(fields: [assignmentId], references: [id])
   student      User             @relation("SubmissionStudent", fields: [studentId], references: [id])
   grade        Grade?
+  aiFeedbackDrafts AiFeedbackDraft[]
+  aiObjectiveExplanations AiObjectiveExplanation[]
   createdAt    DateTime         @default(now()) @db.Timestamptz
   updatedAt    DateTime         @updatedAt @db.Timestamptz
   deletedAt    DateTime?        @db.Timestamptz
@@ -164,6 +171,7 @@ model Grade {
   gradedAt        DateTime?  @map("graded_at") @db.Timestamptz
   submission      Submission @relation(fields: [submissionId], references: [id])
   grader          User       @relation("SubmissionGrader", fields: [graderId], references: [id])
+  aiFeedbackDrafts AiFeedbackDraft[]
   createdAt       DateTime   @default(now()) @db.Timestamptz
   updatedAt       DateTime   @updatedAt @db.Timestamptz
   deletedAt       DateTime?  @db.Timestamptz
@@ -325,6 +333,81 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model AiFeedbackDraft {
+  id                             String                    @id @default(uuid()) @db.Uuid
+  submissionId                   String                    @map("submission_id") @db.Uuid
+  assignmentId                   String                    @map("assignment_id") @db.Uuid
+  requesterId                    String                    @map("requester_user_id") @db.Uuid
+  gradeId                        String?                   @map("grade_id") @db.Uuid
+  decisionActorId                String?                   @map("decision_actor_user_id") @db.Uuid
+  promptVersion                  String                    @map("prompt_version")
+  routeKey                       String                    @map("route_key")
+  provider                       String
+  model                          String
+  reasoningEffort                AiFeedbackReasoningEffort? @map("reasoning_effort")
+  inputHash                      String                    @map("input_hash")
+  status                         AiFeedbackDraftStatus
+  visibilityMode                 AiFeedbackVisibilityMode  @map("visibility_mode")
+  generatedFeedback              Json                      @map("generated_feedback_json")
+  teacherEditedFeedback          Json?                     @map("teacher_edited_feedback_json")
+  normalizedCriterionSuggestions Json?                     @map("normalized_criterion_suggestions")
+  criteriaVersion                String?                   @map("criteria_version")
+  safetyFlags                    Json?                     @map("safety_flags")
+  decision                       AiFeedbackDraftDecision?
+  failureCode                    String?                   @map("failure_code")
+  failureMessage                 String?                   @map("failure_message")
+  retryCount                     Int                       @default(0) @map("retry_count")
+  nextRetryAt                    DateTime?                 @map("next_retry_at") @db.Timestamptz
+  lastAttemptAt                  DateTime?                 @map("last_attempt_at") @db.Timestamptz
+  decidedAt                      DateTime?                 @map("decided_at") @db.Timestamptz
+  finalizedAt                    DateTime?                 @map("finalized_at") @db.Timestamptz
+  submission                     Submission                @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  assignment                     Assignment                @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  requester                      User                      @relation("AiFeedbackDraftRequester", fields: [requesterId], references: [id])
+  grade                          Grade?                    @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  decisionActor                  User?                     @relation("AiFeedbackDraftDecisionActor", fields: [decisionActorId], references: [id], onDelete: SetNull)
+  createdAt                      DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt                      DateTime?                 @map("deleted_at") @db.Timestamptz
+
+  @@index([submissionId, status], map: "ai_feedback_drafts_submission_status_idx")
+  @@index([assignmentId, status], map: "ai_feedback_drafts_assignment_status_idx")
+  @@index([requesterId, createdAt], map: "ai_feedback_drafts_requester_created_at_idx")
+  @@index([gradeId], map: "ai_feedback_drafts_grade_id_idx")
+  @@index([decisionActorId], map: "ai_feedback_drafts_decision_actor_id_idx")
+  @@map("ai_feedback_drafts")
+}
+
+model AiObjectiveExplanation {
+  id                    String                       @id @default(uuid()) @db.Uuid
+  submissionId          String                       @map("submission_id") @db.Uuid
+  assignmentId          String                       @map("assignment_id") @db.Uuid
+  requesterId           String                       @map("requester_user_id") @db.Uuid
+  questionId            String                       @map("question_id")
+  deterministicResult   String                       @map("deterministic_result")
+  promptVersion         String                       @map("prompt_version")
+  sourceContextHash     String                       @map("source_context_hash")
+  routeKey              String                       @map("route_key")
+  provider              String
+  model                 String
+  status                AiObjectiveExplanationStatus
+  generatedExplanation  Json?                        @map("generated_explanation_json")
+  failureCode           String?                      @map("failure_code")
+  failureMessage        String?                      @map("failure_message")
+  submission            Submission                   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  assignment            Assignment                   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  requester             User                         @relation("AiObjectiveExplanationRequester", fields: [requesterId], references: [id])
+  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                     @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt             DateTime?                    @map("deleted_at") @db.Timestamptz
+
+  @@unique([submissionId, assignmentId, questionId, deterministicResult, promptVersion, sourceContextHash, routeKey, requesterId], map: "ai_objective_explanations_cache_key")
+  @@index([submissionId, questionId, createdAt], map: "ai_objective_explanations_submission_question_idx")
+  @@index([assignmentId, questionId, createdAt], map: "ai_objective_explanations_assignment_question_idx")
+  @@index([requesterId, createdAt], map: "ai_objective_explanations_requester_created_at_idx")
+  @@map("ai_objective_explanations")
+}
+
 enum UserRole {
   admin
   teacher
@@ -378,6 +461,44 @@ enum NotificationStatus {
 enum IdentityProvider {
   password
   google
+}
+
+enum AiFeedbackDraftStatus {
+  queued
+  running
+  accepted
+  review_required
+  rejected
+  failed
+  approved
+  finalized
+  superseded
+}
+
+enum AiFeedbackVisibilityMode {
+  teacher_reviewed
+  instant_student_visible
+  hidden
+}
+
+enum AiFeedbackDraftDecision {
+  accepted
+  approved
+  rejected
+  finalized
+}
+
+enum AiFeedbackReasoningEffort {
+  none
+  low
+  medium
+  high
+  xhigh
+}
+
+enum AiObjectiveExplanationStatus {
+  completed
+  failed
 }
 
 // ============================================================================
