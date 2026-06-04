@@ -44,6 +44,12 @@ const defaultTrustProxy =
 const trustedProxyAddressNames = new Set(["loopback", "linklocal", "uniquelocal"]);
 const trustProxyErrorMessage =
   "TRUST_PROXY must list trusted proxy IPs, CIDRs, or proxy address names";
+const aiReasoningEffortSchema = z.enum(["none", "low", "medium", "high", "xhigh"]);
+const aiProviderSchema = z.enum(["openai-compatible"]);
+const optionalSecretSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().min(1).optional(),
+);
 
 function parseCorsAllowedOrigins(value: string, context: z.RefinementCtx): string[] {
   const origins = value
@@ -173,6 +179,21 @@ const envSchema = z
     TRUST_PROXY: z.string().default(defaultTrustProxy).transform(parseTrustProxy),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
+    AI_FEEDBACK_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    AI_PROVIDER: aiProviderSchema.default("openai-compatible"),
+    AI_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
+    AI_API_KEY: optionalSecretSchema,
+    AI_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+    AI_MAX_INPUT_CHARS: z.coerce.number().int().positive().default(12_000),
+    AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1_200),
+    AI_HEALTH_PATH: z.string().trim().default("/models"),
+    AI_LOW_COST_MODEL: z.string().trim().min(1).default("gpt-5.4-nano"),
+    AI_LOW_COST_REASONING_EFFORT: aiReasoningEffortSchema.default("medium"),
+    AI_PREMIUM_MODEL: z.string().trim().min(1).default("gpt-5.4-mini"),
+    AI_PREMIUM_REASONING_EFFORT: aiReasoningEffortSchema.default("high"),
   })
   .superRefine((env, context) => {
     if (env.NODE_ENV === "production" && env.CORS_ALLOWED_ORIGINS.length === 0) {
@@ -234,8 +255,30 @@ const envConfig = {
   trustProxy: parseResult.data.TRUST_PROXY,
   logLevel: parseResult.data.LOG_LEVEL,
   logPretty: shouldPrettyLog,
+  aiFeedback: {
+    enabled: parseResult.data.AI_FEEDBACK_ENABLED,
+    provider: parseResult.data.AI_PROVIDER,
+    baseUrl: parseResult.data.AI_BASE_URL,
+    apiKey: parseResult.data.AI_API_KEY,
+    timeoutMs: parseResult.data.AI_TIMEOUT_MS,
+    maxInputChars: parseResult.data.AI_MAX_INPUT_CHARS,
+    maxOutputTokens: parseResult.data.AI_MAX_OUTPUT_TOKENS,
+    healthPath: parseResult.data.AI_HEALTH_PATH,
+    routes: {
+      lowCost: {
+        model: parseResult.data.AI_LOW_COST_MODEL,
+        reasoningEffort: parseResult.data.AI_LOW_COST_REASONING_EFFORT,
+      },
+      premium: {
+        model: parseResult.data.AI_PREMIUM_MODEL,
+        reasoningEffort: parseResult.data.AI_PREMIUM_REASONING_EFFORT,
+      },
+    },
+  },
 };
 
 export type AppConfig = typeof envConfig;
+export type AiFeedbackConfig = AppConfig["aiFeedback"];
+export type AiReasoningEffort = AiFeedbackConfig["routes"]["lowCost"]["reasoningEffort"];
 
 export const config: AppConfig = envConfig;
