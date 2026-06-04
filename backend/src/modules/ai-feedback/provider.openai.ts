@@ -167,23 +167,26 @@ export class OpenAIProvider implements AiProvider {
       });
     }
 
-    let payload: ChatCompletionResponse;
-    try {
-      payload = JSON.parse(responseText) as ChatCompletionResponse;
-    } catch {
+    if (!response.ok) {
+      const errorPayload = parseJsonIfPossible(responseText);
+
+      throw new AiProviderError({
+        code: "http_error",
+        message:
+          extractProviderErrorMessage(errorPayload) ?? "AI provider request failed.",
+        routeKey: this.routeKey,
+        details: { status: response.status },
+      });
+    }
+
+    const payload = parseJsonIfPossible(responseText) as
+      | ChatCompletionResponse
+      | undefined;
+    if (payload === undefined) {
       throw new AiProviderError({
         code: "malformed_json",
         message: "AI provider returned malformed JSON.",
         routeKey: this.routeKey,
-      });
-    }
-
-    if (!response.ok) {
-      throw new AiProviderError({
-        code: "http_error",
-        message: extractProviderErrorMessage(payload) ?? "AI provider request failed.",
-        routeKey: this.routeKey,
-        details: { status: response.status },
       });
     }
 
