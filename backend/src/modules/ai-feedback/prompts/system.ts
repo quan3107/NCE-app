@@ -4,6 +4,7 @@
  * Why: Keeps model role, safety, and output contracts traceable across generated records.
  */
 import type { AiProviderMessage } from '../provider.types.js'
+import { buildIeltsWritingCriteriaSystemPromptFragment } from '../criteria/criteria.prompt.js'
 
 export const IELTS_WRITING_FEEDBACK_PROMPT_VERSION = 'ielts-writing-feedback-v1'
 export const OBJECTIVE_EXPLANATION_PROMPT_VERSION = 'objective-explanation-v1'
@@ -21,6 +22,7 @@ export function buildIeltsWritingSystemMessage(): AiProviderMessage {
       'Output: JSON-only. Do not wrap the response in markdown or prose.',
       'Required JSON shape: {"band_estimate": number, "criterion_band_suggestions": [{"criterion_id": string, "band": number, "rationale": string}], "rationale": string, "strengths": string[], "improvement_areas": string[], "next_steps": string[], "teacher_notes": string, "confidence": number, "safety_flags": {"unsafe": boolean, "reasons": string[]}}.',
       'Criterion rule: Use only supplied criterion_id values; do not invent, rename, merge, or omit criteria.',
+      buildIeltsWritingCriteriaSystemPromptFragment(),
       'Safety rule: Do not provide legal, medical, financial, self-harm, credential-sharing, or other unsafe advice.',
     ].join('\n'),
   }
