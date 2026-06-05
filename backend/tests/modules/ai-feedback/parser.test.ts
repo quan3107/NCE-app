@@ -64,6 +64,51 @@ describe('parseWritingFeedbackOutput', () => {
     ])
   })
 
+  it('accepts canonical Task 2 criteria and returns the criteria version', () => {
+    const parsed = parseWritingFeedbackOutput(
+      JSON.stringify({
+        ...validWritingJson,
+        criterion_band_suggestions: [
+          {
+            criterion_id: 'task_response',
+            band: 6.5,
+            rationale: 'The position is clear but some ideas need fuller support.',
+          },
+          {
+            criterion_id: 'coherence_cohesion',
+            band: 7,
+            rationale: 'Paragraphing is logical with mostly effective progression.',
+          },
+          {
+            criterion_id: 'lexical_resource',
+            band: 7,
+            rationale: 'Vocabulary is flexible enough for the topic.',
+          },
+          {
+            criterion_id: 'grammatical_range_accuracy',
+            band: 6.5,
+            rationale: 'Sentence forms are varied with some recurring errors.',
+          },
+        ],
+      }),
+      {
+        writingTask: 'task2',
+      },
+    )
+
+    expect(parsed.status).toBe('accepted')
+    if (parsed.status !== 'accepted') {
+      throw new Error('Expected accepted writing feedback.')
+    }
+    expect(parsed.criteriaVersion).toBe('ielts-writing-criteria-v1')
+    expect(parsed.normalizedCriterionSuggestions.map((item) => item.criterionId)).toEqual([
+      'task_response',
+      'coherence_cohesion',
+      'lexical_resource',
+      'grammatical_range_accuracy',
+    ])
+  })
+
   it('fails empty, malformed, unknown-criterion, unsafe, and off-task output', () => {
     expect(
       parseWritingFeedbackOutput('', {
@@ -144,6 +189,125 @@ describe('parseWritingFeedbackOutput', () => {
         },
       ),
     ).toMatchObject({ status: 'failed', failureCode: 'schema_invalid' })
+  })
+
+  it('fails duplicate, wrong-task, missing, and invalid-band criteria', () => {
+    expect(
+      parseWritingFeedbackOutput(
+        JSON.stringify({
+          ...validWritingJson,
+          criterion_band_suggestions: [
+            {
+              criterion_id: 'task_response',
+              band: 6.5,
+              rationale: 'Clear position.',
+            },
+            {
+              criterion_id: 'task_response',
+              band: 7,
+              rationale: 'Duplicate criterion.',
+            },
+            {
+              criterion_id: 'coherence_cohesion',
+              band: 7,
+              rationale: 'Mostly clear progression.',
+            },
+          ],
+        }),
+        {
+          writingTask: 'task2',
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'duplicate_criteria' })
+
+    expect(
+      parseWritingFeedbackOutput(
+        JSON.stringify({
+          ...validWritingJson,
+          criterion_band_suggestions: [
+            {
+              criterion_id: 'task_achievement',
+              band: 6.5,
+              rationale: 'Wrong task-specific criterion.',
+            },
+            {
+              criterion_id: 'coherence_cohesion',
+              band: 7,
+              rationale: 'Mostly clear progression.',
+            },
+            {
+              criterion_id: 'lexical_resource',
+              band: 7,
+              rationale: 'Useful vocabulary range.',
+            },
+            {
+              criterion_id: 'grammatical_range_accuracy',
+              band: 7,
+              rationale: 'Mostly accurate grammar.',
+            },
+          ],
+        }),
+        {
+          writingTask: 'task2',
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'wrong_task_criteria' })
+
+    expect(
+      parseWritingFeedbackOutput(
+        JSON.stringify({
+          ...validWritingJson,
+          criterion_band_suggestions: [
+            {
+              criterion_id: 'task_response',
+              band: 6.25,
+              rationale: 'Invalid half-band value.',
+            },
+            {
+              criterion_id: 'coherence_cohesion',
+              band: 7,
+              rationale: 'Mostly clear progression.',
+            },
+            {
+              criterion_id: 'lexical_resource',
+              band: 7,
+              rationale: 'Useful vocabulary range.',
+            },
+            {
+              criterion_id: 'grammatical_range_accuracy',
+              band: 7,
+              rationale: 'Mostly accurate grammar.',
+            },
+          ],
+        }),
+        {
+          writingTask: 'task2',
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'invalid_criteria_band' })
+
+    expect(
+      parseWritingFeedbackOutput(
+        JSON.stringify({
+          ...validWritingJson,
+          criterion_band_suggestions: [
+            {
+              criterion_id: 'task_response',
+              band: 6.5,
+              rationale: 'Clear position.',
+            },
+            {
+              criterion_id: 'coherence_cohesion',
+              band: 7,
+              rationale: 'Mostly clear progression.',
+            },
+          ],
+        }),
+        {
+          writingTask: 'task2',
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'missing_criteria' })
   })
 })
 
