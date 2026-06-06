@@ -9,7 +9,10 @@ import {
   CriteriaValidationError,
   normalizeIeltsWritingCriterionSuggestions,
 } from './criteria/criteria.service.js'
-import type { IeltsWritingTask } from './criteria/criteria.types.js'
+import type {
+  IeltsWritingCriteriaScope,
+  IeltsWritingTask,
+} from './criteria/criteria.types.js'
 
 type FailedAiOutput = {
   status: 'failed'
@@ -107,6 +110,7 @@ export type ParsedObjectiveExplanationOutput =
 
 type WritingParseOptions = {
   expectedCriterionIds?: string[]
+  writingScope?: IeltsWritingCriteriaScope
   writingTask?: IeltsWritingTask
 }
 
@@ -334,10 +338,12 @@ export function parseWritingFeedbackOutput(
     return failed('unsafe_output', 'Provider output contained unsafe advice.')
   }
 
-  if (options.writingTask) {
+  const writingScope = options.writingScope ?? options.writingTask
+
+  if (writingScope) {
     try {
       const normalized = normalizeIeltsWritingCriterionSuggestions(
-        options.writingTask,
+        writingScope,
         schemaResult.data.criterion_band_suggestions.map((suggestion) => ({
           criterionId: suggestion.criterion_id,
           band: suggestion.band,
