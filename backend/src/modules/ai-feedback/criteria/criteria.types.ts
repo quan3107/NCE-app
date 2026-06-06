@@ -55,4 +55,3 @@ export type IeltsWritingCriteriaPromptPack = {
   }
   guardrails: string
 }
-
