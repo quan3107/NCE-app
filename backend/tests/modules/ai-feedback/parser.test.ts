@@ -101,12 +101,14 @@ describe('parseWritingFeedbackOutput', () => {
       throw new Error('Expected accepted writing feedback.')
     }
     expect(parsed.criteriaVersion).toBe('ielts-writing-criteria-v1')
-    expect(parsed.normalizedCriterionSuggestions.map((item) => item.criterionId)).toEqual([
-      'task_response',
-      'coherence_cohesion',
-      'lexical_resource',
-      'grammatical_range_accuracy',
-    ])
+    expect(parsed.normalizedCriterionSuggestions.map((item) => item.criterionId)).toEqual(
+      [
+        'task_response',
+        'coherence_cohesion',
+        'lexical_resource',
+        'grammatical_range_accuracy',
+      ],
+    )
   })
 
   it('accepts canonical combined criteria and returns the criteria version', () => {
@@ -151,13 +153,15 @@ describe('parseWritingFeedbackOutput', () => {
       throw new Error('Expected accepted writing feedback.')
     }
     expect(parsed.criteriaVersion).toBe('ielts-writing-criteria-v1')
-    expect(parsed.normalizedCriterionSuggestions.map((item) => item.criterionId)).toEqual([
-      'task_achievement',
-      'task_response',
-      'coherence_cohesion',
-      'lexical_resource',
-      'grammatical_range_accuracy',
-    ])
+    expect(parsed.normalizedCriterionSuggestions.map((item) => item.criterionId)).toEqual(
+      [
+        'task_achievement',
+        'task_response',
+        'coherence_cohesion',
+        'lexical_resource',
+        'grammatical_range_accuracy',
+      ],
+    )
   })
 
   it('fails empty, malformed, unknown-criterion, unsafe, and off-task output', () => {
