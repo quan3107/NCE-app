@@ -19,14 +19,18 @@ describe('IELTS writing criteria contract', () => {
   it('returns ordered canonical Task 1 and Task 2 criteria from one versioned source', () => {
     expect(IELTS_WRITING_CRITERIA_VERSION).toBe('ielts-writing-criteria-v1')
 
-    expect(getIeltsWritingCriteriaForTask('task1').map((criterion) => criterion.id)).toEqual([
+    expect(
+      getIeltsWritingCriteriaForTask('task1').map((criterion) => criterion.id),
+    ).toEqual([
       'task_achievement',
       'coherence_cohesion',
       'lexical_resource',
       'grammatical_range_accuracy',
     ])
 
-    expect(getIeltsWritingCriteriaForTask('task2').map((criterion) => criterion.id)).toEqual([
+    expect(
+      getIeltsWritingCriteriaForTask('task2').map((criterion) => criterion.id),
+    ).toEqual([
       'task_response',
       'coherence_cohesion',
       'lexical_resource',
