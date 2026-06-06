@@ -23,10 +23,7 @@ const IELTS_MAX_BAND = 9
 const HALF_STEP = 0.5
 const EPSILON = 0.00001
 
-export {
-  IELTS_WRITING_CRITERIA_VERSION,
-  buildIeltsWritingCriteriaPromptPack,
-}
+export { IELTS_WRITING_CRITERIA_VERSION, buildIeltsWritingCriteriaPromptPack }
 
 export type CriteriaValidationCode =
   | 'duplicate_criteria'
@@ -45,16 +42,14 @@ export class CriteriaValidationError extends Error {
   }
 }
 
-function sortCriteria(criteria: readonly IeltsWritingCriterion[]): IeltsWritingCriterion[] {
+function sortCriteria(
+  criteria: readonly IeltsWritingCriterion[],
+): IeltsWritingCriterion[] {
   return [...criteria].sort((left, right) => left.order - right.order)
 }
 
 function normalizeLookupValue(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
+  return value.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
 }
 
 function isCriterionApplicableToScope(
@@ -68,9 +63,7 @@ function getCriterionById(id: string): IeltsWritingCriterion | undefined {
   return IELTS_WRITING_CRITERIA.find((criterion) => criterion.id === id)
 }
 
-function getExpectedCriterionIds(
-  task: IeltsWritingTask,
-): IeltsWritingCriterionId[] {
+function getExpectedCriterionIds(task: IeltsWritingTask): IeltsWritingCriterionId[] {
   return getIeltsWritingCriteriaForTask(task).map((criterion) => criterion.id)
 }
 
