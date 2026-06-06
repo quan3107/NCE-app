@@ -46,6 +46,16 @@ const trustProxyErrorMessage =
   "TRUST_PROXY must list trusted proxy IPs, CIDRs, or proxy address names";
 const aiReasoningEffortSchema = z.enum(["none", "low", "medium", "high", "xhigh"]);
 const aiProviderSchema = z.enum(["openai-compatible"]);
+const booleanStringSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return value === true || value === "true";
+  },
+  z.boolean(),
+);
 const optionalSecretSchema = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   z.string().trim().min(1).optional(),
@@ -192,8 +202,20 @@ const envSchema = z
     AI_HEALTH_PATH: z.string().trim().default("/models"),
     AI_LOW_COST_MODEL: z.string().trim().min(1).default("gpt-5.4-nano"),
     AI_LOW_COST_REASONING_EFFORT: aiReasoningEffortSchema.default("medium"),
+    AI_LOW_COST_SUPPORTS_IMAGE_INPUT: booleanStringSchema.default(false),
     AI_PREMIUM_MODEL: z.string().trim().min(1).default("gpt-5.4-mini"),
     AI_PREMIUM_REASONING_EFFORT: aiReasoningEffortSchema.default("high"),
+    AI_PREMIUM_SUPPORTS_IMAGE_INPUT: booleanStringSchema.default(true),
+    AI_IMAGE_MAX_BYTES: z.coerce.number().int().positive().default(20 * 1024 * 1024),
+    AI_IMAGE_SUPPORTED_MIME_TYPES: z
+      .string()
+      .default("image/png,image/jpeg,image/webp,image/gif")
+      .transform((value) =>
+        value
+          .split(",")
+          .map((mime) => mime.trim().toLowerCase())
+          .filter((mime) => mime.length > 0),
+      ),
   })
   .superRefine((env, context) => {
     if (env.NODE_ENV === "production" && env.CORS_ALLOWED_ORIGINS.length === 0) {
@@ -263,15 +285,21 @@ const envConfig = {
     timeoutMs: parseResult.data.AI_TIMEOUT_MS,
     maxInputChars: parseResult.data.AI_MAX_INPUT_CHARS,
     maxOutputTokens: parseResult.data.AI_MAX_OUTPUT_TOKENS,
+    imageInput: {
+      maxBytes: parseResult.data.AI_IMAGE_MAX_BYTES,
+      supportedMimeTypes: parseResult.data.AI_IMAGE_SUPPORTED_MIME_TYPES,
+    },
     healthPath: parseResult.data.AI_HEALTH_PATH,
     routes: {
       lowCost: {
         model: parseResult.data.AI_LOW_COST_MODEL,
         reasoningEffort: parseResult.data.AI_LOW_COST_REASONING_EFFORT,
+        supportsImageInput: parseResult.data.AI_LOW_COST_SUPPORTS_IMAGE_INPUT,
       },
       premium: {
         model: parseResult.data.AI_PREMIUM_MODEL,
         reasoningEffort: parseResult.data.AI_PREMIUM_REASONING_EFFORT,
+        supportsImageInput: parseResult.data.AI_PREMIUM_SUPPORTS_IMAGE_INPUT,
       },
     },
   },
