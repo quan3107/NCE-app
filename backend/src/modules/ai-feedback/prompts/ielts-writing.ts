@@ -110,11 +110,15 @@ function resolveTask1ImageContextStatus(
 ): IeltsWritingTask1ImageContextStatus {
   const context = input.tasks.task1.imageContext
 
+  if (context) {
+    return context.status
+  }
+
   if (!isVisualTask1(input)) {
     return 'not_visual'
   }
 
-  return context?.status ?? 'fallback_only'
+  return 'fallback_only'
 }
 
 function imageContextFailure(
@@ -228,6 +232,7 @@ export function buildIeltsWritingFeedbackPrompt(
   input: IeltsWritingFeedbackPromptInput,
 ): BuiltIeltsWritingFeedbackPrompt {
   const preferredRoute = routePreference(input.assignment.config.aiPolicy)
+  const hasAttachedImage = input.tasks.task1.imageContext?.status === 'image_attached'
   const imageContextStatus = resolveTask1ImageContextStatus(input)
   const failure = imageContextFailure(
     imageContextStatus,
@@ -246,7 +251,7 @@ export function buildIeltsWritingFeedbackPrompt(
       highStakes: false,
       ...(preferredRoute ? { preferredRoute } : {}),
     },
-    requiresImageInput: imageContextStatus === 'image_attached',
+    requiresImageInput: hasAttachedImage,
     expectJson: true,
     temperature: 0,
   }
