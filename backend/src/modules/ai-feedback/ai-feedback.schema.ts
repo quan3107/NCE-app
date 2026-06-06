@@ -128,6 +128,7 @@ export const upsertAiObjectiveExplanationSchema = z
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
   reasoning_effort: aiReasoningEffortResponseSchema,
+  supports_image_input: z.boolean(),
 });
 
 export const aiFeedbackHealthResponseSchema = z.object({
@@ -144,6 +145,8 @@ export const aiFeedbackHealthResponseSchema = z.object({
     timeout_ms: z.number().int().positive(),
     max_input_chars: z.number().int().positive(),
     max_output_tokens: z.number().int().positive(),
+    image_max_bytes: z.number().int().positive(),
+    image_supported_mime_types: z.array(z.string().min(1)),
   }),
   routes: z.object({
     low_cost: aiRouteMetadataSchema,
