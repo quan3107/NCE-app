@@ -29,6 +29,15 @@ The writing builder includes:
 The builder intentionally avoids student identifiers and only copies whitelisted
 submission fields into the prompt.
 
+For visual IELTS Writing Task 1, the builder records an `image_context` status:
+`not_visual`, `image_attached`, `image_unavailable`,
+`teacher_summary_supplemental`, or `fallback_only`. When backend file access and
+image validation succeed, provider-neutral requests include a text part plus an
+image part for hosted image-capable routes. Teacher summaries remain supplemental
+context, not a substitute for visual inspection. If required image context is
+unavailable, the prompt includes an `image_context_unavailable` harness signal so
+the AI pipeline can fail closed instead of pretending the model saw the visual.
+
 The first-release IELTS writing criteria source of truth is
 `ielts-writing-criteria-v1`:
 
