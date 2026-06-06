@@ -37,6 +37,10 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.AI_HEALTH_PATH ??= '/models'
   process.env.AI_LOW_COST_MODEL ??= 'gpt-5.4-nano'
   process.env.AI_LOW_COST_REASONING_EFFORT ??= 'medium'
+  process.env.AI_LOW_COST_SUPPORTS_IMAGE_INPUT ??= 'false'
   process.env.AI_PREMIUM_MODEL ??= 'gpt-5.4-mini'
   process.env.AI_PREMIUM_REASONING_EFFORT ??= 'high'
+  process.env.AI_PREMIUM_SUPPORTS_IMAGE_INPUT ??= 'true'
+  process.env.AI_IMAGE_MAX_BYTES ??= '20971520'
+  process.env.AI_IMAGE_SUPPORTED_MIME_TYPES ??= 'image/png,image/jpeg,image/webp,image/gif'
 }
