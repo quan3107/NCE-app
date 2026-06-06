@@ -138,6 +138,33 @@ describe('buildIeltsWritingFeedbackPrompt', () => {
     })
   })
 
+  it('requires image-capable routing when an image is attached without visual type metadata', () => {
+    const prompt = buildIeltsWritingFeedbackPrompt({
+      ...promptInput,
+      tasks: {
+        ...promptInput.tasks,
+        task1: {
+          prompt: promptInput.tasks.task1.prompt,
+          imageContext: {
+            status: 'image_attached',
+            image: {
+              type: 'image',
+              imageUrl: 'https://storage.mock/nce/task1-chart.png',
+              mimeType: 'image/png',
+            },
+          },
+        },
+      },
+    })
+
+    expect(prompt.imageContextStatus).toBe('image_attached')
+    expect(prompt.request.requiresImageInput).toBe(true)
+    expect(prompt.request.messages[1].content).toEqual([
+      expect.objectContaining({ type: 'text' }),
+      expect.objectContaining({ type: 'image' }),
+    ])
+  })
+
   it('emits a harness signal when required visual Task 1 image context is unavailable', () => {
     const prompt = buildIeltsWritingFeedbackPrompt({
       ...promptInput,
