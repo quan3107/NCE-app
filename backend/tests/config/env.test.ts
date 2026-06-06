@@ -4,6 +4,7 @@
  * Why: Keeps test collection independent from developer .env files and provider secrets.
  */
 import { describe, expect, it } from 'vitest'
+import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -177,5 +178,28 @@ describe('test environment defaults', () => {
         },
       },
     })
+  })
+
+  it('rejects invalid AI image capability boolean values', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        '-e',
+        'import("./src/config/env.ts").catch((error) => { console.error(error.message); process.exit(1); })',
+      ],
+      {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          AI_PREMIUM_SUPPORTS_IMAGE_INPUT: 'ture',
+        },
+        encoding: 'utf8',
+      },
+    )
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('AI_PREMIUM_SUPPORTS_IMAGE_INPUT')
   })
 })
