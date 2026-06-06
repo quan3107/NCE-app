@@ -69,4 +69,3 @@ export const IELTS_WRITING_CRITERIA: readonly IeltsWritingCriterion[] = [
       'Assess sentence range, control, punctuation, and error impact at a high level.',
   },
 ]
-
