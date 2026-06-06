@@ -5,6 +5,15 @@
  */
 import { z } from 'zod'
 
+import {
+  CriteriaValidationError,
+  normalizeIeltsWritingCriterionSuggestions,
+} from './criteria/criteria.service.js'
+import type {
+  IeltsWritingCriteriaScope,
+  IeltsWritingTask,
+} from './criteria/criteria.types.js'
+
 type FailedAiOutput = {
   status: 'failed'
   failureCode:
@@ -12,7 +21,10 @@ type FailedAiOutput = {
     | 'malformed_json'
     | 'schema_invalid'
     | 'unknown_criteria'
+    | 'duplicate_criteria'
     | 'missing_criteria'
+    | 'wrong_task_criteria'
+    | 'invalid_criteria_band'
     | 'unsafe_output'
     | 'off_task_output'
     | 'score_override_attempt'
@@ -73,6 +85,7 @@ const objectiveExplanationSchema = z
 export type AcceptedWritingFeedbackOutput = {
   status: 'accepted'
   feedback: z.infer<typeof writingFeedbackSchema>
+  criteriaVersion?: string
   normalizedCriterionSuggestions: Array<{
     criterionId: string
     band: number
@@ -96,7 +109,9 @@ export type ParsedObjectiveExplanationOutput =
   | FailedAiOutput
 
 type WritingParseOptions = {
-  expectedCriterionIds: string[]
+  expectedCriterionIds?: string[]
+  writingScope?: IeltsWritingCriteriaScope
+  writingTask?: IeltsWritingTask
 }
 
 type ObjectiveParseOptions = {
@@ -262,6 +277,48 @@ function classifySchemaFailure(
     : failed('schema_invalid', 'Provider output did not match the required schema.')
 }
 
+function parseCriteriaValidationError(error: unknown): FailedAiOutput | null {
+  if (!(error instanceof CriteriaValidationError)) {
+    return null
+  }
+
+  return failed(error.code, error.message)
+}
+
+function validateExpectedCriterionIds(
+  suggestions: z.infer<typeof writingCriterionSuggestionSchema>[],
+  expectedCriterionIds: string[],
+): FailedAiOutput | null {
+  const expectedIds = new Set(expectedCriterionIds)
+  const receivedIds = new Set<string>()
+
+  for (const suggestion of suggestions) {
+    if (receivedIds.has(suggestion.criterion_id)) {
+      return failed(
+        'duplicate_criteria',
+        `Provider duplicated criterion ID: ${suggestion.criterion_id}.`,
+      )
+    }
+    if (!expectedIds.has(suggestion.criterion_id)) {
+      return failed(
+        'unknown_criteria',
+        `Provider returned unknown criterion ID: ${suggestion.criterion_id}.`,
+      )
+    }
+    receivedIds.add(suggestion.criterion_id)
+  }
+
+  const missingIds = [...expectedIds].filter((id) => !receivedIds.has(id))
+  if (missingIds.length > 0) {
+    return failed(
+      'missing_criteria',
+      `Provider omitted criterion IDs: ${missingIds.join(', ')}.`,
+    )
+  }
+
+  return null
+}
+
 export function parseWritingFeedbackOutput(
   rawText: string,
   options: WritingParseOptions,
@@ -281,37 +338,55 @@ export function parseWritingFeedbackOutput(
     return failed('unsafe_output', 'Provider output contained unsafe advice.')
   }
 
-  const expectedIds = new Set(options.expectedCriterionIds)
-  const receivedIds = new Set<string>()
+  const writingScope = options.writingScope ?? options.writingTask
 
-  for (const suggestion of schemaResult.data.criterion_band_suggestions) {
-    if (!expectedIds.has(suggestion.criterion_id)) {
-      return failed(
-        'unknown_criteria',
-        `Provider returned unknown criterion ID: ${suggestion.criterion_id}.`,
+  if (writingScope) {
+    try {
+      const normalized = normalizeIeltsWritingCriterionSuggestions(
+        writingScope,
+        schemaResult.data.criterion_band_suggestions.map((suggestion) => ({
+          criterionId: suggestion.criterion_id,
+          band: suggestion.band,
+          rationale: suggestion.rationale,
+        })),
       )
+
+      return {
+        status: 'accepted',
+        feedback: schemaResult.data,
+        criteriaVersion: normalized.criteriaVersion,
+        normalizedCriterionSuggestions: normalized.suggestions,
+        safetyFlags: schemaResult.data.safety_flags,
+      }
+    } catch (error) {
+      const failure = parseCriteriaValidationError(error)
+      if (failure) {
+        return failure
+      }
+      throw error
     }
-    receivedIds.add(suggestion.criterion_id)
   }
 
-  const missingIds = [...expectedIds].filter((id) => !receivedIds.has(id))
-  if (missingIds.length > 0) {
-    return failed(
-      'missing_criteria',
-      `Provider omitted criterion IDs: ${missingIds.join(', ')}.`,
-    )
+  const criteriaFailure = validateExpectedCriterionIds(
+    schemaResult.data.criterion_band_suggestions,
+    options.expectedCriterionIds ?? [],
+  )
+  if (criteriaFailure) {
+    return criteriaFailure
   }
+
+  const normalizedCriterionSuggestions = schemaResult.data.criterion_band_suggestions.map(
+    (suggestion) => ({
+      criterionId: suggestion.criterion_id,
+      band: suggestion.band,
+      rationale: suggestion.rationale,
+    }),
+  )
 
   return {
     status: 'accepted',
     feedback: schemaResult.data,
-    normalizedCriterionSuggestions: schemaResult.data.criterion_band_suggestions.map(
-      (suggestion) => ({
-        criterionId: suggestion.criterion_id,
-        band: suggestion.band,
-        rationale: suggestion.rationale,
-      }),
-    ),
+    normalizedCriterionSuggestions,
     safetyFlags: schemaResult.data.safety_flags,
   }
 }

@@ -4,6 +4,7 @@
  * Why: Keeps grading instructions stable, testable, and independent from provider adapters.
  */
 import type { AiConcreteProviderRouteKey, AiProviderRequest } from '../provider.types.js'
+import { buildIeltsWritingCriteriaPromptPack } from '../criteria/criteria.service.js'
 import {
   IELTS_WRITING_FEEDBACK_PROMPT_VERSION,
   buildIeltsWritingSystemMessage,
@@ -39,13 +40,6 @@ type WritingSubmissionInput = {
   }
 }
 
-type WritingCriterionInput = {
-  id: string
-  task: 'task1' | 'task2' | 'both'
-  label?: string
-  description?: string
-}
-
 export type IeltsWritingFeedbackPromptInput = {
   assignment: AssignmentInput
   tasks: {
@@ -53,7 +47,6 @@ export type IeltsWritingFeedbackPromptInput = {
     task2: WritingTaskInput
   }
   submission: WritingSubmissionInput
-  criteria: WritingCriterionInput[]
   teacherConstraints?: string[]
 }
 
@@ -61,12 +54,6 @@ export type BuiltIeltsWritingFeedbackPrompt = {
   promptVersion: typeof IELTS_WRITING_FEEDBACK_PROMPT_VERSION
   request: AiProviderRequest
 }
-
-const taskOrder = new Map([
-  ['task1', 0],
-  ['task2', 1],
-  ['both', 2],
-])
 
 function cleanText(value: string | undefined): string {
   return (value ?? '').trim()
@@ -80,17 +67,9 @@ function routePreference(
     : undefined
 }
 
-function sortCriteria(criteria: WritingCriterionInput[]): WritingCriterionInput[] {
-  return [...criteria].sort((left, right) => {
-    const taskCompare =
-      (taskOrder.get(left.task) ?? 99) - (taskOrder.get(right.task) ?? 99)
-
-    return taskCompare === 0 ? left.id.localeCompare(right.id) : taskCompare
-  })
-}
-
 function buildUserPayload(input: IeltsWritingFeedbackPromptInput) {
   const aiPolicy = input.assignment.config.aiPolicy
+  const criteriaPack = buildIeltsWritingCriteriaPromptPack('combined')
 
   return {
     prompt_version: IELTS_WRITING_FEEDBACK_PROMPT_VERSION,
@@ -118,12 +97,14 @@ function buildUserPayload(input: IeltsWritingFeedbackPromptInput) {
       task1_text: cleanText(input.submission.task1?.text),
       task2_text: cleanText(input.submission.task2?.text),
     },
-    criteria: sortCriteria(input.criteria).map((criterion) => ({
-      criterion_id: cleanText(criterion.id),
-      task: criterion.task,
-      label: cleanText(criterion.label),
-      description: cleanText(criterion.description),
-    })),
+    criteria_pack: {
+      criteria_version: criteriaPack.criteriaVersion,
+      scope: criteriaPack.scope,
+      expected_criterion_ids: criteriaPack.expectedCriterionIds,
+      criteria: criteriaPack.criteria,
+      task_weights: criteriaPack.taskWeights,
+      criteria_guardrails: criteriaPack.guardrails,
+    },
     teacher_constraints: (input.teacherConstraints ?? []).map(cleanText),
   }
 }

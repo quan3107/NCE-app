@@ -40,26 +40,6 @@ const promptInput = {
     studentName: 'Private Student',
     studentEmail: 'private.student@example.com',
   },
-  criteria: [
-    {
-      id: 'task_achievement',
-      task: 'task1',
-      label: 'Task Achievement',
-      description: 'Assesses task coverage and relevant overview.',
-    },
-    {
-      id: 'task_response',
-      task: 'task2',
-      label: 'Task Response',
-      description: 'Assesses position, ideas, and development.',
-    },
-    {
-      id: 'coherence_cohesion',
-      task: 'both',
-      label: 'Coherence and Cohesion',
-      description: 'Assesses logical organization and linking.',
-    },
-  ],
   teacherConstraints: [
     'Do not assign a final teacher grade.',
     'Flag missing visual evidence instead of inventing chart details.',
@@ -91,10 +71,26 @@ describe('buildIeltsWritingFeedbackPrompt', () => {
 
     expect(serializedMessages).toContain('task_achievement')
     expect(serializedMessages).toContain('task_response')
+    expect(serializedMessages).toContain('ielts-writing-criteria-v1')
+    expect(serializedMessages).toContain('criteria_guardrails')
     expect(serializedMessages).toContain('criterion_id')
+    expect(prompt.request.messages[0].content).toContain(
+      'Use only these criterion_id values',
+    )
+    expect(prompt.request.messages[0].content).toContain('Do not invent descriptors')
     expect(serializedMessages).toContain('JSON-only')
     expect(serializedMessages).toContain('teacher-final grade')
     expect(serializedMessages).not.toContain('Private Student')
     expect(serializedMessages).not.toContain('private.student@example.com')
+
+    const userMessage = prompt.request.messages[1]
+    expect(userMessage.role).toBe('user')
+    const payload = JSON.parse(userMessage.content)
+    expect(payload.criteria_pack.criteria).toContainEqual(
+      expect.objectContaining({
+        criterion_id: 'task_response',
+        weight: 0.25,
+      }),
+    )
   })
 })
