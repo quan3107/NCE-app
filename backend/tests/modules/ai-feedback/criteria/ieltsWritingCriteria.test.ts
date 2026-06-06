@@ -64,6 +64,17 @@ describe('IELTS writing criteria contract', () => {
     expect(JSON.stringify(pack)).not.toContain('Band 9')
   })
 
+  it('labels shared criteria with the requested non-combined task scope', () => {
+    const pack = buildIeltsWritingCriteriaPromptPack('task2')
+
+    expect(pack.criteria.map((criterion) => criterion.task)).toEqual([
+      'task2',
+      'task2',
+      'task2',
+      'task2',
+    ])
+  })
+
   it('normalizes valid half-band suggestions and computes task plus combined bands', () => {
     const normalized = normalizeIeltsWritingCriterionSuggestions('task2', [
       { criterionId: 'task_response', band: 6.5, rationale: 'Clear position.' },
