@@ -62,5 +62,6 @@ function hostedRouteConfig(
     model: route.model,
     reasoningEffort: route.reasoningEffort,
     supportsReasoningEffort: true,
+    supportsImageInput: route.supportsImageInput,
   };
 }
