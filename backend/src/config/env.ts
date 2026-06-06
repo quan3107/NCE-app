@@ -46,16 +46,12 @@ const trustProxyErrorMessage =
   "TRUST_PROXY must list trusted proxy IPs, CIDRs, or proxy address names";
 const aiReasoningEffortSchema = z.enum(["none", "low", "medium", "high", "xhigh"]);
 const aiProviderSchema = z.enum(["openai-compatible"]);
-const booleanStringSchema = z.preprocess(
-  (value) => {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    return value === true || value === "true";
-  },
-  z.boolean(),
-);
+function booleanStringWithDefault(defaultValue: "true" | "false") {
+  return z
+    .enum(["true", "false"])
+    .default(defaultValue)
+    .transform((value) => value === "true");
+}
 const optionalSecretSchema = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   z.string().trim().min(1).optional(),
@@ -202,10 +198,10 @@ const envSchema = z
     AI_HEALTH_PATH: z.string().trim().default("/models"),
     AI_LOW_COST_MODEL: z.string().trim().min(1).default("gpt-5.4-nano"),
     AI_LOW_COST_REASONING_EFFORT: aiReasoningEffortSchema.default("medium"),
-    AI_LOW_COST_SUPPORTS_IMAGE_INPUT: booleanStringSchema.default(false),
+    AI_LOW_COST_SUPPORTS_IMAGE_INPUT: booleanStringWithDefault("false"),
     AI_PREMIUM_MODEL: z.string().trim().min(1).default("gpt-5.4-mini"),
     AI_PREMIUM_REASONING_EFFORT: aiReasoningEffortSchema.default("high"),
-    AI_PREMIUM_SUPPORTS_IMAGE_INPUT: booleanStringSchema.default(true),
+    AI_PREMIUM_SUPPORTS_IMAGE_INPUT: booleanStringWithDefault("true"),
     AI_IMAGE_MAX_BYTES: z.coerce.number().int().positive().default(20 * 1024 * 1024),
     AI_IMAGE_SUPPORTED_MIME_TYPES: z
       .string()
