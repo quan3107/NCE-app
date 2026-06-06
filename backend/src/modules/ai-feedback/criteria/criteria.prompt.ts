@@ -38,6 +38,26 @@ function getPromptCriteriaForScope(scope: IeltsWritingCriteriaScope) {
   })
 }
 
+function resolvePromptCriterionScope(
+  scope: IeltsWritingCriteriaScope,
+  criterionAppliesTo: readonly IeltsWritingCriteriaScope[],
+): IeltsWritingCriteriaScope {
+  if (scope !== 'combined') {
+    return scope
+  }
+
+  if (criterionAppliesTo.length > 1) {
+    return 'combined'
+  }
+
+  const firstScope = criterionAppliesTo[0]
+  if (!firstScope) {
+    throw new Error('IELTS writing criterion must apply to at least one scope.')
+  }
+
+  return firstScope
+}
+
 export function buildIeltsWritingCriteriaPromptPack(
   scope: IeltsWritingCriteriaScope,
 ): IeltsWritingCriteriaPromptPack {
@@ -46,10 +66,7 @@ export function buildIeltsWritingCriteriaPromptPack(
     (criterion) => ({
       criterion_id: criterion.id,
       label: criterion.label,
-      task:
-        scope === 'combined' && criterion.appliesTo.length > 1
-          ? 'combined'
-          : criterion.appliesTo[0],
+      task: resolvePromptCriterionScope(scope, criterion.appliesTo),
       order: criterion.order,
       weight: criterion.weight,
       description: criterion.promptDescription,
