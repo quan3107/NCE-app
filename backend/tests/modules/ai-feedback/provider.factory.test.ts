@@ -16,15 +16,21 @@ const config = {
   timeoutMs: 500,
   maxInputChars: 12_000,
   maxOutputTokens: 700,
+  imageInput: {
+    maxBytes: 20 * 1024 * 1024,
+    supportedMimeTypes: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+  },
   healthPath: "/models",
   routes: {
     lowCost: {
       model: "gpt-5.4-nano",
       reasoningEffort: "medium",
+      supportsImageInput: false,
     },
     premium: {
       model: "gpt-5.4-mini",
       reasoningEffort: "high",
+      supportsImageInput: true,
     },
   },
 } satisfies AiFeedbackConfig;
