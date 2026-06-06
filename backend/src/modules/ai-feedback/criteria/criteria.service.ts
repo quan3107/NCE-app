@@ -57,11 +57,11 @@ function normalizeLookupValue(value: string): string {
     .replace(/\s+/g, ' ')
 }
 
-function isCriterionApplicableToTask(
+function isCriterionApplicableToScope(
   criterion: IeltsWritingCriterion,
-  task: IeltsWritingTask,
+  scope: IeltsWritingCriteriaScope,
 ): boolean {
-  return criterion.appliesTo.includes(task)
+  return scope === 'combined' || criterion.appliesTo.includes(scope)
 }
 
 function getCriterionById(id: string): IeltsWritingCriterion | undefined {
@@ -103,7 +103,7 @@ export function getIeltsWritingCriteriaForTask(
 ): IeltsWritingCriterion[] {
   return sortCriteria(
     IELTS_WRITING_CRITERIA.filter((criterion) =>
-      isCriterionApplicableToTask(criterion, task),
+      isCriterionApplicableToScope(criterion, task),
     ),
   )
 }
@@ -148,7 +148,7 @@ export function resolveIeltsWritingCriterionId(
     return null
   }
 
-  if (task && !isCriterionApplicableToTask(criterion, task)) {
+  if (task && !isCriterionApplicableToScope(criterion, task)) {
     return null
   }
 
@@ -156,13 +156,16 @@ export function resolveIeltsWritingCriterionId(
 }
 
 export function normalizeIeltsWritingCriterionSuggestions(
-  task: IeltsWritingTask,
+  scope: IeltsWritingCriteriaScope,
   suggestions: IeltsWritingCriterionSuggestion[],
 ): {
   criteriaVersion: typeof IELTS_WRITING_CRITERIA_VERSION
   suggestions: NormalizedIeltsWritingCriterionSuggestion[]
 } {
-  const expectedIds = getExpectedCriterionIds(task)
+  const expectedIds =
+    scope === 'combined'
+      ? getIeltsWritingCriteriaForScope(scope).map((criterion) => criterion.id)
+      : getExpectedCriterionIds(scope)
   const seenIds = new Set<IeltsWritingCriterionId>()
   const normalizedSuggestions: NormalizedIeltsWritingCriterionSuggestion[] = []
 
@@ -176,10 +179,10 @@ export function normalizeIeltsWritingCriterionSuggestions(
       )
     }
 
-    if (!isCriterionApplicableToTask(criterion, task)) {
+    if (!isCriterionApplicableToScope(criterion, scope)) {
       throw new CriteriaValidationError(
         'wrong_task_criteria',
-        `Criterion ${suggestion.criterionId} is not valid for IELTS writing ${task}.`,
+        `Criterion ${suggestion.criterionId} is not valid for IELTS writing ${scope}.`,
       )
     }
 
@@ -242,4 +245,3 @@ export function calculateCombinedIeltsWritingBand(input: {
       input.task2Band * IELTS_WRITING_TASK_WEIGHTS.task2,
   )
 }
-
