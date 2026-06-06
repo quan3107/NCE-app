@@ -109,6 +109,57 @@ describe('parseWritingFeedbackOutput', () => {
     ])
   })
 
+  it('accepts canonical combined criteria and returns the criteria version', () => {
+    const parsed = parseWritingFeedbackOutput(
+      JSON.stringify({
+        ...validWritingJson,
+        criterion_band_suggestions: [
+          {
+            criterion_id: 'task_achievement',
+            band: 6,
+            rationale: 'Task 1 has an overview but limited detail.',
+          },
+          {
+            criterion_id: 'task_response',
+            band: 7,
+            rationale: 'Task 2 position is clear and supported.',
+          },
+          {
+            criterion_id: 'coherence_cohesion',
+            band: 7,
+            rationale: 'Ideas progress clearly across both tasks.',
+          },
+          {
+            criterion_id: 'lexical_resource',
+            band: 7,
+            rationale: 'Vocabulary is flexible across both responses.',
+          },
+          {
+            criterion_id: 'grammatical_range_accuracy',
+            band: 6.5,
+            rationale: 'Grammar is varied but some errors recur.',
+          },
+        ],
+      }),
+      {
+        writingScope: 'combined',
+      },
+    )
+
+    expect(parsed.status).toBe('accepted')
+    if (parsed.status !== 'accepted') {
+      throw new Error('Expected accepted writing feedback.')
+    }
+    expect(parsed.criteriaVersion).toBe('ielts-writing-criteria-v1')
+    expect(parsed.normalizedCriterionSuggestions.map((item) => item.criterionId)).toEqual([
+      'task_achievement',
+      'task_response',
+      'coherence_cohesion',
+      'lexical_resource',
+      'grammatical_range_accuracy',
+    ])
+  })
+
   it('fails empty, malformed, unknown-criterion, unsafe, and off-task output', () => {
     expect(
       parseWritingFeedbackOutput('', {
@@ -308,6 +359,44 @@ describe('parseWritingFeedbackOutput', () => {
         },
       ),
     ).toMatchObject({ status: 'failed', failureCode: 'missing_criteria' })
+
+    expect(
+      parseWritingFeedbackOutput(
+        JSON.stringify({
+          ...validWritingJson,
+          criterion_band_suggestions: [
+            {
+              criterion_id: 'task_achievement',
+              band: 6.25,
+              rationale: 'Invalid half-band in combined output.',
+            },
+            {
+              criterion_id: 'task_response',
+              band: 7,
+              rationale: 'Ok.',
+            },
+            {
+              criterion_id: 'coherence_cohesion',
+              band: 7,
+              rationale: 'Ok.',
+            },
+            {
+              criterion_id: 'lexical_resource',
+              band: 7,
+              rationale: 'Ok.',
+            },
+            {
+              criterion_id: 'grammatical_range_accuracy',
+              band: 7,
+              rationale: 'Ok.',
+            },
+          ],
+        }),
+        {
+          writingScope: 'combined',
+        },
+      ),
+    ).toMatchObject({ status: 'failed', failureCode: 'invalid_criteria_band' })
   })
 })
 
