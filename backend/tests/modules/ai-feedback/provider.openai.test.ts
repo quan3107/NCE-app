@@ -29,6 +29,7 @@ function provider(
     model: "gpt-5.4-nano",
     reasoningEffort: "medium",
     supportsReasoningEffort: true,
+    supportsImageInput: false,
     timeoutMs: 500,
     maxOutputTokens: 600,
     maxResponseBytes: 4096,
@@ -158,6 +159,75 @@ describe("OpenAIProvider", () => {
 
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
     expect(body.reasoning_effort).toBeUndefined();
+  });
+
+  it("maps provider-neutral image parts to hosted OpenAI image content", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        choices: [{ message: { content: '{"ok":true}' } }],
+      }),
+    );
+
+    await provider(fetchImpl, { supportsImageInput: true }).generate({
+      ...baseRequest,
+      requiresImageInput: true,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Assess the visual Task 1 response." },
+            {
+              type: "image",
+              imageUrl: "https://storage.mock/nce/task1.png",
+              mimeType: "image/png",
+              detail: "high",
+            },
+          ],
+        },
+      ],
+    });
+
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+    expect(body.messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Assess the visual Task 1 response." },
+          {
+            type: "image_url",
+            image_url: {
+              url: "https://storage.mock/nce/task1.png",
+              detail: "high",
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("rejects image content when the hosted route has no image capability", async () => {
+    await expect(
+      provider(vi.fn()).generate({
+        ...baseRequest,
+        requiresImageInput: true,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Assess the chart." },
+              {
+                type: "image",
+                imageUrl: "https://storage.mock/nce/task1.png",
+                mimeType: "image/png",
+              },
+            ],
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({
+      code: "unsupported_image_input",
+      routeKey: "low_cost",
+    });
   });
 
   it.each([
