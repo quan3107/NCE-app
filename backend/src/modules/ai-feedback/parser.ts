@@ -375,12 +375,13 @@ export function parseWritingFeedbackOutput(
     return criteriaFailure
   }
 
-  const normalizedCriterionSuggestions =
-    schemaResult.data.criterion_band_suggestions.map((suggestion) => ({
+  const normalizedCriterionSuggestions = schemaResult.data.criterion_band_suggestions.map(
+    (suggestion) => ({
       criterionId: suggestion.criterion_id,
       band: suggestion.band,
       rationale: suggestion.rationale,
-    }))
+    }),
+  )
 
   return {
     status: 'accepted',
