@@ -50,15 +50,19 @@ function buildBaseHealthResponse(
       timeout_ms: config.timeoutMs,
       max_input_chars: config.maxInputChars,
       max_output_tokens: config.maxOutputTokens,
+      image_max_bytes: config.imageInput.maxBytes,
+      image_supported_mime_types: config.imageInput.supportedMimeTypes,
     },
     routes: {
       low_cost: {
         model: config.routes.lowCost.model,
         reasoning_effort: config.routes.lowCost.reasoningEffort,
+        supports_image_input: config.routes.lowCost.supportsImageInput,
       },
       premium: {
         model: config.routes.premium.model,
         reasoning_effort: config.routes.premium.reasoningEffort,
+        supports_image_input: config.routes.premium.supportsImageInput,
       },
     },
   };
