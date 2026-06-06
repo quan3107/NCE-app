@@ -27,15 +27,21 @@ const baseConfig = {
   timeoutMs: 250,
   maxInputChars: 12_000,
   maxOutputTokens: 1_200,
+  imageInput: {
+    maxBytes: 20 * 1024 * 1024,
+    supportedMimeTypes: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+  },
   healthPath: "/models",
   routes: {
     lowCost: {
       model: "gpt-5.4-nano",
       reasoningEffort: "medium",
+      supportsImageInput: false,
     },
     premium: {
       model: "gpt-5.4-mini",
       reasoningEffort: "high",
+      supportsImageInput: true,
     },
   },
 } satisfies AiFeedbackConfig;
@@ -61,7 +67,9 @@ describe("ai-feedback.service", () => {
     expect(health.status).toBe("disabled");
     expect(health.enabled).toBe(false);
     expect(health.routes.low_cost.model).toBe("gpt-5.4-nano");
+    expect(health.routes.low_cost.supports_image_input).toBe(false);
     expect(health.routes.premium.reasoning_effort).toBe("high");
+    expect(health.routes.premium.supports_image_input).toBe(true);
     expect(probe).not.toHaveBeenCalled();
   });
 
