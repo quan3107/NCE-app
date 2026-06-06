@@ -41,8 +41,12 @@ const defaultedEnvKeys = [
   'AI_HEALTH_PATH',
   'AI_LOW_COST_MODEL',
   'AI_LOW_COST_REASONING_EFFORT',
+  'AI_LOW_COST_SUPPORTS_IMAGE_INPUT',
   'AI_PREMIUM_MODEL',
   'AI_PREMIUM_REASONING_EFFORT',
+  'AI_PREMIUM_SUPPORTS_IMAGE_INPUT',
+  'AI_IMAGE_MAX_BYTES',
+  'AI_IMAGE_SUPPORTED_MIME_TYPES',
 ] as const
 
 describe('test environment defaults', () => {
@@ -98,8 +102,14 @@ describe('test environment defaults', () => {
       expect(process.env.AI_HEALTH_PATH).toBe('/models')
       expect(process.env.AI_LOW_COST_MODEL).toBe('gpt-5.4-nano')
       expect(process.env.AI_LOW_COST_REASONING_EFFORT).toBe('medium')
+      expect(process.env.AI_LOW_COST_SUPPORTS_IMAGE_INPUT).toBe('false')
       expect(process.env.AI_PREMIUM_MODEL).toBe('gpt-5.4-mini')
       expect(process.env.AI_PREMIUM_REASONING_EFFORT).toBe('high')
+      expect(process.env.AI_PREMIUM_SUPPORTS_IMAGE_INPUT).toBe('true')
+      expect(process.env.AI_IMAGE_MAX_BYTES).toBe('20971520')
+      expect(process.env.AI_IMAGE_SUPPORTED_MIME_TYPES).toBe(
+        'image/png,image/jpeg,image/webp,image/gif',
+      )
     } finally {
       for (const key of defaultedEnvKeys) {
         const originalValue = originalValues.get(key)
@@ -149,15 +159,21 @@ describe('test environment defaults', () => {
       timeoutMs: 10_000,
       maxInputChars: 12_000,
       maxOutputTokens: 1_200,
+      imageInput: {
+        maxBytes: 20 * 1024 * 1024,
+        supportedMimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+      },
       healthPath: '/models',
       routes: {
         lowCost: {
           model: 'gpt-5.4-nano',
           reasoningEffort: 'medium',
+          supportsImageInput: false,
         },
         premium: {
           model: 'gpt-5.4-mini',
           reasoningEffort: 'high',
+          supportsImageInput: true,
         },
       },
     })
