@@ -3,13 +3,8 @@
  * Purpose: Run deterministic AI feedback harness evaluations without provider calls.
  * Why: Runtime jobs need a reusable prompt/parse/guardrail path before persisting AI output.
  */
-import {
-  IELTS_WRITING_CRITERIA_VERSION,
-} from '../criteria/criteria.service.js'
-import {
-  parseObjectiveExplanationOutput,
-  parseWritingFeedbackOutput,
-} from '../parser.js'
+import { IELTS_WRITING_CRITERIA_VERSION } from '../criteria/criteria.service.js'
+import { parseObjectiveExplanationOutput, parseWritingFeedbackOutput } from '../parser.js'
 import type { AiProviderMessage, AiProviderMessageContent } from '../provider.types.js'
 import {
   buildIeltsWritingFeedbackPrompt,
@@ -80,7 +75,8 @@ function estimateTokens(
   providerOutput: string,
 ): AiFeedbackHarnessTokenEstimate {
   const promptTokens = messages.reduce(
-    (sum, message) => sum + estimateTextTokens(serializeContentForEstimate(message.content)),
+    (sum, message) =>
+      sum + estimateTextTokens(serializeContentForEstimate(message.content)),
     0,
   )
   const completionTokens = estimateTextTokens(providerOutput)
@@ -132,6 +128,35 @@ function classifyParserFailure(
   return 'rejected'
 }
 
+function visualImageContextReview(input: {
+  allowVisualImageFallback?: boolean
+  imageContextStatus: AiFeedbackHarnessRequestAudit['imageContextStatus']
+}): {
+  reasonCode: 'image_context_unavailable'
+  message: string
+} | null {
+  if (
+    input.imageContextStatus === 'not_visual' ||
+    input.imageContextStatus === 'image_attached'
+  ) {
+    return null
+  }
+
+  const teacherApprovedFallback =
+    input.allowVisualImageFallback === true &&
+    (input.imageContextStatus === 'fallback_only' ||
+      input.imageContextStatus === 'teacher_summary_supplemental')
+
+  if (teacherApprovedFallback) {
+    return null
+  }
+
+  return {
+    reasonCode: 'image_context_unavailable',
+    message: 'Required Task 1 image context is unavailable for provider evaluation.',
+  }
+}
+
 function evaluateWritingHarness(
   input: WritingFeedbackHarnessInput,
 ): AiFeedbackHarnessResult {
@@ -143,19 +168,21 @@ function evaluateWritingHarness(
     imageContextStatus: builtPrompt.imageContextStatus,
   })
   const tokenEstimate = estimateTokens(builtPrompt.request.messages, input.providerOutput)
+  const imageContextReview = visualImageContextReview({
+    allowVisualImageFallback: input.allowVisualImageFallback,
+    imageContextStatus: builtPrompt.imageContextStatus,
+  })
 
-  if (builtPrompt.imageContextFailure) {
+  if (imageContextReview) {
     return buildResult({
       fixtureId: input.fixtureId,
       taskType: 'writing_feedback',
       status: 'review_required',
-      reasonCode: builtPrompt.imageContextFailure.failureCode,
+      reasonCode: imageContextReview.reasonCode,
       promptVersion: builtPrompt.promptVersion,
       criteriaVersion: IELTS_WRITING_CRITERIA_VERSION,
       routeKey: input.routeKey,
-      validationErrors: [
-        'Required Task 1 image context is unavailable for provider evaluation.',
-      ],
+      validationErrors: [imageContextReview.message],
       requestAudit,
       tokenEstimate,
     })
@@ -210,9 +237,7 @@ function evaluateWritingHarness(
   })
 }
 
-function objectiveSourceContextFailure(
-  input: ObjectiveExplanationHarnessInput,
-): {
+function objectiveSourceContextFailure(input: ObjectiveExplanationHarnessInput): {
   reasonCode: 'missing_passage_context' | 'missing_transcript_context'
   message: string
 } | null {
