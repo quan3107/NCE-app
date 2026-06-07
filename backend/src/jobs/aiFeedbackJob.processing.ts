@@ -12,26 +12,25 @@ import {
   parseObjectiveExplanationOutput,
   parseWritingFeedbackOutput,
 } from "../modules/ai-feedback/parser.js";
-import { AiProviderError } from "../modules/ai-feedback/provider.errors.js";
 import { createAiProviderRouterFromConfig } from "../modules/ai-feedback/provider.factory.js";
 import {
   buildIeltsWritingFeedbackPrompt,
   buildObjectiveExplanationPrompt,
 } from "../modules/ai-feedback/prompts/index.js";
 import { prisma } from "../prisma/client.js";
-import { Prisma } from "../prisma/index.js";
+import {
+  failureMessage,
+  shouldProcess,
+  toJsonArray,
+  toJsonObject,
+  updateObjectiveProviderFailure,
+  updateWritingProviderFailure,
+} from "./aiFeedbackJob.persistence.js";
 import type {
   AiFeedbackJobDeps,
   ObjectiveExplanationJobPayload,
   WritingDraftJobPayload,
 } from "./aiFeedbackJob.types.js";
-
-type QueuedGenerationRecord = {
-  id: string;
-  status: string;
-  retryCount: number;
-  deletedAt: Date | null;
-};
 
 const writingDraftPayloadSchema = z
   .object({
@@ -64,99 +63,6 @@ const objectiveExplanationPayloadSchema = z
 
 function getProviderRouter(deps: AiFeedbackJobDeps) {
   return deps.providerRouter ?? createAiProviderRouterFromConfig();
-}
-
-function shouldProcess(status: string): boolean {
-  return status === "queued" || status === "failed";
-}
-
-function nextRetryAt(recordRetryCount: number, now: Date): Date {
-  const nextAttempt = recordRetryCount + 1;
-  const delayMs = Math.min(15 * 60_000, 60_000 * 2 ** recordRetryCount);
-
-  return new Date(now.getTime() + delayMs * nextAttempt);
-}
-
-function toJsonObject(value: Record<string, unknown>): Prisma.InputJsonObject {
-  return value as Prisma.InputJsonObject;
-}
-
-function toJsonArray(value: unknown[]): Prisma.InputJsonArray {
-  return value as Prisma.InputJsonArray;
-}
-
-function failureMessage(errors: string[]): string {
-  return errors.join("; ") || "AI feedback generation did not pass validation.";
-}
-
-function providerFailure(error: unknown): {
-  code: string;
-  message: string;
-  retryable: boolean;
-} {
-  if (error instanceof AiProviderError) {
-    return {
-      code: error.code,
-      message: error.message,
-      retryable: error.retryable,
-    };
-  }
-
-  return {
-    code: "worker_exception",
-    message: error instanceof Error ? error.message : "Unknown AI worker error.",
-    retryable: false,
-  };
-}
-
-async function updateWritingProviderFailure(
-  draft: QueuedGenerationRecord,
-  error: unknown,
-  now: Date,
-): Promise<void> {
-  const failure = providerFailure(error);
-
-  await prisma.aiFeedbackDraft.update({
-    where: { id: draft.id },
-    data: {
-      status: "failed",
-      failureCode: failure.code,
-      failureMessage: failure.message,
-      retryCount: { increment: 1 },
-      nextRetryAt: failure.retryable ? nextRetryAt(draft.retryCount, now) : null,
-      lastAttemptAt: now,
-    },
-  });
-
-  if (failure.retryable) {
-    throw error;
-  }
-}
-
-async function updateObjectiveProviderFailure(
-  explanation: QueuedGenerationRecord,
-  error: unknown,
-  now: Date,
-): Promise<void> {
-  const failure = providerFailure(error);
-
-  await prisma.aiObjectiveExplanation.update({
-    where: { id: explanation.id },
-    data: {
-      status: "failed",
-      failureCode: failure.code,
-      failureMessage: failure.message,
-      retryCount: { increment: 1 },
-      nextRetryAt: failure.retryable
-        ? nextRetryAt(explanation.retryCount, now)
-        : null,
-      lastAttemptAt: now,
-    },
-  });
-
-  if (failure.retryable) {
-    throw error;
-  }
 }
 
 export async function processWritingDraftJob(
