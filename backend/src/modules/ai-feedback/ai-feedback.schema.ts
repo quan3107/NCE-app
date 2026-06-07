@@ -5,6 +5,11 @@
  */
 import { z } from "zod";
 
+import {
+  objectiveGenerationJobSchema,
+  writingGenerationJobSchema,
+} from "./ai-feedback.generationJob.schema.js";
+
 export const aiFeedbackDraftStatusSchema = z.enum([
   "queued",
   "running",
@@ -58,11 +63,6 @@ export const aiReasoningEffortResponseSchema = z.enum([
 
 const jsonRecordSchema = z.record(z.string(), z.unknown());
 const jsonArraySchema = z.array(z.unknown());
-const generationJobSchema = z
-  .object({
-    harnessInput: z.unknown(),
-  })
-  .strict();
 
 export const createAiFeedbackDraftSchema = z
   .object({
@@ -88,7 +88,7 @@ export const createAiFeedbackDraftSchema = z
     retryCount: z.number().int().min(0).optional(),
     nextRetryAt: z.date().optional(),
     lastAttemptAt: z.date().optional(),
-    generationJob: generationJobSchema.optional(),
+    generationJob: writingGenerationJobSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -144,7 +144,7 @@ export const upsertAiObjectiveExplanationSchema = z
     retryCount: z.number().int().min(0).optional(),
     nextRetryAt: z.date().optional(),
     lastAttemptAt: z.date().optional(),
-    generationJob: generationJobSchema.optional(),
+    generationJob: objectiveGenerationJobSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
