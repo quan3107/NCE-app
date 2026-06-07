@@ -7,6 +7,7 @@ import PgBoss from "pg-boss";
 
 import { config } from "../config/env.js";
 import { logger } from "../config/logger.js";
+import { registerAiFeedbackJobs } from "./aiFeedbackJob.js";
 import { registerNotificationJobs } from "./notificationJob.js";
 
 let bossInstance: PgBoss | null = null;
@@ -26,6 +27,7 @@ export async function startJobRunner(): Promise<void> {
   });
 
   await boss.start();
+  await registerAiFeedbackJobs(boss);
   await registerNotificationJobs(boss);
 
   bossInstance = boss;
