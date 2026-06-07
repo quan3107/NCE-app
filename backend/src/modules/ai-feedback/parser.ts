@@ -25,6 +25,7 @@ type FailedAiOutput = {
     | 'missing_criteria'
     | 'wrong_task_criteria'
     | 'invalid_criteria_band'
+    | 'invented_weighting'
     | 'unsafe_output'
     | 'off_task_output'
     | 'score_override_attempt'
@@ -268,6 +269,26 @@ function containsUnsafeAdvice(value: unknown): boolean {
   return unsafePatterns.some((pattern) => lowerText.includes(pattern))
 }
 
+function containsInventedWeighting(value: Record<string, unknown>): boolean {
+  if ('criteria_weights' in value || 'criterion_weights' in value || 'task_weights' in value) {
+    return true
+  }
+
+  const suggestions = value.criterion_band_suggestions
+  if (!Array.isArray(suggestions)) {
+    return false
+  }
+
+  return suggestions.some(
+    (suggestion) =>
+      isRecord(suggestion) &&
+      ('weight' in suggestion ||
+        'weights' in suggestion ||
+        'criterion_weight' in suggestion ||
+        'task_weight' in suggestion),
+  )
+}
+
 function classifySchemaFailure(
   value: Record<string, unknown>,
   expectedType: string,
@@ -327,6 +348,13 @@ export function parseWritingFeedbackOutput(
 
   if (parsed.kind === 'failed') {
     return parsed.failure
+  }
+
+  if (containsInventedWeighting(parsed.value)) {
+    return failed(
+      'invented_weighting',
+      'Provider output tried to invent or override criteria weighting.',
+    )
   }
 
   const schemaResult = writingFeedbackSchema.safeParse(parsed.value)
