@@ -58,6 +58,11 @@ export const aiReasoningEffortResponseSchema = z.enum([
 
 const jsonRecordSchema = z.record(z.string(), z.unknown());
 const jsonArraySchema = z.array(z.unknown());
+const generationJobSchema = z
+  .object({
+    harnessInput: z.unknown(),
+  })
+  .strict();
 
 export const createAiFeedbackDraftSchema = z
   .object({
@@ -83,8 +88,18 @@ export const createAiFeedbackDraftSchema = z
     retryCount: z.number().int().min(0).optional(),
     nextRetryAt: z.date().optional(),
     lastAttemptAt: z.date().optional(),
+    generationJob: generationJobSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.status === "queued" && !data.generationJob) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["generationJob"],
+        message: "Queued AI feedback drafts require a generation job payload.",
+      });
+    }
+  });
 
 export const studentVisibleAiFeedbackDraftParamsSchema = z
   .object({
@@ -129,8 +144,19 @@ export const upsertAiObjectiveExplanationSchema = z
     retryCount: z.number().int().min(0).optional(),
     nextRetryAt: z.date().optional(),
     lastAttemptAt: z.date().optional(),
+    generationJob: generationJobSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.status === "queued" && !data.generationJob) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["generationJob"],
+        message:
+          "Queued AI objective explanations require a generation job payload.",
+      });
+    }
+  });
 
 export const aiGenerationStatusRequestSchema = z.discriminatedUnion("kind", [
   z
