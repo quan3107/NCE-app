@@ -88,8 +88,12 @@ export async function processWritingDraftJob(
 
   const now = deps.now?.() ?? new Date();
 
-  await prisma.aiFeedbackDraft.update({
-    where: { id: draft.id },
+  const runningTransition = await prisma.aiFeedbackDraft.updateMany({
+    where: {
+      id: draft.id,
+      status: draft.status,
+      deletedAt: null,
+    },
     data: {
       status: "running",
       lastAttemptAt: now,
@@ -98,6 +102,10 @@ export async function processWritingDraftJob(
       failureMessage: null,
     },
   });
+
+  if (runningTransition.count === 0) {
+    return;
+  }
 
   try {
     const builtPrompt = buildIeltsWritingFeedbackPrompt(
@@ -116,8 +124,12 @@ export async function processWritingDraftJob(
     });
     const accepted = parsed.status === "accepted";
 
-    await prisma.aiFeedbackDraft.update({
-      where: { id: draft.id },
+    await prisma.aiFeedbackDraft.updateMany({
+      where: {
+        id: draft.id,
+        status: "running",
+        deletedAt: null,
+      },
       data: {
         status: harnessResult.status,
         routeKey: providerResult.routeKey,
@@ -182,8 +194,12 @@ export async function processObjectiveExplanationJob(
 
   const now = deps.now?.() ?? new Date();
 
-  await prisma.aiObjectiveExplanation.update({
-    where: { id: explanation.id },
+  const runningTransition = await prisma.aiObjectiveExplanation.updateMany({
+    where: {
+      id: explanation.id,
+      status: explanation.status,
+      deletedAt: null,
+    },
     data: {
       status: "running",
       lastAttemptAt: now,
@@ -192,6 +208,10 @@ export async function processObjectiveExplanationJob(
       failureMessage: null,
     },
   });
+
+  if (runningTransition.count === 0) {
+    return;
+  }
 
   try {
     const builtPrompt = buildObjectiveExplanationPrompt(
@@ -212,8 +232,12 @@ export async function processObjectiveExplanationJob(
     const status =
       harnessResult.status === "accepted" ? "completed" : harnessResult.status;
 
-    await prisma.aiObjectiveExplanation.update({
-      where: { id: explanation.id },
+    await prisma.aiObjectiveExplanation.updateMany({
+      where: {
+        id: explanation.id,
+        status: "running",
+        deletedAt: null,
+      },
       data: {
         status,
         routeKey: providerResult.routeKey,
