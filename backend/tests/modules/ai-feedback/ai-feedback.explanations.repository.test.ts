@@ -180,6 +180,41 @@ describe("ai-feedback objective explanations", () => {
     expect(explanation).toBe(created);
   });
 
+  it("rejects queued objective explanations with malformed generation payloads", async () => {
+    await expect(
+      upsertAiObjectiveExplanation({
+        submissionId,
+        assignmentId,
+        requesterId,
+        questionId: "q-1",
+        deterministicResult: "incorrect",
+        promptVersion: "objective-explanation-v1",
+        sourceContextHash: "sha256:source",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+        status: "queued",
+        generationJob: {
+          harnessInput: {
+            taskType: "objective_explanation",
+          },
+        },
+      }),
+    ).rejects.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          path: ["generationJob", "harnessInput", "fixtureId"],
+        }),
+        expect.objectContaining({
+          path: ["generationJob", "harnessInput", "promptInput"],
+        }),
+      ]),
+    });
+
+    expect(prisma.aiObjectiveExplanation.create).not.toHaveBeenCalled();
+    expect(enqueueObjectiveExplanationOnActiveQueue).not.toHaveBeenCalled();
+  });
+
   it("rejects objective explanations when the caller assignment does not match the submission", async () => {
     await expect(
       upsertAiObjectiveExplanation({
