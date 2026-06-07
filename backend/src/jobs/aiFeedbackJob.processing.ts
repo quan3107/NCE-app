@@ -7,6 +7,10 @@ import type PgBoss from "pg-boss";
 import { z } from "zod";
 
 import { logger } from "../config/logger.js";
+import {
+  objectiveExplanationJobPayloadSchema,
+  writingDraftJobPayloadSchema,
+} from "../modules/ai-feedback/ai-feedback.generationJob.schema.js";
 import { evaluateAiFeedbackHarness } from "../modules/ai-feedback/harness/harness.service.js";
 import {
   parseObjectiveExplanationOutput,
@@ -32,46 +36,111 @@ import type {
   WritingDraftJobPayload,
 } from "./aiFeedbackJob.types.js";
 
-const writingDraftPayloadSchema = z
+const writingDraftJobRecordSchema = z
   .object({
     draftId: z.string().uuid(),
-    harnessInput: z
-      .object({
-        fixtureId: z.string().min(1),
-        taskType: z.literal("writing_feedback"),
-        promptInput: z.unknown(),
-        routeKey: z.string().min(1).optional(),
-        allowVisualImageFallback: z.boolean().optional(),
-      })
-      .passthrough(),
   })
-  .strict();
+  .passthrough();
 
-const objectiveExplanationPayloadSchema = z
+const objectiveExplanationJobRecordSchema = z
   .object({
     explanationId: z.string().uuid(),
-    harnessInput: z
-      .object({
-        fixtureId: z.string().min(1),
-        taskType: z.literal("objective_explanation"),
-        promptInput: z.unknown(),
-        routeKey: z.string().min(1).optional(),
-      })
-      .passthrough(),
   })
-  .strict();
+  .passthrough();
 
 function getProviderRouter(deps: AiFeedbackJobDeps) {
   return deps.providerRouter ?? createAiProviderRouterFromConfig();
+}
+
+function invalidPayloadMessage(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+    .join("; ");
+}
+
+async function markMalformedWritingPayloadFailed(
+  data: unknown,
+  error: z.ZodError,
+  now: Date,
+): Promise<boolean> {
+  const record = writingDraftJobRecordSchema.safeParse(data);
+
+  if (!record.success) {
+    return false;
+  }
+
+  await prisma.aiFeedbackDraft.updateMany({
+    where: {
+      id: record.data.draftId,
+      status: {
+        in: ["queued", "failed"],
+      },
+      deletedAt: null,
+    },
+    data: {
+      status: "failed",
+      failureCode: "invalid_job_payload",
+      failureMessage: invalidPayloadMessage(error),
+      nextRetryAt: null,
+      lastAttemptAt: now,
+    },
+  });
+
+  return true;
+}
+
+async function markMalformedObjectivePayloadFailed(
+  data: unknown,
+  error: z.ZodError,
+  now: Date,
+): Promise<boolean> {
+  const record = objectiveExplanationJobRecordSchema.safeParse(data);
+
+  if (!record.success) {
+    return false;
+  }
+
+  await prisma.aiObjectiveExplanation.updateMany({
+    where: {
+      id: record.data.explanationId,
+      status: {
+        in: ["queued", "failed"],
+      },
+      deletedAt: null,
+    },
+    data: {
+      status: "failed",
+      failureCode: "invalid_job_payload",
+      failureMessage: invalidPayloadMessage(error),
+      nextRetryAt: null,
+      lastAttemptAt: now,
+    },
+  });
+
+  return true;
 }
 
 export async function processWritingDraftJob(
   job: PgBoss.Job<WritingDraftJobPayload>,
   deps: AiFeedbackJobDeps,
 ): Promise<void> {
-  const payload = writingDraftPayloadSchema.parse(
-    job.data,
-  ) as WritingDraftJobPayload;
+  const parsedPayload = writingDraftJobPayloadSchema.safeParse(job.data);
+
+  if (!parsedPayload.success) {
+    const handled = await markMalformedWritingPayloadFailed(
+      job.data,
+      parsedPayload.error,
+      deps.now?.() ?? new Date(),
+    );
+
+    if (handled) {
+      return;
+    }
+
+    throw parsedPayload.error;
+  }
+
+  const payload = parsedPayload.data as WritingDraftJobPayload;
   const draft = await prisma.aiFeedbackDraft.findUnique({
     where: { id: payload.draftId },
     select: {
@@ -175,9 +244,23 @@ export async function processObjectiveExplanationJob(
   job: PgBoss.Job<ObjectiveExplanationJobPayload>,
   deps: AiFeedbackJobDeps,
 ): Promise<void> {
-  const payload = objectiveExplanationPayloadSchema.parse(
-    job.data,
-  ) as ObjectiveExplanationJobPayload;
+  const parsedPayload = objectiveExplanationJobPayloadSchema.safeParse(job.data);
+
+  if (!parsedPayload.success) {
+    const handled = await markMalformedObjectivePayloadFailed(
+      job.data,
+      parsedPayload.error,
+      deps.now?.() ?? new Date(),
+    );
+
+    if (handled) {
+      return;
+    }
+
+    throw parsedPayload.error;
+  }
+
+  const payload = parsedPayload.data as ObjectiveExplanationJobPayload;
   const explanation = await prisma.aiObjectiveExplanation.findUnique({
     where: { id: payload.explanationId },
     select: {
@@ -240,7 +323,6 @@ export async function processObjectiveExplanationJob(
       },
       data: {
         status,
-        routeKey: providerResult.routeKey,
         model: providerResult.model,
         ...(completed
           ? {
