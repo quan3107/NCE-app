@@ -66,8 +66,12 @@ export async function updateWritingProviderFailure(
 ): Promise<void> {
   const failure = providerFailure(error);
 
-  await prisma.aiFeedbackDraft.update({
-    where: { id: draft.id },
+  const updated = await prisma.aiFeedbackDraft.updateMany({
+    where: {
+      id: draft.id,
+      status: "running",
+      deletedAt: null,
+    },
     data: {
       status: "failed",
       failureCode: failure.code,
@@ -78,7 +82,7 @@ export async function updateWritingProviderFailure(
     },
   });
 
-  if (failure.retryable) {
+  if (failure.retryable && updated.count > 0) {
     throw error;
   }
 }
@@ -90,8 +94,12 @@ export async function updateObjectiveProviderFailure(
 ): Promise<void> {
   const failure = providerFailure(error);
 
-  await prisma.aiObjectiveExplanation.update({
-    where: { id: explanation.id },
+  const updated = await prisma.aiObjectiveExplanation.updateMany({
+    where: {
+      id: explanation.id,
+      status: "running",
+      deletedAt: null,
+    },
     data: {
       status: "failed",
       failureCode: failure.code,
@@ -104,7 +112,7 @@ export async function updateObjectiveProviderFailure(
     },
   });
 
-  if (failure.retryable) {
+  if (failure.retryable && updated.count > 0) {
     throw error;
   }
 }
