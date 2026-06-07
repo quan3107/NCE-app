@@ -156,4 +156,6 @@ not include full student submissions, full prompts, or raw provider responses.
 Visual IELTS Writing Task 1 fixtures prove that attached image context reaches
 the provider-neutral request as an image content part. If required image context
 is unavailable, the harness downgrades the case with `image_context_unavailable`
-instead of accepting feedback that pretends the model saw the visual.
+instead of accepting feedback that pretends the model saw the visual. Text-only
+visual fallback is accepted only when the harness input explicitly marks that
+fallback as teacher-approved.
