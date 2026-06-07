@@ -68,6 +68,40 @@ describe('evaluateAiFeedbackHarness', () => {
     expect(result.requestAudit.imageContextStatus).toBe('image_unavailable')
   })
 
+  it('requires attached image context or explicit teacher-approved fallback for visual Task 1', () => {
+    expect(
+      evaluateAiFeedbackHarness(writingById.visual_task1_missing_image_context),
+    ).toMatchObject({
+      status: 'review_required',
+      reasonCode: 'image_context_unavailable',
+      requestAudit: {
+        imageContextStatus: 'fallback_only',
+        requiresImageInput: false,
+        messageContentKinds: [['text'], ['text']],
+      },
+    })
+
+    expect(
+      evaluateAiFeedbackHarness(writingById.visual_task1_teacher_summary_only),
+    ).toMatchObject({
+      status: 'review_required',
+      reasonCode: 'image_context_unavailable',
+      requestAudit: {
+        imageContextStatus: 'teacher_summary_supplemental',
+      },
+    })
+
+    expect(
+      evaluateAiFeedbackHarness(writingById.visual_task1_teacher_approved_fallback),
+    ).toMatchObject({
+      status: 'accepted',
+      reasonCode: 'accepted',
+      requestAudit: {
+        imageContextStatus: 'teacher_summary_supplemental',
+      },
+    })
+  })
+
   it('classifies known-bad writing outputs with stable reason codes', () => {
     expect(evaluateAiFeedbackHarness(writingById.markdown_wrapped_json)).toMatchObject({
       status: 'accepted',
@@ -95,34 +129,36 @@ describe('evaluateAiFeedbackHarness', () => {
   })
 
   it('accepts objective explanations and downgrades unsupported source context', () => {
-    expect(evaluateAiFeedbackHarness(objectiveById.valid_reading_explanation)).toMatchObject(
-      {
-        status: 'accepted',
-        reasonCode: 'accepted',
-        promptVersion: 'objective-explanation-v1',
-      },
-    )
+    expect(
+      evaluateAiFeedbackHarness(objectiveById.valid_reading_explanation),
+    ).toMatchObject({
+      status: 'accepted',
+      reasonCode: 'accepted',
+      promptVersion: 'objective-explanation-v1',
+    })
 
-    expect(evaluateAiFeedbackHarness(objectiveById.missing_passage_context)).toMatchObject(
-      {
-        status: 'review_required',
-        reasonCode: 'missing_passage_context',
-      },
-    )
+    expect(
+      evaluateAiFeedbackHarness(objectiveById.missing_passage_context),
+    ).toMatchObject({
+      status: 'review_required',
+      reasonCode: 'missing_passage_context',
+    })
 
-    expect(evaluateAiFeedbackHarness(objectiveById.missing_transcript_context)).toMatchObject(
-      {
-        status: 'review_required',
-        reasonCode: 'missing_transcript_context',
-      },
-    )
+    expect(
+      evaluateAiFeedbackHarness(objectiveById.missing_transcript_context),
+    ).toMatchObject({
+      status: 'review_required',
+      reasonCode: 'missing_transcript_context',
+    })
   })
 
   it('rejects objective explanation score override attempts', () => {
-    expect(evaluateAiFeedbackHarness(objectiveById.score_override_attempt)).toMatchObject({
-      status: 'rejected',
-      reasonCode: 'score_override_attempt',
-    })
+    expect(evaluateAiFeedbackHarness(objectiveById.score_override_attempt)).toMatchObject(
+      {
+        status: 'rejected',
+        reasonCode: 'score_override_attempt',
+      },
+    )
   })
 })
 
