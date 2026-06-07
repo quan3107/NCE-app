@@ -52,11 +52,12 @@ const {
 function providerResult(
   request: AiProviderRequest,
   rawText: string,
+  routeKey = "low_cost",
 ): AiProviderResult {
   return {
     rawText,
     model: "gpt-test",
-    routeKey: "low_cost",
+    routeKey,
     latencyMs: 10,
     request,
   };
@@ -291,13 +292,84 @@ describe("jobs.aiFeedbackJob", () => {
         },
         data: expect.objectContaining({
           status: "completed",
-          routeKey: "low_cost",
           model: "gpt-test",
           failureCode: null,
           nextRetryAt: null,
         }),
       }),
     );
+  });
+
+  it("preserves the requested objective explanation cache route after provider fallback", async () => {
+    const fixture = objectiveHarnessFixtures[0];
+    const providerRouter = {
+      generate: vi.fn(async (request: AiProviderRequest) =>
+        providerResult(request, fixture.providerOutput, "premium"),
+      ),
+    };
+
+    prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      status: "queued",
+      retryCount: 0,
+      deletedAt: null,
+    } as never);
+    prisma.aiObjectiveExplanation.updateMany.mockResolvedValue({
+      count: 1,
+    } as never);
+
+    await handleGenerateObjectiveExplanationJob(
+      {
+        id: "job-2",
+        name: AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
+        data: {
+          explanationId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+          harnessInput: fixture,
+        },
+        expireInSeconds: 60,
+      },
+      { providerRouter },
+    );
+
+    const finalUpdate =
+      prisma.aiObjectiveExplanation.updateMany.mock.calls.at(-1)?.[0];
+    expect(finalUpdate?.data).not.toHaveProperty("routeKey");
+  });
+
+  it("marks malformed objective explanation payloads failed without provider retries", async () => {
+    const providerRouter = {
+      generate: vi.fn(),
+    };
+
+    await handleGenerateObjectiveExplanationJob(
+      {
+        id: "job-2",
+        name: AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
+        data: {
+          explanationId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+          harnessInput: {
+            taskType: "objective_explanation",
+          },
+        },
+        expireInSeconds: 60,
+      } as never,
+      { providerRouter },
+    );
+
+    expect(providerRouter.generate).not.toHaveBeenCalled();
+    expect(prisma.aiObjectiveExplanation.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+        status: {
+          in: ["queued", "failed"],
+        },
+        deletedAt: null,
+      },
+      data: expect.objectContaining({
+        status: "failed",
+        failureCode: "invalid_job_payload",
+      }),
+    });
   });
 
   it("does not call providers when the running transition loses a stale-state race", async () => {
