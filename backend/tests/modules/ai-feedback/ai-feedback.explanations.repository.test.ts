@@ -15,6 +15,8 @@ vi.mock("../../../src/prisma/client.js", () => ({
     aiObjectiveExplanation: {
       create: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     submission: {
       findFirst: vi.fn(),
@@ -26,6 +28,9 @@ const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
 
 const { upsertAiObjectiveExplanation } = await import(
+  "../../../src/modules/ai-feedback/ai-feedback.repository.js"
+);
+const { getAiGenerationStatus } = await import(
   "../../../src/modules/ai-feedback/ai-feedback.repository.js"
 );
 const {
@@ -199,8 +204,44 @@ describe("ai-feedback objective explanations", () => {
       "hidden",
     ]);
     expect(aiObjectiveExplanationStatusSchema.options).toEqual([
+      "queued",
+      "running",
       "completed",
+      "review_required",
+      "rejected",
       "failed",
     ]);
+  });
+
+  it("reports draft and explanation queue statuses through one internal helper", async () => {
+    prisma.aiFeedbackDraft = {
+      findUnique: vi.fn().mockResolvedValueOnce({
+        id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+        status: "accepted",
+        failureCode: null,
+        failureMessage: null,
+        retryCount: 0,
+        nextRetryAt: null,
+        lastAttemptAt: new Date("2026-06-01T10:00:00.000Z"),
+        updatedAt: new Date("2026-06-01T10:00:01.000Z"),
+      }),
+    } as never;
+
+    const status = await getAiGenerationStatus({
+      kind: "writing_draft",
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+    });
+
+    expect(status).toEqual({
+      kind: "writing_draft",
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      status: "accepted",
+      failureCode: null,
+      failureMessage: null,
+      retryCount: 0,
+      nextRetryAt: null,
+      lastAttemptAt: new Date("2026-06-01T10:00:00.000Z"),
+      updatedAt: new Date("2026-06-01T10:00:01.000Z"),
+    });
   });
 });
