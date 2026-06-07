@@ -11,6 +11,7 @@ import {
   requesterId,
   submissionId,
 } from "./ai-feedback.repository.fixtures.js";
+import { writingHarnessFixtures } from "../../fixtures/ai-feedback/harness/harness.fixtures.js";
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
@@ -26,8 +27,18 @@ vi.mock("../../../src/prisma/client.js", () => ({
   },
 }));
 
+vi.mock("../../../src/jobs/aiFeedbackJob.enqueue.js", () => ({
+  enqueueAiFeedbackDraftOnActiveQueue: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/prisma/client.js");
+const aiFeedbackJobQueueModule = await import(
+  "../../../src/jobs/aiFeedbackJob.enqueue.js"
+);
 const prisma = vi.mocked(prismaModule.prisma, true);
+const enqueueAiFeedbackDraftOnActiveQueue = vi.mocked(
+  aiFeedbackJobQueueModule.enqueueAiFeedbackDraftOnActiveQueue,
+);
 
 const {
   createAiFeedbackDraft,
@@ -39,6 +50,7 @@ const {
 describe("ai-feedback.repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enqueueAiFeedbackDraftOnActiveQueue.mockResolvedValue("job-1");
     prisma.submission.findFirst.mockResolvedValue({
       id: submissionId,
       assignmentId,
@@ -70,6 +82,9 @@ describe("ai-feedback.repository", () => {
       criteriaVersion: "ielts-writing-v1",
       safetyFlags: {
         blocked: false,
+      },
+      generationJob: {
+        harnessInput: writingHarnessFixtures[0],
       },
     });
 
@@ -120,6 +135,10 @@ describe("ai-feedback.repository", () => {
         }),
       }),
     );
+    expect(enqueueAiFeedbackDraftOnActiveQueue).toHaveBeenCalledWith({
+      draftId,
+      harnessInput: writingHarnessFixtures[0],
+    });
     expect(draft).toBe(created);
   });
 
@@ -141,6 +160,9 @@ describe("ai-feedback.repository", () => {
         inputHash: "sha256:writing-input",
         visibilityMode: "teacher_reviewed",
         generatedFeedback: {},
+        generationJob: {
+          harnessInput: writingHarnessFixtures[0],
+        },
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
 
@@ -162,6 +184,9 @@ describe("ai-feedback.repository", () => {
         inputHash: "sha256:writing-input",
         visibilityMode: "teacher_reviewed",
         generatedFeedback: {},
+        generationJob: {
+          harnessInput: writingHarnessFixtures[0],
+        },
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
 
@@ -187,6 +212,9 @@ describe("ai-feedback.repository", () => {
       inputHash: "sha256:writing-input",
       visibilityMode: "teacher_reviewed",
       generatedFeedback: {},
+      generationJob: {
+        harnessInput: writingHarnessFixtures[0],
+      },
     }).catch((caught: unknown) => caught);
     const findFirstCallCount = prisma.aiFeedbackDraft.findFirst.mock.calls.length;
     prisma.aiFeedbackDraft.findFirst.mockReset();
