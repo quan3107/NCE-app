@@ -11,16 +11,17 @@ import type {
   ObjectiveExplanationJobPayload,
   WritingDraftJobPayload,
 } from "./aiFeedbackJob.types.js";
-import {
-  AI_FEEDBACK_JOB_NAMES,
-  AI_FEEDBACK_JOB_OPTIONS,
-} from "./aiFeedbackJob.types.js";
+import { AI_FEEDBACK_JOB_NAMES } from "./aiFeedbackJob.types.js";
 import {
   processObjectiveExplanationJob,
   processWritingDraftJob,
 } from "./aiFeedbackJob.processing.js";
 
 export { AI_FEEDBACK_JOB_NAMES } from "./aiFeedbackJob.types.js";
+export {
+  enqueueAiFeedbackDraftJob,
+  enqueueObjectiveExplanationJob,
+} from "./aiFeedbackJob.enqueue.js";
 
 export async function handleGenerateWritingDraftJob(
   jobOrJobs:
@@ -46,28 +47,6 @@ export async function handleGenerateObjectiveExplanationJob(
   for (const job of jobs) {
     await processObjectiveExplanationJob(job, deps);
   }
-}
-
-export async function enqueueAiFeedbackDraftJob(
-  boss: PgBoss,
-  payload: WritingDraftJobPayload,
-): Promise<string | null> {
-  return boss.send(
-    AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
-    payload,
-    AI_FEEDBACK_JOB_OPTIONS,
-  );
-}
-
-export async function enqueueObjectiveExplanationJob(
-  boss: PgBoss,
-  payload: ObjectiveExplanationJobPayload,
-): Promise<string | null> {
-  return boss.send(
-    AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
-    payload,
-    AI_FEEDBACK_JOB_OPTIONS,
-  );
 }
 
 export async function registerAiFeedbackJobs(boss: PgBoss): Promise<void> {
