@@ -193,6 +193,40 @@ describe("ai-feedback.repository", () => {
     expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
   });
 
+  it("rejects queued writing drafts with malformed generation payloads", async () => {
+    await expect(
+      createAiFeedbackDraft({
+        submissionId,
+        assignmentId,
+        requesterId,
+        promptVersion: "writing-feedback-v1",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+        inputHash: "sha256:writing-input",
+        visibilityMode: "teacher_reviewed",
+        generatedFeedback: {},
+        generationJob: {
+          harnessInput: {
+            taskType: "writing_feedback",
+          },
+        },
+      }),
+    ).rejects.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          path: ["generationJob", "harnessInput", "fixtureId"],
+        }),
+        expect.objectContaining({
+          path: ["generationJob", "harnessInput", "promptInput"],
+        }),
+      ]),
+    });
+
+    expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
+    expect(enqueueAiFeedbackDraftOnActiveQueue).not.toHaveBeenCalled();
+  });
+
   it("returns a conflict when a concurrent active draft create wins the race", async () => {
     prisma.aiFeedbackDraft.findFirst
       .mockResolvedValueOnce(null)
