@@ -9,6 +9,7 @@ import {
   requesterId,
   submissionId,
 } from "./ai-feedback.repository.fixtures.js";
+import { objectiveHarnessFixtures } from "../../fixtures/ai-feedback/harness/harness.fixtures.js";
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
@@ -24,8 +25,18 @@ vi.mock("../../../src/prisma/client.js", () => ({
   },
 }));
 
+vi.mock("../../../src/jobs/aiFeedbackJob.enqueue.js", () => ({
+  enqueueObjectiveExplanationOnActiveQueue: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/prisma/client.js");
+const aiFeedbackJobQueueModule = await import(
+  "../../../src/jobs/aiFeedbackJob.enqueue.js"
+);
 const prisma = vi.mocked(prismaModule.prisma, true);
+const enqueueObjectiveExplanationOnActiveQueue = vi.mocked(
+  aiFeedbackJobQueueModule.enqueueObjectiveExplanationOnActiveQueue,
+);
 
 const { upsertAiObjectiveExplanation } = await import(
   "../../../src/modules/ai-feedback/ai-feedback.repository.js"
@@ -42,6 +53,7 @@ const {
 describe("ai-feedback objective explanations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enqueueObjectiveExplanationOnActiveQueue.mockResolvedValue("job-1");
     prisma.submission.findFirst.mockResolvedValue({
       id: submissionId,
       assignmentId,
@@ -133,6 +145,38 @@ describe("ai-feedback objective explanations", () => {
         }),
       }),
     );
+    expect(explanation).toBe(created);
+  });
+
+  it("enqueues queued objective explanations after persistence", async () => {
+    const created = {
+      id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      status: "queued",
+    };
+    prisma.aiObjectiveExplanation.findFirst.mockResolvedValueOnce(null);
+    prisma.aiObjectiveExplanation.create.mockResolvedValueOnce(created as never);
+
+    const explanation = await upsertAiObjectiveExplanation({
+      submissionId,
+      assignmentId,
+      requesterId,
+      questionId: "q-1",
+      deterministicResult: "incorrect",
+      promptVersion: "objective-explanation-v1",
+      sourceContextHash: "sha256:source",
+      routeKey: "low_cost",
+      provider: "openai-compatible",
+      model: "gpt-5.4-nano",
+      status: "queued",
+      generationJob: {
+        harnessInput: objectiveHarnessFixtures[0],
+      },
+    });
+
+    expect(enqueueObjectiveExplanationOnActiveQueue).toHaveBeenCalledWith({
+      explanationId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      harnessInput: objectiveHarnessFixtures[0],
+    });
     expect(explanation).toBe(created);
   });
 
