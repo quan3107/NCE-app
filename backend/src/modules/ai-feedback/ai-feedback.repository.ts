@@ -10,6 +10,7 @@ import { Prisma, type AiFeedbackDraftStatus } from "../../prisma/index.js";
 import { createHttpError } from "../../utils/httpError.js";
 import {
   aiFeedbackDraftDecisionInputSchema,
+  aiGenerationStatusRequestSchema,
   createAiFeedbackDraftSchema,
   studentVisibleAiFeedbackDraftParamsSchema,
   supersedeAiFeedbackDraftsSchema,
@@ -20,6 +21,18 @@ import {
   getActiveSubmissionAssignment,
   isUniqueConstraintError,
 } from "./ai-feedback.repository.integrity.js";
+
+type GenerationStatus = {
+  kind: "writing_draft" | "objective_explanation";
+  id: string;
+  status: string;
+  failureCode: string | null;
+  failureMessage: string | null;
+  retryCount: number;
+  nextRetryAt: Date | null;
+  lastAttemptAt: Date | null;
+  updatedAt: Date;
+};
 
 const activeGenerationStatuses = ["queued", "running"] as const;
 const studentVisibleDraftStatuses = [
@@ -284,6 +297,9 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
           : undefined,
         failureCode: data.failureCode,
         failureMessage: data.failureMessage,
+        retryCount: data.retryCount,
+        nextRetryAt: data.nextRetryAt,
+        lastAttemptAt: data.lastAttemptAt,
       },
     });
   } catch (error) {
@@ -301,4 +317,59 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
 
     return concurrentExplanation;
   }
+}
+
+function toGenerationStatus(
+  kind: GenerationStatus["kind"],
+  record: Omit<GenerationStatus, "kind"> | null,
+): GenerationStatus | null {
+  return record
+    ? {
+        kind,
+        id: record.id,
+        status: record.status,
+        failureCode: record.failureCode,
+        failureMessage: record.failureMessage,
+        retryCount: record.retryCount,
+        nextRetryAt: record.nextRetryAt,
+        lastAttemptAt: record.lastAttemptAt,
+        updatedAt: record.updatedAt,
+      }
+    : null;
+}
+
+export async function getAiGenerationStatus(
+  input: unknown,
+): Promise<GenerationStatus | null> {
+  const data = aiGenerationStatusRequestSchema.parse(input);
+  const select = {
+    id: true,
+    status: true,
+    failureCode: true,
+    failureMessage: true,
+    retryCount: true,
+    nextRetryAt: true,
+    lastAttemptAt: true,
+    updatedAt: true,
+  } as const;
+
+  if (data.kind === "writing_draft") {
+    const record = await prisma.aiFeedbackDraft.findUnique({
+      where: {
+        id: data.id,
+      },
+      select,
+    });
+
+    return toGenerationStatus("writing_draft", record);
+  }
+
+  const record = await prisma.aiObjectiveExplanation.findUnique({
+    where: {
+      id: data.id,
+    },
+    select,
+  });
+
+  return toGenerationStatus("objective_explanation", record);
 }
