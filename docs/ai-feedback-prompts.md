@@ -127,6 +127,33 @@ Failure codes:
 | `missing_criteria` | Writing output omitted an expected criterion ID. |
 | `wrong_task_criteria` | Writing output used a known criterion that does not apply to the requested writing task. |
 | `invalid_criteria_band` | Writing output used a band outside valid IELTS 0.5 increments from 0 to 9. |
+| `invented_weighting` | Writing output tried to invent or override criteria or task weighting. |
 | `unsafe_output` | Output contained unsafe advice or unsafe safety flags. |
 | `off_task_output` | Output appeared to be for another task. |
 | `score_override_attempt` | Objective explanation result conflicted with deterministic scoring. |
+
+## Provider-Free Harness
+
+The backend harness in `src/modules/ai-feedback/harness` runs the same prompt
+builders, criteria pack, parser, criteria validation, and normalization path
+without calling a live provider. Fixtures provide the provider-like raw output,
+so the harness can run in CI without API keys or network access.
+
+Harness results use four statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `accepted` | Prompt assembly and parser validation succeeded. |
+| `review_required` | Output or context is structurally usable but must not become student-visible without review. |
+| `rejected` | Provider-like output violated safety, criteria, task, or deterministic-scoring guardrails. |
+| `failed` | Provider-like output was empty, malformed, schema-invalid, or the harness hit an internal error. |
+
+Reports include fixture ID, task type, prompt version, criteria version when
+available, route-key placeholder, status, stable reason code, validation errors,
+request audit metadata, and cost-free token estimates. Reports intentionally do
+not include full student submissions, full prompts, or raw provider responses.
+
+Visual IELTS Writing Task 1 fixtures prove that attached image context reaches
+the provider-neutral request as an image content part. If required image context
+is unavailable, the harness downgrades the case with `image_context_unavailable`
+instead of accepting feedback that pretends the model saw the visual.
