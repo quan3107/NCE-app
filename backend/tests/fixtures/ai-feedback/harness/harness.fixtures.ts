@@ -21,8 +21,7 @@ const baseWritingPrompt = {
   },
   tasks: {
     task1: {
-      prompt: 'Summarise the chart about commuter transport choices.',
-      visualType: 'line_graph',
+      prompt: 'Summarise the commuter transport choices described in the prompt.',
     },
     task2: {
       prompt: 'Discuss whether public transport should be free.',
@@ -37,6 +36,18 @@ const baseWritingPrompt = {
     },
   },
   teacherConstraints: ['Do not assign a final teacher grade.'],
+} satisfies AiFeedbackHarnessInput['promptInput']
+
+const visualTask1Prompt = {
+  ...baseWritingPrompt,
+  tasks: {
+    ...baseWritingPrompt.tasks,
+    task1: {
+      ...baseWritingPrompt.tasks.task1,
+      prompt: 'Summarise the chart about commuter transport choices.',
+      visualType: 'line_graph',
+    },
+  },
 } satisfies AiFeedbackHarnessInput['promptInput']
 
 const validWritingOutput = {
@@ -91,19 +102,29 @@ function writingFixture(
     routeKey: 'harness-route',
     promptInput,
     providerOutput:
-      typeof providerOutput === 'string' ? providerOutput : JSON.stringify(providerOutput),
+      typeof providerOutput === 'string'
+        ? providerOutput
+        : JSON.stringify(providerOutput),
   }
 }
 
 export const writingHarnessFixtures = [
   writingFixture('valid_writing_feedback', validWritingOutput),
-  writingFixture('markdown_wrapped_json', `\`\`\`json\n${JSON.stringify(validWritingOutput)}\n\`\`\``),
+  writingFixture(
+    'markdown_wrapped_json',
+    `\`\`\`json\n${JSON.stringify(validWritingOutput)}\n\`\`\``,
+  ),
+  writingFixture(
+    'visual_task1_missing_image_context',
+    validWritingOutput,
+    visualTask1Prompt,
+  ),
   writingFixture('visual_task1_image_attached', validWritingOutput, {
-    ...baseWritingPrompt,
+    ...visualTask1Prompt,
     tasks: {
-      ...baseWritingPrompt.tasks,
+      ...visualTask1Prompt.tasks,
       task1: {
-        ...baseWritingPrompt.tasks.task1,
+        ...visualTask1Prompt.tasks.task1,
         imageContext: {
           status: 'image_attached',
           teacherSummary: 'Rail commuters increased sharply after 2024.',
@@ -117,12 +138,41 @@ export const writingHarnessFixtures = [
       },
     },
   }),
-  writingFixture('visual_task1_image_unavailable', validWritingOutput, {
-    ...baseWritingPrompt,
+  writingFixture('visual_task1_teacher_summary_only', validWritingOutput, {
+    ...visualTask1Prompt,
     tasks: {
-      ...baseWritingPrompt.tasks,
+      ...visualTask1Prompt.tasks,
       task1: {
-        ...baseWritingPrompt.tasks.task1,
+        ...visualTask1Prompt.tasks.task1,
+        imageContext: {
+          status: 'teacher_summary_supplemental',
+          teacherSummary: 'Rail commuters increased sharply after 2024.',
+        },
+      },
+    },
+  }),
+  {
+    ...writingFixture('visual_task1_teacher_approved_fallback', validWritingOutput, {
+      ...visualTask1Prompt,
+      tasks: {
+        ...visualTask1Prompt.tasks,
+        task1: {
+          ...visualTask1Prompt.tasks.task1,
+          imageContext: {
+            status: 'teacher_summary_supplemental',
+            teacherSummary: 'Rail commuters increased sharply after 2024.',
+          },
+        },
+      },
+    }),
+    allowVisualImageFallback: true,
+  },
+  writingFixture('visual_task1_image_unavailable', validWritingOutput, {
+    ...visualTask1Prompt,
+    tasks: {
+      ...visualTask1Prompt.tasks,
+      task1: {
+        ...visualTask1Prompt.tasks.task1,
         imageContext: {
           status: 'image_unavailable',
           reason: 'The attached chart is not an allowed image format.',
@@ -228,7 +278,9 @@ function objectiveFixture(
     routeKey: 'harness-route',
     promptInput,
     providerOutput:
-      typeof providerOutput === 'string' ? providerOutput : JSON.stringify(providerOutput),
+      typeof providerOutput === 'string'
+        ? providerOutput
+        : JSON.stringify(providerOutput),
   }
 }
 
