@@ -20,10 +20,12 @@ vi.mock("../../src/prisma/client.js", () => ({
     aiFeedbackDraft: {
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     aiObjectiveExplanation: {
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
@@ -139,6 +141,7 @@ describe("jobs.aiFeedbackJob", () => {
       retryCount: 0,
       deletedAt: null,
     } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
 
     await handleGenerateWritingDraftJob(
       {
@@ -159,9 +162,13 @@ describe("jobs.aiFeedbackJob", () => {
         expectJson: true,
       }),
     );
-    expect(prisma.aiFeedbackDraft.update).toHaveBeenCalledWith(
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "b10d2a30-87bd-465f-8a5e-f23ca65be272" },
+        where: {
+          id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+          status: "queued",
+          deletedAt: null,
+        },
         data: expect.objectContaining({
           status: "running",
           lastAttemptAt: expect.any(Date),
@@ -170,9 +177,13 @@ describe("jobs.aiFeedbackJob", () => {
         }),
       }),
     );
-    expect(prisma.aiFeedbackDraft.update).toHaveBeenLastCalledWith(
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { id: "b10d2a30-87bd-465f-8a5e-f23ca65be272" },
+        where: {
+          id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+          status: "running",
+          deletedAt: null,
+        },
         data: expect.objectContaining({
           status: "accepted",
           routeKey: "low_cost",
@@ -200,6 +211,7 @@ describe("jobs.aiFeedbackJob", () => {
       retryCount: 0,
       deletedAt: null,
     } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
 
     await expect(
       handleGenerateWritingDraftJob(
@@ -216,9 +228,13 @@ describe("jobs.aiFeedbackJob", () => {
       ),
     ).rejects.toMatchObject({ code: "timeout" });
 
-    expect(prisma.aiFeedbackDraft.update).toHaveBeenLastCalledWith(
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { id: "b10d2a30-87bd-465f-8a5e-f23ca65be272" },
+        where: {
+          id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+          status: "running",
+          deletedAt: null,
+        },
         data: expect.objectContaining({
           status: "failed",
           failureCode: "timeout",
@@ -243,6 +259,9 @@ describe("jobs.aiFeedbackJob", () => {
       retryCount: 0,
       deletedAt: null,
     } as never);
+    prisma.aiObjectiveExplanation.updateMany.mockResolvedValue({
+      count: 1,
+    } as never);
 
     await handleGenerateObjectiveExplanationJob(
       {
@@ -263,9 +282,13 @@ describe("jobs.aiFeedbackJob", () => {
         expectJson: true,
       }),
     );
-    expect(prisma.aiObjectiveExplanation.update).toHaveBeenLastCalledWith(
+    expect(prisma.aiObjectiveExplanation.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5" },
+        where: {
+          id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+          status: "running",
+          deletedAt: null,
+        },
         data: expect.objectContaining({
           status: "completed",
           routeKey: "low_cost",
@@ -275,5 +298,35 @@ describe("jobs.aiFeedbackJob", () => {
         }),
       }),
     );
+  });
+
+  it("does not call providers when the running transition loses a stale-state race", async () => {
+    const providerRouter = {
+      generate: vi.fn(),
+    };
+
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      status: "queued",
+      retryCount: 0,
+      deletedAt: null,
+    } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 0 } as never);
+
+    await handleGenerateWritingDraftJob(
+      {
+        id: "job-1",
+        name: AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
+        data: {
+          draftId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+          harnessInput: writingHarnessFixtures[0],
+        },
+        expireInSeconds: 60,
+      },
+      { providerRouter },
+    );
+
+    expect(providerRouter.generate).not.toHaveBeenCalled();
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenCalledTimes(1);
   });
 });
