@@ -31,7 +31,11 @@ export const aiFeedbackDraftDecisionSchema = z.enum([
 ]);
 
 export const aiObjectiveExplanationStatusSchema = z.enum([
+  "queued",
+  "running",
   "completed",
+  "review_required",
+  "rejected",
   "failed",
 ]);
 
@@ -122,8 +126,26 @@ export const upsertAiObjectiveExplanationSchema = z
     generatedExplanation: jsonRecordSchema.optional(),
     failureCode: z.string().min(1).optional(),
     failureMessage: z.string().min(1).optional(),
+    retryCount: z.number().int().min(0).optional(),
+    nextRetryAt: z.date().optional(),
+    lastAttemptAt: z.date().optional(),
   })
   .strict();
+
+export const aiGenerationStatusRequestSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("writing_draft"),
+      id: z.string().uuid(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("objective_explanation"),
+      id: z.string().uuid(),
+    })
+    .strict(),
+]);
 
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
@@ -175,4 +197,7 @@ export type SupersedeAiFeedbackDraftsInput = z.infer<
 >;
 export type UpsertAiObjectiveExplanationInput = z.infer<
   typeof upsertAiObjectiveExplanationSchema
+>;
+export type AiGenerationStatusRequest = z.infer<
+  typeof aiGenerationStatusRequestSchema
 >;
