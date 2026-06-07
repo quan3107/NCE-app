@@ -21,6 +21,10 @@ import {
   getActiveSubmissionAssignment,
   isUniqueConstraintError,
 } from "./ai-feedback.repository.integrity.js";
+import {
+  enqueueDraftGenerationJob,
+  enqueueObjectiveExplanationGenerationJob,
+} from "./ai-feedback.queue.js";
 
 type GenerationStatus = {
   kind: "writing_draft" | "objective_explanation";
@@ -120,7 +124,7 @@ export async function createAiFeedbackDraft(input: unknown) {
   }
 
   try {
-    return await prisma.aiFeedbackDraft.create({
+    const draft = await prisma.aiFeedbackDraft.create({
       data: {
         submissionId: data.submissionId,
         assignmentId: submission.assignmentId,
@@ -150,6 +154,12 @@ export async function createAiFeedbackDraft(input: unknown) {
         lastAttemptAt: data.lastAttemptAt,
       },
     });
+
+    if (data.status === "queued" && data.generationJob) {
+      await enqueueDraftGenerationJob(draft.id, data.generationJob);
+    }
+
+    return draft;
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
@@ -279,7 +289,7 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
   }
 
   try {
-    return await prisma.aiObjectiveExplanation.create({
+    const explanation = await prisma.aiObjectiveExplanation.create({
       data: {
         submissionId: data.submissionId,
         assignmentId: submission.assignmentId,
@@ -302,6 +312,15 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
         lastAttemptAt: data.lastAttemptAt,
       },
     });
+
+    if (data.status === "queued" && data.generationJob) {
+      await enqueueObjectiveExplanationGenerationJob(
+        explanation.id,
+        data.generationJob,
+      );
+    }
+
+    return explanation;
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
