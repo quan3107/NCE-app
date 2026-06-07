@@ -7,15 +7,11 @@ import {
   enqueueAiFeedbackDraftOnActiveQueue,
   enqueueObjectiveExplanationOnActiveQueue,
 } from "../../jobs/aiFeedbackJob.enqueue.js";
-import type {
-  ObjectiveExplanationJobPayload,
-  WritingDraftJobPayload,
-} from "../../jobs/aiFeedbackJob.types.js";
 import { prisma } from "../../prisma/client.js";
-
-type GenerationJobInput = {
-  harnessInput: unknown;
-};
+import type {
+  ObjectiveGenerationJobInput,
+  WritingGenerationJobInput,
+} from "./ai-feedback.generationJob.schema.js";
 
 function enqueueFailureMessage(error: unknown): string {
   return error instanceof Error
@@ -25,13 +21,12 @@ function enqueueFailureMessage(error: unknown): string {
 
 export async function enqueueDraftGenerationJob(
   draftId: string,
-  generationJob: GenerationJobInput,
+  generationJob: WritingGenerationJobInput,
 ): Promise<void> {
   try {
     await enqueueAiFeedbackDraftOnActiveQueue({
       draftId,
-      harnessInput:
-        generationJob.harnessInput as WritingDraftJobPayload["harnessInput"],
+      harnessInput: generationJob.harnessInput,
     });
   } catch (error) {
     await prisma.aiFeedbackDraft.updateMany({
@@ -52,13 +47,12 @@ export async function enqueueDraftGenerationJob(
 
 export async function enqueueObjectiveExplanationGenerationJob(
   explanationId: string,
-  generationJob: GenerationJobInput,
+  generationJob: ObjectiveGenerationJobInput,
 ): Promise<void> {
   try {
     await enqueueObjectiveExplanationOnActiveQueue({
       explanationId,
-      harnessInput:
-        generationJob.harnessInput as ObjectiveExplanationJobPayload["harnessInput"],
+      harnessInput: generationJob.harnessInput,
     });
   } catch (error) {
     await prisma.aiObjectiveExplanation.updateMany({
