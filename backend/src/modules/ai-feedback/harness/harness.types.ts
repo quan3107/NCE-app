@@ -40,6 +40,7 @@ export type WritingFeedbackHarnessInput = {
   promptInput: IeltsWritingFeedbackPromptInput
   providerOutput: string
   routeKey?: string
+  allowVisualImageFallback?: boolean
 }
 
 export type ObjectiveExplanationHarnessInput = {
