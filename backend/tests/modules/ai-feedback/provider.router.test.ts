@@ -22,6 +22,7 @@ const baseRequest = {
 function provider(routeKey: AiConcreteProviderRouteKey): AiProvider {
   return {
     routeKey,
+    supportsImageInput: routeKey === "premium",
     generate: vi.fn(async (request: AiProviderRequest): Promise<AiProviderResult> => ({
       rawText: "{}",
       parsedJson: {},
@@ -133,5 +134,34 @@ describe("createAiProviderRouter", () => {
 
     expect(result.routeKey).toBe("premium");
     expect(setup.providers.premium.generate).toHaveBeenCalledOnce();
+  });
+
+  it("selects only image-capable routes when image input is required", async () => {
+    const setup = router();
+
+    const result = await setup.router.generate({
+      ...baseRequest,
+      routeKey: "auto",
+      requiresImageInput: true,
+    });
+
+    expect(result.routeKey).toBe("premium");
+    expect(setup.providers.premium.generate).toHaveBeenCalledOnce();
+    expect(setup.providers.low_cost.generate).not.toHaveBeenCalled();
+  });
+
+  it("rejects explicit routes that cannot accept required image input", async () => {
+    const setup = router();
+
+    await expect(
+      setup.router.generate({
+        ...baseRequest,
+        routeKey: "low_cost",
+        requiresImageInput: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "unsupported_image_input",
+      routeKey: "low_cost",
+    });
   });
 });

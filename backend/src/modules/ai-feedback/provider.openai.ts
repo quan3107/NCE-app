@@ -6,7 +6,11 @@
 import { AiProviderError } from "./provider.errors.js";
 import type {
   AiConcreteProviderRouteKey,
+  AiProviderImageContentPart,
   AiProvider,
+  AiProviderMessage,
+  AiProviderMessageContent,
+  AiProviderTextContentPart,
   AiProviderRequest,
   AiProviderResult,
   AiProviderRouteConfig,
@@ -24,6 +28,16 @@ type ChatContentPart = {
   type?: string;
   text?: string;
 };
+
+type OpenAiChatContentPart =
+  | AiProviderTextContentPart
+  | {
+      type: "image_url";
+      image_url: {
+        url: string;
+        detail?: "auto" | "low" | "high";
+      };
+    };
 
 type ChatCompletionResponse = {
   model?: unknown;
@@ -43,6 +57,7 @@ const defaultMaxResponseBytes = 256 * 1024;
 
 export class OpenAIProvider implements AiProvider {
   readonly routeKey: AiConcreteProviderRouteKey;
+  readonly supportsImageInput: boolean;
 
   private readonly baseUrl: string;
   private readonly apiKey?: string;
@@ -62,6 +77,7 @@ export class OpenAIProvider implements AiProvider {
     this.model = options.model;
     this.reasoningEffort = options.reasoningEffort;
     this.supportsReasoningEffort = options.supportsReasoningEffort;
+    this.supportsImageInput = options.supportsImageInput;
     this.timeoutMs = options.timeoutMs;
     this.maxOutputTokens = options.maxOutputTokens;
     this.maxResponseBytes = options.maxResponseBytes ?? defaultMaxResponseBytes;
@@ -133,7 +149,7 @@ export class OpenAIProvider implements AiProvider {
   private body(request: AiProviderRequest): Record<string, unknown> {
     const body: Record<string, unknown> = {
       model: this.model,
-      messages: request.messages,
+      messages: request.messages.map((message) => this.toOpenAiMessage(message)),
       max_tokens: request.maxOutputTokens ?? this.maxOutputTokens,
     };
 
@@ -150,6 +166,46 @@ export class OpenAIProvider implements AiProvider {
     }
 
     return body;
+  }
+
+  private toOpenAiMessage(message: AiProviderMessage): {
+    role: AiProviderMessage["role"];
+    content: string | OpenAiChatContentPart[];
+  } {
+    return {
+      role: message.role,
+      content: this.toOpenAiContent(message.content),
+    };
+  }
+
+  private toOpenAiContent(
+    content: AiProviderMessageContent,
+  ): string | OpenAiChatContentPart[] {
+    if (typeof content === "string") {
+      return content;
+    }
+
+    return content.map((part) =>
+      part.type === "image" ? this.toOpenAiImagePart(part) : part,
+    );
+  }
+
+  private toOpenAiImagePart(part: AiProviderImageContentPart): OpenAiChatContentPart {
+    if (!this.supportsImageInput) {
+      throw new AiProviderError({
+        code: "unsupported_image_input",
+        message: "AI provider route does not support required image input.",
+        routeKey: this.routeKey,
+      });
+    }
+
+    return {
+      type: "image_url",
+      image_url: {
+        url: part.imageUrl,
+        ...(part.detail ? { detail: part.detail } : {}),
+      },
+    };
   }
 
   private async parseResponse(

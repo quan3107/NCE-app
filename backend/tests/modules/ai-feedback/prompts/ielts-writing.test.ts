@@ -93,4 +93,101 @@ describe('buildIeltsWritingFeedbackPrompt', () => {
       }),
     )
   })
+
+  it('includes visual Task 1 image context and supplemental teacher summary', () => {
+    const prompt = buildIeltsWritingFeedbackPrompt({
+      ...promptInput,
+      tasks: {
+        ...promptInput.tasks,
+        task1: {
+          ...promptInput.tasks.task1,
+          imageContext: {
+            status: 'image_attached',
+            teacherSummary: 'The line graph rises sharply after 2024.',
+            image: {
+              type: 'image',
+              imageUrl: 'https://storage.mock/nce/task1-chart.png',
+              mimeType: 'image/png',
+              detail: 'high',
+            },
+          },
+        },
+      },
+    })
+
+    expect(prompt.imageContextStatus).toBe('image_attached')
+    expect(prompt.request.requiresImageInput).toBe(true)
+    expect(prompt.request.messages[1].content).toEqual([
+      expect.objectContaining({ type: 'text' }),
+      {
+        type: 'image',
+        imageUrl: 'https://storage.mock/nce/task1-chart.png',
+        mimeType: 'image/png',
+        detail: 'high',
+      },
+    ])
+
+    const textPart = prompt.request.messages[1].content[0]
+    if (typeof textPart !== 'object' || textPart.type !== 'text') {
+      throw new Error('Expected first prompt content part to be text')
+    }
+    const payload = JSON.parse(textPart.text)
+    expect(payload.tasks.task1.image_context).toEqual({
+      status: 'image_attached',
+      teacher_summary: 'The line graph rises sharply after 2024.',
+    })
+  })
+
+  it('requires image-capable routing when an image is attached without visual type metadata', () => {
+    const prompt = buildIeltsWritingFeedbackPrompt({
+      ...promptInput,
+      tasks: {
+        ...promptInput.tasks,
+        task1: {
+          prompt: promptInput.tasks.task1.prompt,
+          imageContext: {
+            status: 'image_attached',
+            image: {
+              type: 'image',
+              imageUrl: 'https://storage.mock/nce/task1-chart.png',
+              mimeType: 'image/png',
+            },
+          },
+        },
+      },
+    })
+
+    expect(prompt.imageContextStatus).toBe('image_attached')
+    expect(prompt.request.requiresImageInput).toBe(true)
+    expect(prompt.request.messages[1].content).toEqual([
+      expect.objectContaining({ type: 'text' }),
+      expect.objectContaining({ type: 'image' }),
+    ])
+  })
+
+  it('emits a harness signal when required visual Task 1 image context is unavailable', () => {
+    const prompt = buildIeltsWritingFeedbackPrompt({
+      ...promptInput,
+      tasks: {
+        ...promptInput.tasks,
+        task1: {
+          ...promptInput.tasks.task1,
+          imageContext: {
+            status: 'image_unavailable',
+            reason: 'The attached chart is not an allowed image format.',
+          },
+        },
+      },
+    })
+
+    expect(prompt.imageContextStatus).toBe('image_unavailable')
+    expect(prompt.imageContextFailure).toEqual({
+      failureCode: 'image_context_unavailable',
+      failureMessage: 'The attached chart is not an allowed image format.',
+    })
+    expect(prompt.request.requiresImageInput).toBe(false)
+    expect(JSON.stringify(prompt.request.messages)).toContain(
+      'image_context_unavailable',
+    )
+  })
 })

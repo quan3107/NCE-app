@@ -12,13 +12,17 @@ AiReasoningEffort:
 
 AiFeedbackRouteMetadata:
   type: object
-  required: [model, reasoning_effort]
+  required: [model, reasoning_effort, supports_image_input]
   properties:
     model:
       type: string
       example: gpt-5.4-nano
     reasoning_effort:
       $ref: '#/AiReasoningEffort'
+    supports_image_input:
+      type: boolean
+      description: Whether this hosted route may receive backend-validated image content parts.
+      example: true
 
 AiFeedbackHealthResponse:
   type: object
@@ -51,7 +55,7 @@ AiFeedbackHealthResponse:
           example: 200
     limits:
       type: object
-      required: [timeout_ms, max_input_chars, max_output_tokens]
+      required: [timeout_ms, max_input_chars, max_output_tokens, image_max_bytes, image_supported_mime_types]
       properties:
         timeout_ms:
           type: integer
@@ -62,6 +66,16 @@ AiFeedbackHealthResponse:
         max_output_tokens:
           type: integer
           example: 1200
+        image_max_bytes:
+          type: integer
+          description: Maximum backend-validated image size accepted for hosted AI image input.
+          example: 20971520
+        image_supported_mime_types:
+          type: array
+          description: MIME types accepted for hosted AI image input.
+          items:
+            type: string
+          example: [image/png, image/jpeg, image/webp, image/gif]
     routes:
       type: object
       required: [low_cost, premium]

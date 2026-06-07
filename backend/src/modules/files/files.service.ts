@@ -353,5 +353,6 @@ export async function getFileContentLocation(
   return {
     url: download.url,
     mime: download.mime,
+    size: download.size,
   };
 }

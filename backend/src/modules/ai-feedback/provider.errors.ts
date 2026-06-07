@@ -13,6 +13,7 @@ export type AiProviderErrorCode =
   | "empty_content"
   | "missing_model"
   | "unsupported_reasoning_effort"
+  | "unsupported_image_input"
   | "response_too_large"
   | "route_unavailable";
 
@@ -33,6 +34,7 @@ const defaultStatusByCode = {
   empty_content: 502,
   missing_model: 500,
   unsupported_reasoning_effort: 500,
+  unsupported_image_input: 400,
   response_too_large: 502,
   route_unavailable: 503,
 } satisfies Record<AiProviderErrorCode, number>;
@@ -45,6 +47,7 @@ const defaultRetryableByCode = {
   empty_content: true,
   missing_model: false,
   unsupported_reasoning_effort: false,
+  unsupported_image_input: false,
   response_too_large: false,
   route_unavailable: true,
 } satisfies Record<AiProviderErrorCode, boolean>;

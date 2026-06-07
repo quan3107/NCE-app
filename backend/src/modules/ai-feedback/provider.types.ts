@@ -10,9 +10,25 @@ export type AiProviderRouteKey = AiConcreteProviderRouteKey | "auto";
 export type AiTaskType = "writing_feedback" | "objective_explanation";
 export type AiProviderHealthState = "healthy" | "configured" | "unhealthy" | "timeout";
 
+export type AiProviderTextContentPart = {
+  type: "text";
+  text: string;
+};
+
+export type AiProviderImageContentPart = {
+  type: "image";
+  imageUrl: string;
+  mimeType: string;
+  detail?: "auto" | "low" | "high";
+};
+
+export type AiProviderMessageContent =
+  | string
+  | Array<AiProviderTextContentPart | AiProviderImageContentPart>;
+
 export type AiProviderMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: AiProviderMessageContent;
 };
 
 export type AiAssignmentPolicy = {
@@ -31,6 +47,7 @@ export type AiProviderRequest = {
   messages: AiProviderMessage[];
   assignmentPolicy?: AiAssignmentPolicy;
   retry?: AiRetryState;
+  requiresImageInput?: boolean;
   expectJson?: boolean;
   temperature?: number;
   maxOutputTokens?: number;
@@ -55,6 +72,7 @@ export type AiProviderResult = {
 
 export type AiProvider = {
   routeKey: AiConcreteProviderRouteKey;
+  supportsImageInput: boolean;
   generate(request: AiProviderRequest): Promise<AiProviderResult>;
 };
 
@@ -65,6 +83,7 @@ export type AiProviderRouteConfig = {
   model: string;
   reasoningEffort: AiReasoningEffort;
   supportsReasoningEffort: boolean;
+  supportsImageInput: boolean;
   timeoutMs: number;
   maxOutputTokens: number;
   maxResponseBytes?: number;

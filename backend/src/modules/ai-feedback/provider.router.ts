@@ -28,10 +28,10 @@ export type AiProviderRouter = {
 export function createAiProviderRouter(options: RouterOptions): AiProviderRouter {
   return {
     resolveRoute(request) {
-      return resolveRoute(request, options.health ?? {});
+      return resolveRoute(request, options);
     },
     async generate(request) {
-      const routeKey = resolveRoute(request, options.health ?? {});
+      const routeKey = resolveRoute(request, options);
       const provider = options.providers[routeKey];
 
       if (!provider) {
@@ -52,20 +52,55 @@ export function createAiProviderRouter(options: RouterOptions): AiProviderRouter
 
 function resolveRoute(
   request: AiProviderRequest,
-  health: Partial<HealthByRoute>,
+  options: RouterOptions,
 ): AiConcreteProviderRouteKey {
   if (isConcreteRouteKey(request.routeKey)) {
+    assertRouteSupportsRequest(request.routeKey, request, options.providers);
     return request.routeKey;
   }
 
-  const candidates = routeCandidates(request);
-  const healthyRoute = candidates.find((routeKey) => isUsable(routeKey, health));
+  const candidates = routeCandidates(request).filter((routeKey) =>
+    routeSupportsRequest(routeKey, request, options.providers),
+  );
+
+  if (candidates.length === 0) {
+    throw new AiProviderError({
+      code: "unsupported_image_input",
+      message: "AI provider route does not support required image input.",
+    });
+  }
+
+  const healthyRoute = candidates.find((routeKey) =>
+    isUsable(routeKey, options.health ?? {}),
+  );
 
   if (healthyRoute) {
     return healthyRoute;
   }
 
   return candidates[0] ?? "low_cost";
+}
+
+function assertRouteSupportsRequest(
+  routeKey: AiConcreteProviderRouteKey,
+  request: AiProviderRequest,
+  providers: ProvidersByRoute,
+): void {
+  if (!routeSupportsRequest(routeKey, request, providers)) {
+    throw new AiProviderError({
+      code: "unsupported_image_input",
+      message: "AI provider route does not support required image input.",
+      routeKey,
+    });
+  }
+}
+
+function routeSupportsRequest(
+  routeKey: AiConcreteProviderRouteKey,
+  request: AiProviderRequest,
+  providers: ProvidersByRoute,
+): boolean {
+  return !request.requiresImageInput || providers[routeKey]?.supportsImageInput === true;
 }
 
 function isConcreteRouteKey(
