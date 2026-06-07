@@ -394,6 +394,9 @@ model AiObjectiveExplanation {
   generatedExplanation  Json?                        @map("generated_explanation_json")
   failureCode           String?                      @map("failure_code")
   failureMessage        String?                      @map("failure_message")
+  retryCount            Int                          @default(0) @map("retry_count")
+  nextRetryAt           DateTime?                    @map("next_retry_at") @db.Timestamptz
+  lastAttemptAt         DateTime?                    @map("last_attempt_at") @db.Timestamptz
   submission            Submission                   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   assignment            Assignment                   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   requester             User                         @relation("AiObjectiveExplanationRequester", fields: [requesterId], references: [id])
@@ -496,7 +499,11 @@ enum AiFeedbackReasoningEffort {
 }
 
 enum AiObjectiveExplanationStatus {
+  queued
+  running
   completed
+  review_required
+  rejected
   failed
 }
 
