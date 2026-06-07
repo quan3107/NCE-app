@@ -3,10 +3,7 @@
  * Purpose: Build scrubbed machine-readable AI feedback harness reports.
  * Why: Harness failures must be debuggable without logging submissions or provider responses.
  */
-import type {
-  AiFeedbackHarnessReport,
-  AiFeedbackHarnessResult,
-} from './harness.types.js'
+import type { AiFeedbackHarnessReport, AiFeedbackHarnessResult } from './harness.types.js'
 
 export function buildAiFeedbackHarnessReport(
   results: AiFeedbackHarnessResult[],
