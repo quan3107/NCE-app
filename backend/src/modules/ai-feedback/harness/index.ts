@@ -3,10 +3,7 @@
  * Purpose: Re-export AI feedback harness contracts and helpers.
  * Why: Queue workers and development tests should import the harness from one stable module boundary.
  */
-export {
-  evaluateAiFeedbackHarness,
-  runAiFeedbackHarness,
-} from './harness.service.js'
+export { evaluateAiFeedbackHarness, runAiFeedbackHarness } from './harness.service.js'
 export {
   buildAiFeedbackHarnessReport,
   serializeAiFeedbackHarnessReport,
