@@ -92,9 +92,19 @@ describe("ai-feedback.repository", () => {
       where: {
         submissionId,
         deletedAt: null,
-        status: {
-          in: ["queued", "running"],
-        },
+        OR: [
+          {
+            status: {
+              in: ["queued", "running"],
+            },
+          },
+          {
+            status: "failed",
+            nextRetryAt: {
+              not: null,
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -190,6 +200,44 @@ describe("ai-feedback.repository", () => {
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
 
+    expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects another draft while a failed draft is pending retry", async () => {
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce({ id: draftId } as never);
+
+    await expect(
+      createAiFeedbackDraft({
+        submissionId,
+        assignmentId,
+        requesterId,
+        promptVersion: "writing-feedback-v1",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+        inputHash: "sha256:writing-input",
+        visibilityMode: "teacher_reviewed",
+        generatedFeedback: {},
+        generationJob: {
+          harnessInput: writingHarnessFixtures[0],
+        },
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(prisma.aiFeedbackDraft.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            {
+              status: "failed",
+              nextRetryAt: {
+                not: null,
+              },
+            },
+          ]),
+        }),
+      }),
+    );
     expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
   });
 
