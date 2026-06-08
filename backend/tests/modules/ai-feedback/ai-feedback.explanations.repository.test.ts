@@ -180,6 +180,51 @@ describe("ai-feedback objective explanations", () => {
     expect(explanation).toBe(created);
   });
 
+  it("replaces terminal failed objective explanation cache rows", async () => {
+    const failed = {
+      id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      status: "failed",
+      nextRetryAt: null,
+    };
+    const created = {
+      id: "ab7f0b13-e7d9-45dd-8ed2-c2a17a9e762d",
+      status: "queued",
+    };
+    prisma.aiObjectiveExplanation.findFirst.mockResolvedValueOnce(
+      failed as never,
+    );
+    prisma.aiObjectiveExplanation.update.mockResolvedValueOnce(failed as never);
+    prisma.aiObjectiveExplanation.create.mockResolvedValueOnce(created as never);
+
+    const explanation = await upsertAiObjectiveExplanation({
+      submissionId,
+      assignmentId,
+      requesterId,
+      questionId: "q-1",
+      deterministicResult: "incorrect",
+      promptVersion: "objective-explanation-v1",
+      sourceContextHash: "sha256:source",
+      routeKey: "low_cost",
+      provider: "openai-compatible",
+      model: "gpt-5.4-nano",
+      status: "queued",
+      generationJob: {
+        harnessInput: objectiveHarnessFixtures[0],
+      },
+    });
+
+    expect(prisma.aiObjectiveExplanation.update).toHaveBeenCalledWith({
+      where: {
+        id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      },
+      data: {
+        deletedAt: expect.any(Date),
+      },
+    });
+    expect(prisma.aiObjectiveExplanation.create).toHaveBeenCalled();
+    expect(explanation).toBe(created);
+  });
+
   it("rejects queued objective explanations with malformed generation payloads", async () => {
     await expect(
       upsertAiObjectiveExplanation({
