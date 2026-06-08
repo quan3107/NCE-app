@@ -11,6 +11,7 @@ import {
 } from "./ai-feedback.schema.js";
 import {
   getAiFeedbackHealth,
+  getAiObjectiveExplanationStatus,
   requestAiObjectiveExplanation,
 } from "./ai-feedback.service.js";
 
@@ -59,6 +60,24 @@ export async function postObjectiveExplanationRequest(
     }
 
     response.json(explanation);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getObjectiveExplanationStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const explanation = objectiveExplanationResponseSchema.parse(
+      await getAiObjectiveExplanationStatus(req.params, req.user),
+    );
+
+    res
+      .status(objectiveExplanationStatusCode(explanation.status))
+      .json(explanation);
   } catch (error) {
     next(error);
   }
