@@ -173,6 +173,13 @@ export const aiGenerationStatusRequestSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 
+export const objectiveExplanationRequestParamsSchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    questionId: z.string().min(1),
+  })
+  .strict();
+
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
   reasoning_effort: aiReasoningEffortResponseSchema,
@@ -203,6 +210,14 @@ export const aiFeedbackHealthResponseSchema = z.object({
   problem: z.string().optional(),
 });
 
+export const objectiveExplanationResponseSchema = z.object({
+  id: z.string().uuid(),
+  status: aiObjectiveExplanationStatusSchema,
+  cached: z.boolean(),
+  pollingLocation: z.string().min(1),
+  explanation: jsonRecordSchema.optional(),
+});
+
 export type AiFeedbackHealthStatus = z.infer<
   typeof aiFeedbackHealthStatusSchema
 >;
@@ -226,4 +241,10 @@ export type UpsertAiObjectiveExplanationInput = z.infer<
 >;
 export type AiGenerationStatusRequest = z.infer<
   typeof aiGenerationStatusRequestSchema
+>;
+export type ObjectiveExplanationRequestParams = z.infer<
+  typeof objectiveExplanationRequestParamsSchema
+>;
+export type ObjectiveExplanationResponse = z.infer<
+  typeof objectiveExplanationResponseSchema
 >;
