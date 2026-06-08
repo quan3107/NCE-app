@@ -11,6 +11,8 @@ import {
 } from "./ai-feedback.schema.js";
 import { aiFeedbackConfig } from "./ai-feedback.config.js";
 
+export { requestAiObjectiveExplanation } from "./ai-feedback.objective-explanations.js";
+
 type HealthProbe = (
   url: URL,
   options: {
