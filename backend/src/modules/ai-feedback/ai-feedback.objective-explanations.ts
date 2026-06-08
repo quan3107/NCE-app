@@ -33,7 +33,7 @@ type ObjectiveExplanationResponse = {
   id: string;
   status: string;
   cached: boolean;
-  pollingLocation: string;
+  pollingLocation?: string;
   explanation?: unknown;
 };
 
@@ -190,6 +190,50 @@ function modelForRouteKey(routeKey: AiConcreteProviderRouteKey): string {
     : aiFeedbackConfig.routes.premium.model;
 }
 
+function assertAiFeedbackGenerationReady(): void {
+  if (!aiFeedbackConfig.enabled) {
+    throw createHttpError(503, "AI feedback generation is disabled.");
+  }
+
+  if (!aiFeedbackConfig.apiKey) {
+    throw createHttpError(503, "AI feedback provider is not configured.");
+  }
+
+  try {
+    const baseUrl = new URL(aiFeedbackConfig.baseUrl);
+    if (!["http:", "https:"].includes(baseUrl.protocol)) {
+      throw new Error("Unsupported AI provider protocol.");
+    }
+  } catch {
+    throw createHttpError(503, "AI feedback provider is not configured.");
+  }
+}
+
+function assertSourceContextSupportsGeneration(
+  assignmentType: AssignmentType,
+  evidence: IeltsQuestionScoringEvidence,
+): void {
+  if (
+    assignmentType === AssignmentType.reading &&
+    evidence.sourceContext?.kind !== "reading_passage"
+  ) {
+    throw createHttpError(
+      409,
+      "Reading objective explanations require passage source context.",
+    );
+  }
+
+  if (
+    assignmentType === AssignmentType.listening &&
+    evidence.sourceContext?.kind !== "listening_transcript"
+  ) {
+    throw createHttpError(
+      409,
+      "Listening objective explanations require transcript source context.",
+    );
+  }
+}
+
 function buildObjectivePromptInput(input: {
   submission: SubmissionForObjectiveExplanation;
   assignmentConfig: ObjectiveExplanationAssignmentConfig;
@@ -234,12 +278,16 @@ function toObjectiveExplanationResponse(
 ): ObjectiveExplanationResponse {
   const completed =
     explanation.status === "completed" && !!explanation.generatedExplanation;
+  const active =
+    explanation.status === "queued" || explanation.status === "running";
 
   return {
     id: explanation.id,
     status: explanation.status,
     cached: completed,
-    pollingLocation: pollingLocation(params.submissionId, params.questionId),
+    ...(active
+      ? { pollingLocation: pollingLocation(params.submissionId, params.questionId) }
+      : {}),
     ...(completed ? { explanation: explanation.generatedExplanation } : {}),
   };
 }
@@ -309,6 +357,7 @@ export async function requestAiObjectiveExplanation(
   }
 
   assertCanRequestObjectiveExplanation(submission, actor);
+  assertAiFeedbackGenerationReady();
 
   const assignmentConfig = parseObjectiveAssignmentConfig(
     submission.assignment.type,
@@ -333,6 +382,7 @@ export async function requestAiObjectiveExplanation(
   if (!evidence) {
     throw createHttpError(404, "Question scoring evidence not found.");
   }
+  assertSourceContextSupportsGeneration(submission.assignment.type, evidence);
 
   const promptInput = buildObjectivePromptInput({
     submission,
