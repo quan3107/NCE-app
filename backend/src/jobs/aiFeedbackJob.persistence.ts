@@ -6,6 +6,7 @@
 import { AiProviderError } from "../modules/ai-feedback/provider.errors.js";
 import { prisma } from "../prisma/client.js";
 import { Prisma } from "../prisma/index.js";
+import { AI_FEEDBACK_JOB_OPTIONS } from "./aiFeedbackJob.types.js";
 
 export type QueuedGenerationRecord = {
   id: string;
@@ -33,10 +34,13 @@ export function failureMessage(errors: string[]): string {
 }
 
 function nextRetryAt(recordRetryCount: number, now: Date): Date {
-  const nextAttempt = recordRetryCount + 1;
-  const delayMs = Math.min(15 * 60_000, 60_000 * 2 ** recordRetryCount);
+  const baseDelayMs = AI_FEEDBACK_JOB_OPTIONS.retryDelay * 1000;
+  const backoffMultiplier = AI_FEEDBACK_JOB_OPTIONS.retryBackoff
+    ? 2 ** recordRetryCount
+    : 1;
+  const delayMs = Math.min(15 * 60_000, baseDelayMs * backoffMultiplier);
 
-  return new Date(now.getTime() + delayMs * nextAttempt);
+  return new Date(now.getTime() + delayMs);
 }
 
 function providerFailure(error: unknown): {
@@ -59,12 +63,33 @@ function providerFailure(error: unknown): {
   };
 }
 
+function retryState(
+  failure: ReturnType<typeof providerFailure>,
+  recordRetryCount: number,
+  now: Date,
+): {
+  nextRetryAt: Date | null;
+  shouldRetry: boolean;
+  status: "queued" | "failed";
+} {
+  const nextFailureCount = recordRetryCount + 1;
+  const shouldRetry =
+    failure.retryable && nextFailureCount < AI_FEEDBACK_JOB_OPTIONS.retryLimit;
+
+  return {
+    status: shouldRetry ? "queued" : "failed",
+    nextRetryAt: shouldRetry ? nextRetryAt(recordRetryCount, now) : null,
+    shouldRetry,
+  };
+}
+
 export async function updateWritingProviderFailure(
   draft: QueuedGenerationRecord,
   error: unknown,
   now: Date,
 ): Promise<void> {
   const failure = providerFailure(error);
+  const retry = retryState(failure, draft.retryCount, now);
 
   const updated = await prisma.aiFeedbackDraft.updateMany({
     where: {
@@ -73,16 +98,16 @@ export async function updateWritingProviderFailure(
       deletedAt: null,
     },
     data: {
-      status: "failed",
+      status: retry.status,
       failureCode: failure.code,
       failureMessage: failure.message,
       retryCount: { increment: 1 },
-      nextRetryAt: failure.retryable ? nextRetryAt(draft.retryCount, now) : null,
+      nextRetryAt: retry.nextRetryAt,
       lastAttemptAt: now,
     },
   });
 
-  if (failure.retryable && updated.count > 0) {
+  if (retry.shouldRetry && updated.count > 0) {
     throw error;
   }
 }
@@ -93,6 +118,7 @@ export async function updateObjectiveProviderFailure(
   now: Date,
 ): Promise<void> {
   const failure = providerFailure(error);
+  const retry = retryState(failure, explanation.retryCount, now);
 
   const updated = await prisma.aiObjectiveExplanation.updateMany({
     where: {
@@ -101,18 +127,16 @@ export async function updateObjectiveProviderFailure(
       deletedAt: null,
     },
     data: {
-      status: "failed",
+      status: retry.status,
       failureCode: failure.code,
       failureMessage: failure.message,
       retryCount: { increment: 1 },
-      nextRetryAt: failure.retryable
-        ? nextRetryAt(explanation.retryCount, now)
-        : null,
+      nextRetryAt: retry.nextRetryAt,
       lastAttemptAt: now,
     },
   });
 
-  if (failure.retryable && updated.count > 0) {
+  if (retry.shouldRetry && updated.count > 0) {
     throw error;
   }
 }
