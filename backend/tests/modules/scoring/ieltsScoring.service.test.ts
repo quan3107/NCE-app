@@ -149,6 +149,43 @@ describe("ieltsScoring.service", () => {
     );
   });
 
+  it("returns resolved multiple-choice evidence for teacher-authored answer indexes", () => {
+    const evidence = getIeltsQuestionScoringEvidence({
+      assignmentType: AssignmentType.reading,
+      assignmentConfig: {
+        version: 1,
+        sections: [
+          {
+            id: "sec-mc",
+            title: "Section MC",
+            passage: "Passage text",
+            questions: [
+              {
+                id: "q-mc",
+                type: "multiple_choice",
+                text: "Which option is correct?",
+                options: ["A", "B", "C"],
+                correctAnswer: "1",
+              },
+            ],
+          },
+        ],
+      },
+      submissionPayload: {
+        answers: [{ questionId: "q-mc", value: "B" }],
+      },
+      questionId: "q-mc",
+    });
+
+    expect(evidence).toEqual(
+      expect.objectContaining({
+        acceptedAnswer: "B",
+        studentAnswer: "B",
+        deterministicResult: "correct",
+      }),
+    );
+  });
+
   it("scores matching item and diagram label answer targets", () => {
     const result = scoreIeltsSubmission({
       assignmentType: AssignmentType.listening,
