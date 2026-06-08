@@ -197,6 +197,7 @@ describe("jobs.aiFeedbackJob", () => {
   });
 
   it("marks retryable provider failures with retry metadata", async () => {
+    const now = new Date("2026-06-08T07:00:00.000Z");
     const providerRouter = {
       generate: vi.fn(async () => {
         throw new AiProviderError({
@@ -225,7 +226,7 @@ describe("jobs.aiFeedbackJob", () => {
           },
           expireInSeconds: 60,
         },
-        { providerRouter },
+        { providerRouter, now: () => now },
       ),
     ).rejects.toMatchObject({ code: "timeout" });
 
@@ -237,10 +238,99 @@ describe("jobs.aiFeedbackJob", () => {
           deletedAt: null,
         },
         data: expect.objectContaining({
+          status: "queued",
+          failureCode: "timeout",
+          retryCount: { increment: 1 },
+          nextRetryAt: new Date("2026-06-08T07:01:00.000Z"),
+        }),
+      }),
+    );
+  });
+
+  it("marks exhausted retryable provider failures terminal without another retry timestamp", async () => {
+    const now = new Date("2026-06-08T07:00:00.000Z");
+    const providerRouter = {
+      generate: vi.fn(async () => {
+        throw new AiProviderError({
+          code: "timeout",
+          message: "Provider timed out.",
+        });
+      }),
+    };
+
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      status: "queued",
+      retryCount: 2,
+      deletedAt: null,
+    } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await handleGenerateWritingDraftJob(
+      {
+        id: "job-1",
+        name: AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
+        data: {
+          draftId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+          harnessInput: writingHarnessFixtures[0],
+        },
+        expireInSeconds: 60,
+      },
+      { providerRouter, now: () => now },
+    );
+
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
           status: "failed",
           failureCode: "timeout",
           retryCount: { increment: 1 },
-          nextRetryAt: expect.any(Date),
+          nextRetryAt: null,
+        }),
+      }),
+    );
+  });
+
+  it("uses the configured backoff delay directly for retry timestamps", async () => {
+    const now = new Date("2026-06-08T07:00:00.000Z");
+    const providerRouter = {
+      generate: vi.fn(async () => {
+        throw new AiProviderError({
+          code: "timeout",
+          message: "Provider timed out.",
+        });
+      }),
+    };
+
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      status: "queued",
+      retryCount: 1,
+      deletedAt: null,
+    } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await expect(
+      handleGenerateWritingDraftJob(
+        {
+          id: "job-1",
+          name: AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
+          data: {
+            draftId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+            harnessInput: writingHarnessFixtures[0],
+          },
+          expireInSeconds: 60,
+        },
+        { providerRouter, now: () => now },
+      ),
+    ).rejects.toMatchObject({ code: "timeout" });
+
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "queued",
+          retryCount: { increment: 1 },
+          nextRetryAt: new Date("2026-06-08T07:02:00.000Z"),
         }),
       }),
     );
