@@ -8,7 +8,10 @@ import PgBoss from "pg-boss";
 import { config } from "../config/env.js";
 import { logger } from "../config/logger.js";
 import { registerAiFeedbackJobs } from "./aiFeedbackJob.js";
-import { clearJobRunnerBoss, setJobRunnerBoss } from "./jobQueue.js";
+import {
+  clearJobRunnerBoss,
+  setJobRunnerBoss,
+} from "./aiFeedbackJob.enqueue.js";
 import { registerNotificationJobs } from "./notificationJob.js";
 
 let bossInstance: PgBoss | null = null;
