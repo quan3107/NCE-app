@@ -7,16 +7,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFunction, Request, Response } from "express";
 
 vi.mock("../../../src/modules/ai-feedback/ai-feedback.service.js", () => ({
+  getAiObjectiveExplanationStatus: vi.fn(),
   requestAiObjectiveExplanation: vi.fn(),
 }));
 
 const serviceModule = await import(
   "../../../src/modules/ai-feedback/ai-feedback.service.js"
 );
-const { postObjectiveExplanationRequest } = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.controller.js"
-);
+const { getObjectiveExplanationStatus, postObjectiveExplanationRequest } =
+  await import("../../../src/modules/ai-feedback/ai-feedback.controller.js");
 
+const getAiObjectiveExplanationStatus = vi.mocked(
+  serviceModule.getAiObjectiveExplanationStatus,
+);
 const requestAiObjectiveExplanation = vi.mocked(
   serviceModule.requestAiObjectiveExplanation,
 );
@@ -49,7 +52,11 @@ describe("postObjectiveExplanationRequest", () => {
         "/api/v1/submissions/11111111-1111-4111-8111-111111111111/questions/q1/ai-explanation",
     });
 
-    await postObjectiveExplanationRequest({ params: {}, user: undefined } as Request, res, next);
+    await postObjectiveExplanationRequest(
+      { params: {}, user: undefined } as Request,
+      res,
+      next,
+    );
 
     expect(res.status).toHaveBeenCalledWith(202);
     expect(res.location).toHaveBeenCalledWith(
@@ -72,7 +79,11 @@ describe("postObjectiveExplanationRequest", () => {
         "/api/v1/submissions/11111111-1111-4111-8111-111111111111/questions/q1/ai-explanation",
     });
 
-    await postObjectiveExplanationRequest({ params: {}, user: undefined } as Request, res, next);
+    await postObjectiveExplanationRequest(
+      { params: {}, user: undefined } as Request,
+      res,
+      next,
+    );
 
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.location).not.toHaveBeenCalled();
@@ -80,5 +91,61 @@ describe("postObjectiveExplanationRequest", () => {
       expect.objectContaining({ status: "review_required" }),
     );
     expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe("getObjectiveExplanationStatus", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns active explanation status without setting a Location header", async () => {
+    const res = response();
+    const next = vi.fn() as NextFunction;
+    getAiObjectiveExplanationStatus.mockResolvedValueOnce({
+      id: "77777777-7777-4777-8777-777777777777",
+      status: "running",
+      cached: false,
+      pollingLocation:
+        "/api/v1/submissions/11111111-1111-4111-8111-111111111111/questions/q1/ai-explanation",
+    });
+
+    await getObjectiveExplanationStatus(
+      { params: {}, user: undefined } as Request,
+      res,
+      next,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.location).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "running" }),
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("returns completed cached explanations", async () => {
+    const res = response();
+    const next = vi.fn() as NextFunction;
+    getAiObjectiveExplanationStatus.mockResolvedValueOnce({
+      id: "77777777-7777-4777-8777-777777777777",
+      status: "completed",
+      cached: true,
+      explanation: {
+        short_explanation: "Paragraph B supports option B.",
+      },
+    });
+
+    await getObjectiveExplanationStatus(
+      { params: {}, user: undefined } as Request,
+      res,
+      next,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.location).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "completed", cached: true }),
+    );
   });
 });
