@@ -74,7 +74,7 @@ function retryState(
 } {
   const nextFailureCount = recordRetryCount + 1;
   const shouldRetry =
-    failure.retryable && nextFailureCount < AI_FEEDBACK_JOB_OPTIONS.retryLimit;
+    failure.retryable && nextFailureCount <= AI_FEEDBACK_JOB_OPTIONS.retryLimit;
 
   return {
     status: shouldRetry ? "queued" : "failed",
