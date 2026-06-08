@@ -27,11 +27,15 @@ const prismaModule = await import("../../../src/prisma/client.js");
 const repositoryModule = await import(
   "../../../src/modules/ai-feedback/ai-feedback.repository.js"
 );
+const configModule = await import(
+  "../../../src/modules/ai-feedback/ai-feedback.config.js"
+);
 const { requestAiObjectiveExplanation } = await import(
   "../../../src/modules/ai-feedback/ai-feedback.service.js"
 );
 
 const prisma = vi.mocked(prismaModule.prisma, true);
+const aiFeedbackConfig = configModule.aiFeedbackConfig;
 const upsertAiObjectiveExplanation = vi.mocked(
   repositoryModule.upsertAiObjectiveExplanation,
 );
@@ -102,6 +106,9 @@ const baseSubmission = {
 describe("requestAiObjectiveExplanation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    aiFeedbackConfig.enabled = true;
+    aiFeedbackConfig.apiKey = "sk-test";
+    aiFeedbackConfig.baseUrl = "https://example.com/v1";
     prisma.submission.findFirst.mockResolvedValue(baseSubmission as never);
     upsertAiObjectiveExplanation.mockResolvedValue({
       id: "77777777-7777-4777-8777-777777777777",
@@ -273,6 +280,61 @@ describe("requestAiObjectiveExplanation", () => {
     ).rejects.toMatchObject({
       statusCode: 404,
       message: "Question scoring evidence not found.",
+    });
+
+    expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
+  });
+
+  it("rejects audio-only listening source context before queueing generation", async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      assignment: {
+        ...baseSubmission.assignment,
+        type: AssignmentType.listening,
+        assignmentConfig: {
+          version: 1,
+          aiPolicy: {
+            writingFeedbackMode: "off",
+            objectiveExplanations: "on_demand_student_visible",
+            providerTier: "auto",
+          },
+          sections: [
+            {
+              id: "section-1",
+              title: "Listening Part 1",
+              audioFileId: "99999999-9999-4999-8999-999999999999",
+              questions: [
+                {
+                  id: "q1",
+                  text: "What destination does the speaker choose?",
+                  answer: "B",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    } as never);
+
+    await expect(
+      requestAiObjectiveExplanation({ submissionId, questionId: "q1" }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message:
+        "Listening objective explanations require transcript source context.",
+    });
+
+    expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when AI feedback generation is globally disabled", async () => {
+    aiFeedbackConfig.enabled = false;
+
+    await expect(
+      requestAiObjectiveExplanation({ submissionId, questionId: "q1" }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 503,
+      message: "AI feedback generation is disabled.",
     });
 
     expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
