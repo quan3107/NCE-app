@@ -20,6 +20,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
 }));
 
 vi.mock("../../../src/modules/ai-feedback/ai-feedback.repository.js", () => ({
+  findAiObjectiveExplanationByCacheKey: vi.fn(),
   upsertAiObjectiveExplanation: vi.fn(),
 }));
 
@@ -30,14 +31,16 @@ const repositoryModule = await import(
 const configModule = await import(
   "../../../src/modules/ai-feedback/ai-feedback.config.js"
 );
-const { requestAiObjectiveExplanation } = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.service.js"
-);
+const { getAiObjectiveExplanationStatus, requestAiObjectiveExplanation } =
+  await import("../../../src/modules/ai-feedback/ai-feedback.service.js");
 
 const prisma = vi.mocked(prismaModule.prisma, true);
 const aiFeedbackConfig = configModule.aiFeedbackConfig;
 const upsertAiObjectiveExplanation = vi.mocked(
   repositoryModule.upsertAiObjectiveExplanation,
+);
+const findAiObjectiveExplanationByCacheKey = vi.mocked(
+  repositoryModule.findAiObjectiveExplanationByCacheKey,
 );
 
 const submissionId = "11111111-1111-4111-8111-111111111111";
@@ -115,6 +118,7 @@ describe("requestAiObjectiveExplanation", () => {
       status: "queued",
       generatedExplanation: null,
     } as never);
+    findAiObjectiveExplanationByCacheKey.mockResolvedValue(null as never);
   });
 
   it("queues an on-demand explanation with deterministic scoring evidence", async () => {
@@ -335,6 +339,66 @@ describe("requestAiObjectiveExplanation", () => {
     ).rejects.toMatchObject({
       statusCode: 503,
       message: "AI feedback generation is disabled.",
+    });
+
+    expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
+  });
+});
+
+describe("getAiObjectiveExplanationStatus", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    aiFeedbackConfig.enabled = true;
+    aiFeedbackConfig.apiKey = "sk-test";
+    aiFeedbackConfig.baseUrl = "https://example.com/v1";
+    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never);
+    findAiObjectiveExplanationByCacheKey.mockResolvedValue({
+      id: "77777777-7777-4777-8777-777777777777",
+      status: "queued",
+      generatedExplanation: null,
+    } as never);
+  });
+
+  it("reads an existing explanation status without requiring provider readiness", async () => {
+    aiFeedbackConfig.enabled = false;
+
+    const response = await getAiObjectiveExplanationStatus(
+      { submissionId, questionId: "q1" },
+      studentActor,
+    );
+
+    expect(findAiObjectiveExplanationByCacheKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        submissionId,
+        assignmentId,
+        requesterId: studentId,
+        questionId: "q1",
+        deterministicResult: "correct",
+        promptVersion: "objective-explanation-v1",
+        sourceContextHash: expect.stringMatching(/^sha256:/),
+        routeKey: "low_cost",
+      }),
+    );
+    expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
+    expect(response).toEqual(
+      expect.objectContaining({
+        id: "77777777-7777-4777-8777-777777777777",
+        status: "queued",
+        cached: false,
+        pollingLocation:
+          "/api/v1/submissions/11111111-1111-4111-8111-111111111111/questions/q1/ai-explanation",
+      }),
+    );
+  });
+
+  it("does not enqueue a missing explanation during status polling", async () => {
+    findAiObjectiveExplanationByCacheKey.mockResolvedValueOnce(null as never);
+
+    await expect(
+      getAiObjectiveExplanationStatus({ submissionId, questionId: "q1" }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "AI objective explanation not found.",
     });
 
     expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
