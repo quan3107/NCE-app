@@ -15,6 +15,15 @@ import {
 } from "./ai-feedback.service.js";
 
 const unavailableStatuses = new Set(["misconfigured", "timeout", "unhealthy"]);
+const activeExplanationStatuses = new Set(["queued", "running"]);
+
+function objectiveExplanationStatusCode(status: string): number {
+  if (status === "completed") {
+    return 200;
+  }
+
+  return activeExplanationStatuses.has(status) ? 202 : 409;
+}
 
 export async function getAiFeedbackHealthStatus(
   _req: Request,
@@ -42,12 +51,14 @@ export async function postObjectiveExplanationRequest(
     const explanation = objectiveExplanationResponseSchema.parse(
       await requestAiObjectiveExplanation(req.params, req.user),
     );
-    const statusCode = explanation.status === "completed" ? 200 : 202;
+    const statusCode = objectiveExplanationStatusCode(explanation.status);
+    const response = res.status(statusCode);
 
-    res
-      .status(statusCode)
-      .location(explanation.pollingLocation)
-      .json(explanation);
+    if (statusCode === 202 && explanation.pollingLocation) {
+      response.location(explanation.pollingLocation);
+    }
+
+    response.json(explanation);
   } catch (error) {
     next(error);
   }
