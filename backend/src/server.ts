@@ -48,14 +48,12 @@ async function runStartupChecks(): Promise<void> {
 async function bootstrapServer(): Promise<void> {
   try {
     await runStartupChecks();
+    if (config.nodeEnv !== "test") {
+      await startJobRunner();
+    }
     server.listen(port, () => {
       logger.info({ port }, "API listening");
     });
-    if (config.nodeEnv !== "test") {
-      startJobRunner().catch((error) => {
-        logger.error({ err: error }, "Failed to start job runner");
-      });
-    }
   } catch (error) {
     logger.fatal({ err: error }, "Server bootstrap failed");
     process.exit(1);

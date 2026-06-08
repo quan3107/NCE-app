@@ -5,6 +5,11 @@
  */
 import { z } from "zod";
 
+import {
+  objectiveGenerationJobSchema,
+  writingGenerationJobSchema,
+} from "./ai-feedback.generationJob.schema.js";
+
 export const aiFeedbackDraftStatusSchema = z.enum([
   "queued",
   "running",
@@ -31,7 +36,11 @@ export const aiFeedbackDraftDecisionSchema = z.enum([
 ]);
 
 export const aiObjectiveExplanationStatusSchema = z.enum([
+  "queued",
+  "running",
   "completed",
+  "review_required",
+  "rejected",
   "failed",
 ]);
 
@@ -79,8 +88,18 @@ export const createAiFeedbackDraftSchema = z
     retryCount: z.number().int().min(0).optional(),
     nextRetryAt: z.date().optional(),
     lastAttemptAt: z.date().optional(),
+    generationJob: writingGenerationJobSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.status === "queued" && !data.generationJob) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["generationJob"],
+        message: "Queued AI feedback drafts require a generation job payload.",
+      });
+    }
+  });
 
 export const studentVisibleAiFeedbackDraftParamsSchema = z
   .object({
@@ -122,8 +141,37 @@ export const upsertAiObjectiveExplanationSchema = z
     generatedExplanation: jsonRecordSchema.optional(),
     failureCode: z.string().min(1).optional(),
     failureMessage: z.string().min(1).optional(),
+    retryCount: z.number().int().min(0).optional(),
+    nextRetryAt: z.date().optional(),
+    lastAttemptAt: z.date().optional(),
+    generationJob: objectiveGenerationJobSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.status === "queued" && !data.generationJob) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["generationJob"],
+        message:
+          "Queued AI objective explanations require a generation job payload.",
+      });
+    }
+  });
+
+export const aiGenerationStatusRequestSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("writing_draft"),
+      id: z.string().uuid(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("objective_explanation"),
+      id: z.string().uuid(),
+    })
+    .strict(),
+]);
 
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
@@ -175,4 +223,7 @@ export type SupersedeAiFeedbackDraftsInput = z.infer<
 >;
 export type UpsertAiObjectiveExplanationInput = z.infer<
   typeof upsertAiObjectiveExplanationSchema
+>;
+export type AiGenerationStatusRequest = z.infer<
+  typeof aiGenerationStatusRequestSchema
 >;

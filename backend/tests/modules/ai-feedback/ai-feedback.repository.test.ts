@@ -11,6 +11,7 @@ import {
   requesterId,
   submissionId,
 } from "./ai-feedback.repository.fixtures.js";
+import { writingHarnessFixtures } from "../../fixtures/ai-feedback/harness/harness.fixtures.js";
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
@@ -26,8 +27,18 @@ vi.mock("../../../src/prisma/client.js", () => ({
   },
 }));
 
+vi.mock("../../../src/jobs/aiFeedbackJob.enqueue.js", () => ({
+  enqueueAiFeedbackDraftOnActiveQueue: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/prisma/client.js");
+const aiFeedbackJobQueueModule = await import(
+  "../../../src/jobs/aiFeedbackJob.enqueue.js"
+);
 const prisma = vi.mocked(prismaModule.prisma, true);
+const enqueueAiFeedbackDraftOnActiveQueue = vi.mocked(
+  aiFeedbackJobQueueModule.enqueueAiFeedbackDraftOnActiveQueue,
+);
 
 const {
   createAiFeedbackDraft,
@@ -39,6 +50,7 @@ const {
 describe("ai-feedback.repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enqueueAiFeedbackDraftOnActiveQueue.mockResolvedValue("job-1");
     prisma.submission.findFirst.mockResolvedValue({
       id: submissionId,
       assignmentId,
@@ -71,15 +83,28 @@ describe("ai-feedback.repository", () => {
       safetyFlags: {
         blocked: false,
       },
+      generationJob: {
+        harnessInput: writingHarnessFixtures[0],
+      },
     });
 
     expect(prisma.aiFeedbackDraft.findFirst).toHaveBeenCalledWith({
       where: {
         submissionId,
         deletedAt: null,
-        status: {
-          in: ["queued", "running"],
-        },
+        OR: [
+          {
+            status: {
+              in: ["queued", "running"],
+            },
+          },
+          {
+            status: "failed",
+            nextRetryAt: {
+              not: null,
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -120,6 +145,10 @@ describe("ai-feedback.repository", () => {
         }),
       }),
     );
+    expect(enqueueAiFeedbackDraftOnActiveQueue).toHaveBeenCalledWith({
+      draftId,
+      harnessInput: writingHarnessFixtures[0],
+    });
     expect(draft).toBe(created);
   });
 
@@ -141,6 +170,9 @@ describe("ai-feedback.repository", () => {
         inputHash: "sha256:writing-input",
         visibilityMode: "teacher_reviewed",
         generatedFeedback: {},
+        generationJob: {
+          harnessInput: writingHarnessFixtures[0],
+        },
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
 
@@ -162,10 +194,85 @@ describe("ai-feedback.repository", () => {
         inputHash: "sha256:writing-input",
         visibilityMode: "teacher_reviewed",
         generatedFeedback: {},
+        generationJob: {
+          harnessInput: writingHarnessFixtures[0],
+        },
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
 
     expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects another draft while a failed draft is pending retry", async () => {
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce({ id: draftId } as never);
+
+    await expect(
+      createAiFeedbackDraft({
+        submissionId,
+        assignmentId,
+        requesterId,
+        promptVersion: "writing-feedback-v1",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+        inputHash: "sha256:writing-input",
+        visibilityMode: "teacher_reviewed",
+        generatedFeedback: {},
+        generationJob: {
+          harnessInput: writingHarnessFixtures[0],
+        },
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(prisma.aiFeedbackDraft.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            {
+              status: "failed",
+              nextRetryAt: {
+                not: null,
+              },
+            },
+          ]),
+        }),
+      }),
+    );
+    expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects queued writing drafts with malformed generation payloads", async () => {
+    await expect(
+      createAiFeedbackDraft({
+        submissionId,
+        assignmentId,
+        requesterId,
+        promptVersion: "writing-feedback-v1",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+        inputHash: "sha256:writing-input",
+        visibilityMode: "teacher_reviewed",
+        generatedFeedback: {},
+        generationJob: {
+          harnessInput: {
+            taskType: "writing_feedback",
+          },
+        },
+      }),
+    ).rejects.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          path: ["generationJob", "harnessInput", "fixtureId"],
+        }),
+        expect.objectContaining({
+          path: ["generationJob", "harnessInput", "promptInput"],
+        }),
+      ]),
+    });
+
+    expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
+    expect(enqueueAiFeedbackDraftOnActiveQueue).not.toHaveBeenCalled();
   });
 
   it("returns a conflict when a concurrent active draft create wins the race", async () => {
@@ -187,6 +294,9 @@ describe("ai-feedback.repository", () => {
       inputHash: "sha256:writing-input",
       visibilityMode: "teacher_reviewed",
       generatedFeedback: {},
+      generationJob: {
+        harnessInput: writingHarnessFixtures[0],
+      },
     }).catch((caught: unknown) => caught);
     const findFirstCallCount = prisma.aiFeedbackDraft.findFirst.mock.calls.length;
     prisma.aiFeedbackDraft.findFirst.mockReset();

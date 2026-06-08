@@ -10,6 +10,7 @@ import { Prisma, type AiFeedbackDraftStatus } from "../../prisma/index.js";
 import { createHttpError } from "../../utils/httpError.js";
 import {
   aiFeedbackDraftDecisionInputSchema,
+  aiGenerationStatusRequestSchema,
   createAiFeedbackDraftSchema,
   studentVisibleAiFeedbackDraftParamsSchema,
   supersedeAiFeedbackDraftsSchema,
@@ -20,6 +21,22 @@ import {
   getActiveSubmissionAssignment,
   isUniqueConstraintError,
 } from "./ai-feedback.repository.integrity.js";
+import {
+  enqueueDraftGenerationJob,
+  enqueueObjectiveExplanationGenerationJob,
+} from "./ai-feedback.queue.js";
+
+type GenerationStatus = {
+  kind: "writing_draft" | "objective_explanation";
+  id: string;
+  status: string;
+  failureCode: string | null;
+  failureMessage: string | null;
+  retryCount: number;
+  nextRetryAt: Date | null;
+  lastAttemptAt: Date | null;
+  updatedAt: Date;
+};
 
 const activeGenerationStatuses = ["queued", "running"] as const;
 const studentVisibleDraftStatuses = [
@@ -77,9 +94,19 @@ async function findActiveAiFeedbackDraft(submissionId: string) {
     where: {
       submissionId,
       deletedAt: null,
-      status: {
-        in: [...activeGenerationStatuses],
-      },
+      OR: [
+        {
+          status: {
+            in: [...activeGenerationStatuses],
+          },
+        },
+        {
+          status: "failed",
+          nextRetryAt: {
+            not: null,
+          },
+        },
+      ],
     },
     select: {
       id: true,
@@ -95,6 +122,24 @@ function createActiveDraftConflict(draftId: string) {
   );
 }
 
+function isTerminalFailedObjectiveExplanation(explanation: {
+  nextRetryAt: Date | null;
+  status: string;
+}): boolean {
+  return explanation.status === "failed" && !explanation.nextRetryAt;
+}
+
+async function softDeleteObjectiveExplanation(explanationId: string): Promise<void> {
+  await prisma.aiObjectiveExplanation.update({
+    where: {
+      id: explanationId,
+    },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
+}
+
 export async function createAiFeedbackDraft(input: unknown) {
   const data = createAiFeedbackDraftSchema.parse(input);
   const submission = await getActiveSubmissionAssignment(data.submissionId);
@@ -107,7 +152,7 @@ export async function createAiFeedbackDraft(input: unknown) {
   }
 
   try {
-    return await prisma.aiFeedbackDraft.create({
+    const draft = await prisma.aiFeedbackDraft.create({
       data: {
         submissionId: data.submissionId,
         assignmentId: submission.assignmentId,
@@ -137,6 +182,12 @@ export async function createAiFeedbackDraft(input: unknown) {
         lastAttemptAt: data.lastAttemptAt,
       },
     });
+
+    if (data.status === "queued" && data.generationJob) {
+      await enqueueDraftGenerationJob(draft.id, data.generationJob);
+    }
+
+    return draft;
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
@@ -262,11 +313,15 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
   });
 
   if (existingExplanation) {
-    return existingExplanation;
+    if (!isTerminalFailedObjectiveExplanation(existingExplanation)) {
+      return existingExplanation;
+    }
+
+    await softDeleteObjectiveExplanation(existingExplanation.id);
   }
 
-  try {
-    return await prisma.aiObjectiveExplanation.create({
+  const createExplanation = async () => {
+    const explanation = await prisma.aiObjectiveExplanation.create({
       data: {
         submissionId: data.submissionId,
         assignmentId: submission.assignmentId,
@@ -284,8 +339,24 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
           : undefined,
         failureCode: data.failureCode,
         failureMessage: data.failureMessage,
+        retryCount: data.retryCount,
+        nextRetryAt: data.nextRetryAt,
+        lastAttemptAt: data.lastAttemptAt,
       },
     });
+
+    if (data.status === "queued" && data.generationJob) {
+      await enqueueObjectiveExplanationGenerationJob(
+        explanation.id,
+        data.generationJob,
+      );
+    }
+
+    return explanation;
+  };
+
+  try {
+    return await createExplanation();
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
@@ -299,6 +370,66 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
       throw error;
     }
 
+    if (isTerminalFailedObjectiveExplanation(concurrentExplanation)) {
+      await softDeleteObjectiveExplanation(concurrentExplanation.id);
+      return createExplanation();
+    }
+
     return concurrentExplanation;
   }
+}
+
+function toGenerationStatus(
+  kind: GenerationStatus["kind"],
+  record: Omit<GenerationStatus, "kind"> | null,
+): GenerationStatus | null {
+  return record
+    ? {
+        kind,
+        id: record.id,
+        status: record.status,
+        failureCode: record.failureCode,
+        failureMessage: record.failureMessage,
+        retryCount: record.retryCount,
+        nextRetryAt: record.nextRetryAt,
+        lastAttemptAt: record.lastAttemptAt,
+        updatedAt: record.updatedAt,
+      }
+    : null;
+}
+
+export async function getAiGenerationStatus(
+  input: unknown,
+): Promise<GenerationStatus | null> {
+  const data = aiGenerationStatusRequestSchema.parse(input);
+  const select = {
+    id: true,
+    status: true,
+    failureCode: true,
+    failureMessage: true,
+    retryCount: true,
+    nextRetryAt: true,
+    lastAttemptAt: true,
+    updatedAt: true,
+  } as const;
+
+  if (data.kind === "writing_draft") {
+    const record = await prisma.aiFeedbackDraft.findUnique({
+      where: {
+        id: data.id,
+      },
+      select,
+    });
+
+    return toGenerationStatus("writing_draft", record);
+  }
+
+  const record = await prisma.aiObjectiveExplanation.findUnique({
+    where: {
+      id: data.id,
+    },
+    select,
+  });
+
+  return toGenerationStatus("objective_explanation", record);
 }
