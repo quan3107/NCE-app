@@ -214,7 +214,7 @@ export const objectiveExplanationResponseSchema = z.object({
   id: z.string().uuid(),
   status: aiObjectiveExplanationStatusSchema,
   cached: z.boolean(),
-  pollingLocation: z.string().min(1),
+  pollingLocation: z.string().min(1).optional(),
   explanation: jsonRecordSchema.optional(),
 });
 
