@@ -247,7 +247,7 @@ describe("jobs.aiFeedbackJob", () => {
     );
   });
 
-  it("marks exhausted retryable provider failures terminal without another retry timestamp", async () => {
+  it("keeps the final configured retry active before exhaustion", async () => {
     const now = new Date("2026-06-08T07:00:00.000Z");
     const providerRouter = {
       generate: vi.fn(async () => {
@@ -262,6 +262,52 @@ describe("jobs.aiFeedbackJob", () => {
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 2,
+      deletedAt: null,
+    } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await expect(
+      handleGenerateWritingDraftJob(
+        {
+          id: "job-1",
+          name: AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
+          data: {
+            draftId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+            harnessInput: writingHarnessFixtures[0],
+          },
+          expireInSeconds: 60,
+        },
+        { providerRouter, now: () => now },
+      ),
+    ).rejects.toMatchObject({ code: "timeout" });
+
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "queued",
+          failureCode: "timeout",
+          retryCount: { increment: 1 },
+          nextRetryAt: new Date("2026-06-08T07:04:00.000Z"),
+        }),
+      }),
+    );
+  });
+
+  it("marks exhausted retryable provider failures terminal without another retry timestamp", async () => {
+    const now = new Date("2026-06-08T07:00:00.000Z");
+    const providerRouter = {
+      generate: vi.fn(async () => {
+        throw new AiProviderError({
+          code: "timeout",
+          message: "Provider timed out.",
+        });
+      }),
+    };
+
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      status: "queued",
+      retryCount: 3,
       deletedAt: null,
     } as never);
     prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
