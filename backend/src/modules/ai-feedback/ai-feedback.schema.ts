@@ -158,6 +158,19 @@ export const upsertAiObjectiveExplanationSchema = z
     }
   });
 
+export const findAiObjectiveExplanationByCacheKeySchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    assignmentId: z.string().uuid(),
+    requesterId: z.string().uuid(),
+    questionId: z.string().min(1),
+    deterministicResult: z.string().min(1),
+    promptVersion: z.string().min(1),
+    sourceContextHash: z.string().min(1),
+    routeKey: z.string().min(1),
+  })
+  .strict();
+
 export const aiGenerationStatusRequestSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -238,6 +251,9 @@ export type SupersedeAiFeedbackDraftsInput = z.infer<
 >;
 export type UpsertAiObjectiveExplanationInput = z.infer<
   typeof upsertAiObjectiveExplanationSchema
+>;
+export type FindAiObjectiveExplanationByCacheKeyInput = z.infer<
+  typeof findAiObjectiveExplanationByCacheKeySchema
 >;
 export type AiGenerationStatusRequest = z.infer<
   typeof aiGenerationStatusRequestSchema
