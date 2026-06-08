@@ -84,6 +84,10 @@ function sha256(value: unknown): string {
   return `sha256:${createHash("sha256").update(stableJson(value)).digest("hex")}`;
 }
 
+function hashObjectivePromptInput(promptInput: unknown): string {
+  return sha256(promptInput);
+}
+
 function assertCanRequestObjectiveExplanation(
   submission: SubmissionForObjectiveExplanation,
   actor: RequestActor | undefined,
@@ -397,7 +401,7 @@ export async function requestAiObjectiveExplanation(
     questionId,
     deterministicResult: evidence.deterministicResult,
     promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
-    sourceContextHash: sha256(promptInput),
+    sourceContextHash: hashObjectivePromptInput(promptInput),
     routeKey,
     provider: aiFeedbackConfig.provider,
     model: modelForRouteKey(routeKey),
