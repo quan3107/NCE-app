@@ -5,13 +5,26 @@
  */
 import type PgBoss from "pg-boss";
 
-import { getJobRunnerBoss } from "./jobQueue.js";
 import {
   AI_FEEDBACK_JOB_NAMES,
   AI_FEEDBACK_JOB_OPTIONS,
   type ObjectiveExplanationJobPayload,
   type WritingDraftJobPayload,
 } from "./aiFeedbackJob.types.js";
+
+let activeJobBoss: PgBoss | null = null;
+
+export function setJobRunnerBoss(boss: PgBoss): void {
+  activeJobBoss = boss;
+}
+
+export function clearJobRunnerBoss(): void {
+  activeJobBoss = null;
+}
+
+export function getJobRunnerBoss(): PgBoss | null {
+  return activeJobBoss;
+}
 
 function requireActiveBoss(): PgBoss {
   const boss = getJobRunnerBoss();
