@@ -94,9 +94,19 @@ async function findActiveAiFeedbackDraft(submissionId: string) {
     where: {
       submissionId,
       deletedAt: null,
-      status: {
-        in: [...activeGenerationStatuses],
-      },
+      OR: [
+        {
+          status: {
+            in: [...activeGenerationStatuses],
+          },
+        },
+        {
+          status: "failed",
+          nextRetryAt: {
+            not: null,
+          },
+        },
+      ],
     },
     select: {
       id: true,
@@ -110,6 +120,24 @@ function createActiveDraftConflict(draftId: string) {
     "An AI feedback draft is already queued or running for this submission.",
     { draftId },
   );
+}
+
+function isTerminalFailedObjectiveExplanation(explanation: {
+  nextRetryAt: Date | null;
+  status: string;
+}): boolean {
+  return explanation.status === "failed" && !explanation.nextRetryAt;
+}
+
+async function softDeleteObjectiveExplanation(explanationId: string): Promise<void> {
+  await prisma.aiObjectiveExplanation.update({
+    where: {
+      id: explanationId,
+    },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
 }
 
 export async function createAiFeedbackDraft(input: unknown) {
@@ -285,10 +313,14 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
   });
 
   if (existingExplanation) {
-    return existingExplanation;
+    if (!isTerminalFailedObjectiveExplanation(existingExplanation)) {
+      return existingExplanation;
+    }
+
+    await softDeleteObjectiveExplanation(existingExplanation.id);
   }
 
-  try {
+  const createExplanation = async () => {
     const explanation = await prisma.aiObjectiveExplanation.create({
       data: {
         submissionId: data.submissionId,
@@ -321,6 +353,10 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
     }
 
     return explanation;
+  };
+
+  try {
+    return await createExplanation();
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
@@ -332,6 +368,11 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
 
     if (!concurrentExplanation) {
       throw error;
+    }
+
+    if (isTerminalFailedObjectiveExplanation(concurrentExplanation)) {
+      await softDeleteObjectiveExplanation(concurrentExplanation.id);
+      return createExplanation();
     }
 
     return concurrentExplanation;
