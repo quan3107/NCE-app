@@ -19,6 +19,9 @@ type AnswerEntry = {
 type ExpectedAnswer = {
   keys: string[];
   expected: unknown;
+  acceptedAnswer: string;
+  questionText: string;
+  sourceContext?: IeltsObjectiveSourceContext;
 };
 export type IeltsAutoScoreResult = {
   rawScore: number;
@@ -26,6 +29,23 @@ export type IeltsAutoScoreResult = {
   band: number;
   correctCount: number;
   totalCount: number;
+};
+export type IeltsObjectiveSourceContext =
+  | {
+      kind: "reading_passage" | "listening_transcript";
+      text: string;
+    }
+  | {
+      kind: "listening_audio_file";
+      audioFileId: string;
+    };
+export type IeltsQuestionScoringEvidence = {
+  questionId: string;
+  questionText: string;
+  acceptedAnswer: string;
+  studentAnswer: unknown;
+  deterministicResult: "correct" | "incorrect";
+  sourceContext?: IeltsObjectiveSourceContext;
 };
 
 export const AUTO_SCORE_TYPES = new Set<AssignmentType>([
@@ -151,6 +171,9 @@ function addExpectedAnswer(
   expectedAnswers: ExpectedAnswer[],
   keys: string[],
   expected: unknown,
+  acceptedAnswer: unknown,
+  questionText: string,
+  sourceContext: IeltsObjectiveSourceContext | undefined,
 ): void {
   const trimmedKeys = keys.filter((key) => key.length > 0);
   if (trimmedKeys.length === 0) {
@@ -162,21 +185,75 @@ function addExpectedAnswer(
   if (typeof expected === "string" && expected.trim() === "") {
     return;
   }
-  expectedAnswers.push({ keys: trimmedKeys, expected });
+  expectedAnswers.push({
+    keys: trimmedKeys,
+    expected,
+    acceptedAnswer: displayAnswer(acceptedAnswer),
+    questionText,
+    sourceContext,
+  });
+}
+
+function displayTextFromRecord(record: Record<string, unknown>): string {
+  const candidates = [
+    record.text,
+    record.prompt,
+    record.statement,
+    record.label,
+    record.position,
+    record.title,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return "";
+}
+
+function displayAnswer(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map(displayAnswer).filter(Boolean).join(" / ");
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value === null
+  ) {
+    return String(value);
+  }
+
+  if (value !== undefined) {
+    return JSON.stringify(value) ?? "";
+  }
+
+  return "";
 }
 
 function extractExpectedAnswersFromQuestion(
   question: Record<string, unknown>,
+  sourceContext?: IeltsObjectiveSourceContext,
 ): ExpectedAnswer[] {
   const expectedAnswers: ExpectedAnswer[] = [];
   const questionId =
     typeof question.id === "string" ? question.id : "";
+  const parentQuestionText = displayTextFromRecord(question);
   const directAnswer = getAnswerValue(question);
   if (questionId) {
     addExpectedAnswer(
       expectedAnswers,
       [questionId],
       expandOptionAnswer(question, directAnswer),
+      directAnswer,
+      parentQuestionText,
+      sourceContext,
     );
   }
 
@@ -191,7 +268,14 @@ function extractExpectedAnswersFromQuestion(
       typeof sentence.id === "string" ? sentence.id : "";
     const sentenceAnswer = getAnswerValue(sentence);
     if (sentenceId) {
-      addExpectedAnswer(expectedAnswers, [sentenceId], sentenceAnswer);
+      addExpectedAnswer(
+        expectedAnswers,
+        [sentenceId],
+        sentenceAnswer,
+        sentenceAnswer,
+        displayTextFromRecord(sentence) || parentQuestionText,
+        sourceContext,
+      );
     }
   }
 
@@ -206,7 +290,14 @@ function extractExpectedAnswersFromQuestion(
       typeof statement.id === "string" ? statement.id : "";
     const statementAnswer = getAnswerValue(statement);
     if (statementId) {
-      addExpectedAnswer(expectedAnswers, [statementId], statementAnswer);
+      addExpectedAnswer(
+        expectedAnswers,
+        [statementId],
+        statementAnswer,
+        statementAnswer,
+        displayTextFromRecord(statement) || parentQuestionText,
+        sourceContext,
+      );
     }
   }
 
@@ -220,14 +311,28 @@ function extractExpectedAnswersFromQuestion(
       typeof item.paragraph === "string" ? item.paragraph : "";
     const itemAnswer = getAnswerValue(item);
     if (itemId) {
-      addExpectedAnswer(expectedAnswers, [itemId], itemAnswer);
+      addExpectedAnswer(
+        expectedAnswers,
+        [itemId],
+        itemAnswer,
+        itemAnswer,
+        displayTextFromRecord(item) || parentQuestionText,
+        sourceContext,
+      );
       continue;
     }
     if (paragraphId) {
       const keys = questionId
         ? [paragraphId, `${questionId}:${paragraphId}`]
         : [paragraphId];
-      addExpectedAnswer(expectedAnswers, keys, itemAnswer);
+      addExpectedAnswer(
+        expectedAnswers,
+        keys,
+        itemAnswer,
+        itemAnswer,
+        displayTextFromRecord(item) || parentQuestionText,
+        sourceContext,
+      );
     }
   }
 
@@ -241,7 +346,14 @@ function extractExpectedAnswersFromQuestion(
     const itemId = typeof item.id === "string" ? item.id : "";
     const itemAnswer = getAnswerValue(item);
     if (itemId) {
-      addExpectedAnswer(expectedAnswers, [itemId], itemAnswer);
+      addExpectedAnswer(
+        expectedAnswers,
+        [itemId],
+        itemAnswer,
+        itemAnswer,
+        displayTextFromRecord(item) || parentQuestionText,
+        sourceContext,
+      );
     }
   }
 
@@ -255,14 +367,54 @@ function extractExpectedAnswersFromQuestion(
     const labelId = typeof label.id === "string" ? label.id : "";
     const labelAnswer = getAnswerValue(label);
     if (labelId) {
-      addExpectedAnswer(expectedAnswers, [labelId], labelAnswer);
+      addExpectedAnswer(
+        expectedAnswers,
+        [labelId],
+        labelAnswer,
+        labelAnswer,
+        displayTextFromRecord(label) || parentQuestionText,
+        sourceContext,
+      );
     }
   }
 
   return expectedAnswers;
 }
 
+function sourceContextFromSection(
+  assignmentType: AssignmentType,
+  section: Record<string, unknown>,
+): IeltsObjectiveSourceContext | undefined {
+  if (assignmentType === AssignmentType.reading) {
+    return typeof section.passage === "string" && section.passage.trim()
+      ? {
+          kind: "reading_passage",
+          text: section.passage.trim(),
+        }
+      : undefined;
+  }
+
+  if (assignmentType === AssignmentType.listening) {
+    if (typeof section.transcript === "string" && section.transcript.trim()) {
+      return {
+        kind: "listening_transcript",
+        text: section.transcript.trim(),
+      };
+    }
+
+    if (typeof section.audioFileId === "string" && section.audioFileId.trim()) {
+      return {
+        kind: "listening_audio_file",
+        audioFileId: section.audioFileId.trim(),
+      };
+    }
+  }
+
+  return undefined;
+}
+
 function buildExpectedAnswersFromConfig(
+  assignmentType: AssignmentType,
   assignmentConfig: Record<string, unknown>,
 ): ExpectedAnswer[] {
   const expectedAnswers: ExpectedAnswer[] = [];
@@ -276,12 +428,13 @@ function buildExpectedAnswersFromConfig(
     const questions = Array.isArray(section.questions)
       ? section.questions
       : [];
+    const sourceContext = sourceContextFromSection(assignmentType, section);
     for (const question of questions) {
       if (!isRecord(question)) {
         continue;
       }
       expectedAnswers.push(
-        ...extractExpectedAnswersFromQuestion(question),
+        ...extractExpectedAnswersFromQuestion(question, sourceContext),
       );
     }
   }
@@ -330,7 +483,10 @@ export function scoreIeltsSubmission(input: {
     return null;
   }
 
-  const expectedAnswers = buildExpectedAnswersFromConfig(parsedConfig);
+  const expectedAnswers = buildExpectedAnswersFromConfig(
+    input.assignmentType,
+    parsedConfig,
+  );
   if (expectedAnswers.length === 0) {
     return null;
   }
@@ -362,5 +518,61 @@ export function scoreIeltsSubmission(input: {
     band,
     correctCount,
     totalCount: expectedAnswers.length,
+  };
+}
+
+export function getIeltsQuestionScoringEvidence(input: {
+  assignmentType: AssignmentType;
+  assignmentConfig: unknown;
+  submissionPayload: unknown;
+  questionId: string;
+}): IeltsQuestionScoringEvidence | null {
+  if (!AUTO_SCORE_TYPES.has(input.assignmentType)) {
+    return null;
+  }
+
+  const parsedConfig = parseAssignmentConfigForType(
+    input.assignmentType,
+    input.assignmentConfig,
+  );
+  const parsedPayload = parseSubmissionPayloadForType(
+    input.assignmentType,
+    input.submissionPayload,
+  );
+
+  if (!isRecord(parsedConfig) || !isRecord(parsedPayload)) {
+    return null;
+  }
+
+  const expectedAnswers = buildExpectedAnswersFromConfig(
+    input.assignmentType,
+    parsedConfig,
+  );
+  const expected = expectedAnswers.find((candidate) =>
+    candidate.keys.includes(input.questionId),
+  );
+
+  if (!expected) {
+    return null;
+  }
+
+  const answers = Array.isArray(parsedPayload.answers)
+    ? (parsedPayload.answers as AnswerEntry[])
+    : [];
+  const answerMap = buildAnswerMap(answers);
+  const studentAnswer = expected.keys
+    .map((key) => answerMap.get(key))
+    .find((value) => value !== undefined);
+
+  return {
+    questionId: input.questionId,
+    questionText: expected.questionText,
+    acceptedAnswer: expected.acceptedAnswer,
+    studentAnswer,
+    deterministicResult:
+      studentAnswer !== undefined && isCorrectAnswer(expected.expected, studentAnswer)
+        ? "correct"
+        : "incorrect",
+    ...(expected.sourceContext ? { sourceContext: expected.sourceContext } : {}),
   };
 }
