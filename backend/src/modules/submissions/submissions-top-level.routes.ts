@@ -8,6 +8,7 @@ import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
+import { postObjectiveExplanationRequest } from "../ai-feedback/ai-feedback.controller.js";
 import { getUngradedSubmissionsCount } from "./submissions.controller.js";
 
 export const submissionsTopLevelRouter = Router();
@@ -22,4 +23,10 @@ submissionsTopLevelRouter.get(
   "/pending-count",
   roleGuard([UserRole.teacher, UserRole.admin]),
   getUngradedSubmissionsCount,
+);
+
+submissionsTopLevelRouter.post(
+  "/:submissionId/questions/:questionId/ai-explanation",
+  roleGuard([UserRole.admin, UserRole.teacher, UserRole.student]),
+  postObjectiveExplanationRequest,
 );
