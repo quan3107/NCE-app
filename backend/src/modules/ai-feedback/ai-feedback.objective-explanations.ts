@@ -15,7 +15,10 @@ import {
   type IeltsQuestionScoringEvidence,
 } from "../scoring/ieltsScoring.utils.js";
 import { aiFeedbackConfig } from "./ai-feedback.config.js";
-import { upsertAiObjectiveExplanation } from "./ai-feedback.repository.js";
+import {
+  findAiObjectiveExplanationByCacheKey,
+  upsertAiObjectiveExplanation,
+} from "./ai-feedback.repository.js";
 import { objectiveExplanationRequestParamsSchema } from "./ai-feedback.schema.js";
 import type { AiConcreteProviderRouteKey } from "./provider.types.js";
 import { OBJECTIVE_EXPLANATION_PROMPT_VERSION } from "./prompts/system.js";
@@ -62,6 +65,16 @@ type SubmissionForObjectiveExplanation = {
       }>;
     } | null;
   };
+};
+
+type ObjectiveExplanationContext = {
+  submission: SubmissionForObjectiveExplanation;
+  questionId: string;
+  assignmentConfig: ObjectiveExplanationAssignmentConfig;
+  evidence: IeltsQuestionScoringEvidence;
+  promptInput: ReturnType<typeof buildObjectivePromptInput>;
+  routeKey: AiConcreteProviderRouteKey;
+  sourceContextHash: string;
 };
 
 function stableJson(value: unknown): string {
@@ -296,10 +309,10 @@ function toObjectiveExplanationResponse(
   };
 }
 
-export async function requestAiObjectiveExplanation(
+async function loadObjectiveExplanationContext(
   params: unknown,
   actor?: RequestActor,
-): Promise<ObjectiveExplanationResponse> {
+): Promise<ObjectiveExplanationContext & { actor: RequestActor }> {
   const { submissionId, questionId } =
     objectiveExplanationRequestParamsSchema.parse(params);
   const submission = await prisma.submission.findFirst({
@@ -361,7 +374,6 @@ export async function requestAiObjectiveExplanation(
   }
 
   assertCanRequestObjectiveExplanation(submission, actor);
-  assertAiFeedbackGenerationReady();
 
   const assignmentConfig = parseObjectiveAssignmentConfig(
     submission.assignment.type,
@@ -394,30 +406,76 @@ export async function requestAiObjectiveExplanation(
     evidence,
   });
   const routeKey = routeKeyForObjectiveExplanation(assignmentConfig);
-  const explanation = await upsertAiObjectiveExplanation({
-    submissionId: submission.id,
-    assignmentId: submission.assignmentId,
-    requesterId: actor.id,
+
+  return {
+    actor,
+    submission,
     questionId,
-    deterministicResult: evidence.deterministicResult,
-    promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
-    sourceContextHash: hashObjectivePromptInput(promptInput),
+    assignmentConfig,
+    evidence,
+    promptInput,
     routeKey,
+    sourceContextHash: hashObjectivePromptInput(promptInput),
+  };
+}
+
+export async function requestAiObjectiveExplanation(
+  params: unknown,
+  actor?: RequestActor,
+): Promise<ObjectiveExplanationResponse> {
+  const context = await loadObjectiveExplanationContext(params, actor);
+  assertAiFeedbackGenerationReady();
+
+  const explanation = await upsertAiObjectiveExplanation({
+    submissionId: context.submission.id,
+    assignmentId: context.submission.assignmentId,
+    requesterId: context.actor.id,
+    questionId: context.questionId,
+    deterministicResult: context.evidence.deterministicResult,
+    promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
+    sourceContextHash: context.sourceContextHash,
+    routeKey: context.routeKey,
     provider: aiFeedbackConfig.provider,
-    model: modelForRouteKey(routeKey),
+    model: modelForRouteKey(context.routeKey),
     status: "queued",
     generationJob: {
       harnessInput: {
-        fixtureId: `objective-explanation:${submission.id}:${questionId}`,
+        fixtureId: `objective-explanation:${context.submission.id}:${context.questionId}`,
         taskType: "objective_explanation",
-        promptInput,
-        routeKey,
+        promptInput: context.promptInput,
+        routeKey: context.routeKey,
       },
     },
   });
 
   return toObjectiveExplanationResponse(explanation, {
-    submissionId: submission.id,
-    questionId,
+    submissionId: context.submission.id,
+    questionId: context.questionId,
+  });
+}
+
+export async function getAiObjectiveExplanationStatus(
+  params: unknown,
+  actor?: RequestActor,
+): Promise<ObjectiveExplanationResponse> {
+  const context = await loadObjectiveExplanationContext(params, actor);
+  const explanation = await findAiObjectiveExplanationByCacheKey({
+    submissionId: context.submission.id,
+    assignmentId: context.submission.assignmentId,
+    requesterId: context.actor.id,
+    questionId: context.questionId,
+    deterministicResult: context.evidence.deterministicResult,
+    promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
+    sourceContextHash: context.sourceContextHash,
+    routeKey: context.routeKey,
+  });
+
+  if (!explanation) {
+    throw createHttpError(404, "AI objective explanation not found.");
+  }
+
+  return toObjectiveExplanationResponse(explanation, {
+    submissionId: context.submission.id,
+    questionId: context.questionId,
   });
 }
