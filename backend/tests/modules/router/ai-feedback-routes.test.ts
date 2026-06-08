@@ -60,4 +60,22 @@ describe("modules.router ai feedback routes", () => {
     });
     expect(JSON.stringify(response.body)).not.toContain("api_key");
   });
+
+  it("mounts the on-demand objective explanation request route", async () => {
+    const response = await request(app).post(
+      "/api/v1/submissions/11111111-1111-4111-8111-111111111111/questions/q1/ai-explanation",
+    );
+
+    expect(response.status).not.toBe(404);
+    expect(response.status).toBe(401);
+  });
+
+  it("mounts the on-demand objective explanation polling route", async () => {
+    const response = await request(app).get(
+      "/api/v1/submissions/11111111-1111-4111-8111-111111111111/questions/q1/ai-explanation",
+    );
+
+    expect(response.status).not.toBe(404);
+    expect(response.status).toBe(401);
+  });
 });

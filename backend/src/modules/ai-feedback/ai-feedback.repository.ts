@@ -12,6 +12,7 @@ import {
   aiFeedbackDraftDecisionInputSchema,
   aiGenerationStatusRequestSchema,
   createAiFeedbackDraftSchema,
+  findAiObjectiveExplanationByCacheKeySchema,
   studentVisibleAiFeedbackDraftParamsSchema,
   supersedeAiFeedbackDraftsSchema,
   upsertAiObjectiveExplanationSchema,
@@ -138,6 +139,29 @@ async function softDeleteObjectiveExplanation(explanationId: string): Promise<vo
       deletedAt: new Date(),
     },
   });
+}
+
+function objectiveExplanationCacheWhere(data: {
+  submissionId: string;
+  assignmentId: string;
+  requesterId: string;
+  questionId: string;
+  deterministicResult: string;
+  promptVersion: string;
+  sourceContextHash: string;
+  routeKey: string;
+}) {
+  return {
+    submissionId: data.submissionId,
+    assignmentId: data.assignmentId,
+    questionId: data.questionId,
+    deterministicResult: data.deterministicResult,
+    promptVersion: data.promptVersion,
+    sourceContextHash: data.sourceContextHash,
+    routeKey: data.routeKey,
+    requesterId: data.requesterId,
+    deletedAt: null,
+  };
 }
 
 export async function createAiFeedbackDraft(input: unknown) {
@@ -297,7 +321,7 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
   const submission = await getActiveSubmissionAssignment(data.submissionId);
   assertSubmissionAssignmentMatches(submission, data.assignmentId);
 
-  const cacheWhere = {
+  const cacheWhere = objectiveExplanationCacheWhere({
     submissionId: data.submissionId,
     assignmentId: submission.assignmentId,
     questionId: data.questionId,
@@ -306,8 +330,7 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
     sourceContextHash: data.sourceContextHash,
     routeKey: data.routeKey,
     requesterId: data.requesterId,
-    deletedAt: null,
-  };
+  });
   const existingExplanation = await prisma.aiObjectiveExplanation.findFirst({
     where: cacheWhere,
   });
@@ -377,6 +400,25 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
 
     return concurrentExplanation;
   }
+}
+
+export async function findAiObjectiveExplanationByCacheKey(input: unknown) {
+  const data = findAiObjectiveExplanationByCacheKeySchema.parse(input);
+  const submission = await getActiveSubmissionAssignment(data.submissionId);
+  assertSubmissionAssignmentMatches(submission, data.assignmentId);
+
+  return prisma.aiObjectiveExplanation.findFirst({
+    where: objectiveExplanationCacheWhere({
+      submissionId: data.submissionId,
+      assignmentId: submission.assignmentId,
+      questionId: data.questionId,
+      deterministicResult: data.deterministicResult,
+      promptVersion: data.promptVersion,
+      sourceContextHash: data.sourceContextHash,
+      routeKey: data.routeKey,
+      requesterId: data.requesterId,
+    }),
+  });
 }
 
 function toGenerationStatus(

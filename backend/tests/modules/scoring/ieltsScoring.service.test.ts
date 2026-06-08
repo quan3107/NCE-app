@@ -30,6 +30,9 @@ const { autoScoreSubmission } = await import(
 const { scoreIeltsSubmission } = await import(
   "../../../src/modules/scoring/ieltsScoring.utils.js"
 );
+const { getIeltsQuestionScoringEvidence } = await import(
+  "../../../src/modules/scoring/ieltsScoring.utils.js"
+);
 const {
   calculateIeltsManualBand,
   validateIeltsCriterionBreakdown,
@@ -146,6 +149,43 @@ describe("ieltsScoring.service", () => {
     );
   });
 
+  it("returns resolved multiple-choice evidence for teacher-authored answer indexes", () => {
+    const evidence = getIeltsQuestionScoringEvidence({
+      assignmentType: AssignmentType.reading,
+      assignmentConfig: {
+        version: 1,
+        sections: [
+          {
+            id: "sec-mc",
+            title: "Section MC",
+            passage: "Passage text",
+            questions: [
+              {
+                id: "q-mc",
+                type: "multiple_choice",
+                text: "Which option is correct?",
+                options: ["A", "B", "C"],
+                correctAnswer: "1",
+              },
+            ],
+          },
+        ],
+      },
+      submissionPayload: {
+        answers: [{ questionId: "q-mc", value: "B" }],
+      },
+      questionId: "q-mc",
+    });
+
+    expect(evidence).toEqual(
+      expect.objectContaining({
+        acceptedAnswer: "B",
+        studentAnswer: "B",
+        deterministicResult: "correct",
+      }),
+    );
+  });
+
   it("scores matching item and diagram label answer targets", () => {
     const result = scoreIeltsSubmission({
       assignmentType: AssignmentType.listening,
@@ -195,6 +235,52 @@ describe("ieltsScoring.service", () => {
         totalCount: 2,
       }),
     );
+  });
+
+  it("returns per-question deterministic evidence for objective explanations", () => {
+    const evidence = getIeltsQuestionScoringEvidence({
+      assignmentType: AssignmentType.reading,
+      assignmentConfig: {
+        version: 1,
+        sections: [
+          {
+            id: "sec-1",
+            title: "Passage 1",
+            passage: "Paragraph B explains that rooftop gardens reduce heat.",
+            questions: [
+              {
+                id: "q3",
+                type: "sentence_completion",
+                text: "Complete the sentence about urban cooling.",
+                sentences: [
+                  {
+                    id: "q3-1",
+                    text: "Rooftop gardens reduce ____.",
+                    answer: "heat",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      submissionPayload: {
+        answers: [{ questionId: "q3-1", value: "noise" }],
+      },
+      questionId: "q3-1",
+    });
+
+    expect(evidence).toEqual({
+      questionId: "q3-1",
+      questionText: "Rooftop gardens reduce ____.",
+      acceptedAnswer: "heat",
+      studentAnswer: "noise",
+      deterministicResult: "incorrect",
+      sourceContext: {
+        kind: "reading_passage",
+        text: "Paragraph B explains that rooftop gardens reduce heat.",
+      },
+    });
   });
 
   it("returns the existing grade for idempotent scoring", async () => {

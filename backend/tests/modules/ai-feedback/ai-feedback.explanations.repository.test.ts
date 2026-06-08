@@ -38,9 +38,10 @@ const enqueueObjectiveExplanationOnActiveQueue = vi.mocked(
   aiFeedbackJobQueueModule.enqueueObjectiveExplanationOnActiveQueue,
 );
 
-const { upsertAiObjectiveExplanation } = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.repository.js"
-);
+const {
+  findAiObjectiveExplanationByCacheKey,
+  upsertAiObjectiveExplanation,
+} = await import("../../../src/modules/ai-feedback/ai-feedback.repository.js");
 const { getAiGenerationStatus } = await import(
   "../../../src/modules/ai-feedback/ai-feedback.repository.js"
 );
@@ -97,6 +98,42 @@ describe("ai-feedback objective explanations", () => {
       },
     });
     expect(prisma.aiObjectiveExplanation.create).not.toHaveBeenCalled();
+    expect(explanation).toBe(cached);
+  });
+
+  it("finds objective explanations by deterministic cache key without enqueueing", async () => {
+    const cached = {
+      id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      status: "running",
+    };
+    prisma.aiObjectiveExplanation.findFirst.mockResolvedValueOnce(cached as never);
+
+    const explanation = await findAiObjectiveExplanationByCacheKey({
+      submissionId,
+      assignmentId,
+      requesterId,
+      questionId: "q-1",
+      deterministicResult: "incorrect",
+      promptVersion: "objective-explanation-v1",
+      sourceContextHash: "sha256:source",
+      routeKey: "low_cost",
+    });
+
+    expect(prisma.aiObjectiveExplanation.findFirst).toHaveBeenCalledWith({
+      where: {
+        submissionId,
+        assignmentId,
+        questionId: "q-1",
+        deterministicResult: "incorrect",
+        promptVersion: "objective-explanation-v1",
+        sourceContextHash: "sha256:source",
+        routeKey: "low_cost",
+        requesterId,
+        deletedAt: null,
+      },
+    });
+    expect(prisma.aiObjectiveExplanation.create).not.toHaveBeenCalled();
+    expect(enqueueObjectiveExplanationOnActiveQueue).not.toHaveBeenCalled();
     expect(explanation).toBe(cached);
   });
 

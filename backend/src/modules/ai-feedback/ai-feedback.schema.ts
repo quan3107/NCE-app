@@ -158,6 +158,19 @@ export const upsertAiObjectiveExplanationSchema = z
     }
   });
 
+export const findAiObjectiveExplanationByCacheKeySchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    assignmentId: z.string().uuid(),
+    requesterId: z.string().uuid(),
+    questionId: z.string().min(1),
+    deterministicResult: z.string().min(1),
+    promptVersion: z.string().min(1),
+    sourceContextHash: z.string().min(1),
+    routeKey: z.string().min(1),
+  })
+  .strict();
+
 export const aiGenerationStatusRequestSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -172,6 +185,13 @@ export const aiGenerationStatusRequestSchema = z.discriminatedUnion("kind", [
     })
     .strict(),
 ]);
+
+export const objectiveExplanationRequestParamsSchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    questionId: z.string().min(1),
+  })
+  .strict();
 
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
@@ -203,6 +223,14 @@ export const aiFeedbackHealthResponseSchema = z.object({
   problem: z.string().optional(),
 });
 
+export const objectiveExplanationResponseSchema = z.object({
+  id: z.string().uuid(),
+  status: aiObjectiveExplanationStatusSchema,
+  cached: z.boolean(),
+  pollingLocation: z.string().min(1).optional(),
+  explanation: jsonRecordSchema.optional(),
+});
+
 export type AiFeedbackHealthStatus = z.infer<
   typeof aiFeedbackHealthStatusSchema
 >;
@@ -224,6 +252,15 @@ export type SupersedeAiFeedbackDraftsInput = z.infer<
 export type UpsertAiObjectiveExplanationInput = z.infer<
   typeof upsertAiObjectiveExplanationSchema
 >;
+export type FindAiObjectiveExplanationByCacheKeyInput = z.infer<
+  typeof findAiObjectiveExplanationByCacheKeySchema
+>;
 export type AiGenerationStatusRequest = z.infer<
   typeof aiGenerationStatusRequestSchema
+>;
+export type ObjectiveExplanationRequestParams = z.infer<
+  typeof objectiveExplanationRequestParamsSchema
+>;
+export type ObjectiveExplanationResponse = z.infer<
+  typeof objectiveExplanationResponseSchema
 >;
