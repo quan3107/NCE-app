@@ -150,3 +150,81 @@ AssignmentSubmissionById:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+
+SubmissionWritingAiFeedback:
+  post:
+    tags: [ai-feedback, submissions]
+    summary: Request AI writing feedback draft generation
+    description: >
+      Allows an authorized course teacher or admin to manually request or
+      regenerate AI feedback for a submitted IELTS writing response. Drafts
+      remain separate from final grade feedback; teacher-reviewed drafts stay
+      hidden from students, while instant-student-visible drafts are provisional.
+      Visual Task 1 requests require backend-validated hosted image context or
+      return a teacher-review-only status explaining why image context is
+      unavailable.
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Existing or regenerated writing feedback draft is already terminal and readable to the requester.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+      '202':
+        description: Writing feedback generation has been queued or is running.
+        headers:
+          Location:
+            description: Polling location for the writing feedback draft request.
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+      '400':
+        description: Submission is not a writing assignment or request parameters are invalid.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden or AI writing feedback is disabled by assignment policy.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Feedback cannot be queued because the submission is not ready, a duplicate draft is active, or review is required.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
+      '413':
+        description: AI writing feedback input exceeds the configured maximum size.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '503':
+        description: AI feedback generation is disabled globally or provider configuration is unavailable.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

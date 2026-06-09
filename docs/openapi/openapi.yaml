@@ -130,6 +130,8 @@ paths:
 
   /api/v1/submissions/{submissionId}/grade:
     $ref: './paths/grades.yaml#/SubmissionGrade'
+  /api/v1/submissions/{submissionId}/ai-feedback/writing:
+    $ref: './paths/submissions.yaml#/SubmissionWritingAiFeedback'
 
   /api/v1/notifications:
     $ref: './paths/notifications.yaml#/Notifications'
