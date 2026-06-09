@@ -7,10 +7,14 @@ import type { RequestActor } from "../../middleware/requestActor.js";
 import { aiFeedbackConfig } from "./ai-feedback.config.js";
 import {
   createAiFeedbackDraft,
+  findLatestAiFeedbackDraftBySubmission,
   supersedeAiFeedbackDrafts,
 } from "./ai-feedback.repository.js";
 import type { WritingFeedbackResponse } from "./ai-feedback.schema.js";
-import { loadWritingFeedbackContext } from "./ai-feedback.writing-feedback.context.js";
+import {
+  loadWritingFeedbackContext,
+  loadWritingFeedbackStatusContext,
+} from "./ai-feedback.writing-feedback.context.js";
 import {
   assertAiFeedbackGenerationReady,
   imageUnavailableFeedback,
@@ -19,6 +23,7 @@ import {
   toWritingFeedbackResponse,
 } from "./ai-feedback.writing-feedback.support.js";
 import type { WritingFeedbackContext } from "./ai-feedback.writing-feedback.types.js";
+import { createHttpError } from "../../utils/httpError.js";
 import { buildIeltsWritingFeedbackPrompt } from "./prompts/index.js";
 import { IELTS_WRITING_FEEDBACK_PROMPT_VERSION } from "./prompts/system.js";
 
@@ -87,6 +92,20 @@ export async function requestAiWritingFeedback(
     submissionId: context.submission.id,
     exceptDraftId: draft.id,
   });
+
+  return toWritingFeedbackResponse(draft);
+}
+
+export async function getAiWritingFeedbackStatus(
+  params: unknown,
+  actor?: RequestActor,
+): Promise<WritingFeedbackResponse> {
+  const context = await loadWritingFeedbackStatusContext(params, actor);
+  const draft = await findLatestAiFeedbackDraftBySubmission(context.submissionId);
+
+  if (!draft) {
+    throw createHttpError(404, "AI writing feedback draft not found.");
+  }
 
   return toWritingFeedbackResponse(draft);
 }

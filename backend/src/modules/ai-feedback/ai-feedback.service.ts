@@ -17,6 +17,7 @@ export {
 } from "./ai-feedback.objective-explanations.js";
 export {
   enqueueAiWritingFeedbackForSubmission,
+  getAiWritingFeedbackStatus,
   requestAiWritingFeedback,
 } from "./ai-feedback.writing-feedback.js";
 

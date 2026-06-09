@@ -152,6 +152,60 @@ AssignmentSubmissionById:
       - BearerAuth: []
 
 SubmissionWritingAiFeedback:
+  get:
+    tags: [ai-feedback, submissions]
+    summary: Get AI writing feedback draft status
+    description: >
+      Returns the latest AI writing feedback draft status for an authorized
+      course teacher or admin. Active queued/running drafts include the same
+      polling location returned by the manual generation request.
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Latest writing feedback draft is terminal and readable to the requester.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+      '202':
+        description: Latest writing feedback generation is queued or running.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden, or AI writing feedback is disabled by assignment policy.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: No writing feedback draft exists for this submission.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Latest writing feedback draft is in a non-success terminal state.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+    security:
+      - BearerAuth: []
+
   post:
     tags: [ai-feedback, submissions]
     summary: Request AI writing feedback draft generation

@@ -214,3 +214,74 @@ export async function loadWritingFeedbackContext(
     inputHash: sha256(promptInput),
   };
 }
+
+export async function loadWritingFeedbackStatusContext(
+  params: unknown,
+  actor: RequestActor | undefined,
+): Promise<{ submissionId: string }> {
+  const { submissionId } = writingFeedbackRequestParamsSchema.parse(params);
+  const submission = await prisma.submission.findFirst({
+    where: {
+      id: submissionId,
+      deletedAt: null,
+      assignment: { deletedAt: null, course: { deletedAt: null } },
+    },
+    select: {
+      id: true,
+      assignmentId: true,
+      studentId: true,
+      status: true,
+      payload: true,
+      grade: {
+        select: {
+          id: true,
+          rawScore: true,
+          finalScore: true,
+          band: true,
+          feedback: true,
+          deletedAt: true,
+        },
+      },
+      assignment: {
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          assignmentConfig: true,
+          courseId: true,
+          course: {
+            select: {
+              ownerId: true,
+              enrollments: {
+                where: actor
+                  ? {
+                      userId: actor.id,
+                      roleInCourse: EnrollmentRole.teacher,
+                      deletedAt: null,
+                    }
+                  : undefined,
+                select: {
+                  userId: true,
+                  roleInCourse: true,
+                  deletedAt: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!submission) {
+    throw createNotFoundError("Submission", submissionId);
+  }
+
+  assertCanRequestWritingFeedback(submission, actor, "manual");
+  const assignmentConfig = parseWritingAssignmentConfig(
+    submission.assignment.assignmentConfig,
+  );
+  assertWritingFeedbackPolicy(submission, assignmentConfig);
+
+  return { submissionId: submission.id };
+}

@@ -28,6 +28,7 @@ vi.mock("../../../src/modules/ai-feedback/image-context.js", () => ({
 
 vi.mock("../../../src/modules/ai-feedback/ai-feedback.repository.js", () => ({
   createAiFeedbackDraft: vi.fn(),
+  findLatestAiFeedbackDraftBySubmission: vi.fn(),
   findAiObjectiveExplanationByCacheKey: vi.fn(),
   supersedeAiFeedbackDrafts: vi.fn(),
   upsertAiObjectiveExplanation: vi.fn(),
@@ -43,11 +44,17 @@ const imageContextModule = await import(
 const configModule = await import(
   "../../../src/modules/ai-feedback/ai-feedback.config.js"
 );
-const { enqueueAiWritingFeedbackForSubmission, requestAiWritingFeedback } =
-  await import("../../../src/modules/ai-feedback/ai-feedback.service.js");
+const {
+  enqueueAiWritingFeedbackForSubmission,
+  getAiWritingFeedbackStatus,
+  requestAiWritingFeedback,
+} = await import("../../../src/modules/ai-feedback/ai-feedback.service.js");
 
 const prisma = vi.mocked(prismaModule.prisma, true);
 const createAiFeedbackDraft = vi.mocked(repositoryModule.createAiFeedbackDraft);
+const findLatestAiFeedbackDraftBySubmission = vi.mocked(
+  repositoryModule.findLatestAiFeedbackDraftBySubmission,
+);
 const supersedeAiFeedbackDrafts = vi.mocked(
   repositoryModule.supersedeAiFeedbackDrafts,
 );
@@ -364,6 +371,53 @@ describe("enqueueAiWritingFeedbackForSubmission", () => {
     expect(supersedeAiFeedbackDrafts).toHaveBeenCalledWith({
       submissionId,
       exceptDraftId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    });
+  });
+});
+
+describe("getAiWritingFeedbackStatus", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    aiFeedbackConfig.enabled = false;
+    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never);
+    findLatestAiFeedbackDraftBySubmission.mockResolvedValue({
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      submissionId,
+      status: "running",
+      visibilityMode: "teacher_reviewed",
+      generatedFeedback: { status: "running" },
+      failureCode: null,
+      failureMessage: null,
+    } as never);
+  });
+
+  it("returns the latest writing draft status without creating a new draft", async () => {
+    const response = await getAiWritingFeedbackStatus(
+      { submissionId },
+      teacherActor,
+    );
+
+    expect(findLatestAiFeedbackDraftBySubmission).toHaveBeenCalledWith(
+      submissionId,
+    );
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled();
+    expect(resolveAiFeedbackImageContext).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      status: "running",
+      visibilityMode: "teacher_reviewed",
+      pollingLocation: `/api/v1/submissions/${submissionId}/ai-feedback/writing`,
+    });
+  });
+
+  it("returns 404 when no writing draft exists for the submission", async () => {
+    findLatestAiFeedbackDraftBySubmission.mockResolvedValueOnce(null);
+
+    await expect(
+      getAiWritingFeedbackStatus({ submissionId }, teacherActor),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "AI writing feedback draft not found.",
     });
   });
 });

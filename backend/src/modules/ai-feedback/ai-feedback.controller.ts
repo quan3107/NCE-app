@@ -13,6 +13,7 @@ import {
 import {
   getAiFeedbackHealth,
   getAiObjectiveExplanationStatus,
+  getAiWritingFeedbackStatus,
   requestAiWritingFeedback,
   requestAiObjectiveExplanation,
 } from "./ai-feedback.service.js";
@@ -111,6 +112,22 @@ export async function postWritingFeedbackRequest(
     }
 
     response.json(draft);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getWritingFeedbackStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const draft = writingFeedbackResponseSchema.parse(
+      await getAiWritingFeedbackStatus(req.params, req.user),
+    );
+
+    res.status(writingFeedbackStatusCode(draft.status)).json(draft);
   } catch (error) {
     next(error);
   }

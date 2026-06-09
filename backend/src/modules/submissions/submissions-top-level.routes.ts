@@ -10,6 +10,7 @@ import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
 import {
   getObjectiveExplanationStatus,
+  getWritingFeedbackStatus,
   postObjectiveExplanationRequest,
   postWritingFeedbackRequest,
 } from "../ai-feedback/ai-feedback.controller.js";
@@ -45,4 +46,10 @@ submissionsTopLevelRouter.post(
   "/:submissionId/ai-feedback/writing",
   roleGuard([UserRole.admin, UserRole.teacher]),
   postWritingFeedbackRequest,
+);
+
+submissionsTopLevelRouter.get(
+  "/:submissionId/ai-feedback/writing",
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  getWritingFeedbackStatus,
 );
