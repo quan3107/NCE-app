@@ -193,6 +193,12 @@ export const objectiveExplanationRequestParamsSchema = z
   })
   .strict();
 
+export const writingFeedbackRequestParamsSchema = z
+  .object({
+    submissionId: z.string().uuid(),
+  })
+  .strict();
+
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
   reasoning_effort: aiReasoningEffortResponseSchema,
@@ -231,6 +237,16 @@ export const objectiveExplanationResponseSchema = z.object({
   explanation: jsonRecordSchema.optional(),
 });
 
+export const writingFeedbackResponseSchema = z.object({
+  id: z.string().uuid(),
+  status: aiFeedbackDraftStatusSchema,
+  visibilityMode: aiFeedbackVisibilityModeSchema,
+  pollingLocation: z.string().min(1).optional(),
+  feedback: jsonRecordSchema.optional(),
+  failureCode: z.string().min(1).optional(),
+  failureMessage: z.string().min(1).optional(),
+});
+
 export type AiFeedbackHealthStatus = z.infer<
   typeof aiFeedbackHealthStatusSchema
 >;
@@ -263,4 +279,10 @@ export type ObjectiveExplanationRequestParams = z.infer<
 >;
 export type ObjectiveExplanationResponse = z.infer<
   typeof objectiveExplanationResponseSchema
+>;
+export type WritingFeedbackRequestParams = z.infer<
+  typeof writingFeedbackRequestParamsSchema
+>;
+export type WritingFeedbackResponse = z.infer<
+  typeof writingFeedbackResponseSchema
 >;

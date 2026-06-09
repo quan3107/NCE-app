@@ -11,6 +11,7 @@ import { roleGuard } from "../../middleware/roleGuard.js";
 import {
   getObjectiveExplanationStatus,
   postObjectiveExplanationRequest,
+  postWritingFeedbackRequest,
 } from "../ai-feedback/ai-feedback.controller.js";
 import { getUngradedSubmissionsCount } from "./submissions.controller.js";
 
@@ -38,4 +39,10 @@ submissionsTopLevelRouter.get(
   "/:submissionId/questions/:questionId/ai-explanation",
   roleGuard([UserRole.admin, UserRole.teacher, UserRole.student]),
   getObjectiveExplanationStatus,
+);
+
+submissionsTopLevelRouter.post(
+  "/:submissionId/ai-feedback/writing",
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  postWritingFeedbackRequest,
 );

@@ -7,7 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFunction, Request, Response } from "express";
 
 vi.mock("../../../src/modules/ai-feedback/ai-feedback.service.js", () => ({
+  getAiFeedbackHealth: vi.fn(),
   getAiObjectiveExplanationStatus: vi.fn(),
+  requestAiWritingFeedback: vi.fn(),
   requestAiObjectiveExplanation: vi.fn(),
 }));
 
@@ -16,6 +18,9 @@ const serviceModule = await import(
 );
 const { getObjectiveExplanationStatus, postObjectiveExplanationRequest } =
   await import("../../../src/modules/ai-feedback/ai-feedback.controller.js");
+const { postWritingFeedbackRequest } = await import(
+  "../../../src/modules/ai-feedback/ai-feedback.controller.js"
+);
 
 const getAiObjectiveExplanationStatus = vi.mocked(
   serviceModule.getAiObjectiveExplanationStatus,
@@ -23,6 +28,7 @@ const getAiObjectiveExplanationStatus = vi.mocked(
 const requestAiObjectiveExplanation = vi.mocked(
   serviceModule.requestAiObjectiveExplanation,
 );
+const requestAiWritingFeedback = vi.mocked(serviceModule.requestAiWritingFeedback);
 
 function response() {
   return {
@@ -147,5 +153,38 @@ describe("getObjectiveExplanationStatus", () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ status: "completed", cached: true }),
     );
+  });
+});
+
+describe("postWritingFeedbackRequest", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns 202 with a polling location for queued writing drafts", async () => {
+    const res = response();
+    const next = vi.fn() as NextFunction;
+    requestAiWritingFeedback.mockResolvedValueOnce({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "queued",
+      visibilityMode: "teacher_reviewed",
+      pollingLocation:
+        "/api/v1/submissions/11111111-1111-4111-8111-111111111111/ai-feedback/writing",
+    });
+
+    await postWritingFeedbackRequest(
+      { params: {}, user: undefined } as Request,
+      res,
+      next,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.location).toHaveBeenCalledWith(
+      "/api/v1/submissions/11111111-1111-4111-8111-111111111111/ai-feedback/writing",
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "queued" }),
+    );
+    expect(next).not.toHaveBeenCalled();
   });
 });
