@@ -26,6 +26,9 @@ vi.mock("../../../src/prisma/client.js", () => ({
 vi.mock("../../../src/modules/scoring/ieltsScoring.service.js", () => ({
   autoScoreSubmission: vi.fn(),
 }));
+vi.mock("../../../src/modules/ai-feedback/ai-feedback.service.js", () => ({
+  enqueueAiWritingFeedbackForSubmission: vi.fn(),
+}));
 vi.mock(
   "../../../src/modules/notification-preferences/notification-preferences.service.js",
   () => ({
@@ -44,12 +47,19 @@ const notificationPreferencesModule = await import(
 const notificationsModule = await import(
   "../../../src/modules/notifications/notifications.service.js"
 );
+const aiFeedbackModule = await import(
+  "../../../src/modules/ai-feedback/ai-feedback.service.js"
+);
 const resolveNotificationTypeEnabledForUsers = vi.mocked(
   notificationPreferencesModule.resolveNotificationTypeEnabledForUsers,
   true,
 );
 const enqueueNotification = vi.mocked(
   notificationsModule.enqueueNotification,
+  true,
+);
+const enqueueAiWritingFeedbackForSubmission = vi.mocked(
+  aiFeedbackModule.enqueueAiWritingFeedbackForSubmission,
   true,
 );
 
@@ -426,6 +436,66 @@ describe("submissions.service.createSubmission", () => {
         userId: "teacher-1",
         type: "new_submission",
       }),
+    );
+  });
+
+  it("auto-enqueues AI writing feedback for submitted policy-enabled writing assignments", async () => {
+    const assignmentRecord = {
+      id: assignmentId,
+      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
+      title: "Writing Practice",
+      type: "writing",
+      assignmentConfig: {
+        version: 1,
+        aiPolicy: {
+          writingFeedbackMode: "instant_student_visible",
+          objectiveExplanations: "off",
+          providerTier: "auto",
+        },
+        task1: {
+          prompt: "Summarise the chart.",
+        },
+        task2: {
+          prompt: "Discuss both views.",
+        },
+      },
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: new Date("2026-02-01T00:00:00.000Z"),
+      course: {
+        title: "IELTS Writing",
+      },
+    };
+    const submission = {
+      id: "77777777-7777-4777-8777-777777777777",
+      submittedAt: new Date("2026-02-09T10:00:00.000Z"),
+    } as Submission;
+
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
+    prisma.submission.findUnique.mockResolvedValueOnce(null);
+    prisma.submission.create.mockResolvedValueOnce(submission);
+
+    await createSubmission(
+      { assignmentId },
+      {
+        submittedAt: "2026-02-09T10:00:00.000Z",
+        status: "submitted",
+        payload: {
+          version: 1,
+          task1: { text: "The chart rises steadily." },
+          task2: { text: "Both views have merit." },
+        },
+      },
+      { id: studentId, role: "student" },
+    );
+
+    expect(enqueueAiWritingFeedbackForSubmission).toHaveBeenCalledWith(
+      submission.id,
+      {
+        id: studentId,
+        role: "student",
+        status: "active",
+      },
     );
   });
 });
