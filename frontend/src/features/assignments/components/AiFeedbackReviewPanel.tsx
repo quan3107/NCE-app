@@ -34,15 +34,13 @@ import {
   buildWritingFeedbackDraftView,
   extractEditableFeedback,
   extractTeacherEditedFeedback,
+  syncWritingFeedbackPendingDecisionFeedback,
   type WritingFeedbackDecisionAction,
+  type WritingFeedbackPendingDecision,
 } from '@features/ai-feedback/ui.logic';
 import type { WritingFeedbackReviewResponse } from '@features/ai-feedback/types';
 
-export type AiFeedbackPendingDecision = {
-  action: WritingFeedbackDecisionAction;
-  draftId: string;
-  feedbackMd: string;
-};
+export type AiFeedbackPendingDecision = WritingFeedbackPendingDecision;
 
 type AiFeedbackReviewPanelProps = {
   assignment: Assignment;
@@ -184,6 +182,16 @@ export function AiFeedbackReviewPanel({
       feedbackMd,
     });
     toast.success('AI feedback decision will be recorded when you post the grade.');
+  };
+
+  const handleEditedFeedbackChange = (value: string) => {
+    setEditedFeedback(value);
+    if (!draft || !queuedForCurrentDraft) {
+      return;
+    }
+    onPendingDecisionChange?.(
+      syncWritingFeedbackPendingDecisionFeedback(queuedForCurrentDraft, draft.id, value),
+    );
   };
 
   const handleRequest = async () => {
@@ -341,7 +349,7 @@ export function AiFeedbackReviewPanel({
               id="ai-feedback-draft"
               rows={8}
               value={editedFeedback}
-              onChange={(event) => setEditedFeedback(event.target.value)}
+              onChange={(event) => handleEditedFeedbackChange(event.target.value)}
               disabled={!view.canDecide}
               placeholder="AI draft text will appear here when feedback is ready."
             />

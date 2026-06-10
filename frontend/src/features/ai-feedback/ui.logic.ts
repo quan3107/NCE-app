@@ -50,6 +50,12 @@ export type WritingFeedbackDecisionActionView = {
   mode: 'immediate' | 'after-grade-post';
 };
 
+export type WritingFeedbackPendingDecision = {
+  action: WritingFeedbackDecisionAction;
+  draftId: string;
+  feedbackMd: string;
+};
+
 const objectiveTypes = new Set<IeltsAssignmentType>(['reading', 'listening']);
 
 const writingFeedbackLabels: Record<IeltsWritingFeedbackMode, string> = {
@@ -317,5 +323,20 @@ export function buildWritingFeedbackDecisionActionView(
     description:
       'This decision will be recorded after Post Grade creates the grade required by the review workflow.',
     mode: 'after-grade-post',
+  };
+}
+
+export function syncWritingFeedbackPendingDecisionFeedback(
+  pendingDecision: WritingFeedbackPendingDecision,
+  draftId: string,
+  feedbackMd: string,
+): WritingFeedbackPendingDecision {
+  if (pendingDecision.draftId !== draftId) {
+    return pendingDecision;
+  }
+
+  return {
+    ...pendingDecision,
+    feedbackMd: feedbackMd.trim(),
   };
 }

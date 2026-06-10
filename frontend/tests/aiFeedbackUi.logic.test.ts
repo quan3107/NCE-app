@@ -7,6 +7,7 @@ import {
   buildWritingFeedbackDraftView,
   extractEditableFeedback,
   normalizeAiPolicyForAssignmentType,
+  syncWritingFeedbackPendingDecisionFeedback,
 } from '../src/features/ai-feedback/ui.logic';
 import type { WritingFeedbackReviewResponse } from '../src/features/ai-feedback/types';
 import { createIeltsAssignmentConfig } from '../src/lib/ielts';
@@ -125,4 +126,30 @@ test('buildWritingFeedbackDecisionActionView defers decisions until a grade exis
   assert.equal(finalizeWithoutGrade.label, 'Finalize after posting grade');
   assert.equal(approveWithGrade.mode, 'immediate');
   assert.equal(approveWithGrade.label, 'Approve');
+});
+
+test('syncWritingFeedbackPendingDecisionFeedback refreshes queued decision text for the same draft', () => {
+  const pendingDecision = {
+    action: 'approve' as const,
+    draftId: 'draft-1',
+    feedbackMd: 'Original feedback.',
+  };
+
+  const updated = syncWritingFeedbackPendingDecisionFeedback(
+    pendingDecision,
+    'draft-1',
+    '  Updated feedback after queueing.  ',
+  );
+  const unchanged = syncWritingFeedbackPendingDecisionFeedback(
+    pendingDecision,
+    'draft-2',
+    'Different draft feedback.',
+  );
+
+  assert.deepEqual(updated, {
+    action: 'approve',
+    draftId: 'draft-1',
+    feedbackMd: 'Updated feedback after queueing.',
+  });
+  assert.equal(unchanged, pendingDecision);
 });
