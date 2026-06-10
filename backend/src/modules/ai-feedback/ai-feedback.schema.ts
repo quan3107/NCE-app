@@ -199,6 +199,41 @@ export const writingFeedbackRequestParamsSchema = z
   })
   .strict();
 
+export const writingFeedbackDraftParamsSchema = z
+  .object({
+    submissionId: z.string().uuid(),
+    draftId: z.string().uuid(),
+  })
+  .strict();
+
+export const aiFeedbackCriterionSuggestionSchema = z
+  .object({
+    criterion: z.string().min(1),
+    points: z.number(),
+  })
+  .strict();
+
+export const aiWritingFeedbackApprovalBodySchema = z
+  .object({
+    feedbackMd: z.string().trim().min(1),
+    normalizedCriterionSuggestions: z
+      .array(aiFeedbackCriterionSuggestionSchema)
+      .optional(),
+  })
+  .strict();
+
+export const aiWritingFeedbackRejectBodySchema = z
+  .object({
+    reason: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+export const aiWritingFeedbackRegenerateBodySchema = z
+  .object({
+    providerTier: z.enum(["low_cost", "premium"]).optional(),
+  })
+  .strict();
+
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
   reasoning_effort: aiReasoningEffortResponseSchema,
@@ -247,6 +282,20 @@ export const writingFeedbackResponseSchema = z.object({
   failureMessage: z.string().min(1).optional(),
 });
 
+export const writingFeedbackReviewResponseSchema =
+  writingFeedbackResponseSchema.extend({
+    decision: aiFeedbackDraftDecisionSchema.nullable().optional(),
+    gradeId: z.string().uuid().nullable().optional(),
+    decidedAt: z.string().datetime().nullable().optional(),
+    finalizedAt: z.string().datetime().nullable().optional(),
+    teacherEditedFeedback: jsonRecordSchema.nullable().optional(),
+    normalizedCriterionSuggestions: jsonArraySchema.nullable().optional(),
+  });
+
+export const writingFeedbackHistoryResponseSchema = z.object({
+  drafts: z.array(writingFeedbackReviewResponseSchema),
+});
+
 export type AiFeedbackHealthStatus = z.infer<
   typeof aiFeedbackHealthStatusSchema
 >;
@@ -283,6 +332,24 @@ export type ObjectiveExplanationResponse = z.infer<
 export type WritingFeedbackRequestParams = z.infer<
   typeof writingFeedbackRequestParamsSchema
 >;
+export type WritingFeedbackDraftParams = z.infer<
+  typeof writingFeedbackDraftParamsSchema
+>;
+export type AiWritingFeedbackApprovalBody = z.infer<
+  typeof aiWritingFeedbackApprovalBodySchema
+>;
+export type AiWritingFeedbackRejectBody = z.infer<
+  typeof aiWritingFeedbackRejectBodySchema
+>;
+export type AiWritingFeedbackRegenerateBody = z.infer<
+  typeof aiWritingFeedbackRegenerateBodySchema
+>;
 export type WritingFeedbackResponse = z.infer<
   typeof writingFeedbackResponseSchema
+>;
+export type WritingFeedbackReviewResponse = z.infer<
+  typeof writingFeedbackReviewResponseSchema
+>;
+export type WritingFeedbackHistoryResponse = z.infer<
+  typeof writingFeedbackHistoryResponseSchema
 >;

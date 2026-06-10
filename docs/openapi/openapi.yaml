@@ -132,6 +132,16 @@ paths:
     $ref: './paths/grades.yaml#/SubmissionGrade'
   /api/v1/submissions/{submissionId}/ai-feedback/writing:
     $ref: './paths/submissions.yaml#/SubmissionWritingAiFeedback'
+  /api/v1/submissions/{submissionId}/ai-feedback/writing/drafts:
+    $ref: './paths/submissions.yaml#/SubmissionWritingAiFeedbackDrafts'
+  /api/v1/submissions/{submissionId}/ai-feedback/writing/regenerate:
+    $ref: './paths/submissions.yaml#/SubmissionWritingAiFeedbackRegenerate'
+  /api/v1/submissions/{submissionId}/ai-feedback/writing/drafts/{draftId}/approve:
+    $ref: './paths/submissions.yaml#/SubmissionWritingAiFeedbackApprove'
+  /api/v1/submissions/{submissionId}/ai-feedback/writing/drafts/{draftId}/reject:
+    $ref: './paths/submissions.yaml#/SubmissionWritingAiFeedbackReject'
+  /api/v1/submissions/{submissionId}/ai-feedback/writing/drafts/{draftId}/finalize:
+    $ref: './paths/submissions.yaml#/SubmissionWritingAiFeedbackFinalize'
 
   /api/v1/notifications:
     $ref: './paths/notifications.yaml#/Notifications'

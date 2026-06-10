@@ -10,7 +10,11 @@ import {
   findLatestAiFeedbackDraftBySubmission,
   supersedeAiFeedbackDrafts,
 } from "./ai-feedback.repository.js";
-import type { WritingFeedbackResponse } from "./ai-feedback.schema.js";
+import {
+  aiWritingFeedbackRegenerateBodySchema,
+  type AiWritingFeedbackRegenerateBody,
+  type WritingFeedbackResponse,
+} from "./ai-feedback.schema.js";
 import {
   loadWritingFeedbackContext,
   loadWritingFeedbackStatusContext,
@@ -26,11 +30,18 @@ import type { WritingFeedbackContext } from "./ai-feedback.writing-feedback.type
 import { createHttpError } from "../../utils/httpError.js";
 import { buildIeltsWritingFeedbackPrompt } from "./prompts/index.js";
 import { IELTS_WRITING_FEEDBACK_PROMPT_VERSION } from "./prompts/system.js";
+import type { AiConcreteProviderRouteKey } from "./provider.types.js";
+
+type WritingFeedbackRequestOptions = {
+  providerTierOverride?: AiConcreteProviderRouteKey;
+};
 
 async function createWritingDraftForContext(
   context: WritingFeedbackContext,
+  options: WritingFeedbackRequestOptions = {},
 ) {
   const prompt = buildIeltsWritingFeedbackPrompt(context.promptInput);
+  const routeKey = options.providerTierOverride ?? context.routeKey;
 
   assertAiFeedbackGenerationReady();
 
@@ -41,10 +52,10 @@ async function createWritingDraftForContext(
       requesterId: context.actor.id,
       gradeId: context.submission.grade?.id,
       promptVersion: IELTS_WRITING_FEEDBACK_PROMPT_VERSION,
-      routeKey: context.routeKey,
+      routeKey,
       provider: aiFeedbackConfig.provider,
-      model: modelForRouteKey(context.routeKey),
-      reasoningEffort: reasoningEffortForRouteKey(context.routeKey),
+      model: modelForRouteKey(routeKey),
+      reasoningEffort: reasoningEffortForRouteKey(routeKey),
       inputHash: context.inputHash,
       status: "review_required",
       visibilityMode: "teacher_reviewed",
@@ -60,10 +71,10 @@ async function createWritingDraftForContext(
     requesterId: context.actor.id,
     gradeId: context.submission.grade?.id,
     promptVersion: IELTS_WRITING_FEEDBACK_PROMPT_VERSION,
-    routeKey: context.routeKey,
+    routeKey,
     provider: aiFeedbackConfig.provider,
-    model: modelForRouteKey(context.routeKey),
-    reasoningEffort: reasoningEffortForRouteKey(context.routeKey),
+    model: modelForRouteKey(routeKey),
+    reasoningEffort: reasoningEffortForRouteKey(routeKey),
     inputHash: context.inputHash,
     status: "queued",
     visibilityMode: context.visibilityMode,
@@ -76,7 +87,7 @@ async function createWritingDraftForContext(
         fixtureId: `writing-feedback:${context.submission.id}:${context.inputHash}`,
         taskType: "writing_feedback",
         promptInput: context.promptInput,
-        routeKey: context.routeKey,
+        routeKey,
       },
     },
   });
@@ -85,15 +96,29 @@ async function createWritingDraftForContext(
 export async function requestAiWritingFeedback(
   params: unknown,
   actor?: RequestActor,
+  options: WritingFeedbackRequestOptions = {},
 ): Promise<WritingFeedbackResponse> {
   const context = await loadWritingFeedbackContext(params, actor, "manual");
-  const draft = await createWritingDraftForContext(context);
+  const draft = await createWritingDraftForContext(context, options);
   await supersedeAiFeedbackDrafts({
     submissionId: context.submission.id,
     exceptDraftId: draft.id,
   });
 
   return toWritingFeedbackResponse(draft);
+}
+
+export function regenerateAiWritingFeedback(
+  params: unknown,
+  payload: unknown,
+  actor?: RequestActor,
+): Promise<WritingFeedbackResponse> {
+  const data: AiWritingFeedbackRegenerateBody =
+    aiWritingFeedbackRegenerateBodySchema.parse(payload ?? {});
+
+  return requestAiWritingFeedback(params, actor, {
+    providerTierOverride: data.providerTier,
+  });
 }
 
 export async function getAiWritingFeedbackStatus(

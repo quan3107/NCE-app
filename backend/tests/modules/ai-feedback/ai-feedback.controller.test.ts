@@ -7,9 +7,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFunction, Request, Response } from "express";
 
 vi.mock("../../../src/modules/ai-feedback/ai-feedback.service.js", () => ({
+  approveAiWritingFeedbackDraft: vi.fn(),
+  finalizeAiWritingFeedbackDraft: vi.fn(),
   getAiFeedbackHealth: vi.fn(),
   getAiObjectiveExplanationStatus: vi.fn(),
   getAiWritingFeedbackStatus: vi.fn(),
+  listAiWritingFeedbackDrafts: vi.fn(),
+  rejectAiWritingFeedbackDraft: vi.fn(),
+  regenerateAiWritingFeedback: vi.fn(),
   requestAiWritingFeedback: vi.fn(),
   requestAiObjectiveExplanation: vi.fn(),
 }));
@@ -18,14 +23,34 @@ const serviceModule = await import(
   "../../../src/modules/ai-feedback/ai-feedback.service.js"
 );
 const {
+  getWritingFeedbackDraftHistory,
   getObjectiveExplanationStatus,
   getWritingFeedbackStatus,
+  postWritingFeedbackApproval,
+  postWritingFeedbackFinalization,
+  postWritingFeedbackRejection,
+  postWritingFeedbackRegeneration,
   postObjectiveExplanationRequest,
   postWritingFeedbackRequest,
 } = await import("../../../src/modules/ai-feedback/ai-feedback.controller.js");
 
+const approveAiWritingFeedbackDraft = vi.mocked(
+  serviceModule.approveAiWritingFeedbackDraft,
+);
+const finalizeAiWritingFeedbackDraft = vi.mocked(
+  serviceModule.finalizeAiWritingFeedbackDraft,
+);
 const getAiObjectiveExplanationStatus = vi.mocked(
   serviceModule.getAiObjectiveExplanationStatus,
+);
+const listAiWritingFeedbackDrafts = vi.mocked(
+  serviceModule.listAiWritingFeedbackDrafts,
+);
+const rejectAiWritingFeedbackDraft = vi.mocked(
+  serviceModule.rejectAiWritingFeedbackDraft,
+);
+const regenerateAiWritingFeedback = vi.mocked(
+  serviceModule.regenerateAiWritingFeedback,
 );
 const requestAiObjectiveExplanation = vi.mocked(
   serviceModule.requestAiObjectiveExplanation,
@@ -222,5 +247,148 @@ describe("getWritingFeedbackStatus", () => {
       expect.objectContaining({ status: "running" }),
     );
     expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe("writing feedback teacher review controllers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns writing feedback draft history", async () => {
+    const res = response();
+    const next = vi.fn() as NextFunction;
+    listAiWritingFeedbackDrafts.mockResolvedValueOnce([
+      {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        status: "accepted",
+        visibilityMode: "teacher_reviewed",
+      },
+    ]);
+
+    await getWritingFeedbackDraftHistory(
+      { params: { submissionId: "submission-1" }, user: { id: "teacher-1" } } as unknown as Request,
+      res,
+      next,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      drafts: [
+        expect.objectContaining({
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          status: "accepted",
+        }),
+      ],
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("approves a draft and returns the decided record", async () => {
+    const res = response();
+    const next = vi.fn() as NextFunction;
+    approveAiWritingFeedbackDraft.mockResolvedValueOnce({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "approved",
+      visibilityMode: "teacher_reviewed",
+      gradeId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    });
+
+    await postWritingFeedbackApproval(
+      { params: {}, body: { feedbackMd: "Edited." }, user: { id: "teacher-1" } } as Request,
+      res,
+      next,
+    );
+
+    expect(approveAiWritingFeedbackDraft).toHaveBeenCalledWith(
+      {},
+      { feedbackMd: "Edited." },
+      { id: "teacher-1" },
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "approved" }),
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("rejects a draft with teacher reason", async () => {
+    const res = response();
+    const next = vi.fn() as NextFunction;
+    rejectAiWritingFeedbackDraft.mockResolvedValueOnce({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "rejected",
+      visibilityMode: "teacher_reviewed",
+    });
+
+    await postWritingFeedbackRejection(
+      { params: {}, body: { reason: "Needs rewrite." }, user: { id: "teacher-1" } } as Request,
+      res,
+      next,
+    );
+
+    expect(rejectAiWritingFeedbackDraft).toHaveBeenCalledWith(
+      {},
+      { reason: "Needs rewrite." },
+      { id: "teacher-1" },
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "rejected" }),
+    );
+  });
+
+  it("finalizes instant-visible provisional feedback", async () => {
+    const res = response();
+    const next = vi.fn() as NextFunction;
+    finalizeAiWritingFeedbackDraft.mockResolvedValueOnce({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "finalized",
+      visibilityMode: "instant_student_visible",
+    });
+
+    await postWritingFeedbackFinalization(
+      { params: {}, body: { feedbackMd: "Final." }, user: { id: "teacher-1" } } as Request,
+      res,
+      next,
+    );
+
+    expect(finalizeAiWritingFeedbackDraft).toHaveBeenCalledWith(
+      {},
+      { feedbackMd: "Final." },
+      { id: "teacher-1" },
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "finalized" }),
+    );
+  });
+
+  it("regenerates writing feedback with an optional provider tier override", async () => {
+    const res = response();
+    const next = vi.fn() as NextFunction;
+    regenerateAiWritingFeedback.mockResolvedValueOnce({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "queued",
+      visibilityMode: "teacher_reviewed",
+      pollingLocation:
+        "/api/v1/submissions/11111111-1111-4111-8111-111111111111/ai-feedback/writing",
+    });
+
+    await postWritingFeedbackRegeneration(
+      { params: {}, body: { providerTier: "premium" }, user: { id: "teacher-1" } } as Request,
+      res,
+      next,
+    );
+
+    expect(regenerateAiWritingFeedback).toHaveBeenCalledWith(
+      {},
+      { providerTier: "premium" },
+      { id: "teacher-1" },
+    );
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.location).toHaveBeenCalledWith(
+      "/api/v1/submissions/11111111-1111-4111-8111-111111111111/ai-feedback/writing",
+    );
   });
 });

@@ -18,8 +18,15 @@ export {
 export {
   enqueueAiWritingFeedbackForSubmission,
   getAiWritingFeedbackStatus,
+  regenerateAiWritingFeedback,
   requestAiWritingFeedback,
 } from "./ai-feedback.writing-feedback.js";
+export {
+  approveAiWritingFeedbackDraft,
+  finalizeAiWritingFeedbackDraft,
+  listAiWritingFeedbackDrafts,
+  rejectAiWritingFeedbackDraft,
+} from "./ai-feedback.teacher-review.js";
 
 type HealthProbe = (
   url: URL,

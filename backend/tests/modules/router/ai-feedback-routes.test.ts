@@ -96,4 +96,34 @@ describe("modules.router ai feedback routes", () => {
     expect(response.status).not.toBe(404);
     expect(response.status).toBe(401);
   });
+
+  it("mounts the writing feedback draft history route", async () => {
+    const response = await request(app).get(
+      "/api/v1/submissions/11111111-1111-4111-8111-111111111111/ai-feedback/writing/drafts",
+    );
+
+    expect(response.status).not.toBe(404);
+    expect(response.status).toBe(401);
+  });
+
+  it.each(["approve", "reject", "finalize"])(
+    "mounts the writing feedback %s review route",
+    async (action) => {
+      const response = await request(app).post(
+        `/api/v1/submissions/11111111-1111-4111-8111-111111111111/ai-feedback/writing/drafts/22222222-2222-4222-8222-222222222222/${action}`,
+      );
+
+      expect(response.status).not.toBe(404);
+      expect(response.status).toBe(401);
+    },
+  );
+
+  it("mounts the writing feedback regeneration route", async () => {
+    const response = await request(app).post(
+      "/api/v1/submissions/11111111-1111-4111-8111-111111111111/ai-feedback/writing/regenerate",
+    );
+
+    expect(response.status).not.toBe(404);
+    expect(response.status).toBe(401);
+  });
 });
