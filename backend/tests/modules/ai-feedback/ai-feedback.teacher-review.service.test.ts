@@ -16,7 +16,9 @@ vi.mock("../../../src/prisma/client.js", () => ({
     aiFeedbackDraft: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     grade: {
       update: vi.fn(),
@@ -94,6 +96,16 @@ describe("AI writing feedback teacher review service", () => {
     vi.clearAllMocks();
     prisma.$transaction.mockImplementation(async (callback) => callback(prisma));
     prisma.grade.update.mockResolvedValue({ id: gradeId } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
+    prisma.aiFeedbackDraft.findUnique.mockImplementation(async () => ({
+      ...baseDraft,
+      status: "approved",
+      decision: "approved",
+      decisionActorId: teacherId,
+      teacherEditedFeedback: {
+        feedbackMd: "Teacher-edited final feedback.",
+      },
+    }) as never);
     prisma.aiFeedbackDraft.update.mockImplementation(async (args) => ({
       ...baseDraft,
       ...args.data,
@@ -169,8 +181,14 @@ describe("AI writing feedback teacher review service", () => {
         gradedAt: expect.any(Date),
       },
     });
-    expect(prisma.aiFeedbackDraft.update).toHaveBeenCalledWith({
-      where: { id: draftId },
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: draftId,
+        decision: null,
+        status: {
+          in: ["accepted", "review_required", "failed"],
+        },
+      },
       data: expect.objectContaining({
         status: "approved",
         decision: "approved",
@@ -194,10 +212,42 @@ describe("AI writing feedback teacher review service", () => {
     });
   });
 
+  it("does not update grade feedback when a concurrent decision wins first", async () => {
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(baseDraft as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValueOnce({ count: 0 } as never);
+
+    await expect(
+      approveAiWritingFeedbackDraft(
+        { submissionId, draftId },
+        { feedbackMd: "Late competing edit." },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "AI feedback draft has already been decided.",
+    });
+
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: draftId,
+          decision: null,
+        }),
+      }),
+    );
+    expect(prisma.grade.update).not.toHaveBeenCalled();
+  });
+
   it("finalizes instant-visible feedback into final grade feedback", async () => {
     prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce({
       ...baseDraft,
       visibilityMode: "instant_student_visible",
+    } as never);
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValueOnce({
+      ...baseDraft,
+      visibilityMode: "instant_student_visible",
+      status: "finalized",
+      decision: "finalized",
     } as never);
 
     await finalizeAiWritingFeedbackDraft(
@@ -216,7 +266,7 @@ describe("AI writing feedback teacher review service", () => {
         }),
       }),
     );
-    expect(prisma.aiFeedbackDraft.update).toHaveBeenCalledWith(
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: "finalized",
@@ -248,6 +298,14 @@ describe("AI writing feedback teacher review service", () => {
 
   it("keeps rejected drafts for audit without updating grade feedback", async () => {
     prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(baseDraft as never);
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValueOnce({
+      ...baseDraft,
+      status: "rejected",
+      decision: "rejected",
+      teacherEditedFeedback: {
+        rejectionReason: "Feedback overstated coherence.",
+      },
+    } as never);
 
     const response = await rejectAiWritingFeedbackDraft(
       { submissionId, draftId },
@@ -256,8 +314,14 @@ describe("AI writing feedback teacher review service", () => {
     );
 
     expect(prisma.grade.update).not.toHaveBeenCalled();
-    expect(prisma.aiFeedbackDraft.update).toHaveBeenCalledWith({
-      where: { id: draftId },
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: draftId,
+        decision: null,
+        status: {
+          in: ["accepted", "review_required", "failed"],
+        },
+      },
       data: expect.objectContaining({
         status: "rejected",
         decision: "rejected",
@@ -270,6 +334,56 @@ describe("AI writing feedback teacher review service", () => {
     expect(response).toMatchObject({
       id: draftId,
       status: "rejected",
+    });
+  });
+
+  it("rejects drafts without requiring a request body", async () => {
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(baseDraft as never);
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValueOnce({
+      ...baseDraft,
+      status: "rejected",
+      decision: "rejected",
+    } as never);
+
+    await rejectAiWritingFeedbackDraft(
+      { submissionId, draftId },
+      undefined,
+      teacherActor,
+    );
+
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "rejected",
+          decision: "rejected",
+        }),
+      }),
+    );
+  });
+
+  it("keeps provider feedback visible in rejected draft history", async () => {
+    prisma.aiFeedbackDraft.findMany.mockResolvedValueOnce([
+      {
+        ...baseDraft,
+        status: "rejected",
+        decision: "rejected",
+        teacherEditedFeedback: {
+          rejectionReason: "Feedback overstated coherence.",
+        },
+      },
+    ] as never);
+
+    const drafts = await listAiWritingFeedbackDrafts(
+      { submissionId },
+      teacherActor,
+    );
+
+    expect(drafts[0]).toMatchObject({
+      status: "rejected",
+      feedback: baseDraft.generatedFeedback,
+      teacherEditedFeedback: {
+        rejectionReason: "Feedback overstated coherence.",
+      },
     });
   });
 

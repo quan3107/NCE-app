@@ -9,6 +9,7 @@ import {
   EnrollmentRole,
   Prisma,
   UserRole,
+  type AiFeedbackDraftStatus,
 } from "../../prisma/index.js";
 import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
@@ -67,11 +68,21 @@ type DraftWithSubmission = ReviewDraft & {
   };
 };
 
-const decidableDraftStatuses = new Set([
+type AiFeedbackDraftClient = {
+  aiFeedbackDraft: {
+    updateMany: typeof prisma.aiFeedbackDraft.updateMany;
+    findUnique: typeof prisma.aiFeedbackDraft.findUnique;
+  };
+};
+
+const decidableDraftStatuses: AiFeedbackDraftStatus[] = [
   "accepted",
   "review_required",
   "failed",
-]);
+];
+const decidableDraftStatusSet = new Set<AiFeedbackDraftStatus>(
+  decidableDraftStatuses,
+);
 
 function jsonObjectOrUndefined(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -96,15 +107,12 @@ function toIso(value: Date | null): string | null {
 }
 
 function toReviewResponse(draft: ReviewDraft): WritingFeedbackReviewResponse {
-  const feedback =
-    draft.teacherEditedFeedback ?? draft.generatedFeedback;
-
   return {
     id: draft.id,
     status: draft.status as WritingFeedbackReviewResponse["status"],
     visibilityMode: draft.visibilityMode,
-    ...(jsonObjectOrUndefined(feedback)
-      ? { feedback: jsonObjectOrUndefined(feedback) }
+    ...(jsonObjectOrUndefined(draft.generatedFeedback)
+      ? { feedback: jsonObjectOrUndefined(draft.generatedFeedback) }
       : {}),
     ...(draft.failureCode ? { failureCode: draft.failureCode } : {}),
     ...(draft.failureMessage ? { failureMessage: draft.failureMessage } : {}),
@@ -118,6 +126,54 @@ function toReviewResponse(draft: ReviewDraft): WritingFeedbackReviewResponse {
     normalizedCriterionSuggestions:
       jsonArrayOrUndefined(draft.normalizedCriterionSuggestions) ?? null,
   };
+}
+
+async function claimDraftDecision(
+  client: AiFeedbackDraftClient,
+  input: {
+    draft: DraftWithSubmission;
+    actorId: string;
+    decision: "approved" | "rejected" | "finalized";
+    gradeId?: string;
+    teacherEditedFeedback?: Prisma.InputJsonObject;
+    normalizedCriterionSuggestions?: Prisma.InputJsonArray;
+    decidedAt: Date;
+  },
+): Promise<ReviewDraft> {
+  const updated = await client.aiFeedbackDraft.updateMany({
+    where: {
+      id: input.draft.id,
+      decision: null,
+      status: {
+        in: decidableDraftStatuses,
+      },
+    },
+    data: {
+      status: input.decision,
+      decision: input.decision,
+      decisionActorId: input.actorId,
+      gradeId: input.gradeId,
+      teacherEditedFeedback: input.teacherEditedFeedback,
+      normalizedCriterionSuggestions: input.normalizedCriterionSuggestions,
+      decidedAt: input.decidedAt,
+      finalizedAt:
+        input.decision === "finalized" ? input.decidedAt : undefined,
+    },
+  });
+
+  if (updated.count === 0) {
+    throw createHttpError(409, "AI feedback draft has already been decided.");
+  }
+
+  const decidedDraft = await client.aiFeedbackDraft.findUnique({
+    where: { id: input.draft.id },
+  });
+
+  if (!decidedDraft) {
+    throw createNotFoundError("AI feedback draft", input.draft.id);
+  }
+
+  return decidedDraft as ReviewDraft;
 }
 
 function courseWhereForTeacher(actor: RequestActor) {
@@ -193,7 +249,7 @@ function assertDraftCanBeDecided(draft: DraftWithSubmission): void {
     throw createHttpError(409, "AI feedback draft has already been decided.");
   }
 
-  if (!decidableDraftStatuses.has(draft.status)) {
+  if (!decidableDraftStatusSet.has(draft.status as AiFeedbackDraftStatus)) {
     throw createHttpError(
       409,
       "AI feedback draft is not ready for teacher review.",
@@ -359,6 +415,16 @@ async function publishAiWritingFeedbackDraft(
     : undefined;
 
   const updated = await prisma.$transaction(async (tx) => {
+    const decidedDraft = await claimDraftDecision(tx, {
+      draft,
+      actorId: actor.id,
+      decision,
+      gradeId: grade.id,
+      teacherEditedFeedback,
+      normalizedCriterionSuggestions,
+      decidedAt,
+    });
+
     await tx.grade.update({
       where: { id: grade.id },
       data: {
@@ -368,19 +434,7 @@ async function publishAiWritingFeedbackDraft(
       },
     });
 
-    return tx.aiFeedbackDraft.update({
-      where: { id: draft.id },
-      data: {
-        status: decision,
-        decision,
-        decisionActorId: actor.id,
-        gradeId: grade.id,
-        teacherEditedFeedback,
-        normalizedCriterionSuggestions,
-        decidedAt,
-        finalizedAt: decision === "finalized" ? decidedAt : undefined,
-      },
-    });
+    return decidedDraft;
   });
 
   return toReviewResponse(updated as ReviewDraft);
@@ -409,7 +463,7 @@ export async function rejectAiWritingFeedbackDraft(
 ): Promise<WritingFeedbackReviewResponse> {
   assertTeacherReviewActor(actor);
   const { submissionId, draftId } = writingFeedbackDraftParamsSchema.parse(params);
-  const data = aiWritingFeedbackRejectBodySchema.parse(payload);
+  const data = aiWritingFeedbackRejectBodySchema.parse(payload ?? {});
   const draft = await findDraftForDecision(submissionId, draftId);
 
   assertCanReviewDraft(draft, actor);
@@ -420,15 +474,14 @@ export async function rejectAiWritingFeedbackDraft(
     ? toJsonObject({ rejectionReason: data.reason })
     : undefined;
 
-  const updated = await prisma.aiFeedbackDraft.update({
-    where: { id: draft.id },
-    data: {
-      status: "rejected",
+  const updated = await prisma.$transaction((tx) => {
+    return claimDraftDecision(tx, {
+      draft,
+      actorId: actor.id,
       decision: "rejected",
-      decisionActorId: actor.id,
       teacherEditedFeedback,
       decidedAt,
-    },
+    });
   });
 
   return toReviewResponse(updated as ReviewDraft);
