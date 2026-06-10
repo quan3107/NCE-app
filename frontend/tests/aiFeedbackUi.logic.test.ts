@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   buildAiFeedbackPolicyView,
+  buildWritingFeedbackDecisionActionView,
   buildWritingFeedbackDraftView,
   extractEditableFeedback,
   normalizeAiPolicyForAssignmentType,
@@ -111,4 +112,17 @@ test('buildWritingFeedbackDraftView distinguishes active, reviewable, finalized,
   assert.match(finalized.label, /Finalized/);
   assert.equal(imageUnavailable.tone, 'warning');
   assert.match(imageUnavailable.description, /image file is attached/);
+});
+
+test('buildWritingFeedbackDecisionActionView defers decisions until a grade exists', () => {
+  const approveWithoutGrade = buildWritingFeedbackDecisionActionView('approve', false);
+  const finalizeWithoutGrade = buildWritingFeedbackDecisionActionView('finalize', false);
+  const approveWithGrade = buildWritingFeedbackDecisionActionView('approve', true);
+
+  assert.equal(approveWithoutGrade.mode, 'after-grade-post');
+  assert.equal(approveWithoutGrade.label, 'Approve after posting grade');
+  assert.match(approveWithoutGrade.description, /Post Grade creates the grade/i);
+  assert.equal(finalizeWithoutGrade.label, 'Finalize after posting grade');
+  assert.equal(approveWithGrade.mode, 'immediate');
+  assert.equal(approveWithGrade.label, 'Approve');
 });

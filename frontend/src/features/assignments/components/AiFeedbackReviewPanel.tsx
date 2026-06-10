@@ -30,16 +30,27 @@ import {
   useWritingFeedbackStatusQuery,
 } from '@features/ai-feedback/api';
 import {
+  buildWritingFeedbackDecisionActionView,
   buildWritingFeedbackDraftView,
   extractEditableFeedback,
   extractTeacherEditedFeedback,
+  type WritingFeedbackDecisionAction,
 } from '@features/ai-feedback/ui.logic';
 import type { WritingFeedbackReviewResponse } from '@features/ai-feedback/types';
+
+export type AiFeedbackPendingDecision = {
+  action: WritingFeedbackDecisionAction;
+  draftId: string;
+  feedbackMd: string;
+};
 
 type AiFeedbackReviewPanelProps = {
   assignment: Assignment;
   feedback: string;
+  hasExistingGrade: boolean;
   onFeedbackChange: (feedback: string) => void;
+  onPendingDecisionChange?: (decision: AiFeedbackPendingDecision | null) => void;
+  pendingDecision?: AiFeedbackPendingDecision | null;
   submissionId: string;
 };
 
@@ -88,7 +99,10 @@ function mutationErrorMessage(error: unknown) {
 export function AiFeedbackReviewPanel({
   assignment,
   feedback,
+  hasExistingGrade,
   onFeedbackChange,
+  onPendingDecisionChange,
+  pendingDecision,
   submissionId,
 }: AiFeedbackReviewPanelProps) {
   const enabled = isWritingPolicyEnabled(assignment);
@@ -128,6 +142,12 @@ export function AiFeedbackReviewPanel({
     setRejectionReason('');
   }, [draft?.id, generatedText]);
 
+  useEffect(() => {
+    if (pendingDecision && pendingDecision.draftId !== draft?.id) {
+      onPendingDecisionChange?.(null);
+    }
+  }, [draft?.id, onPendingDecisionChange, pendingDecision]);
+
   if (!enabled) {
     return (
       <Card>
@@ -142,9 +162,34 @@ export function AiFeedbackReviewPanel({
     );
   }
 
+  const active = draft ? activeStatuses.has(draft.status) : false;
+  const approveAction = buildWritingFeedbackDecisionActionView('approve', hasExistingGrade);
+  const finalizeAction = buildWritingFeedbackDecisionActionView('finalize', hasExistingGrade);
+  const queuedForCurrentDraft = pendingDecision?.draftId === draft?.id ? pendingDecision : null;
+
+  const clearPendingDecision = () => {
+    onPendingDecisionChange?.(null);
+  };
+
+  const queueDecisionAfterGradePost = (action: WritingFeedbackDecisionAction) => {
+    if (!draft || !editedFeedback.trim()) {
+      toast.error('Teacher feedback is required before approval.');
+      return;
+    }
+    const feedbackMd = editedFeedback.trim();
+    onFeedbackChange(feedbackMd);
+    onPendingDecisionChange?.({
+      action,
+      draftId: draft.id,
+      feedbackMd,
+    });
+    toast.success('AI feedback decision will be recorded when you post the grade.');
+  };
+
   const handleRequest = async () => {
     try {
       await requestMutation.mutateAsync();
+      clearPendingDecision();
       toast.success('AI writing feedback requested.');
     } catch (error) {
       toast.error(mutationErrorMessage(error));
@@ -154,6 +199,7 @@ export function AiFeedbackReviewPanel({
   const handleRegenerate = async () => {
     try {
       await regenerateMutation.mutateAsync(undefined);
+      clearPendingDecision();
       toast.success('AI writing feedback regeneration requested.');
     } catch (error) {
       toast.error(mutationErrorMessage(error));
@@ -165,12 +211,17 @@ export function AiFeedbackReviewPanel({
       toast.error('Teacher feedback is required before approval.');
       return;
     }
+    if (!hasExistingGrade) {
+      queueDecisionAfterGradePost('approve');
+      return;
+    }
     try {
       await approveMutation.mutateAsync({
         draftId: draft.id,
         payload: { feedbackMd: editedFeedback.trim() },
       });
       onFeedbackChange(editedFeedback.trim());
+      clearPendingDecision();
       toast.success('AI feedback approved into grade feedback.');
     } catch (error) {
       toast.error(mutationErrorMessage(error));
@@ -182,12 +233,17 @@ export function AiFeedbackReviewPanel({
       toast.error('Teacher feedback is required before finalization.');
       return;
     }
+    if (!hasExistingGrade) {
+      queueDecisionAfterGradePost('finalize');
+      return;
+    }
     try {
       await finalizeMutation.mutateAsync({
         draftId: draft.id,
         payload: { feedbackMd: editedFeedback.trim() },
       });
       onFeedbackChange(editedFeedback.trim());
+      clearPendingDecision();
       toast.success('AI feedback finalized as teacher feedback.');
     } catch (error) {
       toast.error(mutationErrorMessage(error));
@@ -203,6 +259,7 @@ export function AiFeedbackReviewPanel({
         draftId: draft.id,
         payload: rejectionReason.trim() ? { reason: rejectionReason.trim() } : undefined,
       });
+      clearPendingDecision();
       toast.success('AI feedback draft rejected.');
     } catch (error) {
       toast.error(mutationErrorMessage(error));
@@ -215,9 +272,8 @@ export function AiFeedbackReviewPanel({
       return;
     }
     onFeedbackChange(editedFeedback.trim());
+    clearPendingDecision();
   };
-
-  const active = draft ? activeStatuses.has(draft.status) : false;
 
   return (
     <Card>
@@ -298,15 +354,22 @@ export function AiFeedbackReviewPanel({
 
         {draft && view.canDecide && (
           <div className="space-y-3 rounded-lg border p-4">
+            {!hasExistingGrade && (
+              <Alert className="border-sky-200 bg-sky-50 text-sky-900">
+                <AlertCircle className="size-4" />
+                <AlertTitle>Decision records after posting</AlertTitle>
+                <AlertDescription>{approveAction.description}</AlertDescription>
+              </Alert>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={handleApprove} disabled={isPending}>
                 <CheckCircle2 className="mr-2 size-4" />
-                Approve
+                {approveAction.label}
               </Button>
               {view.canFinalize && (
                 <Button type="button" variant="secondary" onClick={handleFinalize} disabled={isPending}>
                   <CheckCircle2 className="mr-2 size-4" />
-                  Finalize
+                  {finalizeAction.label}
                 </Button>
               )}
               <Button type="button" variant="destructive" onClick={handleReject} disabled={isPending}>
@@ -314,6 +377,12 @@ export function AiFeedbackReviewPanel({
                 Reject
               </Button>
             </div>
+            {queuedForCurrentDraft && (
+              <p className="text-xs leading-5 text-muted-foreground">
+                {queuedForCurrentDraft.action === 'approve' ? 'Approval' : 'Finalization'} is
+                queued and will be recorded when the grade is posted.
+              </p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="ai-feedback-rejection">Rejection reason</Label>
               <Textarea

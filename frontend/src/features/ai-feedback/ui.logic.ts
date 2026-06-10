@@ -42,6 +42,14 @@ export type WritingFeedbackDraftView = {
   tone: WritingFeedbackDraftTone;
 };
 
+export type WritingFeedbackDecisionAction = 'approve' | 'finalize';
+
+export type WritingFeedbackDecisionActionView = {
+  label: string;
+  description: string;
+  mode: 'immediate' | 'after-grade-post';
+};
+
 const objectiveTypes = new Set<IeltsAssignmentType>(['reading', 'listening']);
 
 const writingFeedbackLabels: Record<IeltsWritingFeedbackMode, string> = {
@@ -288,4 +296,26 @@ export function buildWritingFeedbackDraftView(
         tone: 'muted',
       };
   }
+}
+
+export function buildWritingFeedbackDecisionActionView(
+  action: WritingFeedbackDecisionAction,
+  hasExistingGrade: boolean,
+): WritingFeedbackDecisionActionView {
+  const actionLabel = action === 'approve' ? 'Approve' : 'Finalize';
+
+  if (hasExistingGrade) {
+    return {
+      label: actionLabel,
+      description: `${actionLabel} this AI feedback decision against the existing grade.`,
+      mode: 'immediate',
+    };
+  }
+
+  return {
+    label: `${actionLabel} after posting grade`,
+    description:
+      'This decision will be recorded after Post Grade creates the grade required by the review workflow.',
+    mode: 'after-grade-post',
+  };
 }
