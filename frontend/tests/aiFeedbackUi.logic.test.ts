@@ -6,7 +6,9 @@ import {
   buildWritingFeedbackDecisionActionView,
   buildWritingFeedbackDraftView,
   extractEditableFeedback,
+  getWritingFeedbackPendingDecisionFeedbackError,
   normalizeAiPolicyForAssignmentType,
+  selectLatestWritingFeedbackDraft,
   syncWritingFeedbackPendingDecisionFeedback,
 } from '../src/features/ai-feedback/ui.logic';
 import type { WritingFeedbackReviewResponse } from '../src/features/ai-feedback/types';
@@ -152,4 +154,45 @@ test('syncWritingFeedbackPendingDecisionFeedback refreshes queued decision text 
     feedbackMd: 'Updated feedback after queueing.',
   });
   assert.equal(unchanged, pendingDecision);
+});
+
+test('selectLatestWritingFeedbackDraft prefers polled status over stale cached history for the same draft', () => {
+  const historyDraft = {
+    id: 'draft-1',
+    status: 'queued',
+    visibilityMode: 'teacher_reviewed',
+    teacherEditedFeedback: { feedbackMd: 'Cached text.' },
+  } as WritingFeedbackReviewResponse;
+  const polledDraft = {
+    id: 'draft-1',
+    status: 'accepted',
+    visibilityMode: 'teacher_reviewed',
+    feedback: { feedbackMd: 'Fresh text.' },
+  } as WritingFeedbackReviewResponse;
+
+  const latest = selectLatestWritingFeedbackDraft([historyDraft], polledDraft);
+
+  assert.equal(latest?.id, 'draft-1');
+  assert.equal(latest?.status, 'accepted');
+  assert.deepEqual(latest?.teacherEditedFeedback, { feedbackMd: 'Cached text.' });
+  assert.deepEqual(latest?.feedback, { feedbackMd: 'Fresh text.' });
+});
+
+test('getWritingFeedbackPendingDecisionFeedbackError requires queued decision text', () => {
+  assert.equal(
+    getWritingFeedbackPendingDecisionFeedbackError({
+      action: 'finalize',
+      draftId: 'draft-1',
+      feedbackMd: '',
+    }),
+    'Teacher feedback is required before recording the AI feedback decision.',
+  );
+  assert.equal(
+    getWritingFeedbackPendingDecisionFeedbackError({
+      action: 'approve',
+      draftId: 'draft-1',
+      feedbackMd: 'Reviewed feedback.',
+    }),
+    null,
+  );
 });

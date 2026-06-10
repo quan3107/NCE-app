@@ -14,6 +14,7 @@ import {
   useApproveWritingFeedbackMutation,
   useFinalizeWritingFeedbackMutation,
 } from '@features/ai-feedback/api';
+import { getWritingFeedbackPendingDecisionFeedbackError } from '@features/ai-feedback/ui.logic';
 import { useGradesQuery, useUpsertGradeMutation } from '@features/grades/api';
 import { useCourseRubricsQuery } from '@features/rubrics/api';
 import { useAuthStore } from '@store/authStore';
@@ -142,6 +143,12 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       adjustments !== 0 ? [{ reason: 'Late submission', delta: adjustments }] : undefined;
 
     const feedbackForGrade = pendingAiDecision?.feedbackMd ?? feedback.trim();
+    const pendingDecisionError =
+      getWritingFeedbackPendingDecisionFeedbackError(pendingAiDecision);
+    if (pendingDecisionError) {
+      toast.error(pendingDecisionError);
+      return;
+    }
 
     try {
       await upsertGradeMutation.mutateAsync({

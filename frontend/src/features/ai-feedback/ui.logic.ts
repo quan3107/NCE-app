@@ -340,3 +340,33 @@ export function syncWritingFeedbackPendingDecisionFeedback(
     feedbackMd: feedbackMd.trim(),
   };
 }
+
+export function selectLatestWritingFeedbackDraft(
+  history: WritingFeedbackReviewResponse[] | undefined,
+  statusDraft: WritingFeedbackReviewResponse | null | undefined,
+): WritingFeedbackReviewResponse | null {
+  const historyDraft = history && history.length > 0 ? history[0] : null;
+
+  if (!historyDraft) {
+    return statusDraft ?? null;
+  }
+
+  if (statusDraft && statusDraft.id === historyDraft.id) {
+    return {
+      ...historyDraft,
+      ...statusDraft,
+    };
+  }
+
+  return historyDraft;
+}
+
+export function getWritingFeedbackPendingDecisionFeedbackError(
+  pendingDecision: WritingFeedbackPendingDecision | null | undefined,
+): string | null {
+  if (!pendingDecision || pendingDecision.feedbackMd.trim()) {
+    return null;
+  }
+
+  return 'Teacher feedback is required before recording the AI feedback decision.';
+}

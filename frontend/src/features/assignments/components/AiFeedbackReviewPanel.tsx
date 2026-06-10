@@ -34,6 +34,7 @@ import {
   buildWritingFeedbackDraftView,
   extractEditableFeedback,
   extractTeacherEditedFeedback,
+  selectLatestWritingFeedbackDraft,
   syncWritingFeedbackPendingDecisionFeedback,
   type WritingFeedbackDecisionAction,
   type WritingFeedbackPendingDecision,
@@ -63,16 +64,6 @@ function isWritingPolicyEnabled(assignment: Assignment) {
     assignment.assignmentConfig,
   );
   return config.aiPolicy.writingFeedbackMode !== 'off';
-}
-
-function latestReviewDraft(
-  history: WritingFeedbackReviewResponse[] | undefined,
-  statusDraft: WritingFeedbackReviewResponse | null | undefined,
-) {
-  if (history && history.length > 0) {
-    return history[0];
-  }
-  return statusDraft ?? null;
 }
 
 function toneClasses(tone: ReturnType<typeof buildWritingFeedbackDraftView>['tone']) {
@@ -115,7 +106,7 @@ export function AiFeedbackReviewPanel({
   const [rejectionReason, setRejectionReason] = useState('');
 
   const statusDraft = statusQuery.data as WritingFeedbackReviewResponse | null | undefined;
-  const draft = latestReviewDraft(historyQuery.data, statusDraft);
+  const draft = selectLatestWritingFeedbackDraft(historyQuery.data, statusDraft);
   const view = buildWritingFeedbackDraftView(draft);
   const isPending =
     requestMutation.isPending ||
