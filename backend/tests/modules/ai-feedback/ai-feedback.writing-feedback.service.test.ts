@@ -47,6 +47,7 @@ const configModule = await import(
 const {
   enqueueAiWritingFeedbackForSubmission,
   getAiWritingFeedbackStatus,
+  regenerateAiWritingFeedback,
   requestAiWritingFeedback,
 } = await import("../../../src/modules/ai-feedback/ai-feedback.service.js");
 
@@ -418,6 +419,61 @@ describe("getAiWritingFeedbackStatus", () => {
     ).rejects.toMatchObject({
       statusCode: 404,
       message: "AI writing feedback draft not found.",
+    });
+  });
+});
+
+describe("regenerateAiWritingFeedback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    aiFeedbackConfig.enabled = true;
+    aiFeedbackConfig.apiKey = "sk-test";
+    aiFeedbackConfig.baseUrl = "https://example.com/v1";
+    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never);
+    prisma.rubric.findMany.mockResolvedValue([] as never);
+    resolveAiFeedbackImageContext.mockResolvedValue({
+      type: "image",
+      imageUrl: "https://storage.mock/task1.png",
+      mimeType: "image/png",
+      detail: "high",
+    });
+    createAiFeedbackDraft.mockImplementation(async (input: unknown) => {
+      const data = input as Record<string, unknown>;
+
+      return {
+        id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        submissionId: data.submissionId,
+        status: data.status,
+        visibilityMode: data.visibilityMode,
+        generatedFeedback: data.generatedFeedback,
+        failureCode: null,
+        failureMessage: null,
+      } as never;
+    });
+  });
+
+  it("queues a new draft using the requested provider tier override", async () => {
+    await regenerateAiWritingFeedback(
+      { submissionId },
+      { providerTier: "premium" },
+      teacherActor,
+    );
+
+    expect(createAiFeedbackDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        routeKey: "premium",
+        model: "gpt-5.4-mini",
+        reasoningEffort: "high",
+        generationJob: {
+          harnessInput: expect.objectContaining({
+            routeKey: "premium",
+          }),
+        },
+      }),
+    );
+    expect(supersedeAiFeedbackDrafts).toHaveBeenCalledWith({
+      submissionId,
+      exceptDraftId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
     });
   });
 });

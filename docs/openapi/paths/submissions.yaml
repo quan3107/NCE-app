@@ -205,7 +205,6 @@ SubmissionWritingAiFeedback:
               $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
     security:
       - BearerAuth: []
-
   post:
     tags: [ai-feedback, submissions]
     summary: Request AI writing feedback draft generation
@@ -276,6 +275,292 @@ SubmissionWritingAiFeedback:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '503':
         description: AI feedback generation is disabled globally or provider configuration is unavailable.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+SubmissionWritingAiFeedbackDrafts:
+  get:
+    tags: [ai-feedback, submissions]
+    summary: List AI writing feedback draft history
+    description: >
+      Returns non-deleted AI writing feedback drafts for an authorized course
+      teacher or admin, including rejected drafts retained for audit.
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Draft history for the submission.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackHistoryResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+SubmissionWritingAiFeedbackRegenerate:
+  post:
+    tags: [ai-feedback, submissions]
+    summary: Regenerate AI writing feedback
+    description: >
+      Queues a replacement AI writing feedback draft after teacher review,
+      optionally overriding the provider tier for this regeneration only.
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackRegenerateRequest'
+    responses:
+      '200':
+        description: Regenerated draft is already terminal.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+      '202':
+        description: Regenerated draft is queued or running.
+        headers:
+          Location:
+            description: Polling location for the regenerated draft.
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden or AI writing feedback is disabled by assignment policy.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Feedback cannot be regenerated because another draft is active, the submission is not ready, or review is required.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+SubmissionWritingAiFeedbackApprove:
+  post:
+    tags: [ai-feedback, submissions]
+    summary: Approve AI writing feedback into final grade feedback
+    description: >
+      Publishes teacher-edited AI feedback by atomically updating the existing
+      grade feedback and recording the approved draft decision.
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: draftId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackApprovalRequest'
+    responses:
+      '200':
+        description: Draft approved and grade feedback updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackReviewResponse'
+      '400':
+        description: Invalid teacher feedback or criterion suggestions.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Draft not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Draft is not decidable, already decided, or no grade exists.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+SubmissionWritingAiFeedbackReject:
+  post:
+    tags: [ai-feedback, submissions]
+    summary: Reject an AI writing feedback draft
+    description: Marks a draft rejected with an optional teacher reason while retaining it for audit.
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: draftId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackRejectRequest'
+    responses:
+      '200':
+        description: Draft rejected.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackReviewResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Draft not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Draft is not decidable or has already been decided.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+SubmissionWritingAiFeedbackFinalize:
+  post:
+    tags: [ai-feedback, submissions]
+    summary: Finalize provisional instant-visible AI writing feedback
+    description: >
+      Replaces provisional instant-visible AI feedback with teacher-final grade
+      feedback by atomically updating the existing grade and draft decision.
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: draftId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackApprovalRequest'
+    responses:
+      '200':
+        description: Draft finalized and grade feedback updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackReviewResponse'
+      '400':
+        description: Invalid teacher feedback or criterion suggestions.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Draft not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Draft is not decidable, already decided, or no grade exists.
         content:
           application/json:
             schema:

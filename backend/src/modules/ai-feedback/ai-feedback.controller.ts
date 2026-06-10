@@ -8,12 +8,19 @@ import type { NextFunction, Request, Response } from "express";
 import {
   aiFeedbackHealthResponseSchema,
   objectiveExplanationResponseSchema,
+  writingFeedbackHistoryResponseSchema,
+  writingFeedbackReviewResponseSchema,
   writingFeedbackResponseSchema,
 } from "./ai-feedback.schema.js";
 import {
+  approveAiWritingFeedbackDraft,
+  finalizeAiWritingFeedbackDraft,
   getAiFeedbackHealth,
   getAiObjectiveExplanationStatus,
   getAiWritingFeedbackStatus,
+  listAiWritingFeedbackDrafts,
+  rejectAiWritingFeedbackDraft,
+  regenerateAiWritingFeedback,
   requestAiWritingFeedback,
   requestAiObjectiveExplanation,
 } from "./ai-feedback.service.js";
@@ -128,6 +135,91 @@ export async function getWritingFeedbackStatus(
     );
 
     res.status(writingFeedbackStatusCode(draft.status)).json(draft);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getWritingFeedbackDraftHistory(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const drafts = await listAiWritingFeedbackDrafts(req.params, req.user);
+    const response = writingFeedbackHistoryResponseSchema.parse({ drafts });
+
+    res.status(200).json(response);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function postWritingFeedbackApproval(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const draft = writingFeedbackReviewResponseSchema.parse(
+      await approveAiWritingFeedbackDraft(req.params, req.body, req.user),
+    );
+
+    res.status(200).json(draft);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function postWritingFeedbackRejection(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const draft = writingFeedbackReviewResponseSchema.parse(
+      await rejectAiWritingFeedbackDraft(req.params, req.body, req.user),
+    );
+
+    res.status(200).json(draft);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function postWritingFeedbackFinalization(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const draft = writingFeedbackReviewResponseSchema.parse(
+      await finalizeAiWritingFeedbackDraft(req.params, req.body, req.user),
+    );
+
+    res.status(200).json(draft);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function postWritingFeedbackRegeneration(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const draft = writingFeedbackResponseSchema.parse(
+      await regenerateAiWritingFeedback(req.params, req.body, req.user),
+    );
+    const statusCode = writingFeedbackStatusCode(draft.status);
+    const response = res.status(statusCode);
+
+    if (statusCode === 202 && draft.pollingLocation) {
+      response.location(draft.pollingLocation);
+    }
+
+    response.json(draft);
   } catch (error) {
     next(error);
   }
