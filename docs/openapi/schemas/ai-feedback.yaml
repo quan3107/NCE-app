@@ -139,6 +139,29 @@ WritingFeedbackCriterionSuggestion:
       maximum: 9
       example: 6.5
 
+WritingFeedbackProviderCriterionSuggestion:
+  type: object
+  required: [criterionId, band, rationale]
+  properties:
+    criterionId:
+      type: string
+      enum:
+        - task_achievement
+        - task_response
+        - coherence_cohesion
+        - lexical_resource
+        - grammatical_range_accuracy
+      example: coherence_cohesion
+    band:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 9
+      example: 6.5
+    rationale:
+      type: string
+      example: Paragraphing is clear, but cohesion between details is uneven.
+
 WritingFeedbackApprovalRequest:
   type: object
   required: [feedbackMd]
@@ -196,9 +219,12 @@ WritingFeedbackReviewResponse:
           additionalProperties: true
         normalizedCriterionSuggestions:
           type: array
+          description: Provider-normalized IELTS suggestions, or teacher-edited grade rubric suggestions after approval.
           nullable: true
           items:
-            $ref: '#/WritingFeedbackCriterionSuggestion'
+            oneOf:
+              - $ref: '#/WritingFeedbackProviderCriterionSuggestion'
+              - $ref: '#/WritingFeedbackCriterionSuggestion'
 
 WritingFeedbackHistoryResponse:
   type: object

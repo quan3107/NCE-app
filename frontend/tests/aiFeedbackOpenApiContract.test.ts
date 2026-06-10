@@ -34,3 +34,50 @@ test('AI feedback OpenAPI keeps manual generation separate from finalize docs', 
   assert.equal((finalization.match(/^  post:/gm) ?? []).length, 1);
   assert.doesNotMatch(finalization, /summary: Request AI writing feedback draft generation/);
 });
+
+test('AI feedback review responses document provider and teacher criterion suggestions', async () => {
+  const schemasPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/ai-feedback.yaml',
+  );
+  const schemasYaml = await readFile(schemasPath, 'utf8');
+  const providerSuggestion = section(
+    schemasYaml,
+    'WritingFeedbackProviderCriterionSuggestion',
+    'WritingFeedbackApprovalRequest',
+  );
+  const reviewResponse = section(
+    schemasYaml,
+    'WritingFeedbackReviewResponse',
+    'WritingFeedbackHistoryResponse',
+  );
+
+  assert.match(providerSuggestion, /required: \[criterionId, band, rationale\]/);
+  assert.match(providerSuggestion, /^    criterionId:/m);
+  assert.match(providerSuggestion, /^    band:/m);
+  assert.match(providerSuggestion, /^    rationale:/m);
+  assert.match(reviewResponse, /^            oneOf:/m);
+  assert.match(
+    reviewResponse,
+    /\$ref: '#\/WritingFeedbackProviderCriterionSuggestion'/,
+  );
+  assert.match(reviewResponse, /\$ref: '#\/WritingFeedbackCriterionSuggestion'/);
+});
+
+test('AI feedback regenerate 409 can return review-required feedback', async () => {
+  const submissionsPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/submissions.yaml',
+  );
+  const submissionsYaml = await readFile(submissionsPath, 'utf8');
+  const regeneration = section(
+    submissionsYaml,
+    'SubmissionWritingAiFeedbackRegenerate',
+    'SubmissionWritingAiFeedbackApprove',
+  );
+
+  assert.match(regeneration, /'409':/);
+  assert.match(regeneration, /^              oneOf:/m);
+  assert.match(regeneration, /\$ref: '..\/schemas\/ai-feedback.yaml#\/WritingFeedbackResponse'/);
+  assert.match(regeneration, /\$ref: '..\/schemas\/common.yaml#\/ErrorResponse'/);
+});

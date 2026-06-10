@@ -368,11 +368,13 @@ SubmissionWritingAiFeedbackRegenerate:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '409':
-        description: Feedback cannot be regenerated because another draft is active or the submission is not ready.
+        description: Feedback cannot be regenerated because another draft is active, the submission is not ready, or review is required.
         content:
           application/json:
             schema:
-              $ref: '../schemas/common.yaml#/ErrorResponse'
+              oneOf:
+                - $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
 
