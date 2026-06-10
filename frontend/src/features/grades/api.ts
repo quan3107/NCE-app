@@ -24,8 +24,26 @@ type ApiGrade = {
   finalScore?: number | null;
   band?: number | null;
   feedback?: string | null;
+  feedbackLabel?: Grade['feedbackLabel'];
+  studentAiFeedback?: Grade['studentAiFeedback'];
   gradedAt?: string | null;
   graderName?: string | null;
+};
+
+export type ObjectiveExplanationStatus =
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'review_required'
+  | 'rejected'
+  | 'failed';
+
+export type ObjectiveExplanationResponse = {
+  id: string;
+  status: ObjectiveExplanationStatus;
+  cached: boolean;
+  pollingLocation?: string;
+  explanation?: Record<string, unknown>;
 };
 
 type UpsertGradeRequest = {
@@ -37,7 +55,7 @@ type UpsertGradeRequest = {
   feedbackMd?: string;
 };
 
-const toGrade = (
+export const toGrade = (
   grade: ApiGrade,
   submission: Submission,
   assignmentMap: Map<string, Assignment>,
@@ -65,6 +83,8 @@ const toGrade = (
     band: grade.band ?? undefined,
     maxScore: assignment?.maxScore ?? 100,
     feedback: grade.feedback ?? '',
+    feedbackLabel: grade.feedbackLabel ?? 'teacher feedback',
+    studentAiFeedback: grade.studentAiFeedback,
     gradedAt: grade.gradedAt ? new Date(grade.gradedAt) : new Date(),
     gradedBy: grade.graderName ?? grade.graderId,
   };
@@ -110,6 +130,23 @@ const upsertGrade = async (
     },
   );
 };
+
+export const requestObjectiveExplanation = (
+  submissionId: string,
+  questionId: string,
+): Promise<ObjectiveExplanationResponse> =>
+  apiClient<ObjectiveExplanationResponse>(
+    `/api/v1/submissions/${encodeURIComponent(submissionId)}/questions/${encodeURIComponent(questionId)}/ai-explanation`,
+    { method: 'POST' },
+  );
+
+export const fetchObjectiveExplanation = (
+  submissionId: string,
+  questionId: string,
+): Promise<ObjectiveExplanationResponse> =>
+  apiClient<ObjectiveExplanationResponse>(
+    `/api/v1/submissions/${encodeURIComponent(submissionId)}/questions/${encodeURIComponent(questionId)}/ai-explanation`,
+  );
 
 export function useGradesQuery(submissions: Submission[], assignments: Assignment[]) {
   const { currentUser } = useAuth();

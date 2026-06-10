@@ -16,6 +16,12 @@ export type Grade = {
   band?: number;
   maxScore: number;
   feedback: string;
+  feedbackLabel: 'teacher feedback' | 'teacher-reviewed AI-assisted feedback';
+  studentAiFeedback?: {
+    label: 'provisional AI feedback';
+    status: string;
+    feedback: Record<string, unknown>;
+  };
   gradedAt: Date;
   gradedBy: string;
 };

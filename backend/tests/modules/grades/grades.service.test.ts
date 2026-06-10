@@ -28,6 +28,10 @@ vi.mock("../../../src/modules/notifications/notifications.service.js", () => ({
   enqueueNotification: vi.fn(),
 }));
 
+vi.mock("../../../src/modules/ai-feedback/ai-feedback.repository.js", () => ({
+  getStudentVisibleAiFeedbackDraft: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
 const notificationsModule = await import(
@@ -36,6 +40,12 @@ const notificationsModule = await import(
 const enqueueNotification = vi.mocked(
   notificationsModule.enqueueNotification,
   true,
+);
+const aiFeedbackRepositoryModule = await import(
+  "../../../src/modules/ai-feedback/ai-feedback.repository.js"
+);
+const getStudentVisibleAiFeedbackDraft = vi.mocked(
+  aiFeedbackRepositoryModule.getStudentVisibleAiFeedbackDraft,
 );
 
 const { getGrade, upsertGrade } = await import(
@@ -405,6 +415,7 @@ describe("grades.service.upsertGrade", () => {
 describe("grades.service.getGrade", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getStudentVisibleAiFeedbackDraft.mockResolvedValue(null as never);
   });
 
   it("allows students to read grades for their own active submissions", async () => {
@@ -415,6 +426,7 @@ describe("grades.service.getGrade", () => {
       grader: {
         fullName: "Teacher One",
       },
+      aiFeedbackDrafts: [],
     };
     prisma.grade.findFirst.mockResolvedValueOnce(gradeRecord as never);
 
@@ -445,13 +457,95 @@ describe("grades.service.getGrade", () => {
               fullName: true,
             },
           },
+          aiFeedbackDrafts: expect.any(Object),
         },
       }),
     );
+    expect(getStudentVisibleAiFeedbackDraft).toHaveBeenCalledWith({
+      submissionId,
+      studentId,
+    });
     expect(grade).toEqual(
       expect.objectContaining({
         id: gradeRecord.id,
         graderName: "Teacher One",
+        feedbackLabel: "teacher feedback",
+      }),
+    );
+  });
+
+  it("adds sanitized provisional AI writing feedback to student grade responses", async () => {
+    prisma.grade.findFirst.mockResolvedValueOnce({
+      id: "grade-with-ai",
+      submissionId,
+      graderId: teacherId,
+      feedback: null,
+      grader: {
+        fullName: "Teacher One",
+      },
+      aiFeedbackDrafts: [],
+    } as never);
+    getStudentVisibleAiFeedbackDraft.mockResolvedValueOnce({
+      id: "draft-1",
+      status: "accepted",
+      visibilityMode: "instant_student_visible",
+      generatedFeedback: {
+        feedbackMd: "Strong overview; add sharper evidence.",
+        provider: "hidden-provider",
+        prompt: "hidden prompt",
+      },
+      model: "hidden-model",
+      promptVersion: "hidden-version",
+    } as never);
+
+    const grade = await getGrade(
+      { submissionId },
+      { id: studentId, role: UserRole.student },
+    );
+
+    expect(grade).toEqual(
+      expect.objectContaining({
+        studentAiFeedback: {
+          label: "provisional AI feedback",
+          status: "accepted",
+          feedback: {
+            feedbackMd: "Strong overview; add sharper evidence.",
+          },
+        },
+      }),
+    );
+    expect(JSON.stringify(grade)).not.toContain("hidden-provider");
+    expect(JSON.stringify(grade)).not.toContain("hidden-model");
+    expect(JSON.stringify(grade)).not.toContain("hidden prompt");
+  });
+
+  it("labels grade feedback that came from teacher-reviewed AI assistance", async () => {
+    prisma.grade.findFirst.mockResolvedValueOnce({
+      id: "grade-ai-assisted",
+      submissionId,
+      graderId: teacherId,
+      feedback: "Teacher-edited AI feedback.",
+      grader: {
+        fullName: "Teacher One",
+      },
+      aiFeedbackDrafts: [
+        {
+          id: "draft-2",
+          status: "approved",
+          visibilityMode: "teacher_reviewed",
+        },
+      ],
+    } as never);
+
+    const grade = await getGrade(
+      { submissionId },
+      { id: studentId, role: UserRole.student },
+    );
+
+    expect(grade).toEqual(
+      expect.objectContaining({
+        feedback: "Teacher-edited AI feedback.",
+        feedbackLabel: "teacher-reviewed AI-assisted feedback",
       }),
     );
   });
