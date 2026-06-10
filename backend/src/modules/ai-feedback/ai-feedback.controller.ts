@@ -8,15 +8,19 @@ import type { NextFunction, Request, Response } from "express";
 import {
   aiFeedbackHealthResponseSchema,
   objectiveExplanationResponseSchema,
+  writingFeedbackResponseSchema,
 } from "./ai-feedback.schema.js";
 import {
   getAiFeedbackHealth,
   getAiObjectiveExplanationStatus,
+  getAiWritingFeedbackStatus,
+  requestAiWritingFeedback,
   requestAiObjectiveExplanation,
 } from "./ai-feedback.service.js";
 
 const unavailableStatuses = new Set(["misconfigured", "timeout", "unhealthy"]);
 const activeExplanationStatuses = new Set(["queued", "running"]);
+const activeWritingStatuses = new Set(["queued", "running"]);
 
 function objectiveExplanationStatusCode(status: string): number {
   if (status === "completed") {
@@ -24,6 +28,14 @@ function objectiveExplanationStatusCode(status: string): number {
   }
 
   return activeExplanationStatuses.has(status) ? 202 : 409;
+}
+
+function writingFeedbackStatusCode(status: string): number {
+  if (status === "accepted" || status === "approved" || status === "finalized") {
+    return 200;
+  }
+
+  return activeWritingStatuses.has(status) ? 202 : 409;
 }
 
 export async function getAiFeedbackHealthStatus(
@@ -78,6 +90,44 @@ export async function getObjectiveExplanationStatus(
     res
       .status(objectiveExplanationStatusCode(explanation.status))
       .json(explanation);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function postWritingFeedbackRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const draft = writingFeedbackResponseSchema.parse(
+      await requestAiWritingFeedback(req.params, req.user),
+    );
+    const statusCode = writingFeedbackStatusCode(draft.status);
+    const response = res.status(statusCode);
+
+    if (statusCode === 202 && draft.pollingLocation) {
+      response.location(draft.pollingLocation);
+    }
+
+    response.json(draft);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getWritingFeedbackStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const draft = writingFeedbackResponseSchema.parse(
+      await getAiWritingFeedbackStatus(req.params, req.user),
+    );
+
+    res.status(writingFeedbackStatusCode(draft.status)).json(draft);
   } catch (error) {
     next(error);
   }

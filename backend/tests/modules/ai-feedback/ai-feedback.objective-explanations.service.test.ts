@@ -20,7 +20,10 @@ vi.mock("../../../src/prisma/client.js", () => ({
 }));
 
 vi.mock("../../../src/modules/ai-feedback/ai-feedback.repository.js", () => ({
+  createAiFeedbackDraft: vi.fn(),
   findAiObjectiveExplanationByCacheKey: vi.fn(),
+  findLatestAiFeedbackDraftBySubmission: vi.fn(),
+  supersedeAiFeedbackDrafts: vi.fn(),
   upsertAiObjectiveExplanation: vi.fn(),
 }));
 

@@ -15,6 +15,11 @@ export {
   getAiObjectiveExplanationStatus,
   requestAiObjectiveExplanation,
 } from "./ai-feedback.objective-explanations.js";
+export {
+  enqueueAiWritingFeedbackForSubmission,
+  getAiWritingFeedbackStatus,
+  requestAiWritingFeedback,
+} from "./ai-feedback.writing-feedback.js";
 
 type HealthProbe = (
   url: URL,

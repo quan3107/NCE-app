@@ -272,6 +272,27 @@ export async function getStudentVisibleAiFeedbackDraft(input: unknown) {
     : null;
 }
 
+export async function findLatestAiFeedbackDraftBySubmission(
+  submissionId: string,
+) {
+  return prisma.aiFeedbackDraft.findFirst({
+    where: {
+      submissionId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      submissionId: true,
+      status: true,
+      visibilityMode: true,
+      generatedFeedback: true,
+      failureCode: true,
+      failureMessage: true,
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+}
+
 export async function recordAiFeedbackDraftDecision(input: unknown) {
   const data = aiFeedbackDraftDecisionInputSchema.parse(input);
   const decidedAt = new Date();

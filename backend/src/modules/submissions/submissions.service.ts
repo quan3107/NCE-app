@@ -5,7 +5,9 @@
  */
 import { Prisma } from "../../prisma/index.js";
 
+import { logger } from "../../config/logger.js";
 import { prisma } from "../../prisma/client.js";
+import { UserRole, UserStatus } from "../../prisma/index.js";
 import {
   createHttpError,
   createNotFoundError,
@@ -22,6 +24,7 @@ import {
   parseSubmissionPayloadForType,
 } from "../assignments/ielts.schema.js";
 import { autoScoreSubmission } from "../scoring/ieltsScoring.service.js";
+import { enqueueAiWritingFeedbackForSubmission } from "../ai-feedback/ai-feedback.service.js";
 import { notifyTeachersAboutSubmittedWork } from "./submissions.notifications.js";
 import {
   applyAssignmentSubmissionPolicy,
@@ -35,6 +38,65 @@ import {
   readMaxAttempts,
 } from "./submissions.timing.js";
 import { assertSubmittedIeltsPayloadHasContent } from "./submissions.ielts-content.js";
+
+type SubmissionAssignmentForAiFeedback = {
+  type: string;
+  assignmentConfig: unknown;
+};
+
+function shouldEnqueueWritingFeedback(
+  assignment: SubmissionAssignmentForAiFeedback,
+  status: string,
+): boolean {
+  if (
+    assignment.type !== "writing" ||
+    (status !== "submitted" && status !== "late")
+  ) {
+    return false;
+  }
+
+  const config =
+    assignment.assignmentConfig &&
+    typeof assignment.assignmentConfig === "object" &&
+    !Array.isArray(assignment.assignmentConfig)
+      ? (assignment.assignmentConfig as Record<string, unknown>)
+      : {};
+  const aiPolicy =
+    config.aiPolicy &&
+    typeof config.aiPolicy === "object" &&
+    !Array.isArray(config.aiPolicy)
+      ? (config.aiPolicy as Record<string, unknown>)
+      : {};
+
+  return (
+    aiPolicy.writingFeedbackMode === "teacher_reviewed" ||
+    aiPolicy.writingFeedbackMode === "instant_student_visible"
+  );
+}
+
+async function enqueueWritingFeedbackAfterSubmission(input: {
+  assignment: SubmissionAssignmentForAiFeedback;
+  status: string;
+  studentId: string;
+  submissionId: string;
+}): Promise<void> {
+  if (!shouldEnqueueWritingFeedback(input.assignment, input.status)) {
+    return;
+  }
+
+  try {
+    await enqueueAiWritingFeedbackForSubmission(input.submissionId, {
+      id: input.studentId,
+      role: UserRole.student,
+      status: UserStatus.active,
+    });
+  } catch (error) {
+    logger.warn(
+      { err: error, submissionId: input.submissionId },
+      "AI writing feedback auto-enqueue failed",
+    );
+  }
+}
 
 export async function listSubmissions(
   params: unknown,
@@ -191,6 +253,12 @@ export async function createSubmission(
     ) {
       await autoScoreSubmission(updatedSubmission.id);
     }
+    await enqueueWritingFeedbackAfterSubmission({
+      assignment,
+      status,
+      studentId: user.id,
+      submissionId: updatedSubmission.id,
+    });
     await notifyTeachersAboutSubmittedWork({
       assignment,
       studentId: user.id,
@@ -239,6 +307,12 @@ export async function createSubmission(
   ) {
     await autoScoreSubmission(createdSubmission.id);
   }
+  await enqueueWritingFeedbackAfterSubmission({
+    assignment,
+    status,
+    studentId: user.id,
+    submissionId: createdSubmission.id,
+  });
   await notifyTeachersAboutSubmittedWork({
     assignment,
     studentId: user.id,
