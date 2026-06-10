@@ -10,9 +10,15 @@ import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
 import { toast } from 'sonner@2.0.3';
 import { useAssignmentResources, markSubmissionAsGraded } from '@features/assignments/api';
-import { useUpsertGradeMutation } from '@features/grades/api';
+import {
+  useApproveWritingFeedbackMutation,
+  useFinalizeWritingFeedbackMutation,
+} from '@features/ai-feedback/api';
+import { getWritingFeedbackPendingDecisionFeedbackError } from '@features/ai-feedback/ui.logic';
+import { useGradesQuery, useUpsertGradeMutation } from '@features/grades/api';
 import { useCourseRubricsQuery } from '@features/rubrics/api';
 import { useAuthStore } from '@store/authStore';
+import { AiFeedbackReviewPanel, type AiFeedbackPendingDecision } from './AiFeedbackReviewPanel';
 import { TeacherGradePanels } from './TeacherGradePanels';
 import {
   calculateRawScore,
@@ -28,14 +34,24 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   const [scores, setScores] = useState<Record<string, number>>({});
   const [rawScoreInput, setRawScoreInput] = useState(0);
   const [feedback, setFeedback] = useState('');
+  const [pendingAiDecision, setPendingAiDecision] = useState<AiFeedbackPendingDecision | null>(null);
   const { submissions, assignments, isLoading, error } = useAssignmentResources();
   const upsertGradeMutation = useUpsertGradeMutation();
+  const approveAiFeedbackMutation = useApproveWritingFeedbackMutation(submissionId);
+  const finalizeAiFeedbackMutation = useFinalizeWritingFeedbackMutation(submissionId);
 
   const submission = submissions.find((item) => item.id === submissionId);
   const assignment = submission
     ? assignments.find((item) => item.id === submission.assignmentId)
     : null;
 
+  const gradeSubmissions = useMemo(() => (submission ? [submission] : []), [submission]);
+  const gradeAssignments = useMemo(() => (assignment ? [assignment] : []), [assignment]);
+  const gradesQuery = useGradesQuery(gradeSubmissions, gradeAssignments);
+  const existingGrade = useMemo(
+    () => (gradesQuery.data ?? []).find((grade) => grade.submissionId === submissionId) ?? null,
+    [gradesQuery.data, submissionId],
+  );
   const rubricsQuery = useCourseRubricsQuery(assignment?.courseId ?? '');
   const rubricIds = useMemo(
     () => getAssignmentRubricIds(assignment?.assignmentConfig ?? null),
@@ -73,6 +89,10 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   useEffect(() => {
     setRawScoreInput(0);
   }, [assignment?.id]);
+
+  useEffect(() => {
+    setPendingAiDecision(null);
+  }, [submissionId]);
 
   if (isLoading) {
     return <StatusCard message="Loading submission..." />;
@@ -122,6 +142,14 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     const adjustmentsList =
       adjustments !== 0 ? [{ reason: 'Late submission', delta: adjustments }] : undefined;
 
+    const feedbackForGrade = pendingAiDecision?.feedbackMd ?? feedback.trim();
+    const pendingDecisionError =
+      getWritingFeedbackPendingDecisionFeedbackError(pendingAiDecision);
+    if (pendingDecisionError) {
+      toast.error(pendingDecisionError);
+      return;
+    }
+
     try {
       await upsertGradeMutation.mutateAsync({
         submissionId,
@@ -131,11 +159,35 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
           adjustments: adjustmentsList,
           finalScore,
           band: ieltsGradingMode ? finalScore : undefined,
-          feedbackMd: feedback.trim() || undefined,
+          feedbackMd: feedbackForGrade || undefined,
         },
       });
       markSubmissionAsGraded(submissionId);
-      toast.success('Grade posted successfully!');
+
+      if (pendingAiDecision) {
+        try {
+          const decisionPayload = {
+            draftId: pendingAiDecision.draftId,
+            payload: { feedbackMd: pendingAiDecision.feedbackMd },
+          };
+          if (pendingAiDecision.action === 'approve') {
+            await approveAiFeedbackMutation.mutateAsync(decisionPayload);
+          } else {
+            await finalizeAiFeedbackMutation.mutateAsync(decisionPayload);
+          }
+          setPendingAiDecision(null);
+          toast.success('Grade posted and AI feedback decision recorded.');
+        } catch (aiDecisionError) {
+          toast.error(
+            aiDecisionError instanceof Error
+              ? `Grade posted, but AI feedback decision failed: ${aiDecisionError.message}`
+              : 'Grade posted, but AI feedback decision failed.',
+          );
+          return;
+        }
+      } else {
+        toast.success('Grade posted successfully!');
+      }
       navigate('/teacher/submissions');
     } catch (errorValue) {
       toast.error(errorValue instanceof Error ? errorValue.message : 'Unable to post grade.');
@@ -156,7 +208,11 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
         finalScore={finalScore}
         gradeCriteria={gradeCriteria}
         ieltsGradingMode={ieltsGradingMode}
-        isPosting={upsertGradeMutation.isPending}
+        isPosting={
+          upsertGradeMutation.isPending ||
+          approveAiFeedbackMutation.isPending ||
+          finalizeAiFeedbackMutation.isPending
+        }
         onFeedbackChange={setFeedback}
         onPostGrade={handleSubmit}
         onRawScoreChange={setRawScoreInput}
@@ -165,6 +221,17 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
         }
         rawScore={rawScore}
         rawScoreInput={rawScoreInput}
+        reviewPanel={
+          <AiFeedbackReviewPanel
+            assignment={assignment}
+            feedback={feedback}
+            hasExistingGrade={Boolean(existingGrade)}
+            onFeedbackChange={setFeedback}
+            onPendingDecisionChange={setPendingAiDecision}
+            pendingDecision={pendingAiDecision}
+            submissionId={submissionId}
+          />
+        }
         rubricDrivenMode={rubricDrivenMode}
         rubricIds={rubricIds}
         rubricIsLoading={rubricsQuery.isLoading}

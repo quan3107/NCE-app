@@ -10,6 +10,7 @@ import { ListeningAssignmentForm } from './ielts/authoring/ListeningAssignmentFo
 import { ReadingAssignmentForm } from './ielts/authoring/ReadingAssignmentForm';
 import { SpeakingAssignmentForm } from './ielts/authoring/SpeakingAssignmentForm';
 import { WritingAssignmentForm } from './ielts/authoring/WritingAssignmentForm';
+import { AiPolicyControls } from '@features/ai-feedback/AiPolicyControls';
 import type {
   IeltsAssignmentConfig,
   IeltsAssignmentType,
@@ -83,6 +84,8 @@ export function TeacherIeltsAssignmentEditor({
   writingConfig,
   writingTask1File,
 }: TeacherIeltsAssignmentEditorProps) {
+  const selectedConfig = readingConfig ?? listeningConfig ?? writingConfig ?? speakingConfig;
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <div className="space-y-6">
@@ -103,6 +106,14 @@ export function TeacherIeltsAssignmentEditor({
           dueDate={dueDate}
           onDueDateChange={onDueDateChange}
         />
+
+        {selectedConfig && (
+          <AiPolicyControls
+            type={selectedType}
+            value={selectedConfig}
+            onChange={onAssignmentConfigChange}
+          />
+        )}
 
         {selectedType === 'reading' && readingConfig && (
           <ReadingAssignmentForm value={readingConfig} onChange={onAssignmentConfigChange} />

@@ -10,6 +10,7 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Switch } from '@components/ui/switch';
 import { Textarea } from '@components/ui/textarea';
+import { AiPolicyControls } from '@features/ai-feedback/AiPolicyControls';
 import {
   createIeltsAssignmentConfig,
   type IeltsAssignmentConfig,
@@ -164,6 +165,8 @@ export function IeltsAssignmentBuilder({
               />
             </div>
           </Card>
+
+          <AiPolicyControls type={type} value={value} onChange={onChange} />
 
           {type === 'reading' && (
             <ReadingBuilder
