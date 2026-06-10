@@ -84,6 +84,8 @@ export function TeacherIeltsAssignmentEditor({
   writingConfig,
   writingTask1File,
 }: TeacherIeltsAssignmentEditorProps) {
+  const selectedConfig = readingConfig ?? listeningConfig ?? writingConfig ?? speakingConfig;
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <div className="space-y-6">
@@ -105,11 +107,13 @@ export function TeacherIeltsAssignmentEditor({
           onDueDateChange={onDueDateChange}
         />
 
-        <AiPolicyControls
-          type={selectedType}
-          value={assignmentConfig}
-          onChange={onAssignmentConfigChange}
-        />
+        {selectedConfig && (
+          <AiPolicyControls
+            type={selectedType}
+            value={selectedConfig}
+            onChange={onAssignmentConfigChange}
+          />
+        )}
 
         {selectedType === 'reading' && readingConfig && (
           <ReadingAssignmentForm value={readingConfig} onChange={onAssignmentConfigChange} />

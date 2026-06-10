@@ -153,7 +153,7 @@ export function AiFeedbackReviewPanel({
 
   const handleRegenerate = async () => {
     try {
-      await regenerateMutation.mutateAsync();
+      await regenerateMutation.mutateAsync(undefined);
       toast.success('AI writing feedback regeneration requested.');
     } catch (error) {
       toast.error(mutationErrorMessage(error));
