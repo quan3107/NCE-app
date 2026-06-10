@@ -13,6 +13,7 @@ import { useAssignmentResources, markSubmissionAsGraded } from '@features/assign
 import { useUpsertGradeMutation } from '@features/grades/api';
 import { useCourseRubricsQuery } from '@features/rubrics/api';
 import { useAuthStore } from '@store/authStore';
+import { AiFeedbackReviewPanel } from './AiFeedbackReviewPanel';
 import { TeacherGradePanels } from './TeacherGradePanels';
 import {
   calculateRawScore,
@@ -165,6 +166,14 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
         }
         rawScore={rawScore}
         rawScoreInput={rawScoreInput}
+        reviewPanel={
+          <AiFeedbackReviewPanel
+            assignment={assignment}
+            feedback={feedback}
+            onFeedbackChange={setFeedback}
+            submissionId={submissionId}
+          />
+        }
         rubricDrivenMode={rubricDrivenMode}
         rubricIds={rubricIds}
         rubricIsLoading={rubricsQuery.isLoading}

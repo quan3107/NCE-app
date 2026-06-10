@@ -4,6 +4,7 @@
  * Why: Keeps TeacherGradeFormPage focused on data lookup and submit behavior.
  */
 
+import type { ReactNode } from 'react';
 import { FileText, Send } from 'lucide-react';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
@@ -30,6 +31,7 @@ type TeacherGradePanelsProps = {
   onScoreChange: (criterionKey: string, score: number) => void;
   rawScore: number;
   rawScoreInput: number;
+  reviewPanel?: ReactNode;
   rubricDrivenMode: boolean;
   rubricIds: string[];
   rubricIsLoading: boolean;
@@ -51,6 +53,7 @@ export function TeacherGradePanels({
   onScoreChange,
   rawScore,
   rawScoreInput,
+  reviewPanel,
   rubricDrivenMode,
   rubricIds,
   rubricIsLoading,
@@ -79,7 +82,11 @@ export function TeacherGradePanels({
             rubricIsLoading={rubricIsLoading}
             scores={scores}
           />
-          <FeedbackPanel feedback={feedback} onFeedbackChange={onFeedbackChange} />
+          <FeedbackPanel
+            feedback={feedback}
+            onFeedbackChange={onFeedbackChange}
+            reviewPanel={reviewPanel}
+          />
         </div>
 
         <div className="space-y-6">
@@ -235,21 +242,25 @@ function FreeformGradePanel({
 function FeedbackPanel({
   feedback,
   onFeedbackChange,
-}: Pick<TeacherGradePanelsProps, 'feedback' | 'onFeedbackChange'>) {
+  reviewPanel,
+}: Pick<TeacherGradePanelsProps, 'feedback' | 'onFeedbackChange' | 'reviewPanel'>) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Feedback</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Textarea
-          rows={8}
-          placeholder="Provide detailed feedback to the student..."
-          value={feedback}
-          onChange={(event) => onFeedbackChange(event.target.value)}
-        />
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Feedback</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            rows={8}
+            placeholder="Provide detailed feedback to the student..."
+            value={feedback}
+            onChange={(event) => onFeedbackChange(event.target.value)}
+          />
+        </CardContent>
+      </Card>
+      {reviewPanel}
+    </div>
   );
 }
 

@@ -22,6 +22,7 @@ import { IeltsReadingContentEditor } from './IeltsReadingContentEditor';
 import { IeltsListeningContentEditor } from './IeltsListeningContentEditor';
 import { IeltsWritingContentEditor } from './IeltsWritingContentEditor';
 import { IeltsSpeakingContentEditor } from './IeltsSpeakingContentEditor';
+import { AiPolicyControls } from '@features/ai-feedback/AiPolicyControls';
 
 export type IeltsAssignmentContentEditorProps<T extends IeltsAssignmentConfig> = {
   type: IeltsAssignmentType;
@@ -162,6 +163,8 @@ export function IeltsAssignmentContentEditor<T extends IeltsAssignmentConfig>({
           </CardContent>
         </Card>
       </div>
+
+      <AiPolicyControls type={type} value={value} onChange={(updated) => onChange(updated as T)} />
 
       {/* Skill-specific editors */}
       {type === 'reading' && (

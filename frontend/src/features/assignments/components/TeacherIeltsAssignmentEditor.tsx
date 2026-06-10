@@ -10,6 +10,7 @@ import { ListeningAssignmentForm } from './ielts/authoring/ListeningAssignmentFo
 import { ReadingAssignmentForm } from './ielts/authoring/ReadingAssignmentForm';
 import { SpeakingAssignmentForm } from './ielts/authoring/SpeakingAssignmentForm';
 import { WritingAssignmentForm } from './ielts/authoring/WritingAssignmentForm';
+import { AiPolicyControls } from '@features/ai-feedback/AiPolicyControls';
 import type {
   IeltsAssignmentConfig,
   IeltsAssignmentType,
@@ -102,6 +103,12 @@ export function TeacherIeltsAssignmentEditor({
           onEnforceTimeChange={onEnforceTimeChange}
           dueDate={dueDate}
           onDueDateChange={onDueDateChange}
+        />
+
+        <AiPolicyControls
+          type={selectedType}
+          value={assignmentConfig}
+          onChange={onAssignmentConfigChange}
         />
 
         {selectedType === 'reading' && readingConfig && (
