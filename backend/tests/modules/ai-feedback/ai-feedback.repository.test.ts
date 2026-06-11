@@ -333,6 +333,30 @@ describe("ai-feedback.repository", () => {
     expect(draft).toBeNull();
   });
 
+  it("does not expose instant-visible drafts from archived courses", async () => {
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(null);
+
+    await getStudentVisibleAiFeedbackDraft({
+      submissionId,
+      studentId: requesterId,
+    });
+
+    expect(prisma.aiFeedbackDraft.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          submission: expect.objectContaining({
+            assignment: {
+              deletedAt: null,
+              course: {
+                deletedAt: null,
+              },
+            },
+          }),
+        }),
+      }),
+    );
+  });
+
   it("exposes instant-visible writing drafts only when assignment policy allows it", async () => {
     const visibleDraft = {
       id: draftId,

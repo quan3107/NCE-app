@@ -17,6 +17,7 @@ import {
   createNotFoundError,
 } from "../../utils/httpError.js";
 import { enqueueNotification } from "../notifications/notifications.service.js";
+import { getStudentVisibleAiFeedbackDraft } from "../ai-feedback/ai-feedback.repository.js";
 import {
   calculateIeltsManualBand,
   isIeltsManualAssignment,
@@ -46,6 +47,22 @@ type SubmissionForGrading = {
     } | null;
   };
 };
+
+type StudentAiFeedbackDraft = Awaited<
+  ReturnType<typeof getStudentVisibleAiFeedbackDraft>
+>;
+
+const learnerFacingFeedbackKeys = new Set([
+  "feedbackMd",
+  "feedback",
+  "content",
+  "summary",
+  "band_estimate",
+  "rationale",
+  "strengths",
+  "improvement_areas",
+  "next_steps",
+]);
 
 function buildGradeReadWhere(
   submissionId: string,
@@ -188,6 +205,79 @@ function normalizeGradePayload(
   };
 }
 
+function sanitizeLearnerFeedback(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const sanitized = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(([key]) =>
+      learnerFacingFeedbackKeys.has(key),
+    ),
+  );
+
+  return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
+
+function toStudentAiFeedback(draft: StudentAiFeedbackDraft) {
+  if (!draft || draft.status !== "accepted") {
+    return undefined;
+  }
+
+  const feedback = sanitizeLearnerFeedback(draft.generatedFeedback);
+  if (!feedback) {
+    return undefined;
+  }
+
+  return {
+    label: "provisional AI feedback",
+    status: draft.status,
+    feedback,
+  };
+}
+
+function toProvisionalOnlyGrade(
+  draft: StudentAiFeedbackDraft,
+  submissionId: string,
+) {
+  if (!draft) {
+    return undefined;
+  }
+
+  const studentAiFeedback = toStudentAiFeedback(draft);
+
+  if (!studentAiFeedback) {
+    return undefined;
+  }
+
+  return {
+    id: draft.id,
+    submissionId,
+    feedback: null,
+    feedbackLabel: "teacher feedback",
+    provisionalOnly: true,
+    studentAiFeedback,
+  };
+}
+
+function feedbackLabelForGrade(grade: {
+  aiFeedbackDrafts?: Array<{
+    status: string;
+    visibilityMode: string;
+  }>;
+}): "teacher feedback" | "teacher-reviewed AI-assisted feedback" {
+  const aiAssisted = grade.aiFeedbackDrafts?.some(
+    (draft) =>
+      (draft.status === "approved" || draft.status === "finalized") &&
+      (draft.visibilityMode === "teacher_reviewed" ||
+        draft.visibilityMode === "instant_student_visible"),
+  );
+
+  return aiAssisted
+    ? "teacher-reviewed AI-assisted feedback"
+    : "teacher feedback";
+}
+
 export async function upsertGrade(
   params: unknown,
   payload: unknown,
@@ -319,14 +409,57 @@ export async function getGrade(params: unknown, actor?: GradingActor) {
           fullName: true,
         },
       },
+      aiFeedbackDrafts: {
+        where: {
+          deletedAt: null,
+          status: {
+            in: ["approved", "finalized"],
+          },
+          visibilityMode: {
+            in: ["teacher_reviewed", "instant_student_visible"],
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          visibilityMode: true,
+        },
+        orderBy: [{ decidedAt: "desc" }, { createdAt: "desc" }],
+        take: 1,
+      },
     },
   });
   if (!grade) {
+    if (actor?.role === UserRole.student) {
+      const provisionalGrade = toProvisionalOnlyGrade(
+        await getStudentVisibleAiFeedbackDraft({
+          submissionId,
+          studentId: actor.id,
+        }),
+        submissionId,
+      );
+
+      if (provisionalGrade) {
+        return provisionalGrade;
+      }
+    }
+
     throw createNotFoundError("Grade", submissionId);
   }
-  const { grader, ...gradePayload } = grade;
+  const studentAiFeedback =
+    actor?.role === UserRole.student
+      ? toStudentAiFeedback(
+          await getStudentVisibleAiFeedbackDraft({
+            submissionId,
+            studentId: actor.id,
+          }),
+        )
+      : undefined;
+  const { grader, aiFeedbackDrafts, ...gradePayload } = grade;
   return {
     ...gradePayload,
     graderName: grader.fullName,
+    feedbackLabel: feedbackLabelForGrade({ aiFeedbackDrafts }),
+    ...(studentAiFeedback ? { studentAiFeedback } : {}),
   };
 }

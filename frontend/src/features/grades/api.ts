@@ -7,7 +7,7 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { ApiError, apiClient } from '@lib/apiClient';
+import { ApiError, apiClient, type ApiClientOptions } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
 import type { Assignment, Grade, Submission } from '@domain';
 import { queryClient } from '@lib/queryClient';
@@ -17,16 +17,105 @@ const GRADES_KEY = 'grades:list';
 type ApiGrade = {
   id: string;
   submissionId: string;
-  graderId: string;
+  graderId?: string | null;
   rubricBreakdown?: Array<{ criterion: string; points: number }> | null;
   rawScore?: number | null;
   adjustments?: Array<{ reason: string; delta: number }> | null;
   finalScore?: number | null;
   band?: number | null;
   feedback?: string | null;
+  provisionalOnly?: boolean;
+  feedbackLabel?: Grade['feedbackLabel'];
+  studentAiFeedback?: Grade['studentAiFeedback'];
   gradedAt?: string | null;
   graderName?: string | null;
 };
+
+export type ObjectiveExplanationStatus =
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'review_required'
+  | 'rejected'
+  | 'failed';
+
+export type ObjectiveExplanationResponse = {
+  id: string;
+  status: ObjectiveExplanationStatus;
+  cached: boolean;
+  pollingLocation?: string;
+  explanation?: Record<string, unknown>;
+};
+
+const objectiveExplanationStatuses = new Set<ObjectiveExplanationStatus>([
+  'queued',
+  'running',
+  'completed',
+  'review_required',
+  'rejected',
+  'failed',
+]);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isActiveObjectiveExplanation = (
+  explanation: ObjectiveExplanationResponse,
+) => explanation.status === 'queued' || explanation.status === 'running';
+
+const isObjectiveExplanationResponse = (
+  value: unknown,
+): value is ObjectiveExplanationResponse => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const explanation = value.explanation;
+
+  return (
+    typeof value.id === 'string' &&
+    typeof value.status === 'string' &&
+    objectiveExplanationStatuses.has(value.status as ObjectiveExplanationStatus) &&
+    typeof value.cached === 'boolean' &&
+    (value.pollingLocation === undefined || typeof value.pollingLocation === 'string') &&
+    (explanation === undefined || isRecord(explanation))
+  );
+};
+
+const getTerminalObjectiveExplanationFromConflict = (
+  error: unknown,
+): ObjectiveExplanationResponse | null => {
+  if (
+    error instanceof ApiError &&
+    error.status === 409 &&
+    isObjectiveExplanationResponse(error.details) &&
+    !isActiveObjectiveExplanation(error.details)
+  ) {
+    return error.details;
+  }
+
+  return null;
+};
+
+type ObjectiveExplanationPollOptions = {
+  intervalMs?: number;
+  maxAttempts?: number;
+  wait?: (intervalMs: number) => Promise<void>;
+  fetcher?: (
+    submissionId: string,
+    questionId: string,
+  ) => Promise<ObjectiveExplanationResponse>;
+};
+
+export class ObjectiveExplanationPollingTimeoutError extends Error {
+  response: ObjectiveExplanationResponse;
+
+  constructor(response: ObjectiveExplanationResponse) {
+    super('Objective explanation is still running.');
+    this.name = 'ObjectiveExplanationPollingTimeoutError';
+    this.response = response;
+  }
+}
 
 type UpsertGradeRequest = {
   rubricBreakdown?: Array<{ criterion: string; points: number }>;
@@ -37,7 +126,7 @@ type UpsertGradeRequest = {
   feedbackMd?: string;
 };
 
-const toGrade = (
+export const toGrade = (
   grade: ApiGrade,
   submission: Submission,
   assignmentMap: Map<string, Assignment>,
@@ -65,8 +154,11 @@ const toGrade = (
     band: grade.band ?? undefined,
     maxScore: assignment?.maxScore ?? 100,
     feedback: grade.feedback ?? '',
-    gradedAt: grade.gradedAt ? new Date(grade.gradedAt) : new Date(),
-    gradedBy: grade.graderName ?? grade.graderId,
+    provisionalOnly: grade.provisionalOnly,
+    feedbackLabel: grade.feedbackLabel ?? 'teacher feedback',
+    studentAiFeedback: grade.studentAiFeedback,
+    gradedAt: grade.gradedAt ? new Date(grade.gradedAt) : undefined,
+    gradedBy: grade.graderName ?? grade.graderId ?? undefined,
   };
 };
 
@@ -111,6 +203,69 @@ const upsertGrade = async (
   );
 };
 
+const objectiveExplanationEndpoint = (submissionId: string, questionId: string) =>
+  `/api/v1/submissions/${encodeURIComponent(submissionId)}/questions/${encodeURIComponent(questionId)}/ai-explanation`;
+
+const readObjectiveExplanation = async (
+  endpoint: string,
+  options: ApiClientOptions = {},
+): Promise<ObjectiveExplanationResponse> => {
+  try {
+    return await apiClient<ObjectiveExplanationResponse>(endpoint, options);
+  } catch (error) {
+    const terminalResponse = getTerminalObjectiveExplanationFromConflict(error);
+
+    if (terminalResponse) {
+      return terminalResponse;
+    }
+
+    throw error;
+  }
+};
+
+export const requestObjectiveExplanation = (
+  submissionId: string,
+  questionId: string,
+): Promise<ObjectiveExplanationResponse> =>
+  readObjectiveExplanation(objectiveExplanationEndpoint(submissionId, questionId), {
+    method: 'POST',
+  });
+
+export const fetchObjectiveExplanation = (
+  submissionId: string,
+  questionId: string,
+): Promise<ObjectiveExplanationResponse> =>
+  readObjectiveExplanation(objectiveExplanationEndpoint(submissionId, questionId));
+
+const waitFor = (intervalMs: number) =>
+  new Promise<void>(resolve => {
+    window.setTimeout(resolve, intervalMs);
+  });
+
+export async function pollObjectiveExplanationUntilSettled(
+  submissionId: string,
+  questionId: string,
+  initial: ObjectiveExplanationResponse,
+  options: ObjectiveExplanationPollOptions = {},
+): Promise<ObjectiveExplanationResponse> {
+  const intervalMs = options.intervalMs ?? 5000;
+  const maxAttempts = options.maxAttempts ?? 24;
+  const wait = options.wait ?? waitFor;
+  const fetcher = options.fetcher ?? fetchObjectiveExplanation;
+  let current = initial;
+
+  for (let attempt = 0; attempt < maxAttempts && isActiveObjectiveExplanation(current); attempt += 1) {
+    await wait(intervalMs);
+    current = await fetcher(submissionId, questionId);
+  }
+
+  if (isActiveObjectiveExplanation(current)) {
+    throw new ObjectiveExplanationPollingTimeoutError(current);
+  }
+
+  return current;
+}
+
 export function useGradesQuery(submissions: Submission[], assignments: Assignment[]) {
   const { currentUser } = useAuth();
   const assignmentMap = useMemo(
@@ -128,7 +283,7 @@ export function useGradesQuery(submissions: Submission[], assignments: Assignmen
     currentUser.role === 'student';
 
   return useQuery({
-    queryKey: [GRADES_KEY, ...submissionIds],
+    queryKey: [GRADES_KEY, currentUser.id, currentUser.role, ...submissionIds],
     queryFn: () => fetchGrades(submissions, assignmentMap),
     enabled: canViewGrades && submissionIds.length > 0,
   });

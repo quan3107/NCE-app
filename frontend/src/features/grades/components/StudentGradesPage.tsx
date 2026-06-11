@@ -4,7 +4,7 @@
  * Why: Keeps the feature module organized under the new structure.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
@@ -13,14 +13,157 @@ import { Progress } from '@components/ui/progress';
 import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
-import { Award } from 'lucide-react';
+import { Award, Loader2, MessageSquareText } from 'lucide-react';
 import { formatDate } from '@lib/utils';
 import { useAssignmentResources } from '@features/assignments/api';
-import { useGradesQuery } from '@features/grades/api';
+import {
+  ObjectiveExplanationPollingTimeoutError,
+  pollObjectiveExplanationUntilSettled,
+  requestObjectiveExplanation,
+  useGradesQuery,
+  type ObjectiveExplanationResponse,
+  type ObjectiveExplanationStatus,
+} from '@features/grades/api';
+import { extractEditableFeedback } from '@features/ai-feedback/ui.logic';
+import {
+  isIeltsAssignmentType,
+  normalizeIeltsAssignmentConfig,
+  type IeltsListeningConfig,
+  type IeltsReadingConfig,
+} from '@lib/ielts';
+import { getStudentIeltsAnswerTargets } from '@features/assignments/components/ielts/student/studentIeltsAnswerTargets';
+import type { Assignment, Grade, Submission } from '@domain';
+
+type ExplanationViewStatus = ObjectiveExplanationStatus | 'polling_timeout';
+
+type ExplanationState = {
+  status: ExplanationViewStatus;
+  cached: boolean;
+  explanation?: Record<string, unknown>;
+  error?: string;
+};
+
+const explanationKey = (submissionId: string, questionId: string) =>
+  `${submissionId}:${questionId}`;
+
+const toExplanationState = (
+  response: ObjectiveExplanationResponse,
+): ExplanationState => ({
+  status: response.status,
+  cached: response.cached,
+  explanation: response.explanation,
+});
+
+const toFeedbackLabel = (label: Grade['feedbackLabel']) =>
+  label === 'teacher-reviewed AI-assisted feedback'
+    ? 'Teacher-reviewed AI-assisted Feedback'
+    : 'Teacher Feedback';
+
+const explanationText = (explanation: Record<string, unknown> | undefined) => {
+  if (!explanation) {
+    return '';
+  }
+
+  const preferred =
+    explanation.short_explanation ??
+    explanation.explanation ??
+    explanation.rationale ??
+    explanation.feedbackMd ??
+    explanation.feedback ??
+    explanation.content;
+
+  return typeof preferred === 'string'
+    ? preferred
+    : JSON.stringify(explanation);
+};
+
+const renderFeedbackContent = (feedback: string) => {
+  const lines = feedback.split('\n');
+  const elements: React.ReactNode[] = [];
+  let listItems: string[] = [];
+
+  const flushListItems = () => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={`list-${elements.length}`} className="space-y-2 ml-4">
+          {listItems.map((item, idx) => (
+            <li key={idx} className="flex items-start gap-3">
+              <div className="size-1.5 rounded-full bg-primary/70 mt-2 flex-shrink-0" />
+              <span className="text-sm text-foreground/90 leading-relaxed">{item}</span>
+            </li>
+          ))}
+        </ul>
+      );
+      listItems = [];
+    }
+  };
+
+  lines.forEach((line, i) => {
+    const trimmedLine = line.trim();
+
+    if (trimmedLine.startsWith('# ')) {
+      flushListItems();
+      const title = trimmedLine.replace('# ', '');
+      elements.push(
+        <div key={i} className="pt-2 first:pt-0">
+          <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+            <Award className="size-5 text-primary" />
+            {title}
+          </h3>
+        </div>
+      );
+    } else if (trimmedLine.startsWith('## ')) {
+      flushListItems();
+      const subtitle = trimmedLine.replace('## ', '');
+      elements.push(
+        <div key={i} className="pt-3">
+          <h4 className="text-base font-medium text-foreground/90 mb-2 pl-3 border-l-2 border-primary/40">
+            {subtitle}
+          </h4>
+        </div>
+      );
+    } else if (trimmedLine.startsWith('- ')) {
+      listItems.push(trimmedLine.replace('- ', ''));
+    } else if (trimmedLine) {
+      flushListItems();
+      elements.push(
+        <p key={i} className="text-sm text-foreground/80 leading-relaxed">
+          {trimmedLine}
+        </p>
+      );
+    }
+  });
+
+  flushListItems();
+  return elements;
+};
+
+const getObjectiveExplanationTargets = (assignment: Assignment) => {
+  if (
+    !isIeltsAssignmentType(assignment.type) ||
+    (assignment.type !== 'reading' && assignment.type !== 'listening')
+  ) {
+    return [];
+  }
+
+  const config = normalizeIeltsAssignmentConfig(
+    assignment.type,
+    assignment.assignmentConfig,
+  );
+
+  if (config.aiPolicy.objectiveExplanations !== 'on_demand_student_visible') {
+    return [];
+  }
+
+  return getStudentIeltsAnswerTargets(
+    config as IeltsReadingConfig | IeltsListeningConfig,
+  );
+};
 
 export function StudentGradesPage() {
   const { currentUser } = useAuthStore();
   const { navigate } = useRouter();
+  const [explanations, setExplanations] = useState<Record<string, ExplanationState>>({});
   const { submissions, assignments, isLoading: assignmentsLoading, error: assignmentsError } = useAssignmentResources();
   const studentSubmissions = useMemo(
     () => submissions.filter(submission => submission.studentId === currentUser?.id),
@@ -32,6 +175,48 @@ export function StudentGradesPage() {
 
   const isLoading = assignmentsLoading || gradesQuery.isLoading;
   const error = assignmentsError ?? gradesQuery.error;
+
+  const handleExplain = async (submission: Submission, questionId: string) => {
+    const key = explanationKey(submission.id, questionId);
+    setExplanations(prev => ({
+      ...prev,
+      [key]: { status: 'queued', cached: false },
+    }));
+
+    try {
+      const response = await requestObjectiveExplanation(submission.id, questionId);
+      const settledResponse =
+        response.status === 'queued' || response.status === 'running'
+          ? await pollObjectiveExplanationUntilSettled(
+              submission.id,
+              questionId,
+              response,
+            )
+          : response;
+
+      setExplanations(prev => ({
+        ...prev,
+        [key]: toExplanationState(settledResponse),
+      }));
+    } catch (caught) {
+      setExplanations(prev => ({
+        ...prev,
+        [key]: {
+          status:
+            caught instanceof ObjectiveExplanationPollingTimeoutError
+              ? 'polling_timeout'
+              : 'failed',
+          cached: false,
+          error:
+            caught instanceof ObjectiveExplanationPollingTimeoutError
+              ? 'Explanation is still running. Try again in a moment.'
+              : caught instanceof Error
+                ? caught.message
+                : 'Unable to request explanation.',
+        },
+      }));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -89,8 +274,14 @@ export function StudentGradesPage() {
               const assignment = assignments.find(a => a.id === submission.assignmentId);
               if (!grade || !assignment) return null;
 
-              const hasBandGrade = grade.band !== undefined;
-              const percentage = hasBandGrade ? null : (grade.finalScore / grade.maxScore) * 100;
+              const hasOfficialGrade = !grade.provisionalOnly;
+              const hasBandGrade = hasOfficialGrade && grade.band !== undefined;
+              const percentage =
+                hasOfficialGrade && !hasBandGrade
+                  ? (grade.finalScore / grade.maxScore) * 100
+                  : null;
+              const explanationTargets = getObjectiveExplanationTargets(assignment);
+              const provisionalFeedback = extractEditableFeedback(grade.studentAiFeedback?.feedback);
 
               return (
                 <Card key={submission.id} className="hover:shadow-md transition-shadow">
@@ -102,8 +293,12 @@ export function StudentGradesPage() {
                           <p className="text-sm text-muted-foreground">{assignment.courseName}</p>
                         </div>
                         <div className="text-right">
-                          <div className="text-3xl font-medium">
-                            {hasBandGrade ? `Band ${grade.band}` : `${grade.finalScore}/${grade.maxScore}`}
+                          <div className={hasOfficialGrade ? 'text-3xl font-medium' : 'text-sm font-medium'}>
+                            {hasOfficialGrade
+                              ? hasBandGrade
+                                ? `Band ${grade.band}`
+                                : `${grade.finalScore}/${grade.maxScore}`
+                              : 'Provisional feedback'}
                           </div>
                           {percentage !== null && (
                             <div className="text-sm text-muted-foreground">
@@ -114,103 +309,124 @@ export function StudentGradesPage() {
                       </div>
 
                       {/* Rubric Breakdown */}
-                      <div className="space-y-2">
-                        <Label>Rubric Breakdown</Label>
-                        {grade.rubricBreakdown.map((item, i) => (
-                          <div key={i} className="flex items-center gap-3">
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between text-sm mb-1">
-                                <span>{item.criteria}</span>
-                                <span className="font-medium">
-                                  {hasBandGrade ? `Band ${item.points}` : `${item.points}/${item.maxPoints}`}
-                                </span>
+                      {hasOfficialGrade && grade.rubricBreakdown.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Rubric Breakdown</Label>
+                          {grade.rubricBreakdown.map((item, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between text-sm mb-1">
+                                  <span>{item.criteria}</span>
+                                  <span className="font-medium">
+                                    {hasBandGrade ? `Band ${item.points}` : `${item.points}/${item.maxPoints}`}
+                                  </span>
+                                </div>
+                                <Progress
+                                  value={
+                                    hasBandGrade
+                                      ? (item.points / 9) * 100
+                                      : (item.points / item.maxPoints) * 100
+                                  }
+                                  className="h-1.5"
+                                />
                               </div>
-                              <Progress
-                                value={
-                                  hasBandGrade
-                                    ? (item.points / 9) * 100
-                                    : (item.points / item.maxPoints) * 100
-                                }
-                                className="h-1.5"
-                              />
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Feedback */}
                       {grade.feedback && (
                         <div className="space-y-2">
-                          <Label>Teacher Feedback</Label>
+                          <Label>{toFeedbackLabel(grade.feedbackLabel)}</Label>
                           <div className="p-6 bg-gradient-to-br from-muted/30 to-muted/60 rounded-xl border border-border/50 space-y-4">
-                            {(() => {
-                              const lines = grade.feedback.split('\n');
-                              const elements: React.ReactNode[] = [];
-                              let listItems: string[] = [];
-                              
-                              const flushListItems = () => {
-                                if (listItems.length > 0) {
-                                  elements.push(
-                                    <ul key={`list-${elements.length}`} className="space-y-2 ml-4">
-                                      {listItems.map((item, idx) => (
-                                        <li key={idx} className="flex items-start gap-3">
-                                          <div className="size-1.5 rounded-full bg-primary/70 mt-2 flex-shrink-0" />
-                                          <span className="text-sm text-foreground/90 leading-relaxed">{item}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  );
-                                  listItems = [];
-                                }
-                              };
-                              
-                              lines.forEach((line, i) => {
-                                const trimmedLine = line.trim();
-                                
-                                if (trimmedLine.startsWith('# ')) {
-                                  flushListItems();
-                                  const title = trimmedLine.replace('# ', '');
-                                  elements.push(
-                                    <div key={i} className="pt-2 first:pt-0">
-                                      <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                                        <Award className="size-5 text-primary" />
-                                        {title}
-                                      </h3>
-                                    </div>
-                                  );
-                                } else if (trimmedLine.startsWith('## ')) {
-                                  flushListItems();
-                                  const subtitle = trimmedLine.replace('## ', '');
-                                  elements.push(
-                                    <div key={i} className="pt-3">
-                                      <h4 className="text-base font-medium text-foreground/90 mb-2 pl-3 border-l-2 border-primary/40">
-                                        {subtitle}
-                                      </h4>
-                                    </div>
-                                  );
-                                } else if (trimmedLine.startsWith('- ')) {
-                                  listItems.push(trimmedLine.replace('- ', ''));
-                                } else if (trimmedLine) {
-                                  flushListItems();
-                                  elements.push(
-                                    <p key={i} className="text-sm text-foreground/80 leading-relaxed">
-                                      {trimmedLine}
-                                    </p>
-                                  );
-                                }
-                              });
-                              
-                              flushListItems();
-                              return elements;
-                            })()}
+                            {renderFeedbackContent(grade.feedback)}
                           </div>
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
-                        <span>Graded by {grade.gradedBy}</span>
-                        <span>{formatDate(grade.gradedAt, 'datetime')}</span>
-                      </div>
+                      {provisionalFeedback && (
+                        <div className="space-y-2">
+                          <Label>Provisional AI Feedback</Label>
+                          <div className="rounded-md border border-dashed border-primary/40 bg-primary/5 p-4">
+                            <p className="text-sm text-foreground/85 whitespace-pre-wrap">
+                              {provisionalFeedback}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {explanationTargets.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Question Explanations</Label>
+                          <div className="space-y-2">
+                            {explanationTargets.map((target, index) => {
+                              const state = explanations[explanationKey(submission.id, target.id)];
+                              const active =
+                                state?.status === 'queued' || state?.status === 'running';
+                              const ready = state?.status === 'completed' && state.explanation;
+                              const retryable = state?.status === 'polling_timeout';
+                              return (
+                                <div
+                                  key={target.id}
+                                  className="rounded-md border border-border bg-background p-3"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">
+                                        Question {index + 1}
+                                      </p>
+                                      <p className="text-sm font-medium">{target.prompt}</p>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={active || Boolean(ready)}
+                                      onClick={() => void handleExplain(submission, target.id)}
+                                    >
+                                      {active ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                      ) : (
+                                        <MessageSquareText className="size-4" />
+                                      )}
+                                      {ready ? 'Ready' : active ? 'Queued' : retryable ? 'Retry' : 'Explain'}
+                                    </Button>
+                                  </div>
+                                  {ready && (
+                                    <p className="mt-3 rounded-md bg-muted/40 p-3 text-sm text-foreground/85">
+                                      {explanationText(state.explanation)}
+                                    </p>
+                                  )}
+                                  {state?.status === 'polling_timeout' && (
+                                    <p className="mt-3 text-sm text-muted-foreground">
+                                      {state.error ?? 'Explanation is still running. Try again in a moment.'}
+                                    </p>
+                                  )}
+                                  {state?.status === 'failed' && (
+                                    <p className="mt-3 text-sm text-destructive">
+                                      {state.error ?? 'Explanation failed.'}
+                                    </p>
+                                  )}
+                                  {(state?.status === 'review_required' ||
+                                    state?.status === 'rejected') && (
+                                    <p className="mt-3 text-sm text-muted-foreground">
+                                      Explanation is not available for this question.
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {grade.gradedAt && grade.gradedBy && (
+                        <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
+                          <span>Graded by {grade.gradedBy}</span>
+                          <span>{formatDate(grade.gradedAt, 'datetime')}</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
