@@ -59,6 +59,67 @@ const toFeedbackLabel = (label: Grade['feedbackLabel']) =>
     ? 'Teacher-reviewed AI-assisted Feedback'
     : 'Teacher Feedback';
 
+const assertNever = (value: never): never => {
+  throw new Error(`Unsupported score display: ${JSON.stringify(value)}`);
+};
+
+type ScoreSummary = {
+  primary: string;
+  secondary: string | null;
+  className: string;
+};
+
+const formatBandScore = (value: number) => value.toFixed(1);
+
+const scoreSummary = (grade: Grade): ScoreSummary => {
+  if (grade.provisionalOnly) {
+    return {
+      primary: 'Provisional feedback',
+      secondary: null,
+      className: 'text-sm font-medium',
+    };
+  }
+
+  if (grade.scoreDisplay.kind === 'ielts_band') {
+    return {
+      primary: formatBandScore(grade.scoreDisplay.value),
+      secondary: null,
+      className: 'text-3xl font-medium',
+    };
+  }
+
+  if (grade.scoreDisplay.kind === 'unavailable') {
+    return {
+      primary: grade.scoreDisplay.label,
+      secondary: null,
+      className: 'text-sm font-medium',
+    };
+  }
+
+  if (grade.scoreDisplay.kind === 'points') {
+    const percentage =
+      grade.scoreDisplay.max > 0
+        ? `${((grade.scoreDisplay.value / grade.scoreDisplay.max) * 100).toFixed(0)}%`
+        : null;
+
+    return {
+      primary: `${grade.scoreDisplay.value}/${grade.scoreDisplay.max}`,
+      secondary: percentage,
+      className: 'text-3xl font-medium',
+    };
+  }
+
+  return assertNever(grade.scoreDisplay);
+};
+
+const rubricScoreLabel = (item: Grade['rubricBreakdown'][number]) =>
+  item.scale === 'ielts_band'
+    ? `${formatBandScore(item.points)} / ${formatBandScore(item.maxPoints)}`
+    : `${item.points}/${item.maxPoints}`;
+
+const rubricProgressValue = (item: Grade['rubricBreakdown'][number]) =>
+  item.maxPoints > 0 ? (item.points / item.maxPoints) * 100 : 0;
+
 const explanationText = (explanation: Record<string, unknown> | undefined) => {
   if (!explanation) {
     return '';
@@ -89,10 +150,12 @@ const renderFeedbackContent = (feedback: string) => {
           {listItems.map((item, idx) => (
             <li key={idx} className="flex items-start gap-3">
               <div className="size-1.5 rounded-full bg-primary/70 mt-2 flex-shrink-0" />
-              <span className="text-sm text-foreground/90 leading-relaxed">{item}</span>
+              <span className="text-sm text-foreground/90 leading-relaxed">
+                {item}
+              </span>
             </li>
           ))}
-        </ul>
+        </ul>,
       );
       listItems = [];
     }
@@ -110,7 +173,7 @@ const renderFeedbackContent = (feedback: string) => {
             <Award className="size-5 text-primary" />
             {title}
           </h3>
-        </div>
+        </div>,
       );
     } else if (trimmedLine.startsWith('## ')) {
       flushListItems();
@@ -120,7 +183,7 @@ const renderFeedbackContent = (feedback: string) => {
           <h4 className="text-base font-medium text-foreground/90 mb-2 pl-3 border-l-2 border-primary/40">
             {subtitle}
           </h4>
-        </div>
+        </div>,
       );
     } else if (trimmedLine.startsWith('- ')) {
       listItems.push(trimmedLine.replace('- ', ''));
@@ -129,7 +192,7 @@ const renderFeedbackContent = (feedback: string) => {
       elements.push(
         <p key={i} className="text-sm text-foreground/80 leading-relaxed">
           {trimmedLine}
-        </p>
+        </p>,
       );
     }
   });
@@ -163,10 +226,20 @@ const getObjectiveExplanationTargets = (assignment: Assignment) => {
 export function StudentGradesPage() {
   const { currentUser } = useAuthStore();
   const { navigate } = useRouter();
-  const [explanations, setExplanations] = useState<Record<string, ExplanationState>>({});
-  const { submissions, assignments, isLoading: assignmentsLoading, error: assignmentsError } = useAssignmentResources();
+  const [explanations, setExplanations] = useState<
+    Record<string, ExplanationState>
+  >({});
+  const {
+    submissions,
+    assignments,
+    isLoading: assignmentsLoading,
+    error: assignmentsError,
+  } = useAssignmentResources();
   const studentSubmissions = useMemo(
-    () => submissions.filter(submission => submission.studentId === currentUser?.id),
+    () =>
+      submissions.filter(
+        (submission) => submission.studentId === currentUser?.id,
+      ),
     [submissions, currentUser?.id],
   );
   const gradesQuery = useGradesQuery(studentSubmissions, assignments);
@@ -178,13 +251,16 @@ export function StudentGradesPage() {
 
   const handleExplain = async (submission: Submission, questionId: string) => {
     const key = explanationKey(submission.id, questionId);
-    setExplanations(prev => ({
+    setExplanations((prev) => ({
       ...prev,
       [key]: { status: 'queued', cached: false },
     }));
 
     try {
-      const response = await requestObjectiveExplanation(submission.id, questionId);
+      const response = await requestObjectiveExplanation(
+        submission.id,
+        questionId,
+      );
       const settledResponse =
         response.status === 'queued' || response.status === 'running'
           ? await pollObjectiveExplanationUntilSettled(
@@ -194,12 +270,12 @@ export function StudentGradesPage() {
             )
           : response;
 
-      setExplanations(prev => ({
+      setExplanations((prev) => ({
         ...prev,
         [key]: toExplanationState(settledResponse),
       }));
     } catch (caught) {
-      setExplanations(prev => ({
+      setExplanations((prev) => ({
         ...prev,
         [key]: {
           status:
@@ -221,7 +297,10 @@ export function StudentGradesPage() {
   if (isLoading) {
     return (
       <div>
-        <PageHeader title="Grades" description="View your grades and feedback" />
+        <PageHeader
+          title="Grades"
+          description="View your grades and feedback"
+        />
         <div className="p-4 sm:p-6 lg:p-8">
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
@@ -236,12 +315,19 @@ export function StudentGradesPage() {
   if (error) {
     return (
       <div>
-        <PageHeader title="Grades" description="View your grades and feedback" />
+        <PageHeader
+          title="Grades"
+          description="View your grades and feedback"
+        />
         <div className="p-4 sm:p-6 lg:p-8">
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-destructive font-medium">Unable to load grades.</p>
-              <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+              <p className="text-destructive font-medium">
+                Unable to load grades.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {error.message}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -250,8 +336,8 @@ export function StudentGradesPage() {
   }
 
   const grades = gradesQuery.data ?? [];
-  const gradedSubmissions = studentSubmissions.filter(submission =>
-    grades.some(grade => grade.submissionId === submission.id),
+  const gradedSubmissions = studentSubmissions.filter((submission) =>
+    grades.some((grade) => grade.submissionId === submission.id),
   );
 
   return (
@@ -263,46 +349,54 @@ export function StudentGradesPage() {
             <CardContent className="py-12 text-center">
               <Award className="size-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="mb-2">No Grades Yet</h3>
-              <p className="text-muted-foreground mb-4">Complete and submit assignments to receive grades</p>
-              <Button onClick={() => navigate('/student/assignments')}>View Assignments</Button>
+              <p className="text-muted-foreground mb-4">
+                Complete and submit assignments to receive grades
+              </p>
+              <Button onClick={() => navigate('/student/assignments')}>
+                View Assignments
+              </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
-            {gradedSubmissions.map(submission => {
-              const grade = grades.find(g => g.submissionId === submission.id);
-              const assignment = assignments.find(a => a.id === submission.assignmentId);
+            {gradedSubmissions.map((submission) => {
+              const grade = grades.find(
+                (g) => g.submissionId === submission.id,
+              );
+              const assignment = assignments.find(
+                (a) => a.id === submission.assignmentId,
+              );
               if (!grade || !assignment) return null;
 
               const hasOfficialGrade = !grade.provisionalOnly;
-              const hasBandGrade = hasOfficialGrade && grade.band !== undefined;
-              const percentage =
-                hasOfficialGrade && !hasBandGrade
-                  ? (grade.finalScore / grade.maxScore) * 100
-                  : null;
-              const explanationTargets = getObjectiveExplanationTargets(assignment);
-              const provisionalFeedback = extractEditableFeedback(grade.studentAiFeedback?.feedback);
+              const displayScore = scoreSummary(grade);
+              const explanationTargets =
+                getObjectiveExplanationTargets(assignment);
+              const provisionalFeedback = extractEditableFeedback(
+                grade.studentAiFeedback?.feedback,
+              );
 
               return (
-                <Card key={submission.id} className="hover:shadow-md transition-shadow">
+                <Card
+                  key={submission.id}
+                  className="hover:shadow-md transition-shadow"
+                >
                   <CardContent className="p-6">
                     <div className="space-y-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h3 className="mb-1">{assignment.title}</h3>
-                          <p className="text-sm text-muted-foreground">{assignment.courseName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {assignment.courseName}
+                          </p>
                         </div>
                         <div className="text-right">
-                          <div className={hasOfficialGrade ? 'text-3xl font-medium' : 'text-sm font-medium'}>
-                            {hasOfficialGrade
-                              ? hasBandGrade
-                                ? `Band ${grade.band}`
-                                : `${grade.finalScore}/${grade.maxScore}`
-                              : 'Provisional feedback'}
+                          <div className={displayScore.className}>
+                            {displayScore.primary}
                           </div>
-                          {percentage !== null && (
+                          {displayScore.secondary !== null && (
                             <div className="text-sm text-muted-foreground">
-                              {percentage.toFixed(0)}%
+                              {displayScore.secondary}
                             </div>
                           )}
                         </div>
@@ -318,15 +412,11 @@ export function StudentGradesPage() {
                                 <div className="flex items-center justify-between text-sm mb-1">
                                   <span>{item.criteria}</span>
                                   <span className="font-medium">
-                                    {hasBandGrade ? `Band ${item.points}` : `${item.points}/${item.maxPoints}`}
+                                    {rubricScoreLabel(item)}
                                   </span>
                                 </div>
                                 <Progress
-                                  value={
-                                    hasBandGrade
-                                      ? (item.points / 9) * 100
-                                      : (item.points / item.maxPoints) * 100
-                                  }
+                                  value={rubricProgressValue(item)}
                                   className="h-1.5"
                                 />
                               </div>
@@ -361,11 +451,18 @@ export function StudentGradesPage() {
                           <Label>Question Explanations</Label>
                           <div className="space-y-2">
                             {explanationTargets.map((target, index) => {
-                              const state = explanations[explanationKey(submission.id, target.id)];
+                              const state =
+                                explanations[
+                                  explanationKey(submission.id, target.id)
+                                ];
                               const active =
-                                state?.status === 'queued' || state?.status === 'running';
-                              const ready = state?.status === 'completed' && state.explanation;
-                              const retryable = state?.status === 'polling_timeout';
+                                state?.status === 'queued' ||
+                                state?.status === 'running';
+                              const ready =
+                                state?.status === 'completed' &&
+                                state.explanation;
+                              const retryable =
+                                state?.status === 'polling_timeout';
                               return (
                                 <div
                                   key={target.id}
@@ -376,21 +473,34 @@ export function StudentGradesPage() {
                                       <p className="text-xs text-muted-foreground">
                                         Question {index + 1}
                                       </p>
-                                      <p className="text-sm font-medium">{target.prompt}</p>
+                                      <p className="text-sm font-medium">
+                                        {target.prompt}
+                                      </p>
                                     </div>
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
                                       disabled={active || Boolean(ready)}
-                                      onClick={() => void handleExplain(submission, target.id)}
+                                      onClick={() =>
+                                        void handleExplain(
+                                          submission,
+                                          target.id,
+                                        )
+                                      }
                                     >
                                       {active ? (
                                         <Loader2 className="size-4 animate-spin" />
                                       ) : (
                                         <MessageSquareText className="size-4" />
                                       )}
-                                      {ready ? 'Ready' : active ? 'Queued' : retryable ? 'Retry' : 'Explain'}
+                                      {ready
+                                        ? 'Ready'
+                                        : active
+                                          ? 'Queued'
+                                          : retryable
+                                            ? 'Retry'
+                                            : 'Explain'}
                                     </Button>
                                   </div>
                                   {ready && (
@@ -400,7 +510,8 @@ export function StudentGradesPage() {
                                   )}
                                   {state?.status === 'polling_timeout' && (
                                     <p className="mt-3 text-sm text-muted-foreground">
-                                      {state.error ?? 'Explanation is still running. Try again in a moment.'}
+                                      {state.error ??
+                                        'Explanation is still running. Try again in a moment.'}
                                     </p>
                                   )}
                                   {state?.status === 'failed' && (
@@ -411,7 +522,8 @@ export function StudentGradesPage() {
                                   {(state?.status === 'review_required' ||
                                     state?.status === 'rejected') && (
                                     <p className="mt-3 text-sm text-muted-foreground">
-                                      Explanation is not available for this question.
+                                      Explanation is not available for this
+                                      question.
                                     </p>
                                   )}
                                 </div>
@@ -438,13 +550,3 @@ export function StudentGradesPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-

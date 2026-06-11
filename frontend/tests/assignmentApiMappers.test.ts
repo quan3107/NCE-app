@@ -8,7 +8,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { toAssignment, toSubmission } from '../src/features/assignments/api.mappers';
+import {
+  toAssignment,
+  toSubmission,
+} from '../src/features/assignments/api.mappers';
 import {
   createIeltsAssignmentConfig,
   normalizeIeltsAssignmentConfig,
@@ -31,6 +34,57 @@ test('toAssignment formats structured late policies for student display', () => 
   );
 
   assert.equal(assignment.latePolicy, '15% late penalty');
+});
+
+test('toAssignment maps IELTS assignments max scores to the band scale', () => {
+  const buildApiAssignment = (
+    type: Parameters<typeof toAssignment>[0]['type'],
+  ): Parameters<typeof toAssignment>[0] => ({
+    id: `${type}-assignment`,
+    courseId: 'course-1',
+    title: `${type} Task`,
+    description: null,
+    type,
+    dueAt: null,
+    latePolicy: null,
+    publishedAt: '2026-06-01T00:00:00.000Z',
+    assignmentConfig: null,
+  });
+
+  const reading = toAssignment(buildApiAssignment('reading'), 'IELTS');
+  const listening = toAssignment(buildApiAssignment('listening'), 'IELTS');
+  const writing = toAssignment(
+    buildApiAssignment('writing'),
+    'IELTS',
+  );
+  const speaking = toAssignment(
+    buildApiAssignment('speaking'),
+    'IELTS',
+  );
+
+  assert.equal(reading.maxScore, 9);
+  assert.equal(listening.maxScore, 9);
+  assert.equal(writing.maxScore, 9);
+  assert.equal(speaking.maxScore, 9);
+});
+
+test('toAssignment keeps non-IELTS assignment max scores on the generic point scale', () => {
+  const assignment = toAssignment(
+    {
+      id: 'file-assignment',
+      courseId: 'course-1',
+      title: 'Generic File Upload',
+      description: null,
+      type: 'file',
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: '2026-06-01T00:00:00.000Z',
+      assignmentConfig: null,
+    },
+    'General Course',
+  );
+
+  assert.equal(assignment.maxScore, 100);
 });
 
 test('IELTS assignment configs default AI policy to off', () => {

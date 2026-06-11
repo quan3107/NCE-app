@@ -69,6 +69,6 @@ test('teacher publishes, student submits, teacher grades, and student sees feedb
   await signInAs(page, student, api);
   await page.goto('/student/grades');
   await expect(page.getByText(assignmentTitle)).toBeVisible();
-  await expect(page.getByText('Band 7.5')).toBeVisible();
+  await expect(page.getByText('7.5', { exact: true })).toBeVisible();
   await expect(page.getByText(feedback)).toBeVisible();
 });

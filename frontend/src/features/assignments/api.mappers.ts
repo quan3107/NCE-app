@@ -5,6 +5,7 @@
  */
 
 import type { Assignment, Submission, SubmissionFile } from '@domain';
+import { isIeltsAssignmentType } from '@lib/ielts';
 import type { ApiAssignment, ApiSubmission } from './api.types';
 
 const safeParseJson = (value: string): Record<string, unknown> | null => {
@@ -38,6 +39,9 @@ const formatLatePolicy = (
   return JSON.stringify(record);
 };
 
+const maxScoreForAssignmentType = (type: ApiAssignment['type']): number =>
+  isIeltsAssignmentType(type) ? 9 : 100;
+
 export const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment => {
   const latePolicy = formatLatePolicy(assignment.latePolicy);
 
@@ -57,7 +61,7 @@ export const toAssignment = (assignment: ApiAssignment, courseName: string): Ass
     publishedAt: assignment.publishedAt ? new Date(assignment.publishedAt) : undefined,
     status: assignment.publishedAt ? 'published' : 'draft',
     latePolicy,
-    maxScore: 100,
+    maxScore: maxScoreForAssignmentType(assignment.type),
     assignmentConfig,
   };
 };
