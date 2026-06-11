@@ -55,6 +55,11 @@ type ChatCompletionResponse = {
 
 const defaultMaxResponseBytes = 256 * 1024;
 
+function supportsCustomTemperature(model: string): boolean {
+  const normalized = model.trim().toLowerCase();
+  return !normalized.startsWith("gpt-5") && !normalized.startsWith("o");
+}
+
 export class OpenAIProvider implements AiProvider {
   readonly routeKey: AiConcreteProviderRouteKey;
   readonly supportsImageInput: boolean;
@@ -150,10 +155,10 @@ export class OpenAIProvider implements AiProvider {
     const body: Record<string, unknown> = {
       model: this.model,
       messages: request.messages.map((message) => this.toOpenAiMessage(message)),
-      max_tokens: request.maxOutputTokens ?? this.maxOutputTokens,
+      max_completion_tokens: request.maxOutputTokens ?? this.maxOutputTokens,
     };
 
-    if (request.temperature !== undefined) {
+    if (request.temperature !== undefined && supportsCustomTemperature(this.model)) {
       body.temperature = request.temperature;
     }
 
