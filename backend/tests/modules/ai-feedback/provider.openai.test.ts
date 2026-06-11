@@ -93,9 +93,11 @@ describe("OpenAIProvider", () => {
     expect(body).toMatchObject({
       model: "gpt-5.4-nano",
       reasoning_effort: "medium",
-      max_tokens: 600,
+      max_completion_tokens: 600,
       response_format: { type: "json_object" },
     });
+    expect(body.max_tokens).toBeUndefined();
+    expect(body.temperature).toBeUndefined();
     expect(body.messages).toEqual([
       { role: "system", content: "Return JSON." },
       { role: "user", content: "Explain this objective." },
@@ -159,6 +161,26 @@ describe("OpenAIProvider", () => {
 
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
     expect(body.reasoning_effort).toBeUndefined();
+  });
+
+  it("passes custom temperature for chat models that support it", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        choices: [{ message: { content: "plain feedback" } }],
+      }),
+    );
+
+    await provider(fetchImpl, {
+      model: "gpt-4o-mini",
+      reasoningEffort: "none",
+    }).generate({
+      ...baseRequest,
+      expectJson: false,
+      temperature: 0,
+    });
+
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+    expect(body.temperature).toBe(0);
   });
 
   it("maps provider-neutral image parts to hosted OpenAI image content", async () => {
