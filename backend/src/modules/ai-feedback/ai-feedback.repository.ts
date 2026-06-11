@@ -242,6 +242,9 @@ export async function getStudentVisibleAiFeedbackDraft(input: unknown) {
         deletedAt: null,
         assignment: {
           deletedAt: null,
+          course: {
+            deletedAt: null,
+          },
         },
       },
     },

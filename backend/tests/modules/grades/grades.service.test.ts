@@ -519,6 +519,41 @@ describe("grades.service.getGrade", () => {
     expect(JSON.stringify(grade)).not.toContain("hidden prompt");
   });
 
+  it("returns provisional instant-visible AI feedback before a grade exists", async () => {
+    prisma.grade.findFirst.mockResolvedValueOnce(null);
+    getStudentVisibleAiFeedbackDraft.mockResolvedValueOnce({
+      id: "draft-before-grade",
+      submissionId,
+      status: "accepted",
+      visibilityMode: "instant_student_visible",
+      generatedFeedback: {
+        feedbackMd: "This provisional feedback is ready before teacher grading.",
+      },
+    } as never);
+
+    const grade = await getGrade(
+      { submissionId },
+      { id: studentId, role: UserRole.student },
+    );
+
+    expect(grade).toEqual(
+      expect.objectContaining({
+        id: "draft-before-grade",
+        submissionId,
+        provisionalOnly: true,
+        feedbackLabel: "teacher feedback",
+        studentAiFeedback: {
+          label: "provisional AI feedback",
+          status: "accepted",
+          feedback: {
+            feedbackMd:
+              "This provisional feedback is ready before teacher grading.",
+          },
+        },
+      }),
+    );
+  });
+
   it("labels grade feedback that came from teacher-reviewed AI assistance", async () => {
     prisma.grade.findFirst.mockResolvedValueOnce({
       id: "grade-ai-assisted",

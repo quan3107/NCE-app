@@ -236,6 +236,30 @@ function toStudentAiFeedback(draft: StudentAiFeedbackDraft) {
   };
 }
 
+function toProvisionalOnlyGrade(
+  draft: StudentAiFeedbackDraft,
+  submissionId: string,
+) {
+  if (!draft) {
+    return undefined;
+  }
+
+  const studentAiFeedback = toStudentAiFeedback(draft);
+
+  if (!studentAiFeedback) {
+    return undefined;
+  }
+
+  return {
+    id: draft.id,
+    submissionId,
+    feedback: null,
+    feedbackLabel: "teacher feedback",
+    provisionalOnly: true,
+    studentAiFeedback,
+  };
+}
+
 function feedbackLabelForGrade(grade: {
   aiFeedbackDrafts?: Array<{
     status: string;
@@ -406,6 +430,20 @@ export async function getGrade(params: unknown, actor?: GradingActor) {
     },
   });
   if (!grade) {
+    if (actor?.role === UserRole.student) {
+      const provisionalGrade = toProvisionalOnlyGrade(
+        await getStudentVisibleAiFeedbackDraft({
+          submissionId,
+          studentId: actor.id,
+        }),
+        submissionId,
+      );
+
+      if (provisionalGrade) {
+        return provisionalGrade;
+      }
+    }
+
     throw createNotFoundError("Grade", submissionId);
   }
   const studentAiFeedback =

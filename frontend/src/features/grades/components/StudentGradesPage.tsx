@@ -17,6 +17,8 @@ import { Award, Loader2, MessageSquareText } from 'lucide-react';
 import { formatDate } from '@lib/utils';
 import { useAssignmentResources } from '@features/assignments/api';
 import {
+  ObjectiveExplanationPollingTimeoutError,
+  pollObjectiveExplanationUntilSettled,
   requestObjectiveExplanation,
   useGradesQuery,
   type ObjectiveExplanationResponse,
@@ -32,8 +34,10 @@ import {
 import { getStudentIeltsAnswerTargets } from '@features/assignments/components/ielts/student/studentIeltsAnswerTargets';
 import type { Assignment, Grade, Submission } from '@domain';
 
+type ExplanationViewStatus = ObjectiveExplanationStatus | 'polling_timeout';
+
 type ExplanationState = {
-  status: ObjectiveExplanationStatus;
+  status: ExplanationViewStatus;
   cached: boolean;
   explanation?: Record<string, unknown>;
   error?: string;
@@ -181,17 +185,34 @@ export function StudentGradesPage() {
 
     try {
       const response = await requestObjectiveExplanation(submission.id, questionId);
+      const settledResponse =
+        response.status === 'queued' || response.status === 'running'
+          ? await pollObjectiveExplanationUntilSettled(
+              submission.id,
+              questionId,
+              response,
+            )
+          : response;
+
       setExplanations(prev => ({
         ...prev,
-        [key]: toExplanationState(response),
+        [key]: toExplanationState(settledResponse),
       }));
     } catch (caught) {
       setExplanations(prev => ({
         ...prev,
         [key]: {
-          status: 'failed',
+          status:
+            caught instanceof ObjectiveExplanationPollingTimeoutError
+              ? 'polling_timeout'
+              : 'failed',
           cached: false,
-          error: caught instanceof Error ? caught.message : 'Unable to request explanation.',
+          error:
+            caught instanceof ObjectiveExplanationPollingTimeoutError
+              ? 'Explanation is still running. Try again in a moment.'
+              : caught instanceof Error
+                ? caught.message
+                : 'Unable to request explanation.',
         },
       }));
     }
@@ -253,8 +274,12 @@ export function StudentGradesPage() {
               const assignment = assignments.find(a => a.id === submission.assignmentId);
               if (!grade || !assignment) return null;
 
-              const hasBandGrade = grade.band !== undefined;
-              const percentage = hasBandGrade ? null : (grade.finalScore / grade.maxScore) * 100;
+              const hasOfficialGrade = !grade.provisionalOnly;
+              const hasBandGrade = hasOfficialGrade && grade.band !== undefined;
+              const percentage =
+                hasOfficialGrade && !hasBandGrade
+                  ? (grade.finalScore / grade.maxScore) * 100
+                  : null;
               const explanationTargets = getObjectiveExplanationTargets(assignment);
               const provisionalFeedback = extractEditableFeedback(grade.studentAiFeedback?.feedback);
 
@@ -268,8 +293,12 @@ export function StudentGradesPage() {
                           <p className="text-sm text-muted-foreground">{assignment.courseName}</p>
                         </div>
                         <div className="text-right">
-                          <div className="text-3xl font-medium">
-                            {hasBandGrade ? `Band ${grade.band}` : `${grade.finalScore}/${grade.maxScore}`}
+                          <div className={hasOfficialGrade ? 'text-3xl font-medium' : 'text-sm font-medium'}>
+                            {hasOfficialGrade
+                              ? hasBandGrade
+                                ? `Band ${grade.band}`
+                                : `${grade.finalScore}/${grade.maxScore}`
+                              : 'Provisional feedback'}
                           </div>
                           {percentage !== null && (
                             <div className="text-sm text-muted-foreground">
@@ -280,29 +309,31 @@ export function StudentGradesPage() {
                       </div>
 
                       {/* Rubric Breakdown */}
-                      <div className="space-y-2">
-                        <Label>Rubric Breakdown</Label>
-                        {grade.rubricBreakdown.map((item, i) => (
-                          <div key={i} className="flex items-center gap-3">
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between text-sm mb-1">
-                                <span>{item.criteria}</span>
-                                <span className="font-medium">
-                                  {hasBandGrade ? `Band ${item.points}` : `${item.points}/${item.maxPoints}`}
-                                </span>
+                      {hasOfficialGrade && grade.rubricBreakdown.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Rubric Breakdown</Label>
+                          {grade.rubricBreakdown.map((item, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between text-sm mb-1">
+                                  <span>{item.criteria}</span>
+                                  <span className="font-medium">
+                                    {hasBandGrade ? `Band ${item.points}` : `${item.points}/${item.maxPoints}`}
+                                  </span>
+                                </div>
+                                <Progress
+                                  value={
+                                    hasBandGrade
+                                      ? (item.points / 9) * 100
+                                      : (item.points / item.maxPoints) * 100
+                                  }
+                                  className="h-1.5"
+                                />
                               </div>
-                              <Progress
-                                value={
-                                  hasBandGrade
-                                    ? (item.points / 9) * 100
-                                    : (item.points / item.maxPoints) * 100
-                                }
-                                className="h-1.5"
-                              />
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Feedback */}
                       {grade.feedback && (
@@ -334,6 +365,7 @@ export function StudentGradesPage() {
                               const active =
                                 state?.status === 'queued' || state?.status === 'running';
                               const ready = state?.status === 'completed' && state.explanation;
+                              const retryable = state?.status === 'polling_timeout';
                               return (
                                 <div
                                   key={target.id}
@@ -358,12 +390,17 @@ export function StudentGradesPage() {
                                       ) : (
                                         <MessageSquareText className="size-4" />
                                       )}
-                                      {ready ? 'Ready' : active ? 'Queued' : 'Explain'}
+                                      {ready ? 'Ready' : active ? 'Queued' : retryable ? 'Retry' : 'Explain'}
                                     </Button>
                                   </div>
                                   {ready && (
                                     <p className="mt-3 rounded-md bg-muted/40 p-3 text-sm text-foreground/85">
                                       {explanationText(state.explanation)}
+                                    </p>
+                                  )}
+                                  {state?.status === 'polling_timeout' && (
+                                    <p className="mt-3 text-sm text-muted-foreground">
+                                      {state.error ?? 'Explanation is still running. Try again in a moment.'}
                                     </p>
                                   )}
                                   {state?.status === 'failed' && (
@@ -384,10 +421,12 @@ export function StudentGradesPage() {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
-                        <span>Graded by {grade.gradedBy}</span>
-                        <span>{formatDate(grade.gradedAt, 'datetime')}</span>
-                      </div>
+                      {grade.gradedAt && grade.gradedBy && (
+                        <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
+                          <span>Graded by {grade.gradedBy}</span>
+                          <span>{formatDate(grade.gradedAt, 'datetime')}</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
