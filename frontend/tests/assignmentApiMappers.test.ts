@@ -36,36 +36,34 @@ test('toAssignment formats structured late policies for student display', () => 
   assert.equal(assignment.latePolicy, '15% late penalty');
 });
 
-test('toAssignment maps IELTS writing and speaking max scores to the band scale', () => {
+test('toAssignment maps IELTS assignments max scores to the band scale', () => {
+  const buildApiAssignment = (
+    type: Parameters<typeof toAssignment>[0]['type'],
+  ): Parameters<typeof toAssignment>[0] => ({
+    id: `${type}-assignment`,
+    courseId: 'course-1',
+    title: `${type} Task`,
+    description: null,
+    type,
+    dueAt: null,
+    latePolicy: null,
+    publishedAt: '2026-06-01T00:00:00.000Z',
+    assignmentConfig: null,
+  });
+
+  const reading = toAssignment(buildApiAssignment('reading'), 'IELTS');
+  const listening = toAssignment(buildApiAssignment('listening'), 'IELTS');
   const writing = toAssignment(
-    {
-      id: 'writing-assignment',
-      courseId: 'course-1',
-      title: 'Writing Task',
-      description: null,
-      type: 'writing',
-      dueAt: null,
-      latePolicy: null,
-      publishedAt: '2026-06-01T00:00:00.000Z',
-      assignmentConfig: null,
-    },
+    buildApiAssignment('writing'),
     'IELTS',
   );
   const speaking = toAssignment(
-    {
-      id: 'speaking-assignment',
-      courseId: 'course-1',
-      title: 'Speaking Task',
-      description: null,
-      type: 'speaking',
-      dueAt: null,
-      latePolicy: null,
-      publishedAt: '2026-06-01T00:00:00.000Z',
-      assignmentConfig: null,
-    },
+    buildApiAssignment('speaking'),
     'IELTS',
   );
 
+  assert.equal(reading.maxScore, 9);
+  assert.equal(listening.maxScore, 9);
   assert.equal(writing.maxScore, 9);
   assert.equal(speaking.maxScore, 9);
 });

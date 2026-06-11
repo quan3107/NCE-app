@@ -237,6 +237,56 @@ test('toGrade normalizes numeric-string IELTS grade payloads before display', ()
   ]);
 });
 
+test('toGrade maps IELTS reading and listening bands to band display metadata', () => {
+  const ieltsObjectiveTypes: Array<Assignment['type']> = [
+    'reading',
+    'listening',
+  ];
+
+  for (const assignmentType of ieltsObjectiveTypes) {
+    const submission: Submission = {
+      id: `submission-${assignmentType}`,
+      assignmentId: `assignment-${assignmentType}`,
+      studentId: 'student-1',
+      studentName: 'Student One',
+      status: 'graded',
+      version: 1,
+    };
+    const assignment: Assignment = {
+      id: submission.assignmentId,
+      title: `IELTS ${assignmentType}`,
+      description: '',
+      type: assignmentType,
+      courseId: 'course-1',
+      courseName: 'IELTS',
+      dueAt: new Date('2026-06-01T00:00:00.000Z'),
+      status: 'published',
+      latePolicy: '',
+      maxScore: 9,
+    };
+
+    const grade = toGrade(
+      {
+        id: `grade-${assignmentType}`,
+        submissionId: submission.id,
+        rawScore: '30',
+        finalScore: '7',
+        band: '7',
+        feedback: 'Auto-scored IELTS objective result.',
+      },
+      submission,
+      new Map([[assignment.id, assignment]]),
+    );
+
+    assert.equal(grade.scoreDisplay.kind, 'ielts_band');
+    assert.equal(grade.scoreDisplay.value, 7);
+    assert.equal(grade.scoreDisplay.max, 9);
+    assert.equal(grade.rawScore, 30);
+    assert.equal(grade.finalScore, 7);
+    assert.equal(grade.band, 7);
+  }
+});
+
 test('toGrade keeps generic assignments on point display metadata', () => {
   const submission: Submission = {
     id: 'submission-generic',

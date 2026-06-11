@@ -11,6 +11,7 @@ import { ApiError, apiClient, type ApiClientOptions } from '@lib/apiClient';
 import { useAuth } from '@lib/auth';
 import type { Assignment, Grade, Submission } from '@domain';
 import { queryClient } from '@lib/queryClient';
+import { isIeltsAssignmentType } from '@lib/ielts';
 
 const GRADES_KEY = 'grades:list';
 
@@ -64,14 +65,10 @@ const objectiveExplanationStatuses = new Set<ObjectiveExplanationStatus>([
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const IELTS_BAND_ASSIGNMENT_TYPES = new Set<Assignment['type']>([
-  'writing',
-  'speaking',
-]);
 const IELTS_BAND_MAX = 9;
 
 const isIeltsBandAssignment = (assignment: Assignment | undefined): boolean =>
-  assignment ? IELTS_BAND_ASSIGNMENT_TYPES.has(assignment.type) : false;
+  assignment ? isIeltsAssignmentType(assignment.type) : false;
 
 const toFiniteNumber = (
   value: ApiNumericValue | null | undefined,

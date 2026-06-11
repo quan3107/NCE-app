@@ -5,6 +5,7 @@
  */
 
 import type { Assignment, Submission, SubmissionFile } from '@domain';
+import { isIeltsAssignmentType } from '@lib/ielts';
 import type { ApiAssignment, ApiSubmission } from './api.types';
 
 const safeParseJson = (value: string): Record<string, unknown> | null => {
@@ -40,13 +41,8 @@ const formatLatePolicy = (
   return JSON.stringify(record);
 };
 
-const IELTS_BAND_ASSIGNMENT_TYPES = new Set<ApiAssignment['type']>([
-  'writing',
-  'speaking',
-]);
-
 const maxScoreForAssignmentType = (type: ApiAssignment['type']): number =>
-  IELTS_BAND_ASSIGNMENT_TYPES.has(type) ? 9 : 100;
+  isIeltsAssignmentType(type) ? 9 : 100;
 
 export const toAssignment = (
   assignment: ApiAssignment,
