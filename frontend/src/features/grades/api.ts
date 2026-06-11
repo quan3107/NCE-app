@@ -14,15 +14,20 @@ import { queryClient } from '@lib/queryClient';
 
 const GRADES_KEY = 'grades:list';
 
+type ApiNumericValue = number | string;
+
 type ApiGrade = {
   id: string;
   submissionId: string;
   graderId?: string | null;
-  rubricBreakdown?: Array<{ criterion: string; points: number }> | null;
-  rawScore?: number | null;
+  rubricBreakdown?: Array<{
+    criterion: string;
+    points: ApiNumericValue;
+  }> | null;
+  rawScore?: ApiNumericValue | null;
   adjustments?: Array<{ reason: string; delta: number }> | null;
-  finalScore?: number | null;
-  band?: number | null;
+  finalScore?: ApiNumericValue | null;
+  band?: ApiNumericValue | null;
   feedback?: string | null;
   provisionalOnly?: boolean;
   feedbackLabel?: Grade['feedbackLabel'];
@@ -59,6 +64,50 @@ const objectiveExplanationStatuses = new Set<ObjectiveExplanationStatus>([
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const IELTS_BAND_ASSIGNMENT_TYPES = new Set<Assignment['type']>([
+  'writing',
+  'speaking',
+]);
+const IELTS_BAND_MAX = 9;
+
+const isIeltsBandAssignment = (assignment: Assignment | undefined): boolean =>
+  assignment ? IELTS_BAND_ASSIGNMENT_TYPES.has(assignment.type) : false;
+
+const toFiniteNumber = (
+  value: ApiNumericValue | null | undefined,
+): number | undefined => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    const numericValue = Number(value);
+
+    return Number.isFinite(numericValue) ? numericValue : undefined;
+  }
+
+  return undefined;
+};
+
+const toHalfBand = (value: number): number =>
+  Math.round(Math.min(IELTS_BAND_MAX, Math.max(0, value)) * 2) / 2;
+
+const resolveGradeBand = (
+  grade: ApiGrade,
+  assignment: Assignment | undefined,
+): number | undefined => {
+  if (!isIeltsBandAssignment(assignment)) {
+    return toFiniteNumber(grade.band);
+  }
+
+  const candidate =
+    toFiniteNumber(grade.band) ??
+    toFiniteNumber(grade.finalScore) ??
+    toFiniteNumber(grade.rawScore);
+
+  return typeof candidate === 'number' ? toHalfBand(candidate) : undefined;
+};
+
 const isActiveObjectiveExplanation = (
   explanation: ObjectiveExplanationResponse,
 ) => explanation.status === 'queued' || explanation.status === 'running';
@@ -75,9 +124,12 @@ const isObjectiveExplanationResponse = (
   return (
     typeof value.id === 'string' &&
     typeof value.status === 'string' &&
-    objectiveExplanationStatuses.has(value.status as ObjectiveExplanationStatus) &&
+    objectiveExplanationStatuses.has(
+      value.status as ObjectiveExplanationStatus,
+    ) &&
     typeof value.cached === 'boolean' &&
-    (value.pollingLocation === undefined || typeof value.pollingLocation === 'string') &&
+    (value.pollingLocation === undefined ||
+      typeof value.pollingLocation === 'string') &&
     (explanation === undefined || isRecord(explanation))
   );
 };
@@ -132,11 +184,23 @@ export const toGrade = (
   assignmentMap: Map<string, Assignment>,
 ): Grade => {
   const assignment = assignmentMap.get(submission.assignmentId);
-  const rubricBreakdown = (grade.rubricBreakdown ?? []).map(item => ({
-    criteria: item.criterion,
-    points: item.points,
-    maxPoints: item.points,
-  }));
+  const isIeltsBand = isIeltsBandAssignment(assignment);
+  const resolvedBand = resolveGradeBand(grade, assignment);
+  const maxScore = isIeltsBand ? IELTS_BAND_MAX : (assignment?.maxScore ?? 100);
+  const rawScoreValue = toFiniteNumber(grade.rawScore);
+  const rawScore = rawScoreValue ?? 0;
+  const finalScore =
+    toFiniteNumber(grade.finalScore) ?? rawScoreValue ?? resolvedBand ?? 0;
+  const rubricBreakdown = (grade.rubricBreakdown ?? []).map((item) => {
+    const points = toFiniteNumber(item.points) ?? 0;
+
+    return {
+      criteria: item.criterion,
+      points,
+      maxPoints: isIeltsBand ? IELTS_BAND_MAX : points,
+      scale: isIeltsBand ? ('ielts_band' as const) : ('points' as const),
+    };
+  });
   const adjustments = (grade.adjustments ?? []).reduce(
     (total, item) => total + (item.delta ?? 0),
     0,
@@ -148,11 +212,18 @@ export const toGrade = (
     assignmentId: submission.assignmentId,
     studentId: submission.studentId,
     rubricBreakdown,
-    rawScore: grade.rawScore ?? 0,
+    rawScore,
     adjustments,
-    finalScore: grade.finalScore ?? grade.rawScore ?? 0,
-    band: grade.band ?? undefined,
-    maxScore: assignment?.maxScore ?? 100,
+    finalScore,
+    band: resolvedBand,
+    maxScore,
+    scoreDisplay: isIeltsBand
+      ? {
+          kind: 'ielts_band',
+          value: resolvedBand ?? finalScore,
+          max: IELTS_BAND_MAX,
+        }
+      : { kind: 'points', value: finalScore, max: maxScore },
     feedback: grade.feedback ?? '',
     provisionalOnly: grade.provisionalOnly,
     feedbackLabel: grade.feedbackLabel ?? 'teacher feedback',
@@ -171,7 +242,7 @@ const fetchGrades = async (
   }
 
   const results = await Promise.all(
-    submissions.map(async submission => {
+    submissions.map(async (submission) => {
       try {
         const grade = await apiClient<ApiGrade>(
           `/api/v1/submissions/${submission.id}/grade`,
@@ -203,7 +274,10 @@ const upsertGrade = async (
   );
 };
 
-const objectiveExplanationEndpoint = (submissionId: string, questionId: string) =>
+const objectiveExplanationEndpoint = (
+  submissionId: string,
+  questionId: string,
+) =>
   `/api/v1/submissions/${encodeURIComponent(submissionId)}/questions/${encodeURIComponent(questionId)}/ai-explanation`;
 
 const readObjectiveExplanation = async (
@@ -227,18 +301,23 @@ export const requestObjectiveExplanation = (
   submissionId: string,
   questionId: string,
 ): Promise<ObjectiveExplanationResponse> =>
-  readObjectiveExplanation(objectiveExplanationEndpoint(submissionId, questionId), {
-    method: 'POST',
-  });
+  readObjectiveExplanation(
+    objectiveExplanationEndpoint(submissionId, questionId),
+    {
+      method: 'POST',
+    },
+  );
 
 export const fetchObjectiveExplanation = (
   submissionId: string,
   questionId: string,
 ): Promise<ObjectiveExplanationResponse> =>
-  readObjectiveExplanation(objectiveExplanationEndpoint(submissionId, questionId));
+  readObjectiveExplanation(
+    objectiveExplanationEndpoint(submissionId, questionId),
+  );
 
 const waitFor = (intervalMs: number) =>
-  new Promise<void>(resolve => {
+  new Promise<void>((resolve) => {
     window.setTimeout(resolve, intervalMs);
   });
 
@@ -254,7 +333,11 @@ export async function pollObjectiveExplanationUntilSettled(
   const fetcher = options.fetcher ?? fetchObjectiveExplanation;
   let current = initial;
 
-  for (let attempt = 0; attempt < maxAttempts && isActiveObjectiveExplanation(current); attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < maxAttempts && isActiveObjectiveExplanation(current);
+    attempt += 1
+  ) {
     await wait(intervalMs);
     current = await fetcher(submissionId, questionId);
   }
@@ -266,15 +349,18 @@ export async function pollObjectiveExplanationUntilSettled(
   return current;
 }
 
-export function useGradesQuery(submissions: Submission[], assignments: Assignment[]) {
+export function useGradesQuery(
+  submissions: Submission[],
+  assignments: Assignment[],
+) {
   const { currentUser } = useAuth();
   const assignmentMap = useMemo(
-    () => new Map(assignments.map(assignment => [assignment.id, assignment])),
+    () => new Map(assignments.map((assignment) => [assignment.id, assignment])),
     [assignments],
   );
 
   const submissionIds = useMemo(
-    () => submissions.map(submission => submission.id),
+    () => submissions.map((submission) => submission.id),
     [submissions],
   );
   const canViewGrades =

@@ -17,7 +17,9 @@ const safeParseJson = (value: string): Record<string, unknown> | null => {
 };
 
 const formatPercent = (value: number): string =>
-  Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
+  Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/\.?0+$/, '');
 
 const formatLatePolicy = (
   policy: Record<string, unknown> | string | null,
@@ -38,13 +40,24 @@ const formatLatePolicy = (
   return JSON.stringify(record);
 };
 
-export const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment => {
+const IELTS_BAND_ASSIGNMENT_TYPES = new Set<ApiAssignment['type']>([
+  'writing',
+  'speaking',
+]);
+
+const maxScoreForAssignmentType = (type: ApiAssignment['type']): number =>
+  IELTS_BAND_ASSIGNMENT_TYPES.has(type) ? 9 : 100;
+
+export const toAssignment = (
+  assignment: ApiAssignment,
+  courseName: string,
+): Assignment => {
   const latePolicy = formatLatePolicy(assignment.latePolicy);
 
   const assignmentConfig =
     typeof assignment.assignmentConfig === 'string'
       ? safeParseJson(assignment.assignmentConfig)
-      : assignment.assignmentConfig ?? null;
+      : (assignment.assignmentConfig ?? null);
 
   return {
     id: assignment.id,
@@ -54,10 +67,12 @@ export const toAssignment = (assignment: ApiAssignment, courseName: string): Ass
     courseId: assignment.courseId,
     courseName,
     dueAt: assignment.dueAt ? new Date(assignment.dueAt) : new Date(),
-    publishedAt: assignment.publishedAt ? new Date(assignment.publishedAt) : undefined,
+    publishedAt: assignment.publishedAt
+      ? new Date(assignment.publishedAt)
+      : undefined,
     status: assignment.publishedAt ? 'published' : 'draft',
     latePolicy,
-    maxScore: 100,
+    maxScore: maxScoreForAssignmentType(assignment.type),
     assignmentConfig,
   };
 };
@@ -83,10 +98,12 @@ const toSubmissionFile = (item: unknown): SubmissionFile | null => {
   const name = typeof record.name === 'string' ? record.name : 'Uploaded file';
   const id = typeof record.id === 'string' ? record.id : name;
   const size = typeof record.size === 'number' ? record.size : 0;
-  const mime = typeof record.mime === 'string' ? record.mime : 'application/octet-stream';
+  const mime =
+    typeof record.mime === 'string' ? record.mime : 'application/octet-stream';
   const checksum = typeof record.checksum === 'string' ? record.checksum : '';
   const bucket = typeof record.bucket === 'string' ? record.bucket : '';
-  const objectKey = typeof record.objectKey === 'string' ? record.objectKey : '';
+  const objectKey =
+    typeof record.objectKey === 'string' ? record.objectKey : '';
 
   return { id, name, size, mime, checksum, bucket, objectKey };
 };
@@ -103,16 +120,24 @@ const toSpeakingRecordingFile = (item: unknown): SubmissionFile | null => {
 
   return {
     id: record.fileId,
-    name: typeof record.fileName === 'string' ? record.fileName : 'Uploaded recording',
+    name:
+      typeof record.fileName === 'string'
+        ? record.fileName
+        : 'Uploaded recording',
     size: typeof record.size === 'number' ? record.size : 0,
-    mime: typeof record.mime === 'string' ? record.mime : 'application/octet-stream',
+    mime:
+      typeof record.mime === 'string'
+        ? record.mime
+        : 'application/octet-stream',
     checksum: typeof record.checksum === 'string' ? record.checksum : '',
     bucket: typeof record.bucket === 'string' ? record.bucket : '',
     objectKey: typeof record.objectKey === 'string' ? record.objectKey : '',
   };
 };
 
-const toSubmissionFiles = (payloadRecord: Record<string, unknown>): SubmissionFile[] | undefined => {
+const toSubmissionFiles = (
+  payloadRecord: Record<string, unknown>,
+): SubmissionFile[] | undefined => {
   const files = Array.isArray(payloadRecord.files)
     ? payloadRecord.files
         .map(toSubmissionFile)
@@ -138,12 +163,20 @@ export const toSubmission = (submission: ApiSubmission): Submission => {
     assignmentId: submission.assignmentId,
     studentId: submission.studentId,
     studentName:
-      typeof payloadRecord.studentName === 'string' ? payloadRecord.studentName : 'Student',
+      typeof payloadRecord.studentName === 'string'
+        ? payloadRecord.studentName
+        : 'Student',
     status: submission.status,
-    submittedAt: submission.submittedAt ? new Date(submission.submittedAt) : undefined,
-    content: typeof payloadRecord.content === 'string' ? payloadRecord.content : undefined,
+    submittedAt: submission.submittedAt
+      ? new Date(submission.submittedAt)
+      : undefined,
+    content:
+      typeof payloadRecord.content === 'string'
+        ? payloadRecord.content
+        : undefined,
     files,
-    version: typeof payloadRecord.version === 'number' ? payloadRecord.version : 1,
+    version:
+      typeof payloadRecord.version === 'number' ? payloadRecord.version : 1,
     rawPayload: payloadRecord,
   };
 };

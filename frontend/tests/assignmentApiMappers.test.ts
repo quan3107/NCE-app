@@ -8,7 +8,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { toAssignment, toSubmission } from '../src/features/assignments/api.mappers';
+import {
+  toAssignment,
+  toSubmission,
+} from '../src/features/assignments/api.mappers';
 import {
   createIeltsAssignmentConfig,
   normalizeIeltsAssignmentConfig,
@@ -31,6 +34,59 @@ test('toAssignment formats structured late policies for student display', () => 
   );
 
   assert.equal(assignment.latePolicy, '15% late penalty');
+});
+
+test('toAssignment maps IELTS writing and speaking max scores to the band scale', () => {
+  const writing = toAssignment(
+    {
+      id: 'writing-assignment',
+      courseId: 'course-1',
+      title: 'Writing Task',
+      description: null,
+      type: 'writing',
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: '2026-06-01T00:00:00.000Z',
+      assignmentConfig: null,
+    },
+    'IELTS',
+  );
+  const speaking = toAssignment(
+    {
+      id: 'speaking-assignment',
+      courseId: 'course-1',
+      title: 'Speaking Task',
+      description: null,
+      type: 'speaking',
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: '2026-06-01T00:00:00.000Z',
+      assignmentConfig: null,
+    },
+    'IELTS',
+  );
+
+  assert.equal(writing.maxScore, 9);
+  assert.equal(speaking.maxScore, 9);
+});
+
+test('toAssignment keeps non-IELTS assignment max scores on the generic point scale', () => {
+  const assignment = toAssignment(
+    {
+      id: 'file-assignment',
+      courseId: 'course-1',
+      title: 'Generic File Upload',
+      description: null,
+      type: 'file',
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: '2026-06-01T00:00:00.000Z',
+      assignmentConfig: null,
+    },
+    'General Course',
+  );
+
+  assert.equal(assignment.maxScore, 100);
 });
 
 test('IELTS assignment configs default AI policy to off', () => {

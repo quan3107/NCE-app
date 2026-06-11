@@ -3,9 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { before, test } from 'node:test';
 
-import type {
-  ObjectiveExplanationResponse,
-} from '../src/features/grades/api';
+import type { ObjectiveExplanationResponse } from '../src/features/grades/api';
 import type { Assignment, Submission } from '../src/types/domain';
 
 type GradesApi = typeof import('../src/features/grades/api');
@@ -22,7 +20,8 @@ before(async () => {
 
   const gradesApi = await import('../src/features/grades/api');
   fetchObjectiveExplanation = gradesApi.fetchObjectiveExplanation;
-  pollObjectiveExplanationUntilSettled = gradesApi.pollObjectiveExplanationUntilSettled;
+  pollObjectiveExplanationUntilSettled =
+    gradesApi.pollObjectiveExplanationUntilSettled;
   requestObjectiveExplanation = gradesApi.requestObjectiveExplanation;
   toGrade = gradesApi.toGrade;
 });
@@ -42,17 +41,20 @@ const withFetch = async (
 };
 
 test('grade queries are enabled for authenticated students', async () => {
-  const gradesApiPath = path.resolve(import.meta.dirname, '../src/features/grades/api.ts');
+  const gradesApiPath = path.resolve(
+    import.meta.dirname,
+    '../src/features/grades/api.ts',
+  );
   const gradesApi = await readFile(gradesApiPath, 'utf8');
 
-  assert.match(
-    gradesApi,
-    /currentUser\.role === 'student'/,
-  );
+  assert.match(gradesApi, /currentUser\.role === 'student'/);
 });
 
 test('grade query keys include the current actor identity', async () => {
-  const gradesApiPath = path.resolve(import.meta.dirname, '../src/features/grades/api.ts');
+  const gradesApiPath = path.resolve(
+    import.meta.dirname,
+    '../src/features/grades/api.ts',
+  );
   const gradesApi = await readFile(gradesApiPath, 'utf8');
 
   assert.match(
@@ -117,6 +119,167 @@ test('toGrade maps student-safe AI feedback labels without transport metadata', 
   assert.equal(JSON.stringify(grade).includes('model'), false);
 });
 
+test('toGrade maps IELTS writing grades to band display metadata', () => {
+  const submission: Submission = {
+    id: 'submission-writing',
+    assignmentId: 'assignment-writing',
+    studentId: 'student-1',
+    studentName: 'Student One',
+    status: 'graded',
+    version: 1,
+  };
+  const assignment: Assignment = {
+    id: 'assignment-writing',
+    title: 'IELTS Writing',
+    description: '',
+    type: 'writing',
+    courseId: 'course-1',
+    courseName: 'IELTS',
+    dueAt: new Date('2026-06-01T00:00:00.000Z'),
+    status: 'published',
+    latePolicy: '',
+    maxScore: 9,
+  };
+
+  const grade = toGrade(
+    {
+      id: 'grade-writing',
+      submissionId: submission.id,
+      rubricBreakdown: [
+        { criterion: 'Task Achievement', points: 7 },
+        { criterion: 'Coherence and Cohesion', points: 7.5 },
+      ],
+      rawScore: 7,
+      finalScore: 7,
+      feedback: 'Good response.',
+      gradedAt: '2026-06-02T12:00:00.000Z',
+      graderName: 'Teacher One',
+    },
+    submission,
+    new Map([[assignment.id, assignment]]),
+  );
+
+  assert.equal(grade.scoreDisplay.kind, 'ielts_band');
+  assert.equal(grade.scoreDisplay.value, 7);
+  assert.equal(grade.scoreDisplay.max, 9);
+  assert.equal(grade.band, 7);
+  assert.deepEqual(grade.rubricBreakdown, [
+    {
+      criteria: 'Task Achievement',
+      points: 7,
+      maxPoints: 9,
+      scale: 'ielts_band',
+    },
+    {
+      criteria: 'Coherence and Cohesion',
+      points: 7.5,
+      maxPoints: 9,
+      scale: 'ielts_band',
+    },
+  ]);
+});
+
+test('toGrade normalizes numeric-string IELTS grade payloads before display', () => {
+  const submission: Submission = {
+    id: 'submission-writing-string-score',
+    assignmentId: 'assignment-writing-string-score',
+    studentId: 'student-1',
+    studentName: 'Student One',
+    status: 'graded',
+    version: 1,
+  };
+  const assignment: Assignment = {
+    id: 'assignment-writing-string-score',
+    title: 'IELTS Writing',
+    description: '',
+    type: 'writing',
+    courseId: 'course-1',
+    courseName: 'IELTS',
+    dueAt: new Date('2026-06-01T00:00:00.000Z'),
+    status: 'published',
+    latePolicy: '',
+    maxScore: 9,
+  };
+
+  const grade = toGrade(
+    {
+      id: 'grade-writing-string-score',
+      submissionId: submission.id,
+      rubricBreakdown: [
+        { criterion: 'Task Achievement', points: '7' },
+        { criterion: 'Coherence and Cohesion', points: '7.5' },
+      ],
+      rawScore: '7',
+      finalScore: '7',
+      band: '7',
+      feedback: 'Good response.',
+    },
+    submission,
+    new Map([[assignment.id, assignment]]),
+  );
+
+  assert.equal(grade.scoreDisplay.value, 7);
+  assert.equal(grade.finalScore, 7);
+  assert.equal(grade.band, 7);
+  assert.deepEqual(grade.rubricBreakdown, [
+    {
+      criteria: 'Task Achievement',
+      points: 7,
+      maxPoints: 9,
+      scale: 'ielts_band',
+    },
+    {
+      criteria: 'Coherence and Cohesion',
+      points: 7.5,
+      maxPoints: 9,
+      scale: 'ielts_band',
+    },
+  ]);
+});
+
+test('toGrade keeps generic assignments on point display metadata', () => {
+  const submission: Submission = {
+    id: 'submission-generic',
+    assignmentId: 'assignment-generic',
+    studentId: 'student-1',
+    studentName: 'Student One',
+    status: 'graded',
+    version: 1,
+  };
+  const assignment: Assignment = {
+    id: 'assignment-generic',
+    title: 'Generic Project',
+    description: '',
+    type: 'file',
+    courseId: 'course-1',
+    courseName: 'General',
+    dueAt: new Date('2026-06-01T00:00:00.000Z'),
+    status: 'published',
+    latePolicy: '',
+    maxScore: 100,
+  };
+
+  const grade = toGrade(
+    {
+      id: 'grade-generic',
+      submissionId: submission.id,
+      rubricBreakdown: [{ criterion: 'Evidence', points: 8 }],
+      rawScore: 8,
+      finalScore: 8,
+      feedback: 'Good evidence.',
+    },
+    submission,
+    new Map([[assignment.id, assignment]]),
+  );
+
+  assert.equal(grade.scoreDisplay.kind, 'points');
+  assert.equal(grade.scoreDisplay.value, 8);
+  assert.equal(grade.scoreDisplay.max, 100);
+  assert.deepEqual(grade.rubricBreakdown, [
+    { criteria: 'Evidence', points: 8, maxPoints: 8, scale: 'points' },
+  ]);
+});
+
 test('toGrade maps provisional-only feedback records before teacher grading', () => {
   const submission: Submission = {
     id: 'submission-2',
@@ -160,7 +323,10 @@ test('toGrade maps provisional-only feedback records before teacher grading', ()
   assert.equal(grade.provisionalOnly, true);
   assert.equal(grade.gradedAt, undefined);
   assert.equal(grade.gradedBy, undefined);
-  assert.equal(grade.studentAiFeedback?.feedback.feedbackMd, 'Ready before teacher grading.');
+  assert.equal(
+    grade.studentAiFeedback?.feedback.feedbackMd,
+    'Ready before teacher grading.',
+  );
 });
 
 test('pollObjectiveExplanationUntilSettled refetches queued explanations until ready', async () => {
