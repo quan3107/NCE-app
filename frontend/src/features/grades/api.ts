@@ -212,7 +212,7 @@ export const toGrade = (
   );
   const scoreDisplay: Grade['scoreDisplay'] = isIeltsBand
     ? resolvedBand === undefined
-      ? { kind: 'unavailable', label: 'Band unavailable' }
+      ? { kind: 'unavailable', label: 'Score unavailable' }
       : {
           kind: 'ielts_band',
           value: resolvedBand,

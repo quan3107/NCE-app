@@ -331,7 +331,7 @@ test('toGrade does not derive IELTS reading or listening bands from raw score co
     assert.equal(grade.band, undefined);
     assert.deepEqual(grade.scoreDisplay, {
       kind: 'unavailable',
-      label: 'Band unavailable',
+      label: 'Score unavailable',
     });
   }
 });

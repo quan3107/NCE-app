@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
 
-test('StudentGradesPage renders IELTS bands without generic percentages', async () => {
+test('StudentGradesPage renders IELTS scores without repeated band labels', async () => {
   const pagePath = path.resolve(
     import.meta.dirname,
     '../src/features/grades/components/StudentGradesPage.tsx',
@@ -14,8 +14,11 @@ test('StudentGradesPage renders IELTS bands without generic percentages', async 
   assert.match(source, /formatBandScore/);
   assert.match(
     source,
-    /Band \$\{formatBandScore\(grade\.scoreDisplay\.value\)\}/,
+    /primary: formatBandScore\(grade\.scoreDisplay\.value\)/,
   );
-  assert.match(source, /\/ \$\{formatBandScore\(item\.maxPoints\)\}/);
+  assert.match(
+    source,
+    /\`\$\{formatBandScore\(item\.points\)\} \/ \$\{formatBandScore\(item\.maxPoints\)\}\`/,
+  );
   assert.match(source, /grade\.scoreDisplay\.kind === 'points'/);
 });

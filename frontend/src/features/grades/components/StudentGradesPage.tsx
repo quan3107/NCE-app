@@ -82,7 +82,7 @@ const scoreSummary = (grade: Grade): ScoreSummary => {
 
   if (grade.scoreDisplay.kind === 'ielts_band') {
     return {
-      primary: `Band ${formatBandScore(grade.scoreDisplay.value)}`,
+      primary: formatBandScore(grade.scoreDisplay.value),
       secondary: null,
       className: 'text-3xl font-medium',
     };
@@ -114,7 +114,7 @@ const scoreSummary = (grade: Grade): ScoreSummary => {
 
 const rubricScoreLabel = (item: Grade['rubricBreakdown'][number]) =>
   item.scale === 'ielts_band'
-    ? `Band ${formatBandScore(item.points)} / ${formatBandScore(item.maxPoints)}`
+    ? `${formatBandScore(item.points)} / ${formatBandScore(item.maxPoints)}`
     : `${item.points}/${item.maxPoints}`;
 
 const rubricProgressValue = (item: Grade['rubricBreakdown'][number]) =>
