@@ -70,6 +70,11 @@ const IELTS_BAND_MAX = 9;
 const isIeltsBandAssignment = (assignment: Assignment | undefined): boolean =>
   assignment ? isIeltsAssignmentType(assignment.type) : false;
 
+const isIeltsObjectiveAssignment = (
+  assignment: Assignment | undefined,
+): boolean =>
+  assignment?.type === 'reading' || assignment?.type === 'listening';
+
 const toFiniteNumber = (
   value: ApiNumericValue | null | undefined,
 ): number | undefined => {
@@ -97,10 +102,11 @@ const resolveGradeBand = (
     return toFiniteNumber(grade.band);
   }
 
-  const candidate =
-    toFiniteNumber(grade.band) ??
-    toFiniteNumber(grade.finalScore) ??
-    toFiniteNumber(grade.rawScore);
+  const persistedBand = toFiniteNumber(grade.band);
+  const finalScore = toFiniteNumber(grade.finalScore);
+  const candidate = isIeltsObjectiveAssignment(assignment)
+    ? (persistedBand ?? finalScore)
+    : (persistedBand ?? finalScore ?? toFiniteNumber(grade.rawScore));
 
   return typeof candidate === 'number' ? toHalfBand(candidate) : undefined;
 };
@@ -186,8 +192,10 @@ export const toGrade = (
   const maxScore = isIeltsBand ? IELTS_BAND_MAX : (assignment?.maxScore ?? 100);
   const rawScoreValue = toFiniteNumber(grade.rawScore);
   const rawScore = rawScoreValue ?? 0;
+  const finalScoreValue = toFiniteNumber(grade.finalScore);
   const finalScore =
-    toFiniteNumber(grade.finalScore) ?? rawScoreValue ?? resolvedBand ?? 0;
+    finalScoreValue ??
+    (isIeltsBand ? (resolvedBand ?? 0) : (rawScoreValue ?? 0));
   const rubricBreakdown = (grade.rubricBreakdown ?? []).map((item) => {
     const points = toFiniteNumber(item.points) ?? 0;
 
@@ -202,6 +210,15 @@ export const toGrade = (
     (total, item) => total + (item.delta ?? 0),
     0,
   );
+  const scoreDisplay: Grade['scoreDisplay'] = isIeltsBand
+    ? resolvedBand === undefined
+      ? { kind: 'unavailable', label: 'Band unavailable' }
+      : {
+          kind: 'ielts_band',
+          value: resolvedBand,
+          max: IELTS_BAND_MAX,
+        }
+    : { kind: 'points', value: finalScore, max: maxScore };
 
   return {
     id: grade.id,
@@ -214,13 +231,7 @@ export const toGrade = (
     finalScore,
     band: resolvedBand,
     maxScore,
-    scoreDisplay: isIeltsBand
-      ? {
-          kind: 'ielts_band',
-          value: resolvedBand ?? finalScore,
-          max: IELTS_BAND_MAX,
-        }
-      : { kind: 'points', value: finalScore, max: maxScore },
+    scoreDisplay,
     feedback: grade.feedback ?? '',
     provisionalOnly: grade.provisionalOnly,
     feedbackLabel: grade.feedbackLabel ?? 'teacher feedback',

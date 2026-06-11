@@ -88,6 +88,14 @@ const scoreSummary = (grade: Grade): ScoreSummary => {
     };
   }
 
+  if (grade.scoreDisplay.kind === 'unavailable') {
+    return {
+      primary: grade.scoreDisplay.label,
+      secondary: null,
+      className: 'text-sm font-medium',
+    };
+  }
+
   if (grade.scoreDisplay.kind === 'points') {
     const percentage =
       grade.scoreDisplay.max > 0

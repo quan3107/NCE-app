@@ -6,7 +6,8 @@
 
 export type GradeScoreDisplay =
   | { kind: 'ielts_band'; value: number; max: 9 }
-  | { kind: 'points'; value: number; max: number };
+  | { kind: 'points'; value: number; max: number }
+  | { kind: 'unavailable'; label: string };
 
 export type GradeRubricBreakdownItem = {
   criteria: string;

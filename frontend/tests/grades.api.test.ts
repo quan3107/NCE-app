@@ -287,6 +287,55 @@ test('toGrade maps IELTS reading and listening bands to band display metadata', 
   }
 });
 
+test('toGrade does not derive IELTS reading or listening bands from raw score counts', () => {
+  const ieltsObjectiveTypes: Array<Assignment['type']> = [
+    'reading',
+    'listening',
+  ];
+
+  for (const assignmentType of ieltsObjectiveTypes) {
+    const submission: Submission = {
+      id: `raw-only-submission-${assignmentType}`,
+      assignmentId: `raw-only-assignment-${assignmentType}`,
+      studentId: 'student-1',
+      studentName: 'Student One',
+      status: 'graded',
+      version: 1,
+    };
+    const assignment: Assignment = {
+      id: submission.assignmentId,
+      title: `IELTS ${assignmentType}`,
+      description: '',
+      type: assignmentType,
+      courseId: 'course-1',
+      courseName: 'IELTS',
+      dueAt: new Date('2026-06-01T00:00:00.000Z'),
+      status: 'published',
+      latePolicy: '',
+      maxScore: 9,
+    };
+
+    const grade = toGrade(
+      {
+        id: `raw-only-grade-${assignmentType}`,
+        submissionId: submission.id,
+        rawScore: 30,
+        feedback: 'Raw correct-count without a persisted band.',
+      },
+      submission,
+      new Map([[assignment.id, assignment]]),
+    );
+
+    assert.equal(grade.rawScore, 30);
+    assert.equal(grade.finalScore, 0);
+    assert.equal(grade.band, undefined);
+    assert.deepEqual(grade.scoreDisplay, {
+      kind: 'unavailable',
+      label: 'Band unavailable',
+    });
+  }
+});
+
 test('toGrade keeps generic assignments on point display metadata', () => {
   const submission: Submission = {
     id: 'submission-generic',
