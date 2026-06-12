@@ -7,11 +7,14 @@
 import { FileText, Info } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Label } from '@components/ui/label';
-import type { SubmissionFile, Submission } from '@domain';
+import type { Assignment, SubmissionFile, Submission } from '@domain';
 import { FileDownloadButton } from '@features/files/FileDownloadButton';
+import { isIeltsAssignmentType } from '@lib/ielts';
 import { formatDate, formatFileSize } from '@lib/utils';
+import { IeltsSubmissionPayloadView } from './IeltsSubmissionPayloadView';
 
 type StudentAssignmentSubmissionSummaryProps = {
+  assignment: Assignment;
   submission: Submission;
 };
 
@@ -38,11 +41,15 @@ function SubmissionFiles({ files }: { files: SubmissionFile[] }) {
 }
 
 export function StudentAssignmentSubmissionSummary({
+  assignment,
   submission,
 }: StudentAssignmentSubmissionSummaryProps) {
   const submittedLabel = submission.submittedAt
     ? `Submitted ${formatDate(new Date(submission.submittedAt), 'datetime')}`
     : 'Draft saved';
+  const hasIeltsPayload = isIeltsAssignmentType(assignment.type) && submission.rawPayload;
+  const hasLegacyContent = Boolean(submission.content);
+  const hasFiles = Boolean(submission.files?.length);
 
   return (
     <Card>
@@ -52,17 +59,20 @@ export function StudentAssignmentSubmissionSummary({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-4 bg-muted/50 rounded-lg">
+          {hasIeltsPayload && (
+            <IeltsSubmissionPayloadView assignment={assignment} payload={submission.rawPayload} />
+          )}
           {submission.content && (
             <div>
               <Label>Content</Label>
-              <p className="mt-2 text-sm">{submission.content}</p>
+              <p className="mt-2 text-sm whitespace-pre-wrap">{submission.content}</p>
             </div>
           )}
           {submission.files && submission.files.length > 0 && (
             <SubmissionFiles files={submission.files} />
           )}
-          {!submission.content && (!submission.files || submission.files.length === 0) && (
-            <p className="text-sm text-muted-foreground">IELTS attempt payload saved.</p>
+          {!hasIeltsPayload && !hasLegacyContent && !hasFiles && (
+            <p className="text-sm text-muted-foreground">No displayable submission content.</p>
           )}
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
