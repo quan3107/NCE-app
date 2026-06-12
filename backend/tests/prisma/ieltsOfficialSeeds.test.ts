@@ -8,6 +8,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { AssignmentType } from '../../src/prisma/index.js';
+import { parseSubmissionPayloadForType } from '../../src/modules/assignments/ielts.schema.js';
 import {
   buildListeningConfigOfficialFullComputer,
   buildListeningConfigOfficialLiteComputer,
@@ -21,6 +22,10 @@ import {
   PRIMARY_IELTS_ASSIGNMENT_SEED_MAP,
   SANDBOX_IELTS_ASSIGNMENT_SEED_MAP,
 } from '../../src/prisma/seeds/ieltsOfficialFixtures.js';
+import {
+  PRIMARY_IELTS_WRITING_SUBMISSION_SEED_MAP,
+  buildIeltsWritingSubmissionPayload,
+} from '../../src/prisma/seeds/ieltsOfficialSubmissions.js';
 import { scoreIeltsSubmission } from '../../src/modules/scoring/ieltsScoring.utils.js';
 import {
   assertOfficialListeningConfig,
@@ -32,9 +37,9 @@ import {
 const testDir = dirname(fileURLToPath(import.meta.url));
 const backendRoot = resolve(testDir, '../..');
 
-function extractAssignmentTitles(relativePath: string): string[] {
+function extractTitlesFromConstBlock(relativePath: string, constName: string): string[] {
   const source = readFileSync(resolve(backendRoot, relativePath), 'utf8');
-  const start = source.indexOf('const assignmentSeeds');
+  const start = source.indexOf(`const ${constName}`);
   expect(start).toBeGreaterThan(-1);
 
   const end = source.indexOf('];', start);
@@ -44,6 +49,14 @@ function extractAssignmentTitles(relativePath: string): string[] {
   const matches = [...block.matchAll(/title:\s*["']([^"']+)["']/g)].map(
     (match) => match[1],
   );
+  const assignmentTitleMatches = [
+    ...block.matchAll(/assignmentTitle:\s*["']([^"']+)["']/g),
+  ].map((match) => match[1]);
+  return [...matches, ...assignmentTitleMatches];
+}
+
+function extractAssignmentTitles(relativePath: string): string[] {
+  const matches = extractTitlesFromConstBlock(relativePath, 'assignmentSeeds');
   return matches;
 }
 
@@ -129,6 +142,41 @@ describe('seed title mappings', () => {
     const ieltsSeedTitles = extractAssignmentTitles('src/prisma/seedIeltsAssignments.ts').sort();
     expect(seedTitles).toEqual(ieltsSeedTitles);
     expect(seedTitles.length).toBe(10);
+  });
+});
+
+describe('seeded writing submission payloads', () => {
+  it('covers every primary writing assignment with current IELTS writing payloads', () => {
+    const writingTitles = Object.entries(PRIMARY_IELTS_ASSIGNMENT_SEED_MAP)
+      .filter(([, descriptor]) => descriptor.type === AssignmentType.writing)
+      .map(([title]) => title)
+      .sort();
+
+    expect(Object.keys(PRIMARY_IELTS_WRITING_SUBMISSION_SEED_MAP).sort()).toEqual(
+      writingTitles,
+    );
+
+    writingTitles.forEach((title) => {
+      const payload = buildIeltsWritingSubmissionPayload(title);
+      const parsed = parseSubmissionPayloadForType(AssignmentType.writing, payload);
+
+      expect(parsed.task1.text.trim().length).toBeGreaterThan(0);
+      expect(parsed.task2.text.trim().length).toBeGreaterThan(0);
+    });
+  });
+
+  it('keeps file-submission examples off primary IELTS writing assignments', () => {
+    const writingTitles = Object.entries(PRIMARY_IELTS_ASSIGNMENT_SEED_MAP)
+      .filter(([, descriptor]) => descriptor.type === AssignmentType.writing)
+      .map(([title]) => title);
+    const fileSubmissionTitles = extractTitlesFromConstBlock(
+      'src/prisma/seed.ts',
+      'fileSubmissionSeeds',
+    );
+
+    expect(
+      fileSubmissionTitles.filter((title) => writingTitles.includes(title)),
+    ).toEqual([]);
   });
 });
 
