@@ -11,6 +11,7 @@ import type {
   IeltsWritingConfig,
 } from '@lib/ielts';
 import { normalizeIeltsAssignmentConfig } from '@lib/ielts';
+import { stripHtml } from '@lib/rich-text';
 import { getAnswerTargetsForQuestion } from './ielts/student/studentIeltsAnswerTargets';
 
 export type IeltsSubmissionDisplayRow = {
@@ -53,6 +54,17 @@ const toAnswerValue = (value: unknown): string => {
   return '';
 };
 
+const toDisplayPrompt = (value: string): string => stripHtml(value).trim();
+
+const toOptionLabel = (
+  target: ReturnType<typeof getAnswerTargetsForQuestion>[number],
+  value: unknown,
+): string => {
+  const rawValue = toAnswerValue(value);
+  const option = target.options.find(item => item.value === rawValue);
+  return option?.label || rawValue;
+};
+
 const formatDuration = (value: unknown): string => {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return '';
@@ -90,12 +102,12 @@ const buildWritingSections = (
   const sections = [
     {
       title: 'Task 1',
-      prompt: writingConfig.task1.prompt,
+      prompt: toDisplayPrompt(writingConfig.task1.prompt),
       text: toTrimmedString(task1.text),
     },
     {
       title: 'Task 2',
-      prompt: writingConfig.task2.prompt,
+      prompt: toDisplayPrompt(writingConfig.task2.prompt),
       text: toTrimmedString(task2.text),
     },
   ];
@@ -112,15 +124,14 @@ const buildObjectiveSections = (
     | IeltsReadingConfig
     | IeltsListeningConfig;
   const answers = Array.isArray(payload.answers) ? payload.answers : [];
-  const answersByQuestionId = new Map<string, string>();
+  const answersByQuestionId = new Map<string, unknown>();
 
   for (const answer of answers) {
     if (!isRecord(answer) || typeof answer.questionId !== 'string') {
       continue;
     }
-    const value = toAnswerValue(answer.value);
-    if (value) {
-      answersByQuestionId.set(answer.questionId, value);
+    if (toAnswerValue(answer.value)) {
+      answersByQuestionId.set(answer.questionId, answer.value);
     }
   }
 
@@ -131,7 +142,7 @@ const buildObjectiveSections = (
     const rows = section.questions
       .flatMap(question => getAnswerTargetsForQuestion(question))
       .map((target): IeltsSubmissionDisplayRow | null => {
-        const value = answersByQuestionId.get(target.id);
+        const value = toOptionLabel(target, answersByQuestionId.get(target.id));
         if (!value) {
           return null;
         }
@@ -155,7 +166,7 @@ const buildObjectiveSections = (
     .filter(([questionId]) => !renderedQuestionIds.has(questionId))
     .map(([questionId, value]) => ({
       label: questionId,
-      value,
+      value: toAnswerValue(value),
     }));
 
   if (unmatchedRows.length > 0) {
