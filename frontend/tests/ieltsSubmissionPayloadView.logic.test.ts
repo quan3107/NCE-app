@@ -15,7 +15,7 @@ test('buildIeltsSubmissionDisplay renders IELTS writing task responses with prom
     type: 'writing',
     assignmentConfig: {
       version: 1,
-      task1: { prompt: 'Describe the chart.' },
+      task1: { prompt: '<p>Describe <strong>the chart</strong>.</p>' },
       task2: { prompt: 'Discuss both views.' },
     },
     payload: {
@@ -51,6 +51,47 @@ test('buildIeltsSubmissionDisplay renders IELTS writing task responses with prom
     },
   ]);
   assert.equal(display.fallback, undefined);
+});
+
+test('buildIeltsSubmissionDisplay renders matching answer option labels', () => {
+  const display = buildIeltsSubmissionDisplay({
+    type: 'reading',
+    assignmentConfig: {
+      version: 1,
+      sections: [
+        {
+          id: 'section-1',
+          title: 'Headings',
+          passage: 'A passage.',
+          questions: [
+            {
+              id: 'heading-match',
+              type: 'matching',
+              prompt: 'Choose the correct heading.',
+              options: [],
+              correctAnswer: '',
+              matchingOptions: [
+                { id: 'h1', label: 'Heading 1' },
+                { id: 'h2', label: 'Heading 2' },
+              ],
+              matchingItems: [{ id: 'paragraph-a', statement: 'Paragraph A' }],
+            },
+          ],
+        },
+      ],
+    },
+    payload: {
+      version: 1,
+      answers: [{ questionId: 'paragraph-a', value: 'h1' }],
+    },
+  });
+
+  assert.deepEqual(display.sections, [
+    {
+      title: 'Headings',
+      rows: [{ label: 'Paragraph A', value: 'Heading 1' }],
+    },
+  ]);
 });
 
 test('buildIeltsSubmissionDisplay returns intentional fallback for unsupported IELTS payloads', () => {
