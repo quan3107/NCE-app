@@ -19,6 +19,7 @@ import {
 } from './generated.js';
 import { basePrisma } from './client.js';
 import { buildPrimaryIeltsAssignmentConfig } from './seeds/ieltsOfficialFixtures.js';
+import { buildIeltsWritingSubmissionPayload } from './seeds/ieltsOfficialSubmissions.js';
 
 const prisma = basePrisma;
 
@@ -785,15 +786,18 @@ async function main(): Promise<void> {
       throw new Error(`Missing user for submission ${seed.assignmentTitle}`);
     }
 
-    const payload: Prisma.InputJsonObject = {
-      artifact: seed.assignmentTitle,
-      resources: [
-        {
-          label: "Primary Submission",
-          url: `https://storage.mock/ielts/${assignment.id}/${student.id}.pdf`,
-        },
-      ],
-    };
+    const payload: Prisma.InputJsonObject =
+      assignment.type === AssignmentType.writing
+        ? buildIeltsWritingSubmissionPayload(seed.assignmentTitle)
+        : {
+            artifact: seed.assignmentTitle,
+            resources: [
+              {
+                label: "Primary Submission",
+                url: `https://storage.mock/ielts/${assignment.id}/${student.id}.pdf`,
+              },
+            ],
+          };
 
     const submission = await prisma.submission.create({
       data: {
@@ -1041,7 +1045,7 @@ async function main(): Promise<void> {
     adjustments?: Prisma.InputJsonArray;
   }> = [
     {
-      assignmentTitle: "Data Interpretation Task 1: Global Energy Mix",
+      assignmentTitle: "Matching Headings Practice",
       studentEmail: "amelia.chan@ielts.local",
       fileKey: "writing/technology-society/amelia.pdf",
       submittedOffsetDays: -1,
