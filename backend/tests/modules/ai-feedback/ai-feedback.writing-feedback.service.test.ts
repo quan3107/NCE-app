@@ -3,17 +3,17 @@
  * Purpose: Verify IELTS writing AI feedback request orchestration.
  * Why: Writing feedback must respect course access, assignment policy, visibility, and image context.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   AssignmentType,
   EnrollmentRole,
   UserRole,
   UserStatus,
-} from "../../../src/prisma/index.js";
-import { buildPrimaryIeltsAssignmentConfig } from "../../../src/prisma/seeds/ieltsOfficialFixtures.js";
-import { buildIeltsWritingSubmissionPayload } from "../../../src/prisma/seeds/ieltsOfficialSubmissions.js";
+} from '../../../src/prisma/index.js'
+import { buildPrimaryIeltsAssignmentConfig } from '../../../src/prisma/seeds/ieltsOfficialFixtures.js'
+import { buildIeltsWritingSubmissionPayload } from '../../../src/prisma/seeds/ieltsOfficialSubmissions.js'
 
-vi.mock("../../../src/prisma/client.js", () => ({
+vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
     auditLog: {
       create: vi.fn(),
@@ -25,107 +25,102 @@ vi.mock("../../../src/prisma/client.js", () => ({
       findFirst: vi.fn(),
     },
   },
-}));
+}))
 
-vi.mock("../../../src/modules/ai-feedback/image-context.js", () => ({
+vi.mock('../../../src/modules/ai-feedback/image-context.js', () => ({
   resolveAiFeedbackImageContext: vi.fn(),
-}));
+}))
 
-vi.mock("../../../src/modules/ai-feedback/ai-feedback.repository.js", () => ({
+vi.mock('../../../src/modules/ai-feedback/ai-feedback.repository.js', () => ({
   createAiFeedbackDraft: vi.fn(),
   findLatestAiFeedbackDraftBySubmission: vi.fn(),
   findAiObjectiveExplanationByCacheKey: vi.fn(),
   supersedeAiFeedbackDrafts: vi.fn(),
   upsertAiObjectiveExplanation: vi.fn(),
-}));
+}))
 
-const prismaModule = await import("../../../src/prisma/client.js");
-const repositoryModule = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.repository.js"
-);
-const imageContextModule = await import(
-  "../../../src/modules/ai-feedback/image-context.js"
-);
-const configModule = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.config.js"
-);
+const prismaModule = await import('../../../src/prisma/client.js')
+const repositoryModule =
+  await import('../../../src/modules/ai-feedback/ai-feedback.repository.js')
+const imageContextModule =
+  await import('../../../src/modules/ai-feedback/image-context.js')
+const configModule =
+  await import('../../../src/modules/ai-feedback/ai-feedback.config.js')
 const {
   enqueueAiWritingFeedbackForSubmission,
   getAiWritingFeedbackStatus,
   regenerateAiWritingFeedback,
   requestAiWritingFeedback,
-} = await import("../../../src/modules/ai-feedback/ai-feedback.service.js");
+} = await import('../../../src/modules/ai-feedback/ai-feedback.service.js')
 
-const prisma = vi.mocked(prismaModule.prisma, true);
-const createAiFeedbackDraft = vi.mocked(repositoryModule.createAiFeedbackDraft);
+const prisma = vi.mocked(prismaModule.prisma, true)
+const createAiFeedbackDraft = vi.mocked(repositoryModule.createAiFeedbackDraft)
 const findLatestAiFeedbackDraftBySubmission = vi.mocked(
   repositoryModule.findLatestAiFeedbackDraftBySubmission,
-);
-const supersedeAiFeedbackDrafts = vi.mocked(
-  repositoryModule.supersedeAiFeedbackDrafts,
-);
+)
+const supersedeAiFeedbackDrafts = vi.mocked(repositoryModule.supersedeAiFeedbackDrafts)
 const resolveAiFeedbackImageContext = vi.mocked(
   imageContextModule.resolveAiFeedbackImageContext,
-);
-const aiFeedbackConfig = configModule.aiFeedbackConfig;
+)
+const aiFeedbackConfig = configModule.aiFeedbackConfig
 
-const submissionId = "11111111-1111-4111-8111-111111111111";
-const assignmentId = "22222222-2222-4222-8222-222222222222";
-const studentId = "33333333-3333-4333-8333-333333333333";
-const ownerId = "44444444-4444-4444-8444-444444444444";
-const coTeacherId = "55555555-5555-4555-8555-555555555555";
+const submissionId = '11111111-1111-4111-8111-111111111111'
+const assignmentId = '22222222-2222-4222-8222-222222222222'
+const studentId = '33333333-3333-4333-8333-333333333333'
+const ownerId = '44444444-4444-4444-8444-444444444444'
+const coTeacherId = '55555555-5555-4555-8555-555555555555'
 
 const teacherActor = {
   id: ownerId,
   role: UserRole.teacher,
   status: UserStatus.active,
-};
+}
 
 const studentActor = {
   id: studentId,
   role: UserRole.student,
   status: UserStatus.active,
-};
+}
 
 const baseSubmission = {
   id: submissionId,
   assignmentId,
   studentId,
-  status: "submitted",
+  status: 'submitted',
   payload: {
     version: 1,
-    task1: { text: "The chart shows steady growth." },
-    task2: { text: "Cities should invest in public transport." },
+    task1: { text: 'The chart shows steady growth.' },
+    task2: { text: 'Cities should invest in public transport.' },
   },
   grade: {
-    id: "66666666-6666-4666-8666-666666666666",
+    id: '66666666-6666-4666-8666-666666666666',
     rawScore: 6.5,
     finalScore: 6.5,
     band: 6.5,
-    feedback: "Clear position, but examples need depth.",
+    feedback: 'Clear position, but examples need depth.',
     deletedAt: null,
   },
   assignment: {
     id: assignmentId,
-    title: "Writing Drill",
+    title: 'Writing Drill',
     type: AssignmentType.writing,
-    courseId: "77777777-7777-4777-8777-777777777777",
+    courseId: '77777777-7777-4777-8777-777777777777',
     assignmentConfig: {
       version: 1,
-      instructions: "Write both IELTS tasks.",
+      instructions: 'Write both IELTS tasks.',
       aiPolicy: {
-        writingFeedbackMode: "teacher_reviewed",
-        objectiveExplanations: "off",
-        providerTier: "auto",
+        writingFeedbackMode: 'teacher_reviewed',
+        objectiveExplanations: 'off',
+        providerTier: 'auto',
       },
       task1: {
-        prompt: "Summarise the chart.",
-        visualType: "bar_chart",
-        imageFileId: "88888888-8888-4888-8888-888888888888",
-        rubricId: "99999999-9999-4999-8999-999999999999",
+        prompt: 'Summarise the chart.',
+        visualType: 'bar_chart',
+        imageFileId: '88888888-8888-4888-8888-888888888888',
+        rubricId: '99999999-9999-4999-8999-999999999999',
       },
       task2: {
-        prompt: "Discuss both views and give your opinion.",
+        prompt: 'Discuss both views and give your opinion.',
       },
     },
     course: {
@@ -133,127 +128,124 @@ const baseSubmission = {
       enrollments: [],
     },
   },
-};
+}
 
-describe("requestAiWritingFeedback", () => {
+describe('requestAiWritingFeedback', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    aiFeedbackConfig.enabled = true;
-    aiFeedbackConfig.apiKey = "sk-test";
-    aiFeedbackConfig.baseUrl = "https://example.com/v1";
-    aiFeedbackConfig.maxInputChars = 12_000;
-    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never);
+    vi.clearAllMocks()
+    aiFeedbackConfig.enabled = true
+    aiFeedbackConfig.apiKey = 'sk-test'
+    aiFeedbackConfig.baseUrl = 'https://example.com/v1'
+    aiFeedbackConfig.maxInputChars = 12_000
+    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never)
     prisma.rubric.findMany.mockResolvedValue([
       {
-        id: "99999999-9999-4999-8999-999999999999",
-        name: "Course writing rubric",
-        criteria: [{ name: "Coherence", levels: [] }],
+        id: '99999999-9999-4999-8999-999999999999',
+        name: 'Course writing rubric',
+        criteria: [{ name: 'Coherence', levels: [] }],
       },
-    ] as never);
+    ] as never)
     resolveAiFeedbackImageContext.mockResolvedValue({
-      type: "image",
-      imageUrl: "https://storage.mock/task1.png",
-      mimeType: "image/png",
-      detail: "high",
-    });
+      type: 'image',
+      imageUrl: 'https://storage.mock/task1.png',
+      mimeType: 'image/png',
+      detail: 'high',
+    })
     createAiFeedbackDraft.mockImplementation(async (input: unknown) => {
-      const data = input as Record<string, unknown>;
+      const data = input as Record<string, unknown>
 
       return {
-        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         submissionId: data.submissionId,
         status: data.status,
         visibilityMode: data.visibilityMode,
         generatedFeedback: data.generatedFeedback,
         failureCode: data.failureCode ?? null,
         failureMessage: data.failureMessage ?? null,
-      } as never;
-    });
-  });
+      } as never
+    })
+  })
 
-  it("queues a hidden teacher-reviewed draft with hosted image context", async () => {
-    const response = await requestAiWritingFeedback(
-      { submissionId },
-      teacherActor,
-    );
+  it('queues a hidden teacher-reviewed draft with hosted image context', async () => {
+    const response = await requestAiWritingFeedback({ submissionId }, teacherActor)
 
     expect(createAiFeedbackDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         submissionId,
         assignmentId,
         requesterId: ownerId,
-        gradeId: "66666666-6666-4666-8666-666666666666",
-        promptVersion: "ielts-writing-feedback-v1",
-        routeKey: "low_cost",
-        provider: "openai-compatible",
-        model: "gpt-5.4-nano",
-        status: "queued",
-        visibilityMode: "teacher_reviewed",
+        gradeId: '66666666-6666-4666-8666-666666666666',
+        promptVersion: 'ielts-writing-feedback-v1',
+        routeKey: 'low_cost',
+        provider: 'openai-compatible',
+        model: 'gpt-5.4-nano',
+        status: 'queued',
+        visibilityMode: 'teacher_reviewed',
         inputHash: expect.stringMatching(/^sha256:/),
         generationJob: {
           harnessInput: expect.objectContaining({
             fixtureId: expect.stringContaining(`writing-feedback:${submissionId}:`),
-            taskType: "writing_feedback",
-            routeKey: "low_cost",
+            taskType: 'writing_feedback',
+            routeKey: 'low_cost',
             promptInput: expect.objectContaining({
               tasks: expect.objectContaining({
                 task1: expect.objectContaining({
                   imageContext: {
-                    status: "image_attached",
+                    status: 'image_attached',
                     image: {
-                      type: "image",
-                      imageUrl: "https://storage.mock/task1.png",
-                      mimeType: "image/png",
-                      detail: "high",
+                      type: 'image',
+                      imageUrl: 'https://storage.mock/task1.png',
+                      mimeType: 'image/png',
+                      detail: 'high',
                     },
                   },
                 }),
               }),
               teacherConstraints: expect.arrayContaining([
-                expect.stringContaining("Existing teacher grade"),
-                expect.stringContaining("Teacher rubric context"),
+                expect.stringContaining('Existing teacher grade'),
+                expect.stringContaining('Teacher rubric context'),
               ]),
             }),
           }),
         },
       }),
-    );
+    )
     expect(supersedeAiFeedbackDrafts).toHaveBeenCalledWith({
       submissionId,
-      exceptDraftId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    });
+      exceptDraftId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    })
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: ownerId,
-        action: "ai_feedback.writing_requested",
-        entity: "ai_feedback_draft",
-        entityId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        action: 'ai_feedback.writing_requested',
+        entity: 'ai_feedback_draft',
+        entityId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         diff: expect.objectContaining({
           entityIds: expect.objectContaining({
             submissionId,
             assignmentId,
-            gradeId: "66666666-6666-4666-8666-666666666666",
+            gradeId: '66666666-6666-4666-8666-666666666666',
           }),
-          routeKey: "low_cost",
-          provider: "openai-compatible",
-          model: "gpt-5.4-nano",
-          promptVersion: "ielts-writing-feedback-v1",
+          routeKey: 'low_cost',
+          provider: 'openai-compatible',
+          model: 'gpt-5.4-nano',
+          promptVersion: 'ielts-writing-feedback-v1',
         }),
       }),
-    });
+    })
     expect(JSON.stringify(prisma.auditLog.create.mock.calls[0]?.[0])).not.toContain(
-      "Cities should invest in public transport.",
-    );
+      'Cities should invest in public transport.',
+    )
     expect(response).toEqual(
       expect.objectContaining({
-        status: "queued",
-        visibilityMode: "teacher_reviewed",
+        status: 'queued',
+        visibilityMode: 'teacher_reviewed',
         pollingLocation: `/api/v1/submissions/${submissionId}/ai-feedback/writing`,
       }),
-    );
-  });
+    )
+  })
 
-  it("persists instant-visible queued drafts when assignment policy allows it", async () => {
+  it('persists instant-visible queued drafts when assignment policy allows it', async () => {
     prisma.submission.findFirst.mockResolvedValueOnce({
       ...baseSubmission,
       assignment: {
@@ -261,125 +253,120 @@ describe("requestAiWritingFeedback", () => {
         assignmentConfig: {
           ...baseSubmission.assignment.assignmentConfig,
           aiPolicy: {
-            writingFeedbackMode: "instant_student_visible",
-            objectiveExplanations: "off",
-            providerTier: "premium",
+            writingFeedbackMode: 'instant_student_visible',
+            objectiveExplanations: 'off',
+            providerTier: 'premium',
           },
         },
       },
-    } as never);
+    } as never)
 
-    await requestAiWritingFeedback({ submissionId }, teacherActor);
+    await requestAiWritingFeedback({ submissionId }, teacherActor)
 
     expect(createAiFeedbackDraft).toHaveBeenCalledWith(
       expect.objectContaining({
-        routeKey: "premium",
-        visibilityMode: "instant_student_visible",
+        routeKey: 'premium',
+        visibilityMode: 'instant_student_visible',
       }),
-    );
-  });
+    )
+  })
 
-  it("queues feedback for the seeded General Training writing submission payload", async () => {
+  it('queues feedback for the seeded General Training writing submission payload', async () => {
     prisma.submission.findFirst.mockResolvedValueOnce({
       ...baseSubmission,
       payload: buildIeltsWritingSubmissionPayload(
-        "General Training Letter: Workplace Equipment",
+        'General Training Letter: Workplace Equipment',
       ),
       assignment: {
         ...baseSubmission.assignment,
-        title: "General Training Letter: Workplace Equipment",
+        title: 'General Training Letter: Workplace Equipment',
         assignmentConfig: {
           ...buildPrimaryIeltsAssignmentConfig(
-            "General Training Letter: Workplace Equipment",
+            'General Training Letter: Workplace Equipment',
             AssignmentType.writing,
           ),
           aiPolicy: {
-            writingFeedbackMode: "teacher_reviewed",
-            objectiveExplanations: "off",
-            providerTier: "auto",
+            writingFeedbackMode: 'teacher_reviewed',
+            objectiveExplanations: 'off',
+            providerTier: 'auto',
           },
         },
       },
-    } as never);
+    } as never)
 
-    await requestAiWritingFeedback({ submissionId }, teacherActor);
+    await requestAiWritingFeedback({ submissionId }, teacherActor)
 
     expect(createAiFeedbackDraft).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: "queued",
+        status: 'queued',
         generationJob: {
           harnessInput: expect.objectContaining({
             promptInput: expect.objectContaining({
               submission: expect.objectContaining({
                 task1: expect.objectContaining({
-                  text: expect.stringContaining("Dear Facilities Manager"),
+                  text: expect.stringContaining('Dear Facilities Manager'),
                 }),
                 task2: expect.objectContaining({
-                  text: expect.stringContaining("Online public services"),
+                  text: expect.stringContaining('Online public services'),
                 }),
               }),
             }),
           }),
         },
       }),
-    );
-  });
+    )
+  })
 
-  it("creates a teacher-review-only record when required image context is unavailable", async () => {
+  it('creates a teacher-review-only record when required image context is unavailable', async () => {
     resolveAiFeedbackImageContext.mockRejectedValueOnce(
-      new Error("Unsupported image type for AI feedback."),
-    );
+      new Error('Unsupported image type for AI feedback.'),
+    )
 
-    const response = await requestAiWritingFeedback(
-      { submissionId },
-      teacherActor,
-    );
+    const response = await requestAiWritingFeedback({ submissionId }, teacherActor)
 
     expect(createAiFeedbackDraft).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: "review_required",
-        visibilityMode: "teacher_reviewed",
-        failureCode: "image_context_unavailable",
-        failureMessage: "Unsupported image type for AI feedback.",
+        status: 'review_required',
+        visibilityMode: 'teacher_reviewed',
+        failureCode: 'image_context_unavailable',
+        failureMessage: 'Unsupported image type for AI feedback.',
       }),
-    );
-    expect(createAiFeedbackDraft.mock.calls[0]?.[0]).not.toHaveProperty(
-      "generationJob",
-    );
+    )
+    expect(createAiFeedbackDraft.mock.calls[0]?.[0]).not.toHaveProperty('generationJob')
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: ownerId,
-        action: "ai_feedback.writing_failed",
-        entity: "ai_feedback_draft",
-        entityId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        action: 'ai_feedback.writing_failed',
+        entity: 'ai_feedback_draft',
+        entityId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         diff: expect.objectContaining({
           payloadSummary: expect.objectContaining({
             failureMessage: expect.objectContaining({ redacted: true }),
           }),
         }),
       }),
-    });
+    })
     expect(response).toMatchObject({
-      status: "review_required",
-      visibilityMode: "teacher_reviewed",
-      failureCode: "image_context_unavailable",
-    });
-  });
+      status: 'review_required',
+      visibilityMode: 'teacher_reviewed',
+      failureCode: 'image_context_unavailable',
+    })
+  })
 
-  it("fails closed when AI feedback generation is globally disabled", async () => {
-    aiFeedbackConfig.enabled = false;
+  it('fails closed when AI feedback generation is globally disabled', async () => {
+    aiFeedbackConfig.enabled = false
 
     await expect(
       requestAiWritingFeedback({ submissionId }, teacherActor),
     ).rejects.toMatchObject({
       statusCode: 503,
-      message: "AI feedback generation is disabled.",
-    });
+      message: 'AI feedback generation is disabled.',
+    })
 
-    expect(createAiFeedbackDraft).not.toHaveBeenCalled();
-  });
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled()
+  })
 
-  it("rejects cross-course teacher access before creating a draft", async () => {
+  it('rejects cross-course teacher access before creating a draft', async () => {
     prisma.submission.findFirst.mockResolvedValueOnce({
       ...baseSubmission,
       assignment: {
@@ -389,7 +376,7 @@ describe("requestAiWritingFeedback", () => {
           enrollments: [],
         },
       },
-    } as never);
+    } as never)
 
     await expect(
       requestAiWritingFeedback(
@@ -400,18 +387,18 @@ describe("requestAiWritingFeedback", () => {
           status: UserStatus.active,
         },
       ),
-    ).rejects.toMatchObject({ statusCode: 403 });
+    ).rejects.toMatchObject({ statusCode: 403 })
 
-    expect(createAiFeedbackDraft).not.toHaveBeenCalled();
-  });
-});
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled()
+  })
+})
 
-describe("enqueueAiWritingFeedbackForSubmission", () => {
+describe('enqueueAiWritingFeedbackForSubmission', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    aiFeedbackConfig.enabled = true;
-    aiFeedbackConfig.apiKey = "sk-test";
-    aiFeedbackConfig.baseUrl = "https://example.com/v1";
+    vi.clearAllMocks()
+    aiFeedbackConfig.enabled = true
+    aiFeedbackConfig.apiKey = 'sk-test'
+    aiFeedbackConfig.baseUrl = 'https://example.com/v1'
     prisma.submission.findFirst.mockResolvedValue({
       ...baseSubmission,
       assignment: {
@@ -427,139 +414,134 @@ describe("enqueueAiWritingFeedbackForSubmission", () => {
           ],
         },
       },
-    } as never);
-    prisma.rubric.findMany.mockResolvedValue([] as never);
+    } as never)
+    prisma.rubric.findMany.mockResolvedValue([] as never)
     resolveAiFeedbackImageContext.mockResolvedValue({
-      type: "image",
-      imageUrl: "https://storage.mock/task1.png",
-      mimeType: "image/png",
-      detail: "high",
-    });
+      type: 'image',
+      imageUrl: 'https://storage.mock/task1.png',
+      mimeType: 'image/png',
+      detail: 'high',
+    })
     createAiFeedbackDraft.mockResolvedValue({
-      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
       submissionId,
-      status: "queued",
-      visibilityMode: "teacher_reviewed",
-      generatedFeedback: { status: "queued" },
+      status: 'queued',
+      visibilityMode: 'teacher_reviewed',
+      generatedFeedback: { status: 'queued' },
       failureCode: null,
       failureMessage: null,
-    } as never);
-  });
+    } as never)
+  })
 
-  it("allows the submitting student to trigger automatic draft generation", async () => {
-    await enqueueAiWritingFeedbackForSubmission(submissionId, studentActor);
+  it('allows the submitting student to trigger automatic draft generation', async () => {
+    await enqueueAiWritingFeedbackForSubmission(submissionId, studentActor)
 
     expect(createAiFeedbackDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         requesterId: studentId,
-        status: "queued",
+        status: 'queued',
       }),
-    );
+    )
     expect(supersedeAiFeedbackDrafts).toHaveBeenCalledWith({
       submissionId,
-      exceptDraftId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-    });
-  });
-});
+      exceptDraftId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    })
+  })
+})
 
-describe("getAiWritingFeedbackStatus", () => {
+describe('getAiWritingFeedbackStatus', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    aiFeedbackConfig.enabled = false;
-    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never);
+    vi.clearAllMocks()
+    aiFeedbackConfig.enabled = false
+    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never)
     findLatestAiFeedbackDraftBySubmission.mockResolvedValue({
-      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       submissionId,
-      status: "running",
-      visibilityMode: "teacher_reviewed",
-      generatedFeedback: { status: "running" },
+      status: 'running',
+      visibilityMode: 'teacher_reviewed',
+      generatedFeedback: { status: 'running' },
       failureCode: null,
       failureMessage: null,
-    } as never);
-  });
+    } as never)
+  })
 
-  it("returns the latest writing draft status without creating a new draft", async () => {
-    const response = await getAiWritingFeedbackStatus(
-      { submissionId },
-      teacherActor,
-    );
+  it('returns the latest writing draft status without creating a new draft', async () => {
+    const response = await getAiWritingFeedbackStatus({ submissionId }, teacherActor)
 
-    expect(findLatestAiFeedbackDraftBySubmission).toHaveBeenCalledWith(
-      submissionId,
-    );
-    expect(createAiFeedbackDraft).not.toHaveBeenCalled();
-    expect(resolveAiFeedbackImageContext).not.toHaveBeenCalled();
+    expect(findLatestAiFeedbackDraftBySubmission).toHaveBeenCalledWith(submissionId)
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled()
+    expect(resolveAiFeedbackImageContext).not.toHaveBeenCalled()
     expect(response).toMatchObject({
-      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      status: "running",
-      visibilityMode: "teacher_reviewed",
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      status: 'running',
+      visibilityMode: 'teacher_reviewed',
       pollingLocation: `/api/v1/submissions/${submissionId}/ai-feedback/writing`,
-    });
-  });
+    })
+  })
 
-  it("returns 404 when no writing draft exists for the submission", async () => {
-    findLatestAiFeedbackDraftBySubmission.mockResolvedValueOnce(null);
+  it('returns 404 when no writing draft exists for the submission', async () => {
+    findLatestAiFeedbackDraftBySubmission.mockResolvedValueOnce(null)
 
     await expect(
       getAiWritingFeedbackStatus({ submissionId }, teacherActor),
     ).rejects.toMatchObject({
       statusCode: 404,
-      message: "AI writing feedback draft not found.",
-    });
-  });
-});
+      message: 'AI writing feedback draft not found.',
+    })
+  })
+})
 
-describe("regenerateAiWritingFeedback", () => {
+describe('regenerateAiWritingFeedback', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    aiFeedbackConfig.enabled = true;
-    aiFeedbackConfig.apiKey = "sk-test";
-    aiFeedbackConfig.baseUrl = "https://example.com/v1";
-    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never);
-    prisma.rubric.findMany.mockResolvedValue([] as never);
+    vi.clearAllMocks()
+    aiFeedbackConfig.enabled = true
+    aiFeedbackConfig.apiKey = 'sk-test'
+    aiFeedbackConfig.baseUrl = 'https://example.com/v1'
+    prisma.submission.findFirst.mockResolvedValue(baseSubmission as never)
+    prisma.rubric.findMany.mockResolvedValue([] as never)
     resolveAiFeedbackImageContext.mockResolvedValue({
-      type: "image",
-      imageUrl: "https://storage.mock/task1.png",
-      mimeType: "image/png",
-      detail: "high",
-    });
+      type: 'image',
+      imageUrl: 'https://storage.mock/task1.png',
+      mimeType: 'image/png',
+      detail: 'high',
+    })
     createAiFeedbackDraft.mockImplementation(async (input: unknown) => {
-      const data = input as Record<string, unknown>;
+      const data = input as Record<string, unknown>
 
       return {
-        id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
         submissionId: data.submissionId,
         status: data.status,
         visibilityMode: data.visibilityMode,
         generatedFeedback: data.generatedFeedback,
         failureCode: null,
         failureMessage: null,
-      } as never;
-    });
-  });
+      } as never
+    })
+  })
 
-  it("queues a new draft using the requested provider tier override", async () => {
+  it('queues a new draft using the requested provider tier override', async () => {
     await regenerateAiWritingFeedback(
       { submissionId },
-      { providerTier: "premium" },
+      { providerTier: 'premium' },
       teacherActor,
-    );
+    )
 
     expect(createAiFeedbackDraft).toHaveBeenCalledWith(
       expect.objectContaining({
-        routeKey: "premium",
-        model: "gpt-5.4-mini",
-        reasoningEffort: "high",
+        routeKey: 'premium',
+        model: 'gpt-5.4-mini',
+        reasoningEffort: 'high',
         generationJob: {
           harnessInput: expect.objectContaining({
-            routeKey: "premium",
+            routeKey: 'premium',
           }),
         },
       }),
-    );
+    )
     expect(supersedeAiFeedbackDrafts).toHaveBeenCalledWith({
       submissionId,
-      exceptDraftId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-    });
-  });
-});
+      exceptDraftId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    })
+  })
+})
