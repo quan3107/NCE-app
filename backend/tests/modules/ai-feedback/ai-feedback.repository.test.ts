@@ -15,6 +15,9 @@ import { writingHarnessFixtures } from "../../fixtures/ai-feedback/harness/harne
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
     aiFeedbackDraft: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -273,6 +276,59 @@ describe("ai-feedback.repository", () => {
 
     expect(prisma.aiFeedbackDraft.create).not.toHaveBeenCalled();
     expect(enqueueAiFeedbackDraftOnActiveQueue).not.toHaveBeenCalled();
+  });
+
+  it("audits writing drafts that fail while enqueueing generation jobs", async () => {
+    const created = { id: draftId, status: "queued" };
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(null);
+    prisma.aiFeedbackDraft.create.mockResolvedValueOnce(created as never);
+    enqueueAiFeedbackDraftOnActiveQueue.mockRejectedValueOnce(
+      new Error("Queue unavailable."),
+    );
+
+    await expect(
+      createAiFeedbackDraft({
+        submissionId,
+        assignmentId,
+        requesterId,
+        promptVersion: "writing-feedback-v1",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+        inputHash: "sha256:writing-input",
+        visibilityMode: "teacher_reviewed",
+        generatedFeedback: {},
+        generationJob: {
+          harnessInput: writingHarnessFixtures[0],
+        },
+      }),
+    ).rejects.toThrow("Queue unavailable.");
+
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: draftId,
+        status: "queued",
+        deletedAt: null,
+      },
+      data: expect.objectContaining({
+        status: "failed",
+        failureCode: "queue_enqueue_failed",
+      }),
+    });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: requesterId,
+        action: "ai_feedback.writing_failed",
+        entity: "ai_feedback_draft",
+        entityId: draftId,
+        diff: expect.objectContaining({
+          routeKey: "low_cost",
+          provider: "openai-compatible",
+          model: "gpt-5.4-nano",
+          promptVersion: "writing-feedback-v1",
+        }),
+      }),
+    });
   });
 
   it("returns a conflict when a concurrent active draft create wins the race", async () => {

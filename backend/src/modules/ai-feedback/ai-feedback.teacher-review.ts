@@ -18,6 +18,11 @@ import {
   type IeltsCriterionScore,
 } from "../scoring/ieltsManualGrading.js";
 import {
+  AI_FEEDBACK_AUDIT_ACTIONS,
+  recordAiFeedbackAudit,
+  type AiFeedbackAuditAction,
+} from "../audit-logs/ai-feedback-audit.js";
+import {
   aiWritingFeedbackApprovalBodySchema,
   aiWritingFeedbackRejectBodySchema,
   writingFeedbackDraftParamsSchema,
@@ -296,6 +301,20 @@ function validateCriterionSuggestions(
   }
 }
 
+function auditActionForDecision(
+  decision: "approved" | "rejected" | "finalized",
+): AiFeedbackAuditAction {
+  if (decision === "approved") {
+    return AI_FEEDBACK_AUDIT_ACTIONS.writingApproved;
+  }
+
+  if (decision === "finalized") {
+    return AI_FEEDBACK_AUDIT_ACTIONS.writingFinalized;
+  }
+
+  return AI_FEEDBACK_AUDIT_ACTIONS.writingRejected;
+}
+
 async function findDraftForDecision(
   submissionId: string,
   draftId: string,
@@ -434,6 +453,46 @@ async function publishAiWritingFeedbackDraft(
       },
     });
 
+    await recordAiFeedbackAudit(
+      {
+        actorId: actor.id,
+        action: auditActionForDecision(decision),
+        entity: "ai_feedback_draft",
+        entityId: draft.id,
+        entityIds: {
+          submissionId,
+          assignmentId: draft.assignmentId,
+          gradeId: grade.id,
+        },
+        teacherDecision: decision,
+        payload: {
+          feedbackMd: data.feedbackMd,
+          normalizedCriterionSuggestions: data.normalizedCriterionSuggestions,
+          previousGradeFeedback: grade.feedback,
+        },
+      },
+      tx,
+    );
+    await recordAiFeedbackAudit(
+      {
+        actorId: actor.id,
+        action: AI_FEEDBACK_AUDIT_ACTIONS.gradeFeedbackUpdated,
+        entity: "grade",
+        entityId: grade.id,
+        entityIds: {
+          submissionId,
+          assignmentId: draft.assignmentId,
+          draftId: draft.id,
+        },
+        teacherDecision: decision,
+        payload: {
+          feedbackMd: data.feedbackMd,
+          previousGradeFeedback: grade.feedback,
+        },
+      },
+      tx,
+    );
+
     return decidedDraft;
   });
 
@@ -474,14 +533,36 @@ export async function rejectAiWritingFeedbackDraft(
     ? toJsonObject({ rejectionReason: data.reason })
     : undefined;
 
-  const updated = await prisma.$transaction((tx) => {
-    return claimDraftDecision(tx, {
+  const updated = await prisma.$transaction(async (tx) => {
+    const decidedDraft = await claimDraftDecision(tx, {
       draft,
       actorId: actor.id,
       decision: "rejected",
       teacherEditedFeedback,
       decidedAt,
     });
+
+    await recordAiFeedbackAudit(
+      {
+        actorId: actor.id,
+        action: AI_FEEDBACK_AUDIT_ACTIONS.writingRejected,
+        entity: "ai_feedback_draft",
+        entityId: draft.id,
+        entityIds: {
+          submissionId,
+          assignmentId: draft.assignmentId,
+          ...(draft.gradeId ? { gradeId: draft.gradeId } : {}),
+        },
+        teacherDecision: "rejected",
+        payload: {
+          rejectionReason: data.reason,
+          generatedFeedback: draft.generatedFeedback,
+        },
+      },
+      tx,
+    );
+
+    return decidedDraft;
   });
 
   return toReviewResponse(updated as ReviewDraft);

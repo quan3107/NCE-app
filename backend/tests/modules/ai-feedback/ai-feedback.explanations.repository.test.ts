@@ -13,11 +13,15 @@ import { objectiveHarnessFixtures } from "../../fixtures/ai-feedback/harness/har
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
     aiObjectiveExplanation: {
       create: vi.fn(),
       findFirst: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     submission: {
       findFirst: vi.fn(),
@@ -215,6 +219,63 @@ describe("ai-feedback objective explanations", () => {
       harnessInput: objectiveHarnessFixtures[0],
     });
     expect(explanation).toBe(created);
+  });
+
+  it("audits objective explanations that fail while enqueueing generation jobs", async () => {
+    const created = {
+      id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      status: "queued",
+    };
+    prisma.aiObjectiveExplanation.findFirst.mockResolvedValueOnce(null);
+    prisma.aiObjectiveExplanation.create.mockResolvedValueOnce(created as never);
+    enqueueObjectiveExplanationOnActiveQueue.mockRejectedValueOnce(
+      new Error("Queue unavailable."),
+    );
+
+    await expect(
+      upsertAiObjectiveExplanation({
+        submissionId,
+        assignmentId,
+        requesterId,
+        questionId: "q-1",
+        deterministicResult: "incorrect",
+        promptVersion: "objective-explanation-v1",
+        sourceContextHash: "sha256:source",
+        routeKey: "low_cost",
+        provider: "openai-compatible",
+        model: "gpt-5.4-nano",
+        status: "queued",
+        generationJob: {
+          harnessInput: objectiveHarnessFixtures[0],
+        },
+      }),
+    ).rejects.toThrow("Queue unavailable.");
+
+    expect(prisma.aiObjectiveExplanation.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+        status: "queued",
+        deletedAt: null,
+      },
+      data: expect.objectContaining({
+        status: "failed",
+        failureCode: "queue_enqueue_failed",
+      }),
+    });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: requesterId,
+        action: "ai_feedback.explanation_failed",
+        entity: "ai_objective_explanation",
+        entityId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+        diff: expect.objectContaining({
+          routeKey: "low_cost",
+          provider: "openai-compatible",
+          model: "gpt-5.4-nano",
+          promptVersion: "objective-explanation-v1",
+        }),
+      }),
+    });
   });
 
   it("replaces terminal failed objective explanation cache rows", async () => {

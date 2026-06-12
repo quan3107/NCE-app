@@ -4,6 +4,10 @@
  * Why: Keeps public manual and automatic entry points small and testable.
  */
 import type { RequestActor } from "../../middleware/requestActor.js";
+import {
+  AI_FEEDBACK_AUDIT_ACTIONS,
+  recordAiFeedbackAudit,
+} from "../audit-logs/ai-feedback-audit.js";
 import { aiFeedbackConfig } from "./ai-feedback.config.js";
 import {
   createAiFeedbackDraft,
@@ -93,6 +97,50 @@ async function createWritingDraftForContext(
   });
 }
 
+async function auditWritingDraftRequest(
+  context: WritingFeedbackContext,
+  draft: {
+    id: string;
+    status: string;
+    provider?: string | null;
+    model?: string | null;
+    failureCode?: string | null;
+    failureMessage?: string | null;
+  },
+  routeKey: AiConcreteProviderRouteKey,
+): Promise<void> {
+  const failed =
+    draft.status === "failed" || draft.status === "review_required";
+
+  await recordAiFeedbackAudit({
+    actorId: context.actor.id,
+    action: failed
+      ? AI_FEEDBACK_AUDIT_ACTIONS.writingFailed
+      : AI_FEEDBACK_AUDIT_ACTIONS.writingRequested,
+    entity: "ai_feedback_draft",
+    entityId: draft.id,
+    entityIds: {
+      submissionId: context.submission.id,
+      assignmentId: context.submission.assignmentId,
+      ...(context.submission.grade?.id
+        ? { gradeId: context.submission.grade.id }
+        : {}),
+    },
+    routeKey,
+    provider: draft.provider ?? aiFeedbackConfig.provider,
+    model: draft.model ?? modelForRouteKey(routeKey),
+    promptVersion: IELTS_WRITING_FEEDBACK_PROMPT_VERSION,
+    payload: {
+      status: draft.status,
+      visibilityMode: context.visibilityMode,
+      inputHash: context.inputHash,
+      promptInput: context.promptInput,
+      ...(draft.failureCode ? { failureCode: draft.failureCode } : {}),
+      ...(draft.failureMessage ? { failureMessage: draft.failureMessage } : {}),
+    },
+  });
+}
+
 export async function requestAiWritingFeedback(
   params: unknown,
   actor?: RequestActor,
@@ -104,6 +152,11 @@ export async function requestAiWritingFeedback(
     submissionId: context.submission.id,
     exceptDraftId: draft.id,
   });
+  await auditWritingDraftRequest(
+    context,
+    draft,
+    options.providerTierOverride ?? context.routeKey,
+  );
 
   return toWritingFeedbackResponse(draft);
 }
@@ -149,6 +202,7 @@ export async function enqueueAiWritingFeedbackForSubmission(
     submissionId: context.submission.id,
     exceptDraftId: draft.id,
   });
+  await auditWritingDraftRequest(context, draft, context.routeKey);
 
   return toWritingFeedbackResponse(draft);
 }

@@ -13,6 +13,9 @@ import {
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
     aiFeedbackDraft: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -29,6 +32,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
 
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
+const transactionAuditLogCreate = vi.fn();
 
 const {
   approveAiWritingFeedbackDraft,
@@ -94,6 +98,7 @@ const baseDraft = {
 describe("AI writing feedback teacher review service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    transactionAuditLogCreate.mockReset();
     prisma.$transaction.mockImplementation(async (callback) => callback(prisma));
     prisma.grade.update.mockResolvedValue({ id: gradeId } as never);
     prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
@@ -156,6 +161,14 @@ describe("AI writing feedback teacher review service", () => {
   });
 
   it("approves edited feedback by atomically updating the existing grade and draft decision", async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    );
     prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(baseDraft as never);
 
     const response = await approveAiWritingFeedbackDraft(
@@ -205,6 +218,40 @@ describe("AI writing feedback teacher review service", () => {
         ],
       }),
     });
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: teacherId,
+        action: "ai_feedback.writing_approved",
+        entity: "ai_feedback_draft",
+        entityId: draftId,
+        diff: expect.objectContaining({
+          entityIds: expect.objectContaining({
+            submissionId,
+            assignmentId: "66666666-6666-4666-8666-666666666666",
+            gradeId,
+          }),
+          teacherDecision: "approved",
+        }),
+      }),
+    });
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: teacherId,
+        action: "ai_feedback.grade_feedback_updated",
+        entity: "grade",
+        entityId: gradeId,
+        diff: expect.objectContaining({
+          entityIds: expect.objectContaining({
+            submissionId,
+            draftId,
+          }),
+        }),
+      }),
+    });
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+      "Teacher-edited final feedback.",
+    );
     expect(response).toMatchObject({
       id: draftId,
       status: "approved",
@@ -297,6 +344,14 @@ describe("AI writing feedback teacher review service", () => {
   });
 
   it("keeps rejected drafts for audit without updating grade feedback", async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    );
     prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(baseDraft as never);
     prisma.aiFeedbackDraft.findUnique.mockResolvedValueOnce({
       ...baseDraft,
@@ -331,6 +386,21 @@ describe("AI writing feedback teacher review service", () => {
         },
       }),
     });
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: teacherId,
+        action: "ai_feedback.writing_rejected",
+        entity: "ai_feedback_draft",
+        entityId: draftId,
+        diff: expect.objectContaining({
+          teacherDecision: "rejected",
+        }),
+      }),
+    });
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+      "Feedback overstated coherence.",
+    );
     expect(response).toMatchObject({
       id: draftId,
       status: "rejected",

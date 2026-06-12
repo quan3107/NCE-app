@@ -13,6 +13,9 @@ import {
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
     rubric: {
       findMany: vi.fn(),
     },
@@ -217,6 +220,28 @@ describe("requestAiWritingFeedback", () => {
       submissionId,
       exceptDraftId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerId,
+        action: "ai_feedback.writing_requested",
+        entity: "ai_feedback_draft",
+        entityId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        diff: expect.objectContaining({
+          entityIds: expect.objectContaining({
+            submissionId,
+            assignmentId,
+            gradeId: "66666666-6666-4666-8666-666666666666",
+          }),
+          routeKey: "low_cost",
+          provider: "openai-compatible",
+          model: "gpt-5.4-nano",
+          promptVersion: "ielts-writing-feedback-v1",
+        }),
+      }),
+    });
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls[0]?.[0])).not.toContain(
+      "Cities should invest in public transport.",
+    );
     expect(response).toEqual(
       expect.objectContaining({
         status: "queued",
@@ -273,6 +298,19 @@ describe("requestAiWritingFeedback", () => {
     expect(createAiFeedbackDraft.mock.calls[0]?.[0]).not.toHaveProperty(
       "generationJob",
     );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerId,
+        action: "ai_feedback.writing_failed",
+        entity: "ai_feedback_draft",
+        entityId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        diff: expect.objectContaining({
+          payloadSummary: expect.objectContaining({
+            failureMessage: expect.objectContaining({ redacted: true }),
+          }),
+        }),
+      }),
+    });
     expect(response).toMatchObject({
       status: "review_required",
       visibilityMode: "teacher_reviewed",

@@ -87,7 +87,8 @@ export async function updateWritingProviderFailure(
   draft: QueuedGenerationRecord,
   error: unknown,
   now: Date,
-): Promise<void> {
+  options: { suppressRetryThrow?: boolean } = {},
+): Promise<{ shouldRetry: boolean; updatedCount: number }> {
   const failure = providerFailure(error);
   const retry = retryState(failure, draft.retryCount, now);
 
@@ -107,16 +108,58 @@ export async function updateWritingProviderFailure(
     },
   });
 
-  if (retry.shouldRetry && updated.count > 0) {
+  if (retry.shouldRetry && updated.count > 0 && !options.suppressRetryThrow) {
     throw error;
   }
+
+  return {
+    shouldRetry: retry.shouldRetry,
+    updatedCount: updated.count,
+  };
+}
+
+export async function updateWritingFinalizationFailure(
+  draft: QueuedGenerationRecord,
+  error: unknown,
+  now: Date,
+): Promise<{ shouldRetry: boolean; updatedCount: number }> {
+  const failureMessage =
+    error instanceof Error ? error.message : "Unknown AI worker error.";
+  const retry = retryState(
+    {
+      code: "worker_finalization_failed",
+      message: failureMessage,
+      retryable: true,
+    },
+    draft.retryCount,
+    now,
+  );
+
+  const updated = await prisma.aiFeedbackDraft.updateMany({
+    where: {
+      id: draft.id,
+      status: "running",
+      deletedAt: null,
+    },
+    data: {
+      status: "failed",
+      failureCode: "worker_finalization_failed",
+      failureMessage,
+      retryCount: { increment: 1 },
+      nextRetryAt: retry.nextRetryAt,
+      lastAttemptAt: now,
+    },
+  });
+
+  return { shouldRetry: retry.shouldRetry, updatedCount: updated.count };
 }
 
 export async function updateObjectiveProviderFailure(
   explanation: QueuedGenerationRecord,
   error: unknown,
   now: Date,
-): Promise<void> {
+  options: { suppressRetryThrow?: boolean } = {},
+): Promise<{ shouldRetry: boolean; updatedCount: number }> {
   const failure = providerFailure(error);
   const retry = retryState(failure, explanation.retryCount, now);
 
@@ -136,7 +179,48 @@ export async function updateObjectiveProviderFailure(
     },
   });
 
-  if (retry.shouldRetry && updated.count > 0) {
+  if (retry.shouldRetry && updated.count > 0 && !options.suppressRetryThrow) {
     throw error;
   }
+
+  return {
+    shouldRetry: retry.shouldRetry,
+    updatedCount: updated.count,
+  };
+}
+
+export async function updateObjectiveFinalizationFailure(
+  explanation: QueuedGenerationRecord,
+  error: unknown,
+  now: Date,
+): Promise<{ shouldRetry: boolean; updatedCount: number }> {
+  const failureMessage =
+    error instanceof Error ? error.message : "Unknown AI worker error.";
+  const retry = retryState(
+    {
+      code: "worker_finalization_failed",
+      message: failureMessage,
+      retryable: true,
+    },
+    explanation.retryCount,
+    now,
+  );
+
+  const updated = await prisma.aiObjectiveExplanation.updateMany({
+    where: {
+      id: explanation.id,
+      status: "running",
+      deletedAt: null,
+    },
+    data: {
+      status: "failed",
+      failureCode: "worker_finalization_failed",
+      failureMessage,
+      retryCount: { increment: 1 },
+      nextRetryAt: retry.nextRetryAt,
+      lastAttemptAt: now,
+    },
+  });
+
+  return { shouldRetry: retry.shouldRetry, updatedCount: updated.count };
 }

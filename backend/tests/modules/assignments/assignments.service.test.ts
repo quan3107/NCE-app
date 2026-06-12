@@ -10,6 +10,10 @@ import { ZodError } from 'zod'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
+    $transaction: vi.fn(),
     assignment: {
       create: vi.fn(),
       count: vi.fn(),
@@ -25,6 +29,7 @@ vi.mock('../../../src/prisma/client.js', () => ({
 
 const prismaModule = await import('../../../src/prisma/client.js')
 const prisma = vi.mocked(prismaModule.prisma, true)
+const transactionAuditLogCreate = vi.fn()
 
 const { createAssignment, getPendingAssignmentsCount, updateAssignment } =
   await import('../../../src/modules/assignments/assignments.service.js')
@@ -53,6 +58,8 @@ const readingConfigWithAiOff = {
 describe('assignments.service.createAssignment', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    transactionAuditLogCreate.mockReset()
+    prisma.$transaction.mockImplementation(async (callback) => callback(prisma))
   })
 
   it('persists valid IELTS assignment configs', async () => {
@@ -127,6 +134,79 @@ describe('assignments.service.updateAssignment', () => {
     ).rejects.toBeInstanceOf(ZodError)
 
     expect(prisma.assignment.update).not.toHaveBeenCalled()
+  })
+
+  it('audits AI policy changes without storing the full assignment config', async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    )
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      type: 'reading',
+      assignmentConfig: readingConfigWithAiOff,
+    })
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      type: 'reading',
+      assignmentConfig: {
+        ...readingConfig,
+        aiPolicy: {
+          writingFeedbackMode: 'off',
+          objectiveExplanations: 'on_demand_student_visible',
+          providerTier: 'low_cost',
+        },
+      },
+    } as never)
+
+    await updateAssignment(
+      { courseId, assignmentId },
+      {
+        assignmentConfig: {
+          ...readingConfig,
+          aiPolicy: {
+            writingFeedbackMode: 'off',
+            objectiveExplanations: 'on_demand_student_visible',
+            providerTier: 'low_cost',
+          },
+        },
+      },
+      ownerTeacher,
+    )
+
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerTeacher.id,
+        action: 'ai_feedback.policy_changed',
+        entity: 'assignment',
+        entityId: assignmentId,
+        diff: expect.objectContaining({
+          entityIds: { courseId, assignmentId },
+          payloadSummary: {
+            before: {
+              writingFeedbackMode: 'off',
+              objectiveExplanations: 'off',
+              providerTier: 'auto',
+            },
+            after: {
+              writingFeedbackMode: 'off',
+              objectiveExplanations: 'on_demand_student_visible',
+              providerTier: 'low_cost',
+            },
+          },
+        }),
+      }),
+    })
+    expect(prisma.auditLog.create).not.toHaveBeenCalled()
+    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+      'Read and answer all questions.',
+    )
   })
 })
 

@@ -9,6 +9,7 @@ import { EnrollmentRole, UserRole } from '../../../src/prisma/index.js'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    $transaction: vi.fn(),
     assignment: {
       create: vi.fn(),
       findMany: vi.fn(),
@@ -77,6 +78,7 @@ const studentCourseFilter = {
 describe('assignments.service course authorization', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    prisma.$transaction.mockImplementation(async (callback) => callback(prisma))
   })
 
   it('rejects assignment creation for a teacher outside the course', async () => {
