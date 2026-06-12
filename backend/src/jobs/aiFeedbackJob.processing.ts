@@ -201,6 +201,7 @@ export async function processWritingDraftJob(
       writingScope: "combined",
     });
     const accepted = parsed.status === "accepted";
+    const generated = harnessResult.status === "accepted";
 
     await prisma.aiFeedbackDraft.updateMany({
       where: {
@@ -242,7 +243,7 @@ export async function processWritingDraftJob(
     });
     await recordAiFeedbackAudit({
       actorId: draft.requesterId,
-      action: accepted
+      action: generated
         ? AI_FEEDBACK_AUDIT_ACTIONS.writingGenerated
         : AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
       entity: "ai_feedback_draft",
@@ -402,7 +403,7 @@ export async function processObjectiveExplanationJob(
         submissionId: explanation.submissionId,
         assignmentId: explanation.assignmentId,
       },
-      routeKey: explanation.routeKey,
+      routeKey: providerResult.routeKey,
       provider: explanation.provider,
       model: providerResult.model,
       promptVersion: explanation.promptVersion,

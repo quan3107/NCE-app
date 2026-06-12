@@ -32,6 +32,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
 
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
+const transactionAuditLogCreate = vi.fn();
 
 const {
   approveAiWritingFeedbackDraft,
@@ -97,6 +98,7 @@ const baseDraft = {
 describe("AI writing feedback teacher review service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    transactionAuditLogCreate.mockReset();
     prisma.$transaction.mockImplementation(async (callback) => callback(prisma));
     prisma.grade.update.mockResolvedValue({ id: gradeId } as never);
     prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
@@ -159,6 +161,14 @@ describe("AI writing feedback teacher review service", () => {
   });
 
   it("approves edited feedback by atomically updating the existing grade and draft decision", async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    );
     prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(baseDraft as never);
 
     const response = await approveAiWritingFeedbackDraft(
@@ -208,7 +218,7 @@ describe("AI writing feedback teacher review service", () => {
         ],
       }),
     });
-    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: teacherId,
         action: "ai_feedback.writing_approved",
@@ -224,7 +234,7 @@ describe("AI writing feedback teacher review service", () => {
         }),
       }),
     });
-    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: teacherId,
         action: "ai_feedback.grade_feedback_updated",
@@ -238,7 +248,8 @@ describe("AI writing feedback teacher review service", () => {
         }),
       }),
     });
-    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
       "Teacher-edited final feedback.",
     );
     expect(response).toMatchObject({
@@ -333,6 +344,14 @@ describe("AI writing feedback teacher review service", () => {
   });
 
   it("keeps rejected drafts for audit without updating grade feedback", async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    );
     prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(baseDraft as never);
     prisma.aiFeedbackDraft.findUnique.mockResolvedValueOnce({
       ...baseDraft,
@@ -367,7 +386,7 @@ describe("AI writing feedback teacher review service", () => {
         },
       }),
     });
-    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: teacherId,
         action: "ai_feedback.writing_rejected",
@@ -378,7 +397,8 @@ describe("AI writing feedback teacher review service", () => {
         }),
       }),
     });
-    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
       "Feedback overstated coherence.",
     );
     expect(response).toMatchObject({

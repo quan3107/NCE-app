@@ -216,6 +216,56 @@ describe("jobs.aiFeedbackJob", () => {
     );
   });
 
+  it("audits parse-valid writing output below harness confidence as failed", async () => {
+    const fixture = writingHarnessFixtures[0];
+    const lowConfidenceOutput = JSON.stringify({
+      ...JSON.parse(fixture.providerOutput),
+      confidence: 0.4,
+    });
+    const providerRouter = {
+      generate: vi.fn(async (request: AiProviderRequest) =>
+        providerResult(request, lowConfidenceOutput),
+      ),
+    };
+
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      status: "queued",
+      retryCount: 0,
+      deletedAt: null,
+    } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await handleGenerateWritingDraftJob(
+      {
+        id: "job-1",
+        name: AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
+        data: {
+          draftId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+          harnessInput: fixture,
+        },
+        expireInSeconds: 60,
+      },
+      { providerRouter },
+    );
+
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "review_required",
+          failureCode: "low_confidence",
+        }),
+      }),
+    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "ai_feedback.writing_failed",
+        entity: "ai_feedback_draft",
+        entityId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      }),
+    });
+  });
+
   it("marks retryable provider failures with retry metadata", async () => {
     const now = new Date("2026-06-08T07:00:00.000Z");
     const providerRouter = {
@@ -506,6 +556,17 @@ describe("jobs.aiFeedbackJob", () => {
     const finalUpdate =
       prisma.aiObjectiveExplanation.updateMany.mock.calls.at(-1)?.[0];
     expect(finalUpdate?.data).not.toHaveProperty("routeKey");
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "ai_feedback.explanation_generated",
+        entity: "ai_objective_explanation",
+        entityId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+        diff: expect.objectContaining({
+          routeKey: "premium",
+          model: "gpt-test",
+        }),
+      }),
+    });
   });
 
   it("marks malformed objective explanation payloads failed without provider retries", async () => {

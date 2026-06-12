@@ -44,6 +44,12 @@ type RecordAiFeedbackAuditInput = AiFeedbackAuditDiffInput & {
   entityIds?: JsonRecord;
 };
 
+type AuditLogClient = {
+  auditLog: {
+    create: typeof prisma.auditLog.create;
+  };
+};
+
 const sensitiveKeyPattern =
   /(answer|body|explanation|failure|feedback|message|output|prompt|reason|response|secret|submission|text|token|key)/i;
 const secretKeyPattern = /(secret|token|key|authorization|password)/i;
@@ -134,8 +140,9 @@ export function buildAiFeedbackAuditDiff(
 
 export async function recordAiFeedbackAudit(
   input: RecordAiFeedbackAuditInput,
+  client: AuditLogClient = prisma,
 ): Promise<void> {
-  await prisma.auditLog.create({
+  await client.auditLog.create({
     data: {
       actorId: input.actorId ?? undefined,
       action: input.action,
