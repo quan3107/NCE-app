@@ -965,7 +965,7 @@ async function main(): Promise<void> {
     {
       ownerEmail: 'amelia.chan@ielts.local',
       bucket: 'ielts-mock',
-      key: 'writing/technology-society/amelia.pdf',
+      key: 'reading/matching-headings/amelia.pdf',
       mime: 'application/pdf',
       size: 48211,
     },
@@ -1040,7 +1040,7 @@ async function main(): Promise<void> {
     {
       assignmentTitle: 'Matching Headings Practice',
       studentEmail: 'amelia.chan@ielts.local',
-      fileKey: 'writing/technology-society/amelia.pdf',
+      fileKey: 'reading/matching-headings/amelia.pdf',
       submittedOffsetDays: -1,
       status: SubmissionStatus.graded,
       version: 1,
@@ -1048,7 +1048,7 @@ async function main(): Promise<void> {
       rawScore: 7.5,
       finalScore: 7.0,
       feedback:
-        'Solid comparisons and structure. Tighten the conclusion to keep it concise for a higher band.',
+        'Accurate heading choices with clear paragraph evidence. Review distractor headings to keep paraphrase decisions consistent.',
     },
     {
       assignmentTitle: 'Part 3 Discussion: Urban Living',
