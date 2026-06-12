@@ -54,13 +54,40 @@ const toAnswerValue = (value: unknown): string => {
   return '';
 };
 
+const decodeHtmlEntities = (value: string): string => {
+  const namedEntities: Record<string, string> = {
+    amp: '&',
+    apos: "'",
+    gt: '>',
+    lt: '<',
+    nbsp: ' ',
+    quot: '"',
+  };
+  const decodeCodePoint = (codePoint: number, fallback: string): string =>
+    Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff
+      ? String.fromCodePoint(codePoint)
+      : fallback;
+
+  return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, body: string) => {
+    if (body.startsWith('#x') || body.startsWith('#X')) {
+      const codePoint = Number.parseInt(body.slice(2), 16);
+      return decodeCodePoint(codePoint, entity);
+    }
+    if (body.startsWith('#')) {
+      const codePoint = Number.parseInt(body.slice(1), 10);
+      return decodeCodePoint(codePoint, entity);
+    }
+    return namedEntities[body.toLowerCase()] ?? entity;
+  });
+};
+
 const toDisplayPrompt = (value: string): string => {
   const spacedValue = value
     .replace(/<\s*br\s*\/?>/gi, '\n')
     .replace(/<\s*\/\s*(p|div|li|h[1-6]|tr|blockquote)\s*>/gi, '\n')
     .replace(/<\s*(p|div|li|h[1-6]|tr|blockquote)(\s[^>]*)?>/gi, '\n');
 
-  return stripHtml(spacedValue)
+  return decodeHtmlEntities(stripHtml(spacedValue))
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n[ \t]+/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
