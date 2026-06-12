@@ -146,6 +146,19 @@ describe('seed title mappings', () => {
 });
 
 describe('seeded writing submission payloads', () => {
+  it('keeps the General Training workplace equipment prompt aligned with its seeded response', () => {
+    const assignmentConfig = buildPrimaryIeltsAssignmentConfig(
+      'General Training Letter: Workplace Equipment',
+      AssignmentType.writing,
+    );
+    const payload = buildIeltsWritingSubmissionPayload(
+      'General Training Letter: Workplace Equipment',
+    );
+
+    expect(assignmentConfig.task1.prompt.toLowerCase()).toContain('equipment');
+    expect(payload.task1.text.toLowerCase()).toContain('equipment');
+  });
+
   it('covers every primary writing assignment with current IELTS writing payloads', () => {
     const writingTitles = Object.entries(PRIMARY_IELTS_ASSIGNMENT_SEED_MAP)
       .filter(([, descriptor]) => descriptor.type === AssignmentType.writing)
