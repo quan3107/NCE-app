@@ -54,7 +54,18 @@ const toAnswerValue = (value: unknown): string => {
   return '';
 };
 
-const toDisplayPrompt = (value: string): string => stripHtml(value).trim();
+const toDisplayPrompt = (value: string): string => {
+  const spacedValue = value
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\s*\/\s*(p|div|li|h[1-6]|tr|blockquote)\s*>/gi, '\n')
+    .replace(/<\s*(p|div|li|h[1-6]|tr|blockquote)(\s[^>]*)?>/gi, '\n');
+
+  return stripHtml(spacedValue)
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
 
 const toOptionLabel = (
   target: ReturnType<typeof getAnswerTargetsForQuestion>[number],
