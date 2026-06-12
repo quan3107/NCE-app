@@ -10,6 +10,8 @@ import {
   UserRole,
   UserStatus,
 } from "../../../src/prisma/index.js";
+import { buildPrimaryIeltsAssignmentConfig } from "../../../src/prisma/seeds/ieltsOfficialFixtures.js";
+import { buildIeltsWritingSubmissionPayload } from "../../../src/prisma/seeds/ieltsOfficialSubmissions.js";
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
@@ -273,6 +275,52 @@ describe("requestAiWritingFeedback", () => {
       expect.objectContaining({
         routeKey: "premium",
         visibilityMode: "instant_student_visible",
+      }),
+    );
+  });
+
+  it("queues feedback for the seeded General Training writing submission payload", async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: buildIeltsWritingSubmissionPayload(
+        "General Training Letter: Workplace Equipment",
+      ),
+      assignment: {
+        ...baseSubmission.assignment,
+        title: "General Training Letter: Workplace Equipment",
+        assignmentConfig: {
+          ...buildPrimaryIeltsAssignmentConfig(
+            "General Training Letter: Workplace Equipment",
+            AssignmentType.writing,
+          ),
+          aiPolicy: {
+            writingFeedbackMode: "teacher_reviewed",
+            objectiveExplanations: "off",
+            providerTier: "auto",
+          },
+        },
+      },
+    } as never);
+
+    await requestAiWritingFeedback({ submissionId }, teacherActor);
+
+    expect(createAiFeedbackDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "queued",
+        generationJob: {
+          harnessInput: expect.objectContaining({
+            promptInput: expect.objectContaining({
+              submission: expect.objectContaining({
+                task1: expect.objectContaining({
+                  text: expect.stringContaining("Dear Facilities Manager"),
+                }),
+                task2: expect.objectContaining({
+                  text: expect.stringContaining("Online public services"),
+                }),
+              }),
+            }),
+          }),
+        },
       }),
     );
   });
