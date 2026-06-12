@@ -13,6 +13,7 @@ vi.mock('../../../src/prisma/client.js', () => ({
     auditLog: {
       create: vi.fn(),
     },
+    $transaction: vi.fn(),
     assignment: {
       create: vi.fn(),
       count: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock('../../../src/prisma/client.js', () => ({
 
 const prismaModule = await import('../../../src/prisma/client.js')
 const prisma = vi.mocked(prismaModule.prisma, true)
+const transactionAuditLogCreate = vi.fn()
 
 const { createAssignment, getPendingAssignmentsCount, updateAssignment } =
   await import('../../../src/modules/assignments/assignments.service.js')
@@ -56,6 +58,8 @@ const readingConfigWithAiOff = {
 describe('assignments.service.createAssignment', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    transactionAuditLogCreate.mockReset()
+    prisma.$transaction.mockImplementation(async (callback) => callback(prisma))
   })
 
   it('persists valid IELTS assignment configs', async () => {
@@ -133,6 +137,14 @@ describe('assignments.service.updateAssignment', () => {
   })
 
   it('audits AI policy changes without storing the full assignment config', async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    )
     prisma.assignment.findFirst.mockResolvedValueOnce({
       id: assignmentId,
       courseId,
@@ -168,7 +180,7 @@ describe('assignments.service.updateAssignment', () => {
       ownerTeacher,
     )
 
-    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: ownerTeacher.id,
         action: 'ai_feedback.policy_changed',
@@ -191,7 +203,8 @@ describe('assignments.service.updateAssignment', () => {
         }),
       }),
     })
-    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+    expect(prisma.auditLog.create).not.toHaveBeenCalled()
+    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
       'Read and answer all questions.',
     )
   })

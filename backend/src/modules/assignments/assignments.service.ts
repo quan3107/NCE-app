@@ -286,29 +286,34 @@ export async function updateAssignment(
     updateData.publishedAt = publishedAt
   }
 
-  const updated = await prisma.assignment.update({
-    where: { id: assignmentId },
-    data: updateData,
-  })
-
-  if (
-    payload.assignmentConfig !== undefined &&
-    hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
-  ) {
-    await recordAiFeedbackAudit({
-      actorId: actor.id,
-      action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
-      entity: 'assignment',
-      entityId: assignmentId,
-      entityIds: { courseId, assignmentId },
-      payload: {
-        before: aiPolicyFromConfig(existing.assignmentConfig),
-        after: aiPolicyFromConfig(assignmentConfig),
-      },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.assignment.update({
+      where: { id: assignmentId },
+      data: updateData,
     })
-  }
 
-  return updated
+    if (
+      payload.assignmentConfig !== undefined &&
+      hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
+    ) {
+      await recordAiFeedbackAudit(
+        {
+          actorId: actor.id,
+          action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
+          entity: 'assignment',
+          entityId: assignmentId,
+          entityIds: { courseId, assignmentId },
+          payload: {
+            before: aiPolicyFromConfig(existing.assignmentConfig),
+            after: aiPolicyFromConfig(assignmentConfig),
+          },
+        },
+        tx,
+      )
+    }
+
+    return updated
+  })
 }
 
 export async function deleteAssignment(params: unknown, actor: CourseManager) {

@@ -185,25 +185,78 @@ export async function processWritingDraftJob(
     return;
   }
 
+  let providerResult: Awaited<
+    ReturnType<ReturnType<typeof getProviderRouter>["generate"]>
+  >;
+  let harnessResult: ReturnType<typeof evaluateAiFeedbackHarness>;
+  let parsed: ReturnType<typeof parseWritingFeedbackOutput>;
+
   try {
     const builtPrompt = buildIeltsWritingFeedbackPrompt(
       payload.harnessInput.promptInput,
     );
-    const providerResult = await getProviderRouter(deps).generate(
-      builtPrompt.request,
-    );
-    const harnessResult = evaluateAiFeedbackHarness({
+    providerResult = await getProviderRouter(deps).generate(builtPrompt.request);
+    harnessResult = evaluateAiFeedbackHarness({
       ...payload.harnessInput,
       providerOutput: providerResult.rawText,
       routeKey: providerResult.routeKey,
     });
-    const parsed = parseWritingFeedbackOutput(providerResult.rawText, {
+    parsed = parseWritingFeedbackOutput(providerResult.rawText, {
       writingScope: "combined",
     });
-    const accepted = parsed.status === "accepted";
-    const generated = harnessResult.status === "accepted";
+  } catch (error) {
+    logger.error(
+      { err: error, draftId: draft.id },
+      "AI writing draft generation failed",
+    );
+    const failureUpdate = await updateWritingProviderFailure(draft, error, now, {
+      suppressRetryThrow: true,
+    });
+    await recordAiFeedbackAudit({
+      actorId: draft.requesterId,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
+      entity: "ai_feedback_draft",
+      entityId: draft.id,
+      entityIds: {
+        submissionId: draft.submissionId,
+        assignmentId: draft.assignmentId,
+      },
+      provider: draft.provider,
+      promptVersion: draft.promptVersion,
+      payload: {
+        failureMessage:
+          error instanceof Error ? error.message : "Unknown AI worker error.",
+      },
+    });
+    if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
+      throw error;
+    }
+    return;
+  }
 
-    await prisma.aiFeedbackDraft.updateMany({
+  const generated = harnessResult.status === "accepted";
+  const writingResultData =
+    parsed.status === "accepted"
+      ? {
+          generatedFeedback: toJsonObject(parsed.feedback),
+          normalizedCriterionSuggestions: toJsonArray(
+            parsed.normalizedCriterionSuggestions,
+          ),
+          criteriaVersion: parsed.criteriaVersion,
+          safetyFlags: toJsonObject(parsed.safetyFlags),
+        }
+      : {
+          generatedFeedback: toJsonObject({
+            harness: {
+              status: harnessResult.status,
+              reasonCode: harnessResult.reasonCode,
+              validationErrors: harnessResult.validationErrors,
+            },
+          }),
+        };
+
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.aiFeedbackDraft.updateMany({
       where: {
         id: draft.id,
         status: "running",
@@ -213,24 +266,7 @@ export async function processWritingDraftJob(
         status: harnessResult.status,
         routeKey: providerResult.routeKey,
         model: providerResult.model,
-        ...(accepted
-          ? {
-              generatedFeedback: toJsonObject(parsed.feedback),
-              normalizedCriterionSuggestions: toJsonArray(
-                parsed.normalizedCriterionSuggestions,
-              ),
-              criteriaVersion: parsed.criteriaVersion,
-              safetyFlags: toJsonObject(parsed.safetyFlags),
-            }
-          : {
-              generatedFeedback: toJsonObject({
-                harness: {
-                  status: harnessResult.status,
-                  reasonCode: harnessResult.reasonCode,
-                  validationErrors: harnessResult.validationErrors,
-                },
-              }),
-            }),
+        ...writingResultData,
         failureCode:
           harnessResult.status === "accepted" ? null : harnessResult.reasonCode,
         failureMessage:
@@ -241,6 +277,11 @@ export async function processWritingDraftJob(
         lastAttemptAt: now,
       },
     });
+
+    if (updated.count === 0) {
+      return;
+    }
+
     await recordAiFeedbackAudit({
       actorId: draft.requesterId,
       action: generated
@@ -263,30 +304,8 @@ export async function processWritingDraftJob(
         providerOutput: providerResult.rawText,
         promptInput: payload.harnessInput.promptInput,
       },
-    });
-  } catch (error) {
-    logger.error(
-      { err: error, draftId: draft.id },
-      "AI writing draft generation failed",
-    );
-    await recordAiFeedbackAudit({
-      actorId: draft.requesterId,
-      action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
-      entity: "ai_feedback_draft",
-      entityId: draft.id,
-      entityIds: {
-        submissionId: draft.submissionId,
-        assignmentId: draft.assignmentId,
-      },
-      provider: draft.provider,
-      promptVersion: draft.promptVersion,
-      payload: {
-        failureMessage:
-          error instanceof Error ? error.message : "Unknown AI worker error.",
-      },
-    });
-    await updateWritingProviderFailure(draft, error, now);
-  }
+    }, tx);
+  });
 }
 
 export async function processObjectiveExplanationJob(
@@ -351,26 +370,70 @@ export async function processObjectiveExplanationJob(
     return;
   }
 
+  let providerResult: Awaited<
+    ReturnType<ReturnType<typeof getProviderRouter>["generate"]>
+  >;
+  let harnessResult: ReturnType<typeof evaluateAiFeedbackHarness>;
+  let parsed: ReturnType<typeof parseObjectiveExplanationOutput>;
+
   try {
     const builtPrompt = buildObjectiveExplanationPrompt(
       payload.harnessInput.promptInput,
     );
-    const providerResult = await getProviderRouter(deps).generate(
-      builtPrompt.request,
-    );
-    const harnessResult = evaluateAiFeedbackHarness({
+    providerResult = await getProviderRouter(deps).generate(builtPrompt.request);
+    harnessResult = evaluateAiFeedbackHarness({
       ...payload.harnessInput,
       providerOutput: providerResult.rawText,
       routeKey: providerResult.routeKey,
     });
-    const parsed = parseObjectiveExplanationOutput(providerResult.rawText, {
+    parsed = parseObjectiveExplanationOutput(providerResult.rawText, {
       deterministicResult: payload.harnessInput.promptInput.deterministicResult,
     });
-    const completed = parsed.status === "completed";
-    const status =
-      harnessResult.status === "accepted" ? "completed" : harnessResult.status;
+  } catch (error) {
+    logger.error(
+      { err: error, explanationId: explanation.id },
+      "AI objective explanation generation failed",
+    );
+    const failureUpdate = await updateObjectiveProviderFailure(
+      explanation,
+      error,
+      now,
+      { suppressRetryThrow: true },
+    );
+    await recordAiFeedbackAudit({
+      actorId: explanation.requesterId,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+      entity: "ai_objective_explanation",
+      entityId: explanation.id,
+      entityIds: {
+        submissionId: explanation.submissionId,
+        assignmentId: explanation.assignmentId,
+      },
+      routeKey: explanation.routeKey,
+      provider: explanation.provider,
+      promptVersion: explanation.promptVersion,
+      payload: {
+        failureMessage:
+          error instanceof Error ? error.message : "Unknown AI worker error.",
+      },
+    });
+    if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
+      throw error;
+    }
+    return;
+  }
 
-    await prisma.aiObjectiveExplanation.updateMany({
+  const status =
+    harnessResult.status === "accepted" ? "completed" : harnessResult.status;
+  const objectiveResultData =
+    parsed.status === "completed"
+      ? {
+          generatedExplanation: toJsonObject(parsed.explanation),
+        }
+      : {};
+
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.aiObjectiveExplanation.updateMany({
       where: {
         id: explanation.id,
         status: "running",
@@ -379,11 +442,7 @@ export async function processObjectiveExplanationJob(
       data: {
         status,
         model: providerResult.model,
-        ...(completed
-          ? {
-              generatedExplanation: toJsonObject(parsed.explanation),
-            }
-          : {}),
+        ...objectiveResultData,
         failureCode: status === "completed" ? null : harnessResult.reasonCode,
         failureMessage:
           status === "completed" ? null : failureMessage(harnessResult.validationErrors),
@@ -391,6 +450,11 @@ export async function processObjectiveExplanationJob(
         lastAttemptAt: now,
       },
     });
+
+    if (updated.count === 0) {
+      return;
+    }
+
     await recordAiFeedbackAudit({
       actorId: explanation.requesterId,
       action:
@@ -414,29 +478,6 @@ export async function processObjectiveExplanationJob(
         providerOutput: providerResult.rawText,
         promptInput: payload.harnessInput.promptInput,
       },
-    });
-  } catch (error) {
-    logger.error(
-      { err: error, explanationId: explanation.id },
-      "AI objective explanation generation failed",
-    );
-    await recordAiFeedbackAudit({
-      actorId: explanation.requesterId,
-      action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
-      entity: "ai_objective_explanation",
-      entityId: explanation.id,
-      entityIds: {
-        submissionId: explanation.submissionId,
-        assignmentId: explanation.assignmentId,
-      },
-      routeKey: explanation.routeKey,
-      provider: explanation.provider,
-      promptVersion: explanation.promptVersion,
-      payload: {
-        failureMessage:
-          error instanceof Error ? error.message : "Unknown AI worker error.",
-      },
-    });
-    await updateObjectiveProviderFailure(explanation, error, now);
-  }
+    }, tx);
+  });
 }

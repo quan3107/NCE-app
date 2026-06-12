@@ -20,6 +20,7 @@ vi.mock("../../src/prisma/client.js", () => ({
     auditLog: {
       create: vi.fn(),
     },
+    $transaction: vi.fn(),
     aiFeedbackDraft: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -69,6 +70,9 @@ function providerResult(
 describe("jobs.aiFeedbackJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.auditLog.create.mockReset();
+    prisma.auditLog.create.mockResolvedValue({ id: "audit-1" } as never);
+    prisma.$transaction.mockImplementation(async (callback) => callback(prisma));
   });
 
   it("registers AI queues without disturbing notification jobs", async () => {
@@ -262,6 +266,48 @@ describe("jobs.aiFeedbackJob", () => {
         action: "ai_feedback.writing_failed",
         entity: "ai_feedback_draft",
         entityId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      }),
+    });
+  });
+
+  it("does not convert generated writing records into failed audits when the success audit insert fails", async () => {
+    const fixture = writingHarnessFixtures[0];
+    const providerRouter = {
+      generate: vi.fn(async (request: AiProviderRequest) =>
+        providerResult(request, fixture.providerOutput),
+      ),
+    };
+
+    prisma.auditLog.create
+      .mockRejectedValueOnce(new Error("Audit insert failed."))
+      .mockResolvedValueOnce({ id: "audit-failed" } as never);
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      status: "queued",
+      retryCount: 0,
+      deletedAt: null,
+    } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await expect(
+      handleGenerateWritingDraftJob(
+        {
+          id: "job-1",
+          name: AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
+          data: {
+            draftId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+            harnessInput: fixture,
+          },
+          expireInSeconds: 60,
+        },
+        { providerRouter },
+      ),
+    ).rejects.toThrow("Audit insert failed.");
+
+    expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "ai_feedback.writing_generated",
       }),
     });
   });
@@ -519,6 +565,158 @@ describe("jobs.aiFeedbackJob", () => {
     });
     expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       fixture.providerOutput,
+    );
+  });
+
+  it("does not convert generated objective explanations into failed audits when the success audit insert fails", async () => {
+    const fixture = objectiveHarnessFixtures[0];
+    const providerRouter = {
+      generate: vi.fn(async (request: AiProviderRequest) =>
+        providerResult(request, fixture.providerOutput),
+      ),
+    };
+
+    prisma.auditLog.create
+      .mockRejectedValueOnce(new Error("Audit insert failed."))
+      .mockResolvedValueOnce({ id: "audit-failed" } as never);
+    prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      status: "queued",
+      retryCount: 0,
+      deletedAt: null,
+    } as never);
+    prisma.aiObjectiveExplanation.updateMany.mockResolvedValue({
+      count: 1,
+    } as never);
+
+    await expect(
+      handleGenerateObjectiveExplanationJob(
+        {
+          id: "job-2",
+          name: AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
+          data: {
+            explanationId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+            harnessInput: fixture,
+          },
+          expireInSeconds: 60,
+        },
+        { providerRouter },
+      ),
+    ).rejects.toThrow("Audit insert failed.");
+
+    expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "ai_feedback.explanation_generated",
+      }),
+    });
+  });
+
+  it("persists retryable provider failures even when the failure audit insert fails", async () => {
+    const now = new Date("2026-06-08T07:00:00.000Z");
+    const providerRouter = {
+      generate: vi.fn(async () => {
+        throw new AiProviderError({
+          code: "timeout",
+          message: "Provider timed out.",
+        });
+      }),
+    };
+
+    prisma.auditLog.create.mockRejectedValueOnce(
+      new Error("Audit insert failed."),
+    );
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+      status: "queued",
+      retryCount: 0,
+      deletedAt: null,
+    } as never);
+    prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await expect(
+      handleGenerateWritingDraftJob(
+        {
+          id: "job-1",
+          name: AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
+          data: {
+            draftId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+            harnessInput: writingHarnessFixtures[0],
+          },
+          expireInSeconds: 60,
+        },
+        { providerRouter, now: () => now },
+      ),
+    ).rejects.toThrow("Audit insert failed.");
+
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+          status: "running",
+          deletedAt: null,
+        },
+        data: expect.objectContaining({
+          status: "queued",
+          failureCode: "timeout",
+          retryCount: { increment: 1 },
+        }),
+      }),
+    );
+  });
+
+  it("persists retryable objective provider failures even when the failure audit insert fails", async () => {
+    const now = new Date("2026-06-08T07:00:00.000Z");
+    const providerRouter = {
+      generate: vi.fn(async () => {
+        throw new AiProviderError({
+          code: "timeout",
+          message: "Provider timed out.",
+        });
+      }),
+    };
+
+    prisma.auditLog.create.mockRejectedValueOnce(
+      new Error("Audit insert failed."),
+    );
+    prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      status: "queued",
+      retryCount: 0,
+      deletedAt: null,
+    } as never);
+    prisma.aiObjectiveExplanation.updateMany.mockResolvedValue({
+      count: 1,
+    } as never);
+
+    await expect(
+      handleGenerateObjectiveExplanationJob(
+        {
+          id: "job-2",
+          name: AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
+          data: {
+            explanationId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+            harnessInput: objectiveHarnessFixtures[0],
+          },
+          expireInSeconds: 60,
+        },
+        { providerRouter, now: () => now },
+      ),
+    ).rejects.toThrow("Audit insert failed.");
+
+    expect(prisma.aiObjectiveExplanation.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+          status: "running",
+          deletedAt: null,
+        },
+        data: expect.objectContaining({
+          status: "queued",
+          failureCode: "timeout",
+          retryCount: { increment: 1 },
+        }),
+      }),
     );
   });
 

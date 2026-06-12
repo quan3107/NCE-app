@@ -87,7 +87,8 @@ export async function updateWritingProviderFailure(
   draft: QueuedGenerationRecord,
   error: unknown,
   now: Date,
-): Promise<void> {
+  options: { suppressRetryThrow?: boolean } = {},
+): Promise<{ shouldRetry: boolean; updatedCount: number }> {
   const failure = providerFailure(error);
   const retry = retryState(failure, draft.retryCount, now);
 
@@ -107,16 +108,22 @@ export async function updateWritingProviderFailure(
     },
   });
 
-  if (retry.shouldRetry && updated.count > 0) {
+  if (retry.shouldRetry && updated.count > 0 && !options.suppressRetryThrow) {
     throw error;
   }
+
+  return {
+    shouldRetry: retry.shouldRetry,
+    updatedCount: updated.count,
+  };
 }
 
 export async function updateObjectiveProviderFailure(
   explanation: QueuedGenerationRecord,
   error: unknown,
   now: Date,
-): Promise<void> {
+  options: { suppressRetryThrow?: boolean } = {},
+): Promise<{ shouldRetry: boolean; updatedCount: number }> {
   const failure = providerFailure(error);
   const retry = retryState(failure, explanation.retryCount, now);
 
@@ -136,7 +143,12 @@ export async function updateObjectiveProviderFailure(
     },
   });
 
-  if (retry.shouldRetry && updated.count > 0) {
+  if (retry.shouldRetry && updated.count > 0 && !options.suppressRetryThrow) {
     throw error;
   }
+
+  return {
+    shouldRetry: retry.shouldRetry,
+    updatedCount: updated.count,
+  };
 }

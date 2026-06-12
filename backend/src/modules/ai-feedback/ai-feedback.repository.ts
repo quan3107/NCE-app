@@ -9,6 +9,10 @@ import { prisma } from "../../prisma/client.js";
 import { Prisma, type AiFeedbackDraftStatus } from "../../prisma/index.js";
 import { createHttpError } from "../../utils/httpError.js";
 import {
+  AI_FEEDBACK_AUDIT_ACTIONS,
+  recordAiFeedbackAudit,
+} from "../audit-logs/ai-feedback-audit.js";
+import {
   aiFeedbackDraftDecisionInputSchema,
   aiGenerationStatusRequestSchema,
   createAiFeedbackDraftSchema,
@@ -208,7 +212,34 @@ export async function createAiFeedbackDraft(input: unknown) {
     });
 
     if (data.status === "queued" && data.generationJob) {
-      await enqueueDraftGenerationJob(draft.id, data.generationJob);
+      try {
+        await enqueueDraftGenerationJob(draft.id, data.generationJob);
+      } catch (error) {
+        await recordAiFeedbackAudit({
+          actorId: data.requesterId,
+          action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
+          entity: "ai_feedback_draft",
+          entityId: draft.id,
+          entityIds: {
+            submissionId: data.submissionId,
+            assignmentId: submission.assignmentId,
+            ...(data.gradeId ? { gradeId: data.gradeId } : {}),
+          },
+          routeKey: data.routeKey,
+          provider: data.provider,
+          model: data.model,
+          promptVersion: data.promptVersion,
+          payload: {
+            failureCode: "queue_enqueue_failed",
+            failureMessage:
+              error instanceof Error
+                ? error.message
+                : "AI feedback job enqueue failed.",
+            promptInput: data.generationJob.harnessInput.promptInput,
+          },
+        });
+        throw error;
+      }
     }
 
     return draft;
@@ -393,10 +424,37 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
     });
 
     if (data.status === "queued" && data.generationJob) {
-      await enqueueObjectiveExplanationGenerationJob(
-        explanation.id,
-        data.generationJob,
-      );
+      try {
+        await enqueueObjectiveExplanationGenerationJob(
+          explanation.id,
+          data.generationJob,
+        );
+      } catch (error) {
+        await recordAiFeedbackAudit({
+          actorId: data.requesterId,
+          action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+          entity: "ai_objective_explanation",
+          entityId: explanation.id,
+          entityIds: {
+            submissionId: data.submissionId,
+            assignmentId: submission.assignmentId,
+            questionId: data.questionId,
+          },
+          routeKey: data.routeKey,
+          provider: data.provider,
+          model: data.model,
+          promptVersion: data.promptVersion,
+          payload: {
+            failureCode: "queue_enqueue_failed",
+            failureMessage:
+              error instanceof Error
+                ? error.message
+                : "AI feedback job enqueue failed.",
+            promptInput: data.generationJob.harnessInput.promptInput,
+          },
+        });
+        throw error;
+      }
     }
 
     return explanation;
