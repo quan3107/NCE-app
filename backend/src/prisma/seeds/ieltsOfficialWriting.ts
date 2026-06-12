@@ -45,7 +45,7 @@ export function buildWritingGeneralConfigOfficial(
     attempts: nullAttempts,
     task1: {
       prompt: full
-        ? "You recently used a local sports centre and experienced several problems. Write a letter to the manager. In your letter: describe the problems, explain how they affected you, and say what action you want the manager to take."
+        ? "Your workplace uses outdated equipment that is causing problems for your team. Write a letter to your manager. In your letter: describe the problems with the equipment, explain how they affect your work, and say what equipment you would like replaced or added."
         : "You borrowed an item from a friend and accidentally damaged it. Write a letter to your friend. In your letter: explain what happened, apologise, and suggest how you will resolve the issue.",
       imageFileId: null,
       showSampleTiming: "after_submission",
