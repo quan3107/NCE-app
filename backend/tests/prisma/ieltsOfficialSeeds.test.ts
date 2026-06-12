@@ -37,7 +37,7 @@ import {
 const testDir = dirname(fileURLToPath(import.meta.url))
 const backendRoot = resolve(testDir, '../..')
 
-function extractTitlesFromConstBlock(relativePath: string, constName: string): string[] {
+function extractConstBlock(relativePath: string, constName: string): string {
   const source = readFileSync(resolve(backendRoot, relativePath), 'utf8')
   const start = source.indexOf(`const ${constName}`)
   expect(start).toBeGreaterThan(-1)
@@ -61,7 +61,38 @@ function extractTitlesFromConstBlock(relativePath: string, constName: string): s
   }
   expect(arrayEnd).toBeGreaterThan(arrayStart)
 
-  const block = source.slice(start, arrayEnd)
+  return source.slice(start, arrayEnd)
+}
+
+function extractObjectWithField(block: string, field: string, value: string): string {
+  const marker = `${field}: '${value}'`
+  const markerIndex = block.indexOf(marker)
+  expect(markerIndex).toBeGreaterThan(-1)
+
+  const objectStart = block.lastIndexOf('{', markerIndex)
+  expect(objectStart).toBeGreaterThan(-1)
+
+  let depth = 0
+  let objectEnd = -1
+  for (let index = objectStart; index < block.length; index += 1) {
+    const character = block[index]
+    if (character === '{') {
+      depth += 1
+    } else if (character === '}') {
+      depth -= 1
+      if (depth === 0) {
+        objectEnd = index + 1
+        break
+      }
+    }
+  }
+  expect(objectEnd).toBeGreaterThan(objectStart)
+
+  return block.slice(objectStart, objectEnd)
+}
+
+function extractTitlesFromConstBlock(relativePath: string, constName: string): string[] {
+  const block = extractConstBlock(relativePath, constName)
   const matches = [...block.matchAll(/title:\s*["']([^"']+)["']/g)].map(
     (match) => match[1],
   )
@@ -210,6 +241,32 @@ describe('seeded writing submission payloads', () => {
     expect(fileSubmissionTitles.filter((title) => writingTitles.includes(title))).toEqual(
       [],
     )
+  })
+
+  it('keeps the Matching Headings file-submission fixture reading-specific', () => {
+    const fileSeedsBlock = extractConstBlock('src/prisma/seed.ts', 'fileSeeds')
+    const fileSubmissionSeedsBlock = extractConstBlock(
+      'src/prisma/seed.ts',
+      'fileSubmissionSeeds',
+    )
+    const readingFileEntry = extractObjectWithField(
+      fileSeedsBlock,
+      'key',
+      'reading/matching-headings/amelia.pdf',
+    )
+    const matchingHeadingsEntry = extractObjectWithField(
+      fileSubmissionSeedsBlock,
+      'assignmentTitle',
+      'Matching Headings Practice',
+    )
+
+    expect(readingFileEntry).toContain("ownerEmail: 'amelia.chan@ielts.local'")
+    expect(matchingHeadingsEntry).toContain(
+      "fileKey: 'reading/matching-headings/amelia.pdf'",
+    )
+    expect(matchingHeadingsEntry.toLowerCase()).toContain('heading')
+    expect(matchingHeadingsEntry.toLowerCase()).not.toContain('comparison')
+    expect(matchingHeadingsEntry.toLowerCase()).not.toContain('conclusion')
   })
 })
 
