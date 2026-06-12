@@ -15,7 +15,7 @@ test('buildIeltsSubmissionDisplay renders IELTS writing task responses with prom
     type: 'writing',
     assignmentConfig: {
       version: 1,
-      task1: { prompt: '<p>Describe <strong>the chart</strong>.</p>' },
+      task1: { prompt: '<p>Line one<br>Line two</p>' },
       task2: { prompt: 'Discuss both views.' },
     },
     payload: {
@@ -41,7 +41,7 @@ test('buildIeltsSubmissionDisplay renders IELTS writing task responses with prom
   assert.deepEqual(display.sections, [
     {
       title: 'Task 1',
-      prompt: 'Describe the chart.',
+      prompt: 'Line one\nLine two',
       text: 'The chart shows a steady increase in applications.',
     },
     {
