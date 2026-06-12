@@ -13,6 +13,9 @@ import {
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
     submission: {
       findFirst: vi.fn(),
     },
@@ -168,6 +171,28 @@ describe("requestAiObjectiveExplanation", () => {
         },
       }),
     );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: studentId,
+        action: "ai_feedback.explanation_requested",
+        entity: "ai_objective_explanation",
+        entityId: "77777777-7777-4777-8777-777777777777",
+        diff: expect.objectContaining({
+          entityIds: expect.objectContaining({
+            submissionId,
+            assignmentId,
+            questionId: "q1",
+          }),
+          routeKey: "low_cost",
+          provider: "openai-compatible",
+          model: "gpt-5.4-nano",
+          promptVersion: "objective-explanation-v1",
+        }),
+      }),
+    });
+    const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls[0]?.[0]);
+    expect(auditPayload).not.toContain("Which option matches paragraph B?");
+    expect(auditPayload).not.toContain("Paragraph B says the new route");
     expect(response).toEqual(
       expect.objectContaining({
         id: "77777777-7777-4777-8777-777777777777",

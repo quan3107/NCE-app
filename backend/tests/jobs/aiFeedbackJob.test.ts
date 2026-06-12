@@ -17,6 +17,9 @@ import {
 
 vi.mock("../../src/prisma/client.js", () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
     aiFeedbackDraft: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -193,6 +196,23 @@ describe("jobs.aiFeedbackJob", () => {
           nextRetryAt: null,
         }),
       }),
+    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "ai_feedback.writing_generated",
+        entity: "ai_feedback_draft",
+        entityId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+        diff: expect.objectContaining({
+          routeKey: "low_cost",
+          model: "gpt-test",
+          payloadSummary: expect.objectContaining({
+            providerOutput: expect.objectContaining({ redacted: true }),
+          }),
+        }),
+      }),
+    });
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+      fixture.providerOutput,
     );
   });
 
@@ -433,6 +453,22 @@ describe("jobs.aiFeedbackJob", () => {
           nextRetryAt: null,
         }),
       }),
+    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "ai_feedback.explanation_generated",
+        entity: "ai_objective_explanation",
+        entityId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+        diff: expect.objectContaining({
+          model: "gpt-test",
+          payloadSummary: expect.objectContaining({
+            providerOutput: expect.objectContaining({ redacted: true }),
+          }),
+        }),
+      }),
+    });
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+      fixture.providerOutput,
     );
   });
 

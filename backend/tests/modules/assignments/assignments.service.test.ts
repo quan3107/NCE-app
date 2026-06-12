@@ -10,6 +10,9 @@ import { ZodError } from 'zod'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
     assignment: {
       create: vi.fn(),
       count: vi.fn(),
@@ -127,6 +130,70 @@ describe('assignments.service.updateAssignment', () => {
     ).rejects.toBeInstanceOf(ZodError)
 
     expect(prisma.assignment.update).not.toHaveBeenCalled()
+  })
+
+  it('audits AI policy changes without storing the full assignment config', async () => {
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      type: 'reading',
+      assignmentConfig: readingConfigWithAiOff,
+    })
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      type: 'reading',
+      assignmentConfig: {
+        ...readingConfig,
+        aiPolicy: {
+          writingFeedbackMode: 'off',
+          objectiveExplanations: 'on_demand_student_visible',
+          providerTier: 'low_cost',
+        },
+      },
+    } as never)
+
+    await updateAssignment(
+      { courseId, assignmentId },
+      {
+        assignmentConfig: {
+          ...readingConfig,
+          aiPolicy: {
+            writingFeedbackMode: 'off',
+            objectiveExplanations: 'on_demand_student_visible',
+            providerTier: 'low_cost',
+          },
+        },
+      },
+      ownerTeacher,
+    )
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerTeacher.id,
+        action: 'ai_feedback.policy_changed',
+        entity: 'assignment',
+        entityId: assignmentId,
+        diff: expect.objectContaining({
+          entityIds: { courseId, assignmentId },
+          payloadSummary: {
+            before: {
+              writingFeedbackMode: 'off',
+              objectiveExplanations: 'off',
+              providerTier: 'auto',
+            },
+            after: {
+              writingFeedbackMode: 'off',
+              objectiveExplanations: 'on_demand_student_visible',
+              providerTier: 'low_cost',
+            },
+          },
+        }),
+      }),
+    })
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+      'Read and answer all questions.',
+    )
   })
 })
 

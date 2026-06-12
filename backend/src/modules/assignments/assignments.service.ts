@@ -9,6 +9,10 @@ import { prisma } from '../../prisma/client.js'
 import type { CourseManager } from '../courses/courses.types.js'
 import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
 import {
+  AI_FEEDBACK_AUDIT_ACTIONS,
+  recordAiFeedbackAudit,
+} from '../audit-logs/ai-feedback-audit.js'
+import {
   assignmentAccessWhere,
   ensureCourseAssignmentAccess,
 } from './assignments.authorization.js'
@@ -37,6 +41,36 @@ function parseOptionalDate(
     throw createHttpError(400, `${fieldName} must be an ISO date string.`)
   }
   return parsed
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function aiPolicyFromConfig(value: unknown): Record<string, unknown> | null {
+  return asRecord(asRecord(value)?.aiPolicy)
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(',')}]`
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
+      .join(',')}}`
+  }
+
+  return JSON.stringify(value)
+}
+
+function hasAiPolicyChanged(before: unknown, after: unknown): boolean {
+  return stableJson(aiPolicyFromConfig(before)) !== stableJson(aiPolicyFromConfig(after))
 }
 
 export async function listAssignments(params: unknown, actor: CourseManager) {
@@ -252,10 +286,29 @@ export async function updateAssignment(
     updateData.publishedAt = publishedAt
   }
 
-  return prisma.assignment.update({
+  const updated = await prisma.assignment.update({
     where: { id: assignmentId },
     data: updateData,
   })
+
+  if (
+    payload.assignmentConfig !== undefined &&
+    hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
+  ) {
+    await recordAiFeedbackAudit({
+      actorId: actor.id,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
+      entity: 'assignment',
+      entityId: assignmentId,
+      entityIds: { courseId, assignmentId },
+      payload: {
+        before: aiPolicyFromConfig(existing.assignmentConfig),
+        after: aiPolicyFromConfig(assignmentConfig),
+      },
+    })
+  }
+
+  return updated
 }
 
 export async function deleteAssignment(params: unknown, actor: CourseManager) {

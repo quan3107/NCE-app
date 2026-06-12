@@ -13,6 +13,9 @@ import {
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
+    auditLog: {
+      create: vi.fn(),
+    },
     aiFeedbackDraft: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -205,6 +208,39 @@ describe("AI writing feedback teacher review service", () => {
         ],
       }),
     });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: teacherId,
+        action: "ai_feedback.writing_approved",
+        entity: "ai_feedback_draft",
+        entityId: draftId,
+        diff: expect.objectContaining({
+          entityIds: expect.objectContaining({
+            submissionId,
+            assignmentId: "66666666-6666-4666-8666-666666666666",
+            gradeId,
+          }),
+          teacherDecision: "approved",
+        }),
+      }),
+    });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: teacherId,
+        action: "ai_feedback.grade_feedback_updated",
+        entity: "grade",
+        entityId: gradeId,
+        diff: expect.objectContaining({
+          entityIds: expect.objectContaining({
+            submissionId,
+            draftId,
+          }),
+        }),
+      }),
+    });
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+      "Teacher-edited final feedback.",
+    );
     expect(response).toMatchObject({
       id: draftId,
       status: "approved",
@@ -331,6 +367,20 @@ describe("AI writing feedback teacher review service", () => {
         },
       }),
     });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: teacherId,
+        action: "ai_feedback.writing_rejected",
+        entity: "ai_feedback_draft",
+        entityId: draftId,
+        diff: expect.objectContaining({
+          teacherDecision: "rejected",
+        }),
+      }),
+    });
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+      "Feedback overstated coherence.",
+    );
     expect(response).toMatchObject({
       id: draftId,
       status: "rejected",

@@ -8,6 +8,10 @@ import { z } from "zod";
 
 import { logger } from "../config/logger.js";
 import {
+  AI_FEEDBACK_AUDIT_ACTIONS,
+  recordAiFeedbackAudit,
+} from "../modules/audit-logs/ai-feedback-audit.js";
+import {
   objectiveExplanationJobPayloadSchema,
   writingDraftJobPayloadSchema,
 } from "../modules/ai-feedback/ai-feedback.generationJob.schema.js";
@@ -145,6 +149,11 @@ export async function processWritingDraftJob(
     where: { id: payload.draftId },
     select: {
       id: true,
+      requesterId: true,
+      submissionId: true,
+      assignmentId: true,
+      promptVersion: true,
+      provider: true,
       status: true,
       retryCount: true,
       deletedAt: true,
@@ -231,11 +240,50 @@ export async function processWritingDraftJob(
         lastAttemptAt: now,
       },
     });
+    await recordAiFeedbackAudit({
+      actorId: draft.requesterId,
+      action: accepted
+        ? AI_FEEDBACK_AUDIT_ACTIONS.writingGenerated
+        : AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
+      entity: "ai_feedback_draft",
+      entityId: draft.id,
+      entityIds: {
+        submissionId: draft.submissionId,
+        assignmentId: draft.assignmentId,
+      },
+      routeKey: providerResult.routeKey,
+      provider: draft.provider,
+      model: providerResult.model,
+      promptVersion: draft.promptVersion,
+      payload: {
+        status: harnessResult.status,
+        reasonCode: harnessResult.reasonCode,
+        validationErrors: harnessResult.validationErrors,
+        providerOutput: providerResult.rawText,
+        promptInput: payload.harnessInput.promptInput,
+      },
+    });
   } catch (error) {
     logger.error(
       { err: error, draftId: draft.id },
       "AI writing draft generation failed",
     );
+    await recordAiFeedbackAudit({
+      actorId: draft.requesterId,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
+      entity: "ai_feedback_draft",
+      entityId: draft.id,
+      entityIds: {
+        submissionId: draft.submissionId,
+        assignmentId: draft.assignmentId,
+      },
+      provider: draft.provider,
+      promptVersion: draft.promptVersion,
+      payload: {
+        failureMessage:
+          error instanceof Error ? error.message : "Unknown AI worker error.",
+      },
+    });
     await updateWritingProviderFailure(draft, error, now);
   }
 }
@@ -265,6 +313,12 @@ export async function processObjectiveExplanationJob(
     where: { id: payload.explanationId },
     select: {
       id: true,
+      requesterId: true,
+      submissionId: true,
+      assignmentId: true,
+      promptVersion: true,
+      provider: true,
+      routeKey: true,
       status: true,
       retryCount: true,
       deletedAt: true,
@@ -336,11 +390,52 @@ export async function processObjectiveExplanationJob(
         lastAttemptAt: now,
       },
     });
+    await recordAiFeedbackAudit({
+      actorId: explanation.requesterId,
+      action:
+        status === "completed"
+          ? AI_FEEDBACK_AUDIT_ACTIONS.explanationGenerated
+          : AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+      entity: "ai_objective_explanation",
+      entityId: explanation.id,
+      entityIds: {
+        submissionId: explanation.submissionId,
+        assignmentId: explanation.assignmentId,
+      },
+      routeKey: explanation.routeKey,
+      provider: explanation.provider,
+      model: providerResult.model,
+      promptVersion: explanation.promptVersion,
+      payload: {
+        status,
+        reasonCode: harnessResult.reasonCode,
+        validationErrors: harnessResult.validationErrors,
+        providerOutput: providerResult.rawText,
+        promptInput: payload.harnessInput.promptInput,
+      },
+    });
   } catch (error) {
     logger.error(
       { err: error, explanationId: explanation.id },
       "AI objective explanation generation failed",
     );
+    await recordAiFeedbackAudit({
+      actorId: explanation.requesterId,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+      entity: "ai_objective_explanation",
+      entityId: explanation.id,
+      entityIds: {
+        submissionId: explanation.submissionId,
+        assignmentId: explanation.assignmentId,
+      },
+      routeKey: explanation.routeKey,
+      provider: explanation.provider,
+      promptVersion: explanation.promptVersion,
+      payload: {
+        failureMessage:
+          error instanceof Error ? error.message : "Unknown AI worker error.",
+      },
+    });
     await updateObjectiveProviderFailure(explanation, error, now);
   }
 }

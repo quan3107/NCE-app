@@ -11,6 +11,10 @@ import { AssignmentType, EnrollmentRole, UserRole } from "../../prisma/index.js"
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import { parseAssignmentConfigForType } from "../assignments/ielts.schema.js";
 import {
+  AI_FEEDBACK_AUDIT_ACTIONS,
+  recordAiFeedbackAudit,
+} from "../audit-logs/ai-feedback-audit.js";
+import {
   getIeltsQuestionScoringEvidence,
   type IeltsQuestionScoringEvidence,
 } from "../scoring/ieltsScoring.utils.js";
@@ -445,6 +449,30 @@ export async function requestAiObjectiveExplanation(
         promptInput: context.promptInput,
         routeKey: context.routeKey,
       },
+    },
+  });
+  await recordAiFeedbackAudit({
+    actorId: context.actor.id,
+    action:
+      explanation.status === "failed" || explanation.status === "review_required"
+        ? AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed
+        : AI_FEEDBACK_AUDIT_ACTIONS.explanationRequested,
+    entity: "ai_objective_explanation",
+    entityId: explanation.id,
+    entityIds: {
+      submissionId: context.submission.id,
+      assignmentId: context.submission.assignmentId,
+      questionId: context.questionId,
+    },
+    routeKey: context.routeKey,
+    provider: aiFeedbackConfig.provider,
+    model: modelForRouteKey(context.routeKey),
+    promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
+    payload: {
+      status: explanation.status,
+      deterministicResult: context.evidence.deterministicResult,
+      promptInput: context.promptInput,
+      generatedExplanation: explanation.generatedExplanation,
     },
   });
 
