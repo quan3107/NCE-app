@@ -310,6 +310,22 @@ describe("jobs.aiFeedbackJob", () => {
         action: "ai_feedback.writing_generated",
       }),
     });
+    expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
+          status: "running",
+          deletedAt: null,
+        },
+        data: expect.objectContaining({
+          status: "failed",
+          failureCode: "worker_finalization_failed",
+          failureMessage: "Audit insert failed.",
+          retryCount: { increment: 1 },
+          nextRetryAt: null,
+        }),
+      }),
+    );
   });
 
   it("marks retryable provider failures with retry metadata", async () => {
@@ -610,6 +626,22 @@ describe("jobs.aiFeedbackJob", () => {
         action: "ai_feedback.explanation_generated",
       }),
     });
+    expect(prisma.aiObjectiveExplanation.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+          status: "running",
+          deletedAt: null,
+        },
+        data: expect.objectContaining({
+          status: "failed",
+          failureCode: "worker_finalization_failed",
+          failureMessage: "Audit insert failed.",
+          retryCount: { increment: 1 },
+          nextRetryAt: null,
+        }),
+      }),
+    );
   });
 
   it("persists retryable provider failures even when the failure audit insert fails", async () => {

@@ -31,7 +31,9 @@ import {
   shouldProcess,
   toJsonArray,
   toJsonObject,
+  updateObjectiveFinalizationFailure,
   updateObjectiveProviderFailure,
+  updateWritingFinalizationFailure,
   updateWritingProviderFailure,
 } from "./aiFeedbackJob.persistence.js";
 import type {
@@ -255,57 +257,66 @@ export async function processWritingDraftJob(
           }),
         };
 
-  await prisma.$transaction(async (tx) => {
-    const updated = await tx.aiFeedbackDraft.updateMany({
-      where: {
-        id: draft.id,
-        status: "running",
-        deletedAt: null,
-      },
-      data: {
-        status: harnessResult.status,
+  try {
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.aiFeedbackDraft.updateMany({
+        where: {
+          id: draft.id,
+          status: "running",
+          deletedAt: null,
+        },
+        data: {
+          status: harnessResult.status,
+          routeKey: providerResult.routeKey,
+          model: providerResult.model,
+          ...writingResultData,
+          failureCode:
+            harnessResult.status === "accepted" ? null : harnessResult.reasonCode,
+          failureMessage:
+            harnessResult.status === "accepted"
+              ? null
+              : failureMessage(harnessResult.validationErrors),
+          nextRetryAt: null,
+          lastAttemptAt: now,
+        },
+      });
+
+      if (updated.count === 0) {
+        return;
+      }
+
+      await recordAiFeedbackAudit({
+        actorId: draft.requesterId,
+        action: generated
+          ? AI_FEEDBACK_AUDIT_ACTIONS.writingGenerated
+          : AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
+        entity: "ai_feedback_draft",
+        entityId: draft.id,
+        entityIds: {
+          submissionId: draft.submissionId,
+          assignmentId: draft.assignmentId,
+        },
         routeKey: providerResult.routeKey,
+        provider: draft.provider,
         model: providerResult.model,
-        ...writingResultData,
-        failureCode:
-          harnessResult.status === "accepted" ? null : harnessResult.reasonCode,
-        failureMessage:
-          harnessResult.status === "accepted"
-            ? null
-            : failureMessage(harnessResult.validationErrors),
-        nextRetryAt: null,
-        lastAttemptAt: now,
-      },
+        promptVersion: draft.promptVersion,
+        payload: {
+          status: harnessResult.status,
+          reasonCode: harnessResult.reasonCode,
+          validationErrors: harnessResult.validationErrors,
+          providerOutput: providerResult.rawText,
+          promptInput: payload.harnessInput.promptInput,
+        },
+      }, tx);
     });
-
-    if (updated.count === 0) {
-      return;
-    }
-
-    await recordAiFeedbackAudit({
-      actorId: draft.requesterId,
-      action: generated
-        ? AI_FEEDBACK_AUDIT_ACTIONS.writingGenerated
-        : AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
-      entity: "ai_feedback_draft",
-      entityId: draft.id,
-      entityIds: {
-        submissionId: draft.submissionId,
-        assignmentId: draft.assignmentId,
-      },
-      routeKey: providerResult.routeKey,
-      provider: draft.provider,
-      model: providerResult.model,
-      promptVersion: draft.promptVersion,
-      payload: {
-        status: harnessResult.status,
-        reasonCode: harnessResult.reasonCode,
-        validationErrors: harnessResult.validationErrors,
-        providerOutput: providerResult.rawText,
-        promptInput: payload.harnessInput.promptInput,
-      },
-    }, tx);
-  });
+  } catch (error) {
+    logger.error(
+      { err: error, draftId: draft.id },
+      "AI writing draft finalization failed",
+    );
+    await updateWritingFinalizationFailure(draft, error, now);
+    throw error;
+  }
 }
 
 export async function processObjectiveExplanationJob(
@@ -432,52 +443,61 @@ export async function processObjectiveExplanationJob(
         }
       : {};
 
-  await prisma.$transaction(async (tx) => {
-    const updated = await tx.aiObjectiveExplanation.updateMany({
-      where: {
-        id: explanation.id,
-        status: "running",
-        deletedAt: null,
-      },
-      data: {
-        status,
+  try {
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.aiObjectiveExplanation.updateMany({
+        where: {
+          id: explanation.id,
+          status: "running",
+          deletedAt: null,
+        },
+        data: {
+          status,
+          model: providerResult.model,
+          ...objectiveResultData,
+          failureCode: status === "completed" ? null : harnessResult.reasonCode,
+          failureMessage:
+            status === "completed" ? null : failureMessage(harnessResult.validationErrors),
+          nextRetryAt: null,
+          lastAttemptAt: now,
+        },
+      });
+
+      if (updated.count === 0) {
+        return;
+      }
+
+      await recordAiFeedbackAudit({
+        actorId: explanation.requesterId,
+        action:
+          status === "completed"
+            ? AI_FEEDBACK_AUDIT_ACTIONS.explanationGenerated
+            : AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+        entity: "ai_objective_explanation",
+        entityId: explanation.id,
+        entityIds: {
+          submissionId: explanation.submissionId,
+          assignmentId: explanation.assignmentId,
+        },
+        routeKey: providerResult.routeKey,
+        provider: explanation.provider,
         model: providerResult.model,
-        ...objectiveResultData,
-        failureCode: status === "completed" ? null : harnessResult.reasonCode,
-        failureMessage:
-          status === "completed" ? null : failureMessage(harnessResult.validationErrors),
-        nextRetryAt: null,
-        lastAttemptAt: now,
-      },
+        promptVersion: explanation.promptVersion,
+        payload: {
+          status,
+          reasonCode: harnessResult.reasonCode,
+          validationErrors: harnessResult.validationErrors,
+          providerOutput: providerResult.rawText,
+          promptInput: payload.harnessInput.promptInput,
+        },
+      }, tx);
     });
-
-    if (updated.count === 0) {
-      return;
-    }
-
-    await recordAiFeedbackAudit({
-      actorId: explanation.requesterId,
-      action:
-        status === "completed"
-          ? AI_FEEDBACK_AUDIT_ACTIONS.explanationGenerated
-          : AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
-      entity: "ai_objective_explanation",
-      entityId: explanation.id,
-      entityIds: {
-        submissionId: explanation.submissionId,
-        assignmentId: explanation.assignmentId,
-      },
-      routeKey: providerResult.routeKey,
-      provider: explanation.provider,
-      model: providerResult.model,
-      promptVersion: explanation.promptVersion,
-      payload: {
-        status,
-        reasonCode: harnessResult.reasonCode,
-        validationErrors: harnessResult.validationErrors,
-        providerOutput: providerResult.rawText,
-        promptInput: payload.harnessInput.promptInput,
-      },
-    }, tx);
-  });
+  } catch (error) {
+    logger.error(
+      { err: error, explanationId: explanation.id },
+      "AI objective explanation finalization failed",
+    );
+    await updateObjectiveFinalizationFailure(explanation, error, now);
+    throw error;
+  }
 }

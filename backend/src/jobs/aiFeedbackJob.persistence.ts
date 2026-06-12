@@ -118,6 +118,31 @@ export async function updateWritingProviderFailure(
   };
 }
 
+export async function updateWritingFinalizationFailure(
+  draft: QueuedGenerationRecord,
+  error: unknown,
+  now: Date,
+): Promise<{ updatedCount: number }> {
+  const updated = await prisma.aiFeedbackDraft.updateMany({
+    where: {
+      id: draft.id,
+      status: "running",
+      deletedAt: null,
+    },
+    data: {
+      status: "failed",
+      failureCode: "worker_finalization_failed",
+      failureMessage:
+        error instanceof Error ? error.message : "Unknown AI worker error.",
+      retryCount: { increment: 1 },
+      nextRetryAt: null,
+      lastAttemptAt: now,
+    },
+  });
+
+  return { updatedCount: updated.count };
+}
+
 export async function updateObjectiveProviderFailure(
   explanation: QueuedGenerationRecord,
   error: unknown,
@@ -151,4 +176,29 @@ export async function updateObjectiveProviderFailure(
     shouldRetry: retry.shouldRetry,
     updatedCount: updated.count,
   };
+}
+
+export async function updateObjectiveFinalizationFailure(
+  explanation: QueuedGenerationRecord,
+  error: unknown,
+  now: Date,
+): Promise<{ updatedCount: number }> {
+  const updated = await prisma.aiObjectiveExplanation.updateMany({
+    where: {
+      id: explanation.id,
+      status: "running",
+      deletedAt: null,
+    },
+    data: {
+      status: "failed",
+      failureCode: "worker_finalization_failed",
+      failureMessage:
+        error instanceof Error ? error.message : "Unknown AI worker error.",
+      retryCount: { increment: 1 },
+      nextRetryAt: null,
+      lastAttemptAt: now,
+    },
+  });
+
+  return { updatedCount: updated.count };
 }
