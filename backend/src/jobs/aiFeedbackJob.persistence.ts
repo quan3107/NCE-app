@@ -122,7 +122,19 @@ export async function updateWritingFinalizationFailure(
   draft: QueuedGenerationRecord,
   error: unknown,
   now: Date,
-): Promise<{ updatedCount: number }> {
+): Promise<{ shouldRetry: boolean; updatedCount: number }> {
+  const failureMessage =
+    error instanceof Error ? error.message : "Unknown AI worker error.";
+  const retry = retryState(
+    {
+      code: "worker_finalization_failed",
+      message: failureMessage,
+      retryable: true,
+    },
+    draft.retryCount,
+    now,
+  );
+
   const updated = await prisma.aiFeedbackDraft.updateMany({
     where: {
       id: draft.id,
@@ -132,15 +144,14 @@ export async function updateWritingFinalizationFailure(
     data: {
       status: "failed",
       failureCode: "worker_finalization_failed",
-      failureMessage:
-        error instanceof Error ? error.message : "Unknown AI worker error.",
+      failureMessage,
       retryCount: { increment: 1 },
-      nextRetryAt: null,
+      nextRetryAt: retry.nextRetryAt,
       lastAttemptAt: now,
     },
   });
 
-  return { updatedCount: updated.count };
+  return { shouldRetry: retry.shouldRetry, updatedCount: updated.count };
 }
 
 export async function updateObjectiveProviderFailure(
@@ -182,7 +193,19 @@ export async function updateObjectiveFinalizationFailure(
   explanation: QueuedGenerationRecord,
   error: unknown,
   now: Date,
-): Promise<{ updatedCount: number }> {
+): Promise<{ shouldRetry: boolean; updatedCount: number }> {
+  const failureMessage =
+    error instanceof Error ? error.message : "Unknown AI worker error.";
+  const retry = retryState(
+    {
+      code: "worker_finalization_failed",
+      message: failureMessage,
+      retryable: true,
+    },
+    explanation.retryCount,
+    now,
+  );
+
   const updated = await prisma.aiObjectiveExplanation.updateMany({
     where: {
       id: explanation.id,
@@ -192,13 +215,12 @@ export async function updateObjectiveFinalizationFailure(
     data: {
       status: "failed",
       failureCode: "worker_finalization_failed",
-      failureMessage:
-        error instanceof Error ? error.message : "Unknown AI worker error.",
+      failureMessage,
       retryCount: { increment: 1 },
-      nextRetryAt: null,
+      nextRetryAt: retry.nextRetryAt,
       lastAttemptAt: now,
     },
   });
 
-  return { updatedCount: updated.count };
+  return { shouldRetry: retry.shouldRetry, updatedCount: updated.count };
 }

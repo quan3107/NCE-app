@@ -314,8 +314,14 @@ export async function processWritingDraftJob(
       { err: error, draftId: draft.id },
       "AI writing draft finalization failed",
     );
-    await updateWritingFinalizationFailure(draft, error, now);
-    throw error;
+    const failureUpdate = await updateWritingFinalizationFailure(
+      draft,
+      error,
+      now,
+    );
+    if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
+      throw error;
+    }
   }
 }
 
@@ -497,7 +503,13 @@ export async function processObjectiveExplanationJob(
       { err: error, explanationId: explanation.id },
       "AI objective explanation finalization failed",
     );
-    await updateObjectiveFinalizationFailure(explanation, error, now);
-    throw error;
+    const failureUpdate = await updateObjectiveFinalizationFailure(
+      explanation,
+      error,
+      now,
+    );
+    if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
+      throw error;
+    }
   }
 }

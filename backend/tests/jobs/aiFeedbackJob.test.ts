@@ -272,6 +272,7 @@ describe("jobs.aiFeedbackJob", () => {
 
   it("does not convert generated writing records into failed audits when the success audit insert fails", async () => {
     const fixture = writingHarnessFixtures[0];
+    const now = new Date("2026-06-08T07:00:00.000Z");
     const providerRouter = {
       generate: vi.fn(async (request: AiProviderRequest) =>
         providerResult(request, fixture.providerOutput),
@@ -300,7 +301,7 @@ describe("jobs.aiFeedbackJob", () => {
           },
           expireInSeconds: 60,
         },
-        { providerRouter },
+        { providerRouter, now: () => now },
       ),
     ).rejects.toThrow("Audit insert failed.");
 
@@ -322,7 +323,7 @@ describe("jobs.aiFeedbackJob", () => {
           failureCode: "worker_finalization_failed",
           failureMessage: "Audit insert failed.",
           retryCount: { increment: 1 },
-          nextRetryAt: null,
+          nextRetryAt: new Date("2026-06-08T07:01:00.000Z"),
         }),
       }),
     );
@@ -586,6 +587,7 @@ describe("jobs.aiFeedbackJob", () => {
 
   it("does not convert generated objective explanations into failed audits when the success audit insert fails", async () => {
     const fixture = objectiveHarnessFixtures[0];
+    const now = new Date("2026-06-08T07:00:00.000Z");
     const providerRouter = {
       generate: vi.fn(async (request: AiProviderRequest) =>
         providerResult(request, fixture.providerOutput),
@@ -616,7 +618,7 @@ describe("jobs.aiFeedbackJob", () => {
           },
           expireInSeconds: 60,
         },
-        { providerRouter },
+        { providerRouter, now: () => now },
       ),
     ).rejects.toThrow("Audit insert failed.");
 
@@ -638,7 +640,7 @@ describe("jobs.aiFeedbackJob", () => {
           failureCode: "worker_finalization_failed",
           failureMessage: "Audit insert failed.",
           retryCount: { increment: 1 },
-          nextRetryAt: null,
+          nextRetryAt: new Date("2026-06-08T07:01:00.000Z"),
         }),
       }),
     );
