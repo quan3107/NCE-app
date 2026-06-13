@@ -232,3 +232,48 @@ test('legacy IELTS writing grade criteria hydrate current task-scoped fields', (
     task2GrammaticalRangeAndAccuracy: 6.5,
   });
 });
+
+test('legacy full IELTS writing task achievement response criteria hydrate both task fields', () => {
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task1: { prompt: 'Summarise the chart.' },
+    task2: { prompt: 'Discuss both views.' },
+  });
+
+  const state = getExistingGradeFormState(
+    {
+      id: 'combined-legacy-writing-grade',
+      submissionId: 'submission-writing',
+      assignmentId: 'assignment-writing',
+      studentId: 'student-1',
+      rubricBreakdown: [
+        {
+          criteria: 'Task Achievement / Task Response',
+          points: 6.5,
+          maxPoints: 9,
+          scale: 'ielts_band',
+        },
+        { criteria: 'Coherence & Cohesion', points: 7, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Lexical Resource', points: 7.5, maxPoints: 9, scale: 'ielts_band' },
+        {
+          criteria: 'Grammatical Range & Accuracy',
+          points: 7,
+          maxPoints: 9,
+          scale: 'ielts_band',
+        },
+      ],
+      rawScore: 7,
+      adjustments: 0,
+      finalScore: 7,
+      band: 7,
+      maxScore: 9,
+      scoreDisplay: { kind: 'ielts_band', value: 7, max: 9 },
+      feedback: 'Combined legacy rubric feedback.',
+      feedbackLabel: 'teacher feedback',
+    },
+    criteria,
+    true,
+  );
+
+  assert.equal(state.scores.task1TaskAchievement, 6.5);
+  assert.equal(state.scores.task2TaskResponse, 6.5);
+});
