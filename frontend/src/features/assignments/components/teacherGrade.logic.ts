@@ -4,6 +4,8 @@
  * Why: Makes the teacher grading route smaller while keeping scoring behavior testable.
  */
 
+import type { Grade } from '@domain';
+
 export type GradeCriterion = {
   key: string;
   label: string;
@@ -254,6 +256,58 @@ export const calculateRawScore = (
       ? calculateIeltsBandFromScores(gradeCriteria, scores)
       : gradeCriteria.reduce((sum, criterion) => sum + (scores[criterion.key] ?? 0), 0)
     : rawScoreInput;
+
+export type ExistingGradeFormState = {
+  scores: Record<string, number>;
+  rawScoreInput: number;
+  feedback: string;
+};
+
+export const getExistingGradeFormState = (
+  existingGrade: Grade | null,
+  gradeCriteria: GradeCriterion[],
+  rubricDrivenMode: boolean,
+): ExistingGradeFormState => {
+  const defaultScores = rubricDrivenMode
+    ? Object.fromEntries(gradeCriteria.map((criterion) => [criterion.key, 0]))
+    : {};
+
+  if (!existingGrade) {
+    return {
+      scores: defaultScores,
+      rawScoreInput: 0,
+      feedback: '',
+    };
+  }
+
+  if (!rubricDrivenMode) {
+    return {
+      scores: defaultScores,
+      rawScoreInput: existingGrade.rawScore,
+      feedback: existingGrade.feedback,
+    };
+  }
+
+  const breakdownByCriterion = new Map(
+    existingGrade.rubricBreakdown.map((item) => [item.criteria, item.points]),
+  );
+  const scores = Object.fromEntries(
+    gradeCriteria.map((criterion) => {
+      const persistedScore =
+        breakdownByCriterion.get(criterion.payloadCriterion ?? criterion.label) ??
+        breakdownByCriterion.get(criterion.label) ??
+        0;
+
+      return [criterion.key, persistedScore];
+    }),
+  );
+
+  return {
+    scores,
+    rawScoreInput: existingGrade.rawScore,
+    feedback: existingGrade.feedback,
+  };
+};
 
 const averageCriterionScores = (
   gradeCriteria: GradeCriterion[],
