@@ -115,6 +115,56 @@ test('normalizeIeltsAssignmentConfig preserves assignment AI policy', () => {
   });
 });
 
+test('normalizeIeltsAssignmentConfig normalizes empty writing rubric IDs to null', () => {
+  const assignmentConfig = normalizeIeltsAssignmentConfig('writing', {
+    version: 1,
+    task1: {
+      prompt: 'Describe the chart.',
+      rubricId: '',
+    },
+    task2: {
+      prompt: 'Discuss both views.',
+      rubricId: ' undefined ',
+    },
+  });
+
+  assert.equal(assignmentConfig.task1.rubricId, null);
+  assert.equal(assignmentConfig.task2.rubricId, null);
+
+  const missingRubricConfig = normalizeIeltsAssignmentConfig('writing', {
+    version: 1,
+    task1: {
+      prompt: 'Describe the chart.',
+    },
+    task2: {
+      prompt: 'Discuss both views.',
+      rubricId: 'none',
+    },
+  });
+
+  assert.equal(missingRubricConfig.task1.rubricId, null);
+  assert.equal(missingRubricConfig.task2.rubricId, null);
+});
+
+test('normalizeIeltsAssignmentConfig preserves valid writing rubric IDs', () => {
+  const task1RubricId = '11111111-1111-4111-8111-111111111111';
+  const task2RubricId = '22222222-2222-4222-8222-222222222222';
+  const assignmentConfig = normalizeIeltsAssignmentConfig('writing', {
+    version: 1,
+    task1: {
+      prompt: 'Describe the chart.',
+      rubricId: task1RubricId,
+    },
+    task2: {
+      prompt: 'Discuss both views.',
+      rubricId: task2RubricId,
+    },
+  });
+
+  assert.equal(assignmentConfig.task1.rubricId, task1RubricId);
+  assert.equal(assignmentConfig.task2.rubricId, task2RubricId);
+});
+
 test('toSubmission preserves the raw payload for draft recovery', () => {
   const payload = {
     version: 2,
