@@ -23,6 +23,7 @@ import { TeacherGradePanels } from './TeacherGradePanels';
 import {
   calculateRawScore,
   getAssignmentRubricIds,
+  getExistingGradeFormState,
   getIeltsManualGradeCriteria,
   isValidIeltsBandScore,
   toGradeCriteria,
@@ -35,6 +36,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   const [rawScoreInput, setRawScoreInput] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [pendingAiDecision, setPendingAiDecision] = useState<AiFeedbackPendingDecision | null>(null);
+  const [appliedGradeStateKey, setAppliedGradeStateKey] = useState<string | null>(null);
   const { submissions, assignments, isLoading, error } = useAssignmentResources();
   const upsertGradeMutation = useUpsertGradeMutation();
   const approveAiFeedbackMutation = useApproveWritingFeedbackMutation(submissionId);
@@ -52,6 +54,8 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     () => (gradesQuery.data ?? []).find((grade) => grade.submissionId === submissionId) ?? null,
     [gradesQuery.data, submissionId],
   );
+  const gradeQueryIsSettling =
+    gradesQuery.isLoading || (gradesQuery.isFetching && !gradesQuery.isFetchedAfterMount);
   const rubricsQuery = useCourseRubricsQuery(assignment?.courseId ?? '');
   const rubricIds = useMemo(
     () => getAssignmentRubricIds(assignment?.assignmentConfig ?? null),
@@ -78,17 +82,51 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     [ieltsGradeCriteria, ieltsGradingMode, selectedRubric],
   );
   const rubricDrivenMode = gradeCriteria.length > 0 && (ieltsGradingMode || selectedRubric !== null);
+  const gradeCriteriaKey = useMemo(
+    () =>
+      gradeCriteria
+        .map((criterion) => `${criterion.key}:${criterion.payloadCriterion ?? criterion.label}`)
+        .join('|'),
+    [gradeCriteria],
+  );
 
   useEffect(() => {
-    if (!rubricDrivenMode) {
+    if (!submission || !assignment) {
       return;
     }
-    setScores(Object.fromEntries(gradeCriteria.map((criterion) => [criterion.key, 0])));
-  }, [gradeCriteria, rubricDrivenMode]);
+    if (gradeQueryIsSettling || gradesQuery.error) {
+      return;
+    }
 
-  useEffect(() => {
-    setRawScoreInput(0);
-  }, [assignment?.id]);
+    const nextGradeStateKey = existingGrade
+      ? `grade:${existingGrade.id}:${gradeCriteriaKey}:${rubricDrivenMode}`
+      : `empty:${submissionId}:${assignment.id}:${gradeCriteriaKey}:${rubricDrivenMode}`;
+
+    if (nextGradeStateKey === appliedGradeStateKey) {
+      return;
+    }
+
+    const nextFormState = getExistingGradeFormState(
+      existingGrade,
+      gradeCriteria,
+      rubricDrivenMode,
+    );
+    setScores(nextFormState.scores);
+    setRawScoreInput(nextFormState.rawScoreInput);
+    setFeedback(nextFormState.feedback);
+    setAppliedGradeStateKey(nextGradeStateKey);
+  }, [
+    appliedGradeStateKey,
+    assignment,
+    existingGrade,
+    gradeQueryIsSettling,
+    gradeCriteria,
+    gradeCriteriaKey,
+    gradesQuery.error,
+    rubricDrivenMode,
+    submission,
+    submissionId,
+  ]);
 
   useEffect(() => {
     setPendingAiDecision(null);
@@ -102,6 +140,20 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     return <StatusCard title="Unable to load the submission." message={error.message} destructive />;
   }
 
+  if (gradeQueryIsSettling) {
+    return <StatusCard message="Loading grade..." />;
+  }
+
+  if (gradesQuery.error) {
+    return (
+      <StatusCard
+        title="Unable to load the grade."
+        message={gradesQuery.error.message}
+        destructive
+      />
+    );
+  }
+
   if (!submission || !assignment) {
     return null;
   }
@@ -113,10 +165,24 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     rawScoreInput,
     ieltsGradingMode ? 'ieltsBand' : 'sum',
   );
-  const adjustments = ieltsGradingMode ? 0 : submission.status === 'late' ? -5 : 0;
+  const adjustments = ieltsGradingMode
+    ? 0
+    : existingGrade
+      ? existingGrade.adjustments
+      : submission.status === 'late'
+        ? -5
+        : 0;
   const finalScore = rawScore + adjustments;
 
   const handleSubmit = async () => {
+    if (gradeQueryIsSettling) {
+      toast.error('Wait for the existing grade to finish loading before submitting.');
+      return;
+    }
+    if (gradesQuery.error) {
+      toast.error('Unable to submit while the existing grade could not be loaded.');
+      return;
+    }
     if (!currentUser.id) {
       toast.error('Unable to grade without a teacher account.');
       return;
@@ -143,6 +209,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       adjustments !== 0 ? [{ reason: 'Late submission', delta: adjustments }] : undefined;
 
     const feedbackForGrade = pendingAiDecision?.feedbackMd ?? feedback.trim();
+    const feedbackMdForGrade = existingGrade ? feedbackForGrade : feedbackForGrade || undefined;
     const pendingDecisionError =
       getWritingFeedbackPendingDecisionFeedbackError(pendingAiDecision);
     if (pendingDecisionError) {
@@ -159,7 +226,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
           adjustments: adjustmentsList,
           finalScore,
           band: ieltsGradingMode ? finalScore : undefined,
-          feedbackMd: feedbackForGrade || undefined,
+          feedbackMd: feedbackMdForGrade,
         },
       });
       markSubmissionAsGraded(submissionId);
@@ -186,7 +253,9 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
           return;
         }
       } else {
-        toast.success('Grade posted successfully!');
+        toast.success(
+          existingGrade ? 'Grade updated successfully!' : 'Grade posted successfully!',
+        );
       }
       navigate('/teacher/submissions');
     } catch (errorValue) {
@@ -207,8 +276,10 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
         feedback={feedback}
         finalScore={finalScore}
         gradeCriteria={gradeCriteria}
+        hasExistingGrade={Boolean(existingGrade)}
         ieltsGradingMode={ieltsGradingMode}
         isPosting={
+          gradeQueryIsSettling ||
           upsertGradeMutation.isPending ||
           approveAiFeedbackMutation.isPending ||
           finalizeAiFeedbackMutation.isPending

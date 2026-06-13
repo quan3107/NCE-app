@@ -27,6 +27,7 @@ type TeacherGradePanelsProps = {
   gradeCriteria: GradeCriterion[];
   ieltsGradingMode: boolean;
   isPosting: boolean;
+  hasExistingGrade?: boolean;
   onFeedbackChange: (feedback: string) => void;
   onPostGrade: () => void;
   onRawScoreChange: (score: number) => void;
@@ -47,6 +48,7 @@ export function TeacherGradePanels({
   feedback,
   finalScore,
   gradeCriteria,
+  hasExistingGrade = false,
   ieltsGradingMode,
   isPosting,
   onFeedbackChange,
@@ -103,7 +105,13 @@ export function TeacherGradePanels({
           <SubmissionInfoPanel submission={submission} />
           <Button className="w-full" size="lg" onClick={onPostGrade} disabled={isPosting}>
             <Send className="mr-2 size-4" />
-            {isPosting ? 'Posting...' : 'Post Grade'}
+            {isPosting
+              ? hasExistingGrade
+                ? 'Updating...'
+                : 'Posting...'
+              : hasExistingGrade
+                ? 'Update Grade'
+                : 'Post Grade'}
           </Button>
         </div>
       </div>

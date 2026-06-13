@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   calculateIeltsBandFromScores,
+  getExistingGradeFormState,
   getIeltsManualGradeCriteria,
   isValidIeltsBandScore,
 } from '../src/features/assignments/components/teacherGrade.logic';
@@ -123,4 +124,156 @@ test('IELTS band controls only accept half-step band values', () => {
   assert.equal(isValidIeltsBandScore(6.5), true);
   assert.equal(isValidIeltsBandScore(6.25), false);
   assert.equal(isValidIeltsBandScore(9.5), false);
+});
+
+test('existing IELTS writing grades hydrate rubric scores and feedback', () => {
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task1: { prompt: 'Summarise the chart.' },
+    task2: { prompt: 'Discuss both views.' },
+  });
+
+  const state = getExistingGradeFormState(
+    {
+      id: 'grade-writing',
+      submissionId: 'submission-writing',
+      assignmentId: 'assignment-writing',
+      studentId: 'student-1',
+      rubricBreakdown: [
+        { criteria: 'Task 1 - Task Achievement', points: 6.5, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Task 1 - Coherence and Cohesion', points: 7, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Task 1 - Lexical Resource', points: 7, maxPoints: 9, scale: 'ielts_band' },
+        {
+          criteria: 'Task 1 - Grammatical Range and Accuracy',
+          points: 6.5,
+          maxPoints: 9,
+          scale: 'ielts_band',
+        },
+        { criteria: 'Task 2 - Task Response', points: 7.5, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Task 2 - Coherence and Cohesion', points: 7, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Task 2 - Lexical Resource', points: 7.5, maxPoints: 9, scale: 'ielts_band' },
+        {
+          criteria: 'Task 2 - Grammatical Range and Accuracy',
+          points: 7,
+          maxPoints: 9,
+          scale: 'ielts_band',
+        },
+      ],
+      rawScore: 7,
+      adjustments: 0,
+      finalScore: 7,
+      band: 7,
+      maxScore: 9,
+      scoreDisplay: { kind: 'ielts_band', value: 7, max: 9 },
+      feedback: 'Use a clearer overview and add more precise comparisons.',
+      feedbackLabel: 'teacher feedback',
+    },
+    criteria,
+    true,
+  );
+
+  assert.deepEqual(state.scores, {
+    task1TaskAchievement: 6.5,
+    task1CoherenceAndCohesion: 7,
+    task1LexicalResource: 7,
+    task1GrammaticalRangeAndAccuracy: 6.5,
+    task2TaskResponse: 7.5,
+    task2CoherenceAndCohesion: 7,
+    task2LexicalResource: 7.5,
+    task2GrammaticalRangeAndAccuracy: 7,
+  });
+  assert.equal(state.rawScoreInput, 7);
+  assert.equal(state.feedback, 'Use a clearer overview and add more precise comparisons.');
+});
+
+test('legacy IELTS writing grade criteria hydrate current task-scoped fields', () => {
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task1: { prompt: 'Summarise the chart.' },
+    task2: { prompt: 'Discuss both views.' },
+  });
+
+  const state = getExistingGradeFormState(
+    {
+      id: 'legacy-writing-grade',
+      submissionId: 'submission-writing',
+      assignmentId: 'assignment-writing',
+      studentId: 'student-1',
+      rubricBreakdown: [
+        { criteria: 'Task Achievement', points: 7, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Coherence & Cohesion', points: 7.5, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Lexical Resource', points: 8, maxPoints: 9, scale: 'ielts_band' },
+        {
+          criteria: 'Grammatical Range & Accuracy',
+          points: 6.5,
+          maxPoints: 9,
+          scale: 'ielts_band',
+        },
+      ],
+      rawScore: 7.5,
+      adjustments: 0,
+      finalScore: 7.5,
+      band: 7.5,
+      maxScore: 9,
+      scoreDisplay: { kind: 'ielts_band', value: 7.5, max: 9 },
+      feedback: 'Legacy rubric feedback.',
+      feedbackLabel: 'teacher feedback',
+    },
+    criteria,
+    true,
+  );
+
+  assert.deepEqual(state.scores, {
+    task1TaskAchievement: 7,
+    task1CoherenceAndCohesion: 7.5,
+    task1LexicalResource: 8,
+    task1GrammaticalRangeAndAccuracy: 6.5,
+    task2TaskResponse: 7,
+    task2CoherenceAndCohesion: 7.5,
+    task2LexicalResource: 8,
+    task2GrammaticalRangeAndAccuracy: 6.5,
+  });
+});
+
+test('legacy full IELTS writing task achievement response criteria hydrate both task fields', () => {
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task1: { prompt: 'Summarise the chart.' },
+    task2: { prompt: 'Discuss both views.' },
+  });
+
+  const state = getExistingGradeFormState(
+    {
+      id: 'combined-legacy-writing-grade',
+      submissionId: 'submission-writing',
+      assignmentId: 'assignment-writing',
+      studentId: 'student-1',
+      rubricBreakdown: [
+        {
+          criteria: 'Task Achievement / Task Response',
+          points: 6.5,
+          maxPoints: 9,
+          scale: 'ielts_band',
+        },
+        { criteria: 'Coherence & Cohesion', points: 7, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Lexical Resource', points: 7.5, maxPoints: 9, scale: 'ielts_band' },
+        {
+          criteria: 'Grammatical Range & Accuracy',
+          points: 7,
+          maxPoints: 9,
+          scale: 'ielts_band',
+        },
+      ],
+      rawScore: 7,
+      adjustments: 0,
+      finalScore: 7,
+      band: 7,
+      maxScore: 9,
+      scoreDisplay: { kind: 'ielts_band', value: 7, max: 9 },
+      feedback: 'Combined legacy rubric feedback.',
+      feedbackLabel: 'teacher feedback',
+    },
+    criteria,
+    true,
+  );
+
+  assert.equal(state.scores.task1TaskAchievement, 6.5);
+  assert.equal(state.scores.task2TaskResponse, 6.5);
 });

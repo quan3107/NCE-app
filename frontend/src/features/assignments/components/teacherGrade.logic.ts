@@ -4,6 +4,8 @@
  * Why: Makes the teacher grading route smaller while keeping scoring behavior testable.
  */
 
+import type { Grade } from '@domain';
+
 export type GradeCriterion = {
   key: string;
   label: string;
@@ -254,6 +256,91 @@ export const calculateRawScore = (
       ? calculateIeltsBandFromScores(gradeCriteria, scores)
       : gradeCriteria.reduce((sum, criterion) => sum + (scores[criterion.key] ?? 0), 0)
     : rawScoreInput;
+
+export type ExistingGradeFormState = {
+  scores: Record<string, number>;
+  rawScoreInput: number;
+  feedback: string;
+};
+
+export const getExistingGradeFormState = (
+  existingGrade: Grade | null,
+  gradeCriteria: GradeCriterion[],
+  rubricDrivenMode: boolean,
+): ExistingGradeFormState => {
+  const defaultScores = rubricDrivenMode
+    ? Object.fromEntries(gradeCriteria.map((criterion) => [criterion.key, 0]))
+    : {};
+
+  if (!existingGrade) {
+    return {
+      scores: defaultScores,
+      rawScoreInput: 0,
+      feedback: '',
+    };
+  }
+
+  if (!rubricDrivenMode) {
+    return {
+      scores: defaultScores,
+      rawScoreInput: existingGrade.rawScore,
+      feedback: existingGrade.feedback,
+    };
+  }
+
+  const breakdownByExactCriterion = new Map(
+    existingGrade.rubricBreakdown.map((item) => [item.criteria, item.points]),
+  );
+  const breakdownByLegacyCriterion = new Map<string, number>();
+  existingGrade.rubricBreakdown.forEach((item) => {
+    getLegacyGradeCriterionAliases(item.criteria).forEach((alias) => {
+      if (!breakdownByLegacyCriterion.has(alias)) {
+        breakdownByLegacyCriterion.set(alias, item.points);
+      }
+    });
+  });
+  const scores = Object.fromEntries(
+    gradeCriteria.map((criterion) => {
+      const criterionName = criterion.payloadCriterion ?? criterion.label;
+      const persistedScore =
+        breakdownByExactCriterion.get(criterionName) ??
+        breakdownByExactCriterion.get(criterion.label) ??
+        breakdownByLegacyCriterion.get(normalizeLegacyGradeCriterion(criterionName)) ??
+        breakdownByLegacyCriterion.get(normalizeLegacyGradeCriterion(criterion.label)) ??
+        breakdownByLegacyCriterion.get(toLegacyWritingCriterionName(criterionName)) ??
+        0;
+
+      return [criterion.key, persistedScore];
+    }),
+  );
+
+  return {
+    scores,
+    rawScoreInput: existingGrade.rawScore,
+    feedback: existingGrade.feedback,
+  };
+};
+
+const normalizeLegacyGradeCriterion = (criterion: string): string =>
+  criterion
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/^task\s+[12]\s*-\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const toLegacyWritingCriterionName = (criterion: string): string => {
+  const normalizedCriterion = normalizeLegacyGradeCriterion(criterion);
+  return normalizedCriterion === 'task response' ? 'task achievement' : normalizedCriterion;
+};
+
+const getLegacyGradeCriterionAliases = (criterion: string): string[] => {
+  const normalizedCriterion = normalizeLegacyGradeCriterion(criterion);
+  if (normalizedCriterion === 'task achievement / task response') {
+    return [normalizedCriterion, 'task achievement', 'task response'];
+  }
+  return [normalizedCriterion];
+};
 
 const averageCriterionScores = (
   gradeCriteria: GradeCriterion[],
