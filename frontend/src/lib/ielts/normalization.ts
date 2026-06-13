@@ -43,6 +43,28 @@ const normalizeEnum = <TValue extends string>(
     ? (value as TValue)
     : fallback;
 
+const normalizeOptionalId = (
+  value: unknown,
+  fallback: string | null = null,
+): string | null => {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const normalized = value.trim();
+  if (
+    !normalized ||
+    normalized.toLowerCase() === 'none' ||
+    normalized.toLowerCase() === 'undefined' ||
+    normalized.toLowerCase() === 'null'
+  ) {
+    return null;
+  }
+  return normalized;
+};
+
 const normalizeAiPolicy = (
   value: unknown,
   fallback: IeltsAssignmentAiPolicy,
@@ -212,8 +234,7 @@ export const normalizeIeltsAssignmentConfig = (
             typeof task1.showSampleDate === 'string'
               ? task1.showSampleDate
               : baseConfig.task1.showSampleDate,
-          rubricId:
-            task1.rubricId === null ? null : toString(task1.rubricId, baseConfig.task1.rubricId ?? ''),
+          rubricId: normalizeOptionalId(task1.rubricId, baseConfig.task1.rubricId ?? null),
         },
         task2: {
           prompt: toString(task2.prompt, baseConfig.task2.prompt),
@@ -230,8 +251,7 @@ export const normalizeIeltsAssignmentConfig = (
             typeof task2.showSampleDate === 'string'
               ? task2.showSampleDate
               : baseConfig.task2.showSampleDate,
-          rubricId:
-            task2.rubricId === null ? null : toString(task2.rubricId, baseConfig.task2.rubricId ?? ''),
+          rubricId: normalizeOptionalId(task2.rubricId, baseConfig.task2.rubricId ?? null),
         },
       };
     }
