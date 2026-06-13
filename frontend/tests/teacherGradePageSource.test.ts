@@ -12,7 +12,9 @@ test('teacher grade page gates the form while the grade query is loading', async
     'utf8',
   );
 
-  assert.match(source, /if\s*\(\s*gradesQuery\.isLoading\s*\)/);
+  assert.match(source, /const\s+gradeQueryIsSettling\s*=\s*gradesQuery\.isLoading/);
+  assert.match(source, /gradesQuery\.isFetching\s*&&\s*!gradesQuery\.isFetchedAfterMount/);
+  assert.match(source, /if\s*\(\s*gradeQueryIsSettling\s*\)/);
   assert.match(source, /Loading grade/);
   assert.match(source, /if\s*\(\s*gradesQuery\.error\s*\)/);
   assert.match(source, /Unable to load the grade/);
