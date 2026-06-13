@@ -54,6 +54,8 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     () => (gradesQuery.data ?? []).find((grade) => grade.submissionId === submissionId) ?? null,
     [gradesQuery.data, submissionId],
   );
+  const gradeQueryIsSettling =
+    gradesQuery.isLoading || (gradesQuery.isFetching && !gradesQuery.isFetchedAfterMount);
   const rubricsQuery = useCourseRubricsQuery(assignment?.courseId ?? '');
   const rubricIds = useMemo(
     () => getAssignmentRubricIds(assignment?.assignmentConfig ?? null),
@@ -92,7 +94,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     if (!submission || !assignment) {
       return;
     }
-    if (gradesQuery.isLoading || gradesQuery.error) {
+    if (gradeQueryIsSettling || gradesQuery.error) {
       return;
     }
 
@@ -117,10 +119,10 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     appliedGradeStateKey,
     assignment,
     existingGrade,
+    gradeQueryIsSettling,
     gradeCriteria,
     gradeCriteriaKey,
     gradesQuery.error,
-    gradesQuery.isLoading,
     rubricDrivenMode,
     submission,
     submissionId,
@@ -138,7 +140,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     return <StatusCard title="Unable to load the submission." message={error.message} destructive />;
   }
 
-  if (gradesQuery.isLoading) {
+  if (gradeQueryIsSettling) {
     return <StatusCard message="Loading grade..." />;
   }
 
@@ -167,7 +169,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   const finalScore = rawScore + adjustments;
 
   const handleSubmit = async () => {
-    if (gradesQuery.isLoading) {
+    if (gradeQueryIsSettling) {
       toast.error('Wait for the existing grade to finish loading before submitting.');
       return;
     }
@@ -270,6 +272,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
         hasExistingGrade={Boolean(existingGrade)}
         ieltsGradingMode={ieltsGradingMode}
         isPosting={
+          gradeQueryIsSettling ||
           upsertGradeMutation.isPending ||
           approveAiFeedbackMutation.isPending ||
           finalizeAiFeedbackMutation.isPending
