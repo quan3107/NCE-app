@@ -165,7 +165,13 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     rawScoreInput,
     ieltsGradingMode ? 'ieltsBand' : 'sum',
   );
-  const adjustments = ieltsGradingMode ? 0 : submission.status === 'late' ? -5 : 0;
+  const adjustments = ieltsGradingMode
+    ? 0
+    : existingGrade
+      ? existingGrade.adjustments
+      : submission.status === 'late'
+        ? -5
+        : 0;
   const finalScore = rawScore + adjustments;
 
   const handleSubmit = async () => {
@@ -203,6 +209,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       adjustments !== 0 ? [{ reason: 'Late submission', delta: adjustments }] : undefined;
 
     const feedbackForGrade = pendingAiDecision?.feedbackMd ?? feedback.trim();
+    const feedbackMdForGrade = existingGrade ? feedbackForGrade : feedbackForGrade || undefined;
     const pendingDecisionError =
       getWritingFeedbackPendingDecisionFeedbackError(pendingAiDecision);
     if (pendingDecisionError) {
@@ -219,7 +226,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
           adjustments: adjustmentsList,
           finalScore,
           band: ieltsGradingMode ? finalScore : undefined,
-          feedbackMd: feedbackForGrade || undefined,
+          feedbackMd: feedbackMdForGrade,
         },
       });
       markSubmissionAsGraded(submissionId);
