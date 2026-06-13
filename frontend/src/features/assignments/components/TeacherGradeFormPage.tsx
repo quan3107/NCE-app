@@ -92,6 +92,9 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     if (!submission || !assignment) {
       return;
     }
+    if (gradesQuery.isLoading || gradesQuery.error) {
+      return;
+    }
 
     const nextGradeStateKey = existingGrade
       ? `grade:${existingGrade.id}:${gradeCriteriaKey}:${rubricDrivenMode}`
@@ -116,6 +119,8 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     existingGrade,
     gradeCriteria,
     gradeCriteriaKey,
+    gradesQuery.error,
+    gradesQuery.isLoading,
     rubricDrivenMode,
     submission,
     submissionId,
@@ -133,6 +138,20 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     return <StatusCard title="Unable to load the submission." message={error.message} destructive />;
   }
 
+  if (gradesQuery.isLoading) {
+    return <StatusCard message="Loading grade..." />;
+  }
+
+  if (gradesQuery.error) {
+    return (
+      <StatusCard
+        title="Unable to load the grade."
+        message={gradesQuery.error.message}
+        destructive
+      />
+    );
+  }
+
   if (!submission || !assignment) {
     return null;
   }
@@ -148,6 +167,14 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   const finalScore = rawScore + adjustments;
 
   const handleSubmit = async () => {
+    if (gradesQuery.isLoading) {
+      toast.error('Wait for the existing grade to finish loading before submitting.');
+      return;
+    }
+    if (gradesQuery.error) {
+      toast.error('Unable to submit while the existing grade could not be loaded.');
+      return;
+    }
     if (!currentUser.id) {
       toast.error('Unable to grade without a teacher account.');
       return;
