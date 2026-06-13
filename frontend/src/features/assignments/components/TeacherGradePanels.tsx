@@ -13,8 +13,10 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import { formatDate } from '@lib/utils';
+import { isIeltsAssignmentType } from '@lib/ielts';
 import type { Assignment, Submission } from '@domain';
 import { FileDownloadButton } from '@features/files/FileDownloadButton';
+import { IeltsSubmissionPayloadView } from './IeltsSubmissionPayloadView';
 import type { GradeCriterion } from './teacherGrade.logic';
 
 type TeacherGradePanelsProps = {
@@ -69,7 +71,7 @@ export function TeacherGradePanels({
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <StudentSubmissionPanel submission={submission} />
+          <StudentSubmissionPanel assignment={assignment} submission={submission} />
           <RubricPanel
             assignment={assignment}
             gradeCriteria={gradeCriteria}
@@ -109,13 +111,26 @@ export function TeacherGradePanels({
   );
 }
 
-function StudentSubmissionPanel({ submission }: { submission: Submission }) {
+function StudentSubmissionPanel({
+  assignment,
+  submission,
+}: {
+  assignment: Assignment;
+  submission: Submission;
+}) {
+  const hasIeltsPayload = isIeltsAssignmentType(assignment.type) && submission.rawPayload;
+  const hasLegacyContent = Boolean(submission.content);
+  const hasFiles = Boolean(submission.files?.length);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Student Submission</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {hasIeltsPayload && (
+          <IeltsSubmissionPayloadView assignment={assignment} payload={submission.rawPayload} />
+        )}
         {submission.content && (
           <div className="p-4 bg-muted/50 rounded-lg">
             <p className="text-sm whitespace-pre-wrap">{submission.content}</p>
@@ -128,6 +143,9 @@ function StudentSubmissionPanel({ submission }: { submission: Submission }) {
             <FileDownloadButton file={file} />
           </div>
         ))}
+        {!hasIeltsPayload && !hasLegacyContent && !hasFiles && (
+          <p className="text-sm text-muted-foreground">No displayable submission content.</p>
+        )}
       </CardContent>
     </Card>
   );

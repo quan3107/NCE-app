@@ -276,7 +276,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
             <div className="lg:col-span-2 space-y-6">
               <StudentAssignmentDescriptionCard assignment={assignment} />
               {submission && (
-                <StudentAssignmentSubmissionSummary submission={submission} />
+                <StudentAssignmentSubmissionSummary assignment={assignment} submission={submission} />
               )}
             </div>
             <StudentAssignmentSidebar
