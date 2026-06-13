@@ -184,3 +184,51 @@ test('existing IELTS writing grades hydrate rubric scores and feedback', () => {
   assert.equal(state.rawScoreInput, 7);
   assert.equal(state.feedback, 'Use a clearer overview and add more precise comparisons.');
 });
+
+test('legacy IELTS writing grade criteria hydrate current task-scoped fields', () => {
+  const criteria = getIeltsManualGradeCriteria('writing', {
+    task1: { prompt: 'Summarise the chart.' },
+    task2: { prompt: 'Discuss both views.' },
+  });
+
+  const state = getExistingGradeFormState(
+    {
+      id: 'legacy-writing-grade',
+      submissionId: 'submission-writing',
+      assignmentId: 'assignment-writing',
+      studentId: 'student-1',
+      rubricBreakdown: [
+        { criteria: 'Task Achievement', points: 7, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Coherence & Cohesion', points: 7.5, maxPoints: 9, scale: 'ielts_band' },
+        { criteria: 'Lexical Resource', points: 8, maxPoints: 9, scale: 'ielts_band' },
+        {
+          criteria: 'Grammatical Range & Accuracy',
+          points: 6.5,
+          maxPoints: 9,
+          scale: 'ielts_band',
+        },
+      ],
+      rawScore: 7.5,
+      adjustments: 0,
+      finalScore: 7.5,
+      band: 7.5,
+      maxScore: 9,
+      scoreDisplay: { kind: 'ielts_band', value: 7.5, max: 9 },
+      feedback: 'Legacy rubric feedback.',
+      feedbackLabel: 'teacher feedback',
+    },
+    criteria,
+    true,
+  );
+
+  assert.deepEqual(state.scores, {
+    task1TaskAchievement: 7,
+    task1CoherenceAndCohesion: 7.5,
+    task1LexicalResource: 8,
+    task1GrammaticalRangeAndAccuracy: 6.5,
+    task2TaskResponse: 7,
+    task2CoherenceAndCohesion: 7.5,
+    task2LexicalResource: 8,
+    task2GrammaticalRangeAndAccuracy: 6.5,
+  });
+});
