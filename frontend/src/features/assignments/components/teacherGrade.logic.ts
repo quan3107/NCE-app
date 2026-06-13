@@ -288,14 +288,24 @@ export const getExistingGradeFormState = (
     };
   }
 
-  const breakdownByCriterion = new Map(
+  const breakdownByExactCriterion = new Map(
     existingGrade.rubricBreakdown.map((item) => [item.criteria, item.points]),
+  );
+  const breakdownByLegacyCriterion = new Map(
+    existingGrade.rubricBreakdown.map((item) => [
+      normalizeLegacyGradeCriterion(item.criteria),
+      item.points,
+    ]),
   );
   const scores = Object.fromEntries(
     gradeCriteria.map((criterion) => {
+      const criterionName = criterion.payloadCriterion ?? criterion.label;
       const persistedScore =
-        breakdownByCriterion.get(criterion.payloadCriterion ?? criterion.label) ??
-        breakdownByCriterion.get(criterion.label) ??
+        breakdownByExactCriterion.get(criterionName) ??
+        breakdownByExactCriterion.get(criterion.label) ??
+        breakdownByLegacyCriterion.get(normalizeLegacyGradeCriterion(criterionName)) ??
+        breakdownByLegacyCriterion.get(normalizeLegacyGradeCriterion(criterion.label)) ??
+        breakdownByLegacyCriterion.get(toLegacyWritingCriterionName(criterionName)) ??
         0;
 
       return [criterion.key, persistedScore];
@@ -307,6 +317,19 @@ export const getExistingGradeFormState = (
     rawScoreInput: existingGrade.rawScore,
     feedback: existingGrade.feedback,
   };
+};
+
+const normalizeLegacyGradeCriterion = (criterion: string): string =>
+  criterion
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/^task\s+[12]\s*-\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const toLegacyWritingCriterionName = (criterion: string): string => {
+  const normalizedCriterion = normalizeLegacyGradeCriterion(criterion);
+  return normalizedCriterion === 'task response' ? 'task achievement' : normalizedCriterion;
 };
 
 const averageCriterionScores = (
