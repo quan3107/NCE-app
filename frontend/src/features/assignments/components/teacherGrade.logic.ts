@@ -291,12 +291,14 @@ export const getExistingGradeFormState = (
   const breakdownByExactCriterion = new Map(
     existingGrade.rubricBreakdown.map((item) => [item.criteria, item.points]),
   );
-  const breakdownByLegacyCriterion = new Map(
-    existingGrade.rubricBreakdown.map((item) => [
-      normalizeLegacyGradeCriterion(item.criteria),
-      item.points,
-    ]),
-  );
+  const breakdownByLegacyCriterion = new Map<string, number>();
+  existingGrade.rubricBreakdown.forEach((item) => {
+    getLegacyGradeCriterionAliases(item.criteria).forEach((alias) => {
+      if (!breakdownByLegacyCriterion.has(alias)) {
+        breakdownByLegacyCriterion.set(alias, item.points);
+      }
+    });
+  });
   const scores = Object.fromEntries(
     gradeCriteria.map((criterion) => {
       const criterionName = criterion.payloadCriterion ?? criterion.label;
@@ -330,6 +332,14 @@ const normalizeLegacyGradeCriterion = (criterion: string): string =>
 const toLegacyWritingCriterionName = (criterion: string): string => {
   const normalizedCriterion = normalizeLegacyGradeCriterion(criterion);
   return normalizedCriterion === 'task response' ? 'task achievement' : normalizedCriterion;
+};
+
+const getLegacyGradeCriterionAliases = (criterion: string): string[] => {
+  const normalizedCriterion = normalizeLegacyGradeCriterion(criterion);
+  if (normalizedCriterion === 'task achievement / task response') {
+    return [normalizedCriterion, 'task achievement', 'task response'];
+  }
+  return [normalizedCriterion];
 };
 
 const averageCriterionScores = (
