@@ -74,3 +74,31 @@ export type WritingFeedbackRejectRequest = {
 export type WritingFeedbackRegenerateRequest = {
   providerTier?: 'low_cost' | 'premium';
 };
+
+export type WritingFeedbackBatchRequest =
+  | {
+      submissionIds: string[];
+      filter?: never;
+    }
+  | {
+      filter: 'submitted' | 'ungraded';
+      submissionIds?: never;
+    };
+
+export type WritingFeedbackBatchResult = {
+  submissionId: string;
+  status:
+    | 'queued'
+    | 'review_required'
+    | 'skipped'
+    | 'unauthorized'
+    | 'failed_to_queue';
+  draft?: WritingFeedbackResponse;
+  reason?: string;
+};
+
+export type WritingFeedbackBatchResponse = {
+  assignmentId: string;
+  requestedCount: number;
+  results: WritingFeedbackBatchResult[];
+};
