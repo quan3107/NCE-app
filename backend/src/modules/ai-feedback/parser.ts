@@ -280,6 +280,10 @@ function normalizeEvidenceText(value: string): string {
     .trim()
 }
 
+function evidenceTextTokens(value: string): string[] {
+  return normalizeEvidenceText(value).split(' ').filter(Boolean)
+}
+
 const evidenceStopWords = new Set([
   'about',
   'answer',
@@ -334,13 +338,28 @@ function normalizeEvidenceToken(token: string): string {
 }
 
 function evidenceContentTokens(value: string): string[] {
-  const tokens = normalizeEvidenceText(value).split(' ')
+  const tokens = evidenceTextTokens(value)
   const contentTokens = tokens
     .map(normalizeEvidenceToken)
     .filter((token) => token.length > 2)
     .filter((token) => !evidenceStopWords.has(token))
 
   return Array.from(new Set(contentTokens))
+}
+
+function hasContiguousTokenSequence(needle: string[], haystack: string[]): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) {
+    return false
+  }
+
+  for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    const candidate = haystack.slice(start, start + needle.length)
+    if (candidate.every((token, index) => token === needle[index])) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function sourceSupportsAllEvidenceTokens(
@@ -354,6 +373,27 @@ function sourceSupportsAllEvidenceTokens(
   return evidenceTokens.every((token) => sourceTokens.has(token))
 }
 
+function sourceContextSpans(sourceContextText: string): string[] {
+  return sourceContextText
+    .split(/[.!?;\n]+/)
+    .map((span) => span.trim())
+    .filter(Boolean)
+}
+
+function sourceSpanSupportsEvidence(evidence: string, sourceSpan: string): boolean {
+  const evidenceTokens = evidenceTextTokens(evidence)
+  const sourceTokens = evidenceTextTokens(sourceSpan)
+
+  if (hasContiguousTokenSequence(evidenceTokens, sourceTokens)) {
+    return true
+  }
+
+  const evidenceContent = evidenceContentTokens(evidence)
+  const sourceContent = new Set(evidenceContentTokens(sourceSpan))
+
+  return sourceSupportsAllEvidenceTokens(evidenceContent, sourceContent)
+}
+
 function hasSupportedEvidence(evidence: string, sourceContextText: string): boolean {
   const normalizedEvidence = normalizeEvidenceText(evidence)
   const normalizedSource = normalizeEvidenceText(sourceContextText)
@@ -362,14 +402,9 @@ function hasSupportedEvidence(evidence: string, sourceContextText: string): bool
     return false
   }
 
-  if (normalizedSource.includes(normalizedEvidence)) {
-    return true
-  }
+  const sourceSpans = sourceContextSpans(sourceContextText)
 
-  const evidenceTokens = evidenceContentTokens(evidence)
-  const sourceTokens = new Set(evidenceContentTokens(sourceContextText))
-
-  return sourceSupportsAllEvidenceTokens(evidenceTokens, sourceTokens)
+  return sourceSpans.some((sourceSpan) => sourceSpanSupportsEvidence(evidence, sourceSpan))
 }
 
 function containsInventedWeighting(value: Record<string, unknown>): boolean {
