@@ -426,6 +426,134 @@ describe('parseObjectiveExplanationOutput', () => {
     expect(parsed.explanation.result).toBe('incorrect')
   })
 
+  it('accepts source-grounded quoted evidence with normalized casing', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer misses that fare increases caused the route change.',
+        evidence: 'RISING fares made commuters switch routes',
+        misconception: 'The student named an effect rather than the stated cause.',
+        study_tip: 'Compare the question cause with the passage cause before answering.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText:
+          'Rising fares made commuters switch routes after the timetable changed.',
+      },
+    )
+
+    expect(parsed.status).toBe('completed')
+  })
+
+  it('rejects objective evidence that is unrelated to the source context', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer misses the stated cause.',
+        evidence: 'a mayor announced a new cycling tax',
+        misconception: 'The student named an unsupported cause.',
+        study_tip: 'Check the passage before selecting a cause.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText:
+          'The passage states that rising transport costs caused route changes.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it('rejects partially hallucinated objective evidence', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer adds a cause that is not in the source.',
+        evidence:
+          'rising transport costs caused route changes after the mayor announced a new tax',
+        misconception: 'The student mixed source evidence with an unsupported detail.',
+        study_tip: 'Keep the explanation limited to the provided source.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText:
+          'The passage states that rising transport costs caused route changes.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it('rejects evidence that only matches inside a larger source word', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source does not mention buses.',
+        evidence: 'bus',
+        misconception: 'The student inferred a transport type that is not present.',
+        study_tip: 'Use only words or ideas supported by the source sentence.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The business district changed after rising rents.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it('rejects evidence assembled from separate source sentences', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The evidence joins details from different sentences.',
+        evidence: 'the mayor announced rising costs',
+        misconception: 'The student combined unrelated details into one claim.',
+        study_tip: 'Check that one source sentence supports the whole evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText:
+          'Rising costs caused route changes. The mayor announced bike lanes.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it('rejects evidence that omits source negation', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source says the mayor announced a tax.',
+        evidence: 'mayor announced tax',
+        misconception: 'The student missed the negation in the source sentence.',
+        study_tip: 'Check whether the source denies the evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The mayor announced no tax.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
   it('fails malformed, unsafe, empty, and score-overriding explanations', () => {
     expect(
       parseObjectiveExplanationOutput('', {

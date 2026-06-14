@@ -29,6 +29,7 @@ type FailedAiOutput = {
     | 'unsafe_output'
     | 'off_task_output'
     | 'score_override_attempt'
+    | 'unsupported_evidence'
   failureMessage: string
 }
 
@@ -117,6 +118,7 @@ type WritingParseOptions = {
 
 type ObjectiveParseOptions = {
   deterministicResult: string
+  sourceContextText?: string
 }
 
 function failed(
@@ -236,14 +238,15 @@ function parseJsonObject(rawText: string): JsonParseResult {
 }
 
 function isOffTaskObject(value: Record<string, unknown>, expectedType: string): boolean {
-  const explicitType =
-    typeof value.feedback_type === 'string'
-      ? value.feedback_type
-      : typeof value.task_type === 'string'
-        ? value.task_type
-        : typeof value.type === 'string'
-          ? value.type
-          : null
+  let explicitType: string | null = null
+
+  if (typeof value.feedback_type === 'string') {
+    explicitType = value.feedback_type
+  } else if (typeof value.task_type === 'string') {
+    explicitType = value.task_type
+  } else if (typeof value.type === 'string') {
+    explicitType = value.type
+  }
 
   if (explicitType && explicitType !== expectedType) {
     return true
@@ -267,6 +270,60 @@ function containsUnsafeAdvice(value: unknown): boolean {
   ]
 
   return unsafePatterns.some((pattern) => lowerText.includes(pattern))
+}
+
+function normalizeEvidenceText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function evidenceTextTokens(value: string): string[] {
+  return normalizeEvidenceText(value).split(' ').filter(Boolean)
+}
+
+function hasContiguousTokenSequence(needle: string[], haystack: string[]): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) {
+    return false
+  }
+
+  for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    const candidate = haystack.slice(start, start + needle.length)
+    if (candidate.every((token, index) => token === needle[index])) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function sourceContextSpans(sourceContextText: string): string[] {
+  return sourceContextText
+    .split(/[.!?;\n]+/)
+    .map((span) => span.trim())
+    .filter(Boolean)
+}
+
+function sourceSpanSupportsEvidence(evidence: string, sourceSpan: string): boolean {
+  const evidenceTokens = evidenceTextTokens(evidence)
+  const sourceTokens = evidenceTextTokens(sourceSpan)
+
+  return hasContiguousTokenSequence(evidenceTokens, sourceTokens)
+}
+
+function hasSupportedEvidence(evidence: string, sourceContextText: string): boolean {
+  const normalizedEvidence = normalizeEvidenceText(evidence)
+  const normalizedSource = normalizeEvidenceText(sourceContextText)
+
+  if (!normalizedEvidence || !normalizedSource) {
+    return false
+  }
+
+  const sourceSpans = sourceContextSpans(sourceContextText)
+
+  return sourceSpans.some((sourceSpan) => sourceSpanSupportsEvidence(evidence, sourceSpan))
 }
 
 function containsInventedWeighting(value: Record<string, unknown>): boolean {
@@ -293,9 +350,11 @@ function classifySchemaFailure(
   value: Record<string, unknown>,
   expectedType: string,
 ): FailedAiOutput {
-  return isOffTaskObject(value, expectedType)
-    ? failed('off_task_output', 'Provider output was for a different task.')
-    : failed('schema_invalid', 'Provider output did not match the required schema.')
+  if (isOffTaskObject(value, expectedType)) {
+    return failed('off_task_output', 'Provider output was for a different task.')
+  }
+
+  return failed('schema_invalid', 'Provider output did not match the required schema.')
 }
 
 function parseCriteriaValidationError(error: unknown): FailedAiOutput | null {
@@ -442,6 +501,16 @@ export function parseObjectiveExplanationOutput(
     return failed(
       'score_override_attempt',
       'Provider output tried to override deterministic scoring.',
+    )
+  }
+
+  if (
+    options.sourceContextText &&
+    !hasSupportedEvidence(schemaResult.data.evidence, options.sourceContextText)
+  ) {
+    return failed(
+      'unsupported_evidence',
+      'Provider output cited evidence that was not found in the source context.',
     )
   }
 

@@ -389,6 +389,30 @@ describe("ai-feedback.repository", () => {
     expect(draft).toBeNull();
   });
 
+  it("does not expose review-required or rejected AI drafts to students", async () => {
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(null);
+
+    const draft = await getStudentVisibleAiFeedbackDraft({
+      submissionId,
+      studentId: requesterId,
+    });
+
+    expect(prisma.aiFeedbackDraft.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          visibilityMode: "instant_student_visible",
+          status: {
+            in: ["accepted", "approved", "finalized"],
+          },
+        }),
+      }),
+    );
+    expect(
+      prisma.aiFeedbackDraft.findFirst.mock.calls[0]?.[0].where.status.in,
+    ).not.toEqual(expect.arrayContaining(["review_required", "rejected"]));
+    expect(draft).toBeNull();
+  });
+
   it("does not expose instant-visible drafts from archived courses", async () => {
     prisma.aiFeedbackDraft.findFirst.mockResolvedValueOnce(null);
 

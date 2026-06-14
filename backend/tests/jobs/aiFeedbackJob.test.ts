@@ -585,6 +585,53 @@ describe("jobs.aiFeedbackJob", () => {
     );
   });
 
+  it("does not persist generated objective explanation payloads rejected by the harness", async () => {
+    const fixture = objectiveHarnessFixtures[0];
+    const rejectedOutput = JSON.stringify({
+      ...JSON.parse(fixture.providerOutput),
+      evidence: "a mayor announced a new cycling tax",
+    });
+    const providerRouter = {
+      generate: vi.fn(async (request: AiProviderRequest) =>
+        providerResult(request, rejectedOutput),
+      ),
+    };
+
+    prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+      status: "queued",
+      retryCount: 0,
+      deletedAt: null,
+    } as never);
+    prisma.aiObjectiveExplanation.updateMany.mockResolvedValue({
+      count: 1,
+    } as never);
+
+    await handleGenerateObjectiveExplanationJob(
+      {
+        id: "job-2",
+        name: AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
+        data: {
+          explanationId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
+          harnessInput: fixture,
+        },
+        expireInSeconds: 60,
+      },
+      { providerRouter },
+    );
+
+    const finalUpdate =
+      prisma.aiObjectiveExplanation.updateMany.mock.calls.at(-1)?.[0];
+
+    expect(finalUpdate?.data).toEqual(
+      expect.objectContaining({
+        status: "rejected",
+        failureCode: "unsupported_evidence",
+      }),
+    );
+    expect(finalUpdate?.data).not.toHaveProperty("generatedExplanation");
+  });
+
   it("does not convert generated objective explanations into failed audits when the success audit insert fails", async () => {
     const fixture = objectiveHarnessFixtures[0];
     const now = new Date("2026-06-08T07:00:00.000Z");

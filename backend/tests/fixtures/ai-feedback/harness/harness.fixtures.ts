@@ -3,7 +3,10 @@
  * Purpose: Provide deterministic AI feedback harness fixtures.
  * Why: Tests should exercise realistic provider outputs without network calls or credentials.
  */
-import type { AiFeedbackHarnessInput } from '../../../../src/modules/ai-feedback/harness/harness.types.js'
+import type {
+  AiFeedbackHarnessInput,
+  AiFeedbackHarnessReport,
+} from '../../../../src/modules/ai-feedback/harness/harness.types.js'
 
 const baseWritingPrompt = {
   assignment: {
@@ -308,3 +311,385 @@ export const objectiveHarnessFixtures = [
     short_explanation: 'The provider claims the student should receive credit.',
   }),
 ]
+
+const teacherReviewedPolicy = {
+  writingFeedbackMode: 'teacher_reviewed',
+  objectiveExplanations: 'off',
+  providerTier: 'auto',
+} as const
+
+const instantVisiblePolicy = {
+  writingFeedbackMode: 'instant_student_visible',
+  objectiveExplanations: 'off',
+  providerTier: 'premium',
+} as const
+
+function writingPromptWith(input: {
+  title: string
+  submission: typeof baseWritingPrompt.submission
+  aiPolicy?: typeof teacherReviewedPolicy | typeof instantVisiblePolicy
+  task1?: typeof visualTask1Prompt.tasks.task1
+  teacherConstraints?: string[]
+}) {
+  return {
+    ...baseWritingPrompt,
+    assignment: {
+      ...baseWritingPrompt.assignment,
+      title: input.title,
+      config: {
+        ...baseWritingPrompt.assignment.config,
+        aiPolicy: input.aiPolicy ?? teacherReviewedPolicy,
+      },
+    },
+    tasks: {
+      ...baseWritingPrompt.tasks,
+      ...(input.task1 ? { task1: input.task1 } : {}),
+    },
+    submission: input.submission,
+    teacherConstraints: input.teacherConstraints ?? baseWritingPrompt.teacherConstraints,
+  } satisfies AiFeedbackHarnessInput['promptInput']
+}
+
+function writingOutputWith(
+  overrides: Partial<typeof validWritingOutput>,
+): typeof validWritingOutput {
+  return {
+    ...validWritingOutput,
+    ...overrides,
+    safety_flags: {
+      ...validWritingOutput.safety_flags,
+      ...overrides.safety_flags,
+    },
+  }
+}
+
+const weakWritingPrompt = writingPromptWith({
+  title: 'Weak Teacher Reviewed Writing',
+  submission: {
+    task1: {
+      text: 'The chart go up and down. Cars are more. Buses less.',
+    },
+    task2: {
+      text: 'Transport free is good because people no money. I agree.',
+    },
+  },
+})
+
+const averageWritingPrompt = writingPromptWith({
+  title: 'Average Teacher Reviewed Writing',
+  submission: {
+    task1: {
+      text: 'Rail use increased steadily, while bus use fell after the first year.',
+    },
+    task2: {
+      text: 'Free public transport can help workers, although cities still need a stable budget.',
+    },
+  },
+})
+
+const strongInstantVisiblePrompt = writingPromptWith({
+  title: 'Strong Instant Visible Writing',
+  aiPolicy: instantVisiblePolicy,
+  submission: {
+    task1: {
+      text: 'Rail rose from 40% to 70%, overtaking buses by the end of the period.',
+    },
+    task2: {
+      text: 'While free transport increases access, targeted subsidies are more sustainable than universal free fares.',
+    },
+  },
+})
+
+const shortWritingPrompt = writingPromptWith({
+  title: 'Short Teacher Reviewed Writing',
+  submission: {
+    task1: { text: 'Rail went up.' },
+    task2: { text: 'I agree.' },
+  },
+})
+
+const copiedSamplePrompt = writingPromptWith({
+  title: 'Copied Sample Teacher Reviewed Writing',
+  submission: {
+    task1: {
+      text: 'I copied this from the sample answer: the graph illustrates transport choices.',
+    },
+    task2: {
+      text: 'I copied this from the sample answer and changed only a few words.',
+    },
+  },
+})
+
+const textOnlyTask1Prompt = writingPromptWith({
+  title: 'Text Only Task 1 Writing',
+  submission: {
+    task1: {
+      text: 'The process begins with ticket purchase and ends when passengers exit the station.',
+    },
+    task2: {
+      text: 'Governments should improve reliability before reducing fares.',
+    },
+  },
+})
+
+function visualCorpusPrompt(
+  title: string,
+  imageContext: NonNullable<typeof visualTask1Prompt.tasks.task1.imageContext>,
+) {
+  return writingPromptWith({
+    title,
+    submission: averageWritingPrompt.submission,
+    task1: {
+      ...visualTask1Prompt.tasks.task1,
+      imageContext,
+    },
+  })
+}
+
+const gptNanoConciseOutput = writingOutputWith({
+  rationale: 'Concise feedback: clear ideas, limited visual detail.',
+  strengths: ['Clear central opinion'],
+  improvement_areas: ['Add one more quantified comparison'],
+  next_steps: ['Revise the overview sentence'],
+  teacher_notes: 'Concise low-cost route output shape.',
+  confidence: 0.72,
+})
+
+const gptMiniPremiumOutput = writingOutputWith({
+  band_estimate: 7.5,
+  rationale:
+    'Premium route output gives fuller reasoning while preserving the expected JSON schema.',
+  strengths: ['Detailed comparison of transport changes', 'Balanced Task 2 position'],
+  improvement_areas: ['Tighten one long supporting sentence'],
+  next_steps: ['Add a concession sentence before the conclusion'],
+  teacher_notes: 'Premium route output shape remains teacher-reviewable.',
+  confidence: 0.88,
+})
+
+const hallucinatedCriteriaOutput = {
+  ...validWritingOutput,
+  criterion_band_suggestions: [
+    ...validWritingOutput.criterion_band_suggestions,
+    {
+      criterion_id: 'creativity_and_voice',
+      band: 9,
+      rationale: 'Invented criterion that is not part of IELTS writing.',
+    },
+  ],
+}
+
+const writingRegressionFixtures: AiFeedbackHarnessInput[] = [
+  writingFixture(
+    'weak_teacher_reviewed_writing',
+    writingOutputWith({
+      band_estimate: 5,
+      rationale: 'The response is understandable but underdeveloped.',
+      confidence: 0.45,
+    }),
+    weakWritingPrompt,
+  ),
+  writingFixture('average_teacher_reviewed_writing', validWritingOutput, averageWritingPrompt),
+  {
+    ...writingFixture(
+      'strong_instant_visible_writing',
+      gptMiniPremiumOutput,
+      strongInstantVisiblePrompt,
+    ),
+    routeKey: 'premium',
+  },
+  writingFixture(
+    'short_teacher_reviewed_writing',
+    writingOutputWith({
+      band_estimate: 4,
+      rationale: 'The response is too short for reliable automated feedback.',
+      confidence: 0.38,
+    }),
+    shortWritingPrompt,
+  ),
+  writingFixture(
+    'copied_sample_teacher_reviewed_writing',
+    writingOutputWith({
+      safety_flags: {
+        unsafe: true,
+        reasons: ['Submission appears copied from a sample response.'],
+      },
+    }),
+    copiedSamplePrompt,
+  ),
+  writingFixture('text_only_task1_prompt', validWritingOutput, textOnlyTask1Prompt),
+  writingFixture(
+    'visual_task1_inaccessible_image',
+    validWritingOutput,
+    visualCorpusPrompt('Visual Task 1 Inaccessible Image', {
+      status: 'image_unavailable',
+      reason: 'The attached image URL could not be read by the provider.',
+    }),
+  ),
+  writingFixture(
+    'visual_task1_oversized_image',
+    validWritingOutput,
+    visualCorpusPrompt('Visual Task 1 Oversized Image', {
+      status: 'image_unavailable',
+      reason: 'The image exceeded the configured AI image byte limit.',
+    }),
+  ),
+  writingFixture(
+    'visual_task1_unsupported_image',
+    validWritingOutput,
+    visualCorpusPrompt('Visual Task 1 Unsupported Image', {
+      status: 'image_unavailable',
+      reason: 'The image MIME type is not supported for AI feedback.',
+    }),
+  ),
+  {
+    ...writingFixture(
+      'visual_task1_teacher_approved_fallback_corpus',
+      validWritingOutput,
+      visualCorpusPrompt('Visual Task 1 Teacher Approved Fallback', {
+        status: 'teacher_summary_supplemental',
+        teacherSummary: 'Rail increased sharply while bus usage declined.',
+      }),
+    ),
+    allowVisualImageFallback: true,
+  },
+  {
+    ...writingFixture(
+      'gpt_5_4_nano_concise_writing',
+      gptNanoConciseOutput,
+      averageWritingPrompt,
+    ),
+    routeKey: 'low_cost',
+  },
+  {
+    ...writingFixture(
+      'gpt_5_4_mini_premium_writing',
+      gptMiniPremiumOutput,
+      strongInstantVisiblePrompt,
+    ),
+    routeKey: 'premium',
+  },
+  writingFixture('provider_empty_feedback', '', averageWritingPrompt),
+  writingFixture('provider_hallucinated_criteria', hallucinatedCriteriaOutput, averageWritingPrompt),
+  writingFixture('provider_off_task_response', {
+    feedback_type: 'study_plan',
+    content: 'This plan does not evaluate IELTS writing.',
+  }),
+]
+
+const correctReadingPrompt = {
+  ...baseObjectivePrompt,
+  studentAnswer: 'Rising transport costs',
+  deterministicResult: 'correct',
+} satisfies AiFeedbackHarnessInput['promptInput']
+
+const correctObjectiveOutput = {
+  ...validObjectiveOutput,
+  result: 'correct',
+  short_explanation: 'The answer matches the stated cause in the passage.',
+  misconception: 'No misconception detected for this item.',
+}
+
+const listeningTranscriptPrompt = {
+  ...baseObjectivePrompt,
+  assignment: {
+    ...baseObjectivePrompt.assignment,
+    title: 'Listening Harness Set',
+    type: 'listening',
+  },
+  question: {
+    id: 'q-listening-1',
+    text: 'What caused the platform change?',
+    acceptedAnswer: 'Track repairs',
+  },
+  studentAnswer: 'Bad weather',
+  deterministicResult: 'incorrect',
+  sourceContext: {
+    kind: 'listening_transcript',
+    text: 'The transcript says platform changes happened because of track repairs.',
+  },
+} satisfies AiFeedbackHarnessInput['promptInput']
+
+const listeningTranscriptOutput = {
+  result: 'incorrect',
+  short_explanation: 'The transcript names track repairs, not weather.',
+  evidence: 'platform changes happened because of track repairs',
+  misconception: 'The answer confuses an outside possibility with the stated reason.',
+  study_tip: 'Listen for cause phrases such as because of and due to.',
+}
+
+const teacherAuthoredExplanationPrompt = {
+  ...baseObjectivePrompt,
+  sourceContext: {
+    kind: 'reading_passage',
+    text: 'Teacher-authored note: paragraph 2 says fares rose before commuters changed routes.',
+  },
+} satisfies AiFeedbackHarnessInput['promptInput']
+
+const teacherAuthoredExplanationOutput = {
+  ...validObjectiveOutput,
+  evidence: 'fares rose before commuters changed routes',
+}
+
+const hallucinatedEvidenceOutput = {
+  ...validObjectiveOutput,
+  evidence: 'a mayor announced a new cycling tax',
+}
+
+const objectiveRegressionFixtures: AiFeedbackHarnessInput[] = [
+  objectiveFixture('valid_reading_correct_explanation', correctObjectiveOutput, correctReadingPrompt),
+  objectiveFixture(
+    'listening_transcript_explanation',
+    listeningTranscriptOutput,
+    listeningTranscriptPrompt,
+  ),
+  objectiveFixture(
+    'teacher_authored_explanation_context',
+    teacherAuthoredExplanationOutput,
+    teacherAuthoredExplanationPrompt,
+  ),
+  objectiveFixture(
+    'objective_markdown_wrapped_json',
+    `\`\`\`json\n${JSON.stringify(validObjectiveOutput)}\n\`\`\``,
+  ),
+  objectiveFixture('objective_missing_source_context', validObjectiveOutput, {
+    ...baseObjectivePrompt,
+    sourceContext: undefined,
+  }),
+  objectiveFixture('objective_explanation_unsafe_advice', {
+    ...validObjectiveOutput,
+    study_tip: 'Ask the teacher for their login password to view more answers.',
+  }),
+  objectiveFixture(
+    'objective_hallucinated_evidence',
+    hallucinatedEvidenceOutput,
+    baseObjectivePrompt,
+  ),
+  objectiveFixture('objective_partial_json', {
+    result: 'incorrect',
+    short_explanation: 'Missing required fields.',
+  }),
+  objectiveFixture('objective_empty_feedback', ''),
+]
+
+export const aiHarnessRegressionCorpus = {
+  coverageCategories: [
+    'teacher_reviewed_writing',
+    'instant_visible_writing',
+    'visual_task1',
+    'objective_explanation',
+    'provider_output_shape',
+    'safety_policy',
+    'provider_route_shape',
+  ],
+  fixtures: [...writingRegressionFixtures, ...objectiveRegressionFixtures],
+  expectedSummary: {
+    accepted: 10,
+    review_required: 6,
+    rejected: 5,
+    failed: 3,
+  },
+} satisfies {
+  coverageCategories: string[]
+  fixtures: AiFeedbackHarnessInput[]
+  expectedSummary: AiFeedbackHarnessReport['summary']
+}

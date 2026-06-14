@@ -126,6 +126,22 @@ async function markMalformedObjectivePayloadFailed(
   return true;
 }
 
+function objectiveSourceContextText(
+  input: ObjectiveExplanationJobPayload["harnessInput"],
+): string | undefined {
+  const context = input.promptInput.sourceContext;
+
+  if (context?.kind === "reading_passage") {
+    return context.text;
+  }
+
+  if (context?.kind === "listening_transcript") {
+    return context.text;
+  }
+
+  return undefined;
+}
+
 export async function processWritingDraftJob(
   job: PgBoss.Job<WritingDraftJobPayload>,
   deps: AiFeedbackJobDeps,
@@ -405,6 +421,7 @@ export async function processObjectiveExplanationJob(
     });
     parsed = parseObjectiveExplanationOutput(providerResult.rawText, {
       deterministicResult: payload.harnessInput.promptInput.deterministicResult,
+      sourceContextText: objectiveSourceContextText(payload.harnessInput),
     });
   } catch (error) {
     logger.error(
@@ -443,7 +460,7 @@ export async function processObjectiveExplanationJob(
   const status =
     harnessResult.status === "accepted" ? "completed" : harnessResult.status;
   const objectiveResultData =
-    parsed.status === "completed"
+    status === "completed" && parsed.status === "completed"
       ? {
           generatedExplanation: toJsonObject(parsed.explanation),
         }

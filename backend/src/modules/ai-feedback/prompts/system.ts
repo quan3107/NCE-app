@@ -7,7 +7,7 @@ import type { AiProviderMessage } from '../provider.types.js'
 import { buildIeltsWritingCriteriaSystemPromptFragment } from '../criteria/criteria.prompt.js'
 
 export const IELTS_WRITING_FEEDBACK_PROMPT_VERSION = 'ielts-writing-feedback-v1'
-export const OBJECTIVE_EXPLANATION_PROMPT_VERSION = 'objective-explanation-v1'
+export const OBJECTIVE_EXPLANATION_PROMPT_VERSION = 'objective-explanation-v2'
 
 export function buildIeltsWritingSystemMessage(): AiProviderMessage {
   return {
@@ -36,7 +36,7 @@ export function buildObjectiveExplanationSystemMessage(): AiProviderMessage {
       'Role: You explain deterministic reading and listening question scoring to students.',
       'Tone: student-safe, concise, and focused on learning.',
       'Boundary: Explain the deterministic scoring result and never override the answer key.',
-      'Evidence: Cite only the provided passage, transcript, source context, accepted answer, and student answer.',
+      'Evidence: The evidence field must be an exact quote from the provided passage, transcript, or source context.',
       'Insufficient context: If source context is insufficient, say what is missing and avoid unsupported claims.',
       'Listening limitation: When only an audio file ID is supplied, you must not pretend to inspect audio or quote audio content.',
       'Output: JSON-only. Do not wrap the response in markdown or prose.',

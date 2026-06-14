@@ -37,7 +37,7 @@ describe('buildObjectiveExplanationPrompt', () => {
 
     const messages = JSON.stringify(prompt.request.messages)
 
-    expect(prompt.promptVersion).toBe('objective-explanation-v1')
+    expect(prompt.promptVersion).toBe('objective-explanation-v2')
     expect(prompt.request).toMatchObject({
       taskType: 'objective_explanation',
       expectJson: true,
@@ -48,6 +48,7 @@ describe('buildObjectiveExplanationPrompt', () => {
       },
     })
     expect(messages).toContain('never override the answer key')
+    expect(messages).toContain('exact quote')
     expect(messages).toContain('Rising transport costs')
     expect(messages).toContain('rising transport costs forced commuters')
   })
