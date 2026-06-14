@@ -48,6 +48,7 @@ describe('buildObjectiveExplanationPrompt', () => {
       },
     })
     expect(messages).toContain('never override the answer key')
+    expect(messages).toContain('exact quote')
     expect(messages).toContain('Rising transport costs')
     expect(messages).toContain('rising transport costs forced commuters')
   })
