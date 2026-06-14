@@ -490,6 +490,49 @@ describe('parseObjectiveExplanationOutput', () => {
     })
   })
 
+  it('rejects evidence that only matches inside a larger source word', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source does not mention buses.',
+        evidence: 'bus',
+        misconception: 'The student inferred a transport type that is not present.',
+        study_tip: 'Use only words or ideas supported by the source sentence.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The business district changed after rising rents.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it('rejects evidence assembled from separate source sentences', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The evidence joins details from different sentences.',
+        evidence: 'the mayor announced rising costs',
+        misconception: 'The student combined unrelated details into one claim.',
+        study_tip: 'Check that one source sentence supports the whole evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText:
+          'Rising costs caused route changes. The mayor announced bike lanes.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
   it('fails malformed, unsafe, empty, and score-overriding explanations', () => {
     expect(
       parseObjectiveExplanationOutput('', {
