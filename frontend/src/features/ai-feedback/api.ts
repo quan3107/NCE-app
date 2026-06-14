@@ -10,6 +10,8 @@ import { ApiError, apiClient } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
 import type {
   WritingFeedbackApprovalRequest,
+  WritingFeedbackBatchRequest,
+  WritingFeedbackBatchResponse,
   WritingFeedbackHistoryResponse,
   WritingFeedbackRegenerateRequest,
   WritingFeedbackRejectRequest,
@@ -21,6 +23,8 @@ const writingFeedbackKey = (submissionId: string) =>
   ['ai-feedback', 'writing', submissionId] as const;
 const writingFeedbackHistoryKey = (submissionId: string) =>
   ['ai-feedback', 'writing', submissionId, 'drafts'] as const;
+const assignmentWritingFeedbackBatchKey = (assignmentId: string) =>
+  ['ai-feedback', 'writing', 'batch', assignmentId] as const;
 
 const isActiveDraft = (draft: WritingFeedbackResponse | null | undefined) =>
   draft?.status === 'queued' || draft?.status === 'running';
@@ -53,6 +57,24 @@ async function requestWritingFeedback(submissionId: string): Promise<WritingFeed
   return apiClient<WritingFeedbackResponse>(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing`,
     { method: 'POST' },
+  );
+}
+
+export async function requestAssignmentWritingFeedbackBatch({
+  courseId,
+  assignmentId,
+  payload,
+}: {
+  courseId: string;
+  assignmentId: string;
+  payload: WritingFeedbackBatchRequest;
+}): Promise<WritingFeedbackBatchResponse> {
+  return apiClient<WritingFeedbackBatchResponse, WritingFeedbackBatchRequest>(
+    `/api/v1/courses/${courseId}/assignments/${assignmentId}/ai-feedback/writing/batch`,
+    {
+      method: 'POST',
+      body: payload,
+    },
   );
 }
 
@@ -154,6 +176,27 @@ export function useRequestWritingFeedbackMutation(submissionId: string) {
   return useMutation({
     mutationFn: () => requestWritingFeedback(submissionId),
     onSuccess: () => invalidateWritingFeedback(submissionId),
+  });
+}
+
+export function useRequestAssignmentWritingFeedbackBatchMutation({
+  courseId,
+  assignmentId,
+}: {
+  courseId: string;
+  assignmentId: string;
+}) {
+  return useMutation({
+    mutationKey: assignmentWritingFeedbackBatchKey(assignmentId),
+    mutationFn: (payload: WritingFeedbackBatchRequest) =>
+      requestAssignmentWritingFeedbackBatch({ courseId, assignmentId, payload }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['assignments:submissions'] });
+      void queryClient.invalidateQueries({
+        queryKey: ['ai-feedback', 'writing'],
+        exact: false,
+      });
+    },
   });
 }
 
