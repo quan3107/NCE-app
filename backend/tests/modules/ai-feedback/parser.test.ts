@@ -426,12 +426,12 @@ describe('parseObjectiveExplanationOutput', () => {
     expect(parsed.explanation.result).toBe('incorrect')
   })
 
-  it('accepts source-grounded paraphrased evidence without requiring exact quotes', () => {
+  it('accepts source-grounded quoted evidence with normalized casing', () => {
     const parsed = parseObjectiveExplanationOutput(
       JSON.stringify({
         result: 'incorrect',
         short_explanation: 'The answer misses that fare increases caused the route change.',
-        evidence: 'commuters changed routes because fares increased',
+        evidence: 'RISING fares made commuters switch routes',
         misconception: 'The student named an effect rather than the stated cause.',
         study_tip: 'Compare the question cause with the passage cause before answering.',
       }),
@@ -524,6 +524,27 @@ describe('parseObjectiveExplanationOutput', () => {
         deterministicResult: 'incorrect',
         sourceContextText:
           'Rising costs caused route changes. The mayor announced bike lanes.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it('rejects evidence that omits source negation', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source says the mayor announced a tax.',
+        evidence: 'mayor announced tax',
+        misconception: 'The student missed the negation in the source sentence.',
+        study_tip: 'Check whether the source denies the evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The mayor announced no tax.',
       },
     )
 
