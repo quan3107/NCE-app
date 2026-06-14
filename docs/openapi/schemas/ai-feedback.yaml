@@ -193,20 +193,27 @@ WritingFeedbackRegenerateRequest:
       description: Optional provider route override for this regeneration only.
 
 WritingFeedbackBatchRequest:
-  type: object
   description: Select exactly one assignment-scoped batch source.
-  properties:
-    submissionIds:
-      type: array
-      minItems: 1
-      maxItems: 100
-      items:
-        type: string
-        format: uuid
-    filter:
-      type: string
-      enum: [submitted, ungraded]
-      description: submitted selects submitted, late, or graded responses; ungraded selects submitted or late responses without an active grade.
+  oneOf:
+    - type: object
+      required: [submissionIds]
+      additionalProperties: false
+      properties:
+        submissionIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+            format: uuid
+    - type: object
+      required: [filter]
+      additionalProperties: false
+      properties:
+        filter:
+          type: string
+          enum: [submitted, ungraded]
+          description: submitted selects submitted, late, or graded responses; ungraded selects submitted or late responses without an active grade.
 
 WritingFeedbackBatchResult:
   type: object
@@ -217,7 +224,7 @@ WritingFeedbackBatchResult:
       format: uuid
     status:
       type: string
-      enum: [queued, review_required, skipped, unauthorized, failed_to_queue]
+      enum: [queued, review_required, skipped, unauthorized, policy_disabled, failed_to_queue]
     draft:
       $ref: '#/WritingFeedbackResponse'
     reason:
