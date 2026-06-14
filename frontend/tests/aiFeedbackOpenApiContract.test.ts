@@ -98,10 +98,21 @@ test('AI feedback batch generation is assignment-scoped and documents row result
     'WritingFeedbackBatchResult',
     'WritingFeedbackBatchResponse',
   );
+  const batchRequest = section(
+    schemasYaml,
+    'WritingFeedbackBatchRequest',
+    'WritingFeedbackBatchResult',
+  );
 
   assert.match(
     openapiYaml,
     /\/api\/v1\/courses\/\{courseId\}\/assignments\/\{assignmentId\}\/ai-feedback\/writing\/batch:/,
   );
-  assert.match(batchResult, /enum: \[queued, review_required, skipped, unauthorized, failed_to_queue\]/);
+  assert.match(batchRequest, /^  oneOf:/m);
+  assert.match(batchRequest, /required: \[submissionIds\]/);
+  assert.match(batchRequest, /required: \[filter\]/);
+  assert.match(
+    batchResult,
+    /enum: \[queued, review_required, skipped, unauthorized, policy_disabled, failed_to_queue\]/,
+  );
 });
