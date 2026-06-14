@@ -75,6 +75,7 @@ const aiFeedbackConfig = configModule.aiFeedbackConfig
 
 const submissionId = '11111111-1111-4111-8111-111111111111'
 const assignmentId = '22222222-2222-4222-8222-222222222222'
+const courseId = '77777777-7777-4777-8777-777777777777'
 const studentId = '33333333-3333-4333-8333-333333333333'
 const ownerId = '44444444-4444-4444-8444-444444444444'
 const coTeacherId = '55555555-5555-4555-8555-555555555555'
@@ -115,7 +116,7 @@ const baseSubmission = {
     id: assignmentId,
     title: 'Writing Drill',
     type: AssignmentType.writing,
-    courseId: '77777777-7777-4777-8777-777777777777',
+    courseId,
     assignmentConfig: {
       version: 1,
       instructions: 'Write both IELTS tasks.',
@@ -412,7 +413,7 @@ describe('requestAssignmentWritingFeedbackBatch', () => {
     aiFeedbackConfig.baseUrl = 'https://example.com/v1'
     prisma.assignment.findFirst.mockResolvedValue({
       id: assignmentId,
-      courseId: baseSubmission.assignment.courseId,
+      courseId,
       course: {
         ownerId,
         enrollments: [],
@@ -491,7 +492,7 @@ describe('requestAssignmentWritingFeedbackBatch', () => {
 
   it('queues eligible submissions and reports duplicate or failed batch rows', async () => {
     const response = await requestAssignmentWritingFeedbackBatch(
-      { assignmentId },
+      { courseId, assignmentId },
       {
         submissionIds: [submissionId, secondSubmissionId, thirdSubmissionId],
       },
@@ -502,6 +503,7 @@ describe('requestAssignmentWritingFeedbackBatch', () => {
       expect.objectContaining({
         where: {
           id: assignmentId,
+          courseId,
           deletedAt: null,
           course: { deletedAt: null },
         },
@@ -538,7 +540,7 @@ describe('requestAssignmentWritingFeedbackBatch', () => {
 
   it('resolves submitted/ungraded filters under the authorized assignment', async () => {
     await requestAssignmentWritingFeedbackBatch(
-      { assignmentId },
+      { courseId, assignmentId },
       { filter: 'ungraded' },
       teacherActor,
     )
@@ -550,14 +552,75 @@ describe('requestAssignmentWritingFeedbackBatch', () => {
           status: { in: ['submitted', 'late'] },
           OR: [{ grade: null }, { grade: { deletedAt: { not: null } } }],
         }),
+        take: 100,
       }),
     )
+  })
+
+  it('caps filter-selected batches before queueing candidates', async () => {
+    const candidates = Array.from({ length: 125 }, (_, index) => ({
+      id: `${String(index).padStart(8, '0')}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`,
+    }))
+    prisma.submission.findMany.mockResolvedValueOnce(candidates.slice(0, 100) as never)
+    findActiveAiFeedbackDraftSubmissionIds.mockResolvedValueOnce(new Set())
+
+    const response = await requestAssignmentWritingFeedbackBatch(
+      { courseId, assignmentId },
+      { filter: 'submitted' },
+      teacherActor,
+    )
+
+    expect(prisma.submission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 100,
+      }),
+    )
+    expect(findActiveAiFeedbackDraftSubmissionIds).toHaveBeenCalledWith(
+      candidates.slice(0, 100).map((candidate) => candidate.id),
+    )
+    expect(createAiFeedbackDraft).toHaveBeenCalledTimes(100)
+    expect(response.requestedCount).toBe(100)
+    expect(response.results).toHaveLength(100)
+  })
+
+  it('reports assignment policy failures without labeling rows unauthorized', async () => {
+    prisma.submission.findMany.mockResolvedValueOnce([{ id: submissionId }] as never)
+    findActiveAiFeedbackDraftSubmissionIds.mockResolvedValueOnce(new Set())
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      assignment: {
+        ...baseSubmission.assignment,
+        assignmentConfig: {
+          ...baseSubmission.assignment.assignmentConfig,
+          aiPolicy: {
+            writingFeedbackMode: 'off',
+            objectiveExplanations: 'off',
+            providerTier: 'auto',
+          },
+        },
+      },
+    } as never)
+
+    const response = await requestAssignmentWritingFeedbackBatch(
+      { courseId, assignmentId },
+      { filter: 'submitted' },
+      teacherActor,
+    )
+
+    expect(response.results).toEqual([
+      {
+        submissionId,
+        status: 'policy_disabled',
+        reason: 'AI writing feedback is not enabled for this assignment.',
+      },
+    ])
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled()
   })
 
   it('rejects batch access before listing assignment submissions', async () => {
     prisma.assignment.findFirst.mockResolvedValueOnce({
       id: assignmentId,
-      courseId: baseSubmission.assignment.courseId,
+      courseId,
       course: {
         ownerId,
         enrollments: [],
@@ -566,7 +629,7 @@ describe('requestAssignmentWritingFeedbackBatch', () => {
 
     await expect(
       requestAssignmentWritingFeedbackBatch(
-        { assignmentId },
+        { courseId, assignmentId },
         { filter: 'submitted' },
         {
           id: coTeacherId,
@@ -576,6 +639,36 @@ describe('requestAssignmentWritingFeedbackBatch', () => {
       ),
     ).rejects.toMatchObject({ statusCode: 403 })
 
+    expect(prisma.submission.findMany).not.toHaveBeenCalled()
+  })
+
+  it('requires the nested route course id to match the assignment', async () => {
+    prisma.assignment.findFirst.mockResolvedValueOnce(null)
+
+    await expect(
+      requestAssignmentWritingFeedbackBatch(
+        {
+          courseId: 'abababab-abab-4bab-8bab-abababababab',
+          assignmentId,
+        },
+        { filter: 'submitted' },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: 'Assignment not found.',
+    })
+
+    expect(prisma.assignment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: assignmentId,
+          courseId: 'abababab-abab-4bab-8bab-abababababab',
+          deletedAt: null,
+          course: { deletedAt: null },
+        },
+      }),
+    )
     expect(prisma.submission.findMany).not.toHaveBeenCalled()
   })
 })
