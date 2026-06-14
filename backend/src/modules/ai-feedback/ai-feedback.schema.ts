@@ -236,7 +236,7 @@ export const aiWritingFeedbackRegenerateBodySchema = z
 
 export const assignmentWritingFeedbackBatchParamsSchema = z
   .object({
-    courseId: z.string().uuid().optional(),
+    courseId: z.string().uuid(),
     assignmentId: z.string().uuid(),
   })
   .strict();
@@ -327,7 +327,14 @@ export const writingFeedbackHistoryResponseSchema = z.object({
 
 export const aiWritingFeedbackBatchResultSchema = z.object({
   submissionId: z.string().uuid(),
-  status: z.enum(["queued", "review_required", "skipped", "unauthorized", "failed_to_queue"]),
+  status: z.enum([
+    "queued",
+    "review_required",
+    "skipped",
+    "unauthorized",
+    "policy_disabled",
+    "failed_to_queue",
+  ]),
   draft: writingFeedbackResponseSchema.optional(),
   reason: z.string().min(1).optional(),
 });
