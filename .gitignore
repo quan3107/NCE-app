@@ -75,10 +75,14 @@ CODEBASE_AUDIT_*.txt
 docs/*
 !docs/openapi/
 !docs/openapi/**
+!docs/ai-feedback-prompts.md
+!docs/ai-feedback-setup.md
 !docs/npm-security-update-path-2026-05-25.md
 
 # === Markdown ===
 *.md
 !README.md
 !PROGRESS.md
+!docs/ai-feedback-prompts.md
+!docs/ai-feedback-setup.md
 !docs/npm-security-update-path-2026-05-25.md

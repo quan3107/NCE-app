@@ -29,6 +29,10 @@ The writing builder includes:
 The builder intentionally avoids student identifiers and only copies whitelisted
 submission fields into the prompt.
 
+Generation runs server-side. Prompt builders prepare provider-neutral messages
+for the backend adapter; no prompt assembly, model inference, or provider
+credential handling happens in the student's browser.
+
 For visual IELTS Writing Task 1, the builder records an `image_context` status:
 `not_visual`, `image_attached`, `image_unavailable`,
 `teacher_summary_supplemental`, or `fallback_only`. When backend file access and
@@ -79,7 +83,15 @@ The model must return JSON only:
 Writing output is advisory. It must never override the teacher-final grade, and
 it must use only supplied criterion IDs. Parser-normalized writing output carries
 the criteria version so persisted AI feedback drafts can be traced to the
-criteria contract used at generation time.
+criteria contract used at generation time. The app-owned criteria layer validates
+criterion IDs, task applicability, equal per-task criterion weights, Task 1 one
+third plus Task 2 two thirds weighting, and valid 0.5 band increments from 0 to
+9. AI output cannot invent criteria, change weights, or create unsupported band
+increments.
+
+Writing visibility is assignment-controlled. A draft may require teacher review
+or become instant provisional feedback only when assignment policy permits it.
+Teacher-final grading remains authoritative in both modes.
 
 ## Objective Explanations
 
@@ -108,6 +120,9 @@ The model must return JSON only:
   "study_tip": "Concrete study tip."
 }
 ```
+
+Speaking AI is deferred. Prompt builders and operational docs should not imply
+that speaking feedback is available in the first release.
 
 ## Parser Failure Policy
 
@@ -159,3 +174,8 @@ is unavailable, the harness downgrades the case with `image_context_unavailable`
 instead of accepting feedback that pretends the model saw the visual. Text-only
 visual fallback is accepted only when the harness input explicitly marks that
 fallback as teacher-approved.
+
+The harness is a backend development and CI tool. It is not offline browser AI,
+local model inference, or a substitute for later env-gated live-provider
+benchmarks that measure cost, latency, and route quality against real hosted
+providers.
