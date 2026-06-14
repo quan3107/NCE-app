@@ -29,6 +29,7 @@ type FailedAiOutput = {
     | 'unsafe_output'
     | 'off_task_output'
     | 'score_override_attempt'
+    | 'unsupported_evidence'
   failureMessage: string
 }
 
@@ -117,6 +118,7 @@ type WritingParseOptions = {
 
 type ObjectiveParseOptions = {
   deterministicResult: string
+  sourceContextText?: string
 }
 
 function failed(
@@ -267,6 +269,21 @@ function containsUnsafeAdvice(value: unknown): boolean {
   ]
 
   return unsafePatterns.some((pattern) => lowerText.includes(pattern))
+}
+
+function normalizeEvidenceText(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function hasSupportedEvidence(evidence: string, sourceContextText: string): boolean {
+  const normalizedEvidence = normalizeEvidenceText(evidence)
+  const normalizedSource = normalizeEvidenceText(sourceContextText)
+
+  return (
+    normalizedEvidence.length > 0 &&
+    normalizedSource.length > 0 &&
+    normalizedSource.includes(normalizedEvidence)
+  )
 }
 
 function containsInventedWeighting(value: Record<string, unknown>): boolean {
@@ -442,6 +459,16 @@ export function parseObjectiveExplanationOutput(
     return failed(
       'score_override_attempt',
       'Provider output tried to override deterministic scoring.',
+    )
+  }
+
+  if (
+    options.sourceContextText &&
+    !hasSupportedEvidence(schemaResult.data.evidence, options.sourceContextText)
+  ) {
+    return failed(
+      'unsupported_evidence',
+      'Provider output cited evidence that was not found in the source context.',
     )
   }
 
