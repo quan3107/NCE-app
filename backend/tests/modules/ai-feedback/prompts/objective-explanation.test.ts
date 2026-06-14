@@ -37,7 +37,7 @@ describe('buildObjectiveExplanationPrompt', () => {
 
     const messages = JSON.stringify(prompt.request.messages)
 
-    expect(prompt.promptVersion).toBe('objective-explanation-v1')
+    expect(prompt.promptVersion).toBe('objective-explanation-v2')
     expect(prompt.request).toMatchObject({
       taskType: 'objective_explanation',
       expectJson: true,
