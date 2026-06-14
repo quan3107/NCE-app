@@ -32,6 +32,23 @@ npm start
 - `npm run lint` - applies ESLint checks.
 - `npm run format` - verifies Prettier formatting.
 
+## AI Feedback Operations
+AI feedback is disabled by default with `AI_FEEDBACK_ENABLED=false`. Hosted
+OpenAI-compatible generation runs only on the backend, using `AI_API_KEY`,
+`AI_BASE_URL`, route model IDs, reasoning efforts, timeout limits, and image
+capability flags from `.env`.
+
+The default routes are `low_cost` (`gpt-5.4-nano`, medium reasoning) and
+`premium` (`gpt-5.4-mini`, high reasoning). Verify the configured model IDs and
+image-input support for the provider account before enabling visual IELTS
+Writing Task 1 feedback. Admins can inspect redacted provider readiness at
+`GET /api/v1/ai-feedback/health`.
+
+See `../docs/ai-feedback-setup.md` for setup, disable/fallback behavior, budget
+controls, image policy, and live-provider readiness guidance. See
+`../docs/ai-feedback-prompts.md` for prompt contracts, criteria versioning,
+parser failure policy, and provider-free harness behavior.
+
 ## Structure
 - `src/app.ts` - Express app factory with core middleware, versioned routing, and error handling.
 - `src/server.ts` - HTTP bootstrapper that reads validated env config and exposes the Express app.
