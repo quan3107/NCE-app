@@ -29,6 +29,9 @@ const ungradedFilterStatuses = [
   SubmissionStatus.submitted,
   SubmissionStatus.late,
 ] as const;
+const maxBatchSubmissionCount = 100;
+const writingFeedbackDisabledMessage =
+  "AI writing feedback is not enabled for this assignment.";
 
 type BatchCandidate = {
   id: string;
@@ -86,12 +89,14 @@ function assertCanAccessBatchAssignment(
 }
 
 async function loadBatchAssignment(
+  courseId: string,
   assignmentId: string,
   actor: RequestActor | undefined,
 ) {
   const assignment = await prisma.assignment.findFirst({
     where: {
       id: assignmentId,
+      courseId,
       deletedAt: null,
       course: { deletedAt: null },
     },
@@ -187,6 +192,7 @@ async function listBatchCandidatesByFilter(
     orderBy: {
       createdAt: "asc",
     },
+    take: maxBatchSubmissionCount,
   });
 }
 
@@ -201,6 +207,10 @@ function isHttpStatus(error: unknown, statusCode: number): boolean {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "AI writing feedback could not be queued.";
+}
+
+function isWritingFeedbackPolicyDisabled(error: unknown): boolean {
+  return isHttpStatus(error, 403) && errorMessage(error) === writingFeedbackDisabledMessage;
 }
 
 function statusForDraft(draft: WritingFeedbackResponse): BatchResult["status"] {
@@ -220,6 +230,14 @@ async function queueBatchSubmission(
       draft,
     };
   } catch (error) {
+    if (isWritingFeedbackPolicyDisabled(error)) {
+      return {
+        submissionId,
+        status: "policy_disabled",
+        reason: writingFeedbackDisabledMessage,
+      };
+    }
+
     if (isHttpStatus(error, 403) || isHttpStatus(error, 404)) {
       return {
         submissionId,
@@ -249,9 +267,10 @@ export async function requestAssignmentWritingFeedbackBatch(
   payload: unknown,
   actor?: RequestActor,
 ): Promise<AiWritingFeedbackBatchResponse> {
-  const { assignmentId } = assignmentWritingFeedbackBatchParamsSchema.parse(params);
+  const { courseId, assignmentId } =
+    assignmentWritingFeedbackBatchParamsSchema.parse(params);
   const request = aiWritingFeedbackBatchRequestSchema.parse(payload ?? {});
-  await loadBatchAssignment(assignmentId, actor);
+  await loadBatchAssignment(courseId, assignmentId, actor);
   if (!actor) {
     throw createHttpError(
       401,
