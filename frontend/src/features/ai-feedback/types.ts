@@ -92,6 +92,7 @@ export type WritingFeedbackBatchResult = {
     | 'review_required'
     | 'skipped'
     | 'unauthorized'
+    | 'policy_disabled'
     | 'failed_to_queue';
   draft?: WritingFeedbackResponse;
   reason?: string;
