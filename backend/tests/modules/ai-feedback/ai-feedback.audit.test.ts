@@ -16,7 +16,7 @@ describe("AI feedback audit redaction", () => {
       routeKey: "low_cost",
       provider: "openai-compatible",
       model: "gpt-5.4-nano",
-      promptVersion: "objective-explanation-v1",
+      promptVersion: "objective-explanation-v2",
       teacherDecision: "approved",
       payload: {
         prompt:
@@ -37,7 +37,7 @@ describe("AI feedback audit redaction", () => {
       routeKey: "low_cost",
       provider: "openai-compatible",
       model: "gpt-5.4-nano",
-      promptVersion: "objective-explanation-v1",
+      promptVersion: "objective-explanation-v2",
       teacherDecision: "approved",
       payloadSummary: {
         prompt: expect.objectContaining({
