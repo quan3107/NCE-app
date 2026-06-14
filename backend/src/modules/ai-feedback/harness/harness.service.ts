@@ -263,6 +263,14 @@ function objectiveSourceContextFailure(input: ObjectiveExplanationHarnessInput):
   return null
 }
 
+function objectiveSourceContextText(input: ObjectiveExplanationHarnessInput): string | undefined {
+  const context = input.promptInput.sourceContext
+
+  return context?.kind === 'reading_passage' || context?.kind === 'listening_transcript'
+    ? context.text
+    : undefined
+}
+
 function evaluateObjectiveHarness(
   input: ObjectiveExplanationHarnessInput,
 ): AiFeedbackHarnessResult {
@@ -291,6 +299,7 @@ function evaluateObjectiveHarness(
 
   const parsed = parseObjectiveExplanationOutput(input.providerOutput, {
     deterministicResult: input.promptInput.deterministicResult,
+    sourceContextText: objectiveSourceContextText(input),
   })
 
   if (parsed.status !== 'completed') {
