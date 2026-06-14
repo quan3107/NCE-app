@@ -32,6 +32,7 @@ export type AiFeedbackHarnessReasonCode =
   | 'unsafe_output'
   | 'off_task_output'
   | 'score_override_attempt'
+  | 'unsupported_evidence'
   | 'harness_exception'
 
 export type WritingFeedbackHarnessInput = {
