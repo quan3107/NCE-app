@@ -284,69 +284,6 @@ function evidenceTextTokens(value: string): string[] {
   return normalizeEvidenceText(value).split(' ').filter(Boolean)
 }
 
-const evidenceStopWords = new Set([
-  'about',
-  'answer',
-  'after',
-  'because',
-  'before',
-  'context',
-  'evidence',
-  'from',
-  'passage',
-  'question',
-  'source',
-  'stated',
-  'student',
-  'that',
-  'their',
-  'there',
-  'this',
-  'with',
-])
-
-const evidenceEquivalentTokens = new Map([
-  ['ris', 'increase'],
-  ['increas', 'increase'],
-  ['increased', 'increase'],
-  ['increase', 'increase'],
-  ['switch', 'change'],
-  ['chang', 'change'],
-  ['changed', 'change'],
-  ['change', 'change'],
-])
-
-function normalizeEvidenceToken(token: string): string {
-  let normalized = token
-
-  if (normalized.length > 5 && normalized.endsWith('ies')) {
-    normalized = `${normalized.slice(0, -3)}y`
-  } else if (normalized.length > 4 && normalized.endsWith('ing')) {
-    normalized = normalized.slice(0, -3)
-  } else if (normalized.length > 4 && normalized.endsWith('ed')) {
-    normalized = normalized.slice(0, -2)
-  } else if (normalized.length > 3 && normalized.endsWith('s')) {
-    normalized = normalized.slice(0, -1)
-  }
-
-  const equivalentToken = evidenceEquivalentTokens.get(normalized)
-  if (equivalentToken) {
-    return equivalentToken
-  }
-
-  return normalized
-}
-
-function evidenceContentTokens(value: string): string[] {
-  const tokens = evidenceTextTokens(value)
-  const contentTokens = tokens
-    .map(normalizeEvidenceToken)
-    .filter((token) => token.length > 2)
-    .filter((token) => !evidenceStopWords.has(token))
-
-  return Array.from(new Set(contentTokens))
-}
-
 function hasContiguousTokenSequence(needle: string[], haystack: string[]): boolean {
   if (needle.length === 0 || needle.length > haystack.length) {
     return false
@@ -362,17 +299,6 @@ function hasContiguousTokenSequence(needle: string[], haystack: string[]): boole
   return false
 }
 
-function sourceSupportsAllEvidenceTokens(
-  evidenceTokens: string[],
-  sourceTokens: Set<string>,
-): boolean {
-  if (evidenceTokens.length === 0) {
-    return false
-  }
-
-  return evidenceTokens.every((token) => sourceTokens.has(token))
-}
-
 function sourceContextSpans(sourceContextText: string): string[] {
   return sourceContextText
     .split(/[.!?;\n]+/)
@@ -384,14 +310,7 @@ function sourceSpanSupportsEvidence(evidence: string, sourceSpan: string): boole
   const evidenceTokens = evidenceTextTokens(evidence)
   const sourceTokens = evidenceTextTokens(sourceSpan)
 
-  if (hasContiguousTokenSequence(evidenceTokens, sourceTokens)) {
-    return true
-  }
-
-  const evidenceContent = evidenceContentTokens(evidence)
-  const sourceContent = new Set(evidenceContentTokens(sourceSpan))
-
-  return sourceSupportsAllEvidenceTokens(evidenceContent, sourceContent)
+  return hasContiguousTokenSequence(evidenceTokens, sourceTokens)
 }
 
 function hasSupportedEvidence(evidence: string, sourceContextText: string): boolean {
