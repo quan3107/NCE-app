@@ -7,7 +7,7 @@ import type { AiProviderMessage } from '../provider.types.js'
 import { buildIeltsWritingCriteriaSystemPromptFragment } from '../criteria/criteria.prompt.js'
 
 export const IELTS_WRITING_FEEDBACK_PROMPT_VERSION = 'ielts-writing-feedback-v1'
-export const OBJECTIVE_EXPLANATION_PROMPT_VERSION = 'objective-explanation-v1'
+export const OBJECTIVE_EXPLANATION_PROMPT_VERSION = 'objective-explanation-v2'
 
 export function buildIeltsWritingSystemMessage(): AiProviderMessage {
   return {
