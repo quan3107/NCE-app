@@ -12,6 +12,7 @@ import {
   serializeAiFeedbackHarnessReport,
 } from '../../../../src/modules/ai-feedback/harness/harness.service.js'
 import {
+  aiHarnessRegressionCorpus,
   objectiveHarnessFixtures,
   writingHarnessFixtures,
 } from '../../../fixtures/ai-feedback/harness/harness.fixtures.js'
@@ -194,5 +195,86 @@ describe('buildAiFeedbackHarnessReport', () => {
     expect(serialized).toContain('"fixtureId": "valid_writing_feedback"')
     expect(serialized).not.toContain('The chart rose from 40 to 70 percent')
     expect(serialized).not.toContain('share account passwords')
+  })
+})
+
+describe('AI harness regression corpus', () => {
+  it('runs the named deterministic corpus and reports every terminal status', () => {
+    const results = runAiFeedbackHarness(aiHarnessRegressionCorpus.fixtures)
+    const report = buildAiFeedbackHarnessReport(results)
+
+    expect(report.summary).toEqual(aiHarnessRegressionCorpus.expectedSummary)
+    expect(report.rows).toHaveLength(aiHarnessRegressionCorpus.fixtures.length)
+
+    for (const requiredCategory of [
+      'teacher_reviewed_writing',
+      'instant_visible_writing',
+      'visual_task1',
+      'objective_explanation',
+      'provider_output_shape',
+      'safety_policy',
+      'provider_route_shape',
+    ]) {
+      expect(aiHarnessRegressionCorpus.coverageCategories).toContain(requiredCategory)
+    }
+
+    expect(report.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fixtureId: 'weak_teacher_reviewed_writing',
+          status: 'review_required',
+          reasonCode: 'low_confidence',
+        }),
+        expect.objectContaining({
+          fixtureId: 'strong_instant_visible_writing',
+          status: 'accepted',
+          reasonCode: 'accepted',
+          routeKey: 'premium',
+        }),
+        expect.objectContaining({
+          fixtureId: 'visual_task1_unsupported_image',
+          status: 'review_required',
+          reasonCode: 'image_context_unavailable',
+        }),
+        expect.objectContaining({
+          fixtureId: 'listening_transcript_explanation',
+          status: 'accepted',
+          reasonCode: 'accepted',
+        }),
+        expect.objectContaining({
+          fixtureId: 'objective_explanation_unsafe_advice',
+          status: 'rejected',
+          reasonCode: 'unsafe_output',
+        }),
+        expect.objectContaining({
+          fixtureId: 'objective_hallucinated_evidence',
+          status: 'rejected',
+          reasonCode: 'unsupported_evidence',
+        }),
+        expect.objectContaining({
+          fixtureId: 'gpt_5_4_nano_concise_writing',
+          status: 'accepted',
+          reasonCode: 'accepted',
+          routeKey: 'low_cost',
+        }),
+        expect.objectContaining({
+          fixtureId: 'gpt_5_4_mini_premium_writing',
+          status: 'accepted',
+          reasonCode: 'accepted',
+          routeKey: 'premium',
+        }),
+      ]),
+    )
+  })
+
+  it('keeps the corpus report scrubbed of raw submission and provider text', () => {
+    const report = buildAiFeedbackHarnessReport(
+      runAiFeedbackHarness(aiHarnessRegressionCorpus.fixtures),
+    )
+    const serialized = serializeAiFeedbackHarnessReport(report)
+
+    expect(serialized).not.toContain('I copied this from the sample answer')
+    expect(serialized).not.toContain('share account passwords')
+    expect(serialized).not.toContain('The transcript says platform changes')
   })
 })
