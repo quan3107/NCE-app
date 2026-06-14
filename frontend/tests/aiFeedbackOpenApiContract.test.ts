@@ -81,3 +81,27 @@ test('AI feedback regenerate 409 can return review-required feedback', async () 
   assert.match(regeneration, /\$ref: '..\/schemas\/ai-feedback.yaml#\/WritingFeedbackResponse'/);
   assert.match(regeneration, /\$ref: '..\/schemas\/common.yaml#\/ErrorResponse'/);
 });
+
+test('AI feedback batch generation is assignment-scoped and documents row results', async () => {
+  const openapiPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/openapi.yaml',
+  );
+  const schemasPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/ai-feedback.yaml',
+  );
+  const openapiYaml = await readFile(openapiPath, 'utf8');
+  const schemasYaml = await readFile(schemasPath, 'utf8');
+  const batchResult = section(
+    schemasYaml,
+    'WritingFeedbackBatchResult',
+    'WritingFeedbackBatchResponse',
+  );
+
+  assert.match(
+    openapiYaml,
+    /\/api\/v1\/courses\/\{courseId\}\/assignments\/\{assignmentId\}\/ai-feedback\/writing\/batch:/,
+  );
+  assert.match(batchResult, /enum: \[queued, review_required, skipped, unauthorized, failed_to_queue\]/);
+});
