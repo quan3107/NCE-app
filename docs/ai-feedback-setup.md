@@ -20,12 +20,14 @@ The first hosted provider is `openai-compatible` with `AI_BASE_URL` defaulting t
 | Route | Default model | Default reasoning | Intended use |
 | --- | --- | --- | --- |
 | `low_cost` | `gpt-5.4-nano` | `medium` | Objective explanations and ordinary writing drafts where cost matters. |
-| `premium` | `gpt-5.4-mini` | `high` | High-stakes, retry, low-confidence, or image-required writing feedback. |
+| `premium` | `gpt-5.4-mini` | `high` | Explicit premium requests and image-required writing feedback. |
 
 Assignment policy can request `auto`, `low_cost`, or `premium`. In `auto`, the
-router prefers cheaper routes for normal work and moves to `premium` for
-high-stakes, retry, or low-confidence cases. If a request requires image input,
-the router only uses routes marked as image-capable.
+current prompt builders pass assignment route preference and image requirements
+to the router. If a request requires image input, the router only uses routes
+marked as image-capable. The router also has internal support for high-stakes,
+retry, and low-confidence escalation if future workers pass those signals, but
+the current generation workers do not send those fields.
 
 Before enabling a route in a real environment, confirm that the configured model
 ID exists for the account, supports the requested reasoning effort, and supports
@@ -95,13 +97,14 @@ as the fallback for slow or failed jobs.
 
 Budget controls are layered:
 
-- `AI_MAX_INPUT_CHARS` trims or rejects oversized prompt inputs before provider
-  calls.
+- `AI_MAX_INPUT_CHARS` rejects oversized IELTS writing feedback prompt inputs
+  before provider calls. Objective explanations currently rely on prompt
+  whitelisting and output-token limits rather than this input-size guard.
 - `AI_MAX_OUTPUT_TOKENS` limits response length.
 - Assignment policy chooses `auto`, `low_cost`, or `premium`.
 - Route defaults keep ordinary objective explanations on the lower-cost route.
-- Retries and low-confidence cases can escalate to `premium` without changing
-  the student-facing workflow.
+- The provider router can escalate retry and low-confidence requests if those
+  signals are supplied by future workers.
 
 Provider-side rate limits still apply. Treat `429` and transient 5xx responses
 as retryable operational failures, not as student-visible feedback. Failed or
