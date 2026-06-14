@@ -238,14 +238,15 @@ function parseJsonObject(rawText: string): JsonParseResult {
 }
 
 function isOffTaskObject(value: Record<string, unknown>, expectedType: string): boolean {
-  const explicitType =
-    typeof value.feedback_type === 'string'
-      ? value.feedback_type
-      : typeof value.task_type === 'string'
-        ? value.task_type
-        : typeof value.type === 'string'
-          ? value.type
-          : null
+  let explicitType: string | null = null
+
+  if (typeof value.feedback_type === 'string') {
+    explicitType = value.feedback_type
+  } else if (typeof value.task_type === 'string') {
+    explicitType = value.task_type
+  } else if (typeof value.type === 'string') {
+    explicitType = value.type
+  }
 
   if (explicitType && explicitType !== expectedType) {
     return true
@@ -272,18 +273,103 @@ function containsUnsafeAdvice(value: unknown): boolean {
 }
 
 function normalizeEvidenceText(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, ' ').trim()
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const evidenceStopWords = new Set([
+  'about',
+  'answer',
+  'after',
+  'because',
+  'before',
+  'context',
+  'evidence',
+  'from',
+  'passage',
+  'question',
+  'source',
+  'stated',
+  'student',
+  'that',
+  'their',
+  'there',
+  'this',
+  'with',
+])
+
+const evidenceEquivalentTokens = new Map([
+  ['ris', 'increase'],
+  ['increas', 'increase'],
+  ['increased', 'increase'],
+  ['increase', 'increase'],
+  ['switch', 'change'],
+  ['chang', 'change'],
+  ['changed', 'change'],
+  ['change', 'change'],
+])
+
+function normalizeEvidenceToken(token: string): string {
+  let normalized = token
+
+  if (normalized.length > 5 && normalized.endsWith('ies')) {
+    normalized = `${normalized.slice(0, -3)}y`
+  } else if (normalized.length > 4 && normalized.endsWith('ing')) {
+    normalized = normalized.slice(0, -3)
+  } else if (normalized.length > 4 && normalized.endsWith('ed')) {
+    normalized = normalized.slice(0, -2)
+  } else if (normalized.length > 3 && normalized.endsWith('s')) {
+    normalized = normalized.slice(0, -1)
+  }
+
+  const equivalentToken = evidenceEquivalentTokens.get(normalized)
+  if (equivalentToken) {
+    return equivalentToken
+  }
+
+  return normalized
+}
+
+function evidenceContentTokens(value: string): string[] {
+  const tokens = normalizeEvidenceText(value).split(' ')
+  const contentTokens = tokens
+    .map(normalizeEvidenceToken)
+    .filter((token) => token.length > 2)
+    .filter((token) => !evidenceStopWords.has(token))
+
+  return Array.from(new Set(contentTokens))
+}
+
+function sourceSupportsAllEvidenceTokens(
+  evidenceTokens: string[],
+  sourceTokens: Set<string>,
+): boolean {
+  if (evidenceTokens.length === 0) {
+    return false
+  }
+
+  return evidenceTokens.every((token) => sourceTokens.has(token))
 }
 
 function hasSupportedEvidence(evidence: string, sourceContextText: string): boolean {
   const normalizedEvidence = normalizeEvidenceText(evidence)
   const normalizedSource = normalizeEvidenceText(sourceContextText)
 
-  return (
-    normalizedEvidence.length > 0 &&
-    normalizedSource.length > 0 &&
-    normalizedSource.includes(normalizedEvidence)
-  )
+  if (!normalizedEvidence || !normalizedSource) {
+    return false
+  }
+
+  if (normalizedSource.includes(normalizedEvidence)) {
+    return true
+  }
+
+  const evidenceTokens = evidenceContentTokens(evidence)
+  const sourceTokens = new Set(evidenceContentTokens(sourceContextText))
+
+  return sourceSupportsAllEvidenceTokens(evidenceTokens, sourceTokens)
 }
 
 function containsInventedWeighting(value: Record<string, unknown>): boolean {
@@ -310,9 +396,11 @@ function classifySchemaFailure(
   value: Record<string, unknown>,
   expectedType: string,
 ): FailedAiOutput {
-  return isOffTaskObject(value, expectedType)
-    ? failed('off_task_output', 'Provider output was for a different task.')
-    : failed('schema_invalid', 'Provider output did not match the required schema.')
+  if (isOffTaskObject(value, expectedType)) {
+    return failed('off_task_output', 'Provider output was for a different task.')
+  }
+
+  return failed('schema_invalid', 'Provider output did not match the required schema.')
 }
 
 function parseCriteriaValidationError(error: unknown): FailedAiOutput | null {
