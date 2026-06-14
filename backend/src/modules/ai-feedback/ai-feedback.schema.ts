@@ -234,6 +234,35 @@ export const aiWritingFeedbackRegenerateBodySchema = z
   })
   .strict();
 
+export const assignmentWritingFeedbackBatchParamsSchema = z
+  .object({
+    courseId: z.string().uuid(),
+    assignmentId: z.string().uuid(),
+  })
+  .strict();
+
+export const aiWritingFeedbackBatchFilterSchema = z.enum([
+  "submitted",
+  "ungraded",
+]);
+
+export const aiWritingFeedbackBatchRequestSchema = z
+  .object({
+    submissionIds: z.array(z.string().uuid()).min(1).max(100).optional(),
+    filter: aiWritingFeedbackBatchFilterSchema.optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    const selectorCount = Number(Boolean(data.submissionIds)) + Number(Boolean(data.filter));
+
+    if (selectorCount !== 1) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Provide exactly one batch selector: submissionIds or filter.",
+      });
+    }
+  });
+
 const aiRouteMetadataSchema = z.object({
   model: z.string().min(1),
   reasoning_effort: aiReasoningEffortResponseSchema,
@@ -296,6 +325,26 @@ export const writingFeedbackHistoryResponseSchema = z.object({
   drafts: z.array(writingFeedbackReviewResponseSchema),
 });
 
+export const aiWritingFeedbackBatchResultSchema = z.object({
+  submissionId: z.string().uuid(),
+  status: z.enum([
+    "queued",
+    "review_required",
+    "skipped",
+    "unauthorized",
+    "policy_disabled",
+    "failed_to_queue",
+  ]),
+  draft: writingFeedbackResponseSchema.optional(),
+  reason: z.string().min(1).optional(),
+});
+
+export const aiWritingFeedbackBatchResponseSchema = z.object({
+  assignmentId: z.string().uuid(),
+  requestedCount: z.number().int().min(0),
+  results: z.array(aiWritingFeedbackBatchResultSchema),
+});
+
 export type AiFeedbackHealthStatus = z.infer<
   typeof aiFeedbackHealthStatusSchema
 >;
@@ -344,6 +393,12 @@ export type AiWritingFeedbackRejectBody = z.infer<
 export type AiWritingFeedbackRegenerateBody = z.infer<
   typeof aiWritingFeedbackRegenerateBodySchema
 >;
+export type AssignmentWritingFeedbackBatchParams = z.infer<
+  typeof assignmentWritingFeedbackBatchParamsSchema
+>;
+export type AiWritingFeedbackBatchRequest = z.infer<
+  typeof aiWritingFeedbackBatchRequestSchema
+>;
 export type WritingFeedbackResponse = z.infer<
   typeof writingFeedbackResponseSchema
 >;
@@ -352,4 +407,7 @@ export type WritingFeedbackReviewResponse = z.infer<
 >;
 export type WritingFeedbackHistoryResponse = z.infer<
   typeof writingFeedbackHistoryResponseSchema
+>;
+export type AiWritingFeedbackBatchResponse = z.infer<
+  typeof aiWritingFeedbackBatchResponseSchema
 >;

@@ -126,4 +126,13 @@ describe("modules.router ai feedback routes", () => {
     expect(response.status).not.toBe(404);
     expect(response.status).toBe(401);
   });
+
+  it("mounts the assignment writing feedback batch route", async () => {
+    const response = await request(app).post(
+      "/api/v1/courses/77777777-7777-4777-8777-777777777777/assignments/22222222-2222-4222-8222-222222222222/ai-feedback/writing/batch",
+    );
+
+    expect(response.status).not.toBe(404);
+    expect(response.status).toBe(401);
+  });
 });

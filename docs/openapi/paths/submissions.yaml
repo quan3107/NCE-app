@@ -281,6 +281,69 @@ SubmissionWritingAiFeedback:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+AssignmentWritingAiFeedbackBatch:
+  post:
+    tags: [ai-feedback, assignments]
+    summary: Request batch AI writing feedback draft generation
+    description: >
+      Queues AI writing feedback drafts for an authorized assignment by explicit
+      submission IDs or by a submitted/ungraded filter. The batch endpoint
+      checks course access before listing submissions, then each submission
+      still passes the existing single-submission visibility and policy checks.
+      Existing queued or running drafts are skipped and partial failures are
+      returned per submission.
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackBatchRequest'
+    responses:
+      '200':
+        description: Per-submission batch queue result.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ai-feedback.yaml#/WritingFeedbackBatchResponse'
+      '400':
+        description: Invalid batch selector or assignment parameters.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for this assignment.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Assignment not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
 SubmissionWritingAiFeedbackDrafts:
   get:
     tags: [ai-feedback, submissions]

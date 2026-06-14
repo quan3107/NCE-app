@@ -119,6 +119,41 @@ async function findActiveAiFeedbackDraft(submissionId: string) {
   });
 }
 
+export async function findActiveAiFeedbackDraftSubmissionIds(
+  submissionIds: string[],
+): Promise<Set<string>> {
+  if (submissionIds.length === 0) {
+    return new Set();
+  }
+
+  const drafts = await prisma.aiFeedbackDraft.findMany({
+    where: {
+      submissionId: {
+        in: submissionIds,
+      },
+      deletedAt: null,
+      OR: [
+        {
+          status: {
+            in: [...activeGenerationStatuses],
+          },
+        },
+        {
+          status: "failed",
+          nextRetryAt: {
+            not: null,
+          },
+        },
+      ],
+    },
+    select: {
+      submissionId: true,
+    },
+  });
+
+  return new Set(drafts.map((draft) => draft.submissionId));
+}
+
 function createActiveDraftConflict(draftId: string) {
   return createHttpError(
     409,

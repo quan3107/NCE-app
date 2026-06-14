@@ -15,6 +15,9 @@ import { buildIeltsWritingSubmissionPayload } from '../../../src/prisma/seeds/ie
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    assignment: {
+      findFirst: vi.fn(),
+    },
     auditLog: {
       create: vi.fn(),
     },
@@ -23,6 +26,7 @@ vi.mock('../../../src/prisma/client.js', () => ({
     },
     submission: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }))
@@ -33,6 +37,7 @@ vi.mock('../../../src/modules/ai-feedback/image-context.js', () => ({
 
 vi.mock('../../../src/modules/ai-feedback/ai-feedback.repository.js', () => ({
   createAiFeedbackDraft: vi.fn(),
+  findActiveAiFeedbackDraftSubmissionIds: vi.fn(),
   findLatestAiFeedbackDraftBySubmission: vi.fn(),
   findAiObjectiveExplanationByCacheKey: vi.fn(),
   supersedeAiFeedbackDrafts: vi.fn(),
@@ -47,6 +52,7 @@ const imageContextModule =
 const configModule =
   await import('../../../src/modules/ai-feedback/ai-feedback.config.js')
 const {
+  requestAssignmentWritingFeedbackBatch,
   enqueueAiWritingFeedbackForSubmission,
   getAiWritingFeedbackStatus,
   regenerateAiWritingFeedback,
@@ -55,6 +61,9 @@ const {
 
 const prisma = vi.mocked(prismaModule.prisma, true)
 const createAiFeedbackDraft = vi.mocked(repositoryModule.createAiFeedbackDraft)
+const findActiveAiFeedbackDraftSubmissionIds = vi.mocked(
+  repositoryModule.findActiveAiFeedbackDraftSubmissionIds,
+)
 const findLatestAiFeedbackDraftBySubmission = vi.mocked(
   repositoryModule.findLatestAiFeedbackDraftBySubmission,
 )
@@ -66,9 +75,12 @@ const aiFeedbackConfig = configModule.aiFeedbackConfig
 
 const submissionId = '11111111-1111-4111-8111-111111111111'
 const assignmentId = '22222222-2222-4222-8222-222222222222'
+const courseId = '77777777-7777-4777-8777-777777777777'
 const studentId = '33333333-3333-4333-8333-333333333333'
 const ownerId = '44444444-4444-4444-8444-444444444444'
 const coTeacherId = '55555555-5555-4555-8555-555555555555'
+const secondSubmissionId = '12121212-1212-4121-8121-121212121212'
+const thirdSubmissionId = '13131313-1313-4131-8131-131313131313'
 
 const teacherActor = {
   id: ownerId,
@@ -104,7 +116,7 @@ const baseSubmission = {
     id: assignmentId,
     title: 'Writing Drill',
     type: AssignmentType.writing,
-    courseId: '77777777-7777-4777-8777-777777777777',
+    courseId,
     assignmentConfig: {
       version: 1,
       instructions: 'Write both IELTS tasks.',
@@ -390,6 +402,274 @@ describe('requestAiWritingFeedback', () => {
     ).rejects.toMatchObject({ statusCode: 403 })
 
     expect(createAiFeedbackDraft).not.toHaveBeenCalled()
+  })
+})
+
+describe('requestAssignmentWritingFeedbackBatch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    aiFeedbackConfig.enabled = true
+    aiFeedbackConfig.apiKey = 'sk-test'
+    aiFeedbackConfig.baseUrl = 'https://example.com/v1'
+    prisma.assignment.findFirst.mockResolvedValue({
+      id: assignmentId,
+      courseId,
+      course: {
+        ownerId,
+        enrollments: [],
+      },
+    } as never)
+    prisma.submission.findMany.mockResolvedValue([
+      {
+        id: submissionId,
+      },
+      {
+        id: secondSubmissionId,
+      },
+      {
+        id: thirdSubmissionId,
+      },
+    ] as never)
+    findActiveAiFeedbackDraftSubmissionIds.mockResolvedValue(
+      new Set([secondSubmissionId]),
+    )
+    prisma.submission.findFirst.mockImplementation(async ({ where }: never) => {
+      const requestedSubmissionId = (where as { id: string }).id
+
+      if (requestedSubmissionId === thirdSubmissionId) {
+        return {
+          ...baseSubmission,
+          id: thirdSubmissionId,
+          assignment: {
+            ...baseSubmission.assignment,
+            course: {
+              ownerId,
+              enrollments: [],
+            },
+          },
+        } as never
+      }
+
+      return {
+        ...baseSubmission,
+        id: submissionId,
+        assignment: {
+          ...baseSubmission.assignment,
+          course: {
+            ownerId,
+            enrollments: [],
+          },
+        },
+      } as never
+    })
+    prisma.rubric.findMany.mockResolvedValue([] as never)
+    resolveAiFeedbackImageContext.mockResolvedValue({
+      type: 'image',
+      imageUrl: 'https://storage.mock/task1.png',
+      mimeType: 'image/png',
+      detail: 'high',
+    })
+    createAiFeedbackDraft.mockImplementation(async (input: unknown) => {
+      const data = input as Record<string, unknown>
+
+      if (data.submissionId === thirdSubmissionId) {
+        throw Object.assign(new Error('Queue unavailable'), {
+          statusCode: 503,
+        })
+      }
+
+      return {
+        id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        submissionId: data.submissionId,
+        status: data.status,
+        visibilityMode: data.visibilityMode,
+        generatedFeedback: data.generatedFeedback,
+        failureCode: null,
+        failureMessage: null,
+      } as never
+    })
+  })
+
+  it('queues eligible submissions and reports duplicate or failed batch rows', async () => {
+    const response = await requestAssignmentWritingFeedbackBatch(
+      { courseId, assignmentId },
+      {
+        submissionIds: [submissionId, secondSubmissionId, thirdSubmissionId],
+      },
+      teacherActor,
+    )
+
+    expect(prisma.assignment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: assignmentId,
+          courseId,
+          deletedAt: null,
+          course: { deletedAt: null },
+        },
+      }),
+    )
+    expect(findActiveAiFeedbackDraftSubmissionIds).toHaveBeenCalledWith([
+      submissionId,
+      secondSubmissionId,
+      thirdSubmissionId,
+    ])
+    expect(createAiFeedbackDraft).toHaveBeenCalledTimes(2)
+    expect(response).toEqual({
+      assignmentId,
+      requestedCount: 3,
+      results: [
+        expect.objectContaining({
+          submissionId,
+          status: 'queued',
+          draft: expect.objectContaining({ status: 'queued' }),
+        }),
+        {
+          submissionId: secondSubmissionId,
+          status: 'skipped',
+          reason: 'AI writing feedback is already queued or running.',
+        },
+        {
+          submissionId: thirdSubmissionId,
+          status: 'failed_to_queue',
+          reason: 'Queue unavailable',
+        },
+      ],
+    })
+  })
+
+  it('resolves submitted/ungraded filters under the authorized assignment', async () => {
+    await requestAssignmentWritingFeedbackBatch(
+      { courseId, assignmentId },
+      { filter: 'ungraded' },
+      teacherActor,
+    )
+
+    expect(prisma.submission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          assignmentId,
+          status: { in: ['submitted', 'late'] },
+          OR: [{ grade: null }, { grade: { deletedAt: { not: null } } }],
+        }),
+        take: 100,
+      }),
+    )
+  })
+
+  it('caps filter-selected batches before queueing candidates', async () => {
+    const candidates = Array.from({ length: 125 }, (_, index) => ({
+      id: `${String(index).padStart(8, '0')}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`,
+    }))
+    prisma.submission.findMany.mockResolvedValueOnce(candidates.slice(0, 100) as never)
+    findActiveAiFeedbackDraftSubmissionIds.mockResolvedValueOnce(new Set())
+
+    const response = await requestAssignmentWritingFeedbackBatch(
+      { courseId, assignmentId },
+      { filter: 'submitted' },
+      teacherActor,
+    )
+
+    expect(prisma.submission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 100,
+      }),
+    )
+    expect(findActiveAiFeedbackDraftSubmissionIds).toHaveBeenCalledWith(
+      candidates.slice(0, 100).map((candidate) => candidate.id),
+    )
+    expect(createAiFeedbackDraft).toHaveBeenCalledTimes(100)
+    expect(response.requestedCount).toBe(100)
+    expect(response.results).toHaveLength(100)
+  })
+
+  it('reports assignment policy failures without labeling rows unauthorized', async () => {
+    prisma.submission.findMany.mockResolvedValueOnce([{ id: submissionId }] as never)
+    findActiveAiFeedbackDraftSubmissionIds.mockResolvedValueOnce(new Set())
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      assignment: {
+        ...baseSubmission.assignment,
+        assignmentConfig: {
+          ...baseSubmission.assignment.assignmentConfig,
+          aiPolicy: {
+            writingFeedbackMode: 'off',
+            objectiveExplanations: 'off',
+            providerTier: 'auto',
+          },
+        },
+      },
+    } as never)
+
+    const response = await requestAssignmentWritingFeedbackBatch(
+      { courseId, assignmentId },
+      { filter: 'submitted' },
+      teacherActor,
+    )
+
+    expect(response.results).toEqual([
+      {
+        submissionId,
+        status: 'policy_disabled',
+        reason: 'AI writing feedback is not enabled for this assignment.',
+      },
+    ])
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled()
+  })
+
+  it('rejects batch access before listing assignment submissions', async () => {
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      course: {
+        ownerId,
+        enrollments: [],
+      },
+    } as never)
+
+    await expect(
+      requestAssignmentWritingFeedbackBatch(
+        { courseId, assignmentId },
+        { filter: 'submitted' },
+        {
+          id: coTeacherId,
+          role: UserRole.teacher,
+          status: UserStatus.active,
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 })
+
+    expect(prisma.submission.findMany).not.toHaveBeenCalled()
+  })
+
+  it('requires the nested route course id to match the assignment', async () => {
+    prisma.assignment.findFirst.mockResolvedValueOnce(null)
+
+    await expect(
+      requestAssignmentWritingFeedbackBatch(
+        {
+          courseId: 'abababab-abab-4bab-8bab-abababababab',
+          assignmentId,
+        },
+        { filter: 'submitted' },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: 'Assignment not found.',
+    })
+
+    expect(prisma.assignment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: assignmentId,
+          courseId: 'abababab-abab-4bab-8bab-abababababab',
+          deletedAt: null,
+          course: { deletedAt: null },
+        },
+      }),
+    )
+    expect(prisma.submission.findMany).not.toHaveBeenCalled()
   })
 })
 

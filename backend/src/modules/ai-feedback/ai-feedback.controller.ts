@@ -7,6 +7,7 @@ import type { NextFunction, Request, Response } from "express";
 
 import {
   aiFeedbackHealthResponseSchema,
+  aiWritingFeedbackBatchResponseSchema,
   objectiveExplanationResponseSchema,
   writingFeedbackHistoryResponseSchema,
   writingFeedbackReviewResponseSchema,
@@ -21,6 +22,7 @@ import {
   listAiWritingFeedbackDrafts,
   rejectAiWritingFeedbackDraft,
   regenerateAiWritingFeedback,
+  requestAssignmentWritingFeedbackBatch,
   requestAiWritingFeedback,
   requestAiObjectiveExplanation,
 } from "./ai-feedback.service.js";
@@ -220,6 +222,22 @@ export async function postWritingFeedbackRegeneration(
     }
 
     response.json(draft);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function postAssignmentWritingFeedbackBatch(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const batch = aiWritingFeedbackBatchResponseSchema.parse(
+      await requestAssignmentWritingFeedbackBatch(req.params, req.body, req.user),
+    );
+
+    res.status(200).json(batch);
   } catch (error) {
     next(error);
   }

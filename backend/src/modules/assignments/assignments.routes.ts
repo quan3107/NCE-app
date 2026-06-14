@@ -8,6 +8,7 @@ import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
+import { postAssignmentWritingFeedbackBatch } from "../ai-feedback/ai-feedback.controller.js";
 import {
   deleteAssignmentById,
   getAssignmentById,
@@ -27,6 +28,11 @@ assignmentRouter.post(
   postAssignment,
 );
 assignmentRouter.get("/:assignmentId", getAssignmentById);
+assignmentRouter.post(
+  "/:assignmentId/ai-feedback/writing/batch",
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  postAssignmentWritingFeedbackBatch,
+);
 assignmentRouter.patch(
   "/:assignmentId",
   roleGuard([UserRole.admin, UserRole.teacher]),

@@ -113,6 +113,8 @@ paths:
     $ref: './paths/assignments.yaml#/CourseAssignments'
   /api/v1/courses/{courseId}/assignments/{assignmentId}:
     $ref: './paths/assignments.yaml#/CourseAssignmentById'
+  /api/v1/courses/{courseId}/assignments/{assignmentId}/ai-feedback/writing/batch:
+    $ref: './paths/submissions.yaml#/AssignmentWritingAiFeedbackBatch'
 
   /api/v1/courses/{courseId}/rubrics:
     $ref: './paths/rubrics.yaml#/CourseRubrics'
