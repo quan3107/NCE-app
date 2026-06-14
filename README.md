@@ -6,7 +6,7 @@ The core workflow is simple:
 
 - students see their IELTS work, submit answers, and review grades;
 - teachers create real reading, listening, writing, and speaking tasks, then grade or review submissions;
-- the planned AI layer drafts writing feedback, grammar/cohesion hints, and weak-area recommendations for teacher review;
+- the AI feedback layer drafts IELTS writing feedback for teacher-controlled review or provisional visibility and generates objective explanations;
 - admins keep users, courses, enrollments, and audit trails in order.
 
 This is a full-stack TypeScript app: React/Vite on the frontend, Express on the backend, Prisma/PostgreSQL for data, and OpenAPI docs for the API contract.
@@ -23,16 +23,16 @@ The admin side has user, course, enrollment, audit log, dashboard, and settings 
 
 The backend already has real modules for auth, users, courses, enrollments, assignments, submissions, grades, rubrics, notifications, notification preferences, navigation, dashboard widgets, CMS content, IELTS config, file metadata, audit logs, and background jobs.
 
-## Planned AI Layer
+## AI Feedback Layer
 
-Planned flow:
+Current flow:
 
 1. A teacher publishes an IELTS or NCE-style assignment with instructions, scoring criteria, and expected learning objectives.
 2. A student submits a response.
 3. Objective reading/listening work can be scored deterministically where answer keys exist.
-4. The future AI layer drafts feedback for writing and speaking: grammar issues, cohesion problems, vocabulary suggestions, rubric-aligned observations, and weak-area signals.
-5. The teacher reviews, edits, accepts, or rejects that draft feedback.
-6. The student sees teacher-approved feedback, grades, and follow-up practice recommendations.
+4. The backend AI layer can draft IELTS writing feedback and reading/listening objective explanations through hosted OpenAI-compatible routes.
+5. The teacher reviews, edits, accepts, or rejects writing feedback drafts when assignment policy requires review.
+6. The student sees teacher-approved feedback, instant provisional feedback when enabled, grades, and deterministic scoring explanations.
 
 ## Stack
 
@@ -43,7 +43,7 @@ Planned flow:
 | Backend | Node.js 20+, Express 5, TypeScript, Zod, Pino |
 | Data | PostgreSQL, Prisma 7, Prisma pg adapter, row-level security context |
 | Auth | Password login, Google OAuth, RSA JWT access tokens, HTTP-only refresh cookies |
-| Planned AI | Teacher-reviewed writing feedback, cohesion hints, weak-area detection, remediation suggestions |
+| AI | Hosted OpenAI-compatible provider routes, teacher-reviewed writing drafts, objective explanations, provider-free harness |
 | Jobs | pg-boss workers for notification scheduling and delivery |
 | Email | Brevo transactional email |
 | Tests | Node test runner and c8 on the frontend; Vitest and Supertest on the backend |
@@ -267,7 +267,7 @@ The backend starts pg-boss workers outside `NODE_ENV=test`, so production scalin
 ## Current Limits
 
 - File upload signing currently returns mock storage URLs and stores file metadata. Real object storage signing is still missing.
-- The AI feedback layer is not implemented yet. There are no model/provider choices, prompt/evaluation harnesses, AI endpoints, AI review queues, safety checks, or feedback-audit records in the app today.
+- The AI feedback layer is implemented for hosted OpenAI-compatible writing drafts and objective explanations, but speaking AI is deferred, advanced remediation is not built, and production use still needs real provider credentials plus route/image-capability validation.
 - Google OAuth and Brevo email paths need real provider credentials.
 - Some older package-local notes may lag behind this root README.
 
