@@ -81,3 +81,52 @@ test('AI feedback regenerate 409 can return review-required feedback', async () 
   assert.match(regeneration, /\$ref: '..\/schemas\/ai-feedback.yaml#\/WritingFeedbackResponse'/);
   assert.match(regeneration, /\$ref: '..\/schemas\/common.yaml#\/ErrorResponse'/);
 });
+
+test('AI feedback batch generation is assignment-scoped and documents row results', async () => {
+  const openapiPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/openapi.yaml',
+  );
+  const submissionsPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/submissions.yaml',
+  );
+  const schemasPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/ai-feedback.yaml',
+  );
+  const openapiYaml = await readFile(openapiPath, 'utf8');
+  const submissionsYaml = await readFile(submissionsPath, 'utf8');
+  const schemasYaml = await readFile(schemasPath, 'utf8');
+  const batchPath = section(
+    submissionsYaml,
+    'AssignmentWritingAiFeedbackBatch',
+    'SubmissionWritingAiFeedbackDrafts',
+  );
+  const batchResult = section(
+    schemasYaml,
+    'WritingFeedbackBatchResult',
+    'WritingFeedbackBatchResponse',
+  );
+  const batchRequest = section(
+    schemasYaml,
+    'WritingFeedbackBatchRequest',
+    'WritingFeedbackBatchResult',
+  );
+
+  assert.match(
+    openapiYaml,
+    /\/api\/v1\/courses\/\{courseId\}\/assignments\/\{assignmentId\}\/ai-feedback\/writing\/batch:/,
+  );
+  assert.match(batchRequest, /^  oneOf:/m);
+  assert.match(batchRequest, /required: \[submissionIds\]/);
+  assert.match(batchRequest, /required: \[filter\]/);
+  assert.match(batchPath, /filter selectors queue\s+up to 100/i);
+  assert.match(batchPath, /submission creation time/i);
+  assert.match(batchRequest, /up to 100/i);
+  assert.match(batchRequest, /submission creation time|createdAt/i);
+  assert.match(
+    batchResult,
+    /enum: \[queued, review_required, skipped, unauthorized, policy_disabled, failed_to_queue\]/,
+  );
+});

@@ -16,6 +16,9 @@ export {
   requestAiObjectiveExplanation,
 } from "./ai-feedback.objective-explanations.js";
 export {
+  requestAssignmentWritingFeedbackBatch,
+} from "./ai-feedback.batch-writing.js";
+export {
   enqueueAiWritingFeedbackForSubmission,
   getAiWritingFeedbackStatus,
   regenerateAiWritingFeedback,

@@ -19,3 +19,8 @@ export {
   type BuiltObjectiveExplanationPrompt,
   type ObjectiveExplanationPromptInput,
 } from './objective-explanation.js'
+export {
+  buildNcePromptBuilderContext,
+  type NcePromptBuilderContext,
+  type NcePromptBuilderInput,
+} from './nce.js'
