@@ -213,7 +213,7 @@ WritingFeedbackBatchRequest:
         filter:
           type: string
           enum: [submitted, ungraded]
-          description: submitted selects submitted, late, or graded responses; ungraded selects submitted or late responses without an active grade.
+          description: submitted selects submitted, late, or graded responses; ungraded selects submitted or late responses without an active grade. Filter selectors queue up to 100 matching submissions ordered by submission creation time.
 
 WritingFeedbackBatchResult:
   type: object
