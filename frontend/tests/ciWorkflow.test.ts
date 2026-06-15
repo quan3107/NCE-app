@@ -55,3 +55,29 @@ test('CI avoids duplicated expensive checks inside jobs', async () => {
     'backend CI should compile directly after the Prisma client is already generated',
   );
 });
+
+test('CI uses Node 24 and Node 24-compatible official actions', async () => {
+  const workflowPath = path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml');
+  const workflow = await readFile(workflowPath, 'utf8');
+
+  assert.match(
+    workflow,
+    /NODE_VERSION: "24"/,
+    'CI should run package installs, builds, and tests on Node 24',
+  );
+  assert.doesNotMatch(
+    workflow,
+    /actions\/(?:checkout|setup-node)@v4/,
+    'CI should not use official actions that run on the deprecated Node 20 action runtime',
+  );
+  assert.match(
+    workflow,
+    /actions\/checkout@v6/,
+    'CI should use the Node 24-compatible checkout major',
+  );
+  assert.match(
+    workflow,
+    /actions\/setup-node@v6/,
+    'CI should use the Node 24-compatible setup-node major',
+  );
+});
