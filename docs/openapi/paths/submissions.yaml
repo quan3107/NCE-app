@@ -288,10 +288,11 @@ AssignmentWritingAiFeedbackBatch:
     description: >
       Queues AI writing feedback drafts for an authorized assignment by explicit
       submission IDs or by a submitted/ungraded filter. The batch endpoint
-      checks course access before listing submissions, then each submission
-      still passes the existing single-submission visibility and policy checks.
-      Existing queued or running drafts are skipped and partial failures are
-      returned per submission.
+      checks course access before listing submissions. Filter selectors queue
+      up to 100 matching submissions ordered by submission creation time. Each
+      submission still passes the existing single-submission visibility and
+      policy checks. Existing queued or running drafts are skipped and partial
+      failures are returned per submission.
     parameters:
       - in: path
         name: courseId
