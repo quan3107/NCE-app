@@ -9,7 +9,13 @@ on:
     branches:
       - main
   push:
+    branches:
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -72,11 +78,7 @@ jobs:
         run: npm run typecheck
         working-directory: frontend
 
-      - name: Test frontend
-        run: npm test
-        working-directory: frontend
-
-      - name: Collect frontend coverage
+      - name: Test frontend with coverage
         run: npm run test:coverage
         working-directory: frontend
 
@@ -173,7 +175,7 @@ jobs:
         working-directory: backend
 
       - name: Build backend
-        run: npm run build
+        run: npx tsc --project tsconfig.json
         working-directory: backend
 
       - name: Test backend
