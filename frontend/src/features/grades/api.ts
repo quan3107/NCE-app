@@ -51,6 +51,8 @@ export type ObjectiveExplanationResponse = {
   cached: boolean;
   pollingLocation?: string;
   explanation?: Record<string, unknown>;
+  failureCode?: string;
+  failureMessage?: string;
 };
 
 const objectiveExplanationStatuses = new Set<ObjectiveExplanationStatus>([
@@ -133,7 +135,11 @@ const isObjectiveExplanationResponse = (
     typeof value.cached === 'boolean' &&
     (value.pollingLocation === undefined ||
       typeof value.pollingLocation === 'string') &&
-    (explanation === undefined || isRecord(explanation))
+    (explanation === undefined || isRecord(explanation)) &&
+    (value.failureCode === undefined ||
+      typeof value.failureCode === 'string') &&
+    (value.failureMessage === undefined ||
+      typeof value.failureMessage === 'string')
   );
 };
 
