@@ -633,6 +633,34 @@ describe('parseObjectiveExplanationOutput', () => {
     })
   })
 
+  it.each([
+    'The rules dont allow tax increases.',
+    'The rules wont allow tax increases.',
+    'The rules arent allowing tax increases.',
+    'The rules couldnt allow tax increases.',
+    'The rules shouldnt allow tax increases.',
+    'The rules wouldnt allow tax increases.',
+  ])('rejects ellipsis evidence that hides bare contracted source negation: %s', (sourceContextText) => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source says the rules allow tax increases.',
+        evidence: 'rules ... tax increases',
+        misconception: 'The student missed the negation in the source sentence.',
+        study_tip: 'Check whether the source denies the evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText,
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
   it('fails malformed, unsafe, empty, and score-overriding explanations', () => {
     expect(
       parseObjectiveExplanationOutput('', {
