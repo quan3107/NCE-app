@@ -143,13 +143,65 @@ function isSingleTokenSourceAnchor(token: string): boolean {
   return /\d/.test(token) || (token.length > 2 && !evidenceStopwords.has(token));
 }
 
-function sourceTextSpans(value: string): string[] {
+function isAsciiDigit(value: string | undefined): boolean {
+  return value !== undefined && /[0-9]/.test(value);
+}
+
+function isAsciiLetter(value: string | undefined): boolean {
+  return value !== undefined && /[a-z]/i.test(value);
+}
+
+function isDecimalPoint(value: string, index: number): boolean {
+  return isAsciiDigit(value[index - 1]) && isAsciiDigit(value[index + 1]);
+}
+
+function isInternalAbbreviationPoint(value: string, index: number): boolean {
   return (
-    value
-      .match(/[^.!?;\n]+[.!?;]?/g)
-      ?.map((span) => span.trim())
-      .filter(Boolean) ?? []
+    isAsciiLetter(value[index - 1]) &&
+    isAsciiLetter(value[index + 1]) &&
+    value[index + 2] === "."
   );
+}
+
+function sourceTextSpans(value: string): string[] {
+  const spans: string[] = [];
+  let spanStart = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+
+    if (
+      character === "." &&
+      (isDecimalPoint(value, index) || isInternalAbbreviationPoint(value, index))
+    ) {
+      continue;
+    }
+
+    const isBoundary =
+      character === "." ||
+      character === "!" ||
+      character === "?" ||
+      character === ";" ||
+      character === "\n";
+
+    if (!isBoundary) {
+      continue;
+    }
+
+    const spanEnd = character === "\n" ? index : index + 1;
+    const span = value.slice(spanStart, spanEnd).trim();
+    if (span) {
+      spans.push(span);
+    }
+    spanStart = index + 1;
+  }
+
+  const tail = value.slice(spanStart).trim();
+  if (tail) {
+    spans.push(tail);
+  }
+
+  return spans;
 }
 
 function sourceSpanSupportsAcceptedAnswer(
