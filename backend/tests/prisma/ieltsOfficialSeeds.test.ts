@@ -26,7 +26,10 @@ import {
   PRIMARY_IELTS_WRITING_SUBMISSION_SEED_MAP,
   buildIeltsWritingSubmissionPayload,
 } from '../../src/prisma/seeds/ieltsOfficialSubmissions.js'
-import { scoreIeltsSubmission } from '../../src/modules/scoring/ieltsScoring.utils.js'
+import {
+  getIeltsQuestionScoringEvidence,
+  scoreIeltsSubmission,
+} from '../../src/modules/scoring/ieltsScoring.utils.js'
 import {
   assertOfficialListeningConfig,
   assertOfficialReadingConfig,
@@ -289,5 +292,24 @@ describe('auto-scoring compatibility', () => {
 
     expect(readingScore).toMatchObject({ totalCount: 40, correctCount: 40 })
     expect(listeningScore).toMatchObject({ totalCount: 40, correctCount: 40 })
+  })
+
+  it('keeps at least one seeded listening explanation source-backed', () => {
+    const listeningConfig = buildListeningConfigOfficialFullComputer()
+    const evidence = getIeltsQuestionScoringEvidence({
+      assignmentType: AssignmentType.listening,
+      assignmentConfig: listeningConfig,
+      submissionPayload: {
+        answers: [{ questionId: 'listening-full-s1-q1', value: '3 September' }],
+      },
+      questionId: 'listening-full-s1-q1',
+    })
+
+    expect(evidence).toMatchObject({
+      questionId: 'listening-full-s1-q1',
+      acceptedAnswer: '3 September',
+      sourceEvidenceStatus: 'available',
+    })
+    expect(evidence?.sourceEvidenceCandidates[0]?.quote).toContain('3 September')
   })
 })
