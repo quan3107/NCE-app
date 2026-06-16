@@ -401,6 +401,45 @@ describe('requestAiWritingFeedback', () => {
     )
   })
 
+  it('queues feedback after replacing blank current task text with legacy responses', async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        task1: {
+          text: '   ',
+          response: 'The chart shows actual growth in commuter rail use.',
+        },
+        task2: {
+          text: '',
+          response: 'Cities should invest in actual bus and train services.',
+        },
+      },
+    } as never)
+
+    await requestAiWritingFeedback({ submissionId }, teacherActor)
+
+    expect(createAiFeedbackDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'queued',
+        generationJob: {
+          harnessInput: expect.objectContaining({
+            promptInput: expect.objectContaining({
+              submission: {
+                task1: {
+                  text: 'The chart shows actual growth in commuter rail use.',
+                },
+                task2: {
+                  text: 'Cities should invest in actual bus and train services.',
+                },
+              },
+            }),
+          }),
+        },
+      }),
+    )
+  })
+
   it('rejects file-only legacy writing payloads with a scoped message', async () => {
     prisma.submission.findFirst.mockResolvedValueOnce({
       ...baseSubmission,
