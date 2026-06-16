@@ -37,3 +37,22 @@ test('StudentGradesPage renders objective explanation failure messages from the 
     /state\.failureMessage \?\?[\s\S]*Explanation is not available for this\s+question\./,
   );
 });
+
+test('StudentGradesPage disables terminal unavailable explanation actions', async () => {
+  const pagePath = path.resolve(
+    import.meta.dirname,
+    '../src/features/grades/components/StudentGradesPage.tsx',
+  );
+  const source = await readFile(pagePath, 'utf8');
+
+  assert.match(source, /terminalUnavailable/);
+  assert.match(
+    source,
+    /state\?\.status === 'review_required' \|\|[\s\S]*state\?\.status === 'rejected'/,
+  );
+  assert.match(
+    source,
+    /disabled=\{\s*active \|\|\s*Boolean\(ready\) \|\|\s*terminalUnavailable\s*\}/,
+  );
+  assert.match(source, /\? 'Unavailable'/);
+});
