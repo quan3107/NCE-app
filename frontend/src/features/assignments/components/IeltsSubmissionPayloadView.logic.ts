@@ -38,6 +38,21 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const toTrimmedString = (value: unknown): string =>
   typeof value === 'string' ? value.trim() : '';
 
+const readTextFromRecord = (value: unknown): string => {
+  if (!isRecord(value)) {
+    return toTrimmedString(value);
+  }
+
+  for (const key of ['text', 'response', 'answer', 'value', 'content']) {
+    const text = toTrimmedString(value[key]);
+    if (text) {
+      return text;
+    }
+  }
+
+  return '';
+};
+
 const toAnswerValue = (value: unknown): string => {
   if (typeof value === 'string') {
     return value.trim();
@@ -135,22 +150,94 @@ const buildWritingSections = (
   config: unknown,
 ): IeltsSubmissionDisplaySection[] => {
   const writingConfig = normalizeIeltsAssignmentConfig('writing', config) as IeltsWritingConfig;
-  const task1 = isRecord(payload.task1) ? payload.task1 : {};
-  const task2 = isRecord(payload.task2) ? payload.task2 : {};
+  const task1Text = readWritingTaskText(payload, 'task1');
+  const task2Text = readWritingTaskText(payload, 'task2');
   const sections = [
     {
       title: 'Task 1',
       prompt: toDisplayPrompt(writingConfig.task1.prompt),
-      text: toTrimmedString(task1.text),
+      text: task1Text,
     },
     {
       title: 'Task 2',
       prompt: toDisplayPrompt(writingConfig.task2.prompt),
-      text: toTrimmedString(task2.text),
+      text: task2Text,
     },
   ];
 
   return sections.filter(section => Boolean(section.text));
+};
+
+const taskKeyMatches = (value: unknown, task: 'task1' | 'task2'): boolean => {
+  const normalized = toTrimmedString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  return normalized === task || normalized === `writing${task}`;
+};
+
+const readTaskTextFromAnswers = (
+  answers: unknown,
+  task: 'task1' | 'task2',
+): string => {
+  if (!Array.isArray(answers)) {
+    return '';
+  }
+
+  for (const answer of answers) {
+    if (!isRecord(answer)) {
+      continue;
+    }
+
+    const matchesTask = ['questionId', 'taskId', 'id', 'key', 'name'].some(key =>
+      taskKeyMatches(answer[key], task),
+    );
+    if (!matchesTask) {
+      continue;
+    }
+
+    const text = readTextFromRecord(answer);
+    if (text) {
+      return text;
+    }
+  }
+
+  return '';
+};
+
+const readWritingTaskText = (
+  payload: Record<string, unknown>,
+  task: 'task1' | 'task2',
+): string => {
+  const currentTask = isRecord(payload[task]) ? payload[task] : undefined;
+  const currentText = readTextFromRecord(currentTask);
+  if (currentText) {
+    return currentText;
+  }
+
+  const directKeys =
+    task === 'task1'
+      ? ['task1Text', 'task1_text', 'task1Response', 'task1_response']
+      : ['task2Text', 'task2_text', 'task2Response', 'task2_response'];
+
+  for (const key of directKeys) {
+    const text = toTrimmedString(payload[key]);
+    if (text) {
+      return text;
+    }
+  }
+
+  for (const containerKey of ['responses', 'answersByTask', 'tasks']) {
+    const container = payload[containerKey];
+    if (!isRecord(container)) {
+      continue;
+    }
+    const text = readTextFromRecord(container[task]);
+    if (text) {
+      return text;
+    }
+  }
+
+  return readTaskTextFromAnswers(payload.answers, task);
 };
 
 const buildObjectiveSections = (
