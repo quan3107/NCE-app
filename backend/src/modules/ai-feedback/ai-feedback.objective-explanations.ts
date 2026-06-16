@@ -42,6 +42,8 @@ type ObjectiveExplanationResponse = {
   cached: boolean;
   pollingLocation?: string;
   explanation?: unknown;
+  failureCode?: string;
+  failureMessage?: string;
 };
 
 type SubmissionForObjectiveExplanation = {
@@ -80,6 +82,10 @@ type ObjectiveExplanationContext = {
   routeKey: AiConcreteProviderRouteKey;
   sourceContextHash: string;
 };
+
+const INSUFFICIENT_SOURCE_EVIDENCE_CODE = "insufficient_source_evidence";
+const INSUFFICIENT_SOURCE_EVIDENCE_MESSAGE =
+  "This question does not include enough source text for a source-backed AI explanation.";
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) {
@@ -276,6 +282,7 @@ function buildObjectivePromptInput(input: {
     },
     studentAnswer: input.evidence.studentAnswer,
     deterministicResult: input.evidence.deterministicResult,
+    sourceEvidenceCandidates: input.evidence.sourceEvidenceCandidates,
     ...(input.evidence.sourceContext
       ? { sourceContext: input.evidence.sourceContext }
       : {}),
@@ -291,6 +298,8 @@ function toObjectiveExplanationResponse(
     id: string;
     status: string;
     generatedExplanation?: unknown;
+    failureCode?: string | null;
+    failureMessage?: string | null;
   },
   params: {
     submissionId: string;
@@ -310,7 +319,20 @@ function toObjectiveExplanationResponse(
       ? { pollingLocation: pollingLocation(params.submissionId, params.questionId) }
       : {}),
     ...(completed ? { explanation: explanation.generatedExplanation } : {}),
+    ...(explanation.failureCode ? { failureCode: explanation.failureCode } : {}),
+    ...(explanation.failureMessage
+      ? { failureMessage: explanation.failureMessage }
+      : {}),
   };
+}
+
+function hasSourceEvidenceCandidates(
+  evidence: IeltsQuestionScoringEvidence,
+): boolean {
+  return (
+    evidence.sourceEvidenceStatus === "available" &&
+    evidence.sourceEvidenceCandidates.length > 0
+  );
 }
 
 async function loadObjectiveExplanationContext(
@@ -428,6 +450,50 @@ export async function requestAiObjectiveExplanation(
   actor?: RequestActor,
 ): Promise<ObjectiveExplanationResponse> {
   const context = await loadObjectiveExplanationContext(params, actor);
+
+  if (!hasSourceEvidenceCandidates(context.evidence)) {
+    const explanation = await upsertAiObjectiveExplanation({
+      submissionId: context.submission.id,
+      assignmentId: context.submission.assignmentId,
+      requesterId: context.actor.id,
+      questionId: context.questionId,
+      deterministicResult: context.evidence.deterministicResult,
+      promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
+      sourceContextHash: context.sourceContextHash,
+      routeKey: context.routeKey,
+      provider: aiFeedbackConfig.provider,
+      model: modelForRouteKey(context.routeKey),
+      status: "rejected",
+      failureCode: INSUFFICIENT_SOURCE_EVIDENCE_CODE,
+      failureMessage: INSUFFICIENT_SOURCE_EVIDENCE_MESSAGE,
+    });
+    await recordAiFeedbackAudit({
+      actorId: context.actor.id,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+      entity: "ai_objective_explanation",
+      entityId: explanation.id,
+      entityIds: {
+        submissionId: context.submission.id,
+        assignmentId: context.submission.assignmentId,
+        questionId: context.questionId,
+      },
+      routeKey: context.routeKey,
+      provider: aiFeedbackConfig.provider,
+      model: modelForRouteKey(context.routeKey),
+      promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
+      payload: {
+        status: explanation.status,
+        failureCode: INSUFFICIENT_SOURCE_EVIDENCE_CODE,
+        deterministicResult: context.evidence.deterministicResult,
+      },
+    });
+
+    return toObjectiveExplanationResponse(explanation, {
+      submissionId: context.submission.id,
+      questionId: context.questionId,
+    });
+  }
+
   assertAiFeedbackGenerationReady();
 
   const explanation = await upsertAiObjectiveExplanation({
