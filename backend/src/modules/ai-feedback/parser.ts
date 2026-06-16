@@ -299,6 +299,49 @@ function hasContiguousTokenSequence(needle: string[], haystack: string[]): boole
   return false
 }
 
+function tokenSequenceStartAtOrAfter(
+  needle: string[],
+  haystack: string[],
+  startIndex: number,
+): number {
+  if (needle.length === 0 || needle.length > haystack.length) {
+    return -1
+  }
+
+  for (let start = startIndex; start <= haystack.length - needle.length; start += 1) {
+    const candidate = haystack.slice(start, start + needle.length)
+    if (candidate.every((token, index) => token === needle[index])) {
+      return start
+    }
+  }
+
+  return -1
+}
+
+function ellipsisEvidenceFragments(evidence: string): string[][] {
+  return evidence
+    .split(/(?:\.{3}|…)+/u)
+    .map((fragment) => evidenceTextTokens(fragment))
+    .filter((tokens) => tokens.length > 0)
+}
+
+function hasOrderedTokenFragments(fragments: string[][], haystack: string[]): boolean {
+  if (fragments.length < 2) {
+    return false
+  }
+
+  let cursor = 0
+  for (const fragment of fragments) {
+    const start = tokenSequenceStartAtOrAfter(fragment, haystack, cursor)
+    if (start === -1) {
+      return false
+    }
+    cursor = start + fragment.length
+  }
+
+  return true
+}
+
 function sourceContextSpans(sourceContextText: string): string[] {
   return sourceContextText
     .split(/[.!?;\n]+/)
@@ -309,6 +352,10 @@ function sourceContextSpans(sourceContextText: string): string[] {
 function sourceSpanSupportsEvidence(evidence: string, sourceSpan: string): boolean {
   const evidenceTokens = evidenceTextTokens(evidence)
   const sourceTokens = evidenceTextTokens(sourceSpan)
+
+  if (/(?:\.{3}|…)+/u.test(evidence)) {
+    return hasOrderedTokenFragments(ellipsisEvidenceFragments(evidence), sourceTokens)
+  }
 
   return hasContiguousTokenSequence(evidenceTokens, sourceTokens)
 }
