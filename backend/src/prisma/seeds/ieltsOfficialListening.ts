@@ -23,7 +23,7 @@ type ListeningQuestionDraft = {
 };
 
 const FULL_SECTION_TRANSCRIPTS = [
-  `You will hear a conversation between a student and a housing office adviser about booking temporary accommodation. The student confirms move-in date, room type, weekly rent, payment deadline, and the documents needed on arrival. One date and one fee are corrected mid-conversation.
+  `You will hear a conversation between a student and a housing office adviser about booking temporary accommodation. The adviser says the final confirmed move-in date is 3 September, the student chooses a single ensuite room, and the weekly rent is 185 pounds. The payment deadline is 20 August, the student must show a passport on arrival, maintenance problems go through the online portal, quiet hours begin at 10 p.m., laundry access is included 7 days a week, and Residential Services will send the final booking confirmation. One date and one fee are corrected mid-conversation.
 
 The adviser also explains laundry access, quiet-hour policy, and how maintenance requests should be submitted. This section reflects typical everyday transactional language with clear, concrete details.
 
@@ -46,7 +46,7 @@ This section mirrors the densest IELTS listening input, requiring inference and 
 ];
 
 const LITE_SECTION_TRANSCRIPTS = [
-  `You will hear a student call a housing office to confirm temporary accommodation details, including dates, fees, and required documents. Some details are corrected before the end of the call.`,
+  `You will hear a student call a housing office to confirm temporary accommodation details. The final confirmed move-in date is 3 September, the room is single ensuite, rent is 185 pounds, payment is due on 20 August, and the student must bring a passport. Some details are corrected before the end of the call.`,
   `You will hear a park orientation talk describing routes, facilities, and visitor rules, including map-based references and revised movement guidance.`,
   `You will hear a supervisor meeting where two students refine methods, deadlines, and responsibilities for a research project.`,
   `You will hear an academic lecture excerpt about urban river restoration, evidence from project phases, and policy recommendations for long-term management.`,
