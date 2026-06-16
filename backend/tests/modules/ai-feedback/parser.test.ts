@@ -445,6 +445,25 @@ describe('parseObjectiveExplanationOutput', () => {
     expect(parsed.status).toBe('completed')
   })
 
+  it('accepts source-grounded evidence with ellipsis-delimited excerpt gaps', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer misses that transport costs caused the change.',
+        evidence: 'rising transport costs ... route changes',
+        misconception: 'The student named the effect rather than the stated cause.',
+        study_tip: 'Use ellipses only when the omitted words are in the same source sentence.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText:
+          'The passage states that rising transport costs caused route changes after the timetable shifted.',
+      },
+    )
+
+    expect(parsed.status).toBe('completed')
+  })
+
   it('rejects objective evidence that is unrelated to the source context', () => {
     const parsed = parseObjectiveExplanationOutput(
       JSON.stringify({
