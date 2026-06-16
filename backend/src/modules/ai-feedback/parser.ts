@@ -272,11 +272,28 @@ function containsUnsafeAdvice(value: unknown): boolean {
   return unsafePatterns.some((pattern) => lowerText.includes(pattern))
 }
 
+const bareNegativeContractionExpansions: Record<string, string> = {
+  cant: 'cannot',
+  didnt: 'did not',
+  doesnt: 'does not',
+  isnt: 'is not',
+  wasnt: 'was not',
+  werent: 'were not',
+}
+
+function expandBareNegativeContraction(match: string): string {
+  return bareNegativeContractionExpansions[match] ?? match
+}
+
 function normalizeEvidenceText(value: string): string {
   return value
     .toLowerCase()
-    .replace(/\b(can)['’]?t\b/g, '$1not')
-    .replace(/\b([a-z]+)n['’]?t\b/g, '$1 not')
+    .replace(
+      /\b(?:cant|didnt|doesnt|isnt|wasnt|werent)\b/g,
+      expandBareNegativeContraction,
+    )
+    .replace(/\bcan['’]t\b/g, 'cannot')
+    .replace(/\b([a-z]+)n['’]t\b/g, '$1 not')
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
