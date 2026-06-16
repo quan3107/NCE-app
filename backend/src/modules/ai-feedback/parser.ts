@@ -273,13 +273,32 @@ function containsUnsafeAdvice(value: unknown): boolean {
 }
 
 const bareNegativeContractionExpansions: Record<string, string> = {
+  aint: 'is not',
+  arent: 'are not',
   cant: 'cannot',
+  couldnt: 'could not',
   didnt: 'did not',
   doesnt: 'does not',
+  dont: 'do not',
+  hadnt: 'had not',
+  hasnt: 'has not',
+  havent: 'have not',
   isnt: 'is not',
+  mightnt: 'might not',
+  mustnt: 'must not',
+  neednt: 'need not',
+  shant: 'shall not',
+  shouldnt: 'should not',
   wasnt: 'was not',
   werent: 'were not',
+  wont: 'will not',
+  wouldnt: 'would not',
 }
+
+const bareNegativeContractionPattern = new RegExp(
+  `\\b(?:${Object.keys(bareNegativeContractionExpansions).join('|')})\\b`,
+  'g',
+)
 
 function expandBareNegativeContraction(match: string): string {
   return bareNegativeContractionExpansions[match] ?? match
@@ -288,10 +307,7 @@ function expandBareNegativeContraction(match: string): string {
 function normalizeEvidenceText(value: string): string {
   return value
     .toLowerCase()
-    .replace(
-      /\b(?:cant|didnt|doesnt|isnt|wasnt|werent)\b/g,
-      expandBareNegativeContraction,
-    )
+    .replace(bareNegativeContractionPattern, expandBareNegativeContraction)
     .replace(/\bcan['’]t\b/g, 'cannot')
     .replace(/\b([a-z]+)n['’]t\b/g, '$1 not')
     .replace(/[^a-z0-9]+/g, ' ')
