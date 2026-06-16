@@ -504,6 +504,35 @@ describe('parseObjectiveExplanationOutput', () => {
     })
   })
 
+  it('rejects source-context evidence outside the allowed candidate list', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation:
+          'The answer discusses the mayor, but the selected question is about fares.',
+        evidence: 'The mayor announced bike lanes.',
+        misconception: 'The student used evidence from a different question.',
+        study_tip: 'Use only the evidence attached to the selected question.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText:
+          'Rising fares made commuters switch routes. The mayor announced bike lanes.',
+        sourceEvidenceCandidates: [
+          {
+            id: 'q1-evidence-1',
+            quote: 'Rising fares made commuters switch routes.',
+          },
+        ],
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
   it('rejects partially hallucinated objective evidence', () => {
     const parsed = parseObjectiveExplanationOutput(
       JSON.stringify({
