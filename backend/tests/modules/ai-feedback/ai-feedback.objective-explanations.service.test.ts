@@ -451,6 +451,58 @@ describe("requestAiObjectiveExplanation", () => {
 
     expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
   });
+
+  it("checks global AI readiness before recording insufficient source evidence", async () => {
+    aiFeedbackConfig.enabled = false;
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        answers: [{ questionId: "move-in-date", value: "15 July" }],
+      },
+      assignment: {
+        ...baseSubmission.assignment,
+        type: AssignmentType.listening,
+        assignmentConfig: {
+          version: 1,
+          aiPolicy: {
+            writingFeedbackMode: "off",
+            objectiveExplanations: "on_demand_student_visible",
+            providerTier: "auto",
+          },
+          sections: [
+            {
+              id: "section-1",
+              title: "Listening Part 1",
+              audioFileId: "99999999-9999-4999-8999-999999999999",
+              transcript:
+                "The speaker confirms the move-in date with the caller.",
+              questions: [
+                {
+                  id: "move-in-date",
+                  text: "What is the move-in date?",
+                  answer: "14 July",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    } as never);
+
+    await expect(
+      requestAiObjectiveExplanation(
+        { submissionId, questionId: "move-in-date" },
+        studentActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 503,
+      message: "AI feedback generation is disabled.",
+    });
+
+    expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("getAiObjectiveExplanationStatus", () => {
