@@ -594,6 +594,27 @@ describe('parseObjectiveExplanationOutput', () => {
     })
   })
 
+  it('rejects ellipsis evidence that hides contracted source negation', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source says the mayor announced a tax.',
+        evidence: 'mayor ... tax',
+        misconception: 'The student missed the negation in the source sentence.',
+        study_tip: 'Check whether the source denies the evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: "The mayor didn't announce a tax.",
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
   it('fails malformed, unsafe, empty, and score-overriding explanations', () => {
     expect(
       parseObjectiveExplanationOutput('', {
