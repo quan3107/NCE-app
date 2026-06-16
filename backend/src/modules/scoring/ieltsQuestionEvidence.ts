@@ -15,6 +15,11 @@ export type IeltsObjectiveSourceContext =
       audioFileId: string;
     };
 
+export type IeltsSourceEvidenceCandidate = {
+  id: string;
+  quote: string;
+};
+
 export type IeltsQuestionScoringEvidence = {
   questionId: string;
   questionText: string;
@@ -22,6 +27,8 @@ export type IeltsQuestionScoringEvidence = {
   studentAnswer: unknown;
   deterministicResult: "correct" | "incorrect";
   sourceContext?: IeltsObjectiveSourceContext;
+  sourceEvidenceCandidates: IeltsSourceEvidenceCandidate[];
+  sourceEvidenceStatus: "available" | "insufficient_source_evidence";
 };
 
 export type ExpectedAnswer = {
@@ -30,6 +37,8 @@ export type ExpectedAnswer = {
   acceptedAnswer: string;
   questionText: string;
   sourceContext?: IeltsObjectiveSourceContext;
+  sourceEvidenceCandidates: IeltsSourceEvidenceCandidate[];
+  sourceEvidenceStatus: "available" | "insufficient_source_evidence";
 };
 
 type ExpectedAnswerInput = {
@@ -55,6 +64,68 @@ function normalizeString(value: string): string {
     .toLowerCase()
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ");
+}
+
+function evidenceTokens(value: string): string[] {
+  return normalizeString(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .filter(Boolean);
+}
+
+function hasContiguousTokenSequence(needle: string[], haystack: string[]): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) {
+    return false;
+  }
+
+  for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    const candidate = haystack.slice(start, start + needle.length);
+    if (candidate.every((token, index) => token === needle[index])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function sourceTextSpans(value: string): string[] {
+  return (
+    value
+      .match(/[^.!?;\n]+[.!?;]?/g)
+      ?.map((span) => span.trim())
+      .filter(Boolean) ?? []
+  );
+}
+
+function sourceSpanSupportsAcceptedAnswer(
+  span: string,
+  acceptedAnswer: string,
+): boolean {
+  const answerTokens = evidenceTokens(acceptedAnswer);
+  const spanTokens = evidenceTokens(span);
+
+  return hasContiguousTokenSequence(answerTokens, spanTokens);
+}
+
+function buildSourceEvidenceCandidates(input: {
+  sourceContext?: IeltsObjectiveSourceContext;
+  acceptedAnswer: string;
+  evidenceKey: string;
+}): IeltsSourceEvidenceCandidate[] {
+  if (
+    !input.sourceContext ||
+    (input.sourceContext.kind !== "reading_passage" &&
+      input.sourceContext.kind !== "listening_transcript")
+  ) {
+    return [];
+  }
+
+  return sourceTextSpans(input.sourceContext.text)
+    .filter((span) => sourceSpanSupportsAcceptedAnswer(span, input.acceptedAnswer))
+    .map((quote, index) => ({
+      id: `${input.evidenceKey || "question"}-evidence-${index + 1}`,
+      quote,
+    }));
 }
 
 function displayAnswer(value: unknown): string {
@@ -157,11 +228,24 @@ function toExpectedAnswer(input: ExpectedAnswerInput): ExpectedAnswer | null {
     return null;
   }
 
+  const acceptedAnswer = displayAnswer(input.acceptedAnswer);
+  const evidenceKey = keys[0] ?? "";
+  const sourceEvidenceCandidates = buildSourceEvidenceCandidates({
+    sourceContext: input.sourceContext,
+    acceptedAnswer,
+    evidenceKey,
+  });
+
   return {
     keys,
     comparableAnswer: input.comparableAnswer,
-    acceptedAnswer: displayAnswer(input.acceptedAnswer),
+    acceptedAnswer,
     questionText: input.questionText,
+    sourceEvidenceCandidates,
+    sourceEvidenceStatus:
+      sourceEvidenceCandidates.length > 0
+        ? "available"
+        : "insufficient_source_evidence",
     ...(input.sourceContext ? { sourceContext: input.sourceContext } : {}),
   };
 }
