@@ -312,4 +312,21 @@ describe('auto-scoring compatibility', () => {
     })
     expect(evidence?.sourceEvidenceCandidates[0]?.quote).toContain('3 September')
   })
+
+  it('keeps official reading explanation evidence source-backed', () => {
+    const readingConfig = buildReadingConfigOfficialFull()
+    const submittedAnswers = buildSubmittedAnswers(readingConfig)
+    const availableCount = submittedAnswers.filter((answer) => {
+      const evidence = getIeltsQuestionScoringEvidence({
+        assignmentType: AssignmentType.reading,
+        assignmentConfig: readingConfig,
+        submissionPayload: { answers: submittedAnswers },
+        questionId: answer.questionId,
+      })
+
+      return evidence?.sourceEvidenceStatus === 'available'
+    }).length
+
+    expect(availableCount).toBeGreaterThanOrEqual(10)
+  })
 })
