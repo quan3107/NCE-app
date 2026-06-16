@@ -299,6 +299,8 @@ export const objectiveExplanationResponseSchema = z.object({
   cached: z.boolean(),
   pollingLocation: z.string().min(1).optional(),
   explanation: jsonRecordSchema.optional(),
+  failureCode: z.string().min(1).optional(),
+  failureMessage: z.string().min(1).optional(),
 });
 
 export const writingFeedbackResponseSchema = z.object({
