@@ -92,7 +92,9 @@ function parseWritingAssignmentConfig(
 function parseWritingSubmissionPayload(payload: unknown): WritingSubmissionPayload {
   const currentPayload = safeParseWritingSubmissionPayload(payload);
   const normalizedPayload =
-    currentPayload ?? normalizeLegacyWritingSubmissionPayload(payload);
+    currentPayload && hasRequiredWritingTaskText(currentPayload)
+      ? currentPayload
+      : normalizeLegacyWritingSubmissionPayload(payload);
 
   if (
     !normalizedPayload ||
