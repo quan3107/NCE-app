@@ -464,6 +464,24 @@ describe('parseObjectiveExplanationOutput', () => {
     expect(parsed.status).toBe('completed')
   })
 
+  it('accepts ellipsis evidence when omitted words only end in nt', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer misses that the mayor discussed taxes.',
+        evidence: 'mayor made ... tax',
+        misconception: 'The student missed the announcement topic.',
+        study_tip: 'Use ellipses only for omitted source words that do not change meaning.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The mayor made an important announcement about tax.',
+      },
+    )
+
+    expect(parsed.status).toBe('completed')
+  })
+
   it('rejects objective evidence that is unrelated to the source context', () => {
     const parsed = parseObjectiveExplanationOutput(
       JSON.stringify({
