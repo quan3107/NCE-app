@@ -325,17 +325,54 @@ function ellipsisEvidenceFragments(evidence: string): string[][] {
     .filter((tokens) => tokens.length > 0)
 }
 
+const blockedEllipsisGapTokens = new Set([
+  'no',
+  'not',
+  'none',
+  'never',
+  'neither',
+  'nor',
+  'without',
+  'cannot',
+  'cant',
+  'didnt',
+  'doesnt',
+  'isnt',
+  'wasnt',
+  'werent',
+  'except',
+  'unless',
+  'only',
+  'but',
+  'however',
+  'although',
+  'rather',
+])
+
+function hasBlockedEllipsisGap(gapTokens: string[]): boolean {
+  return gapTokens.some((token) => blockedEllipsisGapTokens.has(token))
+}
+
 function hasOrderedTokenFragments(fragments: string[][], haystack: string[]): boolean {
   if (fragments.length < 2) {
     return false
   }
 
   let cursor = 0
-  for (const fragment of fragments) {
-    const start = tokenSequenceStartAtOrAfter(fragment, haystack, cursor)
+  for (const [fragmentIndex, fragment] of fragments.entries()) {
+    let start = tokenSequenceStartAtOrAfter(fragment, haystack, cursor)
+    while (start !== -1) {
+      const gapTokens = fragmentIndex === 0 ? [] : haystack.slice(cursor, start)
+      if (!hasBlockedEllipsisGap(gapTokens)) {
+        break
+      }
+      start = tokenSequenceStartAtOrAfter(fragment, haystack, start + 1)
+    }
+
     if (start === -1) {
       return false
     }
+
     cursor = start + fragment.length
   }
 
