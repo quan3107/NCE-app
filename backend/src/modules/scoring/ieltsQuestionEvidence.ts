@@ -130,6 +130,19 @@ function hasContiguousTokenSequence(needle: string[], haystack: string[]): boole
   return false;
 }
 
+function isAnswerKeyOnlyTokenSequence(tokens: string[]): boolean {
+  const normalized = tokens.join(" ");
+
+  return (
+    (tokens.length === 1 && /^[a-z]$/.test(tokens[0] ?? "")) ||
+    ["true", "false", "yes", "no", "not given"].includes(normalized)
+  );
+}
+
+function isSingleTokenSourceAnchor(token: string): boolean {
+  return /\d/.test(token) || (token.length > 2 && !evidenceStopwords.has(token));
+}
+
 function sourceTextSpans(value: string): string[] {
   return (
     value
@@ -146,7 +159,14 @@ function sourceSpanSupportsAcceptedAnswer(
   const answerTokens = evidenceTokens(acceptedAnswer);
   const spanTokens = evidenceTokens(span);
 
-  if (answerTokens.length === 1 && !/\d/.test(answerTokens[0] ?? "")) {
+  if (isAnswerKeyOnlyTokenSequence(answerTokens)) {
+    return false;
+  }
+
+  if (
+    answerTokens.length === 1 &&
+    !isSingleTokenSourceAnchor(answerTokens[0] ?? "")
+  ) {
     return false;
   }
 
