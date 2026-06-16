@@ -275,6 +275,8 @@ function containsUnsafeAdvice(value: unknown): boolean {
 function normalizeEvidenceText(value: string): string {
   return value
     .toLowerCase()
+    .replace(/\b(can)['’]?t\b/g, '$1not')
+    .replace(/\b([a-z]+)n['’]?t\b/g, '$1 not')
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
