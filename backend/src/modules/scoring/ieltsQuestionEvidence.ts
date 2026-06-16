@@ -47,6 +47,7 @@ type ExpectedAnswerInput = {
   acceptedAnswer: unknown;
   questionText: string;
   sourceContext?: IeltsObjectiveSourceContext;
+  evidenceTexts?: string[];
 };
 
 type ResolvedAnswer = {
@@ -71,6 +72,47 @@ function evidenceTokens(value: string): string[] {
     .replace(/[^a-z0-9]+/g, " ")
     .split(" ")
     .filter(Boolean);
+}
+
+const evidenceStopwords = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "for",
+  "from",
+  "how",
+  "in",
+  "is",
+  "it",
+  "of",
+  "on",
+  "or",
+  "that",
+  "the",
+  "their",
+  "they",
+  "this",
+  "to",
+  "was",
+  "were",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "with",
+]);
+
+function contentEvidenceTokens(value: string): string[] {
+  return evidenceTokens(value).filter(
+    (token) => token.length > 2 && !evidenceStopwords.has(token),
+  );
 }
 
 function hasContiguousTokenSequence(needle: string[], haystack: string[]): boolean {
@@ -104,13 +146,35 @@ function sourceSpanSupportsAcceptedAnswer(
   const answerTokens = evidenceTokens(acceptedAnswer);
   const spanTokens = evidenceTokens(span);
 
+  if (answerTokens.length === 1 && !/\d/.test(answerTokens[0] ?? "")) {
+    return false;
+  }
+
   return hasContiguousTokenSequence(answerTokens, spanTokens);
+}
+
+function sourceSpanSupportsEvidenceText(
+  span: string,
+  evidenceText: string,
+): boolean {
+  const anchorTokens = contentEvidenceTokens(evidenceText);
+  const spanTokens = new Set(contentEvidenceTokens(span));
+
+  if (anchorTokens.length === 0 || spanTokens.size === 0) {
+    return false;
+  }
+
+  const matchedTokens = anchorTokens.filter((token) => spanTokens.has(token));
+  const requiredMatches = Math.max(2, Math.ceil(anchorTokens.length * 0.6));
+
+  return matchedTokens.length >= requiredMatches;
 }
 
 function buildSourceEvidenceCandidates(input: {
   sourceContext?: IeltsObjectiveSourceContext;
   acceptedAnswer: string;
   evidenceKey: string;
+  evidenceTexts?: string[];
 }): IeltsSourceEvidenceCandidate[] {
   if (
     !input.sourceContext ||
@@ -121,7 +185,13 @@ function buildSourceEvidenceCandidates(input: {
   }
 
   return sourceTextSpans(input.sourceContext.text)
-    .filter((span) => sourceSpanSupportsAcceptedAnswer(span, input.acceptedAnswer))
+    .filter(
+      (span) =>
+        sourceSpanSupportsAcceptedAnswer(span, input.acceptedAnswer) ||
+        (input.evidenceTexts ?? []).some((evidenceText) =>
+          sourceSpanSupportsEvidenceText(span, evidenceText),
+        ),
+    )
     .map((quote, index) => ({
       id: `${input.evidenceKey || "question"}-evidence-${index + 1}`,
       quote,
@@ -234,6 +304,7 @@ function toExpectedAnswer(input: ExpectedAnswerInput): ExpectedAnswer | null {
     sourceContext: input.sourceContext,
     acceptedAnswer,
     evidenceKey,
+    evidenceTexts: input.evidenceTexts,
   });
 
   return {
@@ -248,6 +319,12 @@ function toExpectedAnswer(input: ExpectedAnswerInput): ExpectedAnswer | null {
         : "insufficient_source_evidence",
     ...(input.sourceContext ? { sourceContext: input.sourceContext } : {}),
   };
+}
+
+function isStatementLikeQuestionText(value: string): boolean {
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 && !trimmed.endsWith("?");
 }
 
 function addExpectedAnswer(
@@ -300,6 +377,12 @@ function extractExpectedAnswersFromQuestion(
       ...directAnswer,
       questionText: parentQuestionText,
       sourceContext,
+      evidenceTexts: [
+        directAnswer.acceptedAnswer,
+        ...(isStatementLikeQuestionText(parentQuestionText)
+          ? [parentQuestionText]
+          : []),
+      ],
     });
   }
 
@@ -317,6 +400,7 @@ function extractExpectedAnswersFromQuestion(
       acceptedAnswer: sentenceAnswer,
       questionText: displayTextFromRecord(sentence) || parentQuestionText,
       sourceContext,
+      evidenceTexts: [displayTextFromRecord(sentence)],
     });
   }
 
@@ -334,6 +418,7 @@ function extractExpectedAnswersFromQuestion(
       acceptedAnswer: statementAnswer,
       questionText: displayTextFromRecord(statement) || parentQuestionText,
       sourceContext,
+      evidenceTexts: [displayTextFromRecord(statement)],
     });
   }
 
@@ -357,6 +442,7 @@ function extractExpectedAnswersFromQuestion(
       acceptedAnswer: itemAnswer,
       questionText: displayTextFromRecord(item) || parentQuestionText,
       sourceContext,
+      evidenceTexts: [displayTextFromRecord(item)],
     });
   }
 
@@ -374,6 +460,7 @@ function extractExpectedAnswersFromQuestion(
       acceptedAnswer: itemAnswer,
       questionText: displayTextFromRecord(item) || parentQuestionText,
       sourceContext,
+      evidenceTexts: [displayTextFromRecord(item)],
     });
   }
 
@@ -391,6 +478,7 @@ function extractExpectedAnswersFromQuestion(
       acceptedAnswer: labelAnswer,
       questionText: displayTextFromRecord(label) || parentQuestionText,
       sourceContext,
+      evidenceTexts: [displayTextFromRecord(label)],
     });
   }
 
