@@ -451,6 +451,8 @@ export async function requestAiObjectiveExplanation(
 ): Promise<ObjectiveExplanationResponse> {
   const context = await loadObjectiveExplanationContext(params, actor);
 
+  assertAiFeedbackGenerationReady();
+
   if (!hasSourceEvidenceCandidates(context.evidence)) {
     const explanation = await upsertAiObjectiveExplanation({
       submissionId: context.submission.id,
@@ -493,8 +495,6 @@ export async function requestAiObjectiveExplanation(
       questionId: context.questionId,
     });
   }
-
-  assertAiFeedbackGenerationReady();
 
   const explanation = await upsertAiObjectiveExplanation({
     submissionId: context.submission.id,
