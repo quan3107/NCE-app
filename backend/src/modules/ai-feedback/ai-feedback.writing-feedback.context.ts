@@ -190,6 +190,11 @@ function readTaskText(
   payload: Record<string, unknown>,
   task: "task1" | "task2",
 ): string {
+  const currentTaskText = readTextFromRecord(payload[task]);
+  if (currentTaskText) {
+    return currentTaskText;
+  }
+
   const directKeys =
     task === "task1"
       ? ["task1Text", "task1_text", "task1Response", "task1_response"]
