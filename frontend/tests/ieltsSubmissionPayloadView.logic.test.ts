@@ -53,6 +53,38 @@ test('buildIeltsSubmissionDisplay renders IELTS writing task responses with prom
   assert.equal(display.fallback, undefined);
 });
 
+test('buildIeltsSubmissionDisplay renders explicit legacy writing task text', () => {
+  const display = buildIeltsSubmissionDisplay({
+    type: 'writing',
+    assignmentConfig: {
+      version: 1,
+      task1: { prompt: 'Summarise the chart.' },
+      task2: { prompt: 'Discuss both views.' },
+    },
+    payload: {
+      version: 1,
+      responses: {
+        task1: 'The chart shows applications rose steadily.',
+        task2: 'Public transport should be funded before new roads.',
+      },
+    },
+  });
+
+  assert.deepEqual(display.sections, [
+    {
+      title: 'Task 1',
+      prompt: 'Summarise the chart.',
+      text: 'The chart shows applications rose steadily.',
+    },
+    {
+      title: 'Task 2',
+      prompt: 'Discuss both views.',
+      text: 'Public transport should be funded before new roads.',
+    },
+  ]);
+  assert.equal(display.fallback, undefined);
+});
+
 test('buildIeltsSubmissionDisplay renders matching answer option labels', () => {
   const display = buildIeltsSubmissionDisplay({
     type: 'reading',

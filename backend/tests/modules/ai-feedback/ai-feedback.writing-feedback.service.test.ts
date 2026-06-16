@@ -329,6 +329,142 @@ describe('requestAiWritingFeedback', () => {
     )
   })
 
+  it('queues feedback after normalizing explicit legacy writing task text', async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        responses: {
+          task1: 'The chart shows steady growth in commuter rail use.',
+          task2: 'Cities should invest in buses and trains before new roads.',
+        },
+      },
+    } as never)
+
+    await requestAiWritingFeedback({ submissionId }, teacherActor)
+
+    expect(createAiFeedbackDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'queued',
+        generationJob: {
+          harnessInput: expect.objectContaining({
+            promptInput: expect.objectContaining({
+              submission: {
+                task1: {
+                  text: 'The chart shows steady growth in commuter rail use.',
+                },
+                task2: {
+                  text: 'Cities should invest in buses and trains before new roads.',
+                },
+              },
+            }),
+          }),
+        },
+      }),
+    )
+  })
+
+  it('queues feedback after normalizing legacy writing task response fields', async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        task1: {
+          response: 'The chart shows a steady rise in applications.',
+        },
+        task2: {
+          response: 'Public transport should be funded before new roads.',
+        },
+      },
+    } as never)
+
+    await requestAiWritingFeedback({ submissionId }, teacherActor)
+
+    expect(createAiFeedbackDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'queued',
+        generationJob: {
+          harnessInput: expect.objectContaining({
+            promptInput: expect.objectContaining({
+              submission: {
+                task1: {
+                  text: 'The chart shows a steady rise in applications.',
+                },
+                task2: {
+                  text: 'Public transport should be funded before new roads.',
+                },
+              },
+            }),
+          }),
+        },
+      }),
+    )
+  })
+
+  it('queues feedback after replacing blank current task text with legacy responses', async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        task1: {
+          text: '   ',
+          response: 'The chart shows actual growth in commuter rail use.',
+        },
+        task2: {
+          text: '',
+          response: 'Cities should invest in actual bus and train services.',
+        },
+      },
+    } as never)
+
+    await requestAiWritingFeedback({ submissionId }, teacherActor)
+
+    expect(createAiFeedbackDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'queued',
+        generationJob: {
+          harnessInput: expect.objectContaining({
+            promptInput: expect.objectContaining({
+              submission: {
+                task1: {
+                  text: 'The chart shows actual growth in commuter rail use.',
+                },
+                task2: {
+                  text: 'Cities should invest in actual bus and train services.',
+                },
+              },
+            }),
+          }),
+        },
+      }),
+    )
+  })
+
+  it('rejects file-only legacy writing payloads with a scoped message', async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        artifact: 'Academic Essay: Technology and Society',
+        resources: [
+          {
+            label: 'Primary Submission',
+            url: 'https://storage.mock/ielts/submission.pdf',
+          },
+        ],
+      },
+    } as never)
+
+    await expect(
+      requestAiWritingFeedback({ submissionId }, teacherActor),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Writing submission payload is missing Task 1 and Task 2 text.',
+    })
+
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled()
+  })
+
   it('creates a teacher-review-only record when required image context is unavailable', async () => {
     resolveAiFeedbackImageContext.mockRejectedValueOnce(
       new Error('Unsupported image type for AI feedback.'),
@@ -612,6 +748,38 @@ describe('requestAssignmentWritingFeedbackBatch', () => {
         submissionId,
         status: 'policy_disabled',
         reason: 'AI writing feedback is not enabled for this assignment.',
+      },
+    ])
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled()
+  })
+
+  it('reports malformed writing payload batch rows with a concise reason', async () => {
+    prisma.submission.findMany.mockResolvedValueOnce([{ id: submissionId }] as never)
+    findActiveAiFeedbackDraftSubmissionIds.mockResolvedValueOnce(new Set())
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        files: [
+          {
+            id: 'file-1',
+            name: 'legacy-writing.pdf',
+          },
+        ],
+      },
+    } as never)
+
+    const response = await requestAssignmentWritingFeedbackBatch(
+      { courseId, assignmentId },
+      { filter: 'submitted' },
+      teacherActor,
+    )
+
+    expect(response.results).toEqual([
+      {
+        submissionId,
+        status: 'failed_to_queue',
+        reason: 'Writing submission payload is missing Task 1 and Task 2 text.',
       },
     ])
     expect(createAiFeedbackDraft).not.toHaveBeenCalled()

@@ -272,9 +272,44 @@ function containsUnsafeAdvice(value: unknown): boolean {
   return unsafePatterns.some((pattern) => lowerText.includes(pattern))
 }
 
+const bareNegativeContractionExpansions: Record<string, string> = {
+  aint: 'is not',
+  arent: 'are not',
+  cant: 'cannot',
+  couldnt: 'could not',
+  didnt: 'did not',
+  doesnt: 'does not',
+  dont: 'do not',
+  hadnt: 'had not',
+  hasnt: 'has not',
+  havent: 'have not',
+  isnt: 'is not',
+  mightnt: 'might not',
+  mustnt: 'must not',
+  neednt: 'need not',
+  shant: 'shall not',
+  shouldnt: 'should not',
+  wasnt: 'was not',
+  werent: 'were not',
+  wont: 'will not',
+  wouldnt: 'would not',
+}
+
+const bareNegativeContractionPattern = new RegExp(
+  `\\b(?:${Object.keys(bareNegativeContractionExpansions).join('|')})\\b`,
+  'g',
+)
+
+function expandBareNegativeContraction(match: string): string {
+  return bareNegativeContractionExpansions[match] ?? match
+}
+
 function normalizeEvidenceText(value: string): string {
   return value
     .toLowerCase()
+    .replace(bareNegativeContractionPattern, expandBareNegativeContraction)
+    .replace(/\bcan['’]t\b/g, 'cannot')
+    .replace(/\b([a-z]+)n['’]t\b/g, '$1 not')
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -299,6 +334,86 @@ function hasContiguousTokenSequence(needle: string[], haystack: string[]): boole
   return false
 }
 
+function tokenSequenceStartAtOrAfter(
+  needle: string[],
+  haystack: string[],
+  startIndex: number,
+): number {
+  if (needle.length === 0 || needle.length > haystack.length) {
+    return -1
+  }
+
+  for (let start = startIndex; start <= haystack.length - needle.length; start += 1) {
+    const candidate = haystack.slice(start, start + needle.length)
+    if (candidate.every((token, index) => token === needle[index])) {
+      return start
+    }
+  }
+
+  return -1
+}
+
+function ellipsisEvidenceFragments(evidence: string): string[][] {
+  return evidence
+    .split(/(?:\.{3}|…)+/u)
+    .map((fragment) => evidenceTextTokens(fragment))
+    .filter((tokens) => tokens.length > 0)
+}
+
+const blockedEllipsisGapTokens = new Set([
+  'no',
+  'not',
+  'none',
+  'never',
+  'neither',
+  'nor',
+  'without',
+  'cannot',
+  'cant',
+  'didnt',
+  'doesnt',
+  'isnt',
+  'wasnt',
+  'werent',
+  'except',
+  'unless',
+  'only',
+  'but',
+  'however',
+  'although',
+  'rather',
+])
+
+function hasBlockedEllipsisGap(gapTokens: string[]): boolean {
+  return gapTokens.some((token) => blockedEllipsisGapTokens.has(token))
+}
+
+function hasOrderedTokenFragments(fragments: string[][], haystack: string[]): boolean {
+  if (fragments.length < 2) {
+    return false
+  }
+
+  let cursor = 0
+  for (const [fragmentIndex, fragment] of fragments.entries()) {
+    let start = tokenSequenceStartAtOrAfter(fragment, haystack, cursor)
+    while (start !== -1) {
+      const gapTokens = fragmentIndex === 0 ? [] : haystack.slice(cursor, start)
+      if (!hasBlockedEllipsisGap(gapTokens)) {
+        break
+      }
+      start = tokenSequenceStartAtOrAfter(fragment, haystack, start + 1)
+    }
+
+    if (start === -1) {
+      return false
+    }
+
+    cursor = start + fragment.length
+  }
+
+  return true
+}
+
 function sourceContextSpans(sourceContextText: string): string[] {
   return sourceContextText
     .split(/[.!?;\n]+/)
@@ -309,6 +424,10 @@ function sourceContextSpans(sourceContextText: string): string[] {
 function sourceSpanSupportsEvidence(evidence: string, sourceSpan: string): boolean {
   const evidenceTokens = evidenceTextTokens(evidence)
   const sourceTokens = evidenceTextTokens(sourceSpan)
+
+  if (/(?:\.{3}|…)+/u.test(evidence)) {
+    return hasOrderedTokenFragments(ellipsisEvidenceFragments(evidence), sourceTokens)
+  }
 
   return hasContiguousTokenSequence(evidenceTokens, sourceTokens)
 }

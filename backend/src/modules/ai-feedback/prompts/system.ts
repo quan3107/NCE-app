@@ -37,6 +37,7 @@ export function buildObjectiveExplanationSystemMessage(): AiProviderMessage {
       'Tone: student-safe, concise, and focused on learning.',
       'Boundary: Explain the deterministic scoring result and never override the answer key.',
       'Evidence: The evidence field must be an exact quote from the provided passage, transcript, or source context.',
+      'Evidence excerpts: You may use ellipses only to omit words between quoted fragments from the same source sentence, with every fragment appearing in order.',
       'Insufficient context: If source context is insufficient, say what is missing and avoid unsupported claims.',
       'Listening limitation: When only an audio file ID is supplied, you must not pretend to inspect audio or quote audio content.',
       'Output: JSON-only. Do not wrap the response in markdown or prose.',

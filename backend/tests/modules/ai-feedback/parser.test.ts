@@ -445,6 +445,43 @@ describe('parseObjectiveExplanationOutput', () => {
     expect(parsed.status).toBe('completed')
   })
 
+  it('accepts source-grounded evidence with ellipsis-delimited excerpt gaps', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer misses that transport costs caused the change.',
+        evidence: 'rising transport costs ... route changes',
+        misconception: 'The student named the effect rather than the stated cause.',
+        study_tip: 'Use ellipses only when the omitted words are in the same source sentence.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText:
+          'The passage states that rising transport costs caused route changes after the timetable shifted.',
+      },
+    )
+
+    expect(parsed.status).toBe('completed')
+  })
+
+  it('accepts ellipsis evidence when omitted words only end in nt', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer misses that the mayor discussed taxes.',
+        evidence: 'mayor made ... tax',
+        misconception: 'The student missed the announcement topic.',
+        study_tip: 'Use ellipses only for omitted source words that do not change meaning.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The mayor made an important announcement about tax.',
+      },
+    )
+
+    expect(parsed.status).toBe('completed')
+  })
+
   it('rejects objective evidence that is unrelated to the source context', () => {
     const parsed = parseObjectiveExplanationOutput(
       JSON.stringify({
@@ -545,6 +582,76 @@ describe('parseObjectiveExplanationOutput', () => {
       {
         deterministicResult: 'incorrect',
         sourceContextText: 'The mayor announced no tax.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it('rejects ellipsis evidence that hides source negation', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source says the mayor announced a tax.',
+        evidence: 'mayor announced ... tax',
+        misconception: 'The student missed the negation in the source sentence.',
+        study_tip: 'Check whether the source denies the evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The mayor announced no tax.',
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it('rejects ellipsis evidence that hides contracted source negation', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source says the mayor announced a tax.',
+        evidence: 'mayor ... tax',
+        misconception: 'The student missed the negation in the source sentence.',
+        study_tip: 'Check whether the source denies the evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: "The mayor didn't announce a tax.",
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
+  it.each([
+    'The rules dont allow tax increases.',
+    'The rules wont allow tax increases.',
+    'The rules arent allowing tax increases.',
+    'The rules couldnt allow tax increases.',
+    'The rules shouldnt allow tax increases.',
+    'The rules wouldnt allow tax increases.',
+  ])('rejects ellipsis evidence that hides bare contracted source negation: %s', (sourceContextText) => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The source says the rules allow tax increases.',
+        evidence: 'rules ... tax increases',
+        misconception: 'The student missed the negation in the source sentence.',
+        study_tip: 'Check whether the source denies the evidence claim.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText,
       },
     )
 

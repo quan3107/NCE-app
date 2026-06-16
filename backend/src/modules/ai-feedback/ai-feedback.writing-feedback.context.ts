@@ -28,6 +28,8 @@ import type {
 } from "./ai-feedback.writing-feedback.types.js";
 
 const submittedStatuses = new Set(["submitted", "late", "graded"]);
+const missingWritingPayloadMessage =
+  "Writing submission payload is missing Task 1 and Task 2 text.";
 
 function assertCanRequestWritingFeedback(
   submission: WritingSubmission,
@@ -88,10 +90,170 @@ function parseWritingAssignmentConfig(
 }
 
 function parseWritingSubmissionPayload(payload: unknown): WritingSubmissionPayload {
+  const currentPayload = safeParseWritingSubmissionPayload(payload);
+  const normalizedPayload =
+    currentPayload && hasRequiredWritingTaskText(currentPayload)
+      ? currentPayload
+      : normalizeLegacyWritingSubmissionPayload(payload);
+
+  if (
+    !normalizedPayload ||
+    !hasRequiredWritingTaskText(normalizedPayload)
+  ) {
+    throw createHttpError(400, missingWritingPayloadMessage);
+  }
+
   return parseSubmissionPayloadForType(
     AssignmentType.writing,
-    payload,
+    normalizedPayload,
   ) as WritingSubmissionPayload;
+}
+
+function safeParseWritingSubmissionPayload(
+  payload: unknown,
+): WritingSubmissionPayload | null {
+  try {
+    return parseSubmissionPayloadForType(
+      AssignmentType.writing,
+      payload,
+    ) as WritingSubmissionPayload;
+  } catch {
+    return null;
+  }
+}
+
+function hasRequiredWritingTaskText(payload: WritingSubmissionPayload): boolean {
+  return (
+    typeof payload.task1?.text === "string" &&
+    payload.task1.text.trim() !== "" &&
+    typeof payload.task2?.text === "string" &&
+    payload.task2.text.trim() !== ""
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readTrimmedString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readTextFromRecord(value: unknown): string {
+  if (!isRecord(value)) {
+    return readTrimmedString(value);
+  }
+
+  for (const key of ["text", "response", "answer", "value", "content"]) {
+    const text = readTrimmedString(value[key]);
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function taskKeyMatches(value: unknown, task: "task1" | "task2"): boolean {
+  const normalized = readTrimmedString(value).toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalized === task || normalized === `writing${task}`;
+}
+
+function readTaskTextFromAnswers(
+  answers: unknown,
+  task: "task1" | "task2",
+): string {
+  if (!Array.isArray(answers)) {
+    return "";
+  }
+
+  for (const answer of answers) {
+    if (!isRecord(answer)) {
+      continue;
+    }
+
+    const matchesTask = ["questionId", "taskId", "id", "key", "name"].some((key) =>
+      taskKeyMatches(answer[key], task),
+    );
+    if (!matchesTask) {
+      continue;
+    }
+
+    const text = readTextFromRecord(answer);
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function readTaskText(
+  payload: Record<string, unknown>,
+  task: "task1" | "task2",
+): string {
+  const currentTaskText = readTextFromRecord(payload[task]);
+  if (currentTaskText) {
+    return currentTaskText;
+  }
+
+  const directKeys =
+    task === "task1"
+      ? ["task1Text", "task1_text", "task1Response", "task1_response"]
+      : ["task2Text", "task2_text", "task2Response", "task2_response"];
+
+  for (const key of directKeys) {
+    const text = readTrimmedString(payload[key]);
+    if (text) {
+      return text;
+    }
+  }
+
+  for (const containerKey of ["responses", "answersByTask", "tasks"]) {
+    const container = payload[containerKey];
+    if (!isRecord(container)) {
+      continue;
+    }
+    const text = readTextFromRecord(container[task]);
+    if (text) {
+      return text;
+    }
+  }
+
+  return readTaskTextFromAnswers(payload.answers, task);
+}
+
+function copyKnownSubmissionMetadata(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const metadata: Record<string, unknown> = {};
+  for (const key of ["version", "attempt", "startedAt", "submittedAt", "durationSeconds"]) {
+    if (payload[key] !== undefined) {
+      metadata[key] = payload[key];
+    }
+  }
+  return metadata;
+}
+
+function normalizeLegacyWritingSubmissionPayload(
+  payload: unknown,
+): WritingSubmissionPayload | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const task1Text = readTaskText(payload, "task1");
+  const task2Text = readTaskText(payload, "task2");
+
+  if (!task1Text || !task2Text) {
+    return null;
+  }
+
+  return {
+    ...copyKnownSubmissionMetadata(payload),
+    task1: { text: task1Text },
+    task2: { text: task2Text },
+  };
 }
 
 function assertWritingFeedbackPolicy(
