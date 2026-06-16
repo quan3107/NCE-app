@@ -422,6 +422,8 @@ export async function processObjectiveExplanationJob(
     parsed = parseObjectiveExplanationOutput(providerResult.rawText, {
       deterministicResult: payload.harnessInput.promptInput.deterministicResult,
       sourceContextText: objectiveSourceContextText(payload.harnessInput),
+      sourceEvidenceCandidates:
+        payload.harnessInput.promptInput.sourceEvidenceCandidates,
     });
   } catch (error) {
     logger.error(
