@@ -181,4 +181,70 @@ describe("buildExpectedAnswersFromConfig", () => {
       ],
     });
   });
+
+  it("keeps decimal answers in complete source evidence spans", () => {
+    const expectedAnswers = buildExpectedAnswersFromConfig(AssignmentType.listening, {
+      version: 1,
+      sections: [
+        {
+          id: "section-1",
+          title: "Listening",
+          transcript:
+            "The measured rate was 3.5 percent after calibration. The baseline was lower.",
+          questions: [
+            {
+              id: "q1",
+              type: "completion",
+              text: "The measured rate was ____ percent.",
+              answer: "3.5",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(expectedAnswers[0]).toMatchObject({
+      acceptedAnswer: "3.5",
+      sourceEvidenceStatus: "available",
+      sourceEvidenceCandidates: [
+        {
+          id: "q1-evidence-1",
+          quote: "The measured rate was 3.5 percent after calibration.",
+        },
+      ],
+    });
+  });
+
+  it("keeps time abbreviations in complete source evidence spans", () => {
+    const expectedAnswers = buildExpectedAnswersFromConfig(AssignmentType.listening, {
+      version: 1,
+      sections: [
+        {
+          id: "section-1",
+          title: "Listening",
+          transcript:
+            "Quiet hours begin at 10 p.m. Laundry remains open during the day.",
+          questions: [
+            {
+              id: "q1",
+              type: "completion",
+              text: "Quiet hours begin at ____ p.m.",
+              answer: "10",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(expectedAnswers[0]).toMatchObject({
+      acceptedAnswer: "10",
+      sourceEvidenceStatus: "available",
+      sourceEvidenceCandidates: [
+        {
+          id: "q1-evidence-1",
+          quote: "Quiet hours begin at 10 p.m.",
+        },
+      ],
+    });
+  });
 });
