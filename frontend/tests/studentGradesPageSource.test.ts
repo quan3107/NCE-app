@@ -22,3 +22,18 @@ test('StudentGradesPage renders IELTS scores without repeated band labels', asyn
   );
   assert.match(source, /grade\.scoreDisplay\.kind === 'points'/);
 });
+
+test('StudentGradesPage renders objective explanation failure messages from the API', async () => {
+  const pagePath = path.resolve(
+    import.meta.dirname,
+    '../src/features/grades/components/StudentGradesPage.tsx',
+  );
+  const source = await readFile(pagePath, 'utf8');
+
+  assert.match(source, /failureMessage/);
+  assert.match(source, /toExplanationState/);
+  assert.match(
+    source,
+    /state\.failureMessage \?\?[\s\S]*Explanation is not available for this\s+question\./,
+  );
+});
