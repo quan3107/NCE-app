@@ -467,6 +467,9 @@ export function StudentGradesPage() {
                                 state.explanation;
                               const retryable =
                                 state?.status === 'polling_timeout';
+                              const terminalUnavailable =
+                                state?.status === 'review_required' ||
+                                state?.status === 'rejected';
                               return (
                                 <div
                                   key={target.id}
@@ -485,7 +488,11 @@ export function StudentGradesPage() {
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      disabled={active || Boolean(ready)}
+                                      disabled={
+                                        active ||
+                                        Boolean(ready) ||
+                                        terminalUnavailable
+                                      }
                                       onClick={() =>
                                         void handleExplain(
                                           submission,
@@ -504,7 +511,9 @@ export function StudentGradesPage() {
                                           ? 'Queued'
                                           : retryable
                                             ? 'Retry'
-                                            : 'Explain'}
+                                            : terminalUnavailable
+                                              ? 'Unavailable'
+                                              : 'Explain'}
                                     </Button>
                                   </div>
                                   {ready && (
