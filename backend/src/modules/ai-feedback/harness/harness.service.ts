@@ -300,6 +300,7 @@ function evaluateObjectiveHarness(
   const parsed = parseObjectiveExplanationOutput(input.providerOutput, {
     deterministicResult: input.promptInput.deterministicResult,
     sourceContextText: objectiveSourceContextText(input),
+    sourceEvidenceCandidates: input.promptInput.sourceEvidenceCandidates,
   })
 
   if (parsed.status !== 'completed') {
