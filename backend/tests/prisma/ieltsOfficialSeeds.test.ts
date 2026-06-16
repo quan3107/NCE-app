@@ -313,6 +313,25 @@ describe('auto-scoring compatibility', () => {
     expect(evidence?.sourceEvidenceCandidates[0]?.quote).toContain('3 September')
   })
 
+  it('keeps seeded one-word listening answers source-backed', () => {
+    const listeningConfig = buildListeningConfigOfficialFullComputer()
+    const evidence = getIeltsQuestionScoringEvidence({
+      assignmentType: AssignmentType.listening,
+      assignmentConfig: listeningConfig,
+      submissionPayload: {
+        answers: [{ questionId: 'listening-full-s1-q5', value: 'passport' }],
+      },
+      questionId: 'listening-full-s1-q5',
+    })
+
+    expect(evidence).toMatchObject({
+      questionId: 'listening-full-s1-q5',
+      acceptedAnswer: 'passport',
+      sourceEvidenceStatus: 'available',
+    })
+    expect(evidence?.sourceEvidenceCandidates[0]?.quote).toContain('passport')
+  })
+
   it('keeps official reading explanation evidence source-backed', () => {
     const readingConfig = buildReadingConfigOfficialFull()
     const submittedAnswers = buildSubmittedAnswers(readingConfig)
