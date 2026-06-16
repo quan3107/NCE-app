@@ -147,4 +147,38 @@ describe("buildExpectedAnswersFromConfig", () => {
       ],
     });
   });
+
+  it("builds source evidence candidates for valid one-word source answers", () => {
+    const expectedAnswers = buildExpectedAnswersFromConfig(AssignmentType.listening, {
+      version: 1,
+      sections: [
+        {
+          id: "section-1",
+          title: "Listening",
+          transcript:
+            "The adviser confirms that the student must show a passport on arrival.",
+          questions: [
+            {
+              id: "q1",
+              type: "short_answer",
+              text: "Which identification document must be shown on arrival?",
+              answer: "passport",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(expectedAnswers[0]).toMatchObject({
+      acceptedAnswer: "passport",
+      sourceEvidenceStatus: "available",
+      sourceEvidenceCandidates: [
+        {
+          id: "q1-evidence-1",
+          quote:
+            "The adviser confirms that the student must show a passport on arrival.",
+        },
+      ],
+    });
+  });
 });
