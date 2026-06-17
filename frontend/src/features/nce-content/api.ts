@@ -30,7 +30,9 @@ const queryParams = (
 const shouldUseAuth = (query: NceReadQuery = {}) =>
   Boolean(query.includeDrafts || query.courseId);
 
-export const fetchNceBooks = (query: Pick<NceReadQuery, 'includeDrafts'> = {}) =>
+export const fetchNceBooks = (
+  query: Pick<NceReadQuery, 'includeDrafts' | 'courseId'> = {},
+) =>
   apiClient<NceBookListResponse>('/nce/books', {
     params: queryParams(query),
     withAuth: shouldUseAuth(query),
@@ -71,7 +73,9 @@ export const fetchCourseNceLessons = (
     params: queryParams(query),
   });
 
-export function useNceBooksQuery(query: Pick<NceReadQuery, 'includeDrafts'> = {}) {
+export function useNceBooksQuery(
+  query: Pick<NceReadQuery, 'includeDrafts' | 'courseId'> = {},
+) {
   return useQuery({
     queryKey: [...NCE_CONTENT_KEY, 'books', query],
     queryFn: () => fetchNceBooks(query),
