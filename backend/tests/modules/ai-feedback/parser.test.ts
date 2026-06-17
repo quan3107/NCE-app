@@ -533,6 +533,57 @@ describe('parseObjectiveExplanationOutput', () => {
     })
   })
 
+  it('accepts objective evidence that exactly matches an allowed candidate quote', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer misses that the committee rejected the project.',
+        evidence: 'The project was not approved by the committee.',
+        misconception: 'The student missed the negative wording in the source.',
+        study_tip: 'Keep negation words with the cited source quote.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The project was not approved by the committee.',
+        sourceEvidenceCandidates: [
+          {
+            id: 'q1-evidence-1',
+            quote: 'The project was not approved by the committee.',
+          },
+        ],
+      },
+    )
+
+    expect(parsed.status).toBe('completed')
+  })
+
+  it('rejects objective evidence that is only a fragment of an allowed candidate quote', () => {
+    const parsed = parseObjectiveExplanationOutput(
+      JSON.stringify({
+        result: 'incorrect',
+        short_explanation: 'The answer incorrectly says the project was approved.',
+        evidence: 'approved',
+        misconception: 'The student dropped the source negation.',
+        study_tip: 'Cite the full source quote, including negation and qualifiers.',
+      }),
+      {
+        deterministicResult: 'incorrect',
+        sourceContextText: 'The project was not approved by the committee.',
+        sourceEvidenceCandidates: [
+          {
+            id: 'q1-evidence-1',
+            quote: 'The project was not approved by the committee.',
+          },
+        ],
+      },
+    )
+
+    expect(parsed).toMatchObject({
+      status: 'failed',
+      failureCode: 'unsupported_evidence',
+    })
+  })
+
   it('rejects partially hallucinated objective evidence', () => {
     const parsed = parseObjectiveExplanationOutput(
       JSON.stringify({
