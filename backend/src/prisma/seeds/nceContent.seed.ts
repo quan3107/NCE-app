@@ -133,7 +133,8 @@ export async function seedNceContent(
   return prismaClient.$transaction(async (prisma) => {
     const course = await ensureSeedCourse(prisma)
     let lessonCount = 0
-    let courseAssignments = 0
+    const courseLessonAssignments: Array<{ lessonId: string; sequence: number }> =
+      []
 
     for (const bookSeed of NCE_BOOK_SEEDS) {
       const book = await prisma.nceBook.upsert({
@@ -216,29 +217,31 @@ export async function seedNceContent(
           await upsertLessonContent(prisma, lesson.id, lessonSeed)
           lessonCount += 1
 
-          await prisma.nceCourseLessonAssignment.upsert({
-            where: {
-              courseId_sequence: {
-                courseId: course.id,
-                sequence: lessonCount,
-              },
-            },
-            create: {
-              courseId: course.id,
-              lessonId: lesson.id,
-              sequence: lessonCount,
-            },
-            update: { lessonId: lesson.id },
+          courseLessonAssignments.push({
+            lessonId: lesson.id,
+            sequence: lessonCount,
           })
-          courseAssignments += 1
         }
       }
+    }
+
+    await prisma.nceCourseLessonAssignment.deleteMany({
+      where: { courseId: course.id },
+    })
+    for (const assignment of courseLessonAssignments) {
+      await prisma.nceCourseLessonAssignment.create({
+        data: {
+          courseId: course.id,
+          lessonId: assignment.lessonId,
+          sequence: assignment.sequence,
+        },
+      })
     }
 
     return {
       books: NCE_BOOK_SEEDS.length,
       lessons: lessonCount,
-      courseAssignments,
+      courseAssignments: courseLessonAssignments.length,
     }
   })
 }
