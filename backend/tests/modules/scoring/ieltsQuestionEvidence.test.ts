@@ -74,6 +74,33 @@ describe("buildExpectedAnswersFromConfig", () => {
     });
   });
 
+  it("does not use completion prompt text as source evidence when the answer is absent", () => {
+    const expectedAnswers = buildExpectedAnswersFromConfig(AssignmentType.listening, {
+      version: 1,
+      sections: [
+        {
+          id: "section-1",
+          title: "Listening",
+          transcript: "The weekly rent is 200 pounds after the increase.",
+          questions: [
+            {
+              id: "q1",
+              type: "completion",
+              text: "The weekly rent is ____ pounds.",
+              answer: "185",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(expectedAnswers[0]).toMatchObject({
+      acceptedAnswer: "185",
+      sourceEvidenceStatus: "insufficient_source_evidence",
+      sourceEvidenceCandidates: [],
+    });
+  });
+
   it("builds source evidence candidates for true/false statements without requiring the answer word", () => {
     const expectedAnswers = buildExpectedAnswersFromConfig(AssignmentType.reading, {
       version: 1,
