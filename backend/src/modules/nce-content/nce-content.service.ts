@@ -11,7 +11,7 @@ import {
   UserStatus,
 } from "../../prisma/index.js";
 
-import { prisma } from "../../config/prismaClient.js";
+import { prisma, runWithRole } from "../../config/prismaClient.js";
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { createHttpError } from "../../utils/httpError.js";
 import {
@@ -33,7 +33,22 @@ import {
 
 type CourseAccess = "admin" | "owner" | "coTeacher" | "student" | "none";
 
-const lessonInclude = {
+const lessonSelect = (options: {
+  includeAnswers: boolean;
+  includeTeacherNotes: boolean;
+}) => ({
+  id: true,
+  unitId: true,
+  lessonNumber: true,
+  title: true,
+  lessonText: true,
+  mediaJson: true,
+  teacherNotes: options.includeTeacherNotes,
+  sortOrder: true,
+  status: true,
+  publishedAt: true,
+  createdAt: true,
+  updatedAt: true,
   unit: {
     select: {
       id: true,
@@ -79,12 +94,12 @@ const lessonInclude = {
       exerciseType: true,
       prompt: true,
       content: true,
-      answerKey: true,
+      ...(options.includeAnswers ? { answerKey: true } : {}),
       scoringConfig: true,
       sortOrder: true,
     },
   },
-};
+});
 
 const publishedLessonWhere = {
   status: NcePublishStatus.published,
@@ -106,10 +121,10 @@ const pagination = (query: NceReadQuery) => ({
   take: query.pageSize,
 });
 
-const paginationResponse = <T>(query: NceReadQuery, rows: T[]) => ({
+const paginationResponse = (query: NceReadQuery, total: number) => ({
   page: query.page,
   pageSize: query.pageSize,
-  total: rows.length,
+  total,
 });
 
 function getAccessRole(
@@ -261,13 +276,48 @@ function bookWhere(includeDrafts: boolean): Prisma.NceBookWhereInput {
   };
 }
 
+function assignedBookWhere(
+  includeDrafts: boolean,
+  courseId: string | undefined,
+): Prisma.NceBookWhereInput {
+  return {
+    ...bookWhere(includeDrafts),
+    ...(includeDrafts && courseId
+      ? {
+          units: {
+            some: {
+              deletedAt: null,
+              lessons: {
+                some: {
+                  deletedAt: null,
+                  courseAssignments: { some: { courseId } },
+                },
+              },
+            },
+          },
+        }
+      : {}),
+  };
+}
+
 function unitWhere(
   bookId: string,
   includeDrafts: boolean,
+  courseId: string | undefined,
 ): Prisma.NceUnitWhereInput {
   return {
     bookId,
     deletedAt: null,
+    ...(includeDrafts && courseId
+      ? {
+          lessons: {
+            some: {
+              deletedAt: null,
+              courseAssignments: { some: { courseId } },
+            },
+          },
+        }
+      : {}),
     ...(includeDrafts
       ? {}
       : {
@@ -275,6 +325,36 @@ function unitWhere(
           book: { status: NcePublishStatus.published, deletedAt: null },
         }),
   };
+}
+
+function readWithServiceRole<T>(
+  actor: RequestActor,
+  read: () => Promise<T>,
+): Promise<T> {
+  return runWithRole(
+    {
+      role: "service_role",
+      userId: actor.id,
+      userRole: actor.role,
+    },
+    read,
+  );
+}
+
+function shouldUseServiceRole(
+  actor: RequestActor | undefined,
+  visibility: {
+    includeAnswers: boolean;
+    includeTeacherNotes: boolean;
+    includeDrafts: boolean;
+  },
+): actor is RequestActor {
+  return Boolean(
+    actor &&
+      (visibility.includeAnswers ||
+        visibility.includeTeacherNotes ||
+        visibility.includeDrafts),
+  );
 }
 
 function lessonWhere(
@@ -313,10 +393,14 @@ export async function listNceBooks(
 ) {
   const query = parseReadQuery(rawQuery);
   const visibility = await resolveVisibility(actor, query);
-  const books = await prisma.nceBook.findMany({
-    where: bookWhere(visibility.includeDrafts),
+  const read = () => prisma.nceBook.findMany({
+    where: assignedBookWhere(visibility.includeDrafts, query.courseId),
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
   });
+  const books =
+    shouldUseServiceRole(actor, visibility)
+      ? await readWithServiceRole(actor, read)
+      : await read();
 
   return { books: (books as NceBookRow[]).map(mapNceBook) };
 }
@@ -329,10 +413,14 @@ export async function listNceUnits(
   const { bookId } = nceBookParamsSchema.parse(rawParams);
   const query = parseReadQuery(rawQuery);
   const visibility = await resolveVisibility(actor, query);
-  const units = await prisma.nceUnit.findMany({
-    where: unitWhere(bookId, visibility.includeDrafts),
+  const read = () => prisma.nceUnit.findMany({
+    where: unitWhere(bookId, visibility.includeDrafts, query.courseId),
     orderBy: [{ sortOrder: "asc" }, { unitNumber: "asc" }],
   });
+  const units =
+    shouldUseServiceRole(actor, visibility)
+      ? await readWithServiceRole(actor, read)
+      : await read();
 
   return { units: (units as NceUnitRow[]).map(mapNceUnit) };
 }
@@ -346,18 +434,26 @@ export async function listNceLessons(
   const query = parseReadQuery(rawQuery);
   const visibility = await resolveVisibility(actor, query);
   const pageArgs = pagination(query);
-  const lessons = await prisma.nceLesson.findMany({
-    where: lessonWhere(unitId, undefined, query, visibility.includeDrafts),
-    include: lessonInclude,
-    orderBy: [{ sortOrder: "asc" }, { lessonNumber: "asc" }],
-    ...pageArgs,
-  });
+  const where = lessonWhere(unitId, undefined, query, visibility.includeDrafts);
+  const read = () => Promise.all([
+    prisma.nceLesson.findMany({
+      where,
+      select: lessonSelect(visibility),
+      orderBy: [{ sortOrder: "asc" }, { lessonNumber: "asc" }],
+      ...pageArgs,
+    }),
+    prisma.nceLesson.count({ where }),
+  ]);
+  const [lessons, total] =
+    shouldUseServiceRole(actor, visibility)
+      ? await readWithServiceRole(actor, read)
+      : await read();
 
   return {
     lessons: (lessons as NceLessonRow[]).map((lesson) =>
       mapNceLesson(lesson, visibility),
     ),
-    pagination: paginationResponse(query, lessons),
+    pagination: paginationResponse(query, total),
   };
 }
 
@@ -369,10 +465,14 @@ export async function getNceLesson(
   const { lessonId } = nceLessonParamsSchema.parse(rawParams);
   const query = parseReadQuery(rawQuery);
   const visibility = await resolveVisibility(actor, query);
-  const lesson = await prisma.nceLesson.findFirst({
+  const read = () => prisma.nceLesson.findFirst({
     where: lessonWhere(undefined, lessonId, query, visibility.includeDrafts),
-    include: lessonInclude,
+    select: lessonSelect(visibility),
   });
+  const lesson =
+    shouldUseServiceRole(actor, visibility)
+      ? await readWithServiceRole(actor, read)
+      : await read();
 
   if (!lesson) {
     throw createHttpError(404, "NCE lesson not found");
@@ -395,27 +495,37 @@ export async function listCourseNceLessons(
   const includeAnswers = access === "admin" || access === "owner" || access === "coTeacher";
   const pageArgs = pagination(query);
 
-  const assignments = await prisma.nceCourseLessonAssignment.findMany({
-    where: courseLessonWhere(courseId, canIncludeDrafts),
-    include: {
-      lesson: {
-        include: lessonInclude,
-      },
-    },
-    orderBy: [{ sequence: "asc" }],
-    ...pageArgs,
-  });
+  const where = courseLessonWhere(courseId, canIncludeDrafts);
+  const lessonVisibility = {
+    includeAnswers,
+    includeTeacherNotes: includeAnswers,
+  };
+  const [assignments, total] = await readWithServiceRole(actor, () =>
+    Promise.all([
+      prisma.nceCourseLessonAssignment.findMany({
+        where,
+        select: {
+          sequence: true,
+          availableFrom: true,
+          dueAt: true,
+          lesson: {
+            select: lessonSelect(lessonVisibility),
+          },
+        },
+        orderBy: [{ sequence: "asc" }],
+        ...pageArgs,
+      }),
+      prisma.nceCourseLessonAssignment.count({ where }),
+    ]),
+  );
 
   return {
     lessons: assignments.map((assignment) => ({
       sequence: assignment.sequence,
       availableFrom: assignment.availableFrom?.toISOString() ?? null,
       dueAt: assignment.dueAt?.toISOString() ?? null,
-      ...mapNceLesson(assignment.lesson as NceLessonRow, {
-        includeAnswers,
-        includeTeacherNotes: includeAnswers,
-      }),
+      ...mapNceLesson(assignment.lesson as NceLessonRow, lessonVisibility),
     })),
-    pagination: paginationResponse(query, assignments),
+    pagination: paginationResponse(query, total),
   };
 }
