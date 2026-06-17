@@ -55,6 +55,30 @@ test('fetchNceBooks reads the public NCE catalog without auth', async () => {
   assert.equal(requestedUrls[0], 'http://localhost:4000/api/v1/nce/books');
 });
 
+test('fetchNceBooks can send course context for teacher draft reads', async () => {
+  const requestedUrls: string[] = [];
+
+  await withFetch(
+    async (input) => {
+      requestedUrls.push(String(input));
+      return new Response(JSON.stringify({ books: [] }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+    async () => {
+      await fetchNceBooks({
+        includeDrafts: true,
+        courseId: 'course-1',
+      });
+    },
+  );
+
+  assert.equal(
+    requestedUrls[0],
+    'http://localhost:4000/api/v1/nce/books?includeDrafts=true&courseId=course-1',
+  );
+});
+
 test('fetchCourseNceLessons forwards draft and pagination filters', async () => {
   const requestedUrls: string[] = [];
 
