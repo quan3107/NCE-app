@@ -54,6 +54,7 @@ model Course {
   enrollments  Enrollment[]
   assignments  Assignment[]
   rubrics      Rubric[]
+  nceLessonAssignments NceCourseLessonAssignment[]
   createdAt    DateTime     @default(now()) @db.Timestamptz
   updatedAt    DateTime     @updatedAt @db.Timestamptz
   deletedAt    DateTime?    @db.Timestamptz
@@ -410,6 +411,131 @@ model AiObjectiveExplanation {
   @@map("ai_objective_explanations")
 }
 
+// ============================================================================
+// NCE Content Models
+// ============================================================================
+
+model NceBook {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String
+  title       String
+  level       String
+  description String?
+  sortOrder   Int              @default(0) @map("sort_order")
+  status      NcePublishStatus @default(draft)
+  publishedAt DateTime?        @map("published_at") @db.Timestamptz
+  units       NceUnit[]
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
+
+  @@unique([code], map: "nce_books_code_key")
+  @@index([status, sortOrder], map: "nce_books_status_sort_idx")
+  @@map("nce_books")
+}
+
+model NceUnit {
+  id          String           @id @default(uuid()) @db.Uuid
+  bookId      String           @map("book_id") @db.Uuid
+  unitNumber  Int              @map("unit_number")
+  title       String
+  description String?
+  sortOrder   Int              @default(0) @map("sort_order")
+  status      NcePublishStatus @default(draft)
+  publishedAt DateTime?        @map("published_at") @db.Timestamptz
+  book        NceBook          @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  lessons     NceLesson[]
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
+
+  @@unique([bookId, unitNumber], map: "nce_units_book_id_unit_number_key")
+  @@index([bookId, status, sortOrder], map: "nce_units_book_status_sort_idx")
+  @@map("nce_units")
+}
+
+model NceLesson {
+  id          String           @id @default(uuid()) @db.Uuid
+  unitId      String           @map("unit_id") @db.Uuid
+  lessonNumber Int             @map("lesson_number")
+  title       String
+  lessonText  String           @map("lesson_text")
+  mediaJson   Json?            @map("media_json")
+  teacherNotes String?         @map("teacher_notes")
+  sortOrder   Int              @default(0) @map("sort_order")
+  status      NcePublishStatus @default(draft)
+  publishedAt DateTime?        @map("published_at") @db.Timestamptz
+  unit        NceUnit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  objectives  NceObjective[]
+  exercises   NceExercise[]
+  courseAssignments NceCourseLessonAssignment[]
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
+
+  @@unique([unitId, lessonNumber], map: "nce_lessons_unit_id_lesson_number_key")
+  @@index([unitId, status, sortOrder], map: "nce_lessons_unit_status_sort_idx")
+  @@map("nce_lessons")
+}
+
+model NceObjective {
+  id              String        @id @default(uuid()) @db.Uuid
+  lessonId        String        @map("lesson_id") @db.Uuid
+  code            String
+  title           String
+  category        String
+  description     String?
+  masteryThreshold Int          @default(80) @map("mastery_threshold")
+  sortOrder       Int           @default(0) @map("sort_order")
+  lesson          NceLesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  exercises       NceExercise[]
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([lessonId, code], map: "nce_objectives_lesson_id_code_key")
+  @@index([lessonId, category, sortOrder], map: "nce_objectives_lesson_category_sort_idx")
+  @@map("nce_objectives")
+}
+
+model NceExercise {
+  id             String          @id @default(uuid()) @db.Uuid
+  lessonId       String          @map("lesson_id") @db.Uuid
+  objectiveId    String?         @map("objective_id") @db.Uuid
+  exerciseType   NceExerciseType @map("exercise_type")
+  prompt         String
+  content        Json
+  answerKey      Json            @map("answer_key")
+  scoringConfig  Json?           @map("scoring_config")
+  sortOrder      Int             @default(0) @map("sort_order")
+  lesson         NceLesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  objective      NceObjective?   @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([lessonId, exerciseType, sortOrder], map: "nce_exercises_lesson_type_sort_key")
+  @@index([lessonId, exerciseType, sortOrder], map: "nce_exercises_lesson_type_sort_idx")
+  @@index([objectiveId], map: "nce_exercises_objective_id_idx")
+  @@map("nce_exercises")
+}
+
+model NceCourseLessonAssignment {
+  id        String    @id @default(uuid()) @db.Uuid
+  courseId  String    @map("course_id") @db.Uuid
+  lessonId  String    @map("lesson_id") @db.Uuid
+  sequence  Int
+  availableFrom DateTime? @map("available_from") @db.Timestamptz
+  dueAt     DateTime? @map("due_at") @db.Timestamptz
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson    NceLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([courseId, lessonId], map: "nce_course_lesson_course_lesson_key")
+  @@unique([courseId, sequence], map: "nce_course_lesson_course_sequence_key")
+  @@index([lessonId], map: "nce_course_lesson_lesson_id_idx")
+  @@map("nce_course_lesson_assignments")
+}
+
 enum UserRole {
   admin
   teacher
@@ -505,6 +631,25 @@ enum AiObjectiveExplanationStatus {
   review_required
   rejected
   failed
+}
+
+enum NcePublishStatus {
+  draft
+  published
+  archived
+}
+
+enum NceExerciseType {
+  vocabulary
+  grammar
+  listening
+  speaking
+  reading
+  writing
+  translation
+  dictation
+  multiple_choice
+  gap_fill
 }
 
 // ============================================================================
