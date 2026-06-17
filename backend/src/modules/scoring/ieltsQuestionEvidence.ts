@@ -440,6 +440,21 @@ function usesAnswerKeyOnlySourceFallback(acceptedAnswer: string): boolean {
   return isAnswerKeyOnlyTokenSequence(evidenceTokens(acceptedAnswer));
 }
 
+function evidenceTextsForAcceptedAnswer(
+  acceptedAnswer: unknown,
+  promptText: string,
+): string[] {
+  const acceptedAnswerText = displayAnswer(acceptedAnswer);
+
+  return [
+    acceptedAnswerText,
+    ...(isStatementLikeQuestionText(promptText) &&
+    usesAnswerKeyOnlySourceFallback(acceptedAnswerText)
+      ? [promptText]
+      : []),
+  ];
+}
+
 function addExpectedAnswer(
   expectedAnswers: ExpectedAnswer[],
   input: ExpectedAnswerInput,
@@ -483,11 +498,6 @@ function extractExpectedAnswersFromQuestion(
   const questionId = typeof question.id === "string" ? question.id : "";
   const parentQuestionText = displayTextFromRecord(question);
   const directAnswer = resolveOptionAnswer(question, getAnswerValue(question));
-  const parentQuestionTextEvidence =
-    isStatementLikeQuestionText(parentQuestionText) &&
-    usesAnswerKeyOnlySourceFallback(directAnswer.acceptedAnswer)
-      ? [parentQuestionText]
-      : [];
 
   if (questionId) {
     addExpectedAnswer(expectedAnswers, {
@@ -495,10 +505,10 @@ function extractExpectedAnswersFromQuestion(
       ...directAnswer,
       questionText: parentQuestionText,
       sourceContext,
-      evidenceTexts: [
+      evidenceTexts: evidenceTextsForAcceptedAnswer(
         directAnswer.acceptedAnswer,
-        ...parentQuestionTextEvidence,
-      ],
+        parentQuestionText,
+      ),
     });
   }
 
@@ -510,13 +520,14 @@ function extractExpectedAnswersFromQuestion(
       continue;
     }
     const sentenceAnswer = getAnswerValue(sentence);
+    const sentenceText = displayTextFromRecord(sentence);
     addExpectedAnswer(expectedAnswers, {
       keys: [typeof sentence.id === "string" ? sentence.id : ""],
       comparableAnswer: sentenceAnswer,
       acceptedAnswer: sentenceAnswer,
-      questionText: displayTextFromRecord(sentence) || parentQuestionText,
+      questionText: sentenceText || parentQuestionText,
       sourceContext,
-      evidenceTexts: [displayTextFromRecord(sentence)],
+      evidenceTexts: evidenceTextsForAcceptedAnswer(sentenceAnswer, sentenceText),
     });
   }
 
@@ -528,13 +539,14 @@ function extractExpectedAnswersFromQuestion(
       continue;
     }
     const statementAnswer = getAnswerValue(statement);
+    const statementText = displayTextFromRecord(statement);
     addExpectedAnswer(expectedAnswers, {
       keys: [typeof statement.id === "string" ? statement.id : ""],
       comparableAnswer: statementAnswer,
       acceptedAnswer: statementAnswer,
-      questionText: displayTextFromRecord(statement) || parentQuestionText,
+      questionText: statementText || parentQuestionText,
       sourceContext,
-      evidenceTexts: [displayTextFromRecord(statement)],
+      evidenceTexts: evidenceTextsForAcceptedAnswer(statementAnswer, statementText),
     });
   }
 
@@ -552,13 +564,14 @@ function extractExpectedAnswersFromQuestion(
         ? [paragraphId, `${questionId}:${paragraphId}`]
         : [paragraphId];
     const itemAnswer = getAnswerValue(item);
+    const itemText = displayTextFromRecord(item);
     addExpectedAnswer(expectedAnswers, {
       keys,
       comparableAnswer: itemAnswer,
       acceptedAnswer: itemAnswer,
-      questionText: displayTextFromRecord(item) || parentQuestionText,
+      questionText: itemText || parentQuestionText,
       sourceContext,
-      evidenceTexts: [displayTextFromRecord(item)],
+      evidenceTexts: evidenceTextsForAcceptedAnswer(itemAnswer, itemText),
     });
   }
 
@@ -570,13 +583,14 @@ function extractExpectedAnswersFromQuestion(
       continue;
     }
     const itemAnswer = getAnswerValue(item);
+    const itemText = displayTextFromRecord(item);
     addExpectedAnswer(expectedAnswers, {
       keys: [typeof item.id === "string" ? item.id : ""],
       comparableAnswer: itemAnswer,
       acceptedAnswer: itemAnswer,
-      questionText: displayTextFromRecord(item) || parentQuestionText,
+      questionText: itemText || parentQuestionText,
       sourceContext,
-      evidenceTexts: [displayTextFromRecord(item)],
+      evidenceTexts: evidenceTextsForAcceptedAnswer(itemAnswer, itemText),
     });
   }
 
@@ -588,13 +602,14 @@ function extractExpectedAnswersFromQuestion(
       continue;
     }
     const labelAnswer = getAnswerValue(label);
+    const labelText = displayTextFromRecord(label);
     addExpectedAnswer(expectedAnswers, {
       keys: [typeof label.id === "string" ? label.id : ""],
       comparableAnswer: labelAnswer,
       acceptedAnswer: labelAnswer,
-      questionText: displayTextFromRecord(label) || parentQuestionText,
+      questionText: labelText || parentQuestionText,
       sourceContext,
-      evidenceTexts: [displayTextFromRecord(label)],
+      evidenceTexts: evidenceTextsForAcceptedAnswer(labelAnswer, labelText),
     });
   }
 
