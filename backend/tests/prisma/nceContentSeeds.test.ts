@@ -43,7 +43,7 @@ describe('NCE Prisma schema', () => {
     expect(schema).toContain('@@unique([courseId, sequence]')
   })
 
-  it('ships an add_nce_content migration with tables, enums, grants, and unique constraints', () => {
+  it('ships an add_nce_content migration with tables, enums, access controls, and unique constraints', () => {
     const migration = readBackend(
       'src/prisma/migrations/20260617120000_add_nce_content/migration.sql',
     )
@@ -61,7 +61,10 @@ describe('NCE Prisma schema', () => {
     expect(migration).toContain('nce_units_book_id_unit_number_key')
     expect(migration).toContain('nce_lessons_unit_id_lesson_number_key')
     expect(migration).toContain('nce_course_lesson_course_sequence_key')
-    expect(migration).toContain('GRANT SELECT')
+    expect(migration).toContain('ALTER TABLE public.nce_books ENABLE ROW LEVEL SECURITY')
+    expect(migration).toContain('CREATE POLICY nce_exercises_select_published')
+    expect(migration).toContain('GRANT SELECT (')
+    expect(migration).not.toContain('nce_exercises_lesson_type_sort_idx')
   })
 })
 
@@ -76,11 +79,15 @@ describe('NCE seed fixtures', () => {
       scripts: Record<string, string>
     }
     const demoSeed = readBackend('src/prisma/seed.ts')
+    const nceSeed = readBackend('src/prisma/seeds/nceContent.seed.ts')
 
     expect(packageJson.scripts['seed:nce-content']).toBe(
       'tsx src/prisma/seedNceContent.ts',
     )
     expect(demoSeed).not.toContain('seedNceContent')
+    expect(nceSeed).toContain('nceCourseLessonAssignment.deleteMany')
+    expect(nceSeed).toContain('nceCourseLessonAssignment.create')
+    expect(nceSeed).not.toContain('nceCourseLessonAssignment.upsert')
   })
 
   it('records backend progress for the NCE schema and seed foundation', () => {
