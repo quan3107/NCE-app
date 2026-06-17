@@ -25,13 +25,16 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
       findMany: vi.fn(),
     },
     nceLesson: {
+      count: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
     },
     nceCourseLessonAssignment: {
+      count: vi.fn(),
       findMany: vi.fn(),
     },
   },
+  runWithRole: vi.fn(async (_options, read) => read()),
 }));
 
 const prismaModule = await import("../../../src/config/prismaClient.js");
@@ -182,6 +185,7 @@ describe("nce-content.service", () => {
     prisma.nceLesson.findMany.mockResolvedValueOnce([
       buildLesson(NcePublishStatus.draft),
     ]);
+    prisma.nceLesson.count.mockResolvedValueOnce(1);
 
     const result = await listNceLessons(
       { unitId },
@@ -244,6 +248,7 @@ describe("nce-content.service", () => {
         lesson: buildLesson(),
       },
     ]);
+    prisma.nceCourseLessonAssignment.count.mockResolvedValueOnce(1);
 
     const result = await listCourseNceLessons(
       { courseId },
@@ -288,6 +293,25 @@ describe("nce-content.service", () => {
     expect(JSON.stringify(result)).not.toContain("deletedAt");
   });
 
+  it("does not select restricted lesson or exercise columns for student-safe reads", async () => {
+    prisma.nceLesson.findFirst.mockResolvedValueOnce(buildLesson());
+
+    await getNceLesson({ lessonId }, undefined, {});
+
+    expect(prisma.nceLesson.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          teacherNotes: false,
+          exercises: expect.objectContaining({
+            select: expect.not.objectContaining({
+              answerKey: true,
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
   it("returns answer keys to authorized course teachers reading drafts", async () => {
     prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
     prisma.nceLesson.findFirst.mockResolvedValueOnce(
@@ -311,6 +335,26 @@ describe("nce-content.service", () => {
     expect(result.teacherNotes).toBe("Focus on polite intonation.");
     expect(result.exercises[0]).toHaveProperty("answerKey", {
       answers: ["this"],
+    });
+  });
+
+  it("reports the total matching lessons separately from the current page size", async () => {
+    prisma.nceLesson.findMany.mockResolvedValueOnce([buildLesson()]);
+    prisma.nceLesson.count.mockResolvedValueOnce(42);
+
+    const result = await listNceLessons(
+      { unitId },
+      undefined,
+      { page: "2", pageSize: "1" },
+    );
+
+    expect(prisma.nceLesson.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ unitId }),
+    });
+    expect(result.pagination).toEqual({
+      page: 2,
+      pageSize: 1,
+      total: 42,
     });
   });
 });
