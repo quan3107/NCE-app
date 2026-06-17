@@ -8,6 +8,7 @@ NceBooks:
     summary: List NCE books
     parameters:
       - $ref: '#/components/parameters/IncludeDrafts'
+      - $ref: '#/components/parameters/CourseId'
     responses:
       '200':
         description: NCE books
