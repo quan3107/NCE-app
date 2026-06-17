@@ -28,6 +28,10 @@ import { gradeRouter } from "./grades/grades.routes.js";
 import ieltsConfigRouter from "./ielts-config/ielts-config.routes.js";
 import { meRouter } from "./me/me.routes.js";
 import { navigationRouter } from "./navigation/navigation.routes.js";
+import {
+  courseNceContentRouter,
+  nceContentRouter,
+} from "./nce-content/nce-content.routes.js";
 import { notificationTypesConfigRouter } from "./notification-config/notification-config.routes.js";
 import { meNotificationPreferencesRouter } from "./notification-preferences/notification-preferences.routes.js";
 import { notificationRouter } from "./notifications/notifications.routes.js";
@@ -73,5 +77,7 @@ apiRouter.use("/config/course-management-tabs", courseManagementTabsRouter);
 apiRouter.use("/me/notification-preferences", meNotificationPreferencesRouter);
 apiRouter.use("/config/ielts", ieltsConfigRouter);
 apiRouter.use("/navigation", navigationRouter);
+apiRouter.use("/nce", nceContentRouter);
+apiRouter.use("/courses/:courseId/nce-lessons", courseNceContentRouter);
 apiRouter.use("/me/dashboard-config", meDashboardConfigRouter);
 apiRouter.use("/cms", cmsRoutes);
