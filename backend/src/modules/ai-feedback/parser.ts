@@ -457,8 +457,10 @@ function hasCandidateSupportedEvidence(
     return false
   }
 
-  return candidates.some((candidate) =>
-    sourceSpanSupportsEvidence(evidence, candidate.quote),
+  const normalizedEvidence = normalizeEvidenceText(evidence)
+
+  return candidates.some(
+    (candidate) => normalizeEvidenceText(candidate.quote) === normalizedEvidence,
   )
 }
 
