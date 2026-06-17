@@ -1,0 +1,285 @@
+# File: docs/openapi/schemas/nce-content.yaml
+# Purpose: Define read-only NCE content response schemas.
+# Why: Keeps frontend and backend content contracts documented.
+
+NcePublishStatus:
+  type: string
+  enum: [draft, published, archived]
+
+NceExerciseType:
+  type: string
+  enum:
+    - vocabulary
+    - grammar
+    - listening
+    - speaking
+    - reading
+    - writing
+    - translation
+    - dictation
+    - multiple_choice
+    - gap_fill
+
+NcePagination:
+  type: object
+  properties:
+    page:
+      type: integer
+    pageSize:
+      type: integer
+    total:
+      type: integer
+  required: [page, pageSize, total]
+
+NceBook:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    code:
+      type: string
+    title:
+      type: string
+    level:
+      type: string
+    description:
+      type: string
+      nullable: true
+    sortOrder:
+      type: integer
+    status:
+      $ref: '#/NcePublishStatus'
+    publishedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+  required: [id, code, title, level, description, sortOrder, status, publishedAt, createdAt, updatedAt]
+
+NceUnit:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    bookId:
+      type: string
+      format: uuid
+    unitNumber:
+      type: integer
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    sortOrder:
+      type: integer
+    status:
+      $ref: '#/NcePublishStatus'
+    publishedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+  required: [id, bookId, unitNumber, title, description, sortOrder, status, publishedAt, createdAt, updatedAt]
+
+NceLessonUnit:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    bookId:
+      type: string
+      format: uuid
+    unitNumber:
+      type: integer
+    title:
+      type: string
+    status:
+      $ref: '#/NcePublishStatus'
+    book:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        title:
+          type: string
+        level:
+          type: string
+        status:
+          $ref: '#/NcePublishStatus'
+  required: [id, bookId, unitNumber, title, status]
+
+NceObjective:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    lessonId:
+      type: string
+      format: uuid
+    code:
+      type: string
+    title:
+      type: string
+    category:
+      type: string
+    description:
+      type: string
+      nullable: true
+    masteryThreshold:
+      type: integer
+    sortOrder:
+      type: integer
+  required: [id, lessonId, code, title, category, description, masteryThreshold, sortOrder]
+
+NceExercise:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    lessonId:
+      type: string
+      format: uuid
+    objectiveId:
+      type: string
+      format: uuid
+      nullable: true
+    exerciseType:
+      $ref: '#/NceExerciseType'
+    prompt:
+      type: string
+    content:
+      nullable: true
+      description: Exercise content JSON.
+    answerKey:
+      nullable: true
+      description: Present only for authorized teacher/admin reads.
+    scoringConfig:
+      nullable: true
+      description: Scoring configuration JSON.
+    sortOrder:
+      type: integer
+  required: [id, lessonId, objectiveId, exerciseType, prompt, content, scoringConfig, sortOrder]
+
+NceLesson:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    unitId:
+      type: string
+      format: uuid
+    lessonNumber:
+      type: integer
+    title:
+      type: string
+    lessonText:
+      type: string
+    media:
+      nullable: true
+      description: Media metadata JSON.
+    sortOrder:
+      type: integer
+    status:
+      $ref: '#/NcePublishStatus'
+    publishedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    teacherNotes:
+      type: string
+      nullable: true
+      description: Present only for authorized teacher/admin reads.
+    unit:
+      $ref: '#/NceLessonUnit'
+    objectives:
+      type: array
+      items:
+        $ref: '#/NceObjective'
+    exercises:
+      type: array
+      items:
+        $ref: '#/NceExercise'
+  required: [id, unitId, lessonNumber, title, lessonText, media, sortOrder, status, publishedAt, createdAt, updatedAt, objectives, exercises]
+
+CourseNceLesson:
+  allOf:
+    - $ref: '#/NceLesson'
+    - type: object
+      properties:
+        sequence:
+          type: integer
+        availableFrom:
+          type: string
+          format: date-time
+          nullable: true
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [sequence, availableFrom, dueAt]
+
+NceBookListResponse:
+  type: object
+  properties:
+    books:
+      type: array
+      items:
+        $ref: '#/NceBook'
+  required: [books]
+
+NceUnitListResponse:
+  type: object
+  properties:
+    units:
+      type: array
+      items:
+        $ref: '#/NceUnit'
+  required: [units]
+
+NceLessonListResponse:
+  type: object
+  properties:
+    lessons:
+      type: array
+      items:
+        $ref: '#/NceLesson'
+    pagination:
+      $ref: '#/NcePagination'
+  required: [lessons, pagination]
+
+CourseNceLessonListResponse:
+  type: object
+  properties:
+    lessons:
+      type: array
+      items:
+        $ref: '#/CourseNceLesson'
+    pagination:
+      $ref: '#/NcePagination'
+  required: [lessons, pagination]
