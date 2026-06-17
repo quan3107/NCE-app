@@ -31,6 +31,7 @@ tags:
   - name: ielts-config
   - name: ai-feedback
   - name: cms
+  - name: nce-content
 
 paths:
   /api/v1/auth/login:
@@ -108,6 +109,16 @@ paths:
     $ref: './paths/courses.yaml#/CourseTeachers'
   /api/v1/courses/{courseId}/teachers/{teacherId}:
     $ref: './paths/courses.yaml#/CourseTeacherById'
+  /api/v1/nce/books:
+    $ref: './paths/nce-content.yaml#/NceBooks'
+  /api/v1/nce/books/{bookId}/units:
+    $ref: './paths/nce-content.yaml#/NceBookUnits'
+  /api/v1/nce/units/{unitId}/lessons:
+    $ref: './paths/nce-content.yaml#/NceUnitLessons'
+  /api/v1/nce/lessons/{lessonId}:
+    $ref: './paths/nce-content.yaml#/NceLesson'
+  /api/v1/courses/{courseId}/nce-lessons:
+    $ref: './paths/nce-content.yaml#/CourseNceLessons'
 
   /api/v1/courses/{courseId}/assignments:
     $ref: './paths/assignments.yaml#/CourseAssignments'
