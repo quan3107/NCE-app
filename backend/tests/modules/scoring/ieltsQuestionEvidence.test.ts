@@ -101,6 +101,38 @@ describe("buildExpectedAnswersFromConfig", () => {
     });
   });
 
+  it("does not use nested sentence prompt text as source evidence when the answer is absent", () => {
+    const expectedAnswers = buildExpectedAnswersFromConfig(AssignmentType.listening, {
+      version: 1,
+      sections: [
+        {
+          id: "section-1",
+          title: "Listening",
+          transcript: "Quiet hours begin at 11 p.m. in the new accommodation.",
+          questions: [
+            {
+              id: "q1",
+              type: "sentence_completion",
+              sentences: [
+                {
+                  id: "q1-1",
+                  text: "Quiet hours begin at ____ p.m.",
+                  answer: "10",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(expectedAnswers[0]).toMatchObject({
+      acceptedAnswer: "10",
+      sourceEvidenceStatus: "insufficient_source_evidence",
+      sourceEvidenceCandidates: [],
+    });
+  });
+
   it("builds source evidence candidates for true/false statements without requiring the answer word", () => {
     const expectedAnswers = buildExpectedAnswersFromConfig(AssignmentType.reading, {
       version: 1,
