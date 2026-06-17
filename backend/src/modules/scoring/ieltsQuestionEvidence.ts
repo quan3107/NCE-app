@@ -436,6 +436,10 @@ function isStatementLikeQuestionText(value: string): boolean {
   return trimmed.length > 0 && !trimmed.endsWith("?");
 }
 
+function usesAnswerKeyOnlySourceFallback(acceptedAnswer: string): boolean {
+  return isAnswerKeyOnlyTokenSequence(evidenceTokens(acceptedAnswer));
+}
+
 function addExpectedAnswer(
   expectedAnswers: ExpectedAnswer[],
   input: ExpectedAnswerInput,
@@ -479,6 +483,11 @@ function extractExpectedAnswersFromQuestion(
   const questionId = typeof question.id === "string" ? question.id : "";
   const parentQuestionText = displayTextFromRecord(question);
   const directAnswer = resolveOptionAnswer(question, getAnswerValue(question));
+  const parentQuestionTextEvidence =
+    isStatementLikeQuestionText(parentQuestionText) &&
+    usesAnswerKeyOnlySourceFallback(directAnswer.acceptedAnswer)
+      ? [parentQuestionText]
+      : [];
 
   if (questionId) {
     addExpectedAnswer(expectedAnswers, {
@@ -488,9 +497,7 @@ function extractExpectedAnswersFromQuestion(
       sourceContext,
       evidenceTexts: [
         directAnswer.acceptedAnswer,
-        ...(isStatementLikeQuestionText(parentQuestionText)
-          ? [parentQuestionText]
-          : []),
+        ...parentQuestionTextEvidence,
       ],
     });
   }
