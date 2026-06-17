@@ -513,7 +513,6 @@ model NceExercise {
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([lessonId, exerciseType, sortOrder], map: "nce_exercises_lesson_type_sort_key")
-  @@index([lessonId, exerciseType, sortOrder], map: "nce_exercises_lesson_type_sort_idx")
   @@index([objectiveId], map: "nce_exercises_objective_id_idx")
   @@map("nce_exercises")
 }
