@@ -155,12 +155,47 @@ function isDecimalPoint(value: string, index: number): boolean {
   return isAsciiDigit(value[index - 1]) && isAsciiDigit(value[index + 1]);
 }
 
+const nonTerminalAbbreviations = new Set([
+  "apr",
+  "aug",
+  "dec",
+  "dr",
+  "feb",
+  "jan",
+  "jul",
+  "jun",
+  "mar",
+  "mr",
+  "mrs",
+  "ms",
+  "no",
+  "nov",
+  "oct",
+  "prof",
+  "sep",
+  "sept",
+  "st",
+]);
+
 function isInternalAbbreviationPoint(value: string, index: number): boolean {
   return (
     isAsciiLetter(value[index - 1]) &&
     isAsciiLetter(value[index + 1]) &&
     value[index + 2] === "."
   );
+}
+
+function abbreviationBeforePoint(value: string, index: number): string {
+  let start = index - 1;
+  while (start >= 0 && isAsciiLetter(value[start])) {
+    start -= 1;
+  }
+
+  return value.slice(start + 1, index).toLowerCase();
+}
+
+function isKnownNonTerminalAbbreviationPoint(value: string, index: number): boolean {
+  return nonTerminalAbbreviations.has(abbreviationBeforePoint(value, index));
 }
 
 function sourceTextSpans(value: string): string[] {
@@ -172,7 +207,9 @@ function sourceTextSpans(value: string): string[] {
 
     if (
       character === "." &&
-      (isDecimalPoint(value, index) || isInternalAbbreviationPoint(value, index))
+      (isDecimalPoint(value, index) ||
+        isInternalAbbreviationPoint(value, index) ||
+        isKnownNonTerminalAbbreviationPoint(value, index))
     ) {
       continue;
     }
