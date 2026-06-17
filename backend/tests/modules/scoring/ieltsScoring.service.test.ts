@@ -280,7 +280,53 @@ describe("ieltsScoring.service", () => {
         kind: "reading_passage",
         text: "Paragraph B explains that rooftop gardens reduce heat.",
       },
+      sourceEvidenceCandidates: [
+        {
+          id: "q3-1-evidence-1",
+          quote: "Paragraph B explains that rooftop gardens reduce heat.",
+        },
+      ],
+      sourceEvidenceStatus: "available",
     });
+  });
+
+  it("marks objective explanation evidence unavailable when source text lacks the accepted answer", () => {
+    const evidence = getIeltsQuestionScoringEvidence({
+      assignmentType: AssignmentType.listening,
+      assignmentConfig: {
+        version: 1,
+        sections: [
+          {
+            id: "sec-summary",
+            title: "Listening Part 1",
+            audioFileId: "99999999-9999-4999-8999-999999999999",
+            transcript: "The speaker confirms the move-in date with the caller.",
+            questions: [
+              {
+                id: "listening-date",
+                type: "short_answer",
+                text: "What is the move-in date?",
+                answer: "14 July",
+              },
+            ],
+          },
+        ],
+      },
+      submissionPayload: {
+        answers: [{ questionId: "listening-date", value: "15 July" }],
+      },
+      questionId: "listening-date",
+    });
+
+    expect(evidence).toEqual(
+      expect.objectContaining({
+        questionId: "listening-date",
+        acceptedAnswer: "14 July",
+        deterministicResult: "incorrect",
+        sourceEvidenceCandidates: [],
+        sourceEvidenceStatus: "insufficient_source_evidence",
+      }),
+    );
   });
 
   it("returns the existing grade for idempotent scoring", async () => {

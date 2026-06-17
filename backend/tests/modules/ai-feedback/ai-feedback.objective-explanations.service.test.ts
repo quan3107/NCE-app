@@ -98,8 +98,12 @@ const baseSubmission = {
               id: "q1",
               type: "multiple_choice",
               text: "Which option matches paragraph B?",
-              options: ["A", "B", "C"],
-              answer: "B",
+              options: [
+                "The old route took longer.",
+                "The new route reduced travel time.",
+                "The route was cancelled.",
+              ],
+              correctAnswer: "1",
             },
           ],
         },
@@ -139,7 +143,7 @@ describe("requestAiObjectiveExplanation", () => {
         assignmentId,
         requesterId: studentId,
         questionId: "q1",
-        deterministicResult: "correct",
+        deterministicResult: "incorrect",
         promptVersion: "objective-explanation-v2",
         routeKey: "low_cost",
         provider: "openai-compatible",
@@ -157,14 +161,20 @@ describe("requestAiObjectiveExplanation", () => {
               question: {
                 id: "q1",
                 text: "Which option matches paragraph B?",
-                acceptedAnswer: "B",
+                acceptedAnswer: "The new route reduced travel time.",
               },
               studentAnswer: "B",
-              deterministicResult: "correct",
+              deterministicResult: "incorrect",
               sourceContext: {
                 kind: "reading_passage",
                 text: "Paragraph B says the new route reduced travel time.",
               },
+              sourceEvidenceCandidates: [
+                {
+                  id: "q1-evidence-1",
+                  quote: "Paragraph B says the new route reduced travel time.",
+                },
+              ],
             }),
             routeKey: "low_cost",
           }),
@@ -359,6 +369,76 @@ describe("requestAiObjectiveExplanation", () => {
     expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
   });
 
+  it("records an unavailable explanation without a generation job when source text lacks answer evidence", async () => {
+    upsertAiObjectiveExplanation.mockResolvedValueOnce({
+      id: "77777777-7777-4777-8777-777777777777",
+      status: "rejected",
+      generatedExplanation: null,
+      failureCode: "insufficient_source_evidence",
+      failureMessage:
+        "This question does not include enough source text for a source-backed AI explanation.",
+    } as never);
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        answers: [{ questionId: "move-in-date", value: "15 July" }],
+      },
+      assignment: {
+        ...baseSubmission.assignment,
+        type: AssignmentType.listening,
+        assignmentConfig: {
+          version: 1,
+          aiPolicy: {
+            writingFeedbackMode: "off",
+            objectiveExplanations: "on_demand_student_visible",
+            providerTier: "auto",
+          },
+          sections: [
+            {
+              id: "section-1",
+              title: "Listening Part 1",
+              audioFileId: "99999999-9999-4999-8999-999999999999",
+              transcript:
+                "The speaker confirms the move-in date with the caller.",
+              questions: [
+                {
+                  id: "move-in-date",
+                  text: "What is the move-in date?",
+                  answer: "14 July",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    } as never);
+
+    const response = await requestAiObjectiveExplanation(
+      { submissionId, questionId: "move-in-date" },
+      studentActor,
+    );
+
+    expect(upsertAiObjectiveExplanation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "rejected",
+        failureCode: "insufficient_source_evidence",
+        failureMessage:
+          "This question does not include enough source text for a source-backed AI explanation.",
+      }),
+    );
+    expect(upsertAiObjectiveExplanation.mock.calls[0]?.[0]).not.toHaveProperty(
+      "generationJob",
+    );
+    expect(response).toMatchObject({
+      status: "rejected",
+      cached: false,
+      failureCode: "insufficient_source_evidence",
+      failureMessage:
+        "This question does not include enough source text for a source-backed AI explanation.",
+    });
+  });
+
   it("fails closed when AI feedback generation is globally disabled", async () => {
     aiFeedbackConfig.enabled = false;
 
@@ -370,6 +450,58 @@ describe("requestAiObjectiveExplanation", () => {
     });
 
     expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
+  });
+
+  it("checks global AI readiness before recording insufficient source evidence", async () => {
+    aiFeedbackConfig.enabled = false;
+    prisma.submission.findFirst.mockResolvedValueOnce({
+      ...baseSubmission,
+      payload: {
+        version: 1,
+        answers: [{ questionId: "move-in-date", value: "15 July" }],
+      },
+      assignment: {
+        ...baseSubmission.assignment,
+        type: AssignmentType.listening,
+        assignmentConfig: {
+          version: 1,
+          aiPolicy: {
+            writingFeedbackMode: "off",
+            objectiveExplanations: "on_demand_student_visible",
+            providerTier: "auto",
+          },
+          sections: [
+            {
+              id: "section-1",
+              title: "Listening Part 1",
+              audioFileId: "99999999-9999-4999-8999-999999999999",
+              transcript:
+                "The speaker confirms the move-in date with the caller.",
+              questions: [
+                {
+                  id: "move-in-date",
+                  text: "What is the move-in date?",
+                  answer: "14 July",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    } as never);
+
+    await expect(
+      requestAiObjectiveExplanation(
+        { submissionId, questionId: "move-in-date" },
+        studentActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 503,
+      message: "AI feedback generation is disabled.",
+    });
+
+    expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 });
 
@@ -401,7 +533,7 @@ describe("getAiObjectiveExplanationStatus", () => {
         assignmentId,
         requesterId: studentId,
         questionId: "q1",
-        deterministicResult: "correct",
+        deterministicResult: "incorrect",
         promptVersion: "objective-explanation-v2",
         sourceContextHash: expect.stringMatching(/^sha256:/),
         routeKey: "low_cost",

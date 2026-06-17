@@ -231,6 +231,8 @@ export function getIeltsQuestionScoringEvidence(input: {
       isCorrectAnswer(expected.comparableAnswer, studentAnswer)
         ? "correct"
         : "incorrect",
+    sourceEvidenceCandidates: expected.sourceEvidenceCandidates,
+    sourceEvidenceStatus: expected.sourceEvidenceStatus,
     ...(expected.sourceContext ? { sourceContext: expected.sourceContext } : {}),
   };
 }

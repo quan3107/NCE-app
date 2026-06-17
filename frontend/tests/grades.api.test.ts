@@ -531,6 +531,9 @@ test('fetchObjectiveExplanation returns rejected payloads from conflict response
     id: 'explanation-rejected',
     status: 'rejected',
     cached: true,
+    failureCode: 'insufficient_source_evidence',
+    failureMessage:
+      'This question does not include enough source text for a source-backed AI explanation.',
   };
 
   await withFetch(
@@ -544,6 +547,11 @@ test('fetchObjectiveExplanation returns rejected payloads from conflict response
       const result = await fetchObjectiveExplanation('submission-1', 'q4');
 
       assert.deepEqual(result, terminalResponse);
+      assert.equal(result.failureCode, 'insufficient_source_evidence');
+      assert.equal(
+        result.failureMessage,
+        'This question does not include enough source text for a source-backed AI explanation.',
+      );
     },
   );
 });

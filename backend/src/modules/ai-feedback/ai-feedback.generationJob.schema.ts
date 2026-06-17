@@ -105,6 +105,13 @@ const objectiveSourceContextSchema = z.discriminatedUnion("kind", [
     .passthrough(),
 ]);
 
+const objectiveSourceEvidenceCandidateSchema = z
+  .object({
+    id: z.string().min(1),
+    quote: z.string().min(1),
+  })
+  .passthrough();
+
 const objectivePromptInputSchema = z
   .object({
     assignment: z
@@ -129,6 +136,9 @@ const objectivePromptInputSchema = z
     studentAnswer: z.unknown(),
     deterministicResult: z.string(),
     sourceContext: objectiveSourceContextSchema.optional(),
+    sourceEvidenceCandidates: z
+      .array(objectiveSourceEvidenceCandidateSchema)
+      .optional(),
   })
   .passthrough();
 

@@ -119,6 +119,10 @@ type WritingParseOptions = {
 type ObjectiveParseOptions = {
   deterministicResult: string
   sourceContextText?: string
+  sourceEvidenceCandidates?: Array<{
+    id: string
+    quote: string
+  }>
 }
 
 function failed(
@@ -445,6 +449,21 @@ function hasSupportedEvidence(evidence: string, sourceContextText: string): bool
   return sourceSpans.some((sourceSpan) => sourceSpanSupportsEvidence(evidence, sourceSpan))
 }
 
+function hasCandidateSupportedEvidence(
+  evidence: string,
+  candidates: ObjectiveParseOptions['sourceEvidenceCandidates'],
+): boolean {
+  if (!candidates || candidates.length === 0) {
+    return false
+  }
+
+  const normalizedEvidence = normalizeEvidenceText(evidence)
+
+  return candidates.some(
+    (candidate) => normalizeEvidenceText(candidate.quote) === normalizedEvidence,
+  )
+}
+
 function containsInventedWeighting(value: Record<string, unknown>): boolean {
   if ('criteria_weights' in value || 'criterion_weights' in value || 'task_weights' in value) {
     return true
@@ -624,6 +643,20 @@ export function parseObjectiveExplanationOutput(
   }
 
   if (
+    options.sourceEvidenceCandidates &&
+    !hasCandidateSupportedEvidence(
+      schemaResult.data.evidence,
+      options.sourceEvidenceCandidates,
+    )
+  ) {
+    return failed(
+      'unsupported_evidence',
+      'Provider output cited evidence that was not found in the source context.',
+    )
+  }
+
+  if (
+    !options.sourceEvidenceCandidates &&
     options.sourceContextText &&
     !hasSupportedEvidence(schemaResult.data.evidence, options.sourceContextText)
   ) {

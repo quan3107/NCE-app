@@ -40,6 +40,8 @@ type ExplanationState = {
   status: ExplanationViewStatus;
   cached: boolean;
   explanation?: Record<string, unknown>;
+  failureCode?: string;
+  failureMessage?: string;
   error?: string;
 };
 
@@ -52,6 +54,8 @@ const toExplanationState = (
   status: response.status,
   cached: response.cached,
   explanation: response.explanation,
+  failureCode: response.failureCode,
+  failureMessage: response.failureMessage,
 });
 
 const toFeedbackLabel = (label: Grade['feedbackLabel']) =>
@@ -463,6 +467,9 @@ export function StudentGradesPage() {
                                 state.explanation;
                               const retryable =
                                 state?.status === 'polling_timeout';
+                              const terminalUnavailable =
+                                state?.status === 'review_required' ||
+                                state?.status === 'rejected';
                               return (
                                 <div
                                   key={target.id}
@@ -481,7 +488,11 @@ export function StudentGradesPage() {
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      disabled={active || Boolean(ready)}
+                                      disabled={
+                                        active ||
+                                        Boolean(ready) ||
+                                        terminalUnavailable
+                                      }
                                       onClick={() =>
                                         void handleExplain(
                                           submission,
@@ -500,7 +511,9 @@ export function StudentGradesPage() {
                                           ? 'Queued'
                                           : retryable
                                             ? 'Retry'
-                                            : 'Explain'}
+                                            : terminalUnavailable
+                                              ? 'Unavailable'
+                                              : 'Explain'}
                                     </Button>
                                   </div>
                                   {ready && (
@@ -516,14 +529,16 @@ export function StudentGradesPage() {
                                   )}
                                   {state?.status === 'failed' && (
                                     <p className="mt-3 text-sm text-destructive">
-                                      {state.error ?? 'Explanation failed.'}
+                                      {state.failureMessage ??
+                                        state.error ??
+                                        'Explanation failed.'}
                                     </p>
                                   )}
                                   {(state?.status === 'review_required' ||
                                     state?.status === 'rejected') && (
                                     <p className="mt-3 text-sm text-muted-foreground">
-                                      Explanation is not available for this
-                                      question.
+                                      {state.failureMessage ??
+                                        'Explanation is not available for this question.'}
                                     </p>
                                   )}
                                 </div>

@@ -15,6 +15,11 @@ export type IeltsObjectiveSourceContext =
       audioFileId: string;
     };
 
+export type IeltsSourceEvidenceCandidate = {
+  id: string;
+  quote: string;
+};
+
 export type IeltsQuestionScoringEvidence = {
   questionId: string;
   questionText: string;
@@ -22,6 +27,8 @@ export type IeltsQuestionScoringEvidence = {
   studentAnswer: unknown;
   deterministicResult: "correct" | "incorrect";
   sourceContext?: IeltsObjectiveSourceContext;
+  sourceEvidenceCandidates: IeltsSourceEvidenceCandidate[];
+  sourceEvidenceStatus: "available" | "insufficient_source_evidence";
 };
 
 export type ExpectedAnswer = {
@@ -30,6 +37,8 @@ export type ExpectedAnswer = {
   acceptedAnswer: string;
   questionText: string;
   sourceContext?: IeltsObjectiveSourceContext;
+  sourceEvidenceCandidates: IeltsSourceEvidenceCandidate[];
+  sourceEvidenceStatus: "available" | "insufficient_source_evidence";
 };
 
 type ExpectedAnswerInput = {
@@ -38,6 +47,7 @@ type ExpectedAnswerInput = {
   acceptedAnswer: unknown;
   questionText: string;
   sourceContext?: IeltsObjectiveSourceContext;
+  evidenceTexts?: string[];
 };
 
 type ResolvedAnswer = {
@@ -55,6 +65,246 @@ function normalizeString(value: string): string {
     .toLowerCase()
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ");
+}
+
+function evidenceTokens(value: string): string[] {
+  return normalizeString(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .filter(Boolean);
+}
+
+const evidenceStopwords = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "for",
+  "from",
+  "how",
+  "in",
+  "is",
+  "it",
+  "of",
+  "on",
+  "or",
+  "that",
+  "the",
+  "their",
+  "they",
+  "this",
+  "to",
+  "was",
+  "were",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "with",
+]);
+
+function contentEvidenceTokens(value: string): string[] {
+  return evidenceTokens(value).filter(
+    (token) => token.length > 2 && !evidenceStopwords.has(token),
+  );
+}
+
+function hasContiguousTokenSequence(needle: string[], haystack: string[]): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) {
+    return false;
+  }
+
+  for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    const candidate = haystack.slice(start, start + needle.length);
+    if (candidate.every((token, index) => token === needle[index])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isAnswerKeyOnlyTokenSequence(tokens: string[]): boolean {
+  const normalized = tokens.join(" ");
+
+  return (
+    (tokens.length === 1 && /^[a-z]$/.test(tokens[0] ?? "")) ||
+    ["true", "false", "yes", "no", "not given"].includes(normalized)
+  );
+}
+
+function isSingleTokenSourceAnchor(token: string): boolean {
+  return /\d/.test(token) || (token.length > 2 && !evidenceStopwords.has(token));
+}
+
+function isAsciiDigit(value: string | undefined): boolean {
+  return value !== undefined && /[0-9]/.test(value);
+}
+
+function isAsciiLetter(value: string | undefined): boolean {
+  return value !== undefined && /[a-z]/i.test(value);
+}
+
+function isDecimalPoint(value: string, index: number): boolean {
+  return isAsciiDigit(value[index - 1]) && isAsciiDigit(value[index + 1]);
+}
+
+const nonTerminalAbbreviations = new Set([
+  "apr",
+  "aug",
+  "dec",
+  "dr",
+  "feb",
+  "jan",
+  "jul",
+  "jun",
+  "mar",
+  "mr",
+  "mrs",
+  "ms",
+  "no",
+  "nov",
+  "oct",
+  "prof",
+  "sep",
+  "sept",
+  "st",
+]);
+
+function isInternalAbbreviationPoint(value: string, index: number): boolean {
+  return (
+    isAsciiLetter(value[index - 1]) &&
+    isAsciiLetter(value[index + 1]) &&
+    value[index + 2] === "."
+  );
+}
+
+function abbreviationBeforePoint(value: string, index: number): string {
+  let start = index - 1;
+  while (start >= 0 && isAsciiLetter(value[start])) {
+    start -= 1;
+  }
+
+  return value.slice(start + 1, index).toLowerCase();
+}
+
+function isKnownNonTerminalAbbreviationPoint(value: string, index: number): boolean {
+  return nonTerminalAbbreviations.has(abbreviationBeforePoint(value, index));
+}
+
+function sourceTextSpans(value: string): string[] {
+  const spans: string[] = [];
+  let spanStart = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+
+    if (
+      character === "." &&
+      (isDecimalPoint(value, index) ||
+        isInternalAbbreviationPoint(value, index) ||
+        isKnownNonTerminalAbbreviationPoint(value, index))
+    ) {
+      continue;
+    }
+
+    const isBoundary =
+      character === "." ||
+      character === "!" ||
+      character === "?" ||
+      character === ";" ||
+      character === "\n";
+
+    if (!isBoundary) {
+      continue;
+    }
+
+    const spanEnd = character === "\n" ? index : index + 1;
+    const span = value.slice(spanStart, spanEnd).trim();
+    if (span) {
+      spans.push(span);
+    }
+    spanStart = index + 1;
+  }
+
+  const tail = value.slice(spanStart).trim();
+  if (tail) {
+    spans.push(tail);
+  }
+
+  return spans;
+}
+
+function sourceSpanSupportsAcceptedAnswer(
+  span: string,
+  acceptedAnswer: string,
+): boolean {
+  const answerTokens = evidenceTokens(acceptedAnswer);
+  const spanTokens = evidenceTokens(span);
+
+  if (isAnswerKeyOnlyTokenSequence(answerTokens)) {
+    return false;
+  }
+
+  if (
+    answerTokens.length === 1 &&
+    !isSingleTokenSourceAnchor(answerTokens[0] ?? "")
+  ) {
+    return false;
+  }
+
+  return hasContiguousTokenSequence(answerTokens, spanTokens);
+}
+
+function sourceSpanSupportsEvidenceText(
+  span: string,
+  evidenceText: string,
+): boolean {
+  const anchorTokens = contentEvidenceTokens(evidenceText);
+  const spanTokens = new Set(contentEvidenceTokens(span));
+
+  if (anchorTokens.length === 0 || spanTokens.size === 0) {
+    return false;
+  }
+
+  const matchedTokens = anchorTokens.filter((token) => spanTokens.has(token));
+  const requiredMatches = Math.max(2, Math.ceil(anchorTokens.length * 0.6));
+
+  return matchedTokens.length >= requiredMatches;
+}
+
+function buildSourceEvidenceCandidates(input: {
+  sourceContext?: IeltsObjectiveSourceContext;
+  acceptedAnswer: string;
+  evidenceKey: string;
+  evidenceTexts?: string[];
+}): IeltsSourceEvidenceCandidate[] {
+  if (
+    !input.sourceContext ||
+    (input.sourceContext.kind !== "reading_passage" &&
+      input.sourceContext.kind !== "listening_transcript")
+  ) {
+    return [];
+  }
+
+  return sourceTextSpans(input.sourceContext.text)
+    .filter(
+      (span) =>
+        sourceSpanSupportsAcceptedAnswer(span, input.acceptedAnswer) ||
+        (input.evidenceTexts ?? []).some((evidenceText) =>
+          sourceSpanSupportsEvidenceText(span, evidenceText),
+        ),
+    )
+    .map((quote, index) => ({
+      id: `${input.evidenceKey || "question"}-evidence-${index + 1}`,
+      quote,
+    }));
 }
 
 function displayAnswer(value: unknown): string {
@@ -157,13 +407,52 @@ function toExpectedAnswer(input: ExpectedAnswerInput): ExpectedAnswer | null {
     return null;
   }
 
+  const acceptedAnswer = displayAnswer(input.acceptedAnswer);
+  const evidenceKey = keys[0] ?? "";
+  const sourceEvidenceCandidates = buildSourceEvidenceCandidates({
+    sourceContext: input.sourceContext,
+    acceptedAnswer,
+    evidenceKey,
+    evidenceTexts: input.evidenceTexts,
+  });
+
   return {
     keys,
     comparableAnswer: input.comparableAnswer,
-    acceptedAnswer: displayAnswer(input.acceptedAnswer),
+    acceptedAnswer,
     questionText: input.questionText,
+    sourceEvidenceCandidates,
+    sourceEvidenceStatus:
+      sourceEvidenceCandidates.length > 0
+        ? "available"
+        : "insufficient_source_evidence",
     ...(input.sourceContext ? { sourceContext: input.sourceContext } : {}),
   };
+}
+
+function isStatementLikeQuestionText(value: string): boolean {
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 && !trimmed.endsWith("?");
+}
+
+function usesAnswerKeyOnlySourceFallback(acceptedAnswer: string): boolean {
+  return isAnswerKeyOnlyTokenSequence(evidenceTokens(acceptedAnswer));
+}
+
+function evidenceTextsForAcceptedAnswer(
+  acceptedAnswer: unknown,
+  promptText: string,
+): string[] {
+  const acceptedAnswerText = displayAnswer(acceptedAnswer);
+
+  return [
+    acceptedAnswerText,
+    ...(isStatementLikeQuestionText(promptText) &&
+    usesAnswerKeyOnlySourceFallback(acceptedAnswerText)
+      ? [promptText]
+      : []),
+  ];
 }
 
 function addExpectedAnswer(
@@ -216,6 +505,10 @@ function extractExpectedAnswersFromQuestion(
       ...directAnswer,
       questionText: parentQuestionText,
       sourceContext,
+      evidenceTexts: evidenceTextsForAcceptedAnswer(
+        directAnswer.acceptedAnswer,
+        parentQuestionText,
+      ),
     });
   }
 
@@ -227,12 +520,14 @@ function extractExpectedAnswersFromQuestion(
       continue;
     }
     const sentenceAnswer = getAnswerValue(sentence);
+    const sentenceText = displayTextFromRecord(sentence);
     addExpectedAnswer(expectedAnswers, {
       keys: [typeof sentence.id === "string" ? sentence.id : ""],
       comparableAnswer: sentenceAnswer,
       acceptedAnswer: sentenceAnswer,
-      questionText: displayTextFromRecord(sentence) || parentQuestionText,
+      questionText: sentenceText || parentQuestionText,
       sourceContext,
+      evidenceTexts: evidenceTextsForAcceptedAnswer(sentenceAnswer, sentenceText),
     });
   }
 
@@ -244,12 +539,14 @@ function extractExpectedAnswersFromQuestion(
       continue;
     }
     const statementAnswer = getAnswerValue(statement);
+    const statementText = displayTextFromRecord(statement);
     addExpectedAnswer(expectedAnswers, {
       keys: [typeof statement.id === "string" ? statement.id : ""],
       comparableAnswer: statementAnswer,
       acceptedAnswer: statementAnswer,
-      questionText: displayTextFromRecord(statement) || parentQuestionText,
+      questionText: statementText || parentQuestionText,
       sourceContext,
+      evidenceTexts: evidenceTextsForAcceptedAnswer(statementAnswer, statementText),
     });
   }
 
@@ -267,12 +564,14 @@ function extractExpectedAnswersFromQuestion(
         ? [paragraphId, `${questionId}:${paragraphId}`]
         : [paragraphId];
     const itemAnswer = getAnswerValue(item);
+    const itemText = displayTextFromRecord(item);
     addExpectedAnswer(expectedAnswers, {
       keys,
       comparableAnswer: itemAnswer,
       acceptedAnswer: itemAnswer,
-      questionText: displayTextFromRecord(item) || parentQuestionText,
+      questionText: itemText || parentQuestionText,
       sourceContext,
+      evidenceTexts: evidenceTextsForAcceptedAnswer(itemAnswer, itemText),
     });
   }
 
@@ -284,12 +583,14 @@ function extractExpectedAnswersFromQuestion(
       continue;
     }
     const itemAnswer = getAnswerValue(item);
+    const itemText = displayTextFromRecord(item);
     addExpectedAnswer(expectedAnswers, {
       keys: [typeof item.id === "string" ? item.id : ""],
       comparableAnswer: itemAnswer,
       acceptedAnswer: itemAnswer,
-      questionText: displayTextFromRecord(item) || parentQuestionText,
+      questionText: itemText || parentQuestionText,
       sourceContext,
+      evidenceTexts: evidenceTextsForAcceptedAnswer(itemAnswer, itemText),
     });
   }
 
@@ -301,12 +602,14 @@ function extractExpectedAnswersFromQuestion(
       continue;
     }
     const labelAnswer = getAnswerValue(label);
+    const labelText = displayTextFromRecord(label);
     addExpectedAnswer(expectedAnswers, {
       keys: [typeof label.id === "string" ? label.id : ""],
       comparableAnswer: labelAnswer,
       acceptedAnswer: labelAnswer,
-      questionText: displayTextFromRecord(label) || parentQuestionText,
+      questionText: labelText || parentQuestionText,
       sourceContext,
+      evidenceTexts: evidenceTextsForAcceptedAnswer(labelAnswer, labelText),
     });
   }
 

@@ -40,12 +40,18 @@ type ObjectiveSourceContextInput =
       audioFileId: string
     }
 
+type ObjectiveSourceEvidenceCandidateInput = {
+  id: string
+  quote: string
+}
+
 export type ObjectiveExplanationPromptInput = {
   assignment: ObjectiveAssignmentInput
   question: ObjectiveQuestionInput
   studentAnswer: unknown
   deterministicResult: string
   sourceContext?: ObjectiveSourceContextInput
+  sourceEvidenceCandidates?: ObjectiveSourceEvidenceCandidateInput[]
 }
 
 export type BuiltObjectiveExplanationPrompt = {
@@ -123,6 +129,12 @@ function buildUserPayload(input: ObjectiveExplanationPromptInput) {
     student_answer: serializeStudentAnswer(input.studentAnswer),
     deterministic_result: cleanText(input.deterministicResult),
     source_context: buildSourceContext(input.sourceContext),
+    source_evidence_candidates: (input.sourceEvidenceCandidates ?? []).map(
+      (candidate) => ({
+        id: cleanText(candidate.id),
+        quote: cleanText(candidate.quote),
+      }),
+    ),
   }
 }
 
