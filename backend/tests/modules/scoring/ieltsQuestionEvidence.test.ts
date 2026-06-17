@@ -247,4 +247,69 @@ describe("buildExpectedAnswersFromConfig", () => {
       ],
     });
   });
+
+  it.each([
+    {
+      label: "titles",
+      transcript:
+        "The appointment is with Dr. Patel in the west clinic. Bring the referral form.",
+      prompt: "Who is the appointment with?",
+      answer: "Dr. Patel",
+      quote: "The appointment is with Dr. Patel in the west clinic.",
+    },
+    {
+      label: "number markers",
+      transcript:
+        "The locker number is No. 7 near the main entrance. The key is ready.",
+      prompt: "Which locker number is assigned?",
+      answer: "No. 7",
+      quote: "The locker number is No. 7 near the main entrance.",
+    },
+    {
+      label: "month abbreviations",
+      transcript:
+        "The final interview is on Sept. 3 after orientation. The email confirms this.",
+      prompt: "When is the final interview?",
+      answer: "Sept. 3",
+      quote: "The final interview is on Sept. 3 after orientation.",
+    },
+    {
+      label: "place abbreviations",
+      transcript:
+        "The meeting is at St. John's Hall beside the library. Signs will be posted.",
+      prompt: "Where is the meeting?",
+      answer: "St. John's Hall",
+      quote: "The meeting is at St. John's Hall beside the library.",
+    },
+  ])("keeps common abbreviation source evidence spans: $label", (fixture) => {
+    const expectedAnswers = buildExpectedAnswersFromConfig(AssignmentType.listening, {
+      version: 1,
+      sections: [
+        {
+          id: "section-1",
+          title: "Listening",
+          transcript: fixture.transcript,
+          questions: [
+            {
+              id: "q1",
+              type: "short_answer",
+              text: fixture.prompt,
+              answer: fixture.answer,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(expectedAnswers[0]).toMatchObject({
+      acceptedAnswer: fixture.answer,
+      sourceEvidenceStatus: "available",
+      sourceEvidenceCandidates: [
+        {
+          id: "q1-evidence-1",
+          quote: fixture.quote,
+        },
+      ],
+    });
+  });
 });
