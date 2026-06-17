@@ -1,0 +1,196 @@
+# File: docs/openapi/paths/nce-content.yaml
+# Purpose: Define read-only NCE content OpenAPI path items.
+# Why: Documents published and course-authorized draft content reads.
+
+NceBooks:
+  get:
+    tags: [nce-content]
+    summary: List NCE books
+    parameters:
+      - $ref: '#/components/parameters/IncludeDrafts'
+    responses:
+      '200':
+        description: NCE books
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/NceBookListResponse'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security: []
+
+NceBookUnits:
+  get:
+    tags: [nce-content]
+    summary: List NCE units for a book
+    parameters:
+      - in: path
+        name: bookId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IncludeDrafts'
+      - $ref: '#/components/parameters/CourseId'
+    responses:
+      '200':
+        description: NCE units
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/NceUnitListResponse'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security: []
+
+NceUnitLessons:
+  get:
+    tags: [nce-content]
+    summary: List NCE lessons for a unit
+    parameters:
+      - in: path
+        name: unitId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IncludeDrafts'
+      - $ref: '#/components/parameters/CourseId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+    responses:
+      '200':
+        description: NCE lessons
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/NceLessonListResponse'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security: []
+
+NceLesson:
+  get:
+    tags: [nce-content]
+    summary: Get NCE lesson detail
+    parameters:
+      - in: path
+        name: lessonId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IncludeDrafts'
+      - $ref: '#/components/parameters/CourseId'
+    responses:
+      '200':
+        description: NCE lesson
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/NceLesson'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security: []
+
+CourseNceLessons:
+  get:
+    tags: [nce-content]
+    summary: List NCE lessons assigned to a course
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IncludeDrafts'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+    responses:
+      '200':
+        description: Course-assigned NCE lessons
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/CourseNceLessonListResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Course not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+components:
+  parameters:
+    IncludeDrafts:
+      in: query
+      name: includeDrafts
+      schema:
+        type: boolean
+        default: false
+      description: Teachers and admins can include draft content when authorized for the course context.
+    CourseId:
+      in: query
+      name: courseId
+      schema:
+        type: string
+        format: uuid
+      description: Course context used to authorize draft and assigned content reads.
+    Page:
+      in: query
+      name: page
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      in: query
+      name: pageSize
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
