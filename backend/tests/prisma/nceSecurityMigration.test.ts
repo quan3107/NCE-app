@@ -25,7 +25,13 @@ describe('NCE Data API security migration', () => {
   const helperFunctionMigration = readBackend(
     'src/prisma/migrations/20260617142000_use_nce_rls_helper_functions/migration.sql',
   )
-  const securityMigrations = `${migration}\n${denyPolicyMigration}\n${helperFunctionMigration}`
+  const privateHelperMigration = readBackend(
+    'src/prisma/migrations/20260617143000_move_nce_rls_helpers_to_app_schema/migration.sql',
+  )
+  const inlinePolicyMigration = readBackend(
+    'src/prisma/migrations/20260617144000_inline_nce_rls_publish_checks/migration.sql',
+  )
+  const securityMigrations = `${migration}\n${denyPolicyMigration}\n${helperFunctionMigration}\n${privateHelperMigration}\n${inlinePolicyMigration}`
 
   it('enables and forces RLS on every NCE table', () => {
     for (const table of [
@@ -65,10 +71,11 @@ describe('NCE Data API security migration', () => {
     expect(migration).toContain('CREATE POLICY nce_lessons_select_published')
     expect(migration).toContain('CREATE POLICY nce_objectives_select_published')
     expect(migration).toContain('CREATE POLICY nce_exercises_select_published')
-    expect(helperFunctionMigration).toContain('SECURITY DEFINER')
-    expect(helperFunctionMigration).toContain('public.nce_book_is_published')
-    expect(helperFunctionMigration).toContain('public.nce_unit_is_published')
-    expect(helperFunctionMigration).toContain('public.nce_lesson_is_published')
+    expect(inlinePolicyMigration).toContain('CREATE POLICY nce_units_select_published')
+    expect(inlinePolicyMigration).toContain('CREATE POLICY nce_lessons_select_published')
+    expect(inlinePolicyMigration).toContain('CREATE POLICY nce_objectives_select_published')
+    expect(inlinePolicyMigration).toContain('CREATE POLICY nce_exercises_select_published')
+    expect(inlinePolicyMigration).toContain('EXISTS (')
     expect(denyPolicyMigration).toContain(
       'CREATE POLICY nce_course_lesson_assignments_deny_authenticated_select',
     )
@@ -76,5 +83,35 @@ describe('NCE Data API security migration', () => {
     expect(denyPolicyMigration).toContain('USING (false)')
     expect(migration).toContain("status = 'published'")
     expect(migration).toContain('deleted_at IS NULL')
+  })
+
+  it('removes NCE security-definer RLS helpers from callable schemas', () => {
+    for (const schema of ['public', 'app']) {
+      expect(inlinePolicyMigration).toContain(
+        `REVOKE ALL ON FUNCTION ${schema}.nce_book_is_published(UUID) FROM PUBLIC;`,
+      )
+      expect(inlinePolicyMigration).toContain(
+        `REVOKE ALL ON FUNCTION ${schema}.nce_unit_is_published(UUID) FROM PUBLIC;`,
+      )
+      expect(inlinePolicyMigration).toContain(
+        `REVOKE ALL ON FUNCTION ${schema}.nce_lesson_is_published(UUID) FROM PUBLIC;`,
+      )
+      expect(inlinePolicyMigration).toContain(
+        `DROP FUNCTION IF EXISTS ${schema}.nce_book_is_published(UUID);`,
+      )
+      expect(inlinePolicyMigration).toContain(
+        `DROP FUNCTION IF EXISTS ${schema}.nce_unit_is_published(UUID);`,
+      )
+      expect(inlinePolicyMigration).toContain(
+        `DROP FUNCTION IF EXISTS ${schema}.nce_lesson_is_published(UUID);`,
+      )
+    }
+    expect(inlinePolicyMigration).not.toContain('SECURITY DEFINER')
+    expect(inlinePolicyMigration).not.toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+(public|app)\.nce_\w+\(UUID\)\s+TO\s+authenticated/i,
+    )
+    expect(privateHelperMigration).toContain(
+      'DROP FUNCTION IF EXISTS public.nce_book_is_published(UUID);',
+    )
   })
 })
