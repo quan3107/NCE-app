@@ -74,7 +74,7 @@ describe('NCE Prisma schema', () => {
     )
 
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS course_id')
-    expect(migration).toContain('DROP INDEX IF EXISTS public.nce_lessons_unit_id_lesson_number_key')
+    expect(migration).toContain('DROP CONSTRAINT IF EXISTS nce_lessons_unit_id_lesson_number_key')
     expect(migration).toContain('nce_lessons_global_unit_number_key')
     expect(migration).toContain('WHERE course_id IS NULL')
     expect(migration).toContain('nce_lessons_course_unit_number_key')
