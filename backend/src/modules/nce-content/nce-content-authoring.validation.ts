@@ -15,6 +15,7 @@ import { prisma } from "../../config/prismaClient.js";
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { createHttpError } from "../../utils/httpError.js";
 import type {
+  AssignNceLessonsInput,
   CreateNceLessonInput,
   PatchNceLessonInput,
 } from "./nce-content.schema.js";
@@ -182,8 +183,21 @@ export async function assertCourseWritable(
   }
 }
 
+export async function assertCreateCourseWritable(
+  courseId: string | undefined,
+  actor: RequestActor,
+): Promise<void> {
+  if (actor.role === UserRole.teacher && !courseId) {
+    throw createHttpError(400, "courseId is required to create teacher NCE lessons");
+  }
+
+  if (courseId) {
+    await assertCourseWritable(courseId, actor);
+  }
+}
+
 export async function assertLessonCourseWritable(
-  lessonId: string,
+  lesson: { id: string; courseId?: string | null },
   courseId: string | undefined,
   actor: RequestActor,
 ): Promise<void> {
@@ -197,10 +211,14 @@ export async function assertLessonCourseWritable(
 
   await assertCourseWritable(courseId, actor);
 
+  if (lesson.courseId !== courseId) {
+    throw createHttpError(403, "NCE lesson is not editable in this course");
+  }
+
   const assignment = await prisma.nceCourseLessonAssignment.findFirst({
     where: {
       courseId,
-      lessonId,
+      lessonId: lesson.id,
     },
     select: {
       courseId: true,
@@ -209,5 +227,45 @@ export async function assertLessonCourseWritable(
 
   if (!assignment) {
     throw createHttpError(403, "NCE lesson is not assigned to this course");
+  }
+}
+
+export async function assertLessonsAssignableToCourse(
+  courseId: string,
+  payload: AssignNceLessonsInput,
+): Promise<void> {
+  const lessonIds = [...new Set(payload.lessons.map((lesson) => lesson.lessonId))];
+  if (lessonIds.length === 0) {
+    return;
+  }
+
+  const lessons = await prisma.nceLesson.findMany({
+    where: {
+      id: { in: lessonIds },
+      deletedAt: null,
+      unit: {
+        deletedAt: null,
+        book: { deletedAt: null },
+      },
+    },
+    select: {
+      id: true,
+      courseId: true,
+      status: true,
+    },
+  });
+
+  if (lessons.length !== lessonIds.length) {
+    throw createHttpError(404, "NCE lesson not found");
+  }
+
+  for (const lesson of lessons) {
+    if (lesson.courseId && lesson.courseId !== courseId) {
+      throw createHttpError(403, "NCE lesson cannot be assigned to this course");
+    }
+
+    if (!lesson.courseId && lesson.status !== NcePublishStatus.published) {
+      throw createHttpError(403, "NCE lesson cannot be assigned to this course");
+    }
   }
 }
