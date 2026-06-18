@@ -127,6 +127,15 @@ const paginationResponse = (query: NceReadQuery, total: number) => ({
   total,
 });
 
+function assertPublicCourseContext(query: NceReadQuery): void {
+  if (query.courseId && !query.includeDrafts) {
+    throw createHttpError(
+      400,
+      "courseId can only be used with includeDrafts=true on public NCE content routes",
+    );
+  }
+}
+
 function getAccessRole(
   course: {
     ownerId: string;
@@ -227,11 +236,7 @@ async function resolveVisibility(
   }
 
   if (!actor) {
-    return {
-      includeDrafts: false,
-      includeAnswers: false,
-      includeTeacherNotes: false,
-    };
+    throw createHttpError(401, "Unauthorized");
   }
 
   if (actor.role === UserRole.admin) {
@@ -262,11 +267,7 @@ async function resolveVisibility(
     };
   }
 
-  return {
-    includeDrafts: false,
-    includeAnswers: false,
-    includeTeacherNotes: false,
-  };
+  throw createHttpError(403, "You do not have permission to include draft NCE content");
 }
 
 function bookWhere(includeDrafts: boolean): Prisma.NceBookWhereInput {
@@ -392,6 +393,7 @@ export async function listNceBooks(
   rawQuery?: unknown,
 ) {
   const query = parseReadQuery(rawQuery);
+  assertPublicCourseContext(query);
   const visibility = await resolveVisibility(actor, query);
   const read = () => prisma.nceBook.findMany({
     where: assignedBookWhere(visibility.includeDrafts, query.courseId),
@@ -412,6 +414,7 @@ export async function listNceUnits(
 ) {
   const { bookId } = nceBookParamsSchema.parse(rawParams);
   const query = parseReadQuery(rawQuery);
+  assertPublicCourseContext(query);
   const visibility = await resolveVisibility(actor, query);
   const read = () => prisma.nceUnit.findMany({
     where: unitWhere(bookId, visibility.includeDrafts, query.courseId),
@@ -432,6 +435,7 @@ export async function listNceLessons(
 ) {
   const { unitId } = nceUnitParamsSchema.parse(rawParams);
   const query = parseReadQuery(rawQuery);
+  assertPublicCourseContext(query);
   const visibility = await resolveVisibility(actor, query);
   const pageArgs = pagination(query);
   const where = lessonWhere(unitId, undefined, query, visibility.includeDrafts);
@@ -464,6 +468,7 @@ export async function getNceLesson(
 ) {
   const { lessonId } = nceLessonParamsSchema.parse(rawParams);
   const query = parseReadQuery(rawQuery);
+  assertPublicCourseContext(query);
   const visibility = await resolveVisibility(actor, query);
   const read = () => prisma.nceLesson.findFirst({
     where: lessonWhere(undefined, lessonId, query, visibility.includeDrafts),
