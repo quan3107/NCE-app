@@ -104,12 +104,14 @@ export const createNceLesson = async (
 export const patchNceLesson = async (
   lessonId: string,
   payload: NceLessonPatchPayload,
+  courseId?: string,
 ) => {
   const lesson = await apiClient<NceLesson, NceLessonPatchPayload>(
     `/nce/lessons/${lessonId}`,
     {
       method: 'PATCH',
       body: payload,
+      params: courseId ? { courseId } : undefined,
     },
   );
 
@@ -117,18 +119,20 @@ export const patchNceLesson = async (
   return lesson;
 };
 
-export const publishNceLesson = async (lessonId: string) => {
+export const publishNceLesson = async (lessonId: string, courseId?: string) => {
   const lesson = await apiClient<NceLesson>(`/nce/lessons/${lessonId}/publish`, {
     method: 'POST',
+    params: courseId ? { courseId } : undefined,
   });
 
   await invalidateNceContent();
   return lesson;
 };
 
-export const unpublishNceLesson = async (lessonId: string) => {
+export const unpublishNceLesson = async (lessonId: string, courseId?: string) => {
   const lesson = await apiClient<NceLesson>(`/nce/lessons/${lessonId}/unpublish`, {
     method: 'POST',
+    params: courseId ? { courseId } : undefined,
   });
 
   await invalidateNceContent();
@@ -215,21 +219,35 @@ export function usePatchNceLessonMutation() {
     mutationFn: ({
       lessonId,
       payload,
+      courseId,
     }: {
       lessonId: string;
       payload: NceLessonPatchPayload;
-    }) => patchNceLesson(lessonId, payload),
+      courseId?: string;
+    }) => patchNceLesson(lessonId, payload, courseId),
   });
 }
 
 export function usePublishNceLessonMutation() {
   return useMutation({
-    mutationFn: publishNceLesson,
+    mutationFn: ({
+      lessonId,
+      courseId,
+    }: {
+      lessonId: string;
+      courseId?: string;
+    }) => publishNceLesson(lessonId, courseId),
   });
 }
 
 export function useUnpublishNceLessonMutation() {
   return useMutation({
-    mutationFn: unpublishNceLesson,
+    mutationFn: ({
+      lessonId,
+      courseId,
+    }: {
+      lessonId: string;
+      courseId?: string;
+    }) => unpublishNceLesson(lessonId, courseId),
   });
 }
