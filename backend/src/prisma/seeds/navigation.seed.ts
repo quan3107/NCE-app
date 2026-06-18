@@ -75,9 +75,10 @@ const DEFAULT_NAVIGATION_ITEMS = [
   { role: UserRole.teacher, label: "Assignments", path: "/teacher/assignments", iconName: "file-text", permission: "assignments:create", order: 2 },
   { role: UserRole.teacher, label: "Submissions", path: "/teacher/submissions", iconName: "scroll-text", permission: "submissions:read", badge: "submissions", order: 3 },
   { role: UserRole.teacher, label: "Notifications", path: "/teacher/notifications", iconName: "bell", permission: "notifications:read", badge: "notifications", order: 4 },
-  { role: UserRole.teacher, label: "Rubrics", path: "/teacher/rubrics", iconName: "book-marked", permission: "rubrics:manage", order: 5 },
-  { role: UserRole.teacher, label: "Analytics", path: "/teacher/analytics", iconName: "bar-chart-3", permission: "analytics:view", order: 6 },
-  { role: UserRole.teacher, label: "Profile", path: "/teacher/profile", iconName: "user", permission: "profile:view", order: 7 },
+  { role: UserRole.teacher, label: "NCE Lessons", path: "/teacher/nce-lessons", iconName: "book-open", permission: "courses:manage", order: 5 },
+  { role: UserRole.teacher, label: "Rubrics", path: "/teacher/rubrics", iconName: "book-marked", permission: "rubrics:manage", order: 6 },
+  { role: UserRole.teacher, label: "Analytics", path: "/teacher/analytics", iconName: "bar-chart-3", permission: "analytics:view", order: 7 },
+  { role: UserRole.teacher, label: "Profile", path: "/teacher/profile", iconName: "user", permission: "profile:view", order: 8 },
 
   // Admin navigation
   { role: UserRole.admin, label: "Dashboard", path: "/admin/dashboard", iconName: "layout-dashboard", permission: "dashboard:view", order: 0 },
