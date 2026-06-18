@@ -22,6 +22,13 @@ function actorFromRequest(req: Request) {
   return req.user;
 }
 
+function lessonWriteParams(req: Request) {
+  return {
+    ...req.params,
+    courseId: req.query.courseId,
+  };
+}
+
 export async function postNceLesson(req: Request, res: Response): Promise<void> {
   const payload = await createNceLesson(req.body, actorFromRequest(req));
   res.status(201).json(payload);
@@ -31,7 +38,7 @@ export async function patchNceLessonHandler(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const payload = await patchNceLesson(req.params, req.body, actorFromRequest(req));
+  const payload = await patchNceLesson(lessonWriteParams(req), req.body, actorFromRequest(req));
   res.status(200).json(payload);
 }
 
@@ -39,7 +46,7 @@ export async function publishNceLessonHandler(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const payload = await publishNceLesson(req.params, actorFromRequest(req));
+  const payload = await publishNceLesson(lessonWriteParams(req), actorFromRequest(req));
   res.status(200).json(payload);
 }
 
@@ -47,7 +54,7 @@ export async function unpublishNceLessonHandler(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const payload = await unpublishNceLesson(req.params, actorFromRequest(req));
+  const payload = await unpublishNceLesson(lessonWriteParams(req), actorFromRequest(req));
   res.status(200).json(payload);
 }
 
