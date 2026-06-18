@@ -30,7 +30,10 @@ export function assertAuthor(actor: RequestActor): void {
 
 function hasAnswerList(value: Record<string, unknown>): boolean {
   const answers = value.answers ?? value.acceptedAnswers;
-  return Array.isArray(answers) && answers.length > 0;
+  return (
+    Array.isArray(answers) &&
+    answers.some((answer) => typeof answer === "string" && answer.trim().length > 0)
+  );
 }
 
 function validateExerciseAnswerKey(
@@ -176,5 +179,35 @@ export async function assertCourseWritable(
 
   if (courseAccess(course, actor) === "none") {
     throw createHttpError(403, "You do not have permission to manage this course");
+  }
+}
+
+export async function assertLessonCourseWritable(
+  lessonId: string,
+  courseId: string | undefined,
+  actor: RequestActor,
+): Promise<void> {
+  if (actor.role === UserRole.admin) {
+    return;
+  }
+
+  if (!courseId) {
+    throw createHttpError(400, "courseId is required to modify teacher NCE lessons");
+  }
+
+  await assertCourseWritable(courseId, actor);
+
+  const assignment = await prisma.nceCourseLessonAssignment.findFirst({
+    where: {
+      courseId,
+      lessonId,
+    },
+    select: {
+      courseId: true,
+    },
+  });
+
+  if (!assignment) {
+    throw createHttpError(403, "NCE lesson is not assigned to this course");
   }
 }
