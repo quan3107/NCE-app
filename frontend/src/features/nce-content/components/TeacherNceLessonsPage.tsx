@@ -72,9 +72,9 @@ export function TeacherNceLessonsPage() {
     setErrorMessage(null);
     try {
       if (isPublished) {
-        await unpublishNceLesson(lessonId);
+        await unpublishNceLesson(lessonId, courseId);
       } else {
-        await publishNceLesson(lessonId);
+        await publishNceLesson(lessonId, courseId);
       }
       await query.refetch();
     } catch (error) {
