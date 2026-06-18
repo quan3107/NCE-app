@@ -57,6 +57,8 @@ test('TeacherNceLessonsPage supports draft refresh and publish state', async () 
   assert.match(source, /page:\s*page/);
   assert.match(source, /publishNceLesson/);
   assert.match(source, /unpublishNceLesson/);
+  assert.match(source, /publishNceLesson\(lessonId,\s*courseId\)/);
+  assert.match(source, /unpublishNceLesson\(lessonId,\s*courseId\)/);
   assert.match(source, /teacher\/nce-lessons\/new\?\$\{new URLSearchParams/);
   assert.match(source, /Previous/);
   assert.match(source, /Next/);
@@ -84,6 +86,7 @@ test('TeacherNceLessonEditorPage surfaces validation errors and mutation progres
   assert.match(source, /assignCreatedLessonToCourse/);
   assert.match(logicSource, /assignCourseNceLessons/);
   assert.match(source, /patchNceLesson/);
+  assert.match(source, /patchNceLesson\(lessonId,\s*payload,\s*courseId\)/);
   assert.match(logicSource, /assignedCount/);
   assert.match(source, /objectiveCode:\s*lesson\.objectives\.find/);
   assert.match(source, /NceObjectiveEditor/);
@@ -173,4 +176,11 @@ test('NCE objective and exercise editors expose required lesson fields', async (
   assert.match(exerciseSource, /exerciseType/);
   assert.match(exerciseSource, /answerKeyText/);
   assert.match(exerciseSource, /scoringConfigText/);
+});
+
+test('empty NCE exercises do not default to a blank answer string', async () => {
+  const logicSource = await readFile(editorLogicPath, 'utf8');
+
+  assert.doesNotMatch(logicSource, /answers:\s*\[''\]/);
+  assert.match(logicSource, /answers:\s*\[\]/);
 });
