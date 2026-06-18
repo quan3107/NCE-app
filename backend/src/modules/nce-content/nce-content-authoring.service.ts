@@ -20,6 +20,7 @@ import {
 } from "./nce-content-authoring.persistence.js";
 import {
   assertAuthor,
+  assertLessonCourseWritable,
   assertCourseWritable,
   assertLessonFound,
   assertPublishable,
@@ -30,7 +31,7 @@ import {
   assignNceLessonsSchema,
   courseNceLessonsParamsSchema,
   createNceLessonSchema,
-  nceLessonParamsSchema,
+  nceLessonWriteParamsSchema,
   patchNceLessonSchema,
 } from "./nce-content.schema.js";
 
@@ -103,7 +104,7 @@ export async function patchNceLesson(
   actor: RequestActor,
 ) {
   assertAuthor(actor);
-  const { lessonId } = nceLessonParamsSchema.parse(rawParams);
+  const { lessonId, courseId } = nceLessonWriteParamsSchema.parse(rawParams);
   const input = patchNceLessonSchema.parse(payload);
   validateLessonWrite(input);
 
@@ -111,6 +112,7 @@ export async function patchNceLesson(
     await assertUnitWritable(input.unitId);
   }
   const currentLesson = assertLessonFound(await findAuthoredLesson(lessonId));
+  await assertLessonCourseWritable(lessonId, courseId, actor);
 
   const lesson = await readWithServiceRole(actor, async () => {
     const patched = await prisma.nceLesson.update({
@@ -151,8 +153,9 @@ export async function publishNceLesson(
   actor: RequestActor,
 ) {
   assertAuthor(actor);
-  const { lessonId } = nceLessonParamsSchema.parse(rawParams);
+  const { lessonId, courseId } = nceLessonWriteParamsSchema.parse(rawParams);
   const current = assertLessonFound(await findAuthoredLesson(lessonId));
+  await assertLessonCourseWritable(lessonId, courseId, actor);
   assertPublishable(current);
 
   const lesson = await readWithServiceRole(actor, () =>
@@ -174,8 +177,9 @@ export async function unpublishNceLesson(
   actor: RequestActor,
 ) {
   assertAuthor(actor);
-  const { lessonId } = nceLessonParamsSchema.parse(rawParams);
+  const { lessonId, courseId } = nceLessonWriteParamsSchema.parse(rawParams);
   assertLessonFound(await findAuthoredLesson(lessonId));
+  await assertLessonCourseWritable(lessonId, courseId, actor);
 
   const lesson = await readWithServiceRole(actor, () =>
     prisma.nceLesson.update({
