@@ -91,10 +91,12 @@ const invalidateNceContent = async () => {
 
 export const createNceLesson = async (
   payload: NceLessonWritePayload,
+  courseId?: string,
 ) => {
   const lesson = await apiClient<NceLesson, NceLessonWritePayload>('/nce/lessons', {
     method: 'POST',
     body: payload,
+    params: courseId ? { courseId } : undefined,
   });
 
   await invalidateNceContent();
@@ -210,7 +212,13 @@ export function useCourseNceLessonsQuery(
 
 export function useCreateNceLessonMutation() {
   return useMutation({
-    mutationFn: createNceLesson,
+    mutationFn: ({
+      payload,
+      courseId,
+    }: {
+      payload: NceLessonWritePayload;
+      courseId?: string;
+    }) => createNceLesson(payload, courseId),
   });
 }
 
