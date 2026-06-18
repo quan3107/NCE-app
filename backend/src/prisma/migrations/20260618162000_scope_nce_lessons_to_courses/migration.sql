@@ -24,7 +24,7 @@ DROP POLICY IF EXISTS nce_lessons_select_published ON public.nce_lessons;
 CREATE POLICY nce_lessons_select_published
 ON public.nce_lessons
 FOR SELECT
-TO authenticated
+TO anon, authenticated, service_role
 USING (
   status = 'published'
   AND deleted_at IS NULL
@@ -46,7 +46,7 @@ DROP POLICY IF EXISTS nce_objectives_select_published ON public.nce_objectives;
 CREATE POLICY nce_objectives_select_published
 ON public.nce_objectives
 FOR SELECT
-TO authenticated
+TO anon, authenticated, service_role
 USING (
   EXISTS (
     SELECT 1
@@ -69,7 +69,7 @@ DROP POLICY IF EXISTS nce_exercises_select_published ON public.nce_exercises;
 CREATE POLICY nce_exercises_select_published
 ON public.nce_exercises
 FOR SELECT
-TO authenticated
+TO anon, authenticated, service_role
 USING (
   EXISTS (
     SELECT 1
