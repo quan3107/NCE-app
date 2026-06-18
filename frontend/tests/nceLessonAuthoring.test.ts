@@ -18,6 +18,10 @@ const editorPath = path.join(
   frontendRoot,
   'src/features/nce-content/components/TeacherNceLessonEditorPage.tsx',
 );
+const editorLogicPath = path.join(
+  frontendRoot,
+  'src/features/nce-content/components/nceLessonEditor.logic.ts',
+);
 const exerciseEditorPath = path.join(
   frontendRoot,
   'src/features/nce-content/components/NceExerciseEditor.tsx',
@@ -44,15 +48,21 @@ test('TeacherNceLessonsPage supports draft refresh and publish state', async () 
   assert.match(source, /includeDrafts:\s*true/);
   assert.match(source, /publishNceLesson/);
   assert.match(source, /unpublishNceLesson/);
+  assert.match(source, /teacher\/nce-lessons\/new\?\$\{new URLSearchParams/);
   assert.match(source, /Publishing/);
   assert.match(source, /Unpublishing/);
 });
 
 test('TeacherNceLessonEditorPage surfaces validation errors and mutation progress', async () => {
   const source = await readFile(editorPath, 'utf8');
+  const logicSource = await readFile(editorLogicPath, 'utf8');
 
   assert.match(source, /createNceLesson/);
+  assert.match(source, /assignCreatedLessonToCourse/);
+  assert.match(logicSource, /assignCourseNceLessons/);
   assert.match(source, /patchNceLesson/);
+  assert.match(logicSource, /assignedCount/);
+  assert.match(source, /objectiveCode:\s*lesson\.objectives\.find/);
   assert.match(source, /NceObjectiveEditor/);
   assert.match(source, /NceExerciseEditor/);
   assert.match(source, /Saving/);
