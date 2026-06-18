@@ -20,6 +20,8 @@ import {
 } from "./nce-content-authoring.persistence.js";
 import {
   assertAuthor,
+  assertCreateCourseWritable,
+  assertLessonsAssignableToCourse,
   assertLessonCourseWritable,
   assertCourseWritable,
   assertLessonFound,
@@ -30,6 +32,7 @@ import {
 import {
   assignNceLessonsSchema,
   courseNceLessonsParamsSchema,
+  nceLessonCreateParamsSchema,
   createNceLessonSchema,
   nceLessonWriteParamsSchema,
   patchNceLessonSchema,
@@ -66,33 +69,49 @@ async function relinkExercisesToRecreatedObjectives(
 }
 
 export async function createNceLesson(
+  rawParams: unknown,
   payload: unknown,
   actor: RequestActor,
 ) {
   assertAuthor(actor);
+  const { courseId } = nceLessonCreateParamsSchema.parse(rawParams);
   const input = createNceLessonSchema.parse(payload);
   validateLessonWrite(input);
+  await assertCreateCourseWritable(courseId, actor);
   await assertUnitWritable(input.unitId);
 
   const lesson = await readWithServiceRole(actor, async () => {
+    const sequence = courseId
+      ? await nextCourseLessonSequence(courseId)
+      : null;
     const created = await prisma.nceLesson.create({
-      data: createLessonData(input),
+      data: createLessonData(input, courseId),
       select: authoredLessonSelect,
     });
 
-    if (!input.exercises.length) {
-      return created;
+    const authored = input.exercises.length
+      ? await prisma.nceLesson.update({
+          where: { id: created.id },
+          data: {
+            exercises: {
+              create: exerciseCreates(input, created.objectives),
+            },
+          },
+          select: authoredLessonSelect,
+        })
+      : created;
+
+    if (courseId && sequence) {
+      await prisma.nceCourseLessonAssignment.create({
+        data: {
+          courseId,
+          lessonId: created.id,
+          sequence,
+        },
+      });
     }
 
-    return prisma.nceLesson.update({
-      where: { id: created.id },
-      data: {
-        exercises: {
-          create: exerciseCreates(input, created.objectives),
-        },
-      },
-      select: authoredLessonSelect,
-    });
+    return authored;
   });
 
   return mapAuthoredLesson(lesson as NceLessonRow);
@@ -112,7 +131,7 @@ export async function patchNceLesson(
     await assertUnitWritable(input.unitId);
   }
   const currentLesson = assertLessonFound(await findAuthoredLesson(lessonId));
-  await assertLessonCourseWritable(lessonId, courseId, actor);
+  await assertLessonCourseWritable(currentLesson, courseId, actor);
 
   const lesson = await readWithServiceRole(actor, async () => {
     const patched = await prisma.nceLesson.update({
@@ -155,7 +174,7 @@ export async function publishNceLesson(
   assertAuthor(actor);
   const { lessonId, courseId } = nceLessonWriteParamsSchema.parse(rawParams);
   const current = assertLessonFound(await findAuthoredLesson(lessonId));
-  await assertLessonCourseWritable(lessonId, courseId, actor);
+  await assertLessonCourseWritable(current, courseId, actor);
   assertPublishable(current);
 
   const lesson = await readWithServiceRole(actor, () =>
@@ -178,8 +197,8 @@ export async function unpublishNceLesson(
 ) {
   assertAuthor(actor);
   const { lessonId, courseId } = nceLessonWriteParamsSchema.parse(rawParams);
-  assertLessonFound(await findAuthoredLesson(lessonId));
-  await assertLessonCourseWritable(lessonId, courseId, actor);
+  const current = assertLessonFound(await findAuthoredLesson(lessonId));
+  await assertLessonCourseWritable(current, courseId, actor);
 
   const lesson = await readWithServiceRole(actor, () =>
     prisma.nceLesson.update({
@@ -204,6 +223,7 @@ export async function assignNceLessonsToCourse(
   const { courseId } = courseNceLessonsParamsSchema.parse(rawParams);
   const input = assignNceLessonsSchema.parse(payload);
   await assertCourseWritable(courseId, actor);
+  await assertLessonsAssignableToCourse(courseId, input);
 
   const rows = assignmentRows(courseId, input);
 
@@ -223,4 +243,13 @@ export async function assignNceLessonsToCourse(
     courseId,
     assignedCount: rows.length,
   };
+}
+
+async function nextCourseLessonSequence(courseId: string): Promise<number> {
+  const result = await prisma.nceCourseLessonAssignment.aggregate({
+    where: { courseId },
+    _max: { sequence: true },
+  });
+
+  return (result._max.sequence ?? 0) + 1;
 }
