@@ -1,9 +1,3 @@
-/**
- * Location: features/nce-content/components/TeacherNceLessonEditorPage.tsx
- * Purpose: Create and edit NCE lessons with objectives and exercises.
- * Why: Teachers need a structured authoring surface before lessons are published.
- */
-
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@components/common/PageHeader';
 import { Button } from '@components/ui/button';
@@ -12,18 +6,8 @@ import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import { useRouter } from '@lib/router';
 import { ArrowLeft, Plus, Save } from 'lucide-react';
-import {
-  createNceLesson,
-  patchNceLesson,
-  useNceLessonQuery,
-} from '../api';
-import type {
-  NceExerciseInput,
-  NceExerciseType,
-  NceLessonPatchPayload,
-  NceLessonWritePayload,
-  NceObjectiveInput,
-} from '../types';
+import { createNceLesson, patchNceLesson, useNceLessonQuery } from '../api';
+import type { NceExerciseInput, NceExerciseType, NceLessonPatchPayload, NceLessonWritePayload, NceObjectiveInput } from '../types';
 import { NceExerciseEditor } from './NceExerciseEditor';
 import {
   assignCreatedLessonToCourse,
@@ -141,7 +125,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
     try {
       const payload = buildPayload();
       if (lessonId) {
-        await patchNceLesson(lessonId, payload);
+        await patchNceLesson(lessonId, payload, courseId);
       } else {
         const lesson = await createNceLesson(payload as NceLessonWritePayload);
         if (courseId) {
