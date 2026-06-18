@@ -47,6 +47,10 @@ export const nceLessonWriteParamsSchema = nceLessonParamsSchema.extend({
   courseId: z.string().uuid().optional(),
 });
 
+export const nceLessonCreateParamsSchema = z.object({
+  courseId: z.string().uuid().optional(),
+});
+
 export const courseNceLessonsParamsSchema = z.object({
   courseId: z.string().uuid(),
 });
