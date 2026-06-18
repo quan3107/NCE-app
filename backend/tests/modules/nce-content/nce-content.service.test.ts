@@ -52,8 +52,14 @@ const lessonId = "22222222-2222-4222-8222-222222222222";
 const unitId = "33333333-3333-4333-8333-333333333333";
 const teacherId = "44444444-4444-4444-8444-444444444444";
 const studentId = "55555555-5555-4555-8555-555555555555";
+const adminId = "66666666-6666-4666-8666-666666666666";
 const now = new Date("2026-06-17T10:00:00.000Z");
 
+const adminActor = {
+  id: adminId,
+  role: UserRole.admin,
+  status: UserStatus.active,
+};
 const teacherActor = {
   id: teacherId,
   role: UserRole.teacher,
@@ -329,6 +335,22 @@ describe("nce-content.service", () => {
     });
 
     expect(prisma.nceLesson.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("requires course context for admin draft reads on public routes", async () => {
+    await expect(
+      listNceLessons(
+        { unitId },
+        adminActor,
+        { includeDrafts: "true" },
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "courseId is required to include draft NCE content",
+    });
+
+    expect(prisma.nceLesson.findMany).not.toHaveBeenCalled();
+    expect(prisma.nceLesson.count).not.toHaveBeenCalled();
   });
 
   it("does not select restricted lesson or exercise columns for student-safe reads", async () => {
