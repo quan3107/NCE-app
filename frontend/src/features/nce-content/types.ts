@@ -111,6 +111,56 @@ export type NceLesson = {
   exercises: NceExercise[];
 };
 
+export type NceObjectiveInput = {
+  code: string;
+  title: string;
+  category: string;
+  description?: string | null;
+  masteryThreshold: number;
+  sortOrder: number;
+};
+
+export type NceExerciseInput = {
+  objectiveId?: string | null;
+  objectiveCode?: string;
+  exerciseType: NceExerciseType;
+  prompt: string;
+  content: Record<string, unknown>;
+  answerKey: Record<string, unknown>;
+  scoringConfig?: Record<string, unknown> | null;
+  sortOrder: number;
+};
+
+export type NceLessonWritePayload = {
+  unitId: string;
+  lessonNumber: number;
+  title: string;
+  lessonText: string;
+  media?: Record<string, unknown> | null;
+  teacherNotes?: string | null;
+  sortOrder: number;
+  objectives: NceObjectiveInput[];
+  exercises: NceExerciseInput[];
+};
+
+export type NceLessonPatchPayload = Partial<NceLessonWritePayload>;
+
+export type CourseNceLessonAssignmentInput = {
+  lessonId: string;
+  sequence: number;
+  availableFrom?: string | null;
+  dueAt?: string | null;
+};
+
+export type CourseNceLessonAssignmentPayload = {
+  lessons: CourseNceLessonAssignmentInput[];
+};
+
+export type CourseNceLessonAssignmentResponse = {
+  courseId: string;
+  assignedCount: number;
+};
+
 export type CourseNceLesson = NceLesson & {
   sequence: number;
   availableFrom: string | null;
