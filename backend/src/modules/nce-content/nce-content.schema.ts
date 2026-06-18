@@ -96,12 +96,17 @@ export const createNceLessonSchema = z.object({
   exercises: z.array(nceExerciseWriteSchema).default([]),
 });
 
-export const patchNceLessonSchema = createNceLessonSchema
-  .partial()
-  .extend({
-    objectives: z.array(nceObjectiveWriteSchema).optional(),
-    exercises: z.array(nceExerciseWriteSchema).optional(),
-  });
+export const patchNceLessonSchema = z.object({
+  unitId: z.string().uuid().optional(),
+  lessonNumber: z.number().int().min(1).optional(),
+  title: z.string().trim().min(1).max(200).optional(),
+  lessonText: z.string().trim().min(1).optional(),
+  media: jsonObjectSchema.nullable().optional(),
+  teacherNotes: z.string().trim().max(5000).nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  objectives: z.array(nceObjectiveWriteSchema).optional(),
+  exercises: z.array(nceExerciseWriteSchema).optional(),
+});
 
 export const assignNceLessonsSchema = z.object({
   lessons: z
