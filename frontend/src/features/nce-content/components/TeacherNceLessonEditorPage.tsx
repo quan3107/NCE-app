@@ -26,6 +26,7 @@ import type {
 } from '../types';
 import { NceExerciseEditor } from './NceExerciseEditor';
 import {
+  assignCreatedLessonToCourse,
   emptyExercise,
   emptyObjective,
   getCourseId,
@@ -82,7 +83,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
     );
     setExercises(
       lesson.exercises.map((exercise) => ({
-        objectiveId: exercise.objectiveId,
+        objectiveCode: lesson.objectives.find((objective) => objective.id === exercise.objectiveId)?.code ?? '',
         exerciseType: exercise.exerciseType,
         prompt: exercise.prompt,
         content: (exercise.content ?? {}) as Record<string, unknown>,
@@ -142,7 +143,10 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
       if (lessonId) {
         await patchNceLesson(lessonId, payload);
       } else {
-        await createNceLesson(payload as NceLessonWritePayload);
+        const lesson = await createNceLesson(payload as NceLessonWritePayload);
+        if (courseId) {
+          await assignCreatedLessonToCourse(courseId, lesson.id);
+        }
       }
       navigate(backPath);
     } catch (error) {
