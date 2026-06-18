@@ -174,4 +174,3 @@ export const mapNceLesson = (
     mapNceExercise(exercise, options),
   ),
 });
-
