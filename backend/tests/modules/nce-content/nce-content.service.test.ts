@@ -391,6 +391,7 @@ describe("nce-content.service", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: lessonId,
+          courseId: null,
           deletedAt: null,
           status: NcePublishStatus.published,
         }),
@@ -499,8 +500,13 @@ describe("nce-content.service", () => {
       { page: "2", pageSize: "1" },
     );
 
+    expect(prisma.nceLesson.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ unitId, courseId: null }),
+      }),
+    );
     expect(prisma.nceLesson.count).toHaveBeenCalledWith({
-      where: expect.objectContaining({ unitId }),
+      where: expect.objectContaining({ unitId, courseId: null }),
     });
     expect(result.pagination).toEqual({
       page: 2,
