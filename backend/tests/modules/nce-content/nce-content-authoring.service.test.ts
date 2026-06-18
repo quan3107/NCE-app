@@ -243,7 +243,6 @@ describe("nce-content authoring service", () => {
       exercises: [],
     });
     prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
-    prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
 
     await createNceLesson(createPayload, adminActor);
 
