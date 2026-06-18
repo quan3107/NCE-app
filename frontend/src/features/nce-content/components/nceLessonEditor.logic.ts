@@ -5,6 +5,7 @@
  */
 
 import type {
+  CourseNceLesson,
   NceExerciseInput,
   NceObjectiveInput,
 } from '../types';
@@ -12,6 +13,8 @@ import {
   assignCourseNceLessons,
   fetchCourseNceLessons,
 } from '../api';
+
+const COURSE_ASSIGNMENT_PAGE_SIZE = 100;
 
 export type ExerciseDraft = NceExerciseInput & {
   contentText: string;
@@ -66,17 +69,42 @@ export const getCourseId = () => {
   return new URLSearchParams(window.location.search).get('courseId') ?? '';
 };
 
+async function fetchAssignedCourseLessons(courseId: string) {
+  const firstPage = await fetchCourseNceLessons(courseId, {
+    includeDrafts: true,
+    page: 1,
+    pageSize: COURSE_ASSIGNMENT_PAGE_SIZE,
+  });
+  const lessons: CourseNceLesson[] = [...firstPage.lessons];
+  const total = firstPage.pagination.total;
+  let page = 1;
+
+  while (lessons.length < total) {
+    page += 1;
+    const nextPage = await fetchCourseNceLessons(courseId, {
+      includeDrafts: true,
+      page,
+      pageSize: COURSE_ASSIGNMENT_PAGE_SIZE,
+    });
+
+    if (nextPage.lessons.length === 0) {
+      throw new Error('Unable to load every assigned NCE lesson for this course');
+    }
+
+    lessons.push(...nextPage.lessons);
+  }
+
+  return lessons;
+}
+
 export async function assignCreatedLessonToCourse(
   courseId: string,
   lessonId: string,
 ) {
-  const existingLessons = await fetchCourseNceLessons(courseId, {
-    includeDrafts: true,
-    pageSize: 100,
-  });
+  const existingLessons = await fetchAssignedCourseLessons(courseId);
   const sequence =
-    Math.max(0, ...existingLessons.lessons.map((item) => item.sequence)) + 1;
-  const lessons = existingLessons.lessons.map((item) => ({
+    Math.max(0, ...existingLessons.map((item) => item.sequence)) + 1;
+  const lessons = existingLessons.map((item) => ({
     lessonId: item.id,
     sequence: item.sequence,
     availableFrom: item.availableFrom,
@@ -92,7 +120,7 @@ export async function assignCreatedLessonToCourse(
     ],
   });
 
-  if (result.assignedCount < sequence) {
+  if (result.assignedCount < lessons.length + 1) {
     throw new Error('Unable to assign the new NCE lesson to this course');
   }
 }
