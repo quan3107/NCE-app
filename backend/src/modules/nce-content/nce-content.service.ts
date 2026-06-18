@@ -381,7 +381,7 @@ function lessonWhere(
     deletedAt: null,
     ...(query.courseId
       ? { courseAssignments: { some: { courseId: query.courseId } } }
-      : {}),
+      : { courseId: null }),
     ...lessonContentWhere(includeDrafts),
   };
 }
