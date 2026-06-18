@@ -25,6 +25,7 @@ type LessonWriteInput = CreateNceLessonInput | PatchNceLessonInput;
 
 export const authoredLessonSelect = {
   id: true,
+  courseId: true,
   unitId: true,
   lessonNumber: true,
   title: true,
@@ -172,8 +173,10 @@ export function exerciseCreates(
 
 export function createLessonData(
   input: CreateNceLessonInput,
+  courseId?: string,
 ): Prisma.NceLessonUncheckedCreateInput {
   return {
+    courseId: courseId ?? null,
     unitId: input.unitId,
     lessonNumber: input.lessonNumber,
     title: input.title,
