@@ -8,7 +8,7 @@ import type { Role } from '@domain';
 
 import type { NavigationItem, NavigationPayload } from '../types';
 
-const FALLBACK_VERSION = 'fallback-2026-02-09-001';
+const FALLBACK_VERSION = 'fallback-2026-06-18-001';
 
 const n = (
   id: string,
@@ -55,9 +55,10 @@ const teacherItems: NavigationItem[] = [
   n('teacher-assignments', 'Assignments', '/teacher/assignments', 'file-text', 2, { requiredPermission: 'assignments:create' }),
   n('teacher-submissions', 'Submissions', '/teacher/submissions', 'scroll-text', 3, { requiredPermission: 'submissions:read', badgeSource: 'submissions' }),
   n('teacher-notifications', 'Notifications', '/teacher/notifications', 'bell', 4, { requiredPermission: 'notifications:read', badgeSource: 'notifications' }),
-  n('teacher-rubrics', 'Rubrics', '/teacher/rubrics', 'book-marked', 5, { requiredPermission: 'rubrics:manage' }),
-  n('teacher-analytics', 'Analytics', '/teacher/analytics', 'bar-chart-3', 6, { requiredPermission: 'analytics:view' }),
-  n('teacher-profile', 'Profile', '/teacher/profile', 'user', 7, { requiredPermission: 'profile:view' }),
+  n('teacher-nce-lessons', 'NCE Lessons', '/teacher/nce-lessons', 'book-open', 5, { requiredPermission: 'courses:manage' }),
+  n('teacher-rubrics', 'Rubrics', '/teacher/rubrics', 'book-marked', 6, { requiredPermission: 'rubrics:manage' }),
+  n('teacher-analytics', 'Analytics', '/teacher/analytics', 'bar-chart-3', 7, { requiredPermission: 'analytics:view' }),
+  n('teacher-profile', 'Profile', '/teacher/profile', 'user', 8, { requiredPermission: 'profile:view' }),
 ];
 
 const adminItems: NavigationItem[] = [
