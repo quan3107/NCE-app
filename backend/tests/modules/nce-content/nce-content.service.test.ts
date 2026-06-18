@@ -45,15 +45,21 @@ const {
   listCourseNceLessons,
   listNceBooks,
   listNceLessons,
+  listNceUnits,
 } = await import("../../../src/modules/nce-content/nce-content.service.js");
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 const lessonId = "22222222-2222-4222-8222-222222222222";
 const unitId = "33333333-3333-4333-8333-333333333333";
+const bookId = "77777777-7777-4777-8777-777777777777";
 const teacherId = "44444444-4444-4444-8444-444444444444";
 const studentId = "55555555-5555-4555-8555-555555555555";
 const adminId = "66666666-6666-4666-8666-666666666666";
 const now = new Date("2026-06-17T10:00:00.000Z");
+const draftReadableStatuses = [
+  NcePublishStatus.published,
+  NcePublishStatus.draft,
+];
 
 const adminActor = {
   id: adminId,
@@ -197,6 +203,47 @@ describe("nce-content.service", () => {
     expect(prisma.nceBook.findMany).not.toHaveBeenCalled();
   });
 
+  it("excludes archived books from draft-inclusive reads", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceBook.findMany.mockResolvedValueOnce([]);
+
+    await listNceBooks(
+      teacherActor,
+      { includeDrafts: "true", courseId },
+    );
+
+    expect(prisma.nceBook.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: draftReadableStatuses },
+        }),
+      }),
+    );
+  });
+
+  it("excludes archived units from draft-inclusive reads", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceUnit.findMany.mockResolvedValueOnce([]);
+
+    await listNceUnits(
+      { bookId },
+      teacherActor,
+      { includeDrafts: "true", courseId },
+    );
+
+    expect(prisma.nceUnit.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: draftReadableStatuses },
+          book: {
+            status: { in: draftReadableStatuses },
+            deletedAt: null,
+          },
+        }),
+      }),
+    );
+  });
+
   it("lets an authorized course teacher include assigned draft lessons", async () => {
     prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
     prisma.nceLesson.findMany.mockResolvedValueOnce([
@@ -220,12 +267,18 @@ describe("nce-content.service", () => {
         where: expect.objectContaining({
           unitId,
           deletedAt: null,
+          status: { in: draftReadableStatuses },
           courseAssignments: { some: { courseId } },
+          unit: {
+            status: { in: draftReadableStatuses },
+            book: {
+              status: { in: draftReadableStatuses },
+              deletedAt: null,
+            },
+            deletedAt: null,
+          },
         }),
       }),
-    );
-    expect(prisma.nceLesson.findMany.mock.calls[0]?.[0].where).not.toHaveProperty(
-      "status",
     );
     expect(result.lessons[0]?.status).toBe(NcePublishStatus.draft);
   });
@@ -289,6 +342,44 @@ describe("nce-content.service", () => {
       }),
     );
     expect(result.lessons[0]?.exercises[0]).not.toHaveProperty("answerKey");
+  });
+
+  it("excludes archived course lessons from draft-inclusive course reads", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        sequence: 1,
+        availableFrom: null,
+        dueAt: null,
+        lesson: buildLesson(NcePublishStatus.draft),
+      },
+    ]);
+    prisma.nceCourseLessonAssignment.count.mockResolvedValueOnce(1);
+
+    await listCourseNceLessons(
+      { courseId },
+      teacherActor,
+      { includeDrafts: "true" },
+    );
+
+    expect(prisma.nceCourseLessonAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          courseId,
+          lesson: expect.objectContaining({
+            status: { in: draftReadableStatuses },
+            unit: {
+              status: { in: draftReadableStatuses },
+              book: {
+                status: { in: draftReadableStatuses },
+                deletedAt: null,
+              },
+              deletedAt: null,
+            },
+          }),
+        }),
+      }),
+    );
   });
 
   it("returns a published lesson without internal fields for public callers", async () => {
