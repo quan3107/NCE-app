@@ -56,6 +56,7 @@ test('NCE teacher write OpenAPI routes document the course scope query parameter
   const nceYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
   const writeOperations = [
     operation(nceYaml, 'NceLesson', 'patch', 'NceLessonCollection'),
+    operation(nceYaml, 'NceLessonCollection', 'post', 'NceLessonPublish'),
     operation(nceYaml, 'NceLessonPublish', 'post', 'NceLessonUnpublish'),
     operation(nceYaml, 'NceLessonUnpublish', 'post', 'CourseNceLessons'),
   ];
