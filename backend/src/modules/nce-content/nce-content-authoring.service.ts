@@ -34,6 +34,36 @@ import {
   patchNceLessonSchema,
 } from "./nce-content.schema.js";
 
+async function relinkExercisesToRecreatedObjectives(
+  previousLesson: NceLessonRow,
+  objectives: Array<{ id: string; code: string }>,
+) {
+  const previousObjectives = previousLesson.objectives ?? [];
+  const previousExercises = previousLesson.exercises ?? [];
+  const oldObjectiveCodeById = new Map(
+    previousObjectives.map((objective) => [objective.id, objective.code]),
+  );
+  const newObjectiveIdByCode = new Map(
+    objectives.map((objective) => [objective.code, objective.id]),
+  );
+
+  await Promise.all(
+    previousExercises.map((exercise) => {
+      const objectiveCode = exercise.objectiveId
+        ? oldObjectiveCodeById.get(exercise.objectiveId)
+        : undefined;
+      const objectiveId = objectiveCode
+        ? newObjectiveIdByCode.get(objectiveCode) ?? null
+        : null;
+
+      return prisma.nceExercise.update({
+        where: { id: exercise.id },
+        data: { objectiveId },
+      });
+    }),
+  );
+}
+
 export async function createNceLesson(
   payload: unknown,
   actor: RequestActor,
@@ -80,7 +110,7 @@ export async function patchNceLesson(
   if (input.unitId) {
     await assertUnitWritable(input.unitId);
   }
-  assertLessonFound(await findAuthoredLesson(lessonId));
+  const currentLesson = assertLessonFound(await findAuthoredLesson(lessonId));
 
   const lesson = await readWithServiceRole(actor, async () => {
     const patched = await prisma.nceLesson.update({
@@ -90,6 +120,15 @@ export async function patchNceLesson(
     });
 
     if (!input.exercises) {
+      if (input.objectives) {
+        await relinkExercisesToRecreatedObjectives(
+          currentLesson as NceLessonRow,
+          patched.objectives,
+        );
+
+        return assertLessonFound(await findAuthoredLesson(lessonId));
+      }
+
       return patched;
     }
 
