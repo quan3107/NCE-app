@@ -115,8 +115,14 @@ paths:
     $ref: './paths/nce-content.yaml#/NceBookUnits'
   /api/v1/nce/units/{unitId}/lessons:
     $ref: './paths/nce-content.yaml#/NceUnitLessons'
+  /api/v1/nce/lessons:
+    $ref: './paths/nce-content.yaml#/NceLessonCollection'
   /api/v1/nce/lessons/{lessonId}:
     $ref: './paths/nce-content.yaml#/NceLesson'
+  /api/v1/nce/lessons/{lessonId}/publish:
+    $ref: './paths/nce-content.yaml#/NceLessonPublish'
+  /api/v1/nce/lessons/{lessonId}/unpublish:
+    $ref: './paths/nce-content.yaml#/NceLessonUnpublish'
   /api/v1/courses/{courseId}/nce-lessons:
     $ref: './paths/nce-content.yaml#/CourseNceLessons'
 
