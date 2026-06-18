@@ -17,7 +17,7 @@ test('NCE public OpenAPI routes document optional auth for draft reads', async (
     import.meta.dirname,
     '../../docs/openapi/paths/nce-content.yaml',
   );
-  const nceYaml = await readFile(ncePath, 'utf8');
+  const nceYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
   const routeSections = [
     section(nceYaml, 'NceBooks', 'NceBookUnits'),
     section(nceYaml, 'NceBookUnits', 'NceUnitLessons'),
