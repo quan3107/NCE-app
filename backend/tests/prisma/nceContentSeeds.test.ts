@@ -84,6 +84,15 @@ describe('NCE Prisma schema', () => {
     expect(migration).toContain('DROP POLICY IF EXISTS nce_exercises_select_published')
     expect(migration).toContain('AND course_id IS NULL')
     expect(migration).toContain('AND lesson.course_id IS NULL')
+    expect(migration).toMatch(
+      /CREATE POLICY nce_lessons_select_published[\s\S]*?TO anon, authenticated, service_role/,
+    )
+    expect(migration).toMatch(
+      /CREATE POLICY nce_objectives_select_published[\s\S]*?TO anon, authenticated, service_role/,
+    )
+    expect(migration).toMatch(
+      /CREATE POLICY nce_exercises_select_published[\s\S]*?TO anon, authenticated, service_role/,
+    )
   })
 })
 
