@@ -50,7 +50,7 @@ describe("modules.router NCE authoring routes", () => {
 
   it("passes teacher actors to lesson create and patch services", async () => {
     const createResponse = await request(app)
-      .post("/api/v1/nce/lessons")
+      .post(`/api/v1/nce/lessons?courseId=${courseId}`)
       .set(asRole(UserRole.teacher))
       .send({ title: "Too late" });
     const patchResponse = await request(app)
@@ -61,6 +61,7 @@ describe("modules.router NCE authoring routes", () => {
     expect(createResponse.status).toBe(201);
     expect(patchResponse.status).toBe(200);
     expect(authoringService.createNceLesson).toHaveBeenCalledWith(
+      { courseId },
       { title: "Too late" },
       { id: actorId, role: UserRole.teacher, status: UserStatus.active },
     );
