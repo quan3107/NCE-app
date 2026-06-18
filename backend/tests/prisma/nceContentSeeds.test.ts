@@ -37,9 +37,10 @@ describe('NCE Prisma schema', () => {
     expect(schema).toContain('model NceObjective')
     expect(schema).toContain('model NceExercise')
     expect(schema).toContain('model NceCourseLessonAssignment')
+    expect(schema).toContain('courseId    String?')
     expect(schema).toContain('@@unique([code]')
     expect(schema).toContain('@@unique([bookId, unitNumber]')
-    expect(schema).toContain('@@unique([unitId, lessonNumber]')
+    expect(schema).toContain('@@index([courseId, unitId, lessonNumber]')
     expect(schema).toContain('@@unique([courseId, sequence]')
   })
 
@@ -65,6 +66,19 @@ describe('NCE Prisma schema', () => {
     expect(migration).toContain('CREATE POLICY nce_exercises_select_published')
     expect(migration).toContain('GRANT SELECT (')
     expect(migration).not.toContain('nce_exercises_lesson_type_sort_idx')
+  })
+
+  it('scopes teacher-authored NCE lessons without removing canonical uniqueness', () => {
+    const migration = readBackend(
+      'src/prisma/migrations/20260618162000_scope_nce_lessons_to_courses/migration.sql',
+    )
+
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS course_id')
+    expect(migration).toContain('DROP INDEX IF EXISTS public.nce_lessons_unit_id_lesson_number_key')
+    expect(migration).toContain('nce_lessons_global_unit_number_key')
+    expect(migration).toContain('WHERE course_id IS NULL')
+    expect(migration).toContain('nce_lessons_course_unit_number_key')
+    expect(migration).toContain('WHERE course_id IS NOT NULL')
   })
 })
 
