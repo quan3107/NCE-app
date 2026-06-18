@@ -18,6 +18,13 @@ import type {
 
 export const NCE_CONTENT_KEY = ['nce-content'] as const;
 
+type PublicNceReadQuery =
+  | { includeDrafts?: false; courseId?: never }
+  | { includeDrafts: true; courseId: string };
+
+type PublicNcePaginatedReadQuery = PublicNceReadQuery &
+  Pick<NceReadQuery, 'page' | 'pageSize'>;
+
 const queryParams = (
   query: NceReadQuery = {},
 ): NonNullable<ApiClientOptions['params']> => ({
@@ -31,7 +38,7 @@ const shouldUseAuth = (query: NceReadQuery = {}) =>
   Boolean(query.includeDrafts || query.courseId);
 
 export const fetchNceBooks = (
-  query: Pick<NceReadQuery, 'includeDrafts' | 'courseId'> = {},
+  query: PublicNceReadQuery = {},
 ) =>
   apiClient<NceBookListResponse>('/nce/books', {
     params: queryParams(query),
@@ -40,7 +47,7 @@ export const fetchNceBooks = (
 
 export const fetchNceUnits = (
   bookId: string,
-  query: Pick<NceReadQuery, 'includeDrafts' | 'courseId'> = {},
+  query: PublicNceReadQuery = {},
 ) =>
   apiClient<NceUnitListResponse>(`/nce/books/${bookId}/units`, {
     params: queryParams(query),
@@ -49,7 +56,7 @@ export const fetchNceUnits = (
 
 export const fetchNceLessons = (
   unitId: string,
-  query: NceReadQuery = {},
+  query: PublicNcePaginatedReadQuery = {},
 ) =>
   apiClient<NceLessonListResponse>(`/nce/units/${unitId}/lessons`, {
     params: queryParams(query),
@@ -58,7 +65,7 @@ export const fetchNceLessons = (
 
 export const fetchNceLesson = (
   lessonId: string,
-  query: Pick<NceReadQuery, 'includeDrafts' | 'courseId'> = {},
+  query: PublicNceReadQuery = {},
 ) =>
   apiClient<NceLesson>(`/nce/lessons/${lessonId}`, {
     params: queryParams(query),
@@ -74,7 +81,7 @@ export const fetchCourseNceLessons = (
   });
 
 export function useNceBooksQuery(
-  query: Pick<NceReadQuery, 'includeDrafts' | 'courseId'> = {},
+  query: PublicNceReadQuery = {},
 ) {
   return useQuery({
     queryKey: [...NCE_CONTENT_KEY, 'books', query],
@@ -84,7 +91,7 @@ export function useNceBooksQuery(
 
 export function useNceUnitsQuery(
   bookId: string | undefined,
-  query: Pick<NceReadQuery, 'includeDrafts' | 'courseId'> = {},
+  query: PublicNceReadQuery = {},
 ) {
   return useQuery({
     queryKey: [...NCE_CONTENT_KEY, 'books', bookId, 'units', query],
@@ -95,7 +102,7 @@ export function useNceUnitsQuery(
 
 export function useNceLessonsQuery(
   unitId: string | undefined,
-  query: NceReadQuery = {},
+  query: PublicNcePaginatedReadQuery = {},
 ) {
   return useQuery({
     queryKey: [...NCE_CONTENT_KEY, 'units', unitId, 'lessons', query],
@@ -106,7 +113,7 @@ export function useNceLessonsQuery(
 
 export function useNceLessonQuery(
   lessonId: string | undefined,
-  query: Pick<NceReadQuery, 'includeDrafts' | 'courseId'> = {},
+  query: PublicNceReadQuery = {},
 ) {
   return useQuery({
     queryKey: [...NCE_CONTENT_KEY, 'lessons', lessonId, query],
