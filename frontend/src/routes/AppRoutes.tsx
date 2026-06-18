@@ -75,6 +75,14 @@ const TeacherCoursesPage = lazy(() =>
 const TeacherCourseManagement = lazy(() =>
   import('@features/courses/management/TeacherCourseManagement').then((module) => ({ default: module.TeacherCourseManagement })),
 );
+const TeacherNceLessonEditorPage = lazy(() =>
+  import('@features/nce-content/components/TeacherNceLessonEditorPage').then((module) => ({
+    default: module.TeacherNceLessonEditorPage,
+  })),
+);
+const TeacherNceLessonsPage = lazy(() =>
+  import('@features/nce-content/components/TeacherNceLessonsPage').then((module) => ({ default: module.TeacherNceLessonsPage })),
+);
 const StudentGradesPage = lazy(() =>
   import('@features/grades/components/StudentGradesPage').then((module) => ({ default: module.StudentGradesPage })),
 );
@@ -247,6 +255,11 @@ function TeacherCourseManagementWrapper() {
   return <TeacherCourseManagement courseId={courseId} />;
 }
 
+function TeacherNceLessonEditorWrapper() {
+  const { lessonId } = useParams<{ lessonId?: string }>();
+  return <TeacherNceLessonEditorPage lessonId={lessonId} />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -276,6 +289,9 @@ export function AppRoutes() {
           <Route path="teacher/dashboard" element={<DashboardTeacherRoute />} />
           <Route path="teacher/courses" element={<TeacherCoursesPage />} />
           <Route path="teacher/courses/:courseId/manage" element={<TeacherCourseManagementWrapper />} />
+          <Route path="teacher/nce-lessons" element={<TeacherNceLessonsPage />} />
+          <Route path="teacher/nce-lessons/new" element={<TeacherNceLessonEditorWrapper />} />
+          <Route path="teacher/nce-lessons/:lessonId/edit" element={<TeacherNceLessonEditorWrapper />} />
           <Route path="teacher/assignments" element={<TeacherAssignmentsPage />} />
           <Route path="teacher/assignments/create" element={<TeacherIeltsAssignmentCreatePage />} />
           <Route path="teacher/assignments/:assignmentId" element={<TeacherAssignmentDetailWrapper />} />
