@@ -40,6 +40,7 @@ const prisma = vi.mocked(prismaModule.prisma, true);
 const {
   assignNceLessonsToCourse,
   createNceLesson,
+  patchNceLesson,
   publishNceLesson,
   unpublishNceLesson,
 } = await import("../../../src/modules/nce-content/nce-content-authoring.service.js");
@@ -175,6 +176,7 @@ describe("nce-content authoring service", () => {
       book: { deletedAt: null, status: NcePublishStatus.published },
     });
     prisma.nceLesson.create.mockResolvedValueOnce(draftLesson);
+    prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
 
     const result = await createNceLesson(createPayload, adminActor);
 
@@ -192,19 +194,115 @@ describe("nce-content authoring service", () => {
               }),
             ],
           },
-          exercises: {
-            create: [
-              expect.objectContaining({
-                exerciseType: NceExerciseType.gap_fill,
-                answerKey: { answers: ["already"] },
-              }),
-            ],
-          },
+        }),
+      }),
+    );
+    expect(prisma.nceLesson.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({
+          exercises: expect.anything(),
         }),
       }),
     );
     expect(result.status).toBe(NcePublishStatus.draft);
     expect(result.exercises[0]).toHaveProperty("answerKey");
+  });
+
+  it("links newly created exercises to authored objectives by objectiveCode", async () => {
+    prisma.nceUnit.findFirst.mockResolvedValueOnce({
+      id: unitId,
+      deletedAt: null,
+      status: NcePublishStatus.published,
+      book: { deletedAt: null, status: NcePublishStatus.published },
+    });
+    prisma.nceLesson.create.mockResolvedValueOnce({
+      ...draftLesson,
+      exercises: [],
+    });
+    prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
+
+    await createNceLesson(createPayload, adminActor);
+
+    expect(prisma.nceLesson.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: lessonId },
+        data: {
+          exercises: {
+            create: [
+              expect.objectContaining({
+                objectiveId: "88888888-8888-4888-8888-888888888888",
+                exerciseType: NceExerciseType.gap_fill,
+              }),
+            ],
+          },
+        },
+      }),
+    );
+  });
+
+  it("relinks exercises to recreated objectives when patching a lesson", async () => {
+    const recreatedObjectiveId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const patchedLesson = {
+      ...draftLesson,
+      objectives: [
+        {
+          ...draftLesson.objectives[0],
+          id: recreatedObjectiveId,
+        },
+      ],
+      exercises: [],
+    };
+    const finalLesson = {
+      ...draftLesson,
+      objectives: patchedLesson.objectives,
+      exercises: [
+        {
+          ...draftLesson.exercises[0],
+          objectiveId: recreatedObjectiveId,
+        },
+      ],
+    };
+    prisma.nceLesson.findFirst.mockResolvedValueOnce(draftLesson);
+    prisma.nceLesson.update
+      .mockResolvedValueOnce(patchedLesson)
+      .mockResolvedValueOnce(finalLesson);
+
+    await patchNceLesson(
+      { lessonId },
+      {
+        objectives: createPayload.objectives,
+        exercises: createPayload.exercises,
+      },
+      teacherActor,
+    );
+
+    expect(prisma.nceLesson.update).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: { id: lessonId },
+        data: expect.objectContaining({
+          exercises: { deleteMany: {} },
+          objectives: expect.objectContaining({
+            deleteMany: {},
+          }),
+        }),
+      }),
+    );
+    expect(prisma.nceLesson.update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: lessonId },
+        data: {
+          exercises: {
+            create: [
+              expect.objectContaining({
+                objectiveId: recreatedObjectiveId,
+              }),
+            ],
+          },
+        },
+      }),
+    );
   });
 
   it("rejects malformed exercise answer keys before writing", async () => {
