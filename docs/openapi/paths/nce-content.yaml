@@ -1,6 +1,6 @@
 # File: docs/openapi/paths/nce-content.yaml
-# Purpose: Define read-only NCE content OpenAPI path items.
-# Why: Documents published and course-authorized draft content reads.
+# Purpose: Define NCE content OpenAPI path items.
+# Why: Documents published reads plus teacher/admin lesson authoring.
 
 NceBooks:
   get:
@@ -189,6 +189,183 @@ NceLesson:
     security:
       - {}
       - BearerAuth: []
+  patch:
+    tags: [nce-content]
+    summary: Update an NCE lesson draft
+    parameters:
+      - in: path
+        name: lessonId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/nce-content.yaml#/NceLessonPatchRequest'
+    responses:
+      '200':
+        description: Updated NCE lesson
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/NceLesson'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Teacher or admin access required
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Lesson or parent unit not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+NceLessonCollection:
+  post:
+    tags: [nce-content]
+    summary: Create an NCE lesson draft
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/nce-content.yaml#/NceLessonCreateRequest'
+    responses:
+      '201':
+        description: Created NCE lesson draft
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/NceLesson'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Teacher or admin access required
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Parent unit not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+NceLessonPublish:
+  post:
+    tags: [nce-content]
+    summary: Publish an NCE lesson
+    parameters:
+      - in: path
+        name: lessonId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Published NCE lesson
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/NceLesson'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Teacher or admin access required
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Lesson not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Lesson is incomplete or parent content is unpublished
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+NceLessonUnpublish:
+  post:
+    tags: [nce-content]
+    summary: Return an NCE lesson to draft status
+    parameters:
+      - in: path
+        name: lessonId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Draft NCE lesson
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/NceLesson'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Teacher or admin access required
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Lesson not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
 
 CourseNceLessons:
   get:
@@ -219,6 +396,55 @@ CourseNceLessons:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '403':
         description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Course not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  put:
+    tags: [nce-content]
+    summary: Replace ordered NCE lesson assignments for a course
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/nce-content.yaml#/CourseNceLessonAssignmentRequest'
+    responses:
+      '200':
+        description: Assignment update result
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-content.yaml#/CourseNceLessonAssignmentResponse'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Teacher or admin course access required
         content:
           application/json:
             schema:
