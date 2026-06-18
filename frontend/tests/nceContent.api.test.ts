@@ -149,9 +149,9 @@ test('NCE lesson authoring helpers call mutation endpoints with JSON bodies', as
         objectives: [],
         exercises: [],
       });
-      await patchNceLesson('lesson-1', { title: 'Too late!' });
-      await publishNceLesson('lesson-1');
-      await unpublishNceLesson('lesson-1');
+      await patchNceLesson('lesson-1', { title: 'Too late!' }, 'course-1');
+      await publishNceLesson('lesson-1', 'course-1');
+      await unpublishNceLesson('lesson-1', 'course-1');
     },
   );
 
@@ -159,9 +159,9 @@ test('NCE lesson authoring helpers call mutation endpoints with JSON bodies', as
     requests.map((request) => [request.method, request.url]),
     [
       ['POST', 'http://localhost:4000/api/v1/nce/lessons'],
-      ['PATCH', 'http://localhost:4000/api/v1/nce/lessons/lesson-1'],
-      ['POST', 'http://localhost:4000/api/v1/nce/lessons/lesson-1/publish'],
-      ['POST', 'http://localhost:4000/api/v1/nce/lessons/lesson-1/unpublish'],
+      ['PATCH', 'http://localhost:4000/api/v1/nce/lessons/lesson-1?courseId=course-1'],
+      ['POST', 'http://localhost:4000/api/v1/nce/lessons/lesson-1/publish?courseId=course-1'],
+      ['POST', 'http://localhost:4000/api/v1/nce/lessons/lesson-1/unpublish?courseId=course-1'],
     ],
   );
   assert.equal((requests[0]?.body as { title?: string }).title, 'Too late');
