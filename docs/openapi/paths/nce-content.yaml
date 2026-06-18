@@ -108,6 +108,12 @@ NceLesson:
           application/json:
             schema:
               $ref: '../schemas/nce-content.yaml#/NceLesson'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '403':
         description: Forbidden
         content:
@@ -172,14 +178,14 @@ components:
       schema:
         type: boolean
         default: false
-      description: Teachers and admins can include draft content when authorized for the course context.
+      description: Teachers and admins can include draft content when authorized for the supplied course context.
     CourseId:
       in: query
       name: courseId
       schema:
         type: string
         format: uuid
-      description: Course context used to authorize draft and assigned content reads.
+      description: Required when includeDrafts=true on public NCE content routes. Use /api/v1/courses/{courseId}/nce-lessons for course-assigned published lessons.
     Page:
       in: query
       name: page
