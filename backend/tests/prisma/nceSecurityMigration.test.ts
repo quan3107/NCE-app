@@ -19,6 +19,9 @@ describe('NCE Data API security migration', () => {
   const migration = readBackend(
     'src/prisma/migrations/20260617120000_add_nce_content/migration.sql',
   )
+  const apiReadMigration = readBackend(
+    'src/prisma/migrations/20260617150000_enable_nce_content_api_reads/migration.sql',
+  )
 
   it('enables and forces RLS on every NCE table', () => {
     for (const table of [
@@ -84,5 +87,23 @@ describe('NCE Data API security migration', () => {
     expect(migration).not.toMatch(
       /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+(public|app)\.nce_\w+\(UUID\)\s+TO\s+authenticated/i,
     )
+  })
+
+  it('adds explicit API read policies for public catalog and course-assigned lessons', () => {
+    expect(apiReadMigration).toContain('TO anon, authenticated')
+    expect(apiReadMigration).toContain('GRANT SELECT (')
+    expect(apiReadMigration).toContain('ON public.nce_books TO anon;')
+    expect(apiReadMigration).not.toContain('answer_key\n) ON public.nce_exercises TO authenticated;')
+    expect(apiReadMigration).toContain('TO service_role;')
+    expect(apiReadMigration).toContain('answer_key')
+    expect(apiReadMigration).toContain('teacher_notes')
+    expect(apiReadMigration).toContain(
+      'DROP POLICY IF EXISTS nce_course_lesson_assignments_deny_authenticated_select',
+    )
+    expect(apiReadMigration).toContain(
+      'CREATE POLICY nce_course_lesson_assignments_select_course_members',
+    )
+    expect(apiReadMigration).toContain("current_setting('app.current_user_id', true)")
+    expect(apiReadMigration).toContain("current_setting('app.current_user_role', true)")
   })
 })
