@@ -19,6 +19,8 @@ import {
   useCourseNceLessonsQuery,
 } from '../api';
 
+const LESSONS_PAGE_SIZE = 100;
+
 const initialCourseId = () => {
   if (typeof window === 'undefined') {
     return '';
@@ -30,13 +32,22 @@ const initialCourseId = () => {
 export function TeacherNceLessonsPage() {
   const { navigate } = useRouter();
   const [courseId, setCourseId] = useState(initialCourseId);
+  const [page, setPage] = useState(1);
   const [mutatingLessonId, setMutatingLessonId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const query = useCourseNceLessonsQuery(
     courseId || undefined,
-    { includeDrafts: true, pageSize: 100 },
+    { includeDrafts: true, page: page, pageSize: LESSONS_PAGE_SIZE },
   );
   const lessons = query.data?.lessons ?? [];
+  const pagination = query.data?.pagination;
+  const totalLessons = pagination?.total ?? lessons.length;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalLessons / (pagination?.pageSize ?? LESSONS_PAGE_SIZE)),
+  );
+  const canGoPrevious = page > 1;
+  const canGoNext = page < totalPages;
   const newLessonPath = courseId
     ? `/teacher/nce-lessons/new?${new URLSearchParams({ courseId }).toString()}`
     : '/teacher/nce-lessons/new';
@@ -44,6 +55,7 @@ export function TeacherNceLessonsPage() {
   const updateCourseId = (value: string) => {
     const trimmed = value.trim();
     setCourseId(trimmed);
+    setPage(1);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       if (trimmed) {
@@ -140,6 +152,13 @@ export function TeacherNceLessonsPage() {
             {lessons.map((lesson) => {
               const isPublished = lesson.status === 'published';
               const isMutating = mutatingLessonId === lesson.id;
+              let publishLabel = 'Publish';
+              if (isMutating) {
+                publishLabel = isPublished ? 'Unpublishing' : 'Publishing';
+              } else if (isPublished) {
+                publishLabel = 'Unpublish';
+              }
+
               return (
                 <Card key={lesson.id}>
                   <CardHeader>
@@ -161,18 +180,35 @@ export function TeacherNceLessonsPage() {
                       disabled={isMutating}
                       onClick={() => togglePublish(lesson.id, isPublished)}
                     >
-                      {isMutating
-                        ? isPublished
-                          ? 'Unpublishing'
-                          : 'Publishing'
-                        : isPublished
-                          ? 'Unpublish'
-                          : 'Publish'}
+                      {publishLabel}
                     </Button>
                   </CardContent>
                 </Card>
               );
             })}
+            {pagination && totalLessons > LESSONS_PAGE_SIZE && (
+              <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+                <span>
+                  Page {page} of {totalPages} · {pagination.total} lessons
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!canGoPrevious || query.isFetching}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!canGoNext || query.isFetching}
+                    onClick={() => setPage((current) => current + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
