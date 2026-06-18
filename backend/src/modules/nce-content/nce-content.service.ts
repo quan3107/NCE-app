@@ -240,9 +240,11 @@ async function resolveVisibility(
   }
 
   if (actor.role === UserRole.admin) {
-    if (query.courseId) {
-      await assertCourseAccess(query.courseId, actor);
+    if (!query.courseId) {
+      throw createHttpError(400, "courseId is required to include draft NCE content");
     }
+
+    await assertCourseAccess(query.courseId, actor);
     return {
       includeDrafts: true,
       includeAnswers: true,
