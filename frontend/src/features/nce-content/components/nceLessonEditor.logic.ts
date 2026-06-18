@@ -36,11 +36,11 @@ export const emptyExercise = (index: number): ExerciseDraft => ({
   exerciseType: 'gap_fill',
   prompt: '',
   content: { prompt: '' },
-  answerKey: { answers: [''] },
+  answerKey: { answers: [] },
   scoringConfig: { points: 1 },
   sortOrder: index + 1,
   contentText: JSON.stringify({ prompt: '' }, null, 2),
-  answerKeyText: JSON.stringify({ answers: [''] }, null, 2),
+  answerKeyText: JSON.stringify({ answers: [] }, null, 2),
   scoringConfigText: JSON.stringify({ points: 1 }, null, 2),
 });
 
