@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-06-18:** Completed PR-42 backend NCE lesson authoring support by adding teacher/admin lesson create, patch, publish, unpublish, and ordered course assignment endpoints. Added validation for lesson parent units, exercise answer keys, publish completeness, and course teacher/admin access, with focused service and router coverage plus OpenAPI documentation.
 - **2026-06-17:** Completed PR-40 NCE content schema foundation by adding native NCE books, units, lessons, objectives, exercises, answer keys, publish states, and course lesson assignment mapping. Added an idempotent `seed:nce-content` path with representative Book 1 lessons and fixture coverage for every supported NCE exercise type.
 - **2026-06-14:** Completed PR-38 AI setup and operations documentation by adding a hosted OpenAI-compatible setup guide, documenting low-cost and premium route defaults, disable/fallback behavior, image-input readiness, budget controls, criteria guardrails, and provider-free harness expectations. Linked the operational docs from the backend README and clarified AI environment comments.
 - **2026-06-10:** Completed PR-33 teacher AI feedback review backend support by adding draft history, approve, reject, finalize, and regenerate endpoints for writing AI feedback. Teacher approval/finalization now atomically publishes edited feedback to existing grade feedback while recording draft decision metadata, rejects keep drafts for audit, provider-tier overrides are supported for regeneration, and OpenAPI documents the review workflow.
@@ -47,6 +48,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-06-18:** Completed PR-42 frontend NCE lesson authoring support by adding typed lesson mutation helpers, cache invalidation, teacher lesson list and editor routes, objective/exercise editors, publish/unpublish actions, and source/API coverage for the new authoring flow.
 - **2026-06-04:** Completed PR-24 frontend assignment AI policy contract support by typing the IELTS AI policy shape, defaulting new IELTS assignment configs to AI-off, preserving normalized API policy values, and adding assignment mapper coverage.
 - **2026-06-04:** Updated the frontend lockfile to resolve the React Router audit advisory surfaced by the CI audit gate, moving React Router packages to the patched 6.30.4 line without changing application code.
 - **2026-06-03:** Completed PR-19 IELTS-aware teacher grading UI by showing official writing/speaking band criteria, using config-aware Task Achievement/Task Response controls for writing tasks, using half-band controls, submitting band payloads with structured breakdowns, and rendering student band grades without forcing `/100` or percentage formatting. Added frontend grading logic and payload guard tests.
