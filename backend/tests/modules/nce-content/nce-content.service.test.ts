@@ -180,6 +180,17 @@ describe("nce-content.service", () => {
     expect(JSON.stringify(result)).not.toContain("deletedAt");
   });
 
+  it("rejects course context on public published book reads", async () => {
+    await expect(
+      listNceBooks(undefined, { courseId }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "courseId can only be used with includeDrafts=true on public NCE content routes",
+    });
+
+    expect(prisma.nceBook.findMany).not.toHaveBeenCalled();
+  });
+
   it("lets an authorized course teacher include assigned draft lessons", async () => {
     prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
     prisma.nceLesson.findMany.mockResolvedValueOnce([
@@ -291,6 +302,33 @@ describe("nce-content.service", () => {
     expect(result.exercises[0]).not.toHaveProperty("answerKey");
     expect(result).not.toHaveProperty("teacherNotes");
     expect(JSON.stringify(result)).not.toContain("deletedAt");
+  });
+
+  it("rejects course context on public published lesson reads", async () => {
+    await expect(
+      listNceLessons({ unitId }, undefined, { courseId }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "courseId can only be used with includeDrafts=true on public NCE content routes",
+    });
+
+    expect(prisma.nceLesson.findMany).not.toHaveBeenCalled();
+    expect(prisma.nceLesson.count).not.toHaveBeenCalled();
+  });
+
+  it("requires auth before applying draft course context on public routes", async () => {
+    await expect(
+      getNceLesson(
+        { lessonId },
+        undefined,
+        { includeDrafts: "true", courseId },
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: "Unauthorized",
+    });
+
+    expect(prisma.nceLesson.findFirst).not.toHaveBeenCalled();
   });
 
   it("does not select restricted lesson or exercise columns for student-safe reads", async () => {
