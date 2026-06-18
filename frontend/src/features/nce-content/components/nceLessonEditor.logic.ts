@@ -8,6 +8,10 @@ import type {
   NceExerciseInput,
   NceObjectiveInput,
 } from '../types';
+import {
+  assignCourseNceLessons,
+  fetchCourseNceLessons,
+} from '../api';
 
 export type ExerciseDraft = NceExerciseInput & {
   contentText: string;
@@ -61,3 +65,34 @@ export const getCourseId = () => {
 
   return new URLSearchParams(window.location.search).get('courseId') ?? '';
 };
+
+export async function assignCreatedLessonToCourse(
+  courseId: string,
+  lessonId: string,
+) {
+  const existingLessons = await fetchCourseNceLessons(courseId, {
+    includeDrafts: true,
+    pageSize: 100,
+  });
+  const sequence =
+    Math.max(0, ...existingLessons.lessons.map((item) => item.sequence)) + 1;
+  const lessons = existingLessons.lessons.map((item) => ({
+    lessonId: item.id,
+    sequence: item.sequence,
+    availableFrom: item.availableFrom,
+    dueAt: item.dueAt,
+  }));
+  const result = await assignCourseNceLessons(courseId, {
+    lessons: [
+      ...lessons,
+      {
+        lessonId,
+        sequence,
+      },
+    ],
+  });
+
+  if (result.assignedCount < sequence) {
+    throw new Error('Unable to assign the new NCE lesson to this course');
+  }
+}
