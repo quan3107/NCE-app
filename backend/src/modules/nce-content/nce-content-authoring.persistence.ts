@@ -10,6 +10,7 @@ import {
 
 import { prisma, runWithRole } from "../../config/prismaClient.js";
 import type { RequestActor } from "../../middleware/requestActor.js";
+import { createHttpError } from "../../utils/httpError.js";
 import {
   mapNceLesson,
   type NceLessonRow,
@@ -123,9 +124,31 @@ function objectiveCreates(input: LessonWriteInput) {
   }));
 }
 
-function exerciseCreates(input: LessonWriteInput) {
+function objectiveIdForExercise(
+  exercise: NonNullable<LessonWriteInput["exercises"]>[number],
+  objectives: Array<{ id: string; code: string }>,
+) {
+  if (!exercise.objectiveCode) {
+    return exercise.objectiveId ?? null;
+  }
+
+  const objective = objectives.find((item) => item.code === exercise.objectiveCode);
+  if (!objective) {
+    throw createHttpError(
+      400,
+      "NCE exercise objectiveCode does not match an authored objective",
+    );
+  }
+
+  return objective.id;
+}
+
+export function exerciseCreates(
+  input: LessonWriteInput,
+  objectives: Array<{ id: string; code: string }>,
+) {
   return (input.exercises ?? []).map((exercise) => ({
-    objectiveId: exercise.objectiveId ?? null,
+    objectiveId: objectiveIdForExercise(exercise, objectives),
     exerciseType: exercise.exerciseType,
     prompt: exercise.prompt,
     content: toJson(exercise.content),
@@ -148,7 +171,6 @@ export function createLessonData(
     sortOrder: input.sortOrder,
     status: NcePublishStatus.draft,
     objectives: { create: objectiveCreates(input) },
-    exercises: { create: exerciseCreates(input) },
   };
 }
 
@@ -185,7 +207,6 @@ export function patchLessonData(input: PatchNceLessonInput): Prisma.NceLessonUpd
   if (input.exercises) {
     data.exercises = {
       deleteMany: {},
-      create: exerciseCreates(input),
     };
   }
 
