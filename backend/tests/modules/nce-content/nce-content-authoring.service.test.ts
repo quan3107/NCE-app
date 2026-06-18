@@ -26,6 +26,9 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    nceExercise: {
+      update: vi.fn(),
+    },
     nceCourseLessonAssignment: {
       deleteMany: vi.fn(),
       createMany: vi.fn(),
@@ -303,6 +306,59 @@ describe("nce-content authoring service", () => {
         },
       }),
     );
+  });
+
+  it("preserves exercise objective links during objective-only patches", async () => {
+    const recreatedObjectiveId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const patchedLesson = {
+      ...draftLesson,
+      objectives: [
+        {
+          ...draftLesson.objectives[0],
+          id: recreatedObjectiveId,
+        },
+      ],
+      exercises: [
+        {
+          ...draftLesson.exercises[0],
+          objectiveId: null,
+        },
+      ],
+    };
+    const finalLesson = {
+      ...draftLesson,
+      objectives: patchedLesson.objectives,
+      exercises: [
+        {
+          ...draftLesson.exercises[0],
+          objectiveId: recreatedObjectiveId,
+        },
+      ],
+    };
+    prisma.nceLesson.findFirst
+      .mockResolvedValueOnce(draftLesson)
+      .mockResolvedValueOnce(finalLesson);
+    prisma.nceLesson.update.mockResolvedValueOnce(patchedLesson);
+    prisma.nceExercise.update.mockResolvedValueOnce(finalLesson.exercises[0]);
+
+    try {
+      await patchNceLesson(
+        { lessonId },
+        {
+          objectives: createPayload.objectives,
+        },
+        teacherActor,
+      );
+
+      expect(prisma.nceExercise.update).toHaveBeenCalledWith({
+        where: { id: draftLesson.exercises[0].id },
+        data: { objectiveId: recreatedObjectiveId },
+      });
+    } finally {
+      prisma.nceLesson.findFirst.mockReset();
+      prisma.nceLesson.update.mockReset();
+      prisma.nceExercise.update.mockReset();
+    }
   });
 
   it("rejects malformed exercise answer keys before writing", async () => {
