@@ -30,7 +30,11 @@ function lessonWriteParams(req: Request) {
 }
 
 export async function postNceLesson(req: Request, res: Response): Promise<void> {
-  const payload = await createNceLesson(req.body, actorFromRequest(req));
+  const payload = await createNceLesson(
+    { courseId: req.query.courseId },
+    req.body,
+    actorFromRequest(req),
+  );
   res.status(201).json(payload);
 }
 
