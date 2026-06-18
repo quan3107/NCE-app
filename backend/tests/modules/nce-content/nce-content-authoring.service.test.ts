@@ -24,14 +24,17 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
     nceLesson: {
       create: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       update: vi.fn(),
     },
     nceExercise: {
       update: vi.fn(),
     },
     nceCourseLessonAssignment: {
+      aggregate: vi.fn(),
       deleteMany: vi.fn(),
       createMany: vi.fn(),
+      create: vi.fn(),
       findFirst: vi.fn(),
     },
   },
@@ -72,6 +75,7 @@ const now = new Date("2026-06-18T08:00:00.000Z");
 
 const draftLesson = {
   id: lessonId,
+  courseId,
   unitId,
   lessonNumber: 7,
   title: "Too late",
@@ -183,10 +187,13 @@ describe("nce-content authoring service", () => {
     prisma.nceUnit.findFirst.mockReset();
     prisma.nceLesson.create.mockReset();
     prisma.nceLesson.findFirst.mockReset();
+    prisma.nceLesson.findMany.mockReset();
     prisma.nceLesson.update.mockReset();
     prisma.nceExercise.update.mockReset();
+    prisma.nceCourseLessonAssignment.aggregate.mockReset();
     prisma.nceCourseLessonAssignment.deleteMany.mockReset();
     prisma.nceCourseLessonAssignment.createMany.mockReset();
+    prisma.nceCourseLessonAssignment.create.mockReset();
     prisma.nceCourseLessonAssignment.findFirst.mockReset();
     runWithRole.mockImplementation(async (_options, write) => write());
   });
@@ -201,7 +208,7 @@ describe("nce-content authoring service", () => {
     prisma.nceLesson.create.mockResolvedValueOnce(draftLesson);
     prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
 
-    const result = await createNceLesson(createPayload, adminActor);
+    const result = await createNceLesson({}, createPayload, adminActor);
 
     expect(prisma.nceLesson.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -244,7 +251,7 @@ describe("nce-content authoring service", () => {
     });
     prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
 
-    await createNceLesson(createPayload, adminActor);
+    await createNceLesson({}, createPayload, adminActor);
 
     expect(prisma.nceLesson.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -277,6 +284,7 @@ describe("nce-content authoring service", () => {
 
     await expect(
       createNceLesson(
+        {},
         {
           ...createPayload,
           exercises: [
@@ -418,6 +426,7 @@ describe("nce-content authoring service", () => {
   it("rejects malformed exercise answer keys before writing", async () => {
     await expect(
       createNceLesson(
+        {},
         {
           ...createPayload,
           exercises: [
@@ -440,6 +449,7 @@ describe("nce-content authoring service", () => {
   it("rejects blank exercise answer strings before writing", async () => {
     await expect(
       createNceLesson(
+        {},
         {
           ...createPayload,
           exercises: [
@@ -473,6 +483,7 @@ describe("nce-content authoring service", () => {
     prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
 
     await createNceLesson(
+      {},
       {
         ...createPayload,
         media: null,
@@ -491,11 +502,63 @@ describe("nce-content authoring service", () => {
 
   it("requires teacher or admin role for authoring", async () => {
     await expect(
-      createNceLesson(createPayload, studentActor),
+      createNceLesson({}, createPayload, studentActor),
     ).rejects.toMatchObject({
       statusCode: 403,
       message: "Teacher or admin access is required",
     });
+  });
+
+  it("requires teacher lesson creates to be scoped to a writable course", async () => {
+    await expect(
+      createNceLesson({}, createPayload, teacherActor),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "courseId is required to create teacher NCE lessons",
+    });
+
+    expect(prisma.nceLesson.create).not.toHaveBeenCalled();
+  });
+
+  it("creates and assigns teacher lessons in the scoped course write", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceUnit.findFirst.mockResolvedValueOnce({
+      id: unitId,
+      deletedAt: null,
+      status: NcePublishStatus.published,
+      book: { deletedAt: null, status: NcePublishStatus.published },
+    });
+    prisma.nceCourseLessonAssignment.aggregate.mockResolvedValueOnce({
+      _max: { sequence: 8 },
+    });
+    prisma.nceLesson.create.mockResolvedValueOnce(draftLesson);
+    prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
+    prisma.nceCourseLessonAssignment.create.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+      sequence: 9,
+      availableFrom: null,
+      dueAt: null,
+    });
+
+    const result = await createNceLesson({ courseId }, createPayload, teacherActor);
+
+    expect(prisma.course.findFirst).toHaveBeenCalled();
+    expect(prisma.nceLesson.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          courseId,
+        }),
+      }),
+    );
+    expect(prisma.nceCourseLessonAssignment.create).toHaveBeenCalledWith({
+      data: {
+        courseId,
+        lessonId,
+        sequence: 9,
+      },
+    });
+    expect(result.id).toBe(lessonId);
   });
 
   it("rejects publish when a lesson has no objectives or exercises", async () => {
@@ -542,6 +605,32 @@ describe("nce-content authoring service", () => {
     ).rejects.toMatchObject({
       statusCode: 403,
       message: "NCE lesson is not assigned to this course",
+    });
+
+    expect(prisma.nceLesson.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects teacher lesson patches for assigned global lessons", async () => {
+    prisma.nceLesson.findFirst.mockResolvedValueOnce({
+      ...draftLesson,
+      courseId: null,
+      status: NcePublishStatus.published,
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+
+    await expect(
+      patchNceLesson(
+        { lessonId, courseId },
+        { title: "Other lesson" },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "NCE lesson is not editable in this course",
     });
 
     expect(prisma.nceLesson.update).not.toHaveBeenCalled();
@@ -624,6 +713,13 @@ describe("nce-content authoring service", () => {
 
   it("lets a course teacher replace ordered course lesson assignments", async () => {
     prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceLesson.findMany.mockResolvedValueOnce([
+      {
+        id: lessonId,
+        courseId: null,
+        status: NcePublishStatus.published,
+      },
+    ]);
 
     const result = await assignNceLessonsToCourse(
       { courseId },
@@ -655,5 +751,29 @@ describe("nce-content authoring service", () => {
       ],
     });
     expect(result).toEqual({ courseId, assignedCount: 1 });
+  });
+
+  it("rejects assigning lessons scoped to another course", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceLesson.findMany.mockResolvedValueOnce([
+      {
+        id: lessonId,
+        courseId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        status: NcePublishStatus.draft,
+      },
+    ]);
+
+    await expect(
+      assignNceLessonsToCourse(
+        { courseId },
+        { lessons: [{ lessonId, sequence: 1 }] },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "NCE lesson cannot be assigned to this course",
+    });
+
+    expect(prisma.nceCourseLessonAssignment.createMany).not.toHaveBeenCalled();
   });
 });
