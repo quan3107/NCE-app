@@ -244,6 +244,8 @@ NceLessonCollection:
   post:
     tags: [nce-content]
     summary: Create an NCE lesson draft
+    parameters:
+      - $ref: '#/components/parameters/TeacherWriteCourseId'
     requestBody:
       required: true
       content:
