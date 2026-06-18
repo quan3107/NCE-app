@@ -129,7 +129,19 @@ function objectiveIdForExercise(
   objectives: Array<{ id: string; code: string }>,
 ) {
   if (!exercise.objectiveCode) {
-    return exercise.objectiveId ?? null;
+    if (!exercise.objectiveId) {
+      return null;
+    }
+
+    const objective = objectives.find((item) => item.id === exercise.objectiveId);
+    if (!objective) {
+      throw createHttpError(
+        400,
+        "NCE exercise objectiveId does not match an authored objective",
+      );
+    }
+
+    return objective.id;
   }
 
   const objective = objectives.find((item) => item.code === exercise.objectiveCode);
@@ -166,7 +178,10 @@ export function createLessonData(
     lessonNumber: input.lessonNumber,
     title: input.title,
     lessonText: input.lessonText,
-    mediaJson: input.media === undefined ? Prisma.JsonNull : toJson(input.media),
+    mediaJson:
+      input.media === undefined || input.media === null
+        ? Prisma.JsonNull
+        : toJson(input.media),
     teacherNotes: input.teacherNotes ?? null,
     sortOrder: input.sortOrder,
     status: NcePublishStatus.draft,
