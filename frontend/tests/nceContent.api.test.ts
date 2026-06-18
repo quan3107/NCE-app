@@ -148,7 +148,7 @@ test('NCE lesson authoring helpers call mutation endpoints with JSON bodies', as
         lessonText: 'The train has already left.',
         objectives: [],
         exercises: [],
-      });
+      }, 'course-1');
       await patchNceLesson('lesson-1', { title: 'Too late!' }, 'course-1');
       await publishNceLesson('lesson-1', 'course-1');
       await unpublishNceLesson('lesson-1', 'course-1');
@@ -158,7 +158,7 @@ test('NCE lesson authoring helpers call mutation endpoints with JSON bodies', as
   assert.deepEqual(
     requests.map((request) => [request.method, request.url]),
     [
-      ['POST', 'http://localhost:4000/api/v1/nce/lessons'],
+      ['POST', 'http://localhost:4000/api/v1/nce/lessons?courseId=course-1'],
       ['PATCH', 'http://localhost:4000/api/v1/nce/lessons/lesson-1?courseId=course-1'],
       ['POST', 'http://localhost:4000/api/v1/nce/lessons/lesson-1/publish?courseId=course-1'],
       ['POST', 'http://localhost:4000/api/v1/nce/lessons/lesson-1/unpublish?courseId=course-1'],
