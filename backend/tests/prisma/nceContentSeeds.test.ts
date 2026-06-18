@@ -79,6 +79,11 @@ describe('NCE Prisma schema', () => {
     expect(migration).toContain('WHERE course_id IS NULL')
     expect(migration).toContain('nce_lessons_course_unit_number_key')
     expect(migration).toContain('WHERE course_id IS NOT NULL')
+    expect(migration).toContain('DROP POLICY IF EXISTS nce_lessons_select_published')
+    expect(migration).toContain('DROP POLICY IF EXISTS nce_objectives_select_published')
+    expect(migration).toContain('DROP POLICY IF EXISTS nce_exercises_select_published')
+    expect(migration).toContain('AND course_id IS NULL')
+    expect(migration).toContain('AND lesson.course_id IS NULL')
   })
 })
 
