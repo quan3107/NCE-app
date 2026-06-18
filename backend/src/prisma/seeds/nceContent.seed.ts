@@ -185,34 +185,36 @@ export async function seedNceContent(
         })
 
         for (const lessonSeed of unitSeed.lessons) {
-          const lesson = await prisma.nceLesson.upsert({
+          const lessonData = {
+            title: lessonSeed.title,
+            lessonText: lessonSeed.lessonText,
+            mediaJson: lessonSeed.mediaJson,
+            teacherNotes: lessonSeed.teacherNotes,
+            sortOrder: lessonSeed.sortOrder,
+            status: lessonSeed.status,
+            publishedAt: lessonSeed.publishedAt,
+          }
+          const existingLesson = await prisma.nceLesson.findFirst({
             where: {
-              unitId_lessonNumber: {
-                unitId: unit.id,
-                lessonNumber: lessonSeed.lessonNumber,
-              },
-            },
-            create: {
               unitId: unit.id,
               lessonNumber: lessonSeed.lessonNumber,
-              title: lessonSeed.title,
-              lessonText: lessonSeed.lessonText,
-              mediaJson: lessonSeed.mediaJson,
-              teacherNotes: lessonSeed.teacherNotes,
-              sortOrder: lessonSeed.sortOrder,
-              status: lessonSeed.status,
-              publishedAt: lessonSeed.publishedAt,
+              courseId: null,
             },
-            update: {
-              title: lessonSeed.title,
-              lessonText: lessonSeed.lessonText,
-              mediaJson: lessonSeed.mediaJson,
-              teacherNotes: lessonSeed.teacherNotes,
-              sortOrder: lessonSeed.sortOrder,
-              status: lessonSeed.status,
-              publishedAt: lessonSeed.publishedAt,
-            },
+            select: { id: true },
           })
+          const lesson = existingLesson
+            ? await prisma.nceLesson.update({
+                where: { id: existingLesson.id },
+                data: lessonData,
+              })
+            : await prisma.nceLesson.create({
+                data: {
+                  unitId: unit.id,
+                  lessonNumber: lessonSeed.lessonNumber,
+                  courseId: null,
+                  ...lessonData,
+                },
+              })
 
           await upsertLessonContent(prisma, lesson.id, lessonSeed)
           lessonCount += 1
