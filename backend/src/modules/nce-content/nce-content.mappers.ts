@@ -58,6 +58,7 @@ export type NceExerciseRow = {
 
 export type NceLessonRow = {
   id: string;
+  courseId?: string | null;
   unitId: string;
   lessonNumber: number;
   title: string;
