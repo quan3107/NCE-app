@@ -33,6 +33,11 @@ import {
 
 type CourseAccess = "admin" | "owner" | "coTeacher" | "student" | "none";
 
+const draftReadableStatuses = [
+  NcePublishStatus.published,
+  NcePublishStatus.draft,
+];
+
 const lessonSelect = (options: {
   includeAnswers: boolean;
   includeTeacherNotes: boolean;
@@ -101,17 +106,22 @@ const lessonSelect = (options: {
   },
 });
 
-const publishedLessonWhere = {
-  status: NcePublishStatus.published,
+const statusWhere = (includeDrafts: boolean) =>
+  includeDrafts
+    ? { in: draftReadableStatuses }
+    : NcePublishStatus.published;
+
+const lessonContentWhere = (includeDrafts: boolean) => ({
+  status: statusWhere(includeDrafts),
   unit: {
-    status: NcePublishStatus.published,
+    status: statusWhere(includeDrafts),
     deletedAt: null,
     book: {
-      status: NcePublishStatus.published,
+      status: statusWhere(includeDrafts),
       deletedAt: null,
     },
   },
-};
+});
 
 const parseReadQuery = (query?: unknown): NceReadQuery =>
   nceReadQuerySchema.parse(query ?? {});
@@ -275,7 +285,7 @@ async function resolveVisibility(
 function bookWhere(includeDrafts: boolean): Prisma.NceBookWhereInput {
   return {
     deletedAt: null,
-    ...(includeDrafts ? {} : { status: NcePublishStatus.published }),
+    status: statusWhere(includeDrafts),
   };
 }
 
@@ -290,9 +300,11 @@ function assignedBookWhere(
           units: {
             some: {
               deletedAt: null,
+              status: statusWhere(includeDrafts),
               lessons: {
                 some: {
                   deletedAt: null,
+                  status: statusWhere(includeDrafts),
                   courseAssignments: { some: { courseId } },
                 },
               },
@@ -316,17 +328,14 @@ function unitWhere(
           lessons: {
             some: {
               deletedAt: null,
+              status: statusWhere(includeDrafts),
               courseAssignments: { some: { courseId } },
             },
           },
         }
       : {}),
-    ...(includeDrafts
-      ? {}
-      : {
-          status: NcePublishStatus.published,
-          book: { status: NcePublishStatus.published, deletedAt: null },
-        }),
+    status: statusWhere(includeDrafts),
+    book: { status: statusWhere(includeDrafts), deletedAt: null },
   };
 }
 
@@ -373,7 +382,7 @@ function lessonWhere(
     ...(query.courseId
       ? { courseAssignments: { some: { courseId: query.courseId } } }
       : {}),
-    ...(includeDrafts ? {} : publishedLessonWhere),
+    ...lessonContentWhere(includeDrafts),
   };
 }
 
@@ -385,7 +394,7 @@ function courseLessonWhere(
     courseId,
     lesson: {
       deletedAt: null,
-      ...(includeDrafts ? {} : publishedLessonWhere),
+      ...lessonContentWhere(includeDrafts),
     },
   };
 }
