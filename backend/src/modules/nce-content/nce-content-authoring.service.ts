@@ -12,6 +12,7 @@ import {
   assignmentRows,
   authoredLessonSelect,
   createLessonData,
+  exerciseCreates,
   findAuthoredLesson,
   mapAuthoredLesson,
   patchLessonData,
@@ -42,12 +43,26 @@ export async function createNceLesson(
   validateLessonWrite(input);
   await assertUnitWritable(input.unitId);
 
-  const lesson = await readWithServiceRole(actor, () =>
-    prisma.nceLesson.create({
+  const lesson = await readWithServiceRole(actor, async () => {
+    const created = await prisma.nceLesson.create({
       data: createLessonData(input),
       select: authoredLessonSelect,
-    }),
-  );
+    });
+
+    if (!input.exercises.length) {
+      return created;
+    }
+
+    return prisma.nceLesson.update({
+      where: { id: created.id },
+      data: {
+        exercises: {
+          create: exerciseCreates(input, created.objectives),
+        },
+      },
+      select: authoredLessonSelect,
+    });
+  });
 
   return mapAuthoredLesson(lesson as NceLessonRow);
 }
@@ -67,13 +82,27 @@ export async function patchNceLesson(
   }
   assertLessonFound(await findAuthoredLesson(lessonId));
 
-  const lesson = await readWithServiceRole(actor, () =>
-    prisma.nceLesson.update({
+  const lesson = await readWithServiceRole(actor, async () => {
+    const patched = await prisma.nceLesson.update({
       where: { id: lessonId },
       data: patchLessonData(input),
       select: authoredLessonSelect,
-    }),
-  );
+    });
+
+    if (!input.exercises) {
+      return patched;
+    }
+
+    return prisma.nceLesson.update({
+      where: { id: lessonId },
+      data: {
+        exercises: {
+          create: exerciseCreates(input, patched.objectives),
+        },
+      },
+      select: authoredLessonSelect,
+    });
+  });
 
   return mapAuthoredLesson(lesson as NceLessonRow);
 }
