@@ -22,7 +22,27 @@ NceBooks:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
-    security: []
+      '401':
+        description: Unauthorized when includeDrafts=true or an invalid bearer token is supplied
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for unauthorized course draft context
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Course not found for draft context
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - {}
+      - BearerAuth: []
 
 NceBookUnits:
   get:
@@ -50,7 +70,27 @@ NceBookUnits:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
-    security: []
+      '401':
+        description: Unauthorized when includeDrafts=true or an invalid bearer token is supplied
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for unauthorized course draft context
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Course not found for draft context
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - {}
+      - BearerAuth: []
 
 NceUnitLessons:
   get:
@@ -80,13 +120,27 @@ NceUnitLessons:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized when includeDrafts=true or an invalid bearer token is supplied
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '403':
         description: Forbidden
         content:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
-    security: []
+      '404':
+        description: Course not found for draft context
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - {}
+      - BearerAuth: []
 
 NceLesson:
   get:
@@ -114,6 +168,12 @@ NceLesson:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized when includeDrafts=true or an invalid bearer token is supplied
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '403':
         description: Forbidden
         content:
@@ -126,7 +186,9 @@ NceLesson:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
-    security: []
+    security:
+      - {}
+      - BearerAuth: []
 
 CourseNceLessons:
   get:
