@@ -67,6 +67,17 @@ test('NCE teacher write OpenAPI routes document the course scope query parameter
   }
 });
 
+test('NCE teacher write courseId remains optional for admin global authoring', async () => {
+  const ncePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
+  const parameter = section(nceYaml, 'TeacherWriteCourseId', 'Page');
+
+  assert.doesNotMatch(parameter, /required: true/);
+});
+
 test('NCE course lesson schema exposes teacher write permissions', async () => {
   const nceSchemaPath = path.resolve(
     import.meta.dirname,
