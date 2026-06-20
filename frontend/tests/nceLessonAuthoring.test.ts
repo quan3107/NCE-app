@@ -62,6 +62,8 @@ test('TeacherNceLessonsPage supports draft refresh and publish state', async () 
   assert.match(source, /lesson\.canEdit/);
   assert.match(source, /lesson\.canPublish/);
   assert.match(source, /teacher\/nce-lessons\/new\?\$\{new URLSearchParams/);
+  assert.doesNotMatch(source, /:\s*'\/teacher\/nce-lessons\/new'/);
+  assert.match(source, /disabled=\{!courseId\}/);
   assert.match(source, /Previous/);
   assert.match(source, /Next/);
   assert.match(source, /pagination\.total/);
@@ -96,6 +98,15 @@ test('TeacherNceLessonEditorPage surfaces validation errors and mutation progres
   assert.match(source, /isDirty/);
   assert.match(source, /hydratedLessonId/);
   assert.match(source, /setIsDirty\(true\)/);
+  assert.match(source, /useState<ObjectiveDraft\[\]>\(\[\]\)/);
+  assert.match(source, /useState<ExerciseDraft\[\]>\(\[\]\)/);
+  assert.match(source, /scoringConfigText:\s*stringifyNullableJson\(exercise\.scoringConfig\)/);
+  assert.match(source, /key=\{objective\.clientId\}/);
+  assert.match(source, /nextObjectiveSortOrder/);
+  assert.match(source, /nextExerciseSortOrder/);
+  assert.match(source, /key=\{exercise\.clientId\}/);
+  assert.doesNotMatch(source, /emptyObjective\(items\.length\)/);
+  assert.doesNotMatch(source, /emptyExercise\(items\.length\)/);
 });
 
 test('NCE objective and exercise editors expose required lesson fields', async () => {
