@@ -19,6 +19,17 @@ test('frontend CI runs the classroom e2e workflow', async () => {
   );
 });
 
+test('frontend CI runs rendered component tests', async () => {
+  const workflowPath = path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml');
+  const workflow = await readFile(workflowPath, 'utf8');
+
+  assert.match(
+    workflow,
+    /npm run test:components/,
+    'frontend CI should run Vitest jsdom component tests',
+  );
+});
+
 test('CI avoids duplicate branch runs and cancels stale checks', async () => {
   const workflowPath = path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml');
   const workflow = await readFile(workflowPath, 'utf8');
