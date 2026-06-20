@@ -667,6 +667,86 @@ describe("nce-content authoring service", () => {
     expect(lessonReadDepths[0]).toBeGreaterThan(0);
   });
 
+  it.each([
+    {
+      name: "patch",
+      currentLesson: draftLesson,
+      write: () =>
+        patchNceLesson(
+          { lessonId, courseId },
+          { title: "Other lesson" },
+          teacherActor,
+        ),
+      mockWrite: () => {
+        prisma.nceLesson.update.mockResolvedValueOnce({
+          ...draftLesson,
+          title: "Other lesson",
+        });
+      },
+    },
+    {
+      name: "publish",
+      currentLesson: draftLesson,
+      write: () => publishNceLesson({ lessonId, courseId }, teacherActor),
+      mockWrite: () => {
+        prisma.nceLesson.update.mockResolvedValueOnce({
+          ...draftLesson,
+          status: NcePublishStatus.published,
+          publishedAt: now,
+        });
+      },
+    },
+    {
+      name: "unpublish",
+      currentLesson: {
+        ...draftLesson,
+        status: NcePublishStatus.published,
+        publishedAt: now,
+      },
+      write: () => unpublishNceLesson({ lessonId, courseId }, teacherActor),
+      mockWrite: () => {
+        prisma.nceLesson.update.mockResolvedValueOnce({
+          ...draftLesson,
+          status: NcePublishStatus.draft,
+          publishedAt: null,
+        });
+      },
+    },
+  ])("reads course assignment as service_role before $name", async ({
+    currentLesson,
+    write,
+    mockWrite,
+  }) => {
+    let serviceRoleDepth = 0;
+    const assignmentReadDepths: number[] = [];
+    runWithRole.mockImplementation(async (options, run) => {
+      if (options.role === "service_role") {
+        serviceRoleDepth += 1;
+      }
+      try {
+        return await run();
+      } finally {
+        if (options.role === "service_role") {
+          serviceRoleDepth -= 1;
+        }
+      }
+    });
+    prisma.nceLesson.findFirst.mockResolvedValueOnce(currentLesson);
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceCourseLessonAssignment.findFirst.mockImplementation(async () => {
+      assignmentReadDepths.push(serviceRoleDepth);
+      return {
+        courseId,
+        lessonId,
+      };
+    });
+    mockWrite();
+
+    await write();
+
+    expect(assignmentReadDepths[0]).toBeGreaterThan(0);
+  });
+
   it("rejects teacher lesson patches outside the scoped course assignment", async () => {
     prisma.nceLesson.findFirst.mockResolvedValueOnce(draftLesson);
     prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
@@ -827,6 +907,42 @@ describe("nce-content authoring service", () => {
       ],
     });
     expect(result).toEqual({ courseId, assignedCount: 1 });
+  });
+
+  it("reads assignable lessons as service_role when replacing course lesson assignments", async () => {
+    let serviceRoleDepth = 0;
+    const lessonReadDepths: number[] = [];
+    runWithRole.mockImplementation(async (options, run) => {
+      if (options.role === "service_role") {
+        serviceRoleDepth += 1;
+      }
+      try {
+        return await run();
+      } finally {
+        if (options.role === "service_role") {
+          serviceRoleDepth -= 1;
+        }
+      }
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceLesson.findMany.mockImplementation(async () => {
+      lessonReadDepths.push(serviceRoleDepth);
+      return [
+        {
+          id: lessonId,
+          courseId,
+          status: NcePublishStatus.draft,
+        },
+      ];
+    });
+
+    await assignNceLessonsToCourse(
+      { courseId },
+      { lessons: [{ lessonId, sequence: 1 }] },
+      teacherActor,
+    );
+
+    expect(lessonReadDepths[0]).toBeGreaterThan(0);
   });
 
   it("rejects assigning lessons scoped to another course", async () => {
