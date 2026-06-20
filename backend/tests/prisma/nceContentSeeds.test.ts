@@ -82,8 +82,16 @@ describe('NCE Prisma schema', () => {
     expect(migration).toContain('DROP POLICY IF EXISTS nce_lessons_select_published')
     expect(migration).toContain('DROP POLICY IF EXISTS nce_objectives_select_published')
     expect(migration).toContain('DROP POLICY IF EXISTS nce_exercises_select_published')
-    expect(migration).toContain('AND course_id IS NULL')
-    expect(migration).toContain('AND lesson.course_id IS NULL')
+    expect(migration).toContain('course_id IS NULL')
+    expect(migration).toContain('lesson.course_id IS NULL')
+    expect(migration).toContain('nce_lessons_select_published_course_members')
+    expect(migration).toContain('nce_objectives_select_published_course_members')
+    expect(migration).toContain('nce_exercises_select_published_course_members')
+    expect(migration).toContain("current_setting('app.current_user_role', true) = 'admin'")
+    expect(migration).toContain('course.owner_teacher_id = NULLIF')
+    expect(migration).toContain('assignment.course_id = nce_lessons.course_id')
+    expect(migration).toContain('assignment.course_id = lesson.course_id')
+    expect(migration).toContain("enrollment.role_in_course IN ('teacher', 'student')")
     expect(migration).toMatch(
       /CREATE POLICY nce_lessons_select_published[\s\S]*?TO anon, authenticated, service_role/,
     )
