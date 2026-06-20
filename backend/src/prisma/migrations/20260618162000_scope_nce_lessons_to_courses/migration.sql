@@ -27,6 +27,7 @@ GRANT INSERT, UPDATE, DELETE ON public.nce_exercises TO service_role;
 GRANT INSERT, UPDATE, DELETE ON public.nce_course_lesson_assignments TO service_role;
 
 DROP POLICY IF EXISTS nce_lessons_select_published ON public.nce_lessons;
+DROP POLICY IF EXISTS nce_lessons_select_published_course_members ON public.nce_lessons;
 
 CREATE POLICY nce_lessons_select_published
 ON public.nce_lessons
@@ -45,6 +46,46 @@ USING (
       AND unit.deleted_at IS NULL
       AND book.status = 'published'
       AND book.deleted_at IS NULL
+  )
+);
+
+CREATE POLICY nce_lessons_select_published_course_members
+ON public.nce_lessons
+FOR SELECT
+TO service_role
+USING (
+  status = 'published'
+  AND deleted_at IS NULL
+  AND course_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1
+    FROM public.nce_units unit
+    JOIN public.nce_books book ON book.id = unit.book_id
+    WHERE unit.id = nce_lessons.unit_id
+      AND unit.status = 'published'
+      AND unit.deleted_at IS NULL
+      AND book.status = 'published'
+      AND book.deleted_at IS NULL
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM public.nce_course_lesson_assignments assignment
+    JOIN public.courses course ON course.id = assignment.course_id
+    WHERE assignment.lesson_id = nce_lessons.id
+      AND assignment.course_id = nce_lessons.course_id
+      AND course."deletedAt" IS NULL
+      AND (
+        current_setting('app.current_user_role', true) = 'admin'
+        OR course.owner_teacher_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+        OR EXISTS (
+          SELECT 1
+          FROM public.enrollments enrollment
+          WHERE enrollment.course_id = course.id
+            AND enrollment.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+            AND enrollment.role_in_course IN ('teacher', 'student')
+            AND enrollment."deletedAt" IS NULL
+        )
+      )
   )
 );
 
@@ -152,6 +193,8 @@ TO service_role
 USING (current_role = 'service_role');
 
 DROP POLICY IF EXISTS nce_objectives_select_published ON public.nce_objectives;
+DROP POLICY IF EXISTS nce_objectives_select_published_course_members
+ON public.nce_objectives;
 
 CREATE POLICY nce_objectives_select_published
 ON public.nce_objectives
@@ -174,7 +217,47 @@ USING (
   )
 );
 
+CREATE POLICY nce_objectives_select_published_course_members
+ON public.nce_objectives
+FOR SELECT
+TO service_role
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.nce_lessons lesson
+    JOIN public.nce_units unit ON unit.id = lesson.unit_id
+    JOIN public.nce_books book ON book.id = unit.book_id
+    JOIN public.nce_course_lesson_assignments assignment
+      ON assignment.lesson_id = lesson.id
+    JOIN public.courses course ON course.id = assignment.course_id
+    WHERE lesson.id = nce_objectives.lesson_id
+      AND lesson.status = 'published'
+      AND lesson.deleted_at IS NULL
+      AND lesson.course_id IS NOT NULL
+      AND assignment.course_id = lesson.course_id
+      AND unit.status = 'published'
+      AND unit.deleted_at IS NULL
+      AND book.status = 'published'
+      AND book.deleted_at IS NULL
+      AND course."deletedAt" IS NULL
+      AND (
+        current_setting('app.current_user_role', true) = 'admin'
+        OR course.owner_teacher_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+        OR EXISTS (
+          SELECT 1
+          FROM public.enrollments enrollment
+          WHERE enrollment.course_id = course.id
+            AND enrollment.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+            AND enrollment.role_in_course IN ('teacher', 'student')
+            AND enrollment."deletedAt" IS NULL
+        )
+      )
+  )
+);
+
 DROP POLICY IF EXISTS nce_exercises_select_published ON public.nce_exercises;
+DROP POLICY IF EXISTS nce_exercises_select_published_course_members
+ON public.nce_exercises;
 
 CREATE POLICY nce_exercises_select_published
 ON public.nce_exercises
@@ -194,5 +277,43 @@ USING (
       AND unit.deleted_at IS NULL
       AND book.status = 'published'
       AND book.deleted_at IS NULL
+  )
+);
+
+CREATE POLICY nce_exercises_select_published_course_members
+ON public.nce_exercises
+FOR SELECT
+TO service_role
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.nce_lessons lesson
+    JOIN public.nce_units unit ON unit.id = lesson.unit_id
+    JOIN public.nce_books book ON book.id = unit.book_id
+    JOIN public.nce_course_lesson_assignments assignment
+      ON assignment.lesson_id = lesson.id
+    JOIN public.courses course ON course.id = assignment.course_id
+    WHERE lesson.id = nce_exercises.lesson_id
+      AND lesson.status = 'published'
+      AND lesson.deleted_at IS NULL
+      AND lesson.course_id IS NOT NULL
+      AND assignment.course_id = lesson.course_id
+      AND unit.status = 'published'
+      AND unit.deleted_at IS NULL
+      AND book.status = 'published'
+      AND book.deleted_at IS NULL
+      AND course."deletedAt" IS NULL
+      AND (
+        current_setting('app.current_user_role', true) = 'admin'
+        OR course.owner_teacher_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+        OR EXISTS (
+          SELECT 1
+          FROM public.enrollments enrollment
+          WHERE enrollment.course_id = course.id
+            AND enrollment.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+            AND enrollment.role_in_course IN ('teacher', 'student')
+            AND enrollment."deletedAt" IS NULL
+        )
+      )
   )
 );
