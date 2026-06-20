@@ -48,9 +48,7 @@ export function TeacherNceLessonsPage() {
   );
   const canGoPrevious = page > 1;
   const canGoNext = page < totalPages;
-  const newLessonPath = courseId
-    ? `/teacher/nce-lessons/new?${new URLSearchParams({ courseId }).toString()}`
-    : '/teacher/nce-lessons/new';
+  const newLessonPath = `/teacher/nce-lessons/new?${new URLSearchParams({ courseId }).toString()}`;
 
   const updateCourseId = (value: string) => {
     const trimmed = value.trim();
@@ -90,7 +88,7 @@ export function TeacherNceLessonsPage() {
         title="NCE Lessons"
         description="Create, publish, and sequence New Concept English lessons"
         actions={
-          <Button onClick={() => navigate(newLessonPath)}>
+          <Button onClick={() => navigate(newLessonPath)} disabled={!courseId}>
             <Plus className="mr-2 size-4" />
             New Lesson
           </Button>
