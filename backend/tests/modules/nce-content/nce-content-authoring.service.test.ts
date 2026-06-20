@@ -37,6 +37,7 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
       create: vi.fn(),
       findFirst: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
   runWithRole: vi.fn(async (_options, write) => write()),
 }));
@@ -195,6 +196,8 @@ describe("nce-content authoring service", () => {
     prisma.nceCourseLessonAssignment.createMany.mockReset();
     prisma.nceCourseLessonAssignment.create.mockReset();
     prisma.nceCourseLessonAssignment.findFirst.mockReset();
+    prisma.$transaction.mockReset();
+    prisma.$transaction.mockImplementation(async (write) => write(prisma));
     runWithRole.mockImplementation(async (_options, write) => write());
   });
 
@@ -236,6 +239,7 @@ describe("nce-content authoring service", () => {
     );
     expect(result.status).toBe(NcePublishStatus.draft);
     expect(result.exercises[0]).toHaveProperty("answerKey");
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("links newly created exercises to authored objectives by objectiveCode", async () => {
@@ -301,6 +305,58 @@ describe("nce-content authoring service", () => {
       statusCode: 400,
       message: "NCE exercise objectiveId does not match an authored objective",
     });
+
+    expect(prisma.nceLesson.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate objective codes before creating a lesson", async () => {
+    await expect(
+      createNceLesson(
+        {},
+        {
+          ...createPayload,
+          objectives: [
+            createPayload.objectives[0],
+            {
+              ...createPayload.objectives[0],
+              title: "Duplicate code",
+              sortOrder: 2,
+            },
+          ],
+          exercises: [],
+        },
+        adminActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "NCE objective codes must be unique",
+    });
+
+    expect(prisma.nceLesson.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate exercise type and sort order before creating a lesson", async () => {
+    await expect(
+      createNceLesson(
+        {},
+        {
+          ...createPayload,
+          exercises: [
+            createPayload.exercises[0],
+            {
+              ...createPayload.exercises[0],
+              prompt: "Another prompt.",
+            },
+          ],
+        },
+        adminActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "NCE exercise type and sort order must be unique",
+    });
+
+    expect(prisma.nceLesson.create).not.toHaveBeenCalled();
   });
 
   it("relinks exercises to recreated objectives when patching a lesson", async () => {
@@ -367,6 +423,33 @@ describe("nce-content authoring service", () => {
         },
       }),
     );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects duplicate patch exercise keys before deleting existing children", async () => {
+    allowCourseLessonWrite();
+    prisma.nceLesson.findFirst.mockResolvedValueOnce(draftLesson);
+
+    await expect(
+      patchNceLesson(
+        { lessonId, courseId },
+        {
+          exercises: [
+            createPayload.exercises[0],
+            {
+              ...createPayload.exercises[0],
+              prompt: "Another prompt.",
+            },
+          ],
+        },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "NCE exercise type and sort order must be unique",
+    });
+
+    expect(prisma.nceLesson.update).not.toHaveBeenCalled();
   });
 
   it("preserves exercise objective links during objective-only patches", async () => {
@@ -907,6 +990,78 @@ describe("nce-content authoring service", () => {
       ],
     });
     expect(result).toEqual({ courseId, assignedCount: 1 });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects duplicate course assignment lesson IDs before replacing rows", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+
+    await expect(
+      assignNceLessonsToCourse(
+        { courseId },
+        {
+          lessons: [
+            { lessonId, sequence: 1 },
+            { lessonId, sequence: 2 },
+          ],
+        },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "NCE course lesson assignments cannot repeat a lesson",
+    });
+
+    expect(prisma.nceCourseLessonAssignment.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.nceCourseLessonAssignment.createMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate course assignment sequences before replacing rows", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+
+    await expect(
+      assignNceLessonsToCourse(
+        { courseId },
+        {
+          lessons: [
+            { lessonId, sequence: 1 },
+            { lessonId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", sequence: 1 },
+          ],
+        },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "NCE course lesson assignment sequences must be unique",
+    });
+
+    expect(prisma.nceCourseLessonAssignment.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.nceCourseLessonAssignment.createMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects archived same-course lessons before replacing rows", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceLesson.findMany.mockResolvedValueOnce([
+      {
+        id: lessonId,
+        courseId,
+        status: NcePublishStatus.archived,
+      },
+    ]);
+
+    await expect(
+      assignNceLessonsToCourse(
+        { courseId },
+        { lessons: [{ lessonId, sequence: 1 }] },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "NCE lesson cannot be assigned to this course",
+    });
+
+    expect(prisma.nceCourseLessonAssignment.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.nceCourseLessonAssignment.createMany).not.toHaveBeenCalled();
   });
 
   it("reads assignable lessons as service_role when replacing course lesson assignments", async () => {
