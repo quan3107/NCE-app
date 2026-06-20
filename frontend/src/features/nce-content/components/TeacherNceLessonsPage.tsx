@@ -152,6 +152,7 @@ export function TeacherNceLessonsPage() {
             {lessons.map((lesson) => {
               const isPublished = lesson.status === 'published';
               const isMutating = mutatingLessonId === lesson.id;
+              const isReadOnly = !lesson.canEdit && !lesson.canPublish;
               let publishLabel = 'Publish';
               if (isMutating) {
                 publishLabel = isPublished ? 'Unpublishing' : 'Publishing';
@@ -168,20 +169,29 @@ export function TeacherNceLessonsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate(`/teacher/nce-lessons/${lesson.id}/edit?courseId=${courseId}`)}
-                    >
-                      <Edit className="mr-2 size-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant={isPublished ? 'secondary' : 'default'}
-                      disabled={isMutating}
-                      onClick={() => togglePublish(lesson.id, isPublished)}
-                    >
-                      {publishLabel}
-                    </Button>
+                    {lesson.canEdit && (
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate(`/teacher/nce-lessons/${lesson.id}/edit?courseId=${courseId}`)}
+                      >
+                        <Edit className="mr-2 size-4" />
+                        Edit
+                      </Button>
+                    )}
+                    {lesson.canPublish && (
+                      <Button
+                        variant={isPublished ? 'secondary' : 'default'}
+                        disabled={isMutating}
+                        onClick={() => togglePublish(lesson.id, isPublished)}
+                      >
+                        {publishLabel}
+                      </Button>
+                    )}
+                    {isReadOnly && (
+                      <span className="inline-flex min-h-9 items-center rounded-md border px-3 text-sm text-muted-foreground">
+                        Read-only
+                      </span>
+                    )}
                   </CardContent>
                 </Card>
               );
