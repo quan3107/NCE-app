@@ -19,6 +19,7 @@ import type {
   CreateNceLessonInput,
   PatchNceLessonInput,
 } from "./nce-content.schema.js";
+import { readWithServiceRole } from "./nce-content-authoring.persistence.js";
 
 type LessonWriteInput = CreateNceLessonInput | PatchNceLessonInput;
 type CourseAccess = "admin" | "owner" | "coTeacher" | "none";
@@ -215,15 +216,17 @@ export async function assertLessonCourseWritable(
     throw createHttpError(403, "NCE lesson is not editable in this course");
   }
 
-  const assignment = await prisma.nceCourseLessonAssignment.findFirst({
-    where: {
-      courseId,
-      lessonId: lesson.id,
-    },
-    select: {
-      courseId: true,
-    },
-  });
+  const assignment = await readWithServiceRole(actor, () =>
+    prisma.nceCourseLessonAssignment.findFirst({
+      where: {
+        courseId,
+        lessonId: lesson.id,
+      },
+      select: {
+        courseId: true,
+      },
+    }),
+  );
 
   if (!assignment) {
     throw createHttpError(403, "NCE lesson is not assigned to this course");
@@ -233,27 +236,30 @@ export async function assertLessonCourseWritable(
 export async function assertLessonsAssignableToCourse(
   courseId: string,
   payload: AssignNceLessonsInput,
+  actor: RequestActor,
 ): Promise<void> {
   const lessonIds = [...new Set(payload.lessons.map((lesson) => lesson.lessonId))];
   if (lessonIds.length === 0) {
     return;
   }
 
-  const lessons = await prisma.nceLesson.findMany({
-    where: {
-      id: { in: lessonIds },
-      deletedAt: null,
-      unit: {
+  const lessons = await readWithServiceRole(actor, () =>
+    prisma.nceLesson.findMany({
+      where: {
+        id: { in: lessonIds },
         deletedAt: null,
-        book: { deletedAt: null },
+        unit: {
+          deletedAt: null,
+          book: { deletedAt: null },
+        },
       },
-    },
-    select: {
-      id: true,
-      courseId: true,
-      status: true,
-    },
-  });
+      select: {
+        id: true,
+        courseId: true,
+        status: true,
+      },
+    }),
+  );
 
   if (lessons.length !== lessonIds.length) {
     throw createHttpError(404, "NCE lesson not found");
