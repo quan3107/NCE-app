@@ -20,6 +20,11 @@ test('frontend test scripts use CI-expandable test globs', async () => {
     'frontend coverage script should use Node coverage with a glob that expands in the CI shell',
   );
   assert.equal(
+    packageJson.scripts?.['test:components'],
+    'vitest run --config vitest.config.ts',
+    'frontend component tests should run in Vitest with jsdom',
+  );
+  assert.equal(
     packageJson.scripts?.e2e,
     'playwright test',
     'frontend e2e script should run the Playwright classroom workflow',
