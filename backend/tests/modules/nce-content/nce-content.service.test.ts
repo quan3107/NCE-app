@@ -342,6 +342,63 @@ describe("nce-content.service", () => {
       }),
     );
     expect(result.lessons[0]?.exercises[0]).not.toHaveProperty("answerKey");
+    expect(result.lessons[0]).toMatchObject({
+      canEdit: false,
+      canPublish: false,
+    });
+  });
+
+  it("marks only course-scoped assigned lessons editable for course teachers", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        sequence: 1,
+        availableFrom: null,
+        dueAt: null,
+        lesson: { ...buildLesson(NcePublishStatus.draft), courseId },
+      },
+      {
+        sequence: 2,
+        availableFrom: null,
+        dueAt: null,
+        lesson: {
+          ...buildLesson(),
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          courseId: null,
+        },
+      },
+    ]);
+    prisma.nceCourseLessonAssignment.count.mockResolvedValueOnce(2);
+
+    const result = await listCourseNceLessons(
+      { courseId },
+      teacherActor,
+      { includeDrafts: "true" },
+    );
+
+    expect(prisma.nceCourseLessonAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          lesson: expect.objectContaining({
+            select: expect.objectContaining({
+              courseId: true,
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(result.lessons).toEqual([
+      expect.objectContaining({
+        id: lessonId,
+        canEdit: true,
+        canPublish: true,
+      }),
+      expect.objectContaining({
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        canEdit: false,
+        canPublish: false,
+      }),
+    ]);
   });
 
   it("excludes archived course lessons from draft-inclusive course reads", async () => {
