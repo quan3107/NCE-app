@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader } from '@components/common/PageHeader';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
@@ -15,6 +15,7 @@ import {
   getCourseId,
   parseJsonObject,
   stringifyJson,
+  stringifyNullableJson,
   type ExerciseDraft,
 } from './nceLessonEditor.logic';
 import { NceObjectiveEditor } from './NceObjectiveEditor';
@@ -23,9 +24,17 @@ type Props = {
   lessonId?: string;
 };
 
+type ObjectiveDraft = NceObjectiveInput & {
+  clientId: string;
+};
+
 export function TeacherNceLessonEditorPage({ lessonId }: Props) {
   const { navigate } = useRouter();
   const [courseId] = useState(getCourseId);
+  const nextObjectiveClientId = useRef(1);
+  const nextObjectiveSortOrder = useRef(1);
+  const nextExerciseClientId = useRef(1);
+  const nextExerciseSortOrder = useRef(1);
   const isEditing = Boolean(lessonId);
   const lessonQuery = useNceLessonQuery(
     lessonId,
@@ -37,8 +46,8 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
   const [lessonText, setLessonText] = useState('');
   const [teacherNotes, setTeacherNotes] = useState('');
   const [sortOrder, setSortOrder] = useState(1);
-  const [objectives, setObjectives] = useState<NceObjectiveInput[]>([emptyObjective(0)]);
-  const [exercises, setExercises] = useState<ExerciseDraft[]>([emptyExercise(0)]);
+  const [objectives, setObjectives] = useState<ObjectiveDraft[]>([]);
+  const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [hydratedLessonId, setHydratedLessonId] = useState<string | null>(null);
@@ -60,8 +69,22 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
     setLessonText(lesson.lessonText);
     setTeacherNotes(lesson.teacherNotes ?? '');
     setSortOrder(lesson.sortOrder);
+    const objectiveDraftNumbers = lesson.objectives
+      .map((objective) => /^objective-(\d+)$/.exec(objective.code)?.[1])
+      .filter((value): value is string => Boolean(value))
+      .map((value) => Number(value));
+    nextObjectiveSortOrder.current = Math.max(
+      0,
+      ...lesson.objectives.map((objective) => objective.sortOrder),
+      ...objectiveDraftNumbers,
+    ) + 1;
+    nextExerciseSortOrder.current = Math.max(
+      0,
+      ...lesson.exercises.map((exercise) => exercise.sortOrder),
+    ) + 1;
     setObjectives(
       lesson.objectives.map((objective) => ({
+        clientId: `objective-${objective.id}`,
         code: objective.code,
         title: objective.title,
         category: objective.category,
@@ -72,6 +95,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
     );
     setExercises(
       lesson.exercises.map((exercise) => ({
+        clientId: `exercise-${exercise.id}`,
         objectiveCode: lesson.objectives.find((objective) => objective.id === exercise.objectiveId)?.code ?? '',
         exerciseType: exercise.exerciseType,
         prompt: exercise.prompt,
@@ -81,7 +105,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
         sortOrder: exercise.sortOrder,
         contentText: stringifyJson(exercise.content),
         answerKeyText: stringifyJson(exercise.answerKey),
-        scoringConfigText: stringifyJson(exercise.scoringConfig ?? {}),
+        scoringConfigText: stringifyNullableJson(exercise.scoringConfig),
       })),
     );
     setHydratedLessonId(lesson.id);
@@ -93,6 +117,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
   );
 
   const buildPayload = (): NceLessonWritePayload | NceLessonPatchPayload => {
+    const parsedObjectives = objectives.map(({ clientId: _clientId, ...objective }) => objective);
     const parsedExercises = exercises.map((exercise) => {
       const content = parseJsonObject('Content', exercise.contentText);
       const answerKey = parseJsonObject('Answer key', exercise.answerKeyText);
@@ -120,12 +145,17 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
       lessonText,
       teacherNotes,
       sortOrder,
-      objectives,
+      objectives: parsedObjectives,
       exercises: parsedExercises,
     };
   };
 
   const saveLesson = async () => {
+    if (!isEditing && !courseId) {
+      setErrorMessage('Select a course before creating an NCE lesson.');
+      return;
+    }
+
     setIsSaving(true);
     setErrorMessage(null);
     try {
@@ -147,7 +177,9 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
   const updateObjective = (index: number, nextValue: NceObjectiveInput) => {
     setIsDirty(true);
     setObjectives((existing) =>
-      existing.map((item, itemIndex) => (itemIndex === index ? nextValue : item)),
+      existing.map((item, itemIndex) =>
+        itemIndex === index ? { ...nextValue, clientId: item.clientId } : item,
+      ),
     );
   };
 
@@ -268,7 +300,13 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
                 <h2 className="text-lg font-semibold">Objectives</h2>
                 <Button type="button" variant="outline" onClick={() => {
                   setIsDirty(true);
-                  setObjectives((items) => [...items, emptyObjective(items.length)]);
+                  setObjectives((items) => [
+                    ...items,
+                    {
+                      ...emptyObjective(nextObjectiveSortOrder.current++),
+                      clientId: `objective-draft-${nextObjectiveClientId.current++}`,
+                    },
+                  ]);
                 }}>
                   <Plus className="mr-2 size-4" />
                   Add Objective
@@ -276,7 +314,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
               </div>
               {objectives.map((objective, index) => (
                 <NceObjectiveEditor
-                  key={`${objective.code}-${index}`}
+                  key={objective.clientId}
                   index={index}
                   value={objective}
                   onChange={(nextValue) => updateObjective(index, nextValue)}
@@ -293,7 +331,13 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
                 <h2 className="text-lg font-semibold">Exercises</h2>
                 <Button type="button" variant="outline" onClick={() => {
                   setIsDirty(true);
-                  setExercises((items) => [...items, emptyExercise(items.length)]);
+                  setExercises((items) => [
+                    ...items,
+                    emptyExercise(
+                      nextExerciseSortOrder.current++,
+                      `exercise-draft-${nextExerciseClientId.current++}`,
+                    ),
+                  ]);
                 }}>
                   <Plus className="mr-2 size-4" />
                   Add Exercise
@@ -301,7 +345,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
               </div>
               {exercises.map((exercise, index) => (
                 <NceExerciseEditor
-                  key={`${exercise.exerciseType}-${index}`}
+                  key={exercise.clientId}
                   index={index}
                   value={exercise}
                   contentText={exercise.contentText}
