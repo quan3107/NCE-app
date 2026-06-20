@@ -482,11 +482,10 @@ components:
     TeacherWriteCourseId:
       in: query
       name: courseId
-      required: true
       schema:
         type: string
         format: uuid
-      description: Course context used to authorize teacher NCE lesson updates, publish, and unpublish actions.
+      description: Required for teacher course-scoped authoring. Admins may omit it for global NCE lesson authoring.
     Page:
       in: query
       name: page
