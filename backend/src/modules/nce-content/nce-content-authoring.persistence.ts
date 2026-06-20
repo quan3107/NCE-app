@@ -22,6 +22,7 @@ import type {
 } from "./nce-content.schema.js";
 
 type LessonWriteInput = CreateNceLessonInput | PatchNceLessonInput;
+type AuthoredLessonReader = Pick<typeof prisma, "nceLesson">;
 
 export const authoredLessonSelect = {
   id: true,
@@ -231,8 +232,11 @@ export function patchLessonData(input: PatchNceLessonInput): Prisma.NceLessonUpd
   return data;
 }
 
-export async function findAuthoredLesson(lessonId: string) {
-  return prisma.nceLesson.findFirst({
+export async function findAuthoredLesson(
+  lessonId: string,
+  db: AuthoredLessonReader = prisma,
+) {
+  return db.nceLesson.findFirst({
     where: {
       id: lessonId,
       deletedAt: null,
