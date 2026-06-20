@@ -23,6 +23,11 @@ import { readWithServiceRole } from "./nce-content-authoring.persistence.js";
 
 type LessonWriteInput = CreateNceLessonInput | PatchNceLessonInput;
 type CourseAccess = "admin" | "owner" | "coTeacher" | "none";
+type ObjectiveReference = { id?: string; code: string };
+const courseAssignableLessonStatuses = new Set<NcePublishStatus>([
+  NcePublishStatus.draft,
+  NcePublishStatus.published,
+]);
 
 export function assertAuthor(actor: RequestActor): void {
   if (actor.role !== UserRole.admin && actor.role !== UserRole.teacher) {
@@ -55,8 +60,77 @@ function validateExerciseAnswerKey(
 }
 
 export function validateLessonWrite(input: LessonWriteInput): void {
+  const objectiveCodes = new Set<string>();
+  for (const objective of input.objectives ?? []) {
+    if (objectiveCodes.has(objective.code)) {
+      throw createHttpError(400, "NCE objective codes must be unique");
+    }
+    objectiveCodes.add(objective.code);
+  }
+
+  const exerciseKeys = new Set<string>();
   for (const exercise of input.exercises ?? []) {
+    const exerciseKey = `${exercise.exerciseType}:${exercise.sortOrder}`;
+    if (exerciseKeys.has(exerciseKey)) {
+      throw createHttpError(400, "NCE exercise type and sort order must be unique");
+    }
+    exerciseKeys.add(exerciseKey);
     validateExerciseAnswerKey(exercise.exerciseType, exercise.answerKey);
+  }
+}
+
+export function validateLessonExerciseObjectiveRefs(
+  input: LessonWriteInput,
+  objectives: ObjectiveReference[],
+  allowObjectiveIds: boolean,
+): void {
+  const objectiveCodes = new Set(objectives.map((objective) => objective.code));
+  const objectiveIds = new Set(
+    objectives
+      .map((objective) => objective.id)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  for (const exercise of input.exercises ?? []) {
+    if (exercise.objectiveCode) {
+      if (!objectiveCodes.has(exercise.objectiveCode)) {
+        throw createHttpError(
+          400,
+          "NCE exercise objectiveCode does not match an authored objective",
+        );
+      }
+      continue;
+    }
+
+    if (exercise.objectiveId && (!allowObjectiveIds || !objectiveIds.has(exercise.objectiveId))) {
+      throw createHttpError(
+        400,
+        "NCE exercise objectiveId does not match an authored objective",
+      );
+    }
+  }
+}
+
+export function validateCourseAssignmentWrite(input: AssignNceLessonsInput): void {
+  const lessonIds = new Set<string>();
+  const sequences = new Set<number>();
+
+  for (const lesson of input.lessons) {
+    if (lessonIds.has(lesson.lessonId)) {
+      throw createHttpError(
+        400,
+        "NCE course lesson assignments cannot repeat a lesson",
+      );
+    }
+    lessonIds.add(lesson.lessonId);
+
+    if (sequences.has(lesson.sequence)) {
+      throw createHttpError(
+        400,
+        "NCE course lesson assignment sequences must be unique",
+      );
+    }
+    sequences.add(lesson.sequence);
   }
 }
 
@@ -266,11 +340,17 @@ export async function assertLessonsAssignableToCourse(
   }
 
   for (const lesson of lessons) {
-    if (lesson.courseId && lesson.courseId !== courseId) {
-      throw createHttpError(403, "NCE lesson cannot be assigned to this course");
+    if (lesson.courseId) {
+      if (
+        lesson.courseId !== courseId ||
+        !courseAssignableLessonStatuses.has(lesson.status)
+      ) {
+        throw createHttpError(403, "NCE lesson cannot be assigned to this course");
+      }
+      continue;
     }
 
-    if (!lesson.courseId && lesson.status !== NcePublishStatus.published) {
+    if (lesson.status !== NcePublishStatus.published) {
       throw createHttpError(403, "NCE lesson cannot be assigned to this course");
     }
   }
