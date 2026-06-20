@@ -66,3 +66,16 @@ test('NCE teacher write OpenAPI routes document the course scope query parameter
     assert.match(writeOperation, /- \$ref: '#\/components\/parameters\/TeacherWriteCourseId'/);
   }
 });
+
+test('NCE course lesson schema exposes teacher write permissions', async () => {
+  const nceSchemaPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(nceSchemaPath, 'utf8')).replace(/\r\n/g, '\n');
+  const courseLessonSchema = section(nceYaml, 'CourseNceLesson', 'NceLessonListResponse');
+
+  assert.match(courseLessonSchema, /canEdit:/);
+  assert.match(courseLessonSchema, /canPublish:/);
+  assert.match(courseLessonSchema, /required: \[sequence, availableFrom, dueAt, canEdit, canPublish\]/);
+});
