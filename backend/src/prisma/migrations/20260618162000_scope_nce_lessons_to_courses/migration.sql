@@ -19,6 +19,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS nce_lessons_course_unit_number_key
 CREATE INDEX IF NOT EXISTS nce_lessons_course_unit_number_idx
   ON public.nce_lessons(course_id, unit_id, lesson_number);
 
+GRANT SELECT (course_id) ON public.nce_lessons TO anon, authenticated, service_role;
+
+GRANT INSERT, UPDATE, DELETE ON public.nce_lessons TO service_role;
+GRANT INSERT, UPDATE, DELETE ON public.nce_objectives TO service_role;
+GRANT INSERT, UPDATE, DELETE ON public.nce_exercises TO service_role;
+GRANT INSERT, UPDATE, DELETE ON public.nce_course_lesson_assignments TO service_role;
+
 DROP POLICY IF EXISTS nce_lessons_select_published ON public.nce_lessons;
 
 CREATE POLICY nce_lessons_select_published
@@ -40,6 +47,109 @@ USING (
       AND book.deleted_at IS NULL
   )
 );
+
+DROP POLICY IF EXISTS nce_lessons_service_role_insert ON public.nce_lessons;
+
+CREATE POLICY nce_lessons_service_role_insert
+ON public.nce_lessons
+FOR INSERT
+TO service_role
+WITH CHECK (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_lessons_service_role_update ON public.nce_lessons;
+
+CREATE POLICY nce_lessons_service_role_update
+ON public.nce_lessons
+FOR UPDATE
+TO service_role
+USING (current_role = 'service_role')
+WITH CHECK (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_lessons_service_role_delete ON public.nce_lessons;
+
+CREATE POLICY nce_lessons_service_role_delete
+ON public.nce_lessons
+FOR DELETE
+TO service_role
+USING (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_objectives_service_role_insert ON public.nce_objectives;
+
+CREATE POLICY nce_objectives_service_role_insert
+ON public.nce_objectives
+FOR INSERT
+TO service_role
+WITH CHECK (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_objectives_service_role_update ON public.nce_objectives;
+
+CREATE POLICY nce_objectives_service_role_update
+ON public.nce_objectives
+FOR UPDATE
+TO service_role
+USING (current_role = 'service_role')
+WITH CHECK (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_objectives_service_role_delete ON public.nce_objectives;
+
+CREATE POLICY nce_objectives_service_role_delete
+ON public.nce_objectives
+FOR DELETE
+TO service_role
+USING (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_exercises_service_role_insert ON public.nce_exercises;
+
+CREATE POLICY nce_exercises_service_role_insert
+ON public.nce_exercises
+FOR INSERT
+TO service_role
+WITH CHECK (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_exercises_service_role_update ON public.nce_exercises;
+
+CREATE POLICY nce_exercises_service_role_update
+ON public.nce_exercises
+FOR UPDATE
+TO service_role
+USING (current_role = 'service_role')
+WITH CHECK (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_exercises_service_role_delete ON public.nce_exercises;
+
+CREATE POLICY nce_exercises_service_role_delete
+ON public.nce_exercises
+FOR DELETE
+TO service_role
+USING (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_course_lesson_assignments_service_role_insert
+ON public.nce_course_lesson_assignments;
+
+CREATE POLICY nce_course_lesson_assignments_service_role_insert
+ON public.nce_course_lesson_assignments
+FOR INSERT
+TO service_role
+WITH CHECK (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_course_lesson_assignments_service_role_update
+ON public.nce_course_lesson_assignments;
+
+CREATE POLICY nce_course_lesson_assignments_service_role_update
+ON public.nce_course_lesson_assignments
+FOR UPDATE
+TO service_role
+USING (current_role = 'service_role')
+WITH CHECK (current_role = 'service_role');
+
+DROP POLICY IF EXISTS nce_course_lesson_assignments_service_role_delete
+ON public.nce_course_lesson_assignments;
+
+CREATE POLICY nce_course_lesson_assignments_service_role_delete
+ON public.nce_course_lesson_assignments
+FOR DELETE
+TO service_role
+USING (current_role = 'service_role');
 
 DROP POLICY IF EXISTS nce_objectives_select_published ON public.nce_objectives;
 
