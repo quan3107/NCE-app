@@ -68,6 +68,15 @@ async function relinkExercisesToRecreatedObjectives(
   );
 }
 
+async function findCurrentAuthoredLesson(
+  lessonId: string,
+  actor: RequestActor,
+) {
+  return assertLessonFound(
+    await readWithServiceRole(actor, () => findAuthoredLesson(lessonId)),
+  );
+}
+
 export async function createNceLesson(
   rawParams: unknown,
   payload: unknown,
@@ -130,7 +139,7 @@ export async function patchNceLesson(
   if (input.unitId) {
     await assertUnitWritable(input.unitId);
   }
-  const currentLesson = assertLessonFound(await findAuthoredLesson(lessonId));
+  const currentLesson = await findCurrentAuthoredLesson(lessonId, actor);
   await assertLessonCourseWritable(currentLesson, courseId, actor);
 
   const lesson = await readWithServiceRole(actor, async () => {
@@ -173,7 +182,7 @@ export async function publishNceLesson(
 ) {
   assertAuthor(actor);
   const { lessonId, courseId } = nceLessonWriteParamsSchema.parse(rawParams);
-  const current = assertLessonFound(await findAuthoredLesson(lessonId));
+  const current = await findCurrentAuthoredLesson(lessonId, actor);
   await assertLessonCourseWritable(current, courseId, actor);
   assertPublishable(current);
 
@@ -197,7 +206,7 @@ export async function unpublishNceLesson(
 ) {
   assertAuthor(actor);
   const { lessonId, courseId } = nceLessonWriteParamsSchema.parse(rawParams);
-  const current = assertLessonFound(await findAuthoredLesson(lessonId));
+  const current = await findCurrentAuthoredLesson(lessonId, actor);
   await assertLessonCourseWritable(current, courseId, actor);
 
   const lesson = await readWithServiceRole(actor, () =>
