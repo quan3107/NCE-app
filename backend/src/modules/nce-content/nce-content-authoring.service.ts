@@ -232,7 +232,7 @@ export async function assignNceLessonsToCourse(
   const { courseId } = courseNceLessonsParamsSchema.parse(rawParams);
   const input = assignNceLessonsSchema.parse(payload);
   await assertCourseWritable(courseId, actor);
-  await assertLessonsAssignableToCourse(courseId, input);
+  await assertLessonsAssignableToCourse(courseId, input, actor);
 
   const rows = assignmentRows(courseId, input);
 
