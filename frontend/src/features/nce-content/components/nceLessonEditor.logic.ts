@@ -10,34 +10,39 @@ import type {
 } from '../types';
 
 export type ExerciseDraft = NceExerciseInput & {
+  clientId: string;
   contentText: string;
   answerKeyText: string;
   scoringConfigText: string;
 };
 
-export const emptyObjective = (index: number): NceObjectiveInput => ({
-  code: `objective-${index + 1}`,
+export const emptyObjective = (sortOrder: number): NceObjectiveInput => ({
+  code: `objective-${sortOrder}`,
   title: '',
   category: 'grammar',
   description: '',
   masteryThreshold: 80,
-  sortOrder: index + 1,
+  sortOrder,
 });
 
-export const emptyExercise = (index: number): ExerciseDraft => ({
+export const emptyExercise = (sortOrder: number, clientId: string): ExerciseDraft => ({
+  clientId,
   objectiveCode: '',
   exerciseType: 'gap_fill',
   prompt: '',
   content: { prompt: '' },
   answerKey: { answers: [] },
   scoringConfig: { points: 1 },
-  sortOrder: index + 1,
+  sortOrder,
   contentText: JSON.stringify({ prompt: '' }, null, 2),
   answerKeyText: JSON.stringify({ answers: [] }, null, 2),
   scoringConfigText: JSON.stringify({ points: 1 }, null, 2),
 });
 
 export const stringifyJson = (value: unknown) => JSON.stringify(value ?? {}, null, 2);
+
+export const stringifyNullableJson = (value: unknown) =>
+  value == null ? '' : JSON.stringify(value, null, 2);
 
 export const parseJsonObject = (
   label: string,
