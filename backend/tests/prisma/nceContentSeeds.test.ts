@@ -93,6 +93,36 @@ describe('NCE Prisma schema', () => {
     expect(migration).toMatch(
       /CREATE POLICY nce_exercises_select_published[\s\S]*?TO anon, authenticated, service_role/,
     )
+    expect(migration).toContain(
+      'GRANT SELECT (course_id) ON public.nce_lessons TO anon, authenticated, service_role',
+    )
+
+    const writableTables = [
+      'nce_lessons',
+      'nce_objectives',
+      'nce_exercises',
+      'nce_course_lesson_assignments',
+    ]
+    for (const table of writableTables) {
+      expect(migration).toContain(
+        `GRANT INSERT, UPDATE, DELETE ON public.${table} TO service_role`,
+      )
+      expect(migration).toMatch(
+        new RegExp(
+          `CREATE POLICY ${table}_service_role_insert[\\s\\S]*?FOR INSERT[\\s\\S]*?WITH CHECK \\(current_role = 'service_role'\\)`,
+        ),
+      )
+      expect(migration).toMatch(
+        new RegExp(
+          `CREATE POLICY ${table}_service_role_update[\\s\\S]*?FOR UPDATE[\\s\\S]*?USING \\(current_role = 'service_role'\\)[\\s\\S]*?WITH CHECK \\(current_role = 'service_role'\\)`,
+        ),
+      )
+      expect(migration).toMatch(
+        new RegExp(
+          `CREATE POLICY ${table}_service_role_delete[\\s\\S]*?FOR DELETE[\\s\\S]*?USING \\(current_role = 'service_role'\\)`,
+        ),
+      )
+    }
   })
 })
 
