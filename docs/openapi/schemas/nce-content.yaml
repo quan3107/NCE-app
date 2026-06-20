@@ -242,7 +242,13 @@ CourseNceLesson:
           type: string
           format: date-time
           nullable: true
-      required: [sequence, availableFrom, dueAt]
+        canEdit:
+          type: boolean
+          description: True when the current actor can edit this course-scoped lesson.
+        canPublish:
+          type: boolean
+          description: True when the current actor can publish or unpublish this course-scoped lesson.
+      required: [sequence, availableFrom, dueAt, canEdit, canPublish]
 
 NceBookListResponse:
   type: object
