@@ -59,6 +59,8 @@ test('TeacherNceLessonsPage supports draft refresh and publish state', async () 
   assert.match(source, /unpublishNceLesson/);
   assert.match(source, /publishNceLesson\(lessonId,\s*courseId\)/);
   assert.match(source, /unpublishNceLesson\(lessonId,\s*courseId\)/);
+  assert.match(source, /lesson\.canEdit/);
+  assert.match(source, /lesson\.canPublish/);
   assert.match(source, /teacher\/nce-lessons\/new\?\$\{new URLSearchParams/);
   assert.match(source, /Previous/);
   assert.match(source, /Next/);
