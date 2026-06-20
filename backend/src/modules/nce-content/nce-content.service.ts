@@ -43,6 +43,7 @@ const lessonSelect = (options: {
   includeTeacherNotes: boolean;
 }) => ({
   id: true,
+  courseId: true,
   unitId: true,
   lessonNumber: true,
   title: true,
@@ -536,12 +537,19 @@ export async function listCourseNceLessons(
   );
 
   return {
-    lessons: assignments.map((assignment) => ({
-      sequence: assignment.sequence,
-      availableFrom: assignment.availableFrom?.toISOString() ?? null,
-      dueAt: assignment.dueAt?.toISOString() ?? null,
-      ...mapNceLesson(assignment.lesson as NceLessonRow, lessonVisibility),
-    })),
+    lessons: assignments.map((assignment) => {
+      const lesson = assignment.lesson as NceLessonRow;
+      const canWriteLesson = includeAnswers && lesson.courseId === courseId;
+
+      return {
+        sequence: assignment.sequence,
+        availableFrom: assignment.availableFrom?.toISOString() ?? null,
+        dueAt: assignment.dueAt?.toISOString() ?? null,
+        canEdit: canWriteLesson,
+        canPublish: canWriteLesson,
+        ...mapNceLesson(lesson, lessonVisibility),
+      };
+    }),
     pagination: paginationResponse(query, total),
   };
 }
