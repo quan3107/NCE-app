@@ -165,6 +165,8 @@ export type CourseNceLesson = NceLesson & {
   sequence: number;
   availableFrom: string | null;
   dueAt: string | null;
+  canEdit: boolean;
+  canPublish: boolean;
 };
 
 export type NceBookListResponse = {
