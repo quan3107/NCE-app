@@ -5,7 +5,6 @@
  */
 import {
   EnrollmentRole,
-  NceExerciseType,
   NcePublishStatus,
   UserRole,
   UserStatus,
@@ -24,10 +23,13 @@ import { readWithServiceRole } from "./nce-content-authoring.persistence.js";
 type LessonWriteInput = CreateNceLessonInput | PatchNceLessonInput;
 type CourseAccess = "admin" | "owner" | "coTeacher" | "none";
 type ObjectiveReference = { id?: string; code: string };
-const courseAssignableLessonStatuses = new Set<NcePublishStatus>([
+const courseAssignableLessonStatuses = [
   NcePublishStatus.draft,
   NcePublishStatus.published,
-]);
+] as const;
+const courseAssignableLessonStatusSet = new Set<NcePublishStatus>(
+  courseAssignableLessonStatuses,
+);
 
 export function assertAuthor(actor: RequestActor): void {
   if (actor.role !== UserRole.admin && actor.role !== UserRole.teacher) {
@@ -35,26 +37,46 @@ export function assertAuthor(actor: RequestActor): void {
   }
 }
 
-function hasAnswerList(value: Record<string, unknown>): boolean {
-  const answers = value.answers ?? value.acceptedAnswers;
-  return (
-    Array.isArray(answers) &&
-    answers.some((answer) => typeof answer === "string" && answer.trim().length > 0)
-  );
+const stringAnswerKeyFields = ["correctChoiceId", "choice", "answer", "sentence"];
+const listAnswerKeyFields = [
+  "answers",
+  "acceptedAnswers",
+  "blanks",
+  "sample",
+  "accepted",
+  "rubric",
+];
+
+function hasNonBlankString(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
-function validateExerciseAnswerKey(
-  exerciseType: NceExerciseType,
-  answerKey: Record<string, unknown>,
-): void {
-  if (exerciseType === NceExerciseType.multiple_choice) {
-    if (typeof answerKey.correctChoiceId !== "string" || !answerKey.correctChoiceId.trim()) {
-      throw createHttpError(400, "NCE exercise answer key is incomplete");
-    }
-    return;
+function hasNonBlankStringList(value: unknown): boolean {
+  return Array.isArray(value) && value.some(hasNonBlankString);
+}
+
+function hasNonBlankStringMap(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
   }
 
-  if (!hasAnswerList(answerKey)) {
+  return Object.values(value).some(hasNonBlankString);
+}
+
+function hasSupportedAnswerKeyValue(answerKey: Record<string, unknown>): boolean {
+  if (stringAnswerKeyFields.some((field) => hasNonBlankString(answerKey[field]))) {
+    return true;
+  }
+
+  if (listAnswerKeyFields.some((field) => hasNonBlankStringList(answerKey[field]))) {
+    return true;
+  }
+
+  return hasNonBlankStringMap(answerKey.matches);
+}
+
+function validateExerciseAnswerKey(answerKey: Record<string, unknown>): void {
+  if (!hasSupportedAnswerKeyValue(answerKey)) {
     throw createHttpError(400, "NCE exercise answer key is incomplete");
   }
 }
@@ -75,7 +97,7 @@ export function validateLessonWrite(input: LessonWriteInput): void {
       throw createHttpError(400, "NCE exercise type and sort order must be unique");
     }
     exerciseKeys.add(exerciseKey);
-    validateExerciseAnswerKey(exercise.exerciseType, exercise.answerKey);
+    validateExerciseAnswerKey(exercise.answerKey);
   }
 }
 
@@ -131,6 +153,46 @@ export function validateCourseAssignmentWrite(input: AssignNceLessonsInput): voi
       );
     }
     sequences.add(lesson.sequence);
+  }
+}
+
+export async function assertCourseScopedAssignmentsRetained(
+  courseId: string,
+  payload: AssignNceLessonsInput,
+  actor: RequestActor,
+): Promise<void> {
+  const submittedLessonIds = new Set(
+    payload.lessons.map((lesson) => lesson.lessonId),
+  );
+  const omittedLessonFilter =
+    submittedLessonIds.size > 0
+      ? { lessonId: { notIn: [...submittedLessonIds] } }
+      : {};
+
+  const omittedCourseScopedAssignments = await readWithServiceRole(actor, () =>
+    prisma.nceCourseLessonAssignment.findMany({
+      where: {
+        courseId,
+        ...omittedLessonFilter,
+        lesson: {
+          courseId,
+          deletedAt: null,
+          status: { in: [...courseAssignableLessonStatuses] },
+          unit: {
+            deletedAt: null,
+            book: { deletedAt: null },
+          },
+        },
+      },
+      select: { lessonId: true },
+    }),
+  );
+
+  if (omittedCourseScopedAssignments.length > 0) {
+    throw createHttpError(
+      400,
+      "NCE course assignments cannot omit course-scoped lessons",
+    );
   }
 }
 
@@ -343,7 +405,7 @@ export async function assertLessonsAssignableToCourse(
     if (lesson.courseId) {
       if (
         lesson.courseId !== courseId ||
-        !courseAssignableLessonStatuses.has(lesson.status)
+        !courseAssignableLessonStatusSet.has(lesson.status)
       ) {
         throw createHttpError(403, "NCE lesson cannot be assigned to this course");
       }
