@@ -37,9 +37,10 @@ describe('NCE Prisma schema', () => {
     expect(schema).toContain('model NceObjective')
     expect(schema).toContain('model NceExercise')
     expect(schema).toContain('model NceCourseLessonAssignment')
+    expect(schema).toContain('courseId    String?')
     expect(schema).toContain('@@unique([code]')
     expect(schema).toContain('@@unique([bookId, unitNumber]')
-    expect(schema).toContain('@@unique([unitId, lessonNumber]')
+    expect(schema).toContain('@@index([courseId, unitId, lessonNumber]')
     expect(schema).toContain('@@unique([courseId, sequence]')
   })
 
@@ -65,6 +66,71 @@ describe('NCE Prisma schema', () => {
     expect(migration).toContain('CREATE POLICY nce_exercises_select_published')
     expect(migration).toContain('GRANT SELECT (')
     expect(migration).not.toContain('nce_exercises_lesson_type_sort_idx')
+  })
+
+  it('scopes teacher-authored NCE lessons without removing canonical uniqueness', () => {
+    const migration = readBackend(
+      'src/prisma/migrations/20260618162000_scope_nce_lessons_to_courses/migration.sql',
+    )
+
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS course_id')
+    expect(migration).toContain('DROP CONSTRAINT IF EXISTS nce_lessons_unit_id_lesson_number_key')
+    expect(migration).toContain('nce_lessons_global_unit_number_key')
+    expect(migration).toContain('WHERE course_id IS NULL')
+    expect(migration).toContain('nce_lessons_course_unit_number_key')
+    expect(migration).toContain('WHERE course_id IS NOT NULL')
+    expect(migration).toContain('DROP POLICY IF EXISTS nce_lessons_select_published')
+    expect(migration).toContain('DROP POLICY IF EXISTS nce_objectives_select_published')
+    expect(migration).toContain('DROP POLICY IF EXISTS nce_exercises_select_published')
+    expect(migration).toContain('course_id IS NULL')
+    expect(migration).toContain('lesson.course_id IS NULL')
+    expect(migration).toContain('nce_lessons_select_published_course_members')
+    expect(migration).toContain('nce_objectives_select_published_course_members')
+    expect(migration).toContain('nce_exercises_select_published_course_members')
+    expect(migration).toContain("current_setting('app.current_user_role', true) = 'admin'")
+    expect(migration).toContain('course.owner_teacher_id = NULLIF')
+    expect(migration).toContain('assignment.course_id = nce_lessons.course_id')
+    expect(migration).toContain('assignment.course_id = lesson.course_id')
+    expect(migration).toContain("enrollment.role_in_course IN ('teacher', 'student')")
+    expect(migration).toMatch(
+      /CREATE POLICY nce_lessons_select_published[\s\S]*?TO anon, authenticated, service_role/,
+    )
+    expect(migration).toMatch(
+      /CREATE POLICY nce_objectives_select_published[\s\S]*?TO anon, authenticated, service_role/,
+    )
+    expect(migration).toMatch(
+      /CREATE POLICY nce_exercises_select_published[\s\S]*?TO anon, authenticated, service_role/,
+    )
+    expect(migration).toContain(
+      'GRANT SELECT (course_id) ON public.nce_lessons TO anon, authenticated, service_role',
+    )
+
+    const writableTables = [
+      'nce_lessons',
+      'nce_objectives',
+      'nce_exercises',
+      'nce_course_lesson_assignments',
+    ]
+    for (const table of writableTables) {
+      expect(migration).toContain(
+        `GRANT INSERT, UPDATE, DELETE ON public.${table} TO service_role`,
+      )
+      expect(migration).toMatch(
+        new RegExp(
+          `CREATE POLICY ${table}_service_role_insert[\\s\\S]*?FOR INSERT[\\s\\S]*?WITH CHECK \\(current_role = 'service_role'\\)`,
+        ),
+      )
+      expect(migration).toMatch(
+        new RegExp(
+          `CREATE POLICY ${table}_service_role_update[\\s\\S]*?FOR UPDATE[\\s\\S]*?USING \\(current_role = 'service_role'\\)[\\s\\S]*?WITH CHECK \\(current_role = 'service_role'\\)`,
+        ),
+      )
+      expect(migration).toMatch(
+        new RegExp(
+          `CREATE POLICY ${table}_service_role_delete[\\s\\S]*?FOR DELETE[\\s\\S]*?USING \\(current_role = 'service_role'\\)`,
+        ),
+      )
+    }
   })
 })
 

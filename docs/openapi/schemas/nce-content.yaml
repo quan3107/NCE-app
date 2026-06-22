@@ -242,7 +242,13 @@ CourseNceLesson:
           type: string
           format: date-time
           nullable: true
-      required: [sequence, availableFrom, dueAt]
+        canEdit:
+          type: boolean
+          description: True when the current actor can edit this course-scoped lesson.
+        canPublish:
+          type: boolean
+          description: True when the current actor can publish or unpublish this course-scoped lesson.
+      required: [sequence, availableFrom, dueAt, canEdit, canPublish]
 
 NceBookListResponse:
   type: object
@@ -283,3 +289,161 @@ CourseNceLessonListResponse:
     pagination:
       $ref: '#/NcePagination'
   required: [lessons, pagination]
+
+NceObjectiveWrite:
+  type: object
+  properties:
+    code:
+      type: string
+    title:
+      type: string
+    category:
+      type: string
+    description:
+      type: string
+      nullable: true
+    masteryThreshold:
+      type: integer
+      minimum: 1
+      maximum: 100
+      default: 80
+    sortOrder:
+      type: integer
+      minimum: 0
+      default: 0
+  required: [code, title, category, masteryThreshold, sortOrder]
+
+NceExerciseWrite:
+  type: object
+  properties:
+    objectiveId:
+      type: string
+      format: uuid
+      nullable: true
+    objectiveCode:
+      type: string
+      description: Client-side convenience key for matching exercises to newly authored objectives.
+    exerciseType:
+      $ref: '#/NceExerciseType'
+    prompt:
+      type: string
+    content:
+      type: object
+      additionalProperties: true
+    answerKey:
+      type: object
+      additionalProperties: true
+      description: Non-empty answer object. Supported answer fields include correctChoiceId, choice, answer, sentence, answers, acceptedAnswers, blanks, sample, accepted, rubric, and matches.
+    scoringConfig:
+      type: object
+      nullable: true
+      additionalProperties: true
+    sortOrder:
+      type: integer
+      minimum: 0
+      default: 0
+  required: [exerciseType, prompt, content, answerKey, sortOrder]
+
+NceLessonCreateRequest:
+  type: object
+  properties:
+    unitId:
+      type: string
+      format: uuid
+    lessonNumber:
+      type: integer
+      minimum: 1
+    title:
+      type: string
+    lessonText:
+      type: string
+    media:
+      type: object
+      nullable: true
+      additionalProperties: true
+    teacherNotes:
+      type: string
+      nullable: true
+    sortOrder:
+      type: integer
+      minimum: 0
+      default: 0
+    objectives:
+      type: array
+      items:
+        $ref: '#/NceObjectiveWrite'
+      default: []
+    exercises:
+      type: array
+      items:
+        $ref: '#/NceExerciseWrite'
+      default: []
+  required: [unitId, lessonNumber, title, lessonText, sortOrder, objectives, exercises]
+
+NceLessonPatchRequest:
+  type: object
+  description: Same fields as create; all fields are optional for PATCH.
+  properties:
+    unitId:
+      type: string
+      format: uuid
+    lessonNumber:
+      type: integer
+      minimum: 1
+    title:
+      type: string
+    lessonText:
+      type: string
+    media:
+      type: object
+      nullable: true
+      additionalProperties: true
+    teacherNotes:
+      type: string
+      nullable: true
+    sortOrder:
+      type: integer
+      minimum: 0
+    objectives:
+      type: array
+      items:
+        $ref: '#/NceObjectiveWrite'
+    exercises:
+      type: array
+      items:
+        $ref: '#/NceExerciseWrite'
+
+CourseNceLessonAssignmentRequest:
+  type: object
+  properties:
+    lessons:
+      type: array
+      items:
+        type: object
+        properties:
+          lessonId:
+            type: string
+            format: uuid
+          sequence:
+            type: integer
+            minimum: 1
+          availableFrom:
+            type: string
+            format: date-time
+            nullable: true
+          dueAt:
+            type: string
+            format: date-time
+            nullable: true
+        required: [lessonId, sequence]
+  required: [lessons]
+
+CourseNceLessonAssignmentResponse:
+  type: object
+  properties:
+    courseId:
+      type: string
+      format: uuid
+    assignedCount:
+      type: integer
+  required: [courseId, assignedCount]

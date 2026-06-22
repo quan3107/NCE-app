@@ -12,12 +12,27 @@ function section(source: string, heading: string, nextHeading: string): string {
   return source.slice(start, end === -1 ? source.length : end);
 }
 
+function operation(source: string, heading: string, method: string, nextHeading: string): string {
+  const routeSection = section(source, heading, nextHeading);
+  const start = routeSection.indexOf(`  ${method}:`);
+
+  assert.notEqual(start, -1, `${heading}.${method} operation should exist`);
+
+  const operationBody = routeSection.slice(start + 1);
+  const nextOperation = operationBody.search(/\n  (get|post|patch|put|delete):/);
+  if (nextOperation !== -1) {
+    return routeSection.slice(start, start + 1 + nextOperation);
+  }
+
+  return routeSection.slice(start);
+}
+
 test('NCE public OpenAPI routes document optional auth for draft reads', async () => {
   const ncePath = path.resolve(
     import.meta.dirname,
     '../../docs/openapi/paths/nce-content.yaml',
   );
-  const nceYaml = await readFile(ncePath, 'utf8');
+  const nceYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
   const routeSections = [
     section(nceYaml, 'NceBooks', 'NceBookUnits'),
     section(nceYaml, 'NceBookUnits', 'NceUnitLessons'),
@@ -31,4 +46,82 @@ test('NCE public OpenAPI routes document optional auth for draft reads', async (
     assert.match(routeSection, /'403':/);
     assert.match(routeSection, /'404':/);
   }
+});
+
+test('NCE teacher write OpenAPI routes document the course scope query parameter', async () => {
+  const ncePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
+  const writeOperations = [
+    operation(nceYaml, 'NceLesson', 'patch', 'NceLessonCollection'),
+    operation(nceYaml, 'NceLessonCollection', 'post', 'NceLessonPublish'),
+    operation(nceYaml, 'NceLessonPublish', 'post', 'NceLessonUnpublish'),
+    operation(nceYaml, 'NceLessonUnpublish', 'post', 'CourseNceLessons'),
+  ];
+
+  assert.match(nceYaml, /TeacherWriteCourseId:/);
+  for (const writeOperation of writeOperations) {
+    assert.match(writeOperation, /- \$ref: '#\/components\/parameters\/TeacherWriteCourseId'/);
+  }
+});
+
+test('NCE teacher write courseId remains optional for admin global authoring', async () => {
+  const ncePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
+  const parameter = section(nceYaml, 'TeacherWriteCourseId', 'Page');
+
+  assert.doesNotMatch(parameter, /required: true/);
+});
+
+test('NCE teacher write OpenAPI routes document duplicate lesson number conflicts', async () => {
+  const ncePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
+  const writeOperations = [
+    operation(nceYaml, 'NceLesson', 'patch', 'NceLessonCollection'),
+    operation(nceYaml, 'NceLessonCollection', 'post', 'NceLessonPublish'),
+  ];
+
+  for (const writeOperation of writeOperations) {
+    assert.match(writeOperation, /'409':/);
+    assert.match(writeOperation, /Duplicate lesson number/);
+    assert.match(writeOperation, /\$ref: '\.\.\/schemas\/common\.yaml#\/ErrorResponse'/);
+  }
+});
+
+test('NCE course lesson schema exposes teacher write permissions', async () => {
+  const nceSchemaPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(nceSchemaPath, 'utf8')).replace(/\r\n/g, '\n');
+  const courseLessonSchema = section(nceYaml, 'CourseNceLesson', 'NceLessonListResponse');
+
+  assert.match(courseLessonSchema, /canEdit:/);
+  assert.match(courseLessonSchema, /canPublish:/);
+  assert.match(courseLessonSchema, /required: \[sequence, availableFrom, dueAt, canEdit, canPublish\]/);
+});
+
+test('NCE write schema documents supported answer key shapes', async () => {
+  const nceSchemaPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(nceSchemaPath, 'utf8')).replace(/\r\n/g, '\n');
+  const exerciseWriteSchema = section(nceYaml, 'NceExerciseWrite', 'NceLessonCreateRequest');
+
+  assert.match(exerciseWriteSchema, /choice/);
+  assert.match(exerciseWriteSchema, /blanks/);
+  assert.match(exerciseWriteSchema, /matches/);
+  assert.match(exerciseWriteSchema, /sample/);
+  assert.match(exerciseWriteSchema, /accepted/);
+  assert.match(exerciseWriteSchema, /sentence/);
+  assert.doesNotMatch(exerciseWriteSchema, /multiple_choice requires correctChoiceId/);
 });

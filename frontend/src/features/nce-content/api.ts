@@ -4,14 +4,19 @@
  * Why: Gives student and teacher views a typed path to published and authorized draft content.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient, type ApiClientOptions } from '@lib/apiClient';
+import { queryClient } from '@lib/queryClient';
 import type {
+  CourseNceLessonAssignmentPayload,
+  CourseNceLessonAssignmentResponse,
   CourseNceLessonListResponse,
   NceBookListResponse,
   NceLesson,
+  NceLessonPatchPayload,
   NceLessonListResponse,
+  NceLessonWritePayload,
   NceReadQuery,
   NceUnitListResponse,
 } from './types';
@@ -80,6 +85,78 @@ export const fetchCourseNceLessons = (
     params: queryParams(query),
   });
 
+const invalidateNceContent = async () => {
+  await queryClient.invalidateQueries({ queryKey: NCE_CONTENT_KEY });
+};
+
+export const createNceLesson = async (
+  payload: NceLessonWritePayload,
+  courseId?: string,
+) => {
+  const lesson = await apiClient<NceLesson, NceLessonWritePayload>('/nce/lessons', {
+    method: 'POST',
+    body: payload,
+    params: courseId ? { courseId } : undefined,
+  });
+
+  await invalidateNceContent();
+  return lesson;
+};
+
+export const patchNceLesson = async (
+  lessonId: string,
+  payload: NceLessonPatchPayload,
+  courseId?: string,
+) => {
+  const lesson = await apiClient<NceLesson, NceLessonPatchPayload>(
+    `/nce/lessons/${lessonId}`,
+    {
+      method: 'PATCH',
+      body: payload,
+      params: courseId ? { courseId } : undefined,
+    },
+  );
+
+  await invalidateNceContent();
+  return lesson;
+};
+
+export const publishNceLesson = async (lessonId: string, courseId?: string) => {
+  const lesson = await apiClient<NceLesson>(`/nce/lessons/${lessonId}/publish`, {
+    method: 'POST',
+    params: courseId ? { courseId } : undefined,
+  });
+
+  await invalidateNceContent();
+  return lesson;
+};
+
+export const unpublishNceLesson = async (lessonId: string, courseId?: string) => {
+  const lesson = await apiClient<NceLesson>(`/nce/lessons/${lessonId}/unpublish`, {
+    method: 'POST',
+    params: courseId ? { courseId } : undefined,
+  });
+
+  await invalidateNceContent();
+  return lesson;
+};
+
+export const assignCourseNceLessons = async (
+  courseId: string,
+  payload: CourseNceLessonAssignmentPayload,
+) => {
+  const response = await apiClient<
+    CourseNceLessonAssignmentResponse,
+    CourseNceLessonAssignmentPayload
+  >(`/courses/${courseId}/nce-lessons`, {
+    method: 'PUT',
+    body: payload,
+  });
+
+  await invalidateNceContent();
+  return response;
+};
+
 export function useNceBooksQuery(
   query: PublicNceReadQuery = {},
 ) {
@@ -130,5 +207,55 @@ export function useCourseNceLessonsQuery(
     queryKey: [...NCE_CONTENT_KEY, 'courses', courseId, 'lessons', query],
     queryFn: () => fetchCourseNceLessons(courseId ?? '', query),
     enabled: Boolean(courseId),
+  });
+}
+
+export function useCreateNceLessonMutation() {
+  return useMutation({
+    mutationFn: ({
+      payload,
+      courseId,
+    }: {
+      payload: NceLessonWritePayload;
+      courseId?: string;
+    }) => createNceLesson(payload, courseId),
+  });
+}
+
+export function usePatchNceLessonMutation() {
+  return useMutation({
+    mutationFn: ({
+      lessonId,
+      payload,
+      courseId,
+    }: {
+      lessonId: string;
+      payload: NceLessonPatchPayload;
+      courseId?: string;
+    }) => patchNceLesson(lessonId, payload, courseId),
+  });
+}
+
+export function usePublishNceLessonMutation() {
+  return useMutation({
+    mutationFn: ({
+      lessonId,
+      courseId,
+    }: {
+      lessonId: string;
+      courseId?: string;
+    }) => publishNceLesson(lessonId, courseId),
+  });
+}
+
+export function useUnpublishNceLessonMutation() {
+  return useMutation({
+    mutationFn: ({
+      lessonId,
+      courseId,
+    }: {
+      lessonId: string;
+      courseId?: string;
+    }) => unpublishNceLesson(lessonId, courseId),
   });
 }
