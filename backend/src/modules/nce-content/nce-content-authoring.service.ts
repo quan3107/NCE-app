@@ -3,10 +3,11 @@
  * Purpose: Implement teacher/admin NCE lesson authoring mutations.
  * Why: Keeps write workflows separate from public read visibility rules.
  */
-import { NcePublishStatus } from "../../prisma/index.js";
+import { NcePublishStatus, Prisma } from "../../prisma/index.js";
 
 import { prisma } from "../../config/prismaClient.js";
 import type { RequestActor } from "../../middleware/requestActor.js";
+import { createHttpError } from "../../utils/httpError.js";
 import type { NceLessonRow } from "./nce-content.mappers.js";
 import {
   assignmentRows,
@@ -21,6 +22,7 @@ import {
 import {
   assertAuthor,
   assertCreateCourseWritable,
+  assertCourseScopedAssignmentsRetained,
   validateCourseAssignmentWrite,
   validateLessonExerciseObjectiveRefs,
   assertLessonsAssignableToCourse,
@@ -39,6 +41,45 @@ import {
   nceLessonWriteParamsSchema,
   patchNceLessonSchema,
 } from "./nce-content.schema.js";
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError ||
+    (error instanceof Error && "code" in error)
+  ) && (error as { code?: unknown }).code === "P2002";
+}
+
+function isLessonNumberConstraintTarget(target: unknown): boolean {
+  if (Array.isArray(target)) {
+    return target.includes("unit_id") && target.includes("lesson_number");
+  }
+
+  if (typeof target !== "string") {
+    return false;
+  }
+
+  return (
+    target.includes("lesson_number") ||
+    target === "nce_lessons_global_unit_number_key" ||
+    target === "nce_lessons_course_unit_number_key"
+  );
+}
+
+async function withLessonNumberConflict<T>(write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (error) {
+    const target = (error as { meta?: { target?: unknown } }).meta?.target;
+    if (isUniqueConstraintError(error) && isLessonNumberConstraintTarget(target)) {
+      throw createHttpError(
+        409,
+        "NCE lesson number already exists for this unit",
+      );
+    }
+
+    throw error;
+  }
+}
 
 async function relinkExercisesToRecreatedObjectives(
   previousLesson: NceLessonRow,
@@ -93,8 +134,8 @@ export async function createNceLesson(
   await assertCreateCourseWritable(courseId, actor);
   await assertUnitWritable(input.unitId);
 
-  const lesson = await readWithServiceRole(actor, () =>
-    prisma.$transaction(async (tx) => {
+  const lesson = await withLessonNumberConflict(() =>
+    readWithServiceRole(actor, () => prisma.$transaction(async (tx) => {
       const sequence = courseId
         ? await nextCourseLessonSequence(courseId, tx)
         : null;
@@ -126,7 +167,7 @@ export async function createNceLesson(
       }
 
       return authored;
-    }),
+    })),
   );
 
   return mapAuthoredLesson(lesson as NceLessonRow);
@@ -155,8 +196,8 @@ export async function patchNceLesson(
     );
   }
 
-  const lesson = await readWithServiceRole(actor, () =>
-    prisma.$transaction(async (tx) => {
+  const lesson = await withLessonNumberConflict(() =>
+    readWithServiceRole(actor, () => prisma.$transaction(async (tx) => {
       const patched = await tx.nceLesson.update({
         where: { id: lessonId },
         data: patchLessonData(input),
@@ -186,7 +227,7 @@ export async function patchNceLesson(
         },
         select: authoredLessonSelect,
       });
-    }),
+    })),
   );
 
   return mapAuthoredLesson(lesson as NceLessonRow);
@@ -250,6 +291,7 @@ export async function assignNceLessonsToCourse(
   await assertCourseWritable(courseId, actor);
   validateCourseAssignmentWrite(input);
   await assertLessonsAssignableToCourse(courseId, input, actor);
+  await assertCourseScopedAssignmentsRetained(courseId, input, actor);
 
   const rows = assignmentRows(courseId, input);
 
