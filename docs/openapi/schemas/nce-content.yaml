@@ -333,7 +333,7 @@ NceExerciseWrite:
     answerKey:
       type: object
       additionalProperties: true
-      description: Non-empty answer object; multiple_choice requires correctChoiceId, other types require answers or acceptedAnswers.
+      description: Non-empty answer object. Supported answer fields include correctChoiceId, choice, answer, sentence, answers, acceptedAnswers, blanks, sample, accepted, rubric, and matches.
     scoringConfig:
       type: object
       nullable: true
