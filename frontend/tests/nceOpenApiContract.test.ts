@@ -78,6 +78,24 @@ test('NCE teacher write courseId remains optional for admin global authoring', a
   assert.doesNotMatch(parameter, /required: true/);
 });
 
+test('NCE teacher write OpenAPI routes document duplicate lesson number conflicts', async () => {
+  const ncePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
+  const writeOperations = [
+    operation(nceYaml, 'NceLesson', 'patch', 'NceLessonCollection'),
+    operation(nceYaml, 'NceLessonCollection', 'post', 'NceLessonPublish'),
+  ];
+
+  for (const writeOperation of writeOperations) {
+    assert.match(writeOperation, /'409':/);
+    assert.match(writeOperation, /Duplicate lesson number/);
+    assert.match(writeOperation, /\$ref: '\.\.\/schemas\/common\.yaml#\/ErrorResponse'/);
+  }
+});
+
 test('NCE course lesson schema exposes teacher write permissions', async () => {
   const nceSchemaPath = path.resolve(
     import.meta.dirname,
@@ -89,4 +107,21 @@ test('NCE course lesson schema exposes teacher write permissions', async () => {
   assert.match(courseLessonSchema, /canEdit:/);
   assert.match(courseLessonSchema, /canPublish:/);
   assert.match(courseLessonSchema, /required: \[sequence, availableFrom, dueAt, canEdit, canPublish\]/);
+});
+
+test('NCE write schema documents supported answer key shapes', async () => {
+  const nceSchemaPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/nce-content.yaml',
+  );
+  const nceYaml = (await readFile(nceSchemaPath, 'utf8')).replace(/\r\n/g, '\n');
+  const exerciseWriteSchema = section(nceYaml, 'NceExerciseWrite', 'NceLessonCreateRequest');
+
+  assert.match(exerciseWriteSchema, /choice/);
+  assert.match(exerciseWriteSchema, /blanks/);
+  assert.match(exerciseWriteSchema, /matches/);
+  assert.match(exerciseWriteSchema, /sample/);
+  assert.match(exerciseWriteSchema, /accepted/);
+  assert.match(exerciseWriteSchema, /sentence/);
+  assert.doesNotMatch(exerciseWriteSchema, /multiple_choice requires correctChoiceId/);
 });
