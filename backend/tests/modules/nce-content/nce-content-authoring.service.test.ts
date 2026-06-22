@@ -36,6 +36,7 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
       createMany: vi.fn(),
       create: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -73,6 +74,12 @@ const unitId = "44444444-4444-4444-8444-444444444444";
 const lessonId = "55555555-5555-4555-8555-555555555555";
 const courseId = "66666666-6666-4666-8666-666666666666";
 const now = new Date("2026-06-18T08:00:00.000Z");
+
+const duplicateLessonNumberError = () =>
+  Object.assign(new Error("Unique constraint failed"), {
+    code: "P2002",
+    meta: { target: ["unit_id", "lesson_number"] },
+  });
 
 const draftLesson = {
   id: lessonId,
@@ -196,6 +203,8 @@ describe("nce-content authoring service", () => {
     prisma.nceCourseLessonAssignment.createMany.mockReset();
     prisma.nceCourseLessonAssignment.create.mockReset();
     prisma.nceCourseLessonAssignment.findFirst.mockReset();
+    prisma.nceCourseLessonAssignment.findMany.mockReset();
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValue([]);
     prisma.$transaction.mockReset();
     prisma.$transaction.mockImplementation(async (write) => write(prisma));
     runWithRole.mockImplementation(async (_options, write) => write());
@@ -272,6 +281,98 @@ describe("nce-content authoring service", () => {
         },
       }),
     );
+  });
+
+  it("accepts answer key shapes used by seeded NCE content", async () => {
+    prisma.nceUnit.findFirst.mockResolvedValueOnce({
+      id: unitId,
+      deletedAt: null,
+      status: NcePublishStatus.published,
+      book: { deletedAt: null, status: NcePublishStatus.published },
+    });
+    prisma.nceLesson.create.mockResolvedValueOnce({
+      ...draftLesson,
+      exercises: [],
+    });
+    prisma.nceLesson.update.mockResolvedValueOnce(draftLesson);
+
+    await createNceLesson(
+      {},
+      {
+        ...createPayload,
+        exercises: [
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.vocabulary,
+            answerKey: {
+              matches: {
+                handbag: "a small bag",
+              },
+            },
+            sortOrder: 1,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.grammar,
+            answerKey: { blanks: ["this"] },
+            sortOrder: 2,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.listening,
+            answerKey: { choice: "Excuse me" },
+            sortOrder: 3,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.speaking,
+            answerKey: {
+              rubric: ["polite opening"],
+            },
+            sortOrder: 4,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.multiple_choice,
+            answerKey: { choice: "Yes, it is." },
+            sortOrder: 5,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.reading,
+            answerKey: { answer: "watch" },
+            sortOrder: 6,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.writing,
+            answerKey: { sample: ["Is this your pencil?", "Yes, it is."] },
+            sortOrder: 7,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.translation,
+            answerKey: { accepted: ["Is this your pencil?"] },
+            sortOrder: 8,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.dictation,
+            answerKey: { sentence: "Is this your book?" },
+            sortOrder: 9,
+          },
+          {
+            ...createPayload.exercises[0],
+            exerciseType: NceExerciseType.gap_fill,
+            answerKey: { blanks: ["Is"] },
+            sortOrder: 10,
+          },
+        ],
+      },
+      adminActor,
+    );
+
+    expect(prisma.nceLesson.create).toHaveBeenCalled();
   });
 
   it("rejects exercise objective IDs from outside the authored lesson", async () => {
@@ -644,6 +745,23 @@ describe("nce-content authoring service", () => {
     expect(result.id).toBe(lessonId);
   });
 
+  it("returns a conflict when create reuses a lesson number in the unit", async () => {
+    prisma.nceUnit.findFirst.mockResolvedValueOnce({
+      id: unitId,
+      deletedAt: null,
+      status: NcePublishStatus.published,
+      book: { deletedAt: null, status: NcePublishStatus.published },
+    });
+    prisma.nceLesson.create.mockRejectedValueOnce(duplicateLessonNumberError());
+
+    await expect(
+      createNceLesson({}, createPayload, adminActor),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "NCE lesson number already exists for this unit",
+    });
+  });
+
   it("rejects publish when a lesson has no objectives or exercises", async () => {
     prisma.nceLesson.findFirst.mockResolvedValueOnce({
       ...draftLesson,
@@ -672,6 +790,23 @@ describe("nce-content authoring service", () => {
     });
 
     expect(prisma.nceLesson.update).not.toHaveBeenCalled();
+  });
+
+  it("returns a conflict when patch reuses a lesson number in the unit", async () => {
+    allowCourseLessonWrite();
+    prisma.nceLesson.findFirst.mockResolvedValueOnce(draftLesson);
+    prisma.nceLesson.update.mockRejectedValueOnce(duplicateLessonNumberError());
+
+    await expect(
+      patchNceLesson(
+        { lessonId, courseId },
+        { lessonNumber: 1 },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "NCE lesson number already exists for this unit",
+    });
   });
 
   it.each([
@@ -1058,6 +1193,27 @@ describe("nce-content authoring service", () => {
     ).rejects.toMatchObject({
       statusCode: 403,
       message: "NCE lesson cannot be assigned to this course",
+    });
+
+    expect(prisma.nceCourseLessonAssignment.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.nceCourseLessonAssignment.createMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects assignment replacement that omits assigned course-scoped lessons", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(buildCourse());
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      { lessonId },
+    ]);
+
+    await expect(
+      assignNceLessonsToCourse(
+        { courseId },
+        { lessons: [] },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "NCE course assignments cannot omit course-scoped lessons",
     });
 
     expect(prisma.nceCourseLessonAssignment.deleteMany).not.toHaveBeenCalled();
