@@ -237,6 +237,12 @@ NceLesson:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Duplicate lesson number
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
 
@@ -279,6 +285,12 @@ NceLessonCollection:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: Parent unit not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Duplicate lesson number
         content:
           application/json:
             schema:
