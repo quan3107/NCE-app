@@ -506,6 +506,50 @@ describe("nce-attempts.service", () => {
     );
   });
 
+  it("uses seeded max scores and punctuation-optional dictation answers", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: { answer: "Is this your book" },
+      exercise: {
+        ...exercise,
+        exerciseType: NceExerciseType.dictation,
+        answerKey: { sentence: "Is this your book?" },
+        scoringConfig: { maxScore: 3, punctuationOptional: true },
+      },
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      score: 3,
+      maxScore: 3,
+      feedbackJson: {
+        correct: true,
+        manualReviewRequired: false,
+      },
+      submittedAt: now,
+    });
+
+    await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 3,
+          maxScore: 3,
+          feedbackJson: expect.objectContaining({
+            correct: true,
+            manualReviewRequired: false,
+          }),
+        }),
+      }),
+    );
+  });
+
   it("stores open-ended responses for manual review without pretending to score", async () => {
     prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
       ...draftAttempt,
