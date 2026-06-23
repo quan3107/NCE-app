@@ -594,6 +594,22 @@ export async function submitNceAttempt(
     throw createHttpError(404, "NCE attempt not found");
   }
 
+  const assignment = await readWithServiceRole(actor, () =>
+    prisma.nceCourseLessonAssignment.findFirst({
+      where: {
+        courseId: attempt.courseId,
+        lessonId: attempt.lessonId,
+        ...availableAssignmentWhere(),
+        lesson: lessonContentWhere(),
+      },
+      select: { courseId: true, lessonId: true },
+    }),
+  );
+
+  if (!assignment) {
+    throw createHttpError(404, "NCE lesson assignment not found");
+  }
+
   const scored = scoreAttempt(attempt.exercise, attempt.response);
   const submitted = await readWithServiceRole(actor, () =>
     prisma.nceExerciseAttempt.update({
@@ -633,6 +649,26 @@ export async function completeNceLesson(
 
   if (!assignment) {
     throw createHttpError(404, "NCE lesson assignment not found");
+  }
+
+  const [exerciseCount, submittedAttemptCount] = await readWithServiceRole(actor, () =>
+    Promise.all([
+      prisma.nceExercise.count({
+        where: { lessonId },
+      }),
+      prisma.nceExerciseAttempt.count({
+        where: {
+          courseId,
+          lessonId,
+          studentId: actor.id,
+          status: NceAttemptStatus.submitted,
+        },
+      }),
+    ]),
+  );
+
+  if (submittedAttemptCount < exerciseCount) {
+    throw createHttpError(400, "Submit all NCE exercise attempts before completing the lesson");
   }
 
   const progress = await readWithServiceRole(actor, () =>
