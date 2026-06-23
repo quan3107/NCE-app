@@ -184,6 +184,19 @@ const lateLessonPathPayload = {
   pagination: { page: 2, pageSize: 100, total: 101 },
 };
 
+const boundaryLessonPathPayload = {
+  lessons: [
+    {
+      ...pathPayload.lessons[0],
+      id: 'lesson-100',
+      lessonNumber: 100,
+      title: 'The boundary lesson',
+      exercises: [],
+    },
+  ],
+  pagination: { page: 1, pageSize: 100, total: 101 },
+};
+
 test('StudentNcePathPage opens an assigned lesson from a course path', async () => {
   const user = userEvent.setup();
   const originalFetch = globalThis.fetch;
@@ -472,6 +485,52 @@ test('StudentNceLessonPage finds lessons beyond the first path page', async () =
     );
 
     await screen.findByRole('heading', { name: 'A late assigned lesson' });
+    assert.deepEqual(requestedPages, [1, 2]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage keeps next lesson navigation across path pages', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const requestedPages: number[] = [];
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+
+    if (url.includes('/nce-path')) {
+      const requestUrl = new URL(url, 'http://localhost');
+      const page = Number(requestUrl.searchParams.get('page') ?? '1');
+      requestedPages.push(page);
+
+      if (page === 1) {
+        return new Response(JSON.stringify(boundaryLessonPathPayload), {
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify(lateLessonPathPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-100',
+    );
+
+    await screen.findByRole('heading', { name: 'The boundary lesson' });
+    await user.click(await screen.findByRole('button', { name: /next lesson/i }));
+
+    assert.equal(
+      screen.getByTestId('location').textContent,
+      '/student/nce/courses/course-1/lessons/lesson-101',
+    );
     assert.deepEqual(requestedPages, [1, 2]);
   } finally {
     globalThis.fetch = originalFetch;
