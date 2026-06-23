@@ -19,7 +19,7 @@ import {
   useStudentNcePathQuery,
   useSubmitNceAttemptMutation,
 } from '../api';
-import type { NceAttempt } from '../types';
+import type { NceAttempt, StudentNcePathLesson } from '../types';
 import { NceExerciseAttempt } from './NceExerciseAttempt';
 
 type AnswerByExercise = Record<string, string>;
@@ -32,6 +32,7 @@ export function StudentNceLessonPage() {
   }>();
   const { navigate } = useRouter();
   const [pathPage, setPathPage] = useState(1);
+  const [loadedLessons, setLoadedLessons] = useState<StudentNcePathLesson[]>([]);
   const pathQuery = useStudentNcePathQuery(courseId || undefined, {
     page: pathPage,
     pageSize: 100,
@@ -42,7 +43,7 @@ export function StudentNceLessonPage() {
   const [answers, setAnswers] = useState<AnswerByExercise>({});
   const [attempts, setAttempts] = useState<AttemptByExercise>({});
   const [completed, setCompleted] = useState(false);
-  const lessons = pathQuery.data?.lessons ?? [];
+  const lessons = loadedLessons.length > 0 ? loadedLessons : pathQuery.data?.lessons ?? [];
   const lessonIndex = lessons.findIndex((item) => item.id === lessonId);
   const lesson = lessonIndex >= 0 ? lessons[lessonIndex] : null;
   const nextLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : undefined;
@@ -71,13 +72,37 @@ export function StudentNceLessonPage() {
 
   useEffect(() => {
     setPathPage(1);
-  }, [courseId, lessonId]);
+    setLoadedLessons([]);
+  }, [courseId]);
 
   useEffect(() => {
-    if (!pathQuery.isFetching && !lesson && hasMorePathPages) {
+    const pathData = pathQuery.data;
+    if (!pathData) {
+      return;
+    }
+
+    const pageLessons = pathData.lessons;
+    const pageNumber = pathData.pagination.page;
+    setLoadedLessons((current) => {
+      if (pageNumber === 1) {
+        return pageLessons;
+      }
+
+      const loadedIds = new Set(current.map((item) => item.id));
+      const newLessons = pageLessons.filter((item) => !loadedIds.has(item.id));
+      return [...current, ...newLessons];
+    });
+  }, [pathQuery.data]);
+
+  useEffect(() => {
+    const needsCurrentLesson = !lesson;
+    const needsNextLesson =
+      lessonIndex >= 0 && !nextLesson && lessonIndex === lessons.length - 1;
+
+    if (!pathQuery.isFetching && hasMorePathPages && (needsCurrentLesson || needsNextLesson)) {
       setPathPage((current) => current + 1);
     }
-  }, [hasMorePathPages, lesson, pathQuery.isFetching]);
+  }, [hasMorePathPages, lesson, lessonIndex, lessons.length, nextLesson, pathQuery.isFetching]);
 
   const answerForExercise = (exerciseId: string) => {
     if (answers[exerciseId] !== undefined) {
