@@ -26,6 +26,7 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
       findMany: vi.fn(),
     },
     nceExercise: {
+      count: vi.fn(),
       findFirst: vi.fn(),
     },
     nceExerciseAttempt: {
@@ -173,7 +174,7 @@ const draftAttempt = {
 
 describe("nce-attempts.service", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("returns assigned published lessons with the student's progress state", async () => {
@@ -405,6 +406,10 @@ describe("nce-attempts.service", () => {
 
   it("scores deterministic answer keys when submitting an owned draft", async () => {
     prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
     prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
       ...draftAttempt,
       status: NceAttemptStatus.submitted,
@@ -451,6 +456,10 @@ describe("nce-attempts.service", () => {
         },
       },
     });
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
     prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
       ...draftAttempt,
       status: NceAttemptStatus.submitted,
@@ -489,6 +498,10 @@ describe("nce-attempts.service", () => {
         answerKey: { rubric: ["meaning", "grammar"] },
       },
     });
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
     prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
       ...draftAttempt,
       status: NceAttemptStatus.submitted,
@@ -517,6 +530,32 @@ describe("nce-attempts.service", () => {
     );
   });
 
+  it("rejects attempt submission when the assignment is no longer available", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      submitNceAttempt({ attemptId }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "NCE lesson assignment not found",
+    });
+
+    expect(prisma.nceCourseLessonAssignment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          courseId,
+          lessonId,
+          OR: [
+            { availableFrom: null },
+            { availableFrom: { lte: expect.any(Date) } },
+          ],
+        }),
+      }),
+    );
+    expect(prisma.nceExerciseAttempt.update).not.toHaveBeenCalled();
+  });
+
   it("rejects attempt submission by a different student", async () => {
     prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(null);
 
@@ -535,6 +574,8 @@ describe("nce-attempts.service", () => {
       courseId,
       lessonId,
     });
+    prisma.nceExercise.count.mockResolvedValueOnce(1);
+    prisma.nceExerciseAttempt.count.mockResolvedValueOnce(1);
     prisma.nceLessonProgress.upsert.mockResolvedValueOnce({
       courseId,
       lessonId,
@@ -558,7 +599,34 @@ describe("nce-attempts.service", () => {
         }),
       }),
     );
+    expect(prisma.nceExerciseAttempt.count).toHaveBeenCalledWith({
+      where: {
+        courseId,
+        lessonId,
+        studentId,
+        status: NceAttemptStatus.submitted,
+      },
+    });
     expect(result.status).toBe(NceLessonProgressStatus.completed);
+  });
+
+  it("rejects completion when lesson exercises do not have submitted attempts", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExercise.count.mockResolvedValueOnce(2);
+    prisma.nceExerciseAttempt.count.mockResolvedValueOnce(1);
+
+    await expect(
+      completeNceLesson({ courseId, lessonId }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Submit all NCE exercise attempts before completing the lesson",
+    });
+
+    expect(prisma.nceLessonProgress.upsert).not.toHaveBeenCalled();
   });
 
   it("rejects completion before the assigned lesson is available", async () => {
