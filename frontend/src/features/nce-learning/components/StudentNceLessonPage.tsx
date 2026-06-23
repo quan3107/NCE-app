@@ -52,6 +52,27 @@ export function StudentNceLessonPage() {
     () => lesson?.exercises.map((exercise) => exercise.id) ?? [],
     [lesson],
   );
+  const hydratedAttempts = useMemo<AttemptByExercise>(() => {
+    const entries = lesson?.exercises
+      .filter((exercise) => exercise.latestAttempt)
+      .map((exercise) => [exercise.id, exercise.latestAttempt as NceAttempt]) ?? [];
+
+    return Object.fromEntries(entries);
+  }, [lesson]);
+  const effectiveAttempts = {
+    ...hydratedAttempts,
+    ...attempts,
+  };
+
+  const answerForExercise = (exerciseId: string) => {
+    if (answers[exerciseId] !== undefined) {
+      return answers[exerciseId];
+    }
+
+    const response = effectiveAttempts[exerciseId]?.response;
+    const value = response?.answer ?? response?.text ?? response?.value;
+    return typeof value === 'string' ? value : '';
+  };
 
   const setAnswer = (exerciseId: string, value: string) => {
     setAnswers((current) => ({ ...current, [exerciseId]: value }));
@@ -69,7 +90,7 @@ export function StudentNceLessonPage() {
   };
 
   const submit = async (exerciseId: string) => {
-    const draft = attempts[exerciseId] ?? await saveDraft(exerciseId);
+    const draft = effectiveAttempts[exerciseId] ?? await saveDraft(exerciseId);
     const submitted = await submitMutation.mutateAsync(draft.id);
     setAttempts((current) => ({ ...current, [exerciseId]: submitted }));
   };
@@ -138,8 +159,8 @@ export function StudentNceLessonPage() {
                 <NceExerciseAttempt
                   key={exercise.id}
                   exercise={exercise}
-                  answer={answers[exercise.id] ?? ''}
-                  attempt={attempts[exercise.id] ?? null}
+                  answer={answerForExercise(exercise.id)}
+                  attempt={effectiveAttempts[exercise.id] ?? null}
                   isSaving={saveDraftMutation.isPending}
                   isSubmitting={submitMutation.isPending}
                   onAnswerChange={(value) => setAnswer(exercise.id, value)}
@@ -158,7 +179,7 @@ export function StudentNceLessonPage() {
               isCompleted ||
               completeMutation.isPending ||
               (exerciseIds.length > 0 &&
-                !exerciseIds.every((exerciseId) => attempts[exerciseId]?.status === 'submitted'))
+                !exerciseIds.every((exerciseId) => effectiveAttempts[exerciseId]?.status === 'submitted'))
             }
           >
             <CheckCircle2 className="size-4" />
