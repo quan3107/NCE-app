@@ -4,7 +4,7 @@
  * Why: Students need to read lessons, save drafts, submit attempts, and move forward.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
@@ -31,8 +31,9 @@ export function StudentNceLessonPage() {
     lessonId: string;
   }>();
   const { navigate } = useRouter();
+  const [pathPage, setPathPage] = useState(1);
   const pathQuery = useStudentNcePathQuery(courseId || undefined, {
-    page: 1,
+    page: pathPage,
     pageSize: 100,
   });
   const saveDraftMutation = useSaveNceAttemptDraftMutation();
@@ -45,6 +46,10 @@ export function StudentNceLessonPage() {
   const lessonIndex = lessons.findIndex((item) => item.id === lessonId);
   const lesson = lessonIndex >= 0 ? lessons[lessonIndex] : null;
   const nextLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : undefined;
+  const paginationMeta = pathQuery.data?.pagination;
+  const hasMorePathPages = Boolean(
+    paginationMeta && paginationMeta.page * paginationMeta.pageSize < paginationMeta.total,
+  );
   const completedFromApi = lesson?.progress?.status === 'completed';
   const isCompleted = completed || completedFromApi;
   const title = lesson?.title ?? 'NCE Lesson';
@@ -64,6 +69,16 @@ export function StudentNceLessonPage() {
     ...attempts,
   };
 
+  useEffect(() => {
+    setPathPage(1);
+  }, [courseId, lessonId]);
+
+  useEffect(() => {
+    if (!pathQuery.isFetching && !lesson && hasMorePathPages) {
+      setPathPage((current) => current + 1);
+    }
+  }, [hasMorePathPages, lesson, pathQuery.isFetching]);
+
   const answerForExercise = (exerciseId: string) => {
     if (answers[exerciseId] !== undefined) {
       return answers[exerciseId];
@@ -79,7 +94,7 @@ export function StudentNceLessonPage() {
   };
 
   const saveDraft = async (exerciseId: string) => {
-    const answer = answers[exerciseId] ?? '';
+    const answer = answerForExercise(exerciseId);
     const attempt = await saveDraftMutation.mutateAsync({
       courseId,
       exerciseId,
@@ -90,7 +105,7 @@ export function StudentNceLessonPage() {
   };
 
   const submit = async (exerciseId: string) => {
-    const draft = effectiveAttempts[exerciseId] ?? await saveDraft(exerciseId);
+    const draft = await saveDraft(exerciseId);
     const submitted = await submitMutation.mutateAsync(draft.id);
     setAttempts((current) => ({ ...current, [exerciseId]: submitted }));
   };
@@ -100,7 +115,7 @@ export function StudentNceLessonPage() {
     setCompleted(true);
   };
 
-  if (pathQuery.isLoading) {
+  if (pathQuery.isLoading || (!lesson && hasMorePathPages)) {
     return (
       <div>
         <PageHeader title="NCE Lesson" showBack />
