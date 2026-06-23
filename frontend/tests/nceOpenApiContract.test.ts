@@ -165,4 +165,19 @@ test('NCE learning OpenAPI routes document student attempts and teacher summarie
   assert.match(nceSchemaYaml, /StudentNcePathResponse:/);
   assert.match(nceSchemaYaml, /NceAttempt:/);
   assert.match(nceSchemaYaml, /NceAttemptSummaryListResponse:/);
+
+  const attemptSchema = section(nceSchemaYaml, 'NceAttempt', 'NceAttemptWriteRequest');
+  assert.match(attemptSchema, /enum: \[draft, submitted\]/);
+  assert.doesNotMatch(attemptSchema, /graded/);
+
+  const progressSchema = section(nceSchemaYaml, 'NceLessonProgress', 'StudentNcePathExercise');
+  assert.match(progressSchema, /required: \[status, startedAt, completedAt, updatedAt\]/);
+  assert.match(progressSchema, /enum: \[in_progress, completed\]/);
+  assert.match(progressSchema, /startedAt:/);
+  assert.doesNotMatch(progressSchema, /not_started/);
+
+  const summarySchema = section(nceSchemaYaml, 'NceAttemptSummary', 'NceAttemptSummaryListResponse');
+  assert.match(summarySchema, /fullName:/);
+  assert.doesNotMatch(summarySchema, /\$ref: '#\/NceAttempt'/);
+  assert.doesNotMatch(summarySchema, /response:/);
 });
