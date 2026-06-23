@@ -83,6 +83,12 @@ const TeacherNceLessonEditorPage = lazy(() =>
 const TeacherNceLessonsPage = lazy(() =>
   import('@features/nce-content/components/TeacherNceLessonsPage').then((module) => ({ default: module.TeacherNceLessonsPage })),
 );
+const StudentNceLessonPage = lazy(() =>
+  import('@features/nce-learning/components/StudentNceLessonPage').then((module) => ({ default: module.StudentNceLessonPage })),
+);
+const StudentNcePathPage = lazy(() =>
+  import('@features/nce-learning/components/StudentNcePathPage').then((module) => ({ default: module.StudentNcePathPage })),
+);
 const StudentGradesPage = lazy(() =>
   import('@features/grades/components/StudentGradesPage').then((module) => ({ default: module.StudentGradesPage })),
 );
@@ -280,6 +286,8 @@ export function AppRoutes() {
           <Route path="student/dashboard" element={<DashboardStudentRoute />} />
           <Route path="student/assignments" element={<StudentAssignmentsPage />} />
           <Route path="student/assignments/:assignmentId" element={<StudentAssignmentDetailWrapper />} />
+          <Route path="student/nce" element={<StudentNcePathPage />} />
+          <Route path="student/nce/courses/:courseId/lessons/:lessonId" element={<StudentNceLessonPage />} />
           <Route path="student/grades" element={<StudentGradesPage />} />
           <Route path="student/notifications" element={<StudentNotificationsPage />} />
           <Route path="student/profile" element={<StudentProfilePage />} />
