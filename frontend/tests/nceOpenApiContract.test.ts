@@ -175,6 +175,9 @@ test('NCE learning OpenAPI routes document student attempts and teacher summarie
   assert.match(progressSchema, /enum: \[in_progress, completed\]/);
   assert.match(progressSchema, /startedAt:/);
   assert.doesNotMatch(progressSchema, /not_started/);
+  assert.doesNotMatch(nceSchemaYaml, /type:\s*['"]?null['"]?/);
+  assert.match(nceSchemaYaml, /latestAttempt:[\s\S]*nullable: true/);
+  assert.match(nceSchemaYaml, /progress:[\s\S]*nullable: true/);
 
   const summarySchema = section(nceSchemaYaml, 'NceAttemptSummary', 'NceAttemptSummaryListResponse');
   assert.match(summarySchema, /fullName:/);
