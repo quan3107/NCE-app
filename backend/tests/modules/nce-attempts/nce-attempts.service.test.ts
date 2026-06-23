@@ -406,6 +406,7 @@ describe("nce-attempts.service", () => {
 
   it("scores deterministic answer keys when submitting an owned draft", async () => {
     prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
+    prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
@@ -456,6 +457,7 @@ describe("nce-attempts.service", () => {
         },
       },
     });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
@@ -498,6 +500,7 @@ describe("nce-attempts.service", () => {
         answerKey: { rubric: ["meaning", "grammar"] },
       },
     });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
@@ -530,8 +533,35 @@ describe("nce-attempts.service", () => {
     );
   });
 
+  it("rejects attempt submission after the student is withdrawn from the course", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
+    prisma.course.findFirst.mockResolvedValueOnce({
+      ...course,
+      enrollments: [],
+    });
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      submittedAt: now,
+    });
+
+    await expect(
+      submitNceAttempt({ attemptId }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "You are not enrolled in this course",
+    });
+
+    expect(prisma.nceExerciseAttempt.update).not.toHaveBeenCalled();
+  });
+
   it("rejects attempt submission when the assignment is no longer available", async () => {
     prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
+    prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce(null);
 
     await expect(
