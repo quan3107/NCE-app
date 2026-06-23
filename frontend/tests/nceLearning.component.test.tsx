@@ -299,6 +299,13 @@ test('StudentNceLessonPage saves, submits, completes, and advances', async () =>
       screen.getByTestId('location').textContent,
       '/student/nce/courses/course-1/lessons/lesson-2',
     );
+    await screen.findByRole('heading', { name: 'Sorry, sir.' });
+    assert.equal(screen.queryByText(/lesson completed/i), null);
+    assert.equal(
+      (screen.getByRole('button', { name: /mark lesson complete/i }) as HTMLButtonElement)
+        .disabled,
+      false,
+    );
 
     assert.ok(
       requests.some((request) =>
