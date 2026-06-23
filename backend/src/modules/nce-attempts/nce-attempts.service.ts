@@ -594,6 +594,8 @@ export async function submitNceAttempt(
     throw createHttpError(404, "NCE attempt not found");
   }
 
+  await assertStudentCourseAccess(attempt.courseId, actor);
+
   const assignment = await readWithServiceRole(actor, () =>
     prisma.nceCourseLessonAssignment.findFirst({
       where: {
