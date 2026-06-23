@@ -12,6 +12,7 @@ import { afterEach, test } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { StudentNceLessonPage } from '../src/features/nce-learning/components/StudentNceLessonPage';
 import { StudentNcePathPage } from '../src/features/nce-learning/components/StudentNcePathPage';
+import { NceExerciseAttempt } from '../src/features/nce-learning/components/NceExerciseAttempt';
 
 afterEach(() => {
   cleanup();
@@ -219,6 +220,44 @@ test('StudentNcePathPage opens an assigned lesson from a course path', async () 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('NceExerciseAttempt renders student-facing exercise content', () => {
+  render(
+    <NceExerciseAttempt
+      exercise={{
+        id: 'exercise-content',
+        lessonId: 'lesson-1',
+        objectiveId: null,
+        exerciseType: 'listening',
+        prompt: 'Listen and answer.',
+        content: {
+          audioKey: 'nce/book1/lesson1/dialogue.mp3',
+          sentence: 'Is ___ your handbag?',
+          choices: ['Excuse me', 'Thank you'],
+          lines: ['Excuse me.', 'Is this your handbag?'],
+        },
+        scoringConfig: { maxScore: 1 },
+        sortOrder: 1,
+        latestAttempt: null,
+      }}
+      answer=""
+      attempt={null}
+      isSaving={false}
+      isSubmitting={false}
+      onAnswerChange={() => undefined}
+      onSaveDraft={() => undefined}
+      onSubmit={() => undefined}
+    />,
+  );
+
+  assert.match(screen.getByText('Audio').textContent ?? '', /Audio/);
+  assert.ok(screen.getByText('nce/book1/lesson1/dialogue.mp3'));
+  assert.ok(screen.getByText('Is ___ your handbag?'));
+  assert.ok(screen.getByText('Excuse me'));
+  assert.ok(screen.getByText('Thank you'));
+  assert.ok(screen.getByText('Excuse me.'));
+  assert.ok(screen.getByText('Is this your handbag?'));
 });
 
 test('StudentNceLessonPage saves, submits, and completes', async () => {
