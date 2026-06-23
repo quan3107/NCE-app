@@ -575,7 +575,7 @@ describe("nce-attempts.service", () => {
       lessonId,
     });
     prisma.nceExercise.count.mockResolvedValueOnce(1);
-    prisma.nceExerciseAttempt.count.mockResolvedValueOnce(1);
+    prisma.nceExerciseAttempt.findMany.mockResolvedValueOnce([{ exerciseId }]);
     prisma.nceLessonProgress.upsert.mockResolvedValueOnce({
       courseId,
       lessonId,
@@ -599,13 +599,15 @@ describe("nce-attempts.service", () => {
         }),
       }),
     );
-    expect(prisma.nceExerciseAttempt.count).toHaveBeenCalledWith({
+    expect(prisma.nceExerciseAttempt.findMany).toHaveBeenCalledWith({
       where: {
         courseId,
         lessonId,
         studentId,
         status: NceAttemptStatus.submitted,
       },
+      select: { exerciseId: true },
+      distinct: ["exerciseId"],
     });
     expect(result.status).toBe(NceLessonProgressStatus.completed);
   });
@@ -617,7 +619,7 @@ describe("nce-attempts.service", () => {
       lessonId,
     });
     prisma.nceExercise.count.mockResolvedValueOnce(2);
-    prisma.nceExerciseAttempt.count.mockResolvedValueOnce(1);
+    prisma.nceExerciseAttempt.findMany.mockResolvedValueOnce([{ exerciseId }]);
 
     await expect(
       completeNceLesson({ courseId, lessonId }, studentActor),
@@ -626,6 +628,31 @@ describe("nce-attempts.service", () => {
       message: "Submit all NCE exercise attempts before completing the lesson",
     });
 
+    expect(prisma.nceLessonProgress.upsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects completion when duplicate submitted attempts do not cover each exercise", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExercise.count.mockResolvedValueOnce(2);
+    prisma.nceExerciseAttempt.findMany.mockResolvedValueOnce([{ exerciseId }]);
+
+    await expect(
+      completeNceLesson({ courseId, lessonId }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Submit all NCE exercise attempts before completing the lesson",
+    });
+
+    expect(prisma.nceExerciseAttempt.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        distinct: ["exerciseId"],
+        select: { exerciseId: true },
+      }),
+    );
     expect(prisma.nceLessonProgress.upsert).not.toHaveBeenCalled();
   });
 
