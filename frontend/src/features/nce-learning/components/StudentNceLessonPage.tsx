@@ -42,7 +42,7 @@ export function StudentNceLessonPage() {
   const completeMutation = useCompleteNceLessonMutation();
   const [answers, setAnswers] = useState<AnswerByExercise>({});
   const [attempts, setAttempts] = useState<AttemptByExercise>({});
-  const [completed, setCompleted] = useState(false);
+  const [completedLessonId, setCompletedLessonId] = useState<string | null>(null);
   const lessons = loadedLessons.length > 0 ? loadedLessons : pathQuery.data?.lessons ?? [];
   const lessonIndex = lessons.findIndex((item) => item.id === lessonId);
   const lesson = lessonIndex >= 0 ? lessons[lessonIndex] : null;
@@ -52,7 +52,7 @@ export function StudentNceLessonPage() {
     paginationMeta && paginationMeta.page * paginationMeta.pageSize < paginationMeta.total,
   );
   const completedFromApi = lesson?.progress?.status === 'completed';
-  const isCompleted = completed || completedFromApi;
+  const isCompleted = completedLessonId === lessonId || completedFromApi;
   const title = lesson?.title ?? 'NCE Lesson';
   const exerciseIds = useMemo(
     () => lesson?.exercises.map((exercise) => exercise.id) ?? [],
@@ -137,7 +137,7 @@ export function StudentNceLessonPage() {
 
   const completeLesson = async () => {
     await completeMutation.mutateAsync({ courseId, lessonId });
-    setCompleted(true);
+    setCompletedLessonId(lessonId);
   };
 
   if (pathQuery.isLoading || (!lesson && hasMorePathPages)) {
