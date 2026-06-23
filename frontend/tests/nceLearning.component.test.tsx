@@ -140,6 +140,50 @@ const pathPayloadWithPersistedAttempt = {
   }),
 };
 
+const pathPayloadWithDraftAttempt = {
+  ...pathPayload,
+  lessons: pathPayload.lessons.map((lesson) => {
+    if (lesson.id !== 'lesson-1') {
+      return lesson;
+    }
+
+    return {
+      ...lesson,
+      exercises: lesson.exercises.map((exercise) => ({
+        ...exercise,
+        latestAttempt: {
+          id: 'attempt-draft',
+          courseId: 'course-1',
+          lessonId: 'lesson-1',
+          exerciseId: 'exercise-1',
+          studentId: 'student-1',
+          status: 'draft',
+          response: { answer: 'old' },
+          score: null,
+          maxScore: null,
+          feedback: null,
+          submittedAt: null,
+          createdAt: '2026-06-23T09:55:00.000Z',
+          updatedAt: '2026-06-23T09:55:00.000Z',
+        },
+      })),
+    };
+  }),
+};
+
+const lateLessonPathPayload = {
+  lessons: [
+    {
+      ...pathPayload.lessons[0],
+      id: 'lesson-101',
+      lessonNumber: 101,
+      title: 'A late assigned lesson',
+      exercises: [],
+    },
+  ],
+  pagination: { page: 2, pageSize: 100, total: 101 },
+};
+
 test('StudentNcePathPage opens an assigned lesson from a course path', async () => {
   const user = userEvent.setup();
   const originalFetch = globalThis.fetch;
@@ -308,6 +352,127 @@ test('StudentNceLessonPage hydrates persisted attempts after reload', async () =
       requests.some((request) => request.url.includes('/attempts')),
       false,
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage saves edited draft content before submitting', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; method: string; body: unknown }> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push({
+      url,
+      method: init?.method ?? 'GET',
+      body: init?.body ? JSON.parse(String(init.body)) : null,
+    });
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathPayloadWithDraftAttempt), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/attempts') && init?.method === 'POST' && !url.includes('/submit')) {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-draft',
+          status: 'draft',
+          response: { answer: 'new' },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    if (url.includes('/submit')) {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-draft',
+          status: 'submitted',
+          score: 1,
+          maxScore: 1,
+          response: { answer: 'new' },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    const answer = await screen.findByLabelText('Answer for Complete the sentence.');
+    assert.equal((answer as HTMLTextAreaElement).value, 'old');
+
+    await user.clear(answer);
+    await user.type(answer, 'new');
+    await user.click(screen.getByRole('button', { name: /submit attempt/i }));
+    await screen.findByText(/score: 1\/1/i);
+
+    const draftWriteIndex = requests.findIndex((request) =>
+      request.url.endsWith('/courses/course-1/nce-exercises/exercise-1/attempts') &&
+      request.method === 'POST',
+    );
+    const submitIndex = requests.findIndex((request) =>
+      request.url.endsWith('/nce-attempts/attempt-draft/submit') &&
+      request.method === 'POST',
+    );
+
+    assert.notEqual(draftWriteIndex, -1);
+    assert.notEqual(submitIndex, -1);
+    assert.ok(draftWriteIndex < submitIndex);
+    assert.deepEqual(requests[draftWriteIndex]?.body, { response: { answer: 'new' } });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage finds lessons beyond the first path page', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestedPages: number[] = [];
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+
+    if (url.includes('/nce-path')) {
+      const requestUrl = new URL(url, 'http://localhost');
+      const page = Number(requestUrl.searchParams.get('page') ?? '1');
+      requestedPages.push(page);
+
+      if (page === 1) {
+        return new Response(
+          JSON.stringify({
+            lessons: [],
+            pagination: { page: 1, pageSize: 100, total: 101 },
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        );
+      }
+
+      return new Response(JSON.stringify(lateLessonPathPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-101',
+    );
+
+    await screen.findByRole('heading', { name: 'A late assigned lesson' });
+    assert.deepEqual(requestedPages, [1, 2]);
   } finally {
     globalThis.fetch = originalFetch;
   }
