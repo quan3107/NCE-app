@@ -125,3 +125,44 @@ test('NCE write schema documents supported answer key shapes', async () => {
   assert.match(exerciseWriteSchema, /sentence/);
   assert.doesNotMatch(exerciseWriteSchema, /multiple_choice requires correctChoiceId/);
 });
+
+test('NCE learning OpenAPI routes document student attempts and teacher summaries', async () => {
+  const openApiPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/openapi.yaml',
+  );
+  const ncePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/nce-learning.yaml',
+  );
+  const nceSchemaPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/nce-learning.yaml',
+  );
+  const openApiYaml = (await readFile(openApiPath, 'utf8')).replace(/\r\n/g, '\n');
+  const ncePathYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
+  const nceSchemaYaml = (await readFile(nceSchemaPath, 'utf8')).replace(/\r\n/g, '\n');
+
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-path:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-exercises\/\{exerciseId\}\/attempts:/);
+  assert.match(openApiYaml, /\/api\/v1\/nce-attempts\/\{attemptId\}\/submit:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-lessons\/\{lessonId\}\/complete:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-attempts:/);
+
+  for (const heading of [
+    'StudentNcePath',
+    'CourseNceExerciseAttempts',
+    'NceAttemptSubmit',
+    'CourseNceLessonComplete',
+    'CourseNceAttemptSummaries',
+  ]) {
+    const routeSection = section(ncePathYaml, heading, 'components');
+    assert.match(routeSection, /security:\n      - BearerAuth: \[\]/);
+    assert.match(routeSection, /'401':/);
+    assert.match(routeSection, /'403':/);
+  }
+
+  assert.match(nceSchemaYaml, /StudentNcePathResponse:/);
+  assert.match(nceSchemaYaml, /NceAttempt:/);
+  assert.match(nceSchemaYaml, /NceAttemptSummaryListResponse:/);
+});
