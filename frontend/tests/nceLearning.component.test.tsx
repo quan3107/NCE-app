@@ -1,0 +1,229 @@
+/**
+ * Location: tests/nceLearning.components.test.tsx
+ * Purpose: Exercise rendered student NCE learning flows.
+ * Why: Covers path navigation, draft save, submit, completion, and next lesson behavior.
+ */
+import assert from 'node:assert/strict';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import React from 'react';
+import { afterEach, test } from 'vitest';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { StudentNceLessonPage } from '../src/features/nce-learning/components/StudentNceLessonPage';
+import { StudentNcePathPage } from '../src/features/nce-learning/components/StudentNcePathPage';
+
+afterEach(() => {
+  cleanup();
+});
+
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <output data-testid="location">
+      {location.pathname}
+      {location.search}
+    </output>
+  );
+}
+
+function renderWithProviders(element: React.ReactElement, initialEntry: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        refetchOnWindowFocus: false,
+      },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/student/nce" element={element} />
+          <Route
+            path="/student/nce/courses/:courseId/lessons/:lessonId"
+            element={element}
+          />
+        </Routes>
+        <LocationProbe />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+const pathPayload = {
+  lessons: [
+    {
+      id: 'lesson-1',
+      unitId: 'unit-1',
+      lessonNumber: 1,
+      title: 'Excuse me!',
+      lessonText: 'Excuse me! Is this your handbag?',
+      media: null,
+      sortOrder: 1,
+      status: 'published',
+      publishedAt: '2026-06-20T00:00:00.000Z',
+      createdAt: '2026-06-20T00:00:00.000Z',
+      updatedAt: '2026-06-20T00:00:00.000Z',
+      objectives: [],
+      exercises: [
+        {
+          id: 'exercise-1',
+          lessonId: 'lesson-1',
+          objectiveId: null,
+          exerciseType: 'gap_fill',
+          prompt: 'Complete the sentence.',
+          content: { sentence: 'Is ___ your handbag?' },
+          scoringConfig: { points: 1 },
+          sortOrder: 1,
+        },
+      ],
+      sequence: 1,
+      availableFrom: null,
+      dueAt: null,
+      progress: null,
+    },
+    {
+      id: 'lesson-2',
+      unitId: 'unit-1',
+      lessonNumber: 2,
+      title: 'Sorry, sir.',
+      lessonText: 'Sorry, sir. Is this your umbrella?',
+      media: null,
+      sortOrder: 2,
+      status: 'published',
+      publishedAt: '2026-06-20T00:00:00.000Z',
+      createdAt: '2026-06-20T00:00:00.000Z',
+      updatedAt: '2026-06-20T00:00:00.000Z',
+      objectives: [],
+      exercises: [],
+      sequence: 2,
+      availableFrom: null,
+      dueAt: null,
+      progress: null,
+    },
+  ],
+  pagination: { page: 1, pageSize: 20, total: 2 },
+};
+
+test('StudentNcePathPage opens an assigned lesson from a course path', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify(pathPayload), {
+      headers: { 'content-type': 'application/json' },
+    });
+
+  try {
+    renderWithProviders(<StudentNcePathPage />, '/student/nce?courseId=course-1');
+
+    await screen.findByText('Excuse me!');
+    await user.click(screen.getByRole('button', { name: /open excuse me/i }));
+
+    assert.equal(
+      screen.getByTestId('location').textContent,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage saves, submits, completes, and advances', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; method: string; body: unknown }> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push({
+      url,
+      method: init?.method ?? 'GET',
+      body: init?.body ? JSON.parse(String(init.body)) : null,
+    });
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/attempts') && init?.method === 'POST' && !url.includes('/submit')) {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-1',
+          status: 'draft',
+          response: { answer: 'this' },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    if (url.includes('/submit')) {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-1',
+          status: 'submitted',
+          score: 1,
+          maxScore: 1,
+          response: { answer: 'this' },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    if (url.includes('/complete')) {
+      return new Response(
+        JSON.stringify({
+          status: 'completed',
+          completedAt: '2026-06-23T10:00:00.000Z',
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    await screen.findByText('Complete the sentence.');
+    await user.type(screen.getByLabelText('Answer for Complete the sentence.'), 'this');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+    await screen.findByText(/draft saved/i);
+
+    await user.click(screen.getByRole('button', { name: /submit attempt/i }));
+    await screen.findByText(/score: 1\/1/i);
+
+    await user.click(screen.getByRole('button', { name: /mark lesson complete/i }));
+    await screen.findByText(/lesson completed/i);
+
+    await user.click(screen.getByRole('button', { name: /next lesson/i }));
+    assert.equal(
+      screen.getByTestId('location').textContent,
+      '/student/nce/courses/course-1/lessons/lesson-2',
+    );
+
+    assert.ok(
+      requests.some((request) =>
+        request.url.endsWith('/courses/course-1/nce-exercises/exercise-1/attempts') &&
+        request.method === 'POST',
+      ),
+    );
+    assert.ok(
+      requests.some((request) =>
+        request.url.endsWith('/nce-attempts/attempt-1/submit') &&
+        request.method === 'POST',
+      ),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
