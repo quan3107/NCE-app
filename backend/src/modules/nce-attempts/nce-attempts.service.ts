@@ -272,25 +272,36 @@ function lessonContentWhere(): Prisma.NceLessonWhereInput {
   };
 }
 
-function normalizeText(value: unknown): string | null {
+function normalizeText(value: unknown, punctuationOptional = false): string | null {
   if (typeof value !== "string") {
     return null;
   }
 
-  const normalized = value.trim().toLowerCase().replace(/\s+/g, " ");
+  let text = value.trim().toLowerCase();
+  if (punctuationOptional) {
+    text = text.replace(/[^\p{L}\p{N}\s]/gu, " ");
+  }
+
+  const normalized = text.replace(/\s+/g, " ").trim();
   return normalized === "" ? null : normalized;
 }
 
-function getResponseAnswer(response: Prisma.JsonValue): string | null {
+function getResponseAnswer(
+  response: Prisma.JsonValue,
+  punctuationOptional = false,
+): string | null {
   if (!response || typeof response !== "object" || Array.isArray(response)) {
     return null;
   }
 
   const record = response as Record<string, unknown>;
-  return normalizeText(record.answer ?? record.text ?? record.value);
+  return normalizeText(record.answer ?? record.text ?? record.value, punctuationOptional);
 }
 
-function collectExpectedAnswers(answerKey: Prisma.JsonValue): string[] {
+function collectExpectedAnswers(
+  answerKey: Prisma.JsonValue,
+  punctuationOptional = false,
+): string[] {
   if (!answerKey || typeof answerKey !== "object" || Array.isArray(answerKey)) {
     return [];
   }
@@ -322,19 +333,41 @@ function collectExpectedAnswers(answerKey: Prisma.JsonValue): string[] {
   }
 
   return values
-    .map(normalizeText)
+    .map((value) => normalizeText(value, punctuationOptional))
     .filter((value): value is string => Boolean(value));
 }
 
-function maxPoints(scoringConfig: Prisma.JsonValue | null): number {
+function positiveNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
+}
+
+function maxPoints(scoringConfig: Prisma.JsonValue | null, itemCount: number): number {
   if (!scoringConfig || typeof scoringConfig !== "object" || Array.isArray(scoringConfig)) {
     return 1;
   }
 
-  const points = (scoringConfig as Record<string, unknown>).points;
-  return typeof points === "number" && Number.isFinite(points) && points > 0
-    ? Math.round(points)
-    : 1;
+  const record = scoringConfig as Record<string, unknown>;
+  const maxScore = positiveNumber(record.maxScore);
+  if (maxScore) {
+    return Math.round(maxScore);
+  }
+
+  const points = positiveNumber(record.points);
+  if (points) {
+    return Math.round(points);
+  }
+
+  const pointsPerItem =
+    positiveNumber(record.pointsPerMatch) ?? positiveNumber(record.pointsPerBlank);
+  if (pointsPerItem) {
+    return Math.max(1, Math.round(pointsPerItem * Math.max(1, itemCount)));
+  }
+
+  return 1;
 }
 
 function scoreAttempt(
@@ -345,8 +378,17 @@ function scoreAttempt(
   },
   response: Prisma.JsonValue,
 ): ScoredResult {
-  const expectedAnswers = collectExpectedAnswers(exercise.answerKey);
-  const studentAnswer = getResponseAnswer(response);
+  const scoringConfig =
+    exercise.scoringConfig && typeof exercise.scoringConfig === "object" &&
+    !Array.isArray(exercise.scoringConfig)
+      ? (exercise.scoringConfig as Record<string, unknown>)
+      : {};
+  const punctuationOptional = scoringConfig.punctuationOptional === true;
+  const expectedAnswers = collectExpectedAnswers(
+    exercise.answerKey,
+    punctuationOptional,
+  );
+  const studentAnswer = getResponseAnswer(response, punctuationOptional);
   const canScore =
     studentAnswer &&
     expectedAnswers.length > 0 &&
@@ -364,7 +406,7 @@ function scoreAttempt(
   }
 
   const correct = expectedAnswers.includes(studentAnswer);
-  const maxScore = maxPoints(exercise.scoringConfig);
+  const maxScore = maxPoints(exercise.scoringConfig, expectedAnswers.length);
   return {
     score: correct ? maxScore : 0,
     maxScore,
