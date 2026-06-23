@@ -50,7 +50,7 @@ NceAttempt:
       format: uuid
     status:
       type: string
-      enum: [draft, submitted, graded]
+      enum: [draft, submitted]
     response:
       type: object
       additionalProperties: true
@@ -85,11 +85,14 @@ NceAttemptWriteRequest:
 
 NceLessonProgress:
   type: object
-  required: [status, completedAt, updatedAt]
+  required: [status, startedAt, completedAt, updatedAt]
   properties:
     status:
       type: string
-      enum: [not_started, in_progress, completed]
+      enum: [in_progress, completed]
+    startedAt:
+      type: string
+      format: date-time
     completedAt:
       type: string
       format: date-time
@@ -146,24 +149,92 @@ StudentNcePathResponse:
       $ref: '#/NcePagination'
 
 NceAttemptSummary:
-  allOf:
-    - $ref: '#/NceAttempt'
-    - type: object
-      required: [student]
+  type: object
+  required:
+    - id
+    - courseId
+    - lessonId
+    - exerciseId
+    - studentId
+    - status
+    - score
+    - maxScore
+    - submittedAt
+    - createdAt
+    - updatedAt
+    - student
+    - exercise
+  properties:
+    id:
+      type: string
+      format: uuid
+    courseId:
+      type: string
+      format: uuid
+    lessonId:
+      type: string
+      format: uuid
+    exerciseId:
+      type: string
+      format: uuid
+    studentId:
+      type: string
+      format: uuid
+    status:
+      type: string
+      enum: [draft, submitted]
+    score:
+      type: number
+      nullable: true
+    maxScore:
+      type: number
+      nullable: true
+    submittedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    student:
+      type: object
+      required: [id, fullName, email]
       properties:
-        student:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+    exercise:
+      type: object
+      required: [id, exerciseType, prompt, sortOrder, lesson]
+      properties:
+        id:
+          type: string
+          format: uuid
+        exerciseType:
+          type: string
+        prompt:
+          type: string
+        sortOrder:
+          type: integer
+        lesson:
           type: object
-          required: [id, name, email]
+          required: [id, title, lessonNumber]
           properties:
             id:
               type: string
               format: uuid
-            name:
+            title:
               type: string
-              nullable: true
-            email:
-              type: string
-              format: email
+            lessonNumber:
+              type: integer
 
 NceAttemptSummaryListResponse:
   type: object
