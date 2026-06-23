@@ -210,6 +210,82 @@ describe("nce-attempts.service", () => {
     });
   });
 
+  it("does not list lessons before their available date", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([]);
+    prisma.nceCourseLessonAssignment.count.mockResolvedValueOnce(0);
+
+    await listStudentNcePath({ courseId }, studentActor, {});
+
+    expect(prisma.nceCourseLessonAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { availableFrom: null },
+            { availableFrom: { lte: expect.any(Date) } },
+          ],
+        }),
+      }),
+    );
+    expect(prisma.nceCourseLessonAssignment.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        OR: [
+          { availableFrom: null },
+          { availableFrom: { lte: expect.any(Date) } },
+        ],
+      }),
+    });
+  });
+
+  it("returns the student's latest attempt with each path exercise", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        ...lessonAssignment,
+        lesson: {
+          ...lessonAssignment.lesson,
+          exercises: [
+            {
+              ...exercise,
+              attempts: [draftAttempt],
+            },
+          ],
+        },
+      },
+    ]);
+    prisma.nceCourseLessonAssignment.count.mockResolvedValueOnce(1);
+
+    const result = await listStudentNcePath({ courseId }, studentActor, {});
+
+    expect(prisma.nceCourseLessonAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          lesson: expect.objectContaining({
+            select: expect.objectContaining({
+              exercises: expect.objectContaining({
+                select: expect.objectContaining({
+                  attempts: expect.objectContaining({
+                    where: { courseId, studentId },
+                    orderBy: { updatedAt: "desc" },
+                    take: 1,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(result.lessons[0]?.exercises[0]).toMatchObject({
+      id: exerciseId,
+      latestAttempt: {
+        id: attemptId,
+        status: NceAttemptStatus.draft,
+        response: { answer: "this" },
+      },
+    });
+  });
+
   it("rejects another student before reading a course path", async () => {
     prisma.course.findFirst.mockResolvedValueOnce(course);
 
@@ -257,6 +333,41 @@ describe("nce-attempts.service", () => {
       }),
     );
     expect(result.status).toBe(NceAttemptStatus.draft);
+  });
+
+  it("rejects draft attempts before the assigned lesson is available", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceExercise.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      createOrUpdateNceAttempt(
+        { courseId, exerciseId },
+        { response: { answer: "this" } },
+        studentActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "NCE exercise not found",
+    });
+
+    expect(prisma.nceExercise.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          lesson: expect.objectContaining({
+            courseAssignments: {
+              some: expect.objectContaining({
+                courseId,
+                OR: [
+                  { availableFrom: null },
+                  { availableFrom: { lte: expect.any(Date) } },
+                ],
+              }),
+            },
+          }),
+        }),
+      }),
+    );
+    expect(prisma.nceExerciseAttempt.create).not.toHaveBeenCalled();
   });
 
   it("updates the existing draft instead of overwriting submitted attempts", async () => {
@@ -324,6 +435,48 @@ describe("nce-attempts.service", () => {
       score: 1,
       maxScore: 1,
     });
+  });
+
+  it("scores accepted answer key aliases used by NCE authoring", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: { answer: "umbrella" },
+      exercise: {
+        ...exercise,
+        exerciseType: NceExerciseType.multiple_choice,
+        answerKey: {
+          correctChoiceId: "choice-a",
+          acceptedAnswers: ["umbrella"],
+          sample: "umbrella",
+        },
+      },
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      score: 1,
+      maxScore: 1,
+      feedbackJson: {
+        correct: true,
+        manualReviewRequired: false,
+      },
+      submittedAt: now,
+    });
+
+    await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 1,
+          maxScore: 1,
+          feedbackJson: expect.objectContaining({
+            correct: true,
+            manualReviewRequired: false,
+          }),
+        }),
+      }),
+    );
   });
 
   it("stores open-ended responses for manual review without pretending to score", async () => {
@@ -406,6 +559,32 @@ describe("nce-attempts.service", () => {
       }),
     );
     expect(result.status).toBe(NceLessonProgressStatus.completed);
+  });
+
+  it("rejects completion before the assigned lesson is available", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      completeNceLesson({ courseId, lessonId }, studentActor),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "NCE lesson assignment not found",
+    });
+
+    expect(prisma.nceCourseLessonAssignment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          courseId,
+          lessonId,
+          OR: [
+            { availableFrom: null },
+            { availableFrom: { lte: expect.any(Date) } },
+          ],
+        }),
+      }),
+    );
+    expect(prisma.nceLessonProgress.upsert).not.toHaveBeenCalled();
   });
 
   it("returns teacher attempt summaries without response payloads", async () => {
