@@ -22,14 +22,6 @@ export type NceLessonProgressRow = {
   updatedAt: Date;
 };
 
-export type NcePathAssignmentRow = {
-  sequence: number;
-  availableFrom: DateLike;
-  dueAt: DateLike;
-  lesson: NceLessonRow;
-  progress?: NceLessonProgressRow[];
-};
-
 export type NceExerciseAttemptRow = {
   id: string;
   courseId: string;
@@ -44,6 +36,22 @@ export type NceExerciseAttemptRow = {
   submittedAt: DateLike;
   createdAt: Date;
   updatedAt: Date;
+};
+
+type NcePathExerciseRow = NonNullable<NceLessonRow["exercises"]>[number] & {
+  attempts?: NceExerciseAttemptRow[];
+};
+
+type NcePathLessonRow = Omit<NceLessonRow, "exercises"> & {
+  exercises: NcePathExerciseRow[];
+};
+
+export type NcePathAssignmentRow = {
+  sequence: number;
+  availableFrom: DateLike;
+  dueAt: DateLike;
+  lesson: NcePathLessonRow;
+  progress?: NceLessonProgressRow[];
 };
 
 export type NceAttemptSummaryRow = Omit<NceExerciseAttemptRow, "response" | "feedbackJson"> & {
@@ -78,16 +86,30 @@ export const mapNceProgress = (progress?: NceLessonProgressRow | null) => {
   };
 };
 
-export const mapNcePathAssignment = (assignment: NcePathAssignmentRow) => ({
-  sequence: assignment.sequence,
-  availableFrom: toIso(assignment.availableFrom),
-  dueAt: toIso(assignment.dueAt),
-  progress: mapNceProgress(assignment.progress?.[0]),
-  ...mapNceLesson(assignment.lesson, {
+export const mapNcePathAssignment = (assignment: NcePathAssignmentRow) => {
+  const lesson = assignment.lesson as NcePathLessonRow;
+  const mappedLesson = mapNceLesson(lesson, {
     includeAnswers: false,
     includeTeacherNotes: false,
-  }),
-});
+  });
+
+  return {
+    sequence: assignment.sequence,
+    availableFrom: toIso(assignment.availableFrom),
+    dueAt: toIso(assignment.dueAt),
+    progress: mapNceProgress(assignment.progress?.[0]),
+    ...mappedLesson,
+    exercises: mappedLesson.exercises.map((exercise) => {
+      const source = lesson.exercises?.find((item) => item.id === exercise.id);
+      const latestAttempt = source?.attempts?.[0] ?? null;
+
+      return {
+        ...exercise,
+        latestAttempt: latestAttempt ? mapNceAttempt(latestAttempt) : null,
+      };
+    }),
+  };
+};
 
 export const mapNceAttempt = (attempt: NceExerciseAttemptRow) => ({
   id: attempt.id,
