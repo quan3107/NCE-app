@@ -336,6 +336,22 @@ describe("nce-attempts.service", () => {
     expect(result.status).toBe(NceAttemptStatus.draft);
   });
 
+  it("preserves completed lesson progress when saving a later draft", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceExercise.findFirst.mockResolvedValueOnce(exercise);
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(null);
+    prisma.nceExerciseAttempt.create.mockResolvedValueOnce(draftAttempt);
+
+    await createOrUpdateNceAttempt(
+      { courseId, exerciseId },
+      { response: { answer: "this" } },
+      studentActor,
+    );
+
+    const progressUpsert = prisma.nceLessonProgress.upsert.mock.calls[0]?.[0];
+    expect(progressUpsert?.update).not.toHaveProperty("status");
+  });
+
   it("rejects draft attempts before the assigned lesson is available", async () => {
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceExercise.findFirst.mockResolvedValueOnce(null);
