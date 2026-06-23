@@ -651,23 +651,25 @@ export async function completeNceLesson(
     throw createHttpError(404, "NCE lesson assignment not found");
   }
 
-  const [exerciseCount, submittedAttemptCount] = await readWithServiceRole(actor, () =>
+  const [exerciseCount, submittedExerciseAttempts] = await readWithServiceRole(actor, () =>
     Promise.all([
       prisma.nceExercise.count({
         where: { lessonId },
       }),
-      prisma.nceExerciseAttempt.count({
+      prisma.nceExerciseAttempt.findMany({
         where: {
           courseId,
           lessonId,
           studentId: actor.id,
           status: NceAttemptStatus.submitted,
         },
+        select: { exerciseId: true },
+        distinct: ["exerciseId"],
       }),
     ]),
   );
 
-  if (submittedAttemptCount < exerciseCount) {
+  if (submittedExerciseAttempts.length < exerciseCount) {
     throw createHttpError(400, "Submit all NCE exercise attempts before completing the lesson");
   }
 
