@@ -221,7 +221,7 @@ test('StudentNcePathPage opens an assigned lesson from a course path', async () 
   }
 });
 
-test('StudentNceLessonPage saves, submits, completes, and advances', async () => {
+test('StudentNceLessonPage saves, submits, and completes', async () => {
   const user = userEvent.setup();
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: string; method: string; body: unknown }> = [];
@@ -294,19 +294,6 @@ test('StudentNceLessonPage saves, submits, completes, and advances', async () =>
     await user.click(screen.getByRole('button', { name: /mark lesson complete/i }));
     await screen.findByText(/lesson completed/i);
 
-    await user.click(screen.getByRole('button', { name: /next lesson/i }));
-    assert.equal(
-      screen.getByTestId('location').textContent,
-      '/student/nce/courses/course-1/lessons/lesson-2',
-    );
-    await screen.findByRole('heading', { name: 'Sorry, sir.' });
-    assert.equal(screen.queryByText(/lesson completed/i), null);
-    assert.equal(
-      (screen.getByRole('button', { name: /mark lesson complete/i }) as HTMLButtonElement)
-        .disabled,
-      false,
-    );
-
     assert.ok(
       requests.some((request) =>
         request.url.endsWith('/courses/course-1/nce-exercises/exercise-1/attempts') &&
@@ -318,6 +305,68 @@ test('StudentNceLessonPage saves, submits, completes, and advances', async () =>
         request.url.endsWith('/nce-attempts/attempt-1/submit') &&
         request.method === 'POST',
       ),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage does not carry local completion to the next lesson', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const pathWithoutExercises = {
+    ...pathPayload,
+    lessons: pathPayload.lessons.map((lesson) => ({
+      ...lesson,
+      exercises: [],
+      progress: null,
+    })),
+  };
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathWithoutExercises), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/complete') && init?.method === 'POST') {
+      return new Response(
+        JSON.stringify({
+          status: 'completed',
+          completedAt: '2026-06-23T10:00:00.000Z',
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    await screen.findByRole('heading', { name: 'Excuse me!' }, { timeout: 1000 });
+    await user.click(screen.getByRole('button', { name: /mark lesson complete/i }));
+    await screen.findByText(/lesson completed/i, undefined, { timeout: 1000 });
+
+    await user.click(screen.getByRole('button', { name: /next lesson/i }));
+
+    assert.equal(
+      screen.getByTestId('location').textContent,
+      '/student/nce/courses/course-1/lessons/lesson-2',
+    );
+    await screen.findByRole('heading', { name: 'Sorry, sir.' }, { timeout: 1000 });
+    assert.equal(screen.queryByText(/lesson completed/i), null);
+    assert.equal(
+      (screen.getByRole('button', { name: /mark lesson complete/i }) as HTMLButtonElement)
+        .disabled,
+      false,
     );
   } finally {
     globalThis.fetch = originalFetch;
