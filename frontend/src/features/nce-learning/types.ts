@@ -16,20 +16,6 @@ export type NceLessonProgress = {
   updatedAt: string;
 };
 
-export type StudentNcePathLesson = CourseNceLesson & {
-  progress: NceLessonProgress | null;
-};
-
-export type StudentNcePathResponse = {
-  lessons: StudentNcePathLesson[];
-  pagination: NcePagination;
-};
-
-export type StudentNcePathQuery = {
-  page?: number;
-  pageSize?: number;
-};
-
 export type NceAttemptResponse = Record<string, unknown>;
 
 export type NceAttempt = {
@@ -52,7 +38,26 @@ export type NceAttemptDraftPayload = {
   response: NceAttemptResponse;
 };
 
+export type StudentNcePathExercise = NceExercise & {
+  latestAttempt: NceAttempt | null;
+};
+
+export type StudentNcePathLesson = Omit<CourseNceLesson, 'exercises'> & {
+  progress: NceLessonProgress | null;
+  exercises: StudentNcePathExercise[];
+};
+
+export type StudentNcePathResponse = {
+  lessons: StudentNcePathLesson[];
+  pagination: NcePagination;
+};
+
+export type StudentNcePathQuery = {
+  page?: number;
+  pageSize?: number;
+};
+
 export type NceExerciseAttemptState = {
-  exercise: NceExercise;
+  exercise: StudentNcePathExercise;
   attempt: NceAttempt | null;
 };
