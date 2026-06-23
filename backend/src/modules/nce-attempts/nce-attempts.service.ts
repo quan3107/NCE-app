@@ -523,9 +523,7 @@ export async function createOrUpdateNceAttempt(
         studentId: actor.id,
         status: NceLessonProgressStatus.in_progress,
       },
-      update: {
-        status: NceLessonProgressStatus.in_progress,
-      },
+      update: {},
     }),
   );
 
