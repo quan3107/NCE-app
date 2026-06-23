@@ -21,6 +21,64 @@ type Props = {
   onSubmit: () => void;
 };
 
+type ContentItem = {
+  label: string;
+  values: string[];
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const formatContentLabel = (key: string) => {
+  if (key === 'audioKey') {
+    return 'Audio';
+  }
+
+  return key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/^./, (letter) => letter.toUpperCase());
+};
+
+const stringifyContentValue = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (isRecord(value)) {
+    return JSON.stringify(value);
+  }
+
+  return null;
+};
+
+const toContentValues = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value
+      .map(stringifyContentValue)
+      .filter((item): item is string => Boolean(item));
+  }
+
+  const displayValue = stringifyContentValue(value);
+  return displayValue ? [displayValue] : [];
+};
+
+const getContentItems = (content: unknown): ContentItem[] => {
+  if (!isRecord(content)) {
+    return [];
+  }
+
+  return Object.entries(content)
+    .map(([key, value]) => ({
+      label: formatContentLabel(key),
+      values: toContentValues(value),
+    }))
+    .filter((item) => item.values.length > 0);
+};
+
 export function NceExerciseAttempt({
   exercise,
   answer,
@@ -36,6 +94,7 @@ export function NceExerciseAttempt({
     submitted && attempt.score !== null && attempt.maxScore !== null
       ? `Score: ${attempt.score}/${attempt.maxScore}`
       : null;
+  const contentItems = getContentItems(exercise.content);
 
   return (
     <div className="rounded-lg border bg-card/70 p-4 space-y-4">
@@ -45,6 +104,30 @@ export function NceExerciseAttempt({
           {exercise.exerciseType.replace(/_/g, ' ')}
         </p>
       </div>
+
+      {contentItems.length > 0 && (
+        <div
+          className="space-y-3 rounded-lg border border-dashed bg-background/70 p-3"
+          aria-label="Exercise material"
+        >
+          {contentItems.map((item) => (
+            <div key={item.label} className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                {item.label}
+              </p>
+              {item.values.length === 1 ? (
+                <p className="text-sm leading-6">{item.values[0]}</p>
+              ) : (
+                <ul className="list-disc space-y-1 pl-5 text-sm leading-6">
+                  {item.values.map((value) => (
+                    <li key={value}>{value}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor={`nce-answer-${exercise.id}`}>
