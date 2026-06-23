@@ -33,6 +33,8 @@ model User {
   aiFeedbackRequests AiFeedbackDraft[] @relation("AiFeedbackDraftRequester")
   aiFeedbackDecisions AiFeedbackDraft[] @relation("AiFeedbackDraftDecisionActor")
   aiObjectiveExplanationRequests AiObjectiveExplanation[] @relation("AiObjectiveExplanationRequester")
+  nceLessonProgress NceLessonProgress[]
+  nceExerciseAttempts NceExerciseAttempt[]
   createdAt     DateTime       @default(now()) @db.Timestamptz
   updatedAt     DateTime       @updatedAt @db.Timestamptz
   deletedAt     DateTime?      @db.Timestamptz
@@ -56,6 +58,8 @@ model Course {
   rubrics      Rubric[]
   nceLessons    NceLesson[]
   nceLessonAssignments NceCourseLessonAssignment[]
+  nceLessonProgress NceLessonProgress[]
+  nceExerciseAttempts NceExerciseAttempt[]
   createdAt    DateTime     @default(now()) @db.Timestamptz
   updatedAt    DateTime     @updatedAt @db.Timestamptz
   deletedAt    DateTime?    @db.Timestamptz
@@ -472,6 +476,8 @@ model NceLesson {
   objectives  NceObjective[]
   exercises   NceExercise[]
   courseAssignments NceCourseLessonAssignment[]
+  progress     NceLessonProgress[]
+  attempts     NceExerciseAttempt[]
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
@@ -512,6 +518,7 @@ model NceExercise {
   sortOrder      Int             @default(0) @map("sort_order")
   lesson         NceLesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   objective      NceObjective?   @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  attempts       NceExerciseAttempt[]
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -536,6 +543,51 @@ model NceCourseLessonAssignment {
   @@unique([courseId, sequence], map: "nce_course_lesson_course_sequence_key")
   @@index([lessonId], map: "nce_course_lesson_lesson_id_idx")
   @@map("nce_course_lesson_assignments")
+}
+
+model NceLessonProgress {
+  id          String                  @id @default(uuid()) @db.Uuid
+  courseId    String                  @map("course_id") @db.Uuid
+  lessonId    String                  @map("lesson_id") @db.Uuid
+  studentId   String                  @map("student_id") @db.Uuid
+  status      NceLessonProgressStatus @default(in_progress)
+  startedAt   DateTime                @default(now()) @map("started_at") @db.Timestamptz
+  completedAt DateTime?               @map("completed_at") @db.Timestamptz
+  course      Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson      NceLesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student     User                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([courseId, lessonId, studentId], map: "nce_lesson_progress_course_lesson_student_key")
+  @@index([studentId, status, updatedAt], map: "nce_lesson_progress_student_status_updated_idx")
+  @@index([courseId, lessonId, status], map: "nce_lesson_progress_course_lesson_status_idx")
+  @@map("nce_lesson_progress")
+}
+
+model NceExerciseAttempt {
+  id          String           @id @default(uuid()) @db.Uuid
+  courseId    String           @map("course_id") @db.Uuid
+  lessonId    String           @map("lesson_id") @db.Uuid
+  exerciseId  String           @map("exercise_id") @db.Uuid
+  studentId   String           @map("student_id") @db.Uuid
+  status      NceAttemptStatus @default(draft)
+  response    Json
+  score       Int?
+  maxScore    Int?             @map("max_score")
+  feedbackJson Json?           @map("feedback_json")
+  submittedAt DateTime?        @map("submitted_at") @db.Timestamptz
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson      NceLesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  exercise    NceExercise      @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  student     User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([courseId, studentId, status, updatedAt], map: "nce_attempts_course_student_status_updated_idx")
+  @@index([exerciseId, studentId, status], map: "nce_attempts_exercise_student_status_idx")
+  @@index([lessonId, studentId, submittedAt], map: "nce_attempts_lesson_student_submitted_idx")
+  @@map("nce_exercise_attempts")
 }
 
 enum UserRole {
@@ -652,6 +704,16 @@ enum NceExerciseType {
   dictation
   multiple_choice
   gap_fill
+}
+
+enum NceAttemptStatus {
+  draft
+  submitted
+}
+
+enum NceLessonProgressStatus {
+  in_progress
+  completed
 }
 
 // ============================================================================
