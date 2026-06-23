@@ -75,7 +75,7 @@ const fallbackByRole: Record<Role, NavigationPayload> = {
   public: { items: publicItems, permissions: [], featureFlags: {}, version: FALLBACK_VERSION },
   student: {
     items: studentItems,
-    permissions: ['dashboard:view', 'assignments:read', 'assignments:submit', 'grades:view', 'notifications:read', 'profile:view', 'profile:edit'],
+    permissions: ['dashboard:view', 'assignments:read', 'assignments:submit', 'courses:read', 'grades:view', 'notifications:read', 'profile:view', 'profile:edit'],
     featureFlags: {},
     version: FALLBACK_VERSION,
   },
