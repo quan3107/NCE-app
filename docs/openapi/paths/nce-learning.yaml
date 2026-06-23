@@ -1,0 +1,253 @@
+# File: docs/openapi/paths/nce-learning.yaml
+# Purpose: Define NCE learning OpenAPI path items.
+# Why: Documents student path, attempt, completion, and teacher summary APIs.
+
+StudentNcePath:
+  get:
+    tags: [nce-learning]
+    summary: List the student's available NCE learning path for a course
+    parameters:
+      - $ref: '#/components/parameters/CourseId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+    responses:
+      '200':
+        description: Student NCE path
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-learning.yaml#/StudentNcePathResponse'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for users outside the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseNceExerciseAttempts:
+  post:
+    tags: [nce-learning]
+    summary: Save or update a student draft attempt for an NCE exercise
+    parameters:
+      - $ref: '#/components/parameters/CourseId'
+      - in: path
+        name: exerciseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/nce-learning.yaml#/NceAttemptWriteRequest'
+    responses:
+      '200':
+        description: Draft attempt
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-learning.yaml#/NceAttempt'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for users outside the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Exercise is not assigned or available in the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+NceAttemptSubmit:
+  post:
+    tags: [nce-learning]
+    summary: Submit an NCE exercise attempt for scoring
+    parameters:
+      - in: path
+        name: attemptId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Submitted attempt
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-learning.yaml#/NceAttempt'
+      '400':
+        description: Attempt cannot be submitted
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for users outside the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Attempt not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseNceLessonComplete:
+  post:
+    tags: [nce-learning]
+    summary: Mark an available NCE lesson complete for the student
+    parameters:
+      - $ref: '#/components/parameters/CourseId'
+      - in: path
+        name: lessonId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Updated lesson progress
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-learning.yaml#/NceLessonProgress'
+      '400':
+        description: Required submitted attempts are missing
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for users outside the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Lesson is not assigned or available in the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+CourseNceAttemptSummaries:
+  get:
+    tags: [nce-learning]
+    summary: List teacher NCE attempt summaries for a course
+    parameters:
+      - $ref: '#/components/parameters/CourseId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - in: query
+        name: studentId
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: lessonId
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: NCE attempt summaries
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-learning.yaml#/NceAttemptSummaryListResponse'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for users outside the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+components:
+  parameters:
+    CourseId:
+      in: path
+      name: courseId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      in: query
+      name: pageSize
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
