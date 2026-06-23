@@ -121,6 +121,13 @@ const automaticallyScoredTypes: NceExerciseType[] = [
   NceExerciseType.reading,
 ];
 
+const availableAssignmentWhere = () => ({
+  OR: [
+    { availableFrom: null },
+    { availableFrom: { lte: new Date() } },
+  ],
+});
+
 const pagination = (query: NcePathQuery) => ({
   skip: (query.page - 1) * query.pageSize,
   take: query.pageSize,
@@ -296,7 +303,15 @@ function collectExpectedAnswers(answerKey: Prisma.JsonValue): string[] {
       values.push(...value);
     }
   }
-  for (const key of ["answer", "choice", "sentence"]) {
+  for (const key of ["acceptedAnswers", "sample"]) {
+    const value = record[key];
+    if (Array.isArray(value)) {
+      values.push(...value);
+    } else {
+      values.push(value);
+    }
+  }
+  for (const key of ["answer", "choice", "correctChoiceId", "sentence"]) {
     values.push(record[key]);
   }
 
@@ -371,6 +386,7 @@ export async function listStudentNcePath(
   const pageArgs = pagination(query);
   const where = {
     courseId,
+    ...availableAssignmentWhere(),
     lesson: lessonContentWhere(),
   };
 
@@ -385,6 +401,25 @@ export async function listStudentNcePath(
           lesson: {
             select: {
               ...lessonSelect,
+              exercises: {
+                orderBy: { sortOrder: "asc" as const },
+                select: {
+                  id: true,
+                  lessonId: true,
+                  objectiveId: true,
+                  exerciseType: true,
+                  prompt: true,
+                  content: true,
+                  answerKey: true,
+                  scoringConfig: true,
+                  sortOrder: true,
+                  attempts: {
+                    where: { courseId, studentId: actor.id },
+                    orderBy: { updatedAt: "desc" as const },
+                    take: 1,
+                  },
+                },
+              },
               progress: {
                 where: { courseId, studentId: actor.id },
                 select: {
@@ -436,7 +471,12 @@ export async function createOrUpdateNceAttempt(
       where: {
         id: exerciseId,
         lesson: {
-          courseAssignments: { some: { courseId } },
+          courseAssignments: {
+            some: {
+              courseId,
+              ...availableAssignmentWhere(),
+            },
+          },
           ...lessonContentWhere(),
         },
       },
@@ -584,6 +624,7 @@ export async function completeNceLesson(
       where: {
         courseId,
         lessonId,
+        ...availableAssignmentWhere(),
         lesson: lessonContentWhere(),
       },
       select: { courseId: true, lessonId: true },
