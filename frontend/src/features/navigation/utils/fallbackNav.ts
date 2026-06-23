@@ -44,9 +44,10 @@ const publicItems: NavigationItem[] = [
 const studentItems: NavigationItem[] = [
   n('student-dashboard', 'Dashboard', '/student/dashboard', 'layout-dashboard', 0, { requiredPermission: 'dashboard:view' }),
   n('student-assignments', 'Assignments', '/student/assignments', 'file-text', 1, { requiredPermission: 'assignments:read', badgeSource: 'assignments' }),
-  n('student-grades', 'Grades', '/student/grades', 'graduation-cap', 2, { requiredPermission: 'grades:view' }),
-  n('student-notifications', 'Notifications', '/student/notifications', 'bell', 3, { requiredPermission: 'notifications:read', badgeSource: 'notifications' }),
-  n('student-profile', 'Profile', '/student/profile', 'user', 4, { requiredPermission: 'profile:view' }),
+  n('student-nce-path', 'NCE Path', '/student/nce', 'book-open', 2, { requiredPermission: 'courses:read' }),
+  n('student-grades', 'Grades', '/student/grades', 'graduation-cap', 3, { requiredPermission: 'grades:view' }),
+  n('student-notifications', 'Notifications', '/student/notifications', 'bell', 4, { requiredPermission: 'notifications:read', badgeSource: 'notifications' }),
+  n('student-profile', 'Profile', '/student/profile', 'user', 5, { requiredPermission: 'profile:view' }),
 ];
 
 const teacherItems: NavigationItem[] = [
