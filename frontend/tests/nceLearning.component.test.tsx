@@ -78,6 +78,7 @@ const pathPayload = {
           content: { sentence: 'Is ___ your handbag?' },
           scoringConfig: { points: 1 },
           sortOrder: 1,
+          latestAttempt: null,
         },
       ],
       sequence: 1,
@@ -106,6 +107,37 @@ const pathPayload = {
     },
   ],
   pagination: { page: 1, pageSize: 20, total: 2 },
+};
+
+const pathPayloadWithPersistedAttempt = {
+  ...pathPayload,
+  lessons: pathPayload.lessons.map((lesson) => {
+    if (lesson.id !== 'lesson-1') {
+      return lesson;
+    }
+
+    return {
+      ...lesson,
+      exercises: lesson.exercises.map((exercise) => ({
+        ...exercise,
+        latestAttempt: {
+          id: 'attempt-1',
+          courseId: 'course-1',
+          lessonId: 'lesson-1',
+          exerciseId: 'exercise-1',
+          studentId: 'student-1',
+          status: 'submitted',
+          response: { answer: 'this' },
+          score: 1,
+          maxScore: 1,
+          feedback: { correct: true },
+          submittedAt: '2026-06-23T10:00:00.000Z',
+          createdAt: '2026-06-23T09:55:00.000Z',
+          updatedAt: '2026-06-23T10:00:00.000Z',
+        },
+      })),
+    };
+  }),
 };
 
 test('StudentNcePathPage opens an assigned lesson from a course path', async () => {
@@ -222,6 +254,59 @@ test('StudentNceLessonPage saves, submits, completes, and advances', async () =>
         request.url.endsWith('/nce-attempts/attempt-1/submit') &&
         request.method === 'POST',
       ),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage hydrates persisted attempts after reload', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; method: string }> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push({
+      url,
+      method: init?.method ?? 'GET',
+    });
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathPayloadWithPersistedAttempt), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/complete')) {
+      return new Response(
+        JSON.stringify({
+          status: 'completed',
+          completedAt: '2026-06-23T10:00:00.000Z',
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    const answer = await screen.findByLabelText('Answer for Complete the sentence.');
+    assert.equal((answer as HTMLTextAreaElement).value, 'this');
+    await screen.findByText(/score: 1\/1/i);
+
+    await user.click(screen.getByRole('button', { name: /mark lesson complete/i }));
+    await screen.findByText(/lesson completed/i);
+
+    assert.equal(
+      requests.some((request) => request.url.includes('/attempts')),
+      false,
     );
   } finally {
     globalThis.fetch = originalFetch;
