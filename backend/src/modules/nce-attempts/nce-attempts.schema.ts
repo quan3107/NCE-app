@@ -43,6 +43,17 @@ export const nceAttemptSummaryQuerySchema = ncePathQuerySchema.extend({
   lessonId: z.string().uuid().optional(),
 });
 
+export const nceAssetContentQuerySchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(1)
+    .max(500)
+    .refine((key) => key.startsWith("nce/") && !key.includes(".."), {
+      message: "Invalid NCE asset key.",
+    }),
+});
+
 export const nceAttemptWriteSchema = z.object({
   response: z.record(z.string(), z.unknown()),
 });
