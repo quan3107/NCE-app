@@ -49,6 +49,7 @@ const prisma = vi.mocked(prismaModule.prisma, true);
 const {
   completeNceLesson,
   createOrUpdateNceAttempt,
+  getNceAssetContentLocation,
   listStudentNcePath,
   listTeacherNceAttemptSummaries,
   submitNceAttempt,
@@ -208,6 +209,36 @@ describe("nce-attempts.service", () => {
         status: NceLessonProgressStatus.completed,
         completedAt: now.toISOString(),
       },
+    });
+  });
+
+  it("returns a playable NCE asset URL for assigned exercise audio", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        courseId,
+        lessonId,
+        lesson: {
+          exercises: [
+            {
+              content: {
+                audioKey: "nce/book1/lesson1/dialogue.mp3",
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const result = await getNceAssetContentLocation(
+      { courseId },
+      { key: "nce/book1/lesson1/dialogue.mp3" },
+      studentActor,
+    );
+
+    expect(result).toMatchObject({
+      url: "https://storage.mock/nce-assets/nce/book1/lesson1/dialogue.mp3",
+      mime: "audio/mpeg",
     });
   });
 
@@ -515,6 +546,112 @@ describe("nce-attempts.service", () => {
         exerciseType: NceExerciseType.dictation,
         answerKey: { sentence: "Is this your book?" },
         scoringConfig: { maxScore: 3, punctuationOptional: true },
+      },
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      score: 3,
+      maxScore: 3,
+      feedbackJson: {
+        correct: true,
+        manualReviewRequired: false,
+      },
+      submittedAt: now,
+    });
+
+    await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 3,
+          maxScore: 3,
+          feedbackJson: expect.objectContaining({
+            correct: true,
+            manualReviewRequired: false,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("does not award full matching credit for a single matched word", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: { answer: "handbag" },
+      exercise: {
+        ...exercise,
+        exerciseType: NceExerciseType.vocabulary,
+        answerKey: {
+          matches: {
+            handbag: "a small bag",
+            pardon: "please repeat",
+            "excuse me": "polite interruption",
+          },
+        },
+        scoringConfig: { pointsPerMatch: 1, maxScore: 3 },
+      },
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      score: 0,
+      maxScore: 3,
+      feedbackJson: {
+        correct: false,
+        manualReviewRequired: false,
+      },
+      submittedAt: now,
+    });
+
+    await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 0,
+          maxScore: 3,
+          feedbackJson: expect.objectContaining({
+            correct: false,
+            manualReviewRequired: false,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("scores seeded matching responses by submitted pairs", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: {
+        matches: {
+          handbag: "a small bag",
+          pardon: "please repeat",
+          "excuse me": "polite interruption",
+        },
+      },
+      exercise: {
+        ...exercise,
+        exerciseType: NceExerciseType.vocabulary,
+        answerKey: {
+          matches: {
+            handbag: "a small bag",
+            pardon: "please repeat",
+            "excuse me": "polite interruption",
+          },
+        },
+        scoringConfig: { pointsPerMatch: 1, maxScore: 3 },
       },
     });
     prisma.course.findFirst.mockResolvedValueOnce(course);
