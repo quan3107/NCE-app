@@ -83,6 +83,19 @@ NceAttemptWriteRequest:
       type: object
       additionalProperties: true
 
+NceAssetContent:
+  type: object
+  required: [url, mime, size]
+  properties:
+    url:
+      type: string
+      format: uri
+    mime:
+      type: string
+    size:
+      type: integer
+      minimum: 0
+
 NceLessonProgress:
   type: object
   required: [status, startedAt, completedAt, updatedAt]
