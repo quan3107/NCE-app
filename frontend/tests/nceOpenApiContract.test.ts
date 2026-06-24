@@ -144,6 +144,7 @@ test('NCE learning OpenAPI routes document student attempts and teacher summarie
   const nceSchemaYaml = (await readFile(nceSchemaPath, 'utf8')).replace(/\r\n/g, '\n');
 
   assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-path:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-assets\/content:/);
   assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-exercises\/\{exerciseId\}\/attempts:/);
   assert.match(openApiYaml, /\/api\/v1\/nce-attempts\/\{attemptId\}\/submit:/);
   assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-lessons\/\{lessonId\}\/complete:/);
@@ -151,6 +152,7 @@ test('NCE learning OpenAPI routes document student attempts and teacher summarie
 
   for (const heading of [
     'StudentNcePath',
+    'CourseNceAssetContent',
     'CourseNceExerciseAttempts',
     'NceAttemptSubmit',
     'CourseNceLessonComplete',
@@ -163,6 +165,7 @@ test('NCE learning OpenAPI routes document student attempts and teacher summarie
   }
 
   assert.match(nceSchemaYaml, /StudentNcePathResponse:/);
+  assert.match(nceSchemaYaml, /NceAssetContent:/);
   assert.match(nceSchemaYaml, /NceAttempt:/);
   assert.match(nceSchemaYaml, /NceAttemptSummaryListResponse:/);
 
