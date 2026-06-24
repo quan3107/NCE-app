@@ -19,10 +19,10 @@ import {
   useStudentNcePathQuery,
   useSubmitNceAttemptMutation,
 } from '../api';
-import type { NceAttempt, StudentNcePathLesson } from '../types';
+import type { NceAttempt, NceAttemptResponse, StudentNcePathLesson } from '../types';
 import { NceExerciseAttempt } from './NceExerciseAttempt';
 
-type AnswerByExercise = Record<string, string>;
+type ResponseByExercise = Record<string, NceAttemptResponse>;
 type AttemptByExercise = Record<string, NceAttempt>;
 
 export function StudentNceLessonPage() {
@@ -40,7 +40,7 @@ export function StudentNceLessonPage() {
   const saveDraftMutation = useSaveNceAttemptDraftMutation();
   const submitMutation = useSubmitNceAttemptMutation();
   const completeMutation = useCompleteNceLessonMutation();
-  const [answers, setAnswers] = useState<AnswerByExercise>({});
+  const [responses, setResponses] = useState<ResponseByExercise>({});
   const [attempts, setAttempts] = useState<AttemptByExercise>({});
   const [completedLessonId, setCompletedLessonId] = useState<string | null>(null);
   const lessons = loadedLessons.length > 0 ? loadedLessons : pathQuery.data?.lessons ?? [];
@@ -104,26 +104,27 @@ export function StudentNceLessonPage() {
     }
   }, [hasMorePathPages, lesson, lessonIndex, lessons.length, nextLesson, pathQuery.isFetching]);
 
-  const answerForExercise = (exerciseId: string) => {
-    if (answers[exerciseId] !== undefined) {
-      return answers[exerciseId];
+  const responseForExercise = (exerciseId: string) => {
+    if (responses[exerciseId] !== undefined) {
+      return responses[exerciseId];
     }
 
     const response = effectiveAttempts[exerciseId]?.response;
-    const value = response?.answer ?? response?.text ?? response?.value;
-    return typeof value === 'string' ? value : '';
+    return response && typeof response === 'object' && !Array.isArray(response)
+      ? response
+      : {};
   };
 
-  const setAnswer = (exerciseId: string, value: string) => {
-    setAnswers((current) => ({ ...current, [exerciseId]: value }));
+  const setResponse = (exerciseId: string, response: NceAttemptResponse) => {
+    setResponses((current) => ({ ...current, [exerciseId]: response }));
   };
 
   const saveDraft = async (exerciseId: string) => {
-    const answer = answerForExercise(exerciseId);
+    const response = responseForExercise(exerciseId);
     const attempt = await saveDraftMutation.mutateAsync({
       courseId,
       exerciseId,
-      response: { answer },
+      response,
     });
     setAttempts((current) => ({ ...current, [exerciseId]: attempt }));
     return attempt;
@@ -200,11 +201,11 @@ export function StudentNceLessonPage() {
                   key={exercise.id}
                   courseId={courseId}
                   exercise={exercise}
-                  answer={answerForExercise(exercise.id)}
+                  response={responseForExercise(exercise.id)}
                   attempt={effectiveAttempts[exercise.id] ?? null}
                   isSaving={saveDraftMutation.isPending}
                   isSubmitting={submitMutation.isPending}
-                  onAnswerChange={(value) => setAnswer(exercise.id, value)}
+                  onResponseChange={(response) => setResponse(exercise.id, response)}
                   onSaveDraft={() => void saveDraft(exercise.id)}
                   onSubmit={() => void submit(exercise.id)}
                 />
