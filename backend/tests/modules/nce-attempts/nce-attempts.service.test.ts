@@ -581,6 +581,94 @@ describe("nce-attempts.service", () => {
     );
   });
 
+  it("does not grade a single text answer as full credit for multi-blank keys", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: { answer: "this" },
+      exercise: {
+        ...exercise,
+        exerciseType: NceExerciseType.gap_fill,
+        answerKey: { blanks: ["this", "book"] },
+        scoringConfig: { pointsPerBlank: 1, maxScore: 2 },
+      },
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      score: 0,
+      maxScore: 2,
+      feedbackJson: {
+        correct: false,
+        manualReviewRequired: false,
+      },
+      submittedAt: now,
+    });
+
+    await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 0,
+          maxScore: 2,
+          feedbackJson: expect.objectContaining({
+            correct: false,
+            manualReviewRequired: false,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("scores submitted blank arrays against each expected blank", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: { blanks: ["this", "book"] },
+      exercise: {
+        ...exercise,
+        exerciseType: NceExerciseType.gap_fill,
+        answerKey: { blanks: ["this", "book"] },
+        scoringConfig: { pointsPerBlank: 1, maxScore: 2 },
+      },
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      score: 2,
+      maxScore: 2,
+      feedbackJson: {
+        correct: true,
+        manualReviewRequired: false,
+      },
+      submittedAt: now,
+    });
+
+    await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 2,
+          maxScore: 2,
+          feedbackJson: expect.objectContaining({
+            correct: true,
+            manualReviewRequired: false,
+          }),
+        }),
+      }),
+    );
+  });
+
   it("does not award full matching credit for a single matched word", async () => {
     prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
       ...draftAttempt,
@@ -622,6 +710,59 @@ describe("nce-attempts.service", () => {
         data: expect.objectContaining({
           score: 0,
           maxScore: 3,
+          feedbackJson: expect.objectContaining({
+            correct: false,
+            manualReviewRequired: false,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("does not mark rounded partial matching scores as correct", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: {
+        matches: {
+          handbag: "a small bag",
+        },
+      },
+      exercise: {
+        ...exercise,
+        exerciseType: NceExerciseType.vocabulary,
+        answerKey: {
+          matches: {
+            handbag: "a small bag",
+            pardon: "please repeat",
+          },
+        },
+        scoringConfig: { maxScore: 1 },
+      },
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      score: 0,
+      maxScore: 1,
+      feedbackJson: {
+        correct: false,
+        manualReviewRequired: false,
+      },
+      submittedAt: now,
+    });
+
+    await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 0,
+          maxScore: 1,
           feedbackJson: expect.objectContaining({
             correct: false,
             manualReviewRequired: false,
