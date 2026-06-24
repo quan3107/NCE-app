@@ -172,6 +172,31 @@ const pathPayloadWithDraftAttempt = {
   }),
 };
 
+const pathPayloadWithMatchingExercise = {
+  lessons: [
+    {
+      ...pathPayload.lessons[0],
+      exercises: [
+        {
+          id: 'exercise-match',
+          lessonId: 'lesson-1',
+          objectiveId: null,
+          exerciseType: 'vocabulary',
+          prompt: 'Match each classroom object to its meaning.',
+          content: {
+            terms: ['handbag', 'pardon'],
+            choices: ['a small bag', 'please repeat'],
+          },
+          scoringConfig: { pointsPerMatch: 1, maxScore: 2 },
+          sortOrder: 1,
+          latestAttempt: null,
+        },
+      ],
+    },
+  ],
+  pagination: { page: 1, pageSize: 20, total: 1 },
+};
+
 const lateLessonPathPayload = {
   lessons: [
     {
@@ -264,11 +289,11 @@ test('NceExerciseAttempt renders content and loads exercise audio', async () => 
           sortOrder: 1,
           latestAttempt: null,
         }}
-        answer=""
+        response={{}}
         attempt={null}
         isSaving={false}
         isSubmitting={false}
-        onAnswerChange={() => undefined}
+        onResponseChange={() => undefined}
         onSaveDraft={() => undefined}
         onSubmit={() => undefined}
       />,
@@ -289,6 +314,74 @@ test('NceExerciseAttempt renders content and loads exercise audio', async () => 
         url.includes('key=nce%2Fbook1%2Flesson1%2Fdialogue.mp3'),
       ),
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage saves matching exercise pairs', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; method: string; body: unknown }> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push({
+      url,
+      method: init?.method ?? 'GET',
+      body: init?.body ? JSON.parse(String(init.body)) : null,
+    });
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathPayloadWithMatchingExercise), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/attempts') && init?.method === 'POST') {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-match',
+          status: 'draft',
+          response: {
+            matches: {
+              handbag: 'a small bag',
+              pardon: 'please repeat',
+            },
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    await screen.findByText('Match each classroom object to its meaning.');
+    await user.selectOptions(screen.getByLabelText('Match handbag'), 'a small bag');
+    await user.selectOptions(screen.getByLabelText('Match pardon'), 'please repeat');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+    await screen.findByText(/draft saved/i);
+
+    const draftWrite = requests.find((request) =>
+      request.url.endsWith('/courses/course-1/nce-exercises/exercise-match/attempts') &&
+      request.method === 'POST',
+    );
+
+    assert.deepEqual(draftWrite?.body, {
+      response: {
+        matches: {
+          handbag: 'a small bag',
+          pardon: 'please repeat',
+        },
+      },
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
