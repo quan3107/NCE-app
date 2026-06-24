@@ -222,42 +222,76 @@ test('StudentNcePathPage opens an assigned lesson from a course path', async () 
   }
 });
 
-test('NceExerciseAttempt renders student-facing exercise content', () => {
-  render(
-    <NceExerciseAttempt
-      exercise={{
-        id: 'exercise-content',
-        lessonId: 'lesson-1',
-        objectiveId: null,
-        exerciseType: 'listening',
-        prompt: 'Listen and answer.',
-        content: {
-          audioKey: 'nce/book1/lesson1/dialogue.mp3',
-          sentence: 'Is ___ your handbag?',
-          choices: ['Excuse me', 'Thank you'],
-          lines: ['Excuse me.', 'Is this your handbag?'],
-        },
-        scoringConfig: { maxScore: 1 },
-        sortOrder: 1,
-        latestAttempt: null,
-      }}
-      answer=""
-      attempt={null}
-      isSaving={false}
-      isSubmitting={false}
-      onAnswerChange={() => undefined}
-      onSaveDraft={() => undefined}
-      onSubmit={() => undefined}
-    />,
-  );
+test('NceExerciseAttempt renders content and loads exercise audio', async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
 
-  assert.match(screen.getByText('Audio').textContent ?? '', /Audio/);
-  assert.ok(screen.getByText('nce/book1/lesson1/dialogue.mp3'));
-  assert.ok(screen.getByText('Is ___ your handbag?'));
-  assert.ok(screen.getByText('Excuse me'));
-  assert.ok(screen.getByText('Thank you'));
-  assert.ok(screen.getByText('Excuse me.'));
-  assert.ok(screen.getByText('Is this your handbag?'));
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    requests.push(url);
+
+    if (url.includes('/nce-assets/content')) {
+      return new Response(
+        JSON.stringify({
+          url: 'https://storage.mock/nce-assets/nce/book1/lesson1/dialogue.mp3',
+          mime: 'audio/mpeg',
+          size: 1234,
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <NceExerciseAttempt
+        courseId="course-1"
+        exercise={{
+          id: 'exercise-content',
+          lessonId: 'lesson-1',
+          objectiveId: null,
+          exerciseType: 'listening',
+          prompt: 'Listen and answer.',
+          content: {
+            audioKey: 'nce/book1/lesson1/dialogue.mp3',
+            sentence: 'Is ___ your handbag?',
+            choices: ['Excuse me', 'Thank you'],
+            lines: ['Excuse me.', 'Is this your handbag?'],
+          },
+          scoringConfig: { maxScore: 1 },
+          sortOrder: 1,
+          latestAttempt: null,
+        }}
+        answer=""
+        attempt={null}
+        isSaving={false}
+        isSubmitting={false}
+        onAnswerChange={() => undefined}
+        onSaveDraft={() => undefined}
+        onSubmit={() => undefined}
+      />,
+      '/student/nce',
+    );
+
+    const audio = await screen.findByLabelText('Exercise audio', {}, { timeout: 1000 });
+    assert.match((audio as HTMLAudioElement).src, /dialogue\.mp3$/);
+    assert.ok(screen.queryByText('nce/book1/lesson1/dialogue.mp3') === null);
+    assert.ok(screen.getByText('Is ___ your handbag?'));
+    assert.ok(screen.getByText('Excuse me'));
+    assert.ok(screen.getByText('Thank you'));
+    assert.ok(screen.getByText('Excuse me.'));
+    assert.ok(screen.getByText('Is this your handbag?'));
+    assert.ok(
+      requests.some((url) =>
+        url.includes('/courses/course-1/nce-assets/content') &&
+        url.includes('key=nce%2Fbook1%2Flesson1%2Fdialogue.mp3'),
+      ),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('StudentNceLessonPage saves, submits, and completes', async () => {
