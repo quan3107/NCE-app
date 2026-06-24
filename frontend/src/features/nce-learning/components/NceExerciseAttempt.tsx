@@ -8,9 +8,11 @@ import type { NceExercise } from '@features/nce-content/types';
 import { Button } from '@components/ui/button';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
+import { useNceAssetContentQuery } from '../api';
 import type { NceAttempt } from '../types';
 
 type Props = {
+  courseId: string;
   exercise: NceExercise;
   answer: string;
   attempt: NceAttempt | null;
@@ -30,10 +32,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 const formatContentLabel = (key: string) => {
-  if (key === 'audioKey') {
-    return 'Audio';
-  }
-
   return key
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/^./, (letter) => letter.toUpperCase());
@@ -72,6 +70,7 @@ const getContentItems = (content: unknown): ContentItem[] => {
   }
 
   return Object.entries(content)
+    .filter(([key]) => key !== 'audioKey')
     .map(([key, value]) => ({
       label: formatContentLabel(key),
       values: toContentValues(value),
@@ -79,7 +78,47 @@ const getContentItems = (content: unknown): ContentItem[] => {
     .filter((item) => item.values.length > 0);
 };
 
+const getAudioKey = (content: unknown) => {
+  if (!isRecord(content) || typeof content.audioKey !== 'string') {
+    return null;
+  }
+
+  const key = content.audioKey.trim();
+  return key.length > 0 ? key : null;
+};
+
+function NceExerciseAudio({
+  courseId,
+  audioKey,
+}: {
+  courseId: string;
+  audioKey: string;
+}) {
+  const contentQuery = useNceAssetContentQuery(courseId, audioKey);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+        Audio
+      </p>
+      {contentQuery.data ? (
+        <audio
+          controls
+          src={contentQuery.data.url}
+          aria-label="Exercise audio"
+          className="w-full"
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {contentQuery.isError ? 'Audio is unavailable.' : 'Loading audio...'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function NceExerciseAttempt({
+  courseId,
   exercise,
   answer,
   attempt,
@@ -95,6 +134,7 @@ export function NceExerciseAttempt({
       ? `Score: ${attempt.score}/${attempt.maxScore}`
       : null;
   const contentItems = getContentItems(exercise.content);
+  const audioKey = getAudioKey(exercise.content);
 
   return (
     <div className="rounded-lg border bg-card/70 p-4 space-y-4">
@@ -126,6 +166,12 @@ export function NceExerciseAttempt({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {audioKey && (
+        <div className="rounded-lg border border-dashed bg-background/70 p-3">
+          <NceExerciseAudio courseId={courseId} audioKey={audioKey} />
         </div>
       )}
 
