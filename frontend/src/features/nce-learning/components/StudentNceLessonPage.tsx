@@ -198,6 +198,7 @@ export function StudentNceLessonPage() {
               {lesson.exercises.map((exercise) => (
                 <NceExerciseAttempt
                   key={exercise.id}
+                  courseId={courseId}
                   exercise={exercise}
                   answer={answerForExercise(exercise.id)}
                   attempt={effectiveAttempts[exercise.id] ?? null}
