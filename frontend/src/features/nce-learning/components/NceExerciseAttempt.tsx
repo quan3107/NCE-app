@@ -9,16 +9,16 @@ import { Button } from '@components/ui/button';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import { useNceAssetContentQuery } from '../api';
-import type { NceAttempt } from '../types';
+import type { NceAttempt, NceAttemptResponse } from '../types';
 
 type Props = {
   courseId: string;
   exercise: NceExercise;
-  answer: string;
+  response: NceAttemptResponse;
   attempt: NceAttempt | null;
   isSaving: boolean;
   isSubmitting: boolean;
-  onAnswerChange: (value: string) => void;
+  onResponseChange: (response: NceAttemptResponse) => void;
   onSaveDraft: () => void;
   onSubmit: () => void;
 };
@@ -87,6 +87,42 @@ const getAudioKey = (content: unknown) => {
   return key.length > 0 ? key : null;
 };
 
+const getStringArray = (value: unknown) =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+
+const getMatchingContent = (content: unknown) => {
+  if (!isRecord(content)) {
+    return null;
+  }
+
+  const terms = getStringArray(content.terms);
+  const choices = getStringArray(content.choices);
+  if (terms.length === 0 || choices.length === 0) {
+    return null;
+  }
+
+  return { terms, choices };
+};
+
+const stringValueFromResponse = (response: NceAttemptResponse) => {
+  const value = response.answer ?? response.text ?? response.value;
+  return typeof value === 'string' ? value : '';
+};
+
+const matchesFromResponse = (response: NceAttemptResponse) => {
+  if (!isRecord(response.matches)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(response.matches).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  );
+};
+
 function NceExerciseAudio({
   courseId,
   audioKey,
@@ -120,11 +156,11 @@ function NceExerciseAudio({
 export function NceExerciseAttempt({
   courseId,
   exercise,
-  answer,
+  response,
   attempt,
   isSaving,
   isSubmitting,
-  onAnswerChange,
+  onResponseChange,
   onSaveDraft,
   onSubmit,
 }: Props) {
@@ -135,6 +171,22 @@ export function NceExerciseAttempt({
       : null;
   const contentItems = getContentItems(exercise.content);
   const audioKey = getAudioKey(exercise.content);
+  const matchingContent = getMatchingContent(exercise.content);
+  const answer = stringValueFromResponse(response);
+  const matches = matchesFromResponse(response);
+  const hasResponseContent = matchingContent
+    ? Object.values(matches).some((value) => value.trim().length > 0)
+    : answer.trim().length > 0;
+
+  const setMatch = (term: string, value: string) => {
+    onResponseChange({
+      ...response,
+      matches: {
+        ...matches,
+        [term]: value,
+      },
+    });
+  };
 
   return (
     <div className="rounded-lg border bg-card/70 p-4 space-y-4">
@@ -175,29 +227,57 @@ export function NceExerciseAttempt({
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor={`nce-answer-${exercise.id}`}>
-          Answer for {exercise.prompt}
-        </Label>
-        <Textarea
-          id={`nce-answer-${exercise.id}`}
-          value={answer}
-          onChange={(event) => onAnswerChange(event.target.value)}
-          disabled={submitted}
-        />
-      </div>
+      {matchingContent ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {matchingContent.terms.map((term) => (
+            <div key={term} className="space-y-2">
+              <Label htmlFor={`nce-match-${exercise.id}-${term}`}>
+                Match {term}
+              </Label>
+              <select
+                id={`nce-match-${exercise.id}-${term}`}
+                value={matches[term] ?? ''}
+                onChange={(event) => setMatch(term, event.target.value)}
+                disabled={submitted}
+                className="border-input bg-input-background focus-visible:border-primary/50 focus-visible:ring-primary/15 h-10 w-full rounded-[8px] border px-3 py-2 text-sm outline-none focus-visible:bg-card focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select a match</option>
+                {matchingContent.choices.map((choice) => (
+                  <option key={choice} value={choice}>
+                    {choice}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor={`nce-answer-${exercise.id}`}>
+            Answer for {exercise.prompt}
+          </Label>
+          <Textarea
+            id={`nce-answer-${exercise.id}`}
+            value={answer}
+            onChange={(event) =>
+              onResponseChange({ ...response, answer: event.target.value })
+            }
+            disabled={submitted}
+          />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
           onClick={onSaveDraft}
-          disabled={submitted || isSaving || answer.trim().length === 0}
+          disabled={submitted || isSaving || !hasResponseContent}
         >
           {isSaving ? 'Saving' : 'Save draft'}
         </Button>
         <Button
           onClick={onSubmit}
-          disabled={submitted || isSubmitting || answer.trim().length === 0}
+          disabled={submitted || isSubmitting || !hasResponseContent}
         >
           {isSubmitting ? 'Submitting' : 'Submit attempt'}
         </Button>
