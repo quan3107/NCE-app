@@ -9,6 +9,7 @@ import { createHttpError } from "../../utils/httpError.js";
 import {
   completeNceLesson,
   createOrUpdateNceAttempt,
+  getNceAssetContentLocation,
   listStudentNcePath,
   listTeacherNceAttemptSummaries,
   submitNceAttempt,
@@ -24,6 +25,11 @@ function actor(req: Request) {
 
 export async function getStudentNcePath(req: Request, res: Response): Promise<void> {
   const payload = await listStudentNcePath(req.params, actor(req), req.query);
+  res.status(200).json(payload);
+}
+
+export async function getNceAssetContent(req: Request, res: Response): Promise<void> {
+  const payload = await getNceAssetContentLocation(req.params, req.query, actor(req));
   res.status(200).json(payload);
 }
 
