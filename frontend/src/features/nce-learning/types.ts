@@ -38,6 +38,12 @@ export type NceAttemptDraftPayload = {
   response: NceAttemptResponse;
 };
 
+export type NceAssetContent = {
+  url: string;
+  mime: string;
+  size: number | null;
+};
+
 export type StudentNcePathExercise = NceExercise & {
   latestAttempt: NceAttempt | null;
 };
