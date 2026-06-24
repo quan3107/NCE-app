@@ -351,6 +351,47 @@ function getResponseMatches(
   return normalizedMatches;
 }
 
+function getExpectedBlanks(
+  answerKey: Prisma.JsonValue,
+  punctuationOptional = false,
+): string[][] {
+  const record = getRecord(answerKey);
+  const blanks = record?.blanks;
+  if (!Array.isArray(blanks)) {
+    return [];
+  }
+
+  return blanks
+    .map((blank) => {
+      const acceptedValues = Array.isArray(blank) ? blank : [blank];
+      return acceptedValues
+        .map((value) => normalizeText(value, punctuationOptional))
+        .filter((value): value is string => Boolean(value));
+    })
+    .filter((acceptedValues) => acceptedValues.length > 0);
+}
+
+function getResponseBlanks(
+  response: Prisma.JsonValue,
+  blankCount: number,
+  punctuationOptional = false,
+): Array<string | null> {
+  const record = getRecord(response);
+  if (!record) {
+    return [];
+  }
+
+  if (Array.isArray(record.blanks)) {
+    return record.blanks.map((value) => normalizeText(value, punctuationOptional));
+  }
+
+  if (blankCount === 1) {
+    return [normalizeText(record.answer ?? record.text ?? record.value, punctuationOptional)];
+  }
+
+  return [];
+}
+
 function collectExpectedAnswers(
   answerKey: Prisma.JsonValue,
   punctuationOptional = false,
@@ -361,7 +402,7 @@ function collectExpectedAnswers(
 
   const record = answerKey as Record<string, unknown>;
   const values: unknown[] = [];
-  for (const key of ["answers", "blanks", "accepted", "samples"]) {
+  for (const key of ["answers", "accepted", "samples"]) {
     const value = record[key];
     if (Array.isArray(value)) {
       values.push(...value);
@@ -417,6 +458,46 @@ function maxPoints(scoringConfig: Prisma.JsonValue | null, itemCount: number): n
   return 1;
 }
 
+function partialScore(correctCount: number, itemCount: number, maxScore: number): number {
+  if (correctCount <= 0 || itemCount <= 0) {
+    return 0;
+  }
+
+  if (correctCount >= itemCount) {
+    return maxScore;
+  }
+
+  return Math.min(maxScore - 1, Math.floor((correctCount * maxScore) / itemCount));
+}
+
+function scoreBlankAttempt(
+  expectedBlanks: string[][],
+  response: Prisma.JsonValue,
+  scoringConfig: Prisma.JsonValue | null,
+  punctuationOptional: boolean,
+): ScoredResult {
+  const responseBlanks = getResponseBlanks(
+    response,
+    expectedBlanks.length,
+    punctuationOptional,
+  );
+  const maxScore = maxPoints(scoringConfig, expectedBlanks.length);
+  const correctBlanks = expectedBlanks.filter((acceptedValues, index) => {
+    const submittedValue = responseBlanks[index];
+    return submittedValue ? acceptedValues.includes(submittedValue) : false;
+  }).length;
+  const correct = correctBlanks === expectedBlanks.length;
+
+  return {
+    score: partialScore(correctBlanks, expectedBlanks.length, maxScore),
+    maxScore,
+    feedbackJson: {
+      correct,
+      manualReviewRequired: false,
+    },
+  };
+}
+
 function scoreMatchingAttempt(
   expectedMatches: Array<{ prompt: string; answer: string }>,
   response: Prisma.JsonValue,
@@ -425,15 +506,13 @@ function scoreMatchingAttempt(
 ): ScoredResult {
   const responseMatches = getResponseMatches(response, punctuationOptional);
   const maxScore = maxPoints(scoringConfig, expectedMatches.length);
-  const pointsPerMatch = maxScore / expectedMatches.length;
   const correctPairs = expectedMatches.filter(
     (match) => responseMatches.get(match.prompt) === match.answer,
   ).length;
-  const score = Math.round(correctPairs * pointsPerMatch);
-  const correct = score === maxScore;
+  const correct = correctPairs === expectedMatches.length;
 
   return {
-    score,
+    score: partialScore(correctPairs, expectedMatches.length, maxScore),
     maxScore,
     feedbackJson: {
       correct,
@@ -456,11 +535,24 @@ function scoreAttempt(
       ? (exercise.scoringConfig as Record<string, unknown>)
       : {};
   const punctuationOptional = scoringConfig.punctuationOptional === true;
+  const expectedBlanks = getExpectedBlanks(exercise.answerKey, punctuationOptional);
   const expectedAnswers = collectExpectedAnswers(
     exercise.answerKey,
     punctuationOptional,
   );
   const expectedMatches = getExpectedMatches(exercise.answerKey, punctuationOptional);
+  if (
+    expectedBlanks.length > 0 &&
+    automaticallyScoredTypes.includes(exercise.exerciseType)
+  ) {
+    return scoreBlankAttempt(
+      expectedBlanks,
+      response,
+      exercise.scoringConfig,
+      punctuationOptional,
+    );
+  }
+
   if (
     expectedMatches.length > 0 &&
     automaticallyScoredTypes.includes(exercise.exerciseType)
