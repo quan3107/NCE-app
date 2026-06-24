@@ -38,6 +38,52 @@ StudentNcePath:
     security:
       - BearerAuth: []
 
+CourseNceAssetContent:
+  get:
+    tags: [nce-learning]
+    summary: Get a playable URL for assigned NCE lesson audio
+    parameters:
+      - $ref: '#/components/parameters/CourseId'
+      - in: query
+        name: key
+        required: true
+        schema:
+          type: string
+          minLength: 1
+    responses:
+      '200':
+        description: NCE asset content location
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/nce-learning.yaml#/NceAssetContent'
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for users outside the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: NCE asset is not assigned or available in the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
 CourseNceExerciseAttempts:
   post:
     tags: [nce-learning]
