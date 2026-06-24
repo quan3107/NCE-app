@@ -128,6 +128,8 @@ paths:
     $ref: './paths/nce-content.yaml#/CourseNceLessons'
   /api/v1/courses/{courseId}/nce-path:
     $ref: './paths/nce-learning.yaml#/StudentNcePath'
+  /api/v1/courses/{courseId}/nce-assets/content:
+    $ref: './paths/nce-learning.yaml#/CourseNceAssetContent'
   /api/v1/courses/{courseId}/nce-exercises/{exerciseId}/attempts:
     $ref: './paths/nce-learning.yaml#/CourseNceExerciseAttempts'
   /api/v1/nce-attempts/{attemptId}/submit:
