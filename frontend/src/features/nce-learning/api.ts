@@ -12,6 +12,7 @@ import type {
   NceAttempt,
   NceAttemptDraftPayload,
   NceAttemptResponse,
+  NceAssetContent,
   NceLessonProgress,
   StudentNcePathQuery,
   StudentNcePathResponse,
@@ -36,6 +37,11 @@ export const fetchStudentNcePath = (
 ) =>
   apiClient<StudentNcePathResponse>(`/courses/${courseId}/nce-path`, {
     params: queryParams(query),
+  });
+
+export const fetchNceAssetContent = (courseId: string, key: string) =>
+  apiClient<NceAssetContent>(`/courses/${courseId}/nce-assets/content`, {
+    params: { key },
   });
 
 export const saveNceAttemptDraft = async (
@@ -84,6 +90,17 @@ export function useStudentNcePathQuery(
     queryKey: [...NCE_LEARNING_KEY, 'courses', courseId, 'path', query],
     queryFn: () => fetchStudentNcePath(courseId ?? '', query),
     enabled: Boolean(courseId),
+  });
+}
+
+export function useNceAssetContentQuery(
+  courseId: string | undefined,
+  key: string | undefined,
+) {
+  return useQuery({
+    queryKey: [...NCE_LEARNING_KEY, 'courses', courseId, 'assets', key],
+    queryFn: () => fetchNceAssetContent(courseId ?? '', key ?? ''),
+    enabled: Boolean(courseId && key),
   });
 }
 
