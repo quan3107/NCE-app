@@ -106,6 +106,15 @@ const getMatchingContent = (content: unknown) => {
   return { terms, choices };
 };
 
+const getChoiceContent = (content: unknown) => {
+  if (!isRecord(content)) {
+    return null;
+  }
+
+  const choices = getStringArray(content.choices);
+  return choices.length > 0 ? choices : null;
+};
+
 const stringValueFromResponse = (response: NceAttemptResponse) => {
   const value = response.answer ?? response.text ?? response.value;
   return typeof value === 'string' ? value : '';
@@ -172,6 +181,7 @@ export function NceExerciseAttempt({
   const contentItems = getContentItems(exercise.content);
   const audioKey = getAudioKey(exercise.content);
   const matchingContent = getMatchingContent(exercise.content);
+  const choiceContent = matchingContent ? null : getChoiceContent(exercise.content);
   const answer = stringValueFromResponse(response);
   const matches = matchesFromResponse(response);
   const hasResponseContent = matchingContent
@@ -250,6 +260,28 @@ export function NceExerciseAttempt({
               </select>
             </div>
           ))}
+        </div>
+      ) : choiceContent ? (
+        <div className="space-y-2">
+          <Label htmlFor={`nce-answer-${exercise.id}`}>
+            Answer for {exercise.prompt}
+          </Label>
+          <select
+            id={`nce-answer-${exercise.id}`}
+            value={answer}
+            onChange={(event) =>
+              onResponseChange({ ...response, answer: event.target.value })
+            }
+            disabled={submitted}
+            className="border-input bg-input-background focus-visible:border-primary/50 focus-visible:ring-primary/15 h-10 w-full rounded-[8px] border px-3 py-2 text-sm outline-none focus-visible:bg-card focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">Select an answer</option>
+            {choiceContent.map((choice) => (
+              <option key={choice} value={choice}>
+                {choice}
+              </option>
+            ))}
+          </select>
         </div>
       ) : (
         <div className="space-y-2">
