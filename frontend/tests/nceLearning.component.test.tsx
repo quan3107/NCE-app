@@ -304,8 +304,8 @@ test('NceExerciseAttempt renders content and loads exercise audio', async () => 
     assert.match((audio as HTMLAudioElement).src, /dialogue\.mp3$/);
     assert.ok(screen.queryByText('nce/book1/lesson1/dialogue.mp3') === null);
     assert.ok(screen.getByText('Is ___ your handbag?'));
-    assert.ok(screen.getByText('Excuse me'));
-    assert.ok(screen.getByText('Thank you'));
+    assert.ok(screen.getAllByText('Excuse me').length > 0);
+    assert.ok(screen.getAllByText('Thank you').length > 0);
     assert.ok(screen.getByText('Excuse me.'));
     assert.ok(screen.getByText('Is this your handbag?'));
     assert.ok(
@@ -317,6 +317,47 @@ test('NceExerciseAttempt renders content and loads exercise audio', async () => 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('NceExerciseAttempt renders choices as selectable answers', async () => {
+  const user = userEvent.setup();
+  let selectedResponse: unknown = null;
+
+  renderWithProviders(
+    <NceExerciseAttempt
+      courseId="course-1"
+      exercise={{
+        id: 'exercise-choice',
+        lessonId: 'lesson-1',
+        objectiveId: null,
+        exerciseType: 'multiple_choice',
+        prompt: 'Choose the correct phrase.',
+        content: {
+          choices: ['Excuse me', 'Thank you'],
+        },
+        scoringConfig: { maxScore: 1 },
+        sortOrder: 1,
+        latestAttempt: null,
+      }}
+      response={{}}
+      attempt={null}
+      isSaving={false}
+      isSubmitting={false}
+      onResponseChange={(response) => {
+        selectedResponse = response;
+      }}
+      onSaveDraft={() => undefined}
+      onSubmit={() => undefined}
+    />,
+    '/student/nce',
+  );
+
+  const answerControl = screen.getByLabelText('Answer for Choose the correct phrase.');
+  assert.equal(answerControl.tagName, 'SELECT');
+
+  await user.selectOptions(answerControl, 'Thank you');
+
+  assert.deepEqual(selectedResponse, { answer: 'Thank you' });
 });
 
 test('StudentNceLessonPage saves matching exercise pairs', async () => {
