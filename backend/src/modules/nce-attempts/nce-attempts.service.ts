@@ -31,6 +31,7 @@ import {
   courseNceExerciseParamsSchema,
   courseNceLessonParamsSchema,
   courseNcePathParamsSchema,
+  nceAssetContentQuerySchema,
   nceAttemptParamsSchema,
   nceAttemptSummaryQuerySchema,
   nceAttemptWriteSchema,
@@ -40,6 +41,7 @@ import {
 } from "./nce-attempts.schema.js";
 
 type CourseAccess = "admin" | "owner" | "coTeacher" | "student" | "none";
+const NCE_ASSET_BUCKET = "nce-assets";
 
 const lessonSelect = {
   id: true,
@@ -298,6 +300,57 @@ function getResponseAnswer(
   return normalizeText(record.answer ?? record.text ?? record.value, punctuationOptional);
 }
 
+function getRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function getExpectedMatches(
+  answerKey: Prisma.JsonValue,
+  punctuationOptional = false,
+): Array<{ prompt: string; answer: string }> {
+  const record = getRecord(answerKey);
+  const matches = getRecord(record?.matches);
+  if (!matches) {
+    return [];
+  }
+
+  return Object.entries(matches).flatMap(([prompt, answer]) => {
+    const normalizedPrompt = normalizeText(prompt, punctuationOptional);
+    const normalizedAnswer = normalizeText(answer, punctuationOptional);
+    if (!normalizedPrompt || !normalizedAnswer) {
+      return [];
+    }
+
+    return [{ prompt: normalizedPrompt, answer: normalizedAnswer }];
+  });
+}
+
+function getResponseMatches(
+  response: Prisma.JsonValue,
+  punctuationOptional = false,
+): Map<string, string> {
+  const record = getRecord(response);
+  const matches = getRecord(record?.matches);
+  const normalizedMatches = new Map<string, string>();
+  if (!matches) {
+    return normalizedMatches;
+  }
+
+  Object.entries(matches).forEach(([prompt, answer]) => {
+    const normalizedPrompt = normalizeText(prompt, punctuationOptional);
+    const normalizedAnswer = normalizeText(answer, punctuationOptional);
+    if (normalizedPrompt && normalizedAnswer) {
+      normalizedMatches.set(normalizedPrompt, normalizedAnswer);
+    }
+  });
+
+  return normalizedMatches;
+}
+
 function collectExpectedAnswers(
   answerKey: Prisma.JsonValue,
   punctuationOptional = false,
@@ -324,12 +377,6 @@ function collectExpectedAnswers(
   }
   for (const key of ["answer", "choice", "correctChoiceId", "sentence"]) {
     values.push(record[key]);
-  }
-
-  const matches = record.matches;
-  if (matches && typeof matches === "object" && !Array.isArray(matches)) {
-    values.push(...Object.keys(matches));
-    values.push(...Object.values(matches as Record<string, unknown>));
   }
 
   return values
@@ -370,6 +417,31 @@ function maxPoints(scoringConfig: Prisma.JsonValue | null, itemCount: number): n
   return 1;
 }
 
+function scoreMatchingAttempt(
+  expectedMatches: Array<{ prompt: string; answer: string }>,
+  response: Prisma.JsonValue,
+  scoringConfig: Prisma.JsonValue | null,
+  punctuationOptional: boolean,
+): ScoredResult {
+  const responseMatches = getResponseMatches(response, punctuationOptional);
+  const maxScore = maxPoints(scoringConfig, expectedMatches.length);
+  const pointsPerMatch = maxScore / expectedMatches.length;
+  const correctPairs = expectedMatches.filter(
+    (match) => responseMatches.get(match.prompt) === match.answer,
+  ).length;
+  const score = Math.round(correctPairs * pointsPerMatch);
+  const correct = score === maxScore;
+
+  return {
+    score,
+    maxScore,
+    feedbackJson: {
+      correct,
+      manualReviewRequired: false,
+    },
+  };
+}
+
 function scoreAttempt(
   exercise: {
     exerciseType: NceExerciseType;
@@ -388,6 +460,19 @@ function scoreAttempt(
     exercise.answerKey,
     punctuationOptional,
   );
+  const expectedMatches = getExpectedMatches(exercise.answerKey, punctuationOptional);
+  if (
+    expectedMatches.length > 0 &&
+    automaticallyScoredTypes.includes(exercise.exerciseType)
+  ) {
+    return scoreMatchingAttempt(
+      expectedMatches,
+      response,
+      exercise.scoringConfig,
+      punctuationOptional,
+    );
+  }
+
   const studentAnswer = getResponseAnswer(response, punctuationOptional);
   const canScore =
     studentAnswer &&
@@ -415,6 +500,50 @@ function scoreAttempt(
       manualReviewRequired: false,
     },
   };
+}
+
+function buildMockStorageUrl(bucket: string, objectKey: string): string {
+  const encodedBucket = encodeURIComponent(bucket);
+  const encodedKey = objectKey
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  return `https://storage.mock/${encodedBucket}/${encodedKey}`;
+}
+
+function mimeForNceAssetKey(key: string): string {
+  const normalizedKey = key.toLowerCase();
+  if (normalizedKey.endsWith(".mp3")) {
+    return "audio/mpeg";
+  }
+  if (normalizedKey.endsWith(".wav")) {
+    return "audio/wav";
+  }
+  if (normalizedKey.endsWith(".ogg")) {
+    return "audio/ogg";
+  }
+  if (normalizedKey.endsWith(".m4a")) {
+    return "audio/mp4";
+  }
+
+  return "application/octet-stream";
+}
+
+function contentReferencesAudioKey(value: unknown, key: string): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => contentReferencesAudioKey(item, key));
+  }
+
+  const record = getRecord(value);
+  if (!record) {
+    return false;
+  }
+
+  return (
+    record.audioKey === key ||
+    Object.values(record).some((item) => contentReferencesAudioKey(item, key))
+  );
 }
 
 export async function listStudentNcePath(
@@ -496,6 +625,52 @@ export async function listStudentNcePath(
       } as NcePathAssignmentRow);
     }),
     pagination: paginationResponse(query, total),
+  };
+}
+
+export async function getNceAssetContentLocation(
+  rawParams: unknown,
+  rawQuery: unknown,
+  actor: RequestActor,
+) {
+  const { courseId } = courseNcePathParamsSchema.parse(rawParams);
+  const { key } = nceAssetContentQuerySchema.parse(rawQuery ?? {});
+  await assertStudentCourseAccess(courseId, actor);
+
+  const assignments = await readWithServiceRole(actor, () =>
+    prisma.nceCourseLessonAssignment.findMany({
+      where: {
+        courseId,
+        ...availableAssignmentWhere(),
+        lesson: lessonContentWhere(),
+      },
+      select: {
+        lesson: {
+          select: {
+            exercises: {
+              select: {
+                content: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+  );
+  const hasAssignedAsset = assignments.some((assignment) =>
+    assignment.lesson.exercises.some((exercise) =>
+      contentReferencesAudioKey(exercise.content, key),
+    ),
+  );
+
+  if (!hasAssignedAsset) {
+    throw createHttpError(404, "NCE asset not found.");
+  }
+
+  return {
+    url: buildMockStorageUrl(NCE_ASSET_BUCKET, key),
+    mime: mimeForNceAssetKey(key),
+    size: 0,
   };
 }
 
