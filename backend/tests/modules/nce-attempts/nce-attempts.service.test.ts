@@ -9,6 +9,10 @@ import path from "node:path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  verifyAccessToken,
+  verifyNceAssetToken,
+} from "../../../src/modules/auth/auth.tokens.js";
+import {
   EnrollmentRole,
   NceAttemptStatus,
   NceExerciseType,
@@ -248,6 +252,16 @@ describe("nce-attempts.service", () => {
     expect(result.url).toContain("key=nce%2Fbook1%2Flesson1%2Fdialogue.mp3");
     expect(result.url).toContain("token=");
     expect(result.url).not.toContain("storage.mock");
+
+    const token = new URL(`http://localhost${result.url}`).searchParams.get("token");
+    expect(token).toBeTruthy();
+    expect(() => verifyAccessToken(token ?? "")).toThrow();
+    expect(verifyNceAssetToken(token ?? "")).toMatchObject({
+      sub: studentId,
+      courseId,
+      key: "nce/book1/lesson1/dialogue.mp3",
+      purpose: "nce_asset_audio",
+    });
   });
 
   it("resolves assigned NCE audio from the configured asset root", async () => {
