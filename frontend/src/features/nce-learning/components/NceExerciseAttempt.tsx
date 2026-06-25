@@ -388,7 +388,7 @@ export function NceExerciseAttempt({
         </Button>
         <Button
           onClick={onSubmit}
-          disabled={submitted || isSubmitting || !hasResponseContent}
+          disabled={submitted || isSaving || isSubmitting || !hasResponseContent}
         >
           {isSubmitting ? 'Submitting' : 'Submit attempt'}
         </Button>
