@@ -4,6 +4,7 @@
  * Why: Keeps path, attempt, submit, and completion helpers aligned with backend routes.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { before, test } from 'node:test';
 
 type NceLearningApi = typeof import('../src/features/nce-learning/api');
@@ -91,6 +92,16 @@ test('fetchNceAssetContent resolves relative audio URLs against the API origin',
       );
     },
   );
+});
+
+test('student NCE path types do not require teacher lesson permissions', () => {
+  const source = readFileSync(
+    new URL('../src/features/nce-learning/types.ts', import.meta.url),
+    'utf-8',
+  );
+
+  assert.match(source, /StudentNcePathLesson = Omit<NceLesson, 'exercises'>/);
+  assert.doesNotMatch(source, /CourseNceLesson/);
 });
 
 test('saveNceAttemptDraft posts the response to the course exercise route', async () => {
