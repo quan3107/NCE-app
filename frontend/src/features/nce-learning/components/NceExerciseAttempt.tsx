@@ -70,7 +70,7 @@ const getContentItems = (content: unknown): ContentItem[] => {
   }
 
   return Object.entries(content)
-    .filter(([key]) => key !== 'audioKey')
+    .filter(([key]) => key !== 'audioKey' && key !== 'blanks')
     .map(([key, value]) => ({
       label: formatContentLabel(key),
       values: toContentValues(value),
@@ -118,6 +118,41 @@ const getChoiceContent = (content: unknown) => {
 const stringValueFromResponse = (response: NceAttemptResponse) => {
   const value = response.answer ?? response.text ?? response.value;
   return typeof value === 'string' ? value : '';
+};
+
+const countBlankPlaceholders = (value: unknown) => {
+  if (typeof value !== 'string') {
+    return 0;
+  }
+
+  return value.match(/_{2,}/g)?.length ?? 0;
+};
+
+const getGapFillBlankCount = (content: unknown) => {
+  if (!isRecord(content)) {
+    return 0;
+  }
+
+  const contentBlanks = getStringArray(content.blanks).filter(
+    (blank) => blank.trim().length > 0,
+  );
+  if (contentBlanks.length > 0) {
+    return contentBlanks.length;
+  }
+
+  return countBlankPlaceholders(content.sentence);
+};
+
+const blanksFromResponse = (
+  response: NceAttemptResponse,
+  blankCount: number,
+) => {
+  const blanks = Array.isArray(response.blanks) ? response.blanks : [];
+
+  return Array.from({ length: blankCount }, (_, index) => {
+    const value = blanks[index];
+    return typeof value === 'string' ? value : '';
+  });
 };
 
 const matchesFromResponse = (response: NceAttemptResponse) => {
@@ -181,12 +216,19 @@ export function NceExerciseAttempt({
   const contentItems = getContentItems(exercise.content);
   const audioKey = getAudioKey(exercise.content);
   const matchingContent = getMatchingContent(exercise.content);
-  const choiceContent = matchingContent ? null : getChoiceContent(exercise.content);
   const answer = stringValueFromResponse(response);
+  const blankCount = getGapFillBlankCount(exercise.content);
+  const isMultiBlankGapFill = exercise.exerciseType === 'gap_fill' && blankCount > 1;
+  const choiceContent =
+    matchingContent || isMultiBlankGapFill ? null : getChoiceContent(exercise.content);
+  const blanks = blanksFromResponse(response, blankCount);
   const matches = matchesFromResponse(response);
-  const hasResponseContent = matchingContent
-    ? Object.values(matches).some((value) => value.trim().length > 0)
-    : answer.trim().length > 0;
+  let hasResponseContent = answer.trim().length > 0;
+  if (matchingContent) {
+    hasResponseContent = Object.values(matches).some((value) => value.trim().length > 0);
+  } else if (isMultiBlankGapFill) {
+    hasResponseContent = blanks.some((value) => value.trim().length > 0);
+  }
 
   const setMatch = (term: string, value: string) => {
     onResponseChange({
@@ -196,6 +238,17 @@ export function NceExerciseAttempt({
         [term]: value,
       },
     });
+  };
+
+  const setBlank = (index: number, value: string) => {
+    const nextBlanks = blanks.map((blank, blankIndex) =>
+      blankIndex === index ? value : blank,
+    );
+    const nextResponse: NceAttemptResponse = { ...response, blanks: nextBlanks };
+    delete nextResponse.answer;
+    delete nextResponse.text;
+    delete nextResponse.value;
+    onResponseChange(nextResponse);
   };
 
   return (
@@ -282,6 +335,22 @@ export function NceExerciseAttempt({
               </option>
             ))}
           </select>
+        </div>
+      ) : isMultiBlankGapFill ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {blanks.map((blank, index) => (
+            <div key={`${exercise.id}-blank-${index}`} className="space-y-2">
+              <Label htmlFor={`nce-blank-${exercise.id}-${index}`}>
+                Blank {index + 1} for {exercise.prompt}
+              </Label>
+              <Textarea
+                id={`nce-blank-${exercise.id}-${index}`}
+                value={blank}
+                onChange={(event) => setBlank(index, event.target.value)}
+                disabled={submitted}
+              />
+            </div>
+          ))}
         </div>
       ) : (
         <div className="space-y-2">
