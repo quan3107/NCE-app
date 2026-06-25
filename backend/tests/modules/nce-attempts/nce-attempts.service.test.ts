@@ -222,6 +222,12 @@ describe("nce-attempts.service", () => {
   });
 
   it("returns a playable NCE asset URL for assigned exercise audio", async () => {
+    const previousAssetRoot = process.env.NCE_ASSET_ROOT;
+    const assetRoot = mkdtempSync(path.join(tmpdir(), "nce-assets-"));
+    const assetPath = path.join(assetRoot, "nce", "book1", "lesson1", "dialogue.mp3");
+    mkdirSync(path.dirname(assetPath), { recursive: true });
+    writeFileSync(assetPath, Buffer.from([0x49, 0x44, 0x33]));
+    process.env.NCE_ASSET_ROOT = assetRoot;
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
       {
@@ -239,29 +245,81 @@ describe("nce-attempts.service", () => {
       },
     ]);
 
-    const result = await getNceAssetContentLocation(
-      { courseId },
-      { key: "nce/book1/lesson1/dialogue.mp3" },
-      studentActor,
-    );
+    try {
+      const result = await getNceAssetContentLocation(
+        { courseId },
+        { key: "nce/book1/lesson1/dialogue.mp3" },
+        studentActor,
+      );
 
-    expect(result.mime).toBe("audio/mpeg");
-    expect(result.url).toContain(
-      `/api/v1/courses/${courseId}/nce-assets/content/audio?`,
-    );
-    expect(result.url).toContain("key=nce%2Fbook1%2Flesson1%2Fdialogue.mp3");
-    expect(result.url).toContain("token=");
-    expect(result.url).not.toContain("storage.mock");
+      expect(result.mime).toBe("audio/mpeg");
+      expect(result.size).toBe(3);
+      expect(result.url).toContain(
+        `/api/v1/courses/${courseId}/nce-assets/content/audio?`,
+      );
+      expect(result.url).toContain("key=nce%2Fbook1%2Flesson1%2Fdialogue.mp3");
+      expect(result.url).toContain("token=");
+      expect(result.url).not.toContain("storage.mock");
 
-    const token = new URL(`http://localhost${result.url}`).searchParams.get("token");
-    expect(token).toBeTruthy();
-    expect(() => verifyAccessToken(token ?? "")).toThrow();
-    expect(verifyNceAssetToken(token ?? "")).toMatchObject({
-      sub: studentId,
-      courseId,
-      key: "nce/book1/lesson1/dialogue.mp3",
-      purpose: "nce_asset_audio",
-    });
+      const token = new URL(`http://localhost${result.url}`).searchParams.get("token");
+      expect(token).toBeTruthy();
+      expect(() => verifyAccessToken(token ?? "")).toThrow();
+      expect(verifyNceAssetToken(token ?? "")).toMatchObject({
+        sub: studentId,
+        courseId,
+        key: "nce/book1/lesson1/dialogue.mp3",
+        purpose: "nce_asset_audio",
+      });
+    } finally {
+      if (previousAssetRoot === undefined) {
+        delete process.env.NCE_ASSET_ROOT;
+      } else {
+        process.env.NCE_ASSET_ROOT = previousAssetRoot;
+      }
+      rmSync(assetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects signed NCE asset URLs when the audio file is missing", async () => {
+    const previousAssetRoot = process.env.NCE_ASSET_ROOT;
+    const assetRoot = mkdtempSync(path.join(tmpdir(), "nce-assets-"));
+    process.env.NCE_ASSET_ROOT = assetRoot;
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        courseId,
+        lessonId,
+        lesson: {
+          exercises: [
+            {
+              content: {
+                audioKey: "nce/book1/lesson1/dialogue.mp3",
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    try {
+      await expect(
+        getNceAssetContentLocation(
+          { courseId },
+          { key: "nce/book1/lesson1/dialogue.mp3" },
+          studentActor,
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        message: "NCE asset not found.",
+      });
+    } finally {
+      if (previousAssetRoot === undefined) {
+        delete process.env.NCE_ASSET_ROOT;
+      } else {
+        process.env.NCE_ASSET_ROOT = previousAssetRoot;
+      }
+      rmSync(assetRoot, { recursive: true, force: true });
+    }
   });
 
   it("resolves assigned NCE audio from the configured asset root", async () => {
