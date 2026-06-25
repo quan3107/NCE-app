@@ -22,9 +22,25 @@ type AccessTokenClaims = {
   aud: string | string[];
 };
 
+export type NceAssetTokenClaims = {
+  sub: string;
+  role: UserRole;
+  status: UserStatus;
+  courseId: string;
+  key: string;
+  purpose: "nce_asset_audio";
+  iat: number;
+  exp: number;
+  iss: string;
+  aud: string | string[];
+};
+
 const TOKEN_ISSUER = "nce-api";
 const TOKEN_AUDIENCE = "nce-app";
+const NCE_ASSET_TOKEN_AUDIENCE = "nce-asset";
+const NCE_ASSET_TOKEN_PURPOSE = "nce_asset_audio";
 const ACCESS_TOKEN_TTL = "15m";
+const NCE_ASSET_TOKEN_TTL = "2m";
 
 // Keep shared key material at module scope so token helpers stay cheap to call.
 const { privateKey, publicKey } = loadJwtKeys();
@@ -53,6 +69,46 @@ export function verifyAccessToken(token: string): AccessTokenClaims {
     issuer: TOKEN_ISSUER,
     audience: TOKEN_AUDIENCE,
   }) as AccessTokenClaims;
+}
+
+export function signNceAssetToken(payload: {
+  userId: string;
+  role: UserRole;
+  status: UserStatus;
+  courseId: string;
+  key: string;
+}): string {
+  return jwt.sign(
+    {
+      role: payload.role,
+      status: payload.status,
+      courseId: payload.courseId,
+      key: payload.key,
+      purpose: NCE_ASSET_TOKEN_PURPOSE,
+    },
+    privateKey,
+    {
+      algorithm: "RS256",
+      expiresIn: NCE_ASSET_TOKEN_TTL,
+      subject: payload.userId,
+      issuer: TOKEN_ISSUER,
+      audience: NCE_ASSET_TOKEN_AUDIENCE,
+    },
+  );
+}
+
+export function verifyNceAssetToken(token: string): NceAssetTokenClaims {
+  const claims = jwt.verify(token, publicKey, {
+    algorithms: ["RS256"],
+    issuer: TOKEN_ISSUER,
+    audience: NCE_ASSET_TOKEN_AUDIENCE,
+  }) as NceAssetTokenClaims;
+
+  if (claims.purpose !== NCE_ASSET_TOKEN_PURPOSE) {
+    throw new Error("Invalid NCE asset token purpose");
+  }
+
+  return claims;
 }
 
 function loadJwtKeys(): { privateKey: string; publicKey: string } {
