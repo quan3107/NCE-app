@@ -167,6 +167,12 @@ test('NCE learning OpenAPI routes document student attempts and teacher summarie
 
   assert.match(nceSchemaYaml, /StudentNcePathResponse:/);
   assert.match(nceSchemaYaml, /NceAssetContent:/);
+  const assetContentSchema = section(
+    nceSchemaYaml,
+    'NceAssetContent',
+    'NceLessonProgress',
+  );
+  assert.match(assetContentSchema, /format: uri-reference/);
   assert.match(nceSchemaYaml, /NceAttempt:/);
   assert.match(nceSchemaYaml, /NceAttemptSummaryListResponse:/);
 
