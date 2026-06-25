@@ -506,6 +506,39 @@ test('NceExerciseAttempt emits blank responses for multi-blank gap fills', async
   assert.deepEqual(selectedResponse, { blanks: ['this', 'book'] });
 });
 
+test('NceExerciseAttempt disables submit while a draft save is pending', () => {
+  renderWithProviders(
+    <NceExerciseAttempt
+      courseId="course-1"
+      exercise={{
+        id: 'exercise-saving',
+        lessonId: 'lesson-1',
+        objectiveId: null,
+        exerciseType: 'gap_fill',
+        prompt: 'Complete the sentence.',
+        content: { sentence: 'Is ___ your handbag?' },
+        scoringConfig: { points: 1 },
+        sortOrder: 1,
+        latestAttempt: null,
+      }}
+      response={{ answer: 'this' }}
+      attempt={null}
+      isSaving={true}
+      isSubmitting={false}
+      onResponseChange={() => undefined}
+      onSaveDraft={() => undefined}
+      onSubmit={() => undefined}
+    />,
+    '/student/nce',
+  );
+
+  assert.equal(
+    (screen.getByRole('button', { name: /submit attempt/i }) as HTMLButtonElement)
+      .disabled,
+    true,
+  );
+});
+
 test('StudentNceLessonPage saves matching exercise pairs', async () => {
   const user = userEvent.setup();
   const originalFetch = globalThis.fetch;
