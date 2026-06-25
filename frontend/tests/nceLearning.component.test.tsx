@@ -197,6 +197,32 @@ const pathPayloadWithMatchingExercise = {
   pagination: { page: 1, pageSize: 20, total: 1 },
 };
 
+const pathPayloadWithMultiBlankExercise = {
+  lessons: [
+    {
+      ...pathPayload.lessons[0],
+      exercises: [
+        {
+          id: 'exercise-blanks',
+          lessonId: 'lesson-1',
+          objectiveId: null,
+          exerciseType: 'gap_fill',
+          prompt: 'Complete the sentence.',
+          content: {
+            sentence: 'Is ___ your ___?',
+            blanks: ['___', '___'],
+            choices: ['this', 'book'],
+          },
+          scoringConfig: { pointsPerBlank: 1, maxScore: 2 },
+          sortOrder: 1,
+          latestAttempt: null,
+        },
+      ],
+    },
+  ],
+  pagination: { page: 1, pageSize: 20, total: 1 },
+};
+
 const lateLessonPathPayload = {
   lessons: [
     {
@@ -223,6 +249,32 @@ const boundaryLessonPathPayload = {
   pagination: { page: 1, pageSize: 100, total: 101 },
 };
 
+const enrolledCoursesPayload = {
+  courses: [
+    {
+      id: 'course-1',
+      title: 'NCE Book 1',
+      description: 'Assigned NCE lessons',
+      schedule: null,
+      metadata: { duration: null, level: null, price: null },
+      owner: {
+        id: 'teacher-1',
+        fullName: 'Ms Teacher',
+        email: 'teacher@example.com',
+      },
+      metrics: {
+        activeStudentCount: 1,
+        invitedStudentCount: 0,
+        teacherCount: 1,
+        assignmentCount: 0,
+        rubricCount: 0,
+      },
+      createdAt: '2026-06-20T00:00:00.000Z',
+      updatedAt: '2026-06-20T00:00:00.000Z',
+    },
+  ],
+};
+
 test('StudentNcePathPage opens an assigned lesson from a course path', async () => {
   const user = userEvent.setup();
   const originalFetch = globalThis.fetch;
@@ -242,6 +294,46 @@ test('StudentNcePathPage opens an assigned lesson from a course path', async () 
       screen.getByTestId('location').textContent,
       '/student/nce/courses/course-1/lessons/lesson-1',
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNcePathPage lets students choose an enrolled course without pasting an id', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    requests.push(url);
+
+    if (url.endsWith('/api/v1/courses')) {
+      return new Response(JSON.stringify(enrolledCoursesPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/courses/course-1/nce-path')) {
+      return new Response(JSON.stringify(pathPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(<StudentNcePathPage />, '/student/nce');
+
+    await screen.findByText('NCE Book 1');
+    await user.click(
+      screen.getByRole('button', { name: /open nce path for nce book 1/i }),
+    );
+    await screen.findByText('Excuse me!');
+
+    assert.equal(screen.getByTestId('location').textContent, '/student/nce?courseId=course-1');
+    assert.ok(requests.some((url) => url.includes('/courses/course-1/nce-path')));
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -360,6 +452,53 @@ test('NceExerciseAttempt renders choices as selectable answers', async () => {
   assert.deepEqual(selectedResponse, { answer: 'Thank you' });
 });
 
+test('NceExerciseAttempt emits blank responses for multi-blank gap fills', async () => {
+  const user = userEvent.setup();
+  let selectedResponse: unknown = null;
+
+  function AttemptHarness() {
+    const [response, setResponse] = React.useState({});
+
+    return (
+      <NceExerciseAttempt
+        courseId="course-1"
+        exercise={{
+          id: 'exercise-blanks',
+          lessonId: 'lesson-1',
+          objectiveId: null,
+          exerciseType: 'gap_fill',
+          prompt: 'Complete the sentence.',
+          content: {
+            sentence: 'Is ___ your ___?',
+            blanks: ['___', '___'],
+            choices: ['this', 'book'],
+          },
+          scoringConfig: { pointsPerBlank: 1, maxScore: 2 },
+          sortOrder: 1,
+          latestAttempt: null,
+        }}
+        response={response}
+        attempt={null}
+        isSaving={false}
+        isSubmitting={false}
+        onResponseChange={(nextResponse) => {
+          selectedResponse = nextResponse;
+          setResponse(nextResponse);
+        }}
+        onSaveDraft={() => undefined}
+        onSubmit={() => undefined}
+      />
+    );
+  }
+
+  renderWithProviders(<AttemptHarness />, '/student/nce');
+
+  await user.type(screen.getByLabelText('Blank 1 for Complete the sentence.'), 'this');
+  await user.type(screen.getByLabelText('Blank 2 for Complete the sentence.'), 'book');
+
+  assert.deepEqual(selectedResponse, { blanks: ['this', 'book'] });
+});
+
 test('StudentNceLessonPage saves matching exercise pairs', async () => {
   const user = userEvent.setup();
   const originalFetch = globalThis.fetch;
@@ -421,6 +560,68 @@ test('StudentNceLessonPage saves matching exercise pairs', async () => {
           handbag: 'a small bag',
           pardon: 'please repeat',
         },
+      },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage saves multi-blank gap fill responses', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; method: string; body: unknown }> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push({
+      url,
+      method: init?.method ?? 'GET',
+      body: init?.body ? JSON.parse(String(init.body)) : null,
+    });
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathPayloadWithMultiBlankExercise), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/attempts') && init?.method === 'POST') {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-blanks',
+          status: 'draft',
+          response: {
+            blanks: ['this', 'book'],
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    await screen.findByText('Complete the sentence.');
+    await user.type(screen.getByLabelText('Blank 1 for Complete the sentence.'), 'this');
+    await user.type(screen.getByLabelText('Blank 2 for Complete the sentence.'), 'book');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+    await screen.findByText(/draft saved/i);
+
+    const draftWrite = requests.find((request) =>
+      request.url.endsWith('/courses/course-1/nce-exercises/exercise-blanks/attempts') &&
+      request.method === 'POST',
+    );
+
+    assert.deepEqual(draftWrite?.body, {
+      response: {
+        blanks: ['this', 'book'],
       },
     });
   } finally {
