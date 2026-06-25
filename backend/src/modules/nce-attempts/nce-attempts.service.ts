@@ -3,6 +3,9 @@
  * Purpose: Implement student NCE learning path, progress, and exercise attempts.
  * Why: Turns assigned NCE content into a persistent student learning workflow.
  */
+import { existsSync, statSync } from "node:fs";
+import path from "node:path";
+
 import {
   EnrollmentRole,
   NceAttemptStatus,
@@ -17,6 +20,7 @@ import {
 import { prisma, runWithRole } from "../../config/prismaClient.js";
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { createHttpError } from "../../utils/httpError.js";
+import { signAccessToken } from "../auth/auth.tokens.js";
 import type { NceLessonRow } from "../nce-content/nce-content.mappers.js";
 import {
   mapNceAttempt,
@@ -41,7 +45,6 @@ import {
 } from "./nce-attempts.schema.js";
 
 type CourseAccess = "admin" | "owner" | "coTeacher" | "student" | "none";
-const NCE_ASSET_BUCKET = "nce-assets";
 
 const lessonSelect = {
   id: true,
@@ -119,6 +122,7 @@ const automaticallyScoredTypes: NceExerciseType[] = [
   NceExerciseType.grammar,
   NceExerciseType.dictation,
   NceExerciseType.gap_fill,
+  NceExerciseType.listening,
   NceExerciseType.multiple_choice,
   NceExerciseType.reading,
 ];
@@ -594,16 +598,6 @@ function scoreAttempt(
   };
 }
 
-function buildMockStorageUrl(bucket: string, objectKey: string): string {
-  const encodedBucket = encodeURIComponent(bucket);
-  const encodedKey = objectKey
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-
-  return `https://storage.mock/${encodedBucket}/${encodedKey}`;
-}
-
 function mimeForNceAssetKey(key: string): string {
   const normalizedKey = key.toLowerCase();
   if (normalizedKey.endsWith(".mp3")) {
@@ -636,6 +630,40 @@ function contentReferencesAudioKey(value: unknown, key: string): boolean {
     record.audioKey === key ||
     Object.values(record).some((item) => contentReferencesAudioKey(item, key))
   );
+}
+
+function buildNceAssetAudioUrl(
+  courseId: string,
+  key: string,
+  actor: RequestActor,
+): string {
+  const token = signAccessToken({
+    userId: actor.id,
+    role: actor.role,
+    status: actor.status,
+  });
+  const params = new URLSearchParams({ key, token });
+  return `/api/v1/courses/${courseId}/nce-assets/content/audio?${params.toString()}`;
+}
+
+function nceAssetFilePath(key: string): string {
+  const assetRoot = process.env.NCE_ASSET_ROOT;
+  if (!assetRoot) {
+    throw createHttpError(404, "NCE asset storage is not configured.");
+  }
+
+  const rootPath = path.resolve(assetRoot);
+  const filePath = path.resolve(rootPath, key);
+  const relativePath = path.relative(rootPath, filePath);
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    throw createHttpError(404, "NCE asset not found.");
+  }
+
+  if (!existsSync(filePath)) {
+    throw createHttpError(404, "NCE asset not found.");
+  }
+
+  return filePath;
 }
 
 export async function listStudentNcePath(
@@ -760,9 +788,56 @@ export async function getNceAssetContentLocation(
   }
 
   return {
-    url: buildMockStorageUrl(NCE_ASSET_BUCKET, key),
+    url: buildNceAssetAudioUrl(courseId, key, actor),
     mime: mimeForNceAssetKey(key),
     size: 0,
+  };
+}
+
+export async function getNceAssetContentFile(
+  rawParams: unknown,
+  rawQuery: unknown,
+  actor: RequestActor,
+) {
+  const { courseId } = courseNcePathParamsSchema.parse(rawParams);
+  const { key } = nceAssetContentQuerySchema.parse(rawQuery ?? {});
+  await assertStudentCourseAccess(courseId, actor);
+
+  const assignments = await readWithServiceRole(actor, () =>
+    prisma.nceCourseLessonAssignment.findMany({
+      where: {
+        courseId,
+        ...availableAssignmentWhere(),
+        lesson: lessonContentWhere(),
+      },
+      select: {
+        lesson: {
+          select: {
+            exercises: {
+              select: {
+                content: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+  );
+  const hasAssignedAsset = assignments.some((assignment) =>
+    assignment.lesson.exercises.some((exercise) =>
+      contentReferencesAudioKey(exercise.content, key),
+    ),
+  );
+
+  if (!hasAssignedAsset) {
+    throw createHttpError(404, "NCE asset not found.");
+  }
+
+  const filePath = nceAssetFilePath(key);
+  return {
+    path: filePath,
+    mime: mimeForNceAssetKey(key),
+    size: statSync(filePath).size,
   };
 }
 
