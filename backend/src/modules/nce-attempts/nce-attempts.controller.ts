@@ -9,11 +9,13 @@ import { createHttpError } from "../../utils/httpError.js";
 import {
   completeNceLesson,
   createOrUpdateNceAttempt,
+  getNceAssetContentFile,
   getNceAssetContentLocation,
   listStudentNcePath,
   listTeacherNceAttemptSummaries,
   submitNceAttempt,
 } from "./nce-attempts.service.js";
+import { verifyAccessToken } from "../auth/auth.tokens.js";
 
 function actor(req: Request) {
   if (!req.user) {
@@ -23,9 +25,37 @@ function actor(req: Request) {
   return req.user;
 }
 
+function actorFromNceAssetToken(req: Request) {
+  const token = typeof req.query.token === "string" ? req.query.token : "";
+  if (!token) {
+    throw createHttpError(401, "Unauthorized");
+  }
+
+  try {
+    const claims = verifyAccessToken(token);
+    return {
+      id: claims.sub,
+      role: claims.role,
+      status: claims.status,
+    };
+  } catch {
+    throw createHttpError(401, "Unauthorized");
+  }
+}
+
 export async function getStudentNcePath(req: Request, res: Response): Promise<void> {
   const payload = await listStudentNcePath(req.params, actor(req), req.query);
   res.status(200).json(payload);
+}
+
+export async function getNceAssetAudio(req: Request, res: Response): Promise<void> {
+  const payload = await getNceAssetContentFile(
+    req.params,
+    req.query,
+    actorFromNceAssetToken(req),
+  );
+  res.type(payload.mime);
+  res.sendFile(payload.path);
 }
 
 export async function getNceAssetContent(req: Request, res: Response): Promise<void> {
