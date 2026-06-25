@@ -40,7 +40,7 @@ const TOKEN_AUDIENCE = "nce-app";
 const NCE_ASSET_TOKEN_AUDIENCE = "nce-asset";
 const NCE_ASSET_TOKEN_PURPOSE = "nce_asset_audio";
 const ACCESS_TOKEN_TTL = "15m";
-const NCE_ASSET_TOKEN_TTL = "2m";
+const NCE_ASSET_TOKEN_TTL = "15m";
 
 // Keep shared key material at module scope so token helpers stay cheap to call.
 const { privateKey, publicKey } = loadJwtKeys();
