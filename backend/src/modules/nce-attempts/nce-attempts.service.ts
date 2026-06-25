@@ -790,10 +790,11 @@ export async function getNceAssetContentLocation(
     throw createHttpError(404, "NCE asset not found.");
   }
 
+  const filePath = nceAssetFilePath(key);
   return {
     url: buildNceAssetAudioUrl(courseId, key, actor),
     mime: mimeForNceAssetKey(key),
-    size: 0,
+    size: statSync(filePath).size,
   };
 }
 
