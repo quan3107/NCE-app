@@ -17,6 +17,7 @@ import {
   UserStatus,
 } from "../../prisma/index.js";
 
+import { config } from "../../config/env.js";
 import { prisma, runWithRole } from "../../config/prismaClient.js";
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { createHttpError } from "../../utils/httpError.js";
@@ -647,7 +648,7 @@ function buildNceAssetAudioUrl(
 }
 
 function nceAssetFilePath(key: string): string {
-  const assetRoot = process.env.NCE_ASSET_ROOT;
+  const assetRoot = process.env.NCE_ASSET_ROOT ?? config.nceAssets.root;
   if (!assetRoot) {
     throw createHttpError(404, "NCE asset storage is not configured.");
   }
