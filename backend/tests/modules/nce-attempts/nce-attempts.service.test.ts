@@ -3,6 +3,10 @@
  * Purpose: Verify student NCE lesson progress and exercise attempt behavior.
  * Why: Protects enrollment, ownership, draft persistence, scoring, and teacher summaries.
  */
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EnrollmentRole,
@@ -49,6 +53,7 @@ const prisma = vi.mocked(prismaModule.prisma, true);
 const {
   completeNceLesson,
   createOrUpdateNceAttempt,
+  getNceAssetContentFile,
   getNceAssetContentLocation,
   listStudentNcePath,
   listTeacherNceAttemptSummaries,
@@ -236,10 +241,59 @@ describe("nce-attempts.service", () => {
       studentActor,
     );
 
-    expect(result).toMatchObject({
-      url: "https://storage.mock/nce-assets/nce/book1/lesson1/dialogue.mp3",
-      mime: "audio/mpeg",
-    });
+    expect(result.mime).toBe("audio/mpeg");
+    expect(result.url).toContain(
+      `/api/v1/courses/${courseId}/nce-assets/content/audio?`,
+    );
+    expect(result.url).toContain("key=nce%2Fbook1%2Flesson1%2Fdialogue.mp3");
+    expect(result.url).toContain("token=");
+    expect(result.url).not.toContain("storage.mock");
+  });
+
+  it("resolves assigned NCE audio from the configured asset root", async () => {
+    const previousAssetRoot = process.env.NCE_ASSET_ROOT;
+    const assetRoot = mkdtempSync(path.join(tmpdir(), "nce-assets-"));
+    const assetPath = path.join(assetRoot, "nce", "book1", "lesson1", "dialogue.mp3");
+    mkdirSync(path.dirname(assetPath), { recursive: true });
+    writeFileSync(assetPath, Buffer.from([0x49, 0x44, 0x33]));
+    process.env.NCE_ASSET_ROOT = assetRoot;
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        courseId,
+        lessonId,
+        lesson: {
+          exercises: [
+            {
+              content: {
+                audioKey: "nce/book1/lesson1/dialogue.mp3",
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    try {
+      const result = await getNceAssetContentFile(
+        { courseId },
+        { key: "nce/book1/lesson1/dialogue.mp3" },
+        studentActor,
+      );
+
+      expect(result).toMatchObject({
+        path: assetPath,
+        mime: "audio/mpeg",
+        size: 3,
+      });
+    } finally {
+      if (previousAssetRoot === undefined) {
+        delete process.env.NCE_ASSET_ROOT;
+      } else {
+        process.env.NCE_ASSET_ROOT = previousAssetRoot;
+      }
+      rmSync(assetRoot, { recursive: true, force: true });
+    }
   });
 
   it("does not list lessons before their available date", async () => {
@@ -502,6 +556,50 @@ describe("nce-attempts.service", () => {
           acceptedAnswers: ["umbrella"],
           sample: "umbrella",
         },
+      },
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
+      ...draftAttempt,
+      status: NceAttemptStatus.submitted,
+      score: 1,
+      maxScore: 1,
+      feedbackJson: {
+        correct: true,
+        manualReviewRequired: false,
+      },
+      submittedAt: now,
+    });
+
+    await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 1,
+          maxScore: 1,
+          feedbackJson: expect.objectContaining({
+            correct: true,
+            manualReviewRequired: false,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("auto-scores listening choice attempts", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: { answer: "Excuse me" },
+      exercise: {
+        ...exercise,
+        exerciseType: NceExerciseType.listening,
+        answerKey: { choice: "Excuse me" },
+        scoringConfig: { maxScore: 1 },
       },
     });
     prisma.course.findFirst.mockResolvedValueOnce(course);
