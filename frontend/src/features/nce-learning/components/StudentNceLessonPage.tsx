@@ -7,8 +7,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { PageHeader } from '@components/common/PageHeader';
+import { Alert, AlertDescription } from '@components/ui/alert';
 import { Button } from '@components/ui/button';
 import { Card, CardContent } from '@components/ui/card';
 import { Skeleton } from '@components/ui/skeleton';
@@ -24,6 +26,9 @@ import { NceExerciseAttempt } from './NceExerciseAttempt';
 
 type ResponseByExercise = Record<string, NceAttemptResponse>;
 type AttemptByExercise = Record<string, NceAttempt>;
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 export function StudentNceLessonPage() {
   const { courseId = '', lessonId = '' } = useParams<{
@@ -43,6 +48,7 @@ export function StudentNceLessonPage() {
   const [responses, setResponses] = useState<ResponseByExercise>({});
   const [attempts, setAttempts] = useState<AttemptByExercise>({});
   const [completedLessonId, setCompletedLessonId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const lessons = loadedLessons.length > 0 ? loadedLessons : pathQuery.data?.lessons ?? [];
   const lessonIndex = lessons.findIndex((item) => item.id === lessonId);
   const lesson = lessonIndex >= 0 ? lessons[lessonIndex] : null;
@@ -136,9 +142,38 @@ export function StudentNceLessonPage() {
     setAttempts((current) => ({ ...current, [exerciseId]: submitted }));
   };
 
+  const reportActionError = (error: unknown, fallback: string) => {
+    const message = errorMessage(error, fallback);
+    setActionError(message);
+    toast.error(message);
+  };
+
+  const saveDraftWithFeedback = async (exerciseId: string) => {
+    setActionError(null);
+    try {
+      await saveDraft(exerciseId);
+    } catch (error) {
+      reportActionError(error, 'Unable to save draft.');
+    }
+  };
+
+  const submitWithFeedback = async (exerciseId: string) => {
+    setActionError(null);
+    try {
+      await submit(exerciseId);
+    } catch (error) {
+      reportActionError(error, 'Unable to submit attempt.');
+    }
+  };
+
   const completeLesson = async () => {
-    await completeMutation.mutateAsync({ courseId, lessonId });
-    setCompletedLessonId(lessonId);
+    setActionError(null);
+    try {
+      await completeMutation.mutateAsync({ courseId, lessonId });
+      setCompletedLessonId(lessonId);
+    } catch (error) {
+      reportActionError(error, 'Unable to complete lesson.');
+    }
   };
 
   if (pathQuery.isLoading || (!lesson && hasMorePathPages)) {
@@ -181,6 +216,12 @@ export function StudentNceLessonPage() {
       />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+        {actionError && (
+          <Alert variant="destructive">
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
+        )}
+
         <section className="space-y-3">
           <h2 className="text-lg font-semibold tracking-normal">Lesson Text</h2>
           <div className="rounded-lg border bg-card/70 p-5 leading-7">
@@ -206,8 +247,8 @@ export function StudentNceLessonPage() {
                   isSaving={saveDraftMutation.isPending}
                   isSubmitting={submitMutation.isPending}
                   onResponseChange={(response) => setResponse(exercise.id, response)}
-                  onSaveDraft={() => void saveDraft(exercise.id)}
-                  onSubmit={() => void submit(exercise.id)}
+                  onSaveDraft={() => void saveDraftWithFeedback(exercise.id)}
+                  onSubmit={() => void submitWithFeedback(exercise.id)}
                 />
               ))}
             </div>
