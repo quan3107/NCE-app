@@ -41,7 +41,7 @@ StudentNcePath:
 CourseNceAssetContent:
   get:
     tags: [nce-learning]
-    summary: Get a playable URL for assigned NCE lesson audio
+    summary: Get a signed playable URL for assigned NCE lesson audio
     parameters:
       - $ref: '#/components/parameters/CourseId'
       - in: query
@@ -83,6 +83,69 @@ CourseNceAssetContent:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+
+CourseNceAssetAudio:
+  get:
+    tags: [nce-learning]
+    summary: Stream assigned NCE lesson audio with a signed media token
+    parameters:
+      - $ref: '#/components/parameters/CourseId'
+      - in: query
+        name: key
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - in: query
+        name: token
+        required: true
+        schema:
+          type: string
+          minLength: 1
+    responses:
+      '200':
+        description: NCE lesson audio bytes
+        content:
+          audio/mpeg:
+            schema:
+              type: string
+              format: binary
+          audio/wav:
+            schema:
+              type: string
+              format: binary
+          audio/ogg:
+            schema:
+              type: string
+              format: binary
+          audio/mp4:
+            schema:
+              type: string
+              format: binary
+      '400':
+        description: Validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Missing or invalid media token
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for users outside the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: NCE asset is not assigned or available in the course
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
 
 CourseNceExerciseAttempts:
   post:
