@@ -175,6 +175,9 @@ function NceExerciseAudio({
   audioKey: string;
 }) {
   const contentQuery = useNceAssetContentQuery(courseId, audioKey);
+  const refreshAudioUrl = () => {
+    void contentQuery.refetch();
+  };
 
   return (
     <div className="space-y-2">
@@ -185,6 +188,13 @@ function NceExerciseAudio({
         <audio
           controls
           src={contentQuery.data.url}
+          onPointerDown={refreshAudioUrl}
+          onPlay={refreshAudioUrl}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              refreshAudioUrl();
+            }
+          }}
           aria-label="Exercise audio"
           className="w-full"
         />
