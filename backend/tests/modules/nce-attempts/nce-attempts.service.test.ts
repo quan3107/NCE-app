@@ -322,6 +322,51 @@ describe("nce-attempts.service", () => {
     }
   });
 
+  it("rejects signed NCE asset URLs when the asset path is a directory", async () => {
+    const previousAssetRoot = process.env.NCE_ASSET_ROOT;
+    const assetRoot = mkdtempSync(path.join(tmpdir(), "nce-assets-"));
+    mkdirSync(path.join(assetRoot, "nce", "book1", "lesson1", "dialogue.mp3"), {
+      recursive: true,
+    });
+    process.env.NCE_ASSET_ROOT = assetRoot;
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        courseId,
+        lessonId,
+        lesson: {
+          exercises: [
+            {
+              content: {
+                audioKey: "nce/book1/lesson1/dialogue.mp3",
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    try {
+      await expect(
+        getNceAssetContentLocation(
+          { courseId },
+          { key: "nce/book1/lesson1/dialogue.mp3" },
+          studentActor,
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        message: "NCE asset not found.",
+      });
+    } finally {
+      if (previousAssetRoot === undefined) {
+        delete process.env.NCE_ASSET_ROOT;
+      } else {
+        process.env.NCE_ASSET_ROOT = previousAssetRoot;
+      }
+      rmSync(assetRoot, { recursive: true, force: true });
+    }
+  });
+
   it("resolves assigned NCE audio from the configured asset root", async () => {
     const previousAssetRoot = process.env.NCE_ASSET_ROOT;
     const assetRoot = mkdtempSync(path.join(tmpdir(), "nce-assets-"));
