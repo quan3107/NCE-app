@@ -89,7 +89,7 @@ NceAssetContent:
   properties:
     url:
       type: string
-      format: uri
+      format: uri-reference
     mime:
       type: string
     size:
