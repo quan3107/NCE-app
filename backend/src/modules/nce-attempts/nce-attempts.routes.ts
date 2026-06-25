@@ -7,6 +7,7 @@ import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
 import {
+  getNceAssetAudio,
   getNceAssetContent,
   getNceAttemptSummaries,
   getStudentNcePath,
@@ -18,6 +19,7 @@ import {
 export const courseNceAttemptsRouter = Router({ mergeParams: true });
 export const nceAttemptsRouter = Router();
 
+courseNceAttemptsRouter.get("/nce-assets/content/audio", getNceAssetAudio);
 courseNceAttemptsRouter.use(authGuard);
 courseNceAttemptsRouter.get("/nce-path", getStudentNcePath);
 courseNceAttemptsRouter.get("/nce-assets/content", getNceAssetContent);
