@@ -9,6 +9,7 @@ import { before, test } from 'node:test';
 type NceLearningApi = typeof import('../src/features/nce-learning/api');
 
 let completeNceLesson: NceLearningApi['completeNceLesson'];
+let fetchNceAssetContent: NceLearningApi['fetchNceAssetContent'];
 let fetchStudentNcePath: NceLearningApi['fetchStudentNcePath'];
 let saveNceAttemptDraft: NceLearningApi['saveNceAttemptDraft'];
 let submitNceAttempt: NceLearningApi['submitNceAttempt'];
@@ -20,6 +21,7 @@ before(async () => {
 
   const nceLearningApi = await import('../src/features/nce-learning/api');
   completeNceLesson = nceLearningApi.completeNceLesson;
+  fetchNceAssetContent = nceLearningApi.fetchNceAssetContent;
   fetchStudentNcePath = nceLearningApi.fetchStudentNcePath;
   saveNceAttemptDraft = nceLearningApi.saveNceAttemptDraft;
   submitNceAttempt = nceLearningApi.submitNceAttempt;
@@ -66,6 +68,28 @@ test('fetchStudentNcePath reads the course path with pagination', async () => {
   assert.equal(
     requestedUrls[0],
     'http://localhost:4000/api/v1/courses/course-1/nce-path?page=2&pageSize=10',
+  );
+});
+
+test('fetchNceAssetContent resolves relative audio URLs against the API origin', async () => {
+  await withFetch(
+    async () =>
+      new Response(
+        JSON.stringify({
+          url: '/api/v1/courses/course-1/nce-assets/content/audio?key=nce%2Flesson.mp3&token=signed',
+          mime: 'audio/mpeg',
+          size: 123,
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    async () => {
+      const result = await fetchNceAssetContent('course-1', 'nce/lesson.mp3');
+
+      assert.equal(
+        result.url,
+        'http://localhost:4000/api/v1/courses/course-1/nce-assets/content/audio?key=nce%2Flesson.mp3&token=signed',
+      );
+    },
   );
 });
 
