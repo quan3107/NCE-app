@@ -145,6 +145,7 @@ test('NCE learning OpenAPI routes document student attempts and teacher summarie
 
   assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-path:/);
   assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-assets\/content:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-assets\/content\/audio:/);
   assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-exercises\/\{exerciseId\}\/attempts:/);
   assert.match(openApiYaml, /\/api\/v1\/nce-attempts\/\{attemptId\}\/submit:/);
   assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-lessons\/\{lessonId\}\/complete:/);
@@ -168,6 +169,11 @@ test('NCE learning OpenAPI routes document student attempts and teacher summarie
   assert.match(nceSchemaYaml, /NceAssetContent:/);
   assert.match(nceSchemaYaml, /NceAttempt:/);
   assert.match(nceSchemaYaml, /NceAttemptSummaryListResponse:/);
+
+  const audioRoute = section(ncePathYaml, 'CourseNceAssetAudio', 'CourseNceExerciseAttempts');
+  assert.match(audioRoute, /name: token/);
+  assert.match(audioRoute, /audio\/mpeg:/);
+  assert.doesNotMatch(audioRoute, /BearerAuth/);
 
   const attemptSchema = section(nceSchemaYaml, 'NceAttempt', 'NceAttemptWriteRequest');
   assert.match(attemptSchema, /enum: \[draft, submitted\]/);
