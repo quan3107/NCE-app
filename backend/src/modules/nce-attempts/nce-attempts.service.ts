@@ -21,7 +21,7 @@ import { config } from "../../config/env.js";
 import { prisma, runWithRole } from "../../config/prismaClient.js";
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { createHttpError } from "../../utils/httpError.js";
-import { signAccessToken } from "../auth/auth.tokens.js";
+import { signNceAssetToken } from "../auth/auth.tokens.js";
 import type { NceLessonRow } from "../nce-content/nce-content.mappers.js";
 import {
   mapNceAttempt,
@@ -638,10 +638,12 @@ function buildNceAssetAudioUrl(
   key: string,
   actor: RequestActor,
 ): string {
-  const token = signAccessToken({
+  const token = signNceAssetToken({
     userId: actor.id,
     role: actor.role,
     status: actor.status,
+    courseId,
+    key,
   });
   const params = new URLSearchParams({ key, token });
   return `/api/v1/courses/${courseId}/nce-assets/content/audio?${params.toString()}`;
