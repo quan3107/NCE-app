@@ -4,7 +4,7 @@
  * Why: Keeps path, progress, and attempt UI aligned with backend payloads.
  */
 
-import type { CourseNceLesson, NceExercise, NcePagination } from '@features/nce-content/types';
+import type { NceExercise, NceLesson, NcePagination } from '@features/nce-content/types';
 
 export type NceLessonProgressStatus = 'in_progress' | 'completed';
 export type NceAttemptStatus = 'draft' | 'submitted';
@@ -48,7 +48,10 @@ export type StudentNcePathExercise = NceExercise & {
   latestAttempt: NceAttempt | null;
 };
 
-export type StudentNcePathLesson = Omit<CourseNceLesson, 'exercises'> & {
+export type StudentNcePathLesson = Omit<NceLesson, 'exercises'> & {
+  sequence: number;
+  availableFrom: string | null;
+  dueAt: string | null;
   progress: NceLessonProgress | null;
   exercises: StudentNcePathExercise[];
 };
