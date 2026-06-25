@@ -726,6 +726,156 @@ test('StudentNceLessonPage saves, submits, and completes', async () => {
   }
 });
 
+test('StudentNceLessonPage shows save draft failures', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/attempts') && init?.method === 'POST') {
+      return new Response(
+        JSON.stringify({ message: 'NCE lesson assignment not found' }),
+        {
+          status: 404,
+          statusText: 'Not Found',
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    await screen.findByText('Complete the sentence.');
+    await user.type(screen.getByLabelText('Answer for Complete the sentence.'), 'this');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+    await screen.findByRole('alert');
+    assert.ok(screen.getByText('NCE lesson assignment not found'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage shows submit failures after saving the current draft', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/attempts') && init?.method === 'POST' && !url.includes('/submit')) {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-1',
+          status: 'draft',
+          response: { answer: 'this' },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    if (url.includes('/submit')) {
+      return new Response(
+        JSON.stringify({ message: 'Submit all NCE exercise attempts first' }),
+        {
+          status: 400,
+          statusText: 'Bad Request',
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    await screen.findByText('Complete the sentence.');
+    await user.type(screen.getByLabelText('Answer for Complete the sentence.'), 'this');
+    await user.click(screen.getByRole('button', { name: /submit attempt/i }));
+
+    await screen.findByRole('alert');
+    assert.ok(screen.getByText('Submit all NCE exercise attempts first'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage shows lesson completion failures', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const pathWithoutExercises = {
+    ...pathPayload,
+    lessons: pathPayload.lessons.map((lesson) => ({
+      ...lesson,
+      exercises: [],
+      progress: null,
+    })),
+  };
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+
+    if (url.includes('/nce-path')) {
+      return new Response(JSON.stringify(pathWithoutExercises), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/complete') && init?.method === 'POST') {
+      return new Response(
+        JSON.stringify({ message: 'NCE lesson assignment not found' }),
+        {
+          status: 404,
+          statusText: 'Not Found',
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <StudentNceLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    await screen.findByRole('heading', { name: 'Excuse me!' });
+    await user.click(screen.getByRole('button', { name: /mark lesson complete/i }));
+
+    await screen.findByRole('alert');
+    assert.ok(screen.getByText('NCE lesson assignment not found'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('StudentNceLessonPage does not carry local completion to the next lesson', async () => {
   const user = userEvent.setup();
   const originalFetch = globalThis.fetch;
