@@ -4,7 +4,7 @@
  * Why: Students need an ordered view of assigned lessons and completion state.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookOpen, CheckCircle2, PlayCircle } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
@@ -12,9 +12,8 @@ import { PageHeader } from '@components/common/PageHeader';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader } from '@components/ui/card';
-import { Input } from '@components/ui/input';
-import { Label } from '@components/ui/label';
 import { Skeleton } from '@components/ui/skeleton';
+import { useCoursesQuery } from '@features/courses/api';
 import { useRouter } from '@lib/router';
 import { useStudentNcePathQuery } from '../api';
 
@@ -23,10 +22,11 @@ const PATH_PAGE_SIZE = 20;
 export function StudentNcePathPage() {
   const { navigate } = useRouter();
   const location = useLocation();
-  const [courseId, setCourseId] = useState(
-    () => new URLSearchParams(location.search).get('courseId') ?? '',
-  );
+  const routeCourseId = new URLSearchParams(location.search).get('courseId') ?? '';
+  const [courseId, setCourseId] = useState(routeCourseId);
   const [page, setPage] = useState(1);
+  const coursesQuery = useCoursesQuery();
+  const courses = coursesQuery.data ?? [];
   const query = useStudentNcePathQuery(
     courseId || undefined,
     { page, pageSize: PATH_PAGE_SIZE },
@@ -39,19 +39,15 @@ export function StudentNcePathPage() {
     Math.ceil(totalLessons / (pagination?.pageSize ?? PATH_PAGE_SIZE)),
   );
 
-  const updateCourseId = (value: string) => {
-    const trimmed = value.trim();
-    setCourseId(trimmed);
+  useEffect(() => {
+    setCourseId(routeCourseId);
     setPage(1);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (trimmed) {
-        url.searchParams.set('courseId', trimmed);
-      } else {
-        url.searchParams.delete('courseId');
-      }
-      window.history.replaceState(null, '', url.toString());
-    }
+  }, [routeCourseId]);
+
+  const selectCourse = (selectedCourseId: string) => {
+    setCourseId(selectedCourseId);
+    setPage(1);
+    navigate(`/student/nce?courseId=${encodeURIComponent(selectedCourseId)}`);
   };
 
   return (
@@ -62,26 +58,56 @@ export function StudentNcePathPage() {
       />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div className="space-y-2">
-            <Label htmlFor="student-nce-course-id">Course ID</Label>
-            <Input
-              id="student-nce-course-id"
-              value={courseId}
-              onChange={(event) => updateCourseId(event.target.value)}
-              placeholder="Paste your course ID"
-            />
-          </div>
-          <Button variant="outline" onClick={() => query.refetch()} disabled={!courseId || query.isFetching}>
-            <BookOpen className="size-4" />
-            Load
-          </Button>
-        </div>
-
         {!courseId ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Enter a course ID to load your NCE lesson path.
-          </div>
+          coursesQuery.isLoading ? (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Card key={`student-nce-course-skeleton-${index}`}>
+                  <CardHeader>
+                    <Skeleton className="h-5 w-2/3" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-9 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : coursesQuery.error ? (
+            <Card>
+              <CardContent className="py-10 text-center text-destructive">
+                Unable to load your courses.
+              </CardContent>
+            </Card>
+          ) : courses.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+              No enrolled courses are available.
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {courses.map((course) => (
+                <Card key={course.id}>
+                  <CardContent className="space-y-4 p-5">
+                    <div className="min-w-0 space-y-1">
+                      <h2 className="truncate text-base font-semibold tracking-normal">
+                        {course.title}
+                      </h2>
+                      <p className="line-clamp-2 text-sm text-muted-foreground">
+                        {course.description}
+                      </p>
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={() => selectCourse(course.id)}
+                      aria-label={`Open NCE path for ${course.title}`}
+                    >
+                      <BookOpen className="size-4" />
+                      Open NCE Path
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
         ) : query.isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, index) => (
