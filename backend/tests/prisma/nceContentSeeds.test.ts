@@ -3,7 +3,7 @@
  * Purpose: Validate NCE schema, migration, package script, and seed fixture contracts.
  * Why: PR-40 adds foundational NCE content tables and must keep the seed path idempotent and complete.
  */
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -23,6 +23,16 @@ function readBackend(relativePath: string): string {
 
 function readRepo(relativePath: string): string {
   return readFileSync(resolve(repoRoot, relativePath), 'utf8')
+}
+
+function readMigrationSql(): string {
+  const migrationsRoot = resolve(backendRoot, 'src/prisma/migrations')
+  return readdirSync(migrationsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) =>
+      readFileSync(resolve(migrationsRoot, entry.name, 'migration.sql'), 'utf8'),
+    )
+    .join('\n')
 }
 
 describe('NCE Prisma schema', () => {
@@ -131,6 +141,15 @@ describe('NCE Prisma schema', () => {
         ),
       )
     }
+  })
+
+  it('enforces one draft NCE attempt per student exercise without limiting submissions', () => {
+    const migrations = readMigrationSql()
+
+    expect(migrations).toContain('nce_attempts_one_draft_per_student_exercise_key')
+    expect(migrations).toMatch(
+      /CREATE UNIQUE INDEX[\s\S]*?ON public\.nce_exercise_attempts\s*\(course_id, exercise_id, student_id\)[\s\S]*?WHERE status = 'draft'/,
+    )
   })
 })
 
