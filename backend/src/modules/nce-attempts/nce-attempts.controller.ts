@@ -15,7 +15,7 @@ import {
   listTeacherNceAttemptSummaries,
   submitNceAttempt,
 } from "./nce-attempts.service.js";
-import { verifyAccessToken } from "../auth/auth.tokens.js";
+import { verifyNceAssetToken } from "../auth/auth.tokens.js";
 
 function actor(req: Request) {
   if (!req.user) {
@@ -32,7 +32,12 @@ function actorFromNceAssetToken(req: Request) {
   }
 
   try {
-    const claims = verifyAccessToken(token);
+    const claims = verifyNceAssetToken(token);
+    const key = typeof req.query.key === "string" ? req.query.key : "";
+    if (claims.courseId !== req.params.courseId || claims.key !== key) {
+      throw createHttpError(401, "Unauthorized");
+    }
+
     return {
       id: claims.sub,
       role: claims.role,
