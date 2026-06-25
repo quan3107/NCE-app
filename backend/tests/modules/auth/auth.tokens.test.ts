@@ -38,6 +38,20 @@ describe("auth.tokens", () => {
     });
   });
 
+  it("keeps NCE asset tokens valid for normal lesson playback", () => {
+    const token = signNceAssetToken({
+      userId: studentId,
+      role: UserRole.student,
+      status: UserStatus.active,
+      courseId,
+      key,
+    });
+
+    const claims = verifyNceAssetToken(token);
+
+    expect(claims.exp - claims.iat).toBeGreaterThanOrEqual(15 * 60);
+  });
+
   it("rejects normal API access tokens as NCE asset tokens", () => {
     const token = signAccessToken({
       userId: studentId,
