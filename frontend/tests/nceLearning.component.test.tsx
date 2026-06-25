@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { afterEach, test } from 'vitest';
@@ -342,15 +342,17 @@ test('StudentNcePathPage lets students choose an enrolled course without pasting
 test('NceExerciseAttempt renders content and loads exercise audio', async () => {
   const originalFetch = globalThis.fetch;
   const requests: string[] = [];
+  let assetRequestCount = 0;
 
   globalThis.fetch = async (input) => {
     const url = String(input);
     requests.push(url);
 
     if (url.includes('/nce-assets/content')) {
+      assetRequestCount += 1;
       return new Response(
         JSON.stringify({
-          url: 'https://storage.mock/nce-assets/nce/book1/lesson1/dialogue.mp3',
+          url: `https://storage.mock/nce-assets/nce/book1/lesson1/dialogue-${assetRequestCount}.mp3`,
           mime: 'audio/mpeg',
           size: 1234,
         }),
@@ -393,7 +395,12 @@ test('NceExerciseAttempt renders content and loads exercise audio', async () => 
     );
 
     const audio = await screen.findByLabelText('Exercise audio', {}, { timeout: 1000 });
-    assert.match((audio as HTMLAudioElement).src, /dialogue\.mp3$/);
+    assert.match((audio as HTMLAudioElement).src, /dialogue-1\.mp3$/);
+    fireEvent.pointerDown(audio);
+    await waitFor(() => {
+      assert.equal(assetRequestCount, 2);
+      assert.match((audio as HTMLAudioElement).src, /dialogue-2\.mp3$/);
+    });
     assert.ok(screen.queryByText('nce/book1/lesson1/dialogue.mp3') === null);
     assert.ok(screen.getByText('Is ___ your handbag?'));
     assert.ok(screen.getAllByText('Excuse me').length > 0);
