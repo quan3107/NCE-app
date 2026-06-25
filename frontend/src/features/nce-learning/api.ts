@@ -6,6 +6,7 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 
+import { API_BASE_URL } from '@lib/apiBaseUrl';
 import { apiClient, type ApiClientOptions } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
 import type {
@@ -42,7 +43,18 @@ export const fetchStudentNcePath = (
 export const fetchNceAssetContent = (courseId: string, key: string) =>
   apiClient<NceAssetContent>(`/courses/${courseId}/nce-assets/content`, {
     params: { key },
-  });
+  }).then((content) => ({
+    ...content,
+    url: resolveNceAssetUrl(content.url),
+  }));
+
+function resolveNceAssetUrl(url: string): string {
+  if (!url.startsWith('/')) {
+    return url;
+  }
+
+  return new URL(url, API_BASE_URL).toString();
+}
 
 export const saveNceAttemptDraft = async (
   courseId: string,
