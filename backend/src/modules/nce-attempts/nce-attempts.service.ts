@@ -662,7 +662,7 @@ function nceAssetFilePath(key: string): string {
     throw createHttpError(404, "NCE asset not found.");
   }
 
-  if (!existsSync(filePath)) {
+  if (!existsSync(filePath) || !statSync(filePath).isFile()) {
     throw createHttpError(404, "NCE asset not found.");
   }
 
