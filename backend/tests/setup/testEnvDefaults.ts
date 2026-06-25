@@ -27,6 +27,7 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.TRUST_PROXY ??= 'loopback'
   process.env.LOG_LEVEL ??= 'silent'
   process.env.LOG_PRETTY ??= 'false'
+  process.env.NCE_ASSET_ROOT ??= 'tests/fixtures/nce-assets'
   process.env.AI_FEEDBACK_ENABLED ??= 'false'
   process.env.AI_PROVIDER ??= 'openai-compatible'
   process.env.AI_BASE_URL ??= 'https://api.openai.com/v1'
