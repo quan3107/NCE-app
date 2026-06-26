@@ -82,6 +82,11 @@ export function useNavigation() {
     retry: 1,
     refetchOnWindowFocus: false,
   });
+  const failedSource: NavigationSource = cachedNavigation
+    ? 'cache'
+    : query.data
+      ? 'live'
+      : 'unavailable';
 
   useEffect(() => {
     if (!queryEnabled) {
@@ -95,9 +100,9 @@ export function useNavigation() {
     }
 
     if (query.isError) {
-      setSource(cachedNavigation ? 'cache' : 'unavailable');
+      setSource(failedSource);
     }
-  }, [cachedNavigation, query.isError, query.isFetching, query.isSuccess, queryEnabled]);
+  }, [failedSource, query.isError, query.isFetching, query.isSuccess, queryEnabled]);
 
   const navigation =
     query.data ??
@@ -117,8 +122,8 @@ export function useNavigation() {
       return;
     }
 
-    setSource(cachedNavigation ? 'cache' : 'unavailable');
-  }, [cachedNavigation, query, queryEnabled]);
+    setSource(failedSource);
+  }, [failedSource, query, queryEnabled]);
 
   return {
     navigation,
