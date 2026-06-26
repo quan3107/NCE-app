@@ -848,7 +848,9 @@ export async function getNceAssetContentFile(
 ) {
   const { courseId } = courseNcePathParamsSchema.parse(rawParams);
   const { key } = nceAssetContentQuerySchema.parse(rawQuery ?? {});
-  await assertStudentCourseAccess(courseId, actor);
+  await readWithServiceRole(actor, () =>
+    assertStudentCourseAccess(courseId, actor),
+  );
 
   const assignments = await readWithServiceRole(actor, () =>
     prisma.nceCourseLessonAssignment.findMany({
