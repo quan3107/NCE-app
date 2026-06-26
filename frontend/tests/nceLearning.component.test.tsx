@@ -418,6 +418,71 @@ test('NceExerciseAttempt renders content and loads exercise audio', async () => 
   }
 });
 
+test('NceExerciseAttempt does not refresh audio URL from the play event', async () => {
+  const originalFetch = globalThis.fetch;
+  let assetRequestCount = 0;
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+
+    if (url.includes('/nce-assets/content')) {
+      assetRequestCount += 1;
+      return new Response(
+        JSON.stringify({
+          url: `https://storage.mock/nce-assets/nce/book1/lesson1/play-${assetRequestCount}.mp3`,
+          mime: 'audio/mpeg',
+          size: 1234,
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <NceExerciseAttempt
+        courseId="course-1"
+        exercise={{
+          id: 'exercise-audio-play',
+          lessonId: 'lesson-1',
+          objectiveId: null,
+          exerciseType: 'listening',
+          prompt: 'Listen and answer.',
+          content: {
+            audioKey: 'nce/book1/lesson1/dialogue.mp3',
+          },
+          scoringConfig: { maxScore: 1 },
+          sortOrder: 1,
+          latestAttempt: null,
+        }}
+        response={{}}
+        attempt={null}
+        isSaving={false}
+        isSubmitting={false}
+        onResponseChange={() => undefined}
+        onSaveDraft={() => undefined}
+        onSubmit={() => undefined}
+      />,
+      '/student/nce',
+    );
+
+    const audio = await screen.findByLabelText('Exercise audio', {}, { timeout: 1000 });
+    assert.match((audio as HTMLAudioElement).src, /play-1\.mp3$/);
+
+    fireEvent.play(audio);
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 0);
+    });
+
+    assert.equal(assetRequestCount, 1);
+    assert.match((audio as HTMLAudioElement).src, /play-1\.mp3$/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('NceExerciseAttempt renders choices as selectable answers', async () => {
   const user = userEvent.setup();
   let selectedResponse: unknown = null;
@@ -534,6 +599,39 @@ test('NceExerciseAttempt disables submit while a draft save is pending', () => {
 
   assert.equal(
     (screen.getByRole('button', { name: /submit attempt/i }) as HTMLButtonElement)
+      .disabled,
+    true,
+  );
+});
+
+test('NceExerciseAttempt disables save draft while submission is pending', () => {
+  renderWithProviders(
+    <NceExerciseAttempt
+      courseId="course-1"
+      exercise={{
+        id: 'exercise-submitting',
+        lessonId: 'lesson-1',
+        objectiveId: null,
+        exerciseType: 'gap_fill',
+        prompt: 'Complete the sentence.',
+        content: { sentence: 'Is ___ your handbag?' },
+        scoringConfig: { points: 1 },
+        sortOrder: 1,
+        latestAttempt: null,
+      }}
+      response={{ answer: 'this' }}
+      attempt={null}
+      isSaving={false}
+      isSubmitting={true}
+      onResponseChange={() => undefined}
+      onSaveDraft={() => undefined}
+      onSubmit={() => undefined}
+    />,
+    '/student/nce',
+  );
+
+  assert.equal(
+    (screen.getByRole('button', { name: /save draft/i }) as HTMLButtonElement)
       .disabled,
     true,
   );
