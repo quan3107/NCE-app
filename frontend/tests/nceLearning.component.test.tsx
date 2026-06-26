@@ -9,7 +9,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { afterEach, test } from 'vitest';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { StudentNceLessonPage } from '../src/features/nce-learning/components/StudentNceLessonPage';
 import { StudentNcePathPage } from '../src/features/nce-learning/components/StudentNcePathPage';
 import { NceExerciseAttempt } from '../src/features/nce-learning/components/NceExerciseAttempt';
@@ -1128,6 +1128,125 @@ test('StudentNceLessonPage does not carry local completion to the next lesson', 
       (screen.getByRole('button', { name: /mark lesson complete/i }) as HTMLButtonElement)
         .disabled,
       false,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('StudentNceLessonPage scopes local attempt and completion state by course', async () => {
+  const user = userEvent.setup();
+  const originalFetch = globalThis.fetch;
+  const courseTwoPathPayload = {
+    ...pathPayload,
+    lessons: pathPayload.lessons.map((lesson) => {
+      if (lesson.id !== 'lesson-1') {
+        return lesson;
+      }
+
+      return {
+        ...lesson,
+        title: 'Course two lesson',
+        exercises: lesson.exercises.map((exercise) => ({
+          ...exercise,
+          latestAttempt: null,
+        })),
+        progress: null,
+      };
+    }),
+  };
+
+  function CourseSwitcherLessonPage() {
+    const navigate = useNavigate();
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => navigate('/student/nce/courses/course-2/lessons/lesson-1')}
+        >
+          Switch course
+        </button>
+        <StudentNceLessonPage />
+      </>
+    );
+  }
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+
+    if (url.includes('/courses/course-1/nce-path')) {
+      return new Response(JSON.stringify(pathPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/courses/course-2/nce-path')) {
+      return new Response(JSON.stringify(courseTwoPathPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (url.includes('/attempts') && init?.method === 'POST' && !url.includes('/submit')) {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-1',
+          status: 'draft',
+          response: { answer: 'this' },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    if (url.includes('/submit')) {
+      return new Response(
+        JSON.stringify({
+          id: 'attempt-1',
+          status: 'submitted',
+          score: 1,
+          maxScore: 1,
+          response: { answer: 'this' },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    if (url.includes('/complete') && init?.method === 'POST') {
+      return new Response(
+        JSON.stringify({
+          status: 'completed',
+          completedAt: '2026-06-23T10:00:00.000Z',
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <CourseSwitcherLessonPage />,
+      '/student/nce/courses/course-1/lessons/lesson-1',
+    );
+
+    await screen.findByRole('heading', { name: 'Excuse me!' });
+    await user.type(screen.getByLabelText('Answer for Complete the sentence.'), 'this');
+    await user.click(screen.getByRole('button', { name: /submit attempt/i }));
+    await screen.findByText(/score: 1\/1/i);
+    await user.click(screen.getByRole('button', { name: /mark lesson complete/i }));
+    await screen.findByText(/lesson completed/i);
+
+    await user.click(screen.getByRole('button', { name: /switch course/i }));
+    await screen.findByRole('heading', { name: 'Course two lesson' });
+
+    const answer = screen.getByLabelText('Answer for Complete the sentence.');
+    assert.equal((answer as HTMLTextAreaElement).disabled, false);
+    assert.equal(screen.queryByText(/score: 1\/1/i), null);
+    assert.equal(screen.queryByText(/lesson completed/i), null);
+    assert.equal(
+      (screen.getByRole('button', { name: /mark lesson complete/i }) as HTMLButtonElement)
+        .disabled,
+      true,
     );
   } finally {
     globalThis.fetch = originalFetch;
