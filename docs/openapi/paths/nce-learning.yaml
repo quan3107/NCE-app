@@ -196,6 +196,12 @@ CourseNceExerciseAttempts:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Draft attempt is no longer editable
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
 
@@ -237,6 +243,12 @@ NceAttemptSubmit:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: Attempt not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Draft attempt is no longer editable
         content:
           application/json:
             schema:
