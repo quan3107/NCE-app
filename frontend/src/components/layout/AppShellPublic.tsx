@@ -34,7 +34,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
   const isLoggedIn = isAuthenticated && currentUser.role !== 'public';
   const dashboardPath = DASHBOARD_PATH_BY_ROLE[currentUser.role];
   const profilePath = resolveProfilePath(currentUser.role);
-  const publicNavigationItems = getFallbackNavigation('public').items;
+  const publicNavigationItems = getFallbackNavigation().items;
 
   const clearCurrentUserNavigationCache = () => {
     if (currentUser.role === 'public') {
