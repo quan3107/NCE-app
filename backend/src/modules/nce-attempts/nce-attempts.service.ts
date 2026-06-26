@@ -649,6 +649,18 @@ function buildNceAssetAudioUrl(
   return `/api/v1/courses/${courseId}/nce-assets/content/audio?${params.toString()}`;
 }
 
+const isPrismaUniqueConflict = (error: unknown) => {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code === "P2002";
+  }
+
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return false;
+  }
+
+  return error.code === "P2002";
+};
+
 function nceAssetFilePath(key: string): string {
   const assetRoot = process.env.NCE_ASSET_ROOT ?? config.nceAssets.root;
   if (!assetRoot) {
@@ -929,15 +941,49 @@ export async function createOrUpdateNceAttempt(
   );
 
   const response = input.response as Prisma.InputJsonValue;
-  const attempt = existingDraft
-    ? await readWithServiceRole(actor, () =>
-        prisma.nceExerciseAttempt.update({
-          where: { id: existingDraft.id },
-          data: { response },
-          include: { exercise: true },
-        }),
-      )
-    : await readWithServiceRole(actor, () =>
+  const loadCurrentDraft = () =>
+    readWithServiceRole(actor, () =>
+      prisma.nceExerciseAttempt.findFirst({
+        where: {
+          courseId,
+          exerciseId,
+          studentId: actor.id,
+          status: NceAttemptStatus.draft,
+        },
+        include: { exercise: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+    );
+  const updateDraft = async (draftId: string) => {
+    const updateResult = await readWithServiceRole(actor, () =>
+      prisma.nceExerciseAttempt.updateMany({
+        where: { id: draftId, status: NceAttemptStatus.draft },
+        data: { response },
+      }),
+    );
+    if (updateResult.count === 0) {
+      throw createHttpError(409, "NCE draft is no longer editable.");
+    }
+
+    const updatedDraft = await readWithServiceRole(actor, () =>
+      prisma.nceExerciseAttempt.findFirst({
+        where: { id: draftId, status: NceAttemptStatus.draft },
+        include: { exercise: true },
+      }),
+    );
+    if (!updatedDraft) {
+      throw createHttpError(409, "NCE draft is no longer editable.");
+    }
+
+    return updatedDraft;
+  };
+
+  let attempt: NceExerciseAttemptRow;
+  if (existingDraft) {
+    attempt = (await updateDraft(existingDraft.id)) as NceExerciseAttemptRow;
+  } else {
+    try {
+      attempt = (await readWithServiceRole(actor, () =>
         prisma.nceExerciseAttempt.create({
           data: {
             courseId,
@@ -949,7 +995,19 @@ export async function createOrUpdateNceAttempt(
           },
           include: { exercise: true },
         }),
-      );
+      )) as NceExerciseAttemptRow;
+    } catch (error) {
+      if (!isPrismaUniqueConflict(error)) {
+        throw error;
+      }
+
+      const concurrentDraft = await loadCurrentDraft();
+      if (!concurrentDraft) {
+        throw createHttpError(409, "NCE draft is no longer editable.");
+      }
+      attempt = (await updateDraft(concurrentDraft.id)) as NceExerciseAttemptRow;
+    }
+  }
 
   return mapNceAttempt(attempt as NceExerciseAttemptRow);
 }
