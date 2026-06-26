@@ -82,6 +82,13 @@ export function StudentNceLessonPage() {
   }, [courseId]);
 
   useEffect(() => {
+    setResponses({});
+    setAttempts({});
+    setCompletedLessonId(null);
+    setActionError(null);
+  }, [courseId, lessonId]);
+
+  useEffect(() => {
     const pathData = pathQuery.data;
     if (!pathData) {
       return;
