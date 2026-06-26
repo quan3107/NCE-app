@@ -189,7 +189,6 @@ function NceExerciseAudio({
           controls
           src={contentQuery.data.url}
           onPointerDown={refreshAudioUrl}
-          onPlay={refreshAudioUrl}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               refreshAudioUrl();
@@ -382,7 +381,7 @@ export function NceExerciseAttempt({
         <Button
           variant="outline"
           onClick={onSaveDraft}
-          disabled={submitted || isSaving || !hasResponseContent}
+          disabled={submitted || isSaving || isSubmitting || !hasResponseContent}
         >
           {isSaving ? 'Saving' : 'Save draft'}
         </Button>
