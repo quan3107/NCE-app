@@ -108,13 +108,13 @@ test('readNavigationCache expires stale entries', async () => {
   });
 });
 
-test('teacher fallback navigation includes notifications entry', () => {
-  const payload = getFallbackNavigation('teacher');
-  const notificationsItem = payload.items.find((item) => item.path === '/teacher/notifications');
+test('fallback navigation stays limited to public routes for authenticated roles', () => {
+  const payload = getFallbackNavigation('student');
+  const paths = payload.items.map((item) => item.path);
 
-  assert.ok(notificationsItem);
-  assert.equal(notificationsItem.label, 'Notifications');
-  assert.equal(notificationsItem.badgeSource, 'notifications');
-  assert.equal(notificationsItem.requiredPermission, 'notifications:read');
-  assert.equal(notificationsItem.orderIndex, 4);
+  assert.deepEqual(paths, ['/', '/courses', '/about', '/contact']);
+  assert.equal(paths.some((path) => path.startsWith('/student')), false);
+  assert.equal(paths.some((path) => path.startsWith('/teacher')), false);
+  assert.equal(paths.some((path) => path.startsWith('/admin')), false);
+  assert.deepEqual(payload.permissions, []);
 });
