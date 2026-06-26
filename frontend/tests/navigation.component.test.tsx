@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, test, vi } from 'vitest';
 
@@ -39,12 +39,15 @@ afterEach(() => {
 });
 
 function NavigationSnapshot() {
-  const { items, source, error } = useNavigationContext();
+  const { items, source, error, refetch } = useNavigationContext();
 
   return (
     <section>
       <output data-testid="source">{source}</output>
       <output data-testid="error">{error?.message ?? ''}</output>
+      <button type="button" onClick={() => void refetch()}>
+        Refetch navigation
+      </button>
       <ul>
         {items.map((item) => (
           <li key={item.id}>{item.path}</li>
@@ -53,6 +56,28 @@ function NavigationSnapshot() {
     </section>
   );
 }
+
+const liveNavigationPayload = {
+  navigation: {
+    items: [
+      {
+        id: 'student-dashboard',
+        label: 'Dashboard',
+        path: '/student/dashboard',
+        iconName: 'layout-dashboard',
+        requiredPermission: null,
+        orderIndex: 0,
+        badgeSource: null,
+        children: [],
+        isActive: true,
+        featureFlag: null,
+      },
+    ],
+    permissions: [],
+    featureFlags: {},
+    version: 'live-2026-06-26',
+  },
+};
 
 function renderNavigation() {
   const queryClient = new QueryClient({
@@ -95,4 +120,43 @@ test('authenticated navigation failure does not expose hardcoded feature links',
   assert.equal(screen.queryByText('/student/nce'), null);
   assert.equal(screen.queryByText('/student/assignments'), null);
   assert.equal(screen.queryByText('/student/dashboard'), null);
+});
+
+test('authenticated navigation keeps current live items after a later refetch fails', async () => {
+  let requestCount = 0;
+
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+    requestCount += 1;
+
+    if (requestCount === 1) {
+      return new Response(JSON.stringify(liveNavigationPayload), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({ message: 'Navigation unavailable' }), {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+
+  renderNavigation();
+
+  await waitFor(() => {
+    assert.equal(screen.getByTestId('source').textContent, 'live');
+    assert.ok(screen.getByText('/student/dashboard'));
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: /refetch navigation/i }));
+
+  await waitFor(
+    () => {
+      assert.equal(screen.getByTestId('error').textContent, 'Navigation unavailable');
+      assert.equal(screen.getByTestId('source').textContent, 'live');
+    },
+    { timeout: 3_000 },
+  );
+
+  assert.ok(screen.getByText('/student/dashboard'));
 });
