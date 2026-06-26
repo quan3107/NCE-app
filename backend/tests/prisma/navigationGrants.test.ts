@@ -48,4 +48,19 @@ describe('navigation Data API grants', () => {
     expect(migration).toContain("'/student/nce'")
     expect(migration).toContain('ON CONFLICT DO NOTHING')
   })
+
+  it('backfills teacher NCE lesson navigation for existing databases', () => {
+    const migration = readBackend(
+      'src/prisma/migrations/20260626153000_backfill_teacher_nce_lessons_navigation/migration.sql',
+    )
+
+    expect(migration).toContain('ON CONFLICT (key) DO UPDATE')
+    expect(migration).toContain("VALUES ('courses:manage', 'Manage Courses')")
+    expect(migration).toContain("SELECT 'teacher', id")
+    expect(migration).toContain("WHERE role = 'teacher'")
+    expect(migration).toContain("'NCE Lessons'")
+    expect(migration).toContain("'/teacher/nce-lessons'")
+    expect(migration).toContain('order_index >= 5')
+    expect(migration).toContain('ON CONFLICT DO NOTHING')
+  })
 })
