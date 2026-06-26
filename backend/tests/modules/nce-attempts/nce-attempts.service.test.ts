@@ -43,6 +43,7 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
       findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     nceLessonProgress: {
       upsert: vi.fn(),
@@ -592,13 +593,15 @@ describe("nce-attempts.service", () => {
   it("updates the existing draft instead of overwriting submitted attempts", async () => {
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceExercise.findFirst.mockResolvedValueOnce(exercise);
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      response: { answer: "this" },
-    });
+    prisma.nceExerciseAttempt.findFirst
+      .mockResolvedValueOnce(draftAttempt)
+      .mockResolvedValueOnce({
+        ...draftAttempt,
+        response: { answer: "this" },
+      });
+    prisma.nceExerciseAttempt.updateMany.mockResolvedValueOnce({ count: 1 });
 
-    await createOrUpdateNceAttempt(
+    const result = await createOrUpdateNceAttempt(
       { courseId, exerciseId },
       { response: { answer: "this" } },
       studentActor,
@@ -614,12 +617,71 @@ describe("nce-attempts.service", () => {
         },
       }),
     );
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: attemptId },
-        data: { response: { answer: "this" } },
-      }),
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith({
+      where: { id: attemptId, status: NceAttemptStatus.draft },
+      data: { response: { answer: "this" } },
+    });
+    expect(prisma.nceExerciseAttempt.update).not.toHaveBeenCalled();
+    expect(result.response).toEqual({ answer: "this" });
+  });
+
+  it("rejects saving a draft when the draft was submitted during the save", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceExercise.findFirst.mockResolvedValueOnce(exercise);
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
+    prisma.nceExerciseAttempt.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      createOrUpdateNceAttempt(
+        { courseId, exerciseId },
+        { response: { answer: "late save" } },
+        studentActor,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "NCE draft is no longer editable.",
+    });
+
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith({
+      where: { id: attemptId, status: NceAttemptStatus.draft },
+      data: { response: { answer: "late save" } },
+    });
+    expect(prisma.nceExerciseAttempt.update).not.toHaveBeenCalled();
+  });
+
+  it("retries the draft save when a concurrent first save creates the draft", async () => {
+    const concurrentDraft = {
+      ...draftAttempt,
+      id: "99999999-9999-4999-8999-999999999999",
+    };
+    const uniqueConflict = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+    });
+
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceExercise.findFirst.mockResolvedValueOnce(exercise);
+    prisma.nceExerciseAttempt.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(concurrentDraft)
+      .mockResolvedValueOnce({
+        ...concurrentDraft,
+        response: { answer: "this" },
+      });
+    prisma.nceExerciseAttempt.create.mockRejectedValueOnce(uniqueConflict);
+    prisma.nceExerciseAttempt.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const result = await createOrUpdateNceAttempt(
+      { courseId, exerciseId },
+      { response: { answer: "this" } },
+      studentActor,
     );
+
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith({
+      where: { id: concurrentDraft.id, status: NceAttemptStatus.draft },
+      data: { response: { answer: "this" } },
+    });
+    expect(result.id).toBe(concurrentDraft.id);
+    expect(result.response).toEqual({ answer: "this" });
   });
 
   it("scores deterministic answer keys when submitting an owned draft", async () => {
