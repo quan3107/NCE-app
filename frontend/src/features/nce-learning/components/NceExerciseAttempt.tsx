@@ -5,6 +5,7 @@
  */
 
 import type { NceExercise } from '@features/nce-content/types';
+import { RefreshCw } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
@@ -181,19 +182,28 @@ function NceExerciseAudio({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-        Audio
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+          Audio
+        </p>
+        {contentQuery.data && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Refresh audio"
+            title="Refresh audio"
+            onClick={refreshAudioUrl}
+            disabled={contentQuery.isFetching}
+          >
+            <RefreshCw className="size-4" aria-hidden="true" />
+          </Button>
+        )}
+      </div>
       {contentQuery.data ? (
         <audio
           controls
           src={contentQuery.data.url}
-          onPointerDown={refreshAudioUrl}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              refreshAudioUrl();
-            }
-          }}
           aria-label="Exercise audio"
           className="w-full"
         />
