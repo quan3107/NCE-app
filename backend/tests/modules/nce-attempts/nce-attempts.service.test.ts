@@ -54,6 +54,7 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
 
 const prismaModule = await import("../../../src/config/prismaClient.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
+const runWithRole = vi.mocked(prismaModule.runWithRole);
 
 const {
   completeNceLesson,
@@ -419,6 +420,66 @@ describe("nce-attempts.service", () => {
         mime: "audio/mpeg",
         size: 3,
       });
+    } finally {
+      if (previousAssetRoot === undefined) {
+        delete process.env.NCE_ASSET_ROOT;
+      } else {
+        process.env.NCE_ASSET_ROOT = previousAssetRoot;
+      }
+      rmSync(assetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("checks signed NCE audio course access under the service role", async () => {
+    const previousAssetRoot = process.env.NCE_ASSET_ROOT;
+    const assetRoot = mkdtempSync(path.join(tmpdir(), "nce-assets-"));
+    const assetPath = path.join(assetRoot, "nce", "book1", "lesson1", "dialogue.mp3");
+    mkdirSync(path.dirname(assetPath), { recursive: true });
+    writeFileSync(assetPath, Buffer.from([0x49, 0x44, 0x33]));
+    process.env.NCE_ASSET_ROOT = assetRoot;
+    let activeRole: string | null = null;
+    runWithRole.mockImplementationOnce(async (options, read) => {
+      activeRole = options.role;
+      try {
+        return await read();
+      } finally {
+        activeRole = null;
+      }
+    });
+    prisma.course.findFirst.mockImplementationOnce(async () => {
+      expect(activeRole).toBe("service_role");
+      return course;
+    });
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        courseId,
+        lessonId,
+        lesson: {
+          exercises: [
+            {
+              content: {
+                audioKey: "nce/book1/lesson1/dialogue.mp3",
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    try {
+      await getNceAssetContentFile(
+        { courseId },
+        { key: "nce/book1/lesson1/dialogue.mp3" },
+        studentActor,
+      );
+      expect(runWithRole).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: "service_role",
+          userId: studentId,
+          userRole: UserRole.student,
+        }),
+        expect.any(Function),
+      );
     } finally {
       if (previousAssetRoot === undefined) {
         delete process.env.NCE_ASSET_ROOT;
