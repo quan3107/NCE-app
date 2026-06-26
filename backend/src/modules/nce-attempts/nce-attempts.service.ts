@@ -1056,20 +1056,42 @@ export async function submitNceAttempt(
     throw createHttpError(404, "NCE lesson assignment not found");
   }
 
+  const submittedResponse = attempt.response as Prisma.InputJsonValue;
   const scored = scoreAttempt(attempt.exercise, attempt.response);
-  const submitted = await readWithServiceRole(actor, () =>
-    prisma.nceExerciseAttempt.update({
-      where: { id: attemptId },
+  const submitResult = await readWithServiceRole(actor, () =>
+    prisma.nceExerciseAttempt.updateMany({
+      where: {
+        id: attemptId,
+        studentId: actor.id,
+        status: NceAttemptStatus.draft,
+      },
       data: {
         status: NceAttemptStatus.submitted,
+        response: submittedResponse,
         score: scored.score,
         maxScore: scored.maxScore,
         feedbackJson: scored.feedbackJson,
         submittedAt: new Date(),
       },
+    }),
+  );
+  if (submitResult.count === 0) {
+    throw createHttpError(409, "NCE draft is no longer editable.");
+  }
+
+  const submitted = await readWithServiceRole(actor, () =>
+    prisma.nceExerciseAttempt.findFirst({
+      where: {
+        id: attemptId,
+        studentId: actor.id,
+        status: NceAttemptStatus.submitted,
+      },
       include: { exercise: true },
     }),
   );
+  if (!submitted) {
+    throw createHttpError(409, "NCE draft is no longer editable.");
+  }
 
   return mapNceAttempt(submitted as NceExerciseAttemptRow);
 }
