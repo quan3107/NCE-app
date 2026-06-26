@@ -1,0 +1,261 @@
+# File: docs/openapi/schemas/nce-learning.yaml
+# Purpose: Define NCE learning path, attempt, and progress schemas.
+# Why: Keeps student attempt APIs documented for generated clients.
+
+NcePagination:
+  type: object
+  required: [page, pageSize, total]
+  properties:
+    page:
+      type: integer
+      minimum: 1
+    pageSize:
+      type: integer
+      minimum: 1
+    total:
+      type: integer
+      minimum: 0
+
+NceAttempt:
+  type: object
+  required:
+    - id
+    - courseId
+    - lessonId
+    - exerciseId
+    - studentId
+    - status
+    - response
+    - score
+    - maxScore
+    - feedback
+    - submittedAt
+    - createdAt
+    - updatedAt
+  properties:
+    id:
+      type: string
+      format: uuid
+    courseId:
+      type: string
+      format: uuid
+    lessonId:
+      type: string
+      format: uuid
+    exerciseId:
+      type: string
+      format: uuid
+    studentId:
+      type: string
+      format: uuid
+    status:
+      type: string
+      enum: [draft, submitted]
+    response:
+      type: object
+      additionalProperties: true
+    score:
+      type: number
+      nullable: true
+    maxScore:
+      type: number
+      nullable: true
+    feedback:
+      type: object
+      nullable: true
+      additionalProperties: true
+    submittedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+
+NceAttemptWriteRequest:
+  type: object
+  required: [response]
+  properties:
+    response:
+      type: object
+      additionalProperties: true
+
+NceAssetContent:
+  type: object
+  required: [url, mime, size]
+  properties:
+    url:
+      type: string
+      format: uri-reference
+    mime:
+      type: string
+    size:
+      type: integer
+      minimum: 0
+
+NceLessonProgress:
+  type: object
+  required: [status, startedAt, completedAt, updatedAt]
+  properties:
+    status:
+      type: string
+      enum: [in_progress, completed]
+    startedAt:
+      type: string
+      format: date-time
+    completedAt:
+      type: string
+      format: date-time
+      nullable: true
+    updatedAt:
+      type: string
+      format: date-time
+
+StudentNcePathExercise:
+  allOf:
+    - $ref: './nce-content.yaml#/NceExercise'
+    - type: object
+      required: [latestAttempt]
+      properties:
+        latestAttempt:
+          nullable: true
+          allOf:
+            - $ref: '#/NceAttempt'
+
+StudentNcePathLesson:
+  allOf:
+    - $ref: './nce-content.yaml#/NceLesson'
+    - type: object
+      required: [sequence, availableFrom, dueAt, progress, exercises]
+      properties:
+        sequence:
+          type: integer
+        availableFrom:
+          type: string
+          format: date-time
+          nullable: true
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+        progress:
+          nullable: true
+          allOf:
+            - $ref: '#/NceLessonProgress'
+        exercises:
+          type: array
+          items:
+            $ref: '#/StudentNcePathExercise'
+
+StudentNcePathResponse:
+  type: object
+  required: [lessons, pagination]
+  properties:
+    lessons:
+      type: array
+      items:
+        $ref: '#/StudentNcePathLesson'
+    pagination:
+      $ref: '#/NcePagination'
+
+NceAttemptSummary:
+  type: object
+  required:
+    - id
+    - courseId
+    - lessonId
+    - exerciseId
+    - studentId
+    - status
+    - score
+    - maxScore
+    - submittedAt
+    - createdAt
+    - updatedAt
+    - student
+    - exercise
+  properties:
+    id:
+      type: string
+      format: uuid
+    courseId:
+      type: string
+      format: uuid
+    lessonId:
+      type: string
+      format: uuid
+    exerciseId:
+      type: string
+      format: uuid
+    studentId:
+      type: string
+      format: uuid
+    status:
+      type: string
+      enum: [draft, submitted]
+    score:
+      type: number
+      nullable: true
+    maxScore:
+      type: number
+      nullable: true
+    submittedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    student:
+      type: object
+      required: [id, fullName, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+    exercise:
+      type: object
+      required: [id, exerciseType, prompt, sortOrder, lesson]
+      properties:
+        id:
+          type: string
+          format: uuid
+        exerciseType:
+          type: string
+        prompt:
+          type: string
+        sortOrder:
+          type: integer
+        lesson:
+          type: object
+          required: [id, title, lessonNumber]
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            lessonNumber:
+              type: integer
+
+NceAttemptSummaryListResponse:
+  type: object
+  required: [attempts, pagination]
+  properties:
+    attempts:
+      type: array
+      items:
+        $ref: '#/NceAttemptSummary'
+    pagination:
+      $ref: '#/NcePagination'

@@ -125,3 +125,96 @@ test('NCE write schema documents supported answer key shapes', async () => {
   assert.match(exerciseWriteSchema, /sentence/);
   assert.doesNotMatch(exerciseWriteSchema, /multiple_choice requires correctChoiceId/);
 });
+
+test('NCE learning OpenAPI routes document student attempts and teacher summaries', async () => {
+  const openApiPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/openapi.yaml',
+  );
+  const ncePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/nce-learning.yaml',
+  );
+  const nceSchemaPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/nce-learning.yaml',
+  );
+  const openApiYaml = (await readFile(openApiPath, 'utf8')).replace(/\r\n/g, '\n');
+  const ncePathYaml = (await readFile(ncePath, 'utf8')).replace(/\r\n/g, '\n');
+  const nceSchemaYaml = (await readFile(nceSchemaPath, 'utf8')).replace(/\r\n/g, '\n');
+
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-path:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-assets\/content:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-assets\/content\/audio:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-exercises\/\{exerciseId\}\/attempts:/);
+  assert.match(openApiYaml, /\/api\/v1\/nce-attempts\/\{attemptId\}\/submit:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-lessons\/\{lessonId\}\/complete:/);
+  assert.match(openApiYaml, /\/api\/v1\/courses\/\{courseId\}\/nce-attempts:/);
+
+  for (const heading of [
+    'StudentNcePath',
+    'CourseNceAssetContent',
+    'CourseNceExerciseAttempts',
+    'NceAttemptSubmit',
+    'CourseNceLessonComplete',
+    'CourseNceAttemptSummaries',
+  ]) {
+    const routeSection = section(ncePathYaml, heading, 'components');
+    assert.match(routeSection, /security:\n      - BearerAuth: \[\]/);
+    assert.match(routeSection, /'401':/);
+    assert.match(routeSection, /'403':/);
+  }
+
+  assert.match(nceSchemaYaml, /StudentNcePathResponse:/);
+  assert.match(nceSchemaYaml, /NceAssetContent:/);
+  const assetContentSchema = section(
+    nceSchemaYaml,
+    'NceAssetContent',
+    'NceLessonProgress',
+  );
+  assert.match(assetContentSchema, /format: uri-reference/);
+  assert.match(nceSchemaYaml, /NceAttempt:/);
+  assert.match(nceSchemaYaml, /NceAttemptSummaryListResponse:/);
+
+  const audioRoute = section(ncePathYaml, 'CourseNceAssetAudio', 'CourseNceExerciseAttempts');
+  assert.match(audioRoute, /name: token/);
+  assert.match(audioRoute, /audio\/mpeg:/);
+  assert.doesNotMatch(audioRoute, /BearerAuth/);
+
+  const attemptSchema = section(nceSchemaYaml, 'NceAttempt', 'NceAttemptWriteRequest');
+  assert.match(attemptSchema, /enum: \[draft, submitted\]/);
+  assert.doesNotMatch(attemptSchema, /graded/);
+
+  const draftSaveOperation = operation(
+    ncePathYaml,
+    'CourseNceExerciseAttempts',
+    'post',
+    'NceAttemptSubmit',
+  );
+  const submitOperation = operation(
+    ncePathYaml,
+    'NceAttemptSubmit',
+    'post',
+    'CourseNceLessonComplete',
+  );
+  for (const attemptOperation of [draftSaveOperation, submitOperation]) {
+    assert.match(
+      attemptOperation,
+      /'409':[\s\S]*?\$ref: '..\/schemas\/common.yaml#\/ErrorResponse'/,
+    );
+  }
+
+  const progressSchema = section(nceSchemaYaml, 'NceLessonProgress', 'StudentNcePathExercise');
+  assert.match(progressSchema, /required: \[status, startedAt, completedAt, updatedAt\]/);
+  assert.match(progressSchema, /enum: \[in_progress, completed\]/);
+  assert.match(progressSchema, /startedAt:/);
+  assert.doesNotMatch(progressSchema, /not_started/);
+  assert.doesNotMatch(nceSchemaYaml, /type:\s*['"]?null['"]?/);
+  assert.match(nceSchemaYaml, /latestAttempt:[\s\S]*nullable: true/);
+  assert.match(nceSchemaYaml, /progress:[\s\S]*nullable: true/);
+
+  const summarySchema = section(nceSchemaYaml, 'NceAttemptSummary', 'NceAttemptSummaryListResponse');
+  assert.match(summarySchema, /fullName:/);
+  assert.doesNotMatch(summarySchema, /\$ref: '#\/NceAttempt'/);
+  assert.doesNotMatch(summarySchema, /response:/);
+});

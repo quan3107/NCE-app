@@ -32,6 +32,7 @@ tags:
   - name: ai-feedback
   - name: cms
   - name: nce-content
+  - name: nce-learning
 
 paths:
   /api/v1/auth/login:
@@ -125,6 +126,20 @@ paths:
     $ref: './paths/nce-content.yaml#/NceLessonUnpublish'
   /api/v1/courses/{courseId}/nce-lessons:
     $ref: './paths/nce-content.yaml#/CourseNceLessons'
+  /api/v1/courses/{courseId}/nce-path:
+    $ref: './paths/nce-learning.yaml#/StudentNcePath'
+  /api/v1/courses/{courseId}/nce-assets/content:
+    $ref: './paths/nce-learning.yaml#/CourseNceAssetContent'
+  /api/v1/courses/{courseId}/nce-assets/content/audio:
+    $ref: './paths/nce-learning.yaml#/CourseNceAssetAudio'
+  /api/v1/courses/{courseId}/nce-exercises/{exerciseId}/attempts:
+    $ref: './paths/nce-learning.yaml#/CourseNceExerciseAttempts'
+  /api/v1/nce-attempts/{attemptId}/submit:
+    $ref: './paths/nce-learning.yaml#/NceAttemptSubmit'
+  /api/v1/courses/{courseId}/nce-lessons/{lessonId}/complete:
+    $ref: './paths/nce-learning.yaml#/CourseNceLessonComplete'
+  /api/v1/courses/{courseId}/nce-attempts:
+    $ref: './paths/nce-learning.yaml#/CourseNceAttemptSummaries'
 
   /api/v1/courses/{courseId}/assignments:
     $ref: './paths/assignments.yaml#/CourseAssignments'

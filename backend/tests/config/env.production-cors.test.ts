@@ -21,6 +21,7 @@ const productionEnv = {
   BREVO_SENDER_EMAIL: "noreply@example.com",
   LOG_LEVEL: "info",
   LOG_PRETTY: "false",
+  NCE_ASSET_ROOT: "/srv/nce-assets",
 } as const;
 
 const productionCorsError =

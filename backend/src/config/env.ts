@@ -40,6 +40,7 @@ const defaultTrustProxy =
   process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test"
     ? "loopback"
     : "";
+const defaultNceAssetRoot = "storage/nce-assets";
 
 const trustedProxyAddressNames = new Set(["loopback", "linklocal", "uniquelocal"]);
 const trustProxyErrorMessage =
@@ -185,6 +186,7 @@ const envSchema = z
     TRUST_PROXY: z.string().default(defaultTrustProxy).transform(parseTrustProxy),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
+    NCE_ASSET_ROOT: z.string().trim().min(1).default(defaultNceAssetRoot),
     AI_FEEDBACK_ENABLED: z
       .enum(["true", "false"])
       .default("false")
@@ -219,6 +221,16 @@ const envSchema = z
         code: "custom",
         path: ["CORS_ALLOWED_ORIGINS"],
         message: "CORS_ALLOWED_ORIGINS must list at least one origin in production",
+      });
+    }
+    if (
+      env.NODE_ENV === "production" &&
+      typeof process.env.NCE_ASSET_ROOT !== "string"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["NCE_ASSET_ROOT"],
+        message: "NCE_ASSET_ROOT is required in production",
       });
     }
   });
@@ -273,6 +285,9 @@ const envConfig = {
   trustProxy: parseResult.data.TRUST_PROXY,
   logLevel: parseResult.data.LOG_LEVEL,
   logPretty: shouldPrettyLog,
+  nceAssets: {
+    root: parseResult.data.NCE_ASSET_ROOT,
+  },
   aiFeedback: {
     enabled: parseResult.data.AI_FEEDBACK_ENABLED,
     provider: parseResult.data.AI_PROVIDER,

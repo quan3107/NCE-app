@@ -34,4 +34,18 @@ describe('navigation Data API grants', () => {
       )
     }
   })
+
+  it('backfills student NCE navigation for existing databases', () => {
+    const migration = readBackend(
+      'src/prisma/migrations/20260623212000_backfill_student_nce_navigation/migration.sql',
+    )
+
+    expect(migration).toContain('ON CONFLICT (key) DO UPDATE')
+    expect(migration).toContain("VALUES ('courses:read', 'Read Courses')")
+    expect(migration).toContain("SELECT 'student', id")
+    expect(migration).toContain("WHERE role = 'student'")
+    expect(migration).toContain("'NCE Path'")
+    expect(migration).toContain("'/student/nce'")
+    expect(migration).toContain('ON CONFLICT DO NOTHING')
+  })
 })

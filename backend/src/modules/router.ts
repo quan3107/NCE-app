@@ -29,6 +29,10 @@ import ieltsConfigRouter from "./ielts-config/ielts-config.routes.js";
 import { meRouter } from "./me/me.routes.js";
 import { navigationRouter } from "./navigation/navigation.routes.js";
 import {
+  courseNceAttemptsRouter,
+  nceAttemptsRouter,
+} from "./nce-attempts/nce-attempts.routes.js";
+import {
   courseNceContentRouter,
   nceContentRouter,
 } from "./nce-content/nce-content.routes.js";
@@ -78,6 +82,8 @@ apiRouter.use("/me/notification-preferences", meNotificationPreferencesRouter);
 apiRouter.use("/config/ielts", ieltsConfigRouter);
 apiRouter.use("/navigation", navigationRouter);
 apiRouter.use("/nce", nceContentRouter);
+apiRouter.use("/nce-attempts", nceAttemptsRouter);
+apiRouter.use("/courses/:courseId", courseNceAttemptsRouter);
 apiRouter.use("/courses/:courseId/nce-lessons", courseNceContentRouter);
 apiRouter.use("/me/dashboard-config", meDashboardConfigRouter);
 apiRouter.use("/cms", cmsRoutes);

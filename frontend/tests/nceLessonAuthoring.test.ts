@@ -82,6 +82,27 @@ test('teacher navigation exposes NCE lesson authoring entry points', async () =>
   assert.match(seedSource, /\/teacher\/nce-lessons/);
 });
 
+test('student navigation exposes NCE learning path entry points', async () => {
+  const fallbackSource = await readFile(fallbackNavPath, 'utf8');
+  const seedSource = await readFile(navigationSeedPath, 'utf8');
+
+  assert.match(fallbackSource, /student-nce-path/);
+  assert.match(fallbackSource, /NCE Path/);
+  assert.match(fallbackSource, /\/student\/nce/);
+  assert.match(
+    fallbackSource,
+    /student:\s*\{[\s\S]*permissions:\s*\[[^\]]*'courses:read'/,
+  );
+  assert.match(
+    seedSource,
+    /label: "NCE Path"[\s\S]*path: "\/student\/nce"[\s\S]*permission: "courses:read"/,
+  );
+  assert.match(
+    seedSource,
+    /key: "courses:read"[\s\S]*roles: \[UserRole\.student, UserRole\.teacher, UserRole\.admin\]/,
+  );
+});
+
 test('TeacherNceLessonEditorPage surfaces validation errors and mutation progress', async () => {
   const source = await readFile(editorPath, 'utf8');
 

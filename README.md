@@ -260,6 +260,7 @@ Production needs:
 - RSA JWT key files or `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`;
 - Google OAuth credentials and redirect URI;
 - Brevo sender credentials for email delivery;
+- `NCE_ASSET_ROOT` pointing at mounted NCE audio files, with keys rooted under `nce/`;
 - a built frontend with `VITE_API_BASE_URL` set to the deployed API base, including `/api/v1`.
 
 The backend starts pg-boss workers outside `NODE_ENV=test`, so production scaling needs a deliberate worker plan.

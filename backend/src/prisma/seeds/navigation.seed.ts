@@ -31,7 +31,7 @@ const DEFAULT_PERMISSIONS = [
   { key: "notifications:read", name: "Read Notifications", roles: [UserRole.student, UserRole.teacher, UserRole.admin] },
   { key: "profile:view", name: "View Profile", roles: [UserRole.student, UserRole.teacher, UserRole.admin] },
   { key: "profile:edit", name: "Edit Profile", roles: [UserRole.student, UserRole.teacher, UserRole.admin] },
-  { key: "courses:read", name: "Read Courses", roles: [UserRole.teacher, UserRole.admin] },
+  { key: "courses:read", name: "Read Courses", roles: [UserRole.student, UserRole.teacher, UserRole.admin] },
   { key: "courses:manage", name: "Manage Courses", roles: [UserRole.teacher, UserRole.admin] },
   { key: "submissions:read", name: "Read Submissions", roles: [UserRole.teacher, UserRole.admin] },
   { key: "submissions:grade", name: "Grade Submissions", roles: [UserRole.teacher, UserRole.admin] },
@@ -65,9 +65,10 @@ const DEFAULT_NAVIGATION_ITEMS = [
   // Student navigation
   { role: UserRole.student, label: "Dashboard", path: "/student/dashboard", iconName: "layout-dashboard", permission: "dashboard:view", order: 0 },
   { role: UserRole.student, label: "Assignments", path: "/student/assignments", iconName: "file-text", permission: "assignments:read", badge: "assignments", order: 1 },
-  { role: UserRole.student, label: "Grades", path: "/student/grades", iconName: "graduation-cap", permission: "grades:view", order: 2 },
-  { role: UserRole.student, label: "Notifications", path: "/student/notifications", iconName: "bell", permission: "notifications:read", badge: "notifications", order: 3 },
-  { role: UserRole.student, label: "Profile", path: "/student/profile", iconName: "user", permission: "profile:view", order: 4 },
+  { role: UserRole.student, label: "NCE Path", path: "/student/nce", iconName: "book-open", permission: "courses:read", order: 2 },
+  { role: UserRole.student, label: "Grades", path: "/student/grades", iconName: "graduation-cap", permission: "grades:view", order: 3 },
+  { role: UserRole.student, label: "Notifications", path: "/student/notifications", iconName: "bell", permission: "notifications:read", badge: "notifications", order: 4 },
+  { role: UserRole.student, label: "Profile", path: "/student/profile", iconName: "user", permission: "profile:view", order: 5 },
 
   // Teacher navigation
   { role: UserRole.teacher, label: "Dashboard", path: "/teacher/dashboard", iconName: "layout-dashboard", permission: "dashboard:view", order: 0 },

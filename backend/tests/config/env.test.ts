@@ -32,6 +32,7 @@ const defaultedEnvKeys = [
   'TRUST_PROXY',
   'LOG_LEVEL',
   'LOG_PRETTY',
+  'NCE_ASSET_ROOT',
   'AI_FEEDBACK_ENABLED',
   'AI_PROVIDER',
   'AI_BASE_URL',
@@ -93,6 +94,7 @@ describe('test environment defaults', () => {
       expect(process.env.TRUST_PROXY).toBe('loopback')
       expect(process.env.LOG_LEVEL).toBe('silent')
       expect(process.env.LOG_PRETTY).toBe('false')
+      expect(process.env.NCE_ASSET_ROOT).toBe('tests/fixtures/nce-assets')
       expect(process.env.AI_FEEDBACK_ENABLED).toBe('false')
       expect(process.env.AI_PROVIDER).toBe('openai-compatible')
       expect(process.env.AI_BASE_URL).toBe('https://api.openai.com/v1')
@@ -152,6 +154,7 @@ describe('test environment defaults', () => {
     expect(config.trustProxy).toEqual(['loopback'])
     expect(config.logLevel).toBe('silent')
     expect(config.logPretty).toBe(false)
+    expect(config.nceAssets.root).toBe('tests/fixtures/nce-assets')
     expect(config.aiFeedback).toEqual({
       enabled: false,
       provider: 'openai-compatible',
