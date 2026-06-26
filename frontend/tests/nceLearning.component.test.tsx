@@ -396,7 +396,7 @@ test('NceExerciseAttempt renders content and loads exercise audio', async () => 
 
     const audio = await screen.findByLabelText('Exercise audio', {}, { timeout: 1000 });
     assert.match((audio as HTMLAudioElement).src, /dialogue-1\.mp3$/);
-    fireEvent.pointerDown(audio);
+    await userEvent.click(screen.getByRole('button', { name: /refresh audio/i }));
     await waitFor(() => {
       assert.equal(assetRequestCount, 2);
       assert.match((audio as HTMLAudioElement).src, /dialogue-2\.mp3$/);
@@ -413,6 +413,71 @@ test('NceExerciseAttempt renders content and loads exercise audio', async () => 
         url.includes('key=nce%2Fbook1%2Flesson1%2Fdialogue.mp3'),
       ),
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('NceExerciseAttempt does not refresh audio URL from native control pointer use', async () => {
+  const originalFetch = globalThis.fetch;
+  let assetRequestCount = 0;
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+
+    if (url.includes('/nce-assets/content')) {
+      assetRequestCount += 1;
+      return new Response(
+        JSON.stringify({
+          url: `https://storage.mock/nce-assets/nce/book1/lesson1/pointer-${assetRequestCount}.mp3`,
+          mime: 'audio/mpeg',
+          size: 1234,
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    renderWithProviders(
+      <NceExerciseAttempt
+        courseId="course-1"
+        exercise={{
+          id: 'exercise-audio-pointer',
+          lessonId: 'lesson-1',
+          objectiveId: null,
+          exerciseType: 'listening',
+          prompt: 'Listen and answer.',
+          content: {
+            audioKey: 'nce/book1/lesson1/dialogue.mp3',
+          },
+          scoringConfig: { maxScore: 1 },
+          sortOrder: 1,
+          latestAttempt: null,
+        }}
+        response={{}}
+        attempt={null}
+        isSaving={false}
+        isSubmitting={false}
+        onResponseChange={() => undefined}
+        onSaveDraft={() => undefined}
+        onSubmit={() => undefined}
+      />,
+      '/student/nce',
+    );
+
+    const audio = await screen.findByLabelText('Exercise audio', {}, { timeout: 1000 });
+    assert.match((audio as HTMLAudioElement).src, /pointer-1\.mp3$/);
+
+    fireEvent.pointerDown(audio);
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 0);
+    });
+
+    assert.equal(assetRequestCount, 1);
+    assert.match((audio as HTMLAudioElement).src, /pointer-1\.mp3$/);
   } finally {
     globalThis.fetch = originalFetch;
   }
