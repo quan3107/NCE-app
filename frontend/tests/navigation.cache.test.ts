@@ -66,7 +66,7 @@ test('readNavigationCache returns valid cached payload', async () => {
   const storage = createStorage();
 
   await withWindowStorage(storage, async () => {
-    const payload = getFallbackNavigation('student');
+    const payload = getFallbackNavigation();
     writeNavigationCache(identity, payload);
 
     const cached = readNavigationCache(identity);
@@ -92,7 +92,7 @@ test('readNavigationCache expires stale entries', async () => {
   const identity = { userId: 'user-3', role: 'admin' as const };
   const key = buildNavigationCacheKey(identity);
   const staleRecord = {
-    data: getFallbackNavigation('admin'),
+    data: getFallbackNavigation(),
     role: identity.role,
     timestamp: Date.now() - 24 * 60 * 60 * 1000 - 1,
   };
@@ -109,7 +109,7 @@ test('readNavigationCache expires stale entries', async () => {
 });
 
 test('fallback navigation stays limited to public routes for authenticated roles', () => {
-  const payload = getFallbackNavigation('student');
+  const payload = getFallbackNavigation();
   const paths = payload.items.map((item) => item.path);
 
   assert.deepEqual(paths, ['/', '/courses', '/about', '/contact']);
