@@ -599,6 +599,37 @@ function scoreAttempt(
   };
 }
 
+function isMissingAutoScoredSingleAnswer(
+  exercise: {
+    exerciseType: NceExerciseType;
+    answerKey: Prisma.JsonValue;
+    scoringConfig: Prisma.JsonValue | null;
+  },
+  response: Prisma.JsonValue,
+): boolean {
+  const scoringConfig =
+    exercise.scoringConfig && typeof exercise.scoringConfig === "object" &&
+    !Array.isArray(exercise.scoringConfig)
+      ? (exercise.scoringConfig as Record<string, unknown>)
+      : {};
+  const punctuationOptional = scoringConfig.punctuationOptional === true;
+  const expectedAnswers = collectExpectedAnswers(
+    exercise.answerKey,
+    punctuationOptional,
+  );
+
+  if (
+    expectedAnswers.length === 0 ||
+    getExpectedBlanks(exercise.answerKey, punctuationOptional).length > 0 ||
+    getExpectedMatches(exercise.answerKey, punctuationOptional).length > 0 ||
+    !automaticallyScoredTypes.includes(exercise.exerciseType)
+  ) {
+    return false;
+  }
+
+  return !getResponseAnswer(response, punctuationOptional);
+}
+
 function mimeForNceAssetKey(key: string): string {
   const normalizedKey = key.toLowerCase();
   if (normalizedKey.endsWith(".mp3")) {
@@ -1054,6 +1085,10 @@ export async function submitNceAttempt(
 
   if (!assignment) {
     throw createHttpError(404, "NCE lesson assignment not found");
+  }
+
+  if (isMissingAutoScoredSingleAnswer(attempt.exercise, attempt.response)) {
+    throw createHttpError(400, "NCE answer is required before submission.");
   }
 
   const submittedResponse = attempt.response as Prisma.InputJsonValue;
