@@ -183,6 +183,21 @@ const draftAttempt = {
   exercise,
 };
 
+const submittedAttemptFrom = (
+  attempt: typeof draftAttempt,
+  overrides: Partial<typeof draftAttempt> = {},
+) => ({
+  ...attempt,
+  status: NceAttemptStatus.submitted,
+  submittedAt: now,
+  ...overrides,
+});
+
+const mockSuccessfulSubmitTransition = (attempt: typeof draftAttempt) => {
+  prisma.nceExerciseAttempt.updateMany.mockResolvedValueOnce({ count: 1 });
+  prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
+};
+
 describe("nce-attempts.service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -691,31 +706,31 @@ describe("nce-attempts.service", () => {
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(draftAttempt, {
       score: 1,
       maxScore: 1,
       feedbackJson: {
         correct: true,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     const result = await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: attemptId },
-        data: expect.objectContaining({
-          status: NceAttemptStatus.submitted,
-          score: 1,
-          maxScore: 1,
-          submittedAt: expect.any(Date),
-        }),
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: attemptId,
+        studentId,
+        status: NceAttemptStatus.draft,
+      },
+      data: expect.objectContaining({
+        status: NceAttemptStatus.submitted,
+        response: draftAttempt.response,
+        score: 1,
+        maxScore: 1,
+        submittedAt: expect.any(Date),
       }),
-    );
+    });
     expect(result).toMatchObject({
       status: NceAttemptStatus.submitted,
       score: 1,
@@ -723,8 +738,60 @@ describe("nce-attempts.service", () => {
     });
   });
 
+  it("submits the same draft response that was scored when a save races with submit", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(draftAttempt, {
+      score: 1,
+      maxScore: 1,
+      feedbackJson: {
+        correct: true,
+        manualReviewRequired: false,
+      },
+    }));
+
+    const result = await submitNceAttempt({ attemptId }, studentActor);
+
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: attemptId,
+        studentId,
+        status: NceAttemptStatus.draft,
+      },
+      data: expect.objectContaining({
+        status: NceAttemptStatus.submitted,
+        response: draftAttempt.response,
+        score: 1,
+        maxScore: 1,
+        submittedAt: expect.any(Date),
+      }),
+    });
+    expect(result.response).toEqual(draftAttempt.response);
+  });
+
+  it("rejects submit when the draft was already transitioned", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+    prisma.nceExerciseAttempt.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(submitNceAttempt({ attemptId }, studentActor)).rejects.toMatchObject({
+      statusCode: 409,
+      message: "NCE draft is no longer editable.",
+    });
+
+    expect(prisma.nceExerciseAttempt.update).not.toHaveBeenCalled();
+  });
+
   it("scores accepted answer key aliases used by NCE authoring", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: { answer: "umbrella" },
       exercise: {
@@ -736,29 +803,28 @@ describe("nce-attempts.service", () => {
           sample: "umbrella",
         },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: 1,
       maxScore: 1,
       feedbackJson: {
         correct: true,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: { answer: "umbrella" },
           score: 1,
           maxScore: 1,
           feedbackJson: expect.objectContaining({
@@ -771,7 +837,7 @@ describe("nce-attempts.service", () => {
   });
 
   it("auto-scores listening choice attempts", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: { answer: "Excuse me" },
       exercise: {
@@ -780,29 +846,28 @@ describe("nce-attempts.service", () => {
         answerKey: { choice: "Excuse me" },
         scoringConfig: { maxScore: 1 },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: 1,
       maxScore: 1,
       feedbackJson: {
         correct: true,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: { answer: "Excuse me" },
           score: 1,
           maxScore: 1,
           feedbackJson: expect.objectContaining({
@@ -815,7 +880,7 @@ describe("nce-attempts.service", () => {
   });
 
   it("uses seeded max scores and punctuation-optional dictation answers", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: { answer: "Is this your book" },
       exercise: {
@@ -824,29 +889,28 @@ describe("nce-attempts.service", () => {
         answerKey: { sentence: "Is this your book?" },
         scoringConfig: { maxScore: 3, punctuationOptional: true },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: 3,
       maxScore: 3,
       feedbackJson: {
         correct: true,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: { answer: "Is this your book" },
           score: 3,
           maxScore: 3,
           feedbackJson: expect.objectContaining({
@@ -859,7 +923,7 @@ describe("nce-attempts.service", () => {
   });
 
   it("does not grade a single text answer as full credit for multi-blank keys", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: { answer: "this" },
       exercise: {
@@ -868,29 +932,28 @@ describe("nce-attempts.service", () => {
         answerKey: { blanks: ["this", "book"] },
         scoringConfig: { pointsPerBlank: 1, maxScore: 2 },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: 0,
       maxScore: 2,
       feedbackJson: {
         correct: false,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: { answer: "this" },
           score: 0,
           maxScore: 2,
           feedbackJson: expect.objectContaining({
@@ -903,7 +966,7 @@ describe("nce-attempts.service", () => {
   });
 
   it("scores submitted blank arrays against each expected blank", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: { blanks: ["this", "book"] },
       exercise: {
@@ -912,29 +975,28 @@ describe("nce-attempts.service", () => {
         answerKey: { blanks: ["this", "book"] },
         scoringConfig: { pointsPerBlank: 1, maxScore: 2 },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: 2,
       maxScore: 2,
       feedbackJson: {
         correct: true,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: { blanks: ["this", "book"] },
           score: 2,
           maxScore: 2,
           feedbackJson: expect.objectContaining({
@@ -947,7 +1009,7 @@ describe("nce-attempts.service", () => {
   });
 
   it("does not award full matching credit for a single matched word", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: { answer: "handbag" },
       exercise: {
@@ -962,29 +1024,28 @@ describe("nce-attempts.service", () => {
         },
         scoringConfig: { pointsPerMatch: 1, maxScore: 3 },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: 0,
       maxScore: 3,
       feedbackJson: {
         correct: false,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: { answer: "handbag" },
           score: 0,
           maxScore: 3,
           feedbackJson: expect.objectContaining({
@@ -997,7 +1058,7 @@ describe("nce-attempts.service", () => {
   });
 
   it("does not mark rounded partial matching scores as correct", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: {
         matches: {
@@ -1015,29 +1076,32 @@ describe("nce-attempts.service", () => {
         },
         scoringConfig: { maxScore: 1 },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: 0,
       maxScore: 1,
       feedbackJson: {
         correct: false,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: {
+            matches: {
+              handbag: "a small bag",
+            },
+          },
           score: 0,
           maxScore: 1,
           feedbackJson: expect.objectContaining({
@@ -1050,7 +1114,7 @@ describe("nce-attempts.service", () => {
   });
 
   it("scores seeded matching responses by submitted pairs", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: {
         matches: {
@@ -1071,29 +1135,34 @@ describe("nce-attempts.service", () => {
         },
         scoringConfig: { pointsPerMatch: 1, maxScore: 3 },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: 3,
       maxScore: 3,
       feedbackJson: {
         correct: true,
         manualReviewRequired: false,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: {
+            matches: {
+              handbag: "a small bag",
+              pardon: "please repeat",
+              "excuse me": "polite interruption",
+            },
+          },
           score: 3,
           maxScore: 3,
           feedbackJson: expect.objectContaining({
@@ -1106,7 +1175,7 @@ describe("nce-attempts.service", () => {
   });
 
   it("stores open-ended responses for manual review without pretending to score", async () => {
-    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+    const attempt = {
       ...draftAttempt,
       response: { text: "A natural translation answer." },
       exercise: {
@@ -1114,29 +1183,28 @@ describe("nce-attempts.service", () => {
         exerciseType: NceExerciseType.translation,
         answerKey: { rubric: ["meaning", "grammar"] },
       },
-    });
+    };
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(attempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
     prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
       courseId,
       lessonId,
     });
-    prisma.nceExerciseAttempt.update.mockResolvedValueOnce({
-      ...draftAttempt,
-      status: NceAttemptStatus.submitted,
+    mockSuccessfulSubmitTransition(submittedAttemptFrom(attempt, {
       score: null,
       maxScore: null,
       feedbackJson: {
         correct: null,
         manualReviewRequired: true,
       },
-      submittedAt: now,
-    });
+    }));
 
     await submitNceAttempt({ attemptId }, studentActor);
 
-    expect(prisma.nceExerciseAttempt.update).toHaveBeenCalledWith(
+    expect(prisma.nceExerciseAttempt.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          response: { text: "A natural translation answer." },
           score: null,
           maxScore: null,
           feedbackJson: expect.objectContaining({
