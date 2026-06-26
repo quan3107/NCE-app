@@ -6,11 +6,17 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { signNceAssetToken } from "../../../src/modules/auth/auth.tokens.js";
 import { UserRole, UserStatus } from "../../../src/prisma/index.js";
 
 vi.mock("../../../src/modules/nce-attempts/nce-attempts.service.js", () => ({
   completeNceLesson: vi.fn(async () => ({ status: "completed" })),
   createOrUpdateNceAttempt: vi.fn(async () => ({ id: attemptId, status: "draft" })),
+  getNceAssetContentFile: vi.fn(async () => ({
+    path: `${process.cwd()}/package.json`,
+    mime: "audio/mpeg",
+    size: 3,
+  })),
   listStudentNcePath: vi.fn(async () => ({ lessons: [], pagination: { page: 1, pageSize: 20, total: 0 } })),
   listTeacherNceAttemptSummaries: vi.fn(async () => ({ attempts: [], pagination: { page: 1, pageSize: 20, total: 0 } })),
   submitNceAttempt: vi.fn(async () => ({ id: attemptId, status: "submitted" })),
@@ -24,6 +30,7 @@ const courseId = "22222222-2222-4222-8222-222222222222";
 const lessonId = "33333333-3333-4333-8333-333333333333";
 const exerciseId = "44444444-4444-4444-8444-444444444444";
 const attemptId = "55555555-5555-4555-8555-555555555555";
+const audioKey = "nce/book1/lesson1/dialogue.mp3";
 
 const asRole = (role: UserRole) => ({
   "x-user-id": actorId,
@@ -91,6 +98,26 @@ describe("modules.router nce attempt routes", () => {
       { courseId },
       { id: actorId, role: UserRole.teacher, status: UserStatus.active },
       { studentId: actorId },
+    );
+  });
+
+  it("streams signed NCE audio without bearer auth", async () => {
+    const token = signNceAssetToken({
+      userId: actorId,
+      role: UserRole.student,
+      status: UserStatus.active,
+      courseId,
+      key: audioKey,
+    });
+    const response = await request(app).get(
+      `/api/v1/courses/${courseId}/nce-assets/content/audio?key=${encodeURIComponent(audioKey)}&token=${encodeURIComponent(token)}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(nceAttemptsService.getNceAssetContentFile).toHaveBeenCalledWith(
+      { courseId },
+      { key: audioKey, token },
+      { id: actorId, role: UserRole.student, status: UserStatus.active },
     );
   });
 });
