@@ -5,7 +5,7 @@
  */
 
 import { type ReactNode, useEffect, useState } from 'react';
-import { BookOpen, Bell, GraduationCap, Info, LogOut, Menu, Settings, User, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Bell, GraduationCap, Info, LogOut, Menu, Settings, User, X } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import {
@@ -63,16 +63,16 @@ function RoleSwitcher({ currentRole }: { currentRole: Role }) {
 export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) {
   const { currentUser, logout, authMode } = useAuthStore();
   const { currentPath, navigate } = useRouter();
-  const { items, badgeCounts, source, error } = useNavigationContext();
+  const { items, badgeCounts, source, error, isLoading, refetch } = useNavigationContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const showRoleSwitcher = ENABLE_DEV_AUTH_FALLBACK && authMode === 'persona';
-  const profilePath = resolveProfilePath(currentUser.role);
-
-  const defaultNotificationPath =
-    currentUser.role === 'teacher' ? '/teacher/notifications' : '/student/notifications';
-  const notificationPath =
-    items.find((item) => item.badgeSource === 'notifications')?.path ?? defaultNotificationPath;
+  const resolvedProfilePath = resolveProfilePath(currentUser.role);
+  const profileItem = resolvedProfilePath
+    ? items.find((item) => item.path === resolvedProfilePath)
+    : null;
+  const notificationItem = items.find((item) => item.badgeSource === 'notifications') ?? null;
+  const settingsItem = items.find((item) => item.path === '/settings') ?? null;
 
   useEffect(() => {
     if (!import.meta.env.DEV) {
@@ -140,12 +140,12 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
 
         <div className="flex-1" />
 
-        {(currentUser.role === 'student' || currentUser.role === 'teacher') && (
+        {(currentUser.role === 'student' || currentUser.role === 'teacher') && notificationItem && (
           <Button
             variant="ghost"
             size="icon"
             className="relative"
-            onClick={() => navigate(notificationPath)}
+            onClick={() => navigate(notificationItem.path)}
           >
             <Bell className="size-5" />
             {badgeCounts.notifications > 0 && (
@@ -173,17 +173,19 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
 
-            {profilePath && (
-              <DropdownMenuItem onClick={() => navigate(profilePath)}>
+            {profileItem && (
+              <DropdownMenuItem onClick={() => navigate(profileItem.path)}>
                 <User className="mr-2 size-4" />
                 Profile
               </DropdownMenuItem>
             )}
 
-            <DropdownMenuItem onClick={() => navigate('/settings')}>
-              <Settings className="mr-2 size-4" />
-              Settings
-            </DropdownMenuItem>
+            {settingsItem && (
+              <DropdownMenuItem onClick={() => navigate(settingsItem.path)}>
+                <Settings className="mr-2 size-4" />
+                Settings
+              </DropdownMenuItem>
+            )}
 
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate('/about')}>
@@ -214,7 +216,31 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
           ].join(' ')}
         >
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-            {items.map((item) => (
+            {isLoading && items.length === 0 && (
+              <p className="text-sm text-muted-foreground px-2 py-3" role="status">
+                Loading navigation...
+              </p>
+            )}
+
+            {!isLoading && source === 'unavailable' && error && (
+              <div className="px-2 py-3 space-y-3" role="alert">
+                <div className="flex gap-2 text-sm text-muted-foreground">
+                  <AlertCircle className="mt-0.5 size-4 text-destructive" />
+                  <span>Navigation is unavailable.</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => void refetch()}
+                >
+                  Retry navigation
+                </Button>
+              </div>
+            )}
+
+            {source !== 'unavailable' && items.map((item) => (
               <NavigationItemRow
                 key={item.id}
                 item={item}
@@ -224,7 +250,7 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
               />
             ))}
 
-            {items.length === 0 && (
+            {!isLoading && source !== 'unavailable' && items.length === 0 && (
               <p className="text-sm text-muted-foreground px-2 py-3">
                 No navigation items are available for this account.
               </p>
