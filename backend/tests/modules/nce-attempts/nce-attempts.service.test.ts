@@ -738,6 +738,25 @@ describe("nce-attempts.service", () => {
     });
   });
 
+  it("rejects empty deterministic answers before submitting", async () => {
+    prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce({
+      ...draftAttempt,
+      response: { answer: "" },
+    });
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findFirst.mockResolvedValueOnce({
+      courseId,
+      lessonId,
+    });
+
+    await expect(submitNceAttempt({ attemptId }, studentActor)).rejects.toMatchObject({
+      statusCode: 400,
+      message: "NCE answer is required before submission.",
+    });
+
+    expect(prisma.nceExerciseAttempt.updateMany).not.toHaveBeenCalled();
+  });
+
   it("submits the same draft response that was scored when a save races with submit", async () => {
     prisma.nceExerciseAttempt.findFirst.mockResolvedValueOnce(draftAttempt);
     prisma.course.findFirst.mockResolvedValueOnce(course);
