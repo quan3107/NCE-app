@@ -29,8 +29,17 @@ export function DashboardTeacherRoute() {
   const coursesQuery = useCoursesQuery();
   const analyticsQuery = useTeacherAnalyticsQuery();
 
-  const isLoading = assignmentsLoading || coursesQuery.isLoading || analyticsQuery.isLoading;
-  const error = assignmentsError ?? coursesQuery.error ?? analyticsQuery.error ?? null;
+  const isLoading =
+    assignmentsLoading ||
+    coursesQuery.isLoading ||
+    analyticsQuery.isLoading ||
+    dashboardConfig.isLoading;
+  const error =
+    assignmentsError ??
+    coursesQuery.error ??
+    analyticsQuery.error ??
+    dashboardConfig.error ??
+    null;
 
   const processedSubmissions = submissions.filter(
     submission => submission.status === 'submitted' || submission.status === 'late',
