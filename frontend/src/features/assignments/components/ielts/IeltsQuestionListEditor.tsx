@@ -61,9 +61,13 @@ export function IeltsQuestionListEditor({
   onImageRemove,
   uploadedImages = {},
 }: IeltsQuestionListEditorProps) {
-  const { trueFalseOptions, yesNoOptions } = useBooleanQuestionOptions();
-  const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? 'true';
-  const defaultYesNoValue = yesNoOptions[0]?.value ?? 'yes';
+  const {
+    trueFalseOptions,
+    yesNoOptions,
+    error: booleanOptionsError,
+  } = useBooleanQuestionOptions();
+  const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? '';
+  const defaultYesNoValue = yesNoOptions[0]?.value ?? '';
 
   const updateQuestion = (id: string, patch: Partial<IeltsQuestion>) => {
     onChange(questions.map((question) => (question.id === id ? { ...question, ...patch } : question)));
@@ -121,6 +125,36 @@ export function IeltsQuestionListEditor({
     }
   };
 
+  const isBooleanQuestionType = (type: IeltsQuestionType): boolean =>
+    type === 'true_false_not_given' || type === 'yes_no_not_given';
+
+  const getBooleanOptions = (type: IeltsQuestionType) => {
+    if (type === 'true_false_not_given') {
+      return trueFalseOptions;
+    }
+
+    return yesNoOptions;
+  };
+
+  const getDefaultBooleanValue = (type: IeltsQuestionType): string => {
+    if (type === 'true_false_not_given') {
+      return defaultTrueFalseValue;
+    }
+
+    return defaultYesNoValue;
+  };
+
+  const getBooleanAnswerValue = (question: IeltsQuestion): string => {
+    const normalized = normalizeQuestionOptionValue(question.correctAnswer || '');
+    const options = getBooleanOptions(question.type);
+
+    if (options.some((option) => option.value === normalized)) {
+      return normalized;
+    }
+
+    return getDefaultBooleanValue(question.type);
+  };
+
   return (
     <div className="space-y-4">
       {questions.map((question, index) => (
@@ -165,6 +199,13 @@ export function IeltsQuestionListEditor({
                 placeholder="Write the question prompt or instruction."
               />
             </div>
+
+            {booleanOptionsError && (
+              <div className="rounded-[8px] border border-destructive/30 p-3 text-sm" role="alert">
+                <p className="font-medium text-destructive">Unable to load boolean answer options.</p>
+                <p className="mt-1 text-muted-foreground">{booleanOptionsError.message}</p>
+              </div>
+            )}
 
             {/* Completion format selector */}
             {question.type === 'completion' && (
@@ -232,25 +273,11 @@ export function IeltsQuestionListEditor({
             {/* Correct answer for non-matching, non-diagram types */}
             {!MATCHING_TYPES.has(question.type) && !DIAGRAM_LABELING_TYPES.has(question.type) && (
               <>
-                {question.type === 'true_false_not_given' || question.type === 'yes_no_not_given' ? (
+                {isBooleanQuestionType(question.type) && !booleanOptionsError && (
                   <div className="space-y-2">
                     <Label>Correct Answer</Label>
                     <Select
-                      value={
-                        (
-                          question.type === 'true_false_not_given'
-                            ? trueFalseOptions
-                            : yesNoOptions
-                        ).some(
-                          (option) =>
-                            option.value ===
-                            normalizeQuestionOptionValue(question.correctAnswer || ''),
-                        )
-                          ? normalizeQuestionOptionValue(question.correctAnswer || '')
-                          : question.type === 'true_false_not_given'
-                            ? defaultTrueFalseValue
-                            : defaultYesNoValue
-                      }
+                      value={getBooleanAnswerValue(question)}
                       onValueChange={(value) =>
                         updateQuestion(question.id, {
                           correctAnswer: normalizeQuestionOptionValue(value),
@@ -261,11 +288,7 @@ export function IeltsQuestionListEditor({
                         <SelectValue placeholder="Select answer" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(
-                          question.type === 'true_false_not_given'
-                            ? trueFalseOptions
-                            : yesNoOptions
-                        ).map((option) => (
+                        {getBooleanOptions(question.type).map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>
@@ -273,7 +296,9 @@ export function IeltsQuestionListEditor({
                       </SelectContent>
                     </Select>
                   </div>
-                ) : (
+                )}
+
+                {!isBooleanQuestionType(question.type) && (
                   <div className="space-y-2">
                     <Label>Correct Answer</Label>
                     <Input
