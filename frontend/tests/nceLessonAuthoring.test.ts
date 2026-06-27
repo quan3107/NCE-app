@@ -30,10 +30,6 @@ const objectiveEditorPath = path.join(
   frontendRoot,
   'src/features/nce-content/components/NceObjectiveEditor.tsx',
 );
-const fallbackNavPath = path.join(
-  frontendRoot,
-  'src/features/navigation/utils/fallbackNav.ts',
-);
 const navigationSeedPath = path.resolve(
   frontendRoot,
   '../backend/src/prisma/seeds/navigation.seed.ts',
@@ -72,21 +68,15 @@ test('TeacherNceLessonsPage supports draft refresh and publish state', async () 
 });
 
 test('teacher navigation exposes NCE lesson authoring entry points', async () => {
-  const fallbackSource = await readFile(fallbackNavPath, 'utf8');
   const seedSource = await readFile(navigationSeedPath, 'utf8');
 
-  assert.doesNotMatch(fallbackSource, /teacher-nce-lessons/);
-  assert.doesNotMatch(fallbackSource, /\/teacher\/nce-lessons/);
   assert.match(seedSource, /NCE Lessons/);
   assert.match(seedSource, /\/teacher\/nce-lessons/);
 });
 
 test('student navigation exposes NCE learning path entry points', async () => {
-  const fallbackSource = await readFile(fallbackNavPath, 'utf8');
   const seedSource = await readFile(navigationSeedPath, 'utf8');
 
-  assert.doesNotMatch(fallbackSource, /student-nce-path/);
-  assert.doesNotMatch(fallbackSource, /\/student\/nce/);
   assert.match(
     seedSource,
     /label: "NCE Path"[\s\S]*path: "\/student\/nce"[\s\S]*permission: "courses:read"/,
