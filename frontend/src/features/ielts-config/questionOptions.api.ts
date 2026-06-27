@@ -102,7 +102,9 @@ export function useBooleanQuestionOptions() {
   return {
     trueFalseOptions: trueFalseQuery.data?.options ?? [],
     yesNoOptions: yesNoQuery.data?.options ?? [],
-    isLoading: trueFalseQuery.isLoading || yesNoQuery.isLoading,
-    error: trueFalseQuery.error ?? yesNoQuery.error ?? null,
+    trueFalseIsLoading: trueFalseQuery.isLoading,
+    yesNoIsLoading: yesNoQuery.isLoading,
+    trueFalseError: trueFalseQuery.error ?? null,
+    yesNoError: yesNoQuery.error ?? null,
   };
 }
