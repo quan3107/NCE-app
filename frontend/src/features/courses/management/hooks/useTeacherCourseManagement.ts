@@ -6,7 +6,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ApiError } from '@lib/apiClient';
 import { useCourseDefaultRubricTemplateQuery } from '@features/rubrics/api';
 
 import {
@@ -16,7 +15,6 @@ import {
 } from '../api';
 import type { CourseManagementData, RubricCriterion } from '../types';
 import {
-  defaultRubric,
   toCourseManagementPageError,
   toCourseRubricCriteria,
   toEnrolledStudent,
@@ -49,8 +47,6 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
     [courseQuery.data],
   );
 
-  const assignmentErrorLogRef = useRef(false);
-
   const { details, detailsHandlers } = useCourseDetailsActions(
     courseId,
     course,
@@ -63,31 +59,12 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
   );
   const { archiveState, archiveHandlers } = useArchiveActions(courseId, course, courseQuery);
 
-  const [rubricCriteria, setRubricCriteria] = useState<RubricCriterion[]>(defaultRubric);
+  const [rubricCriteria, setRubricCriteria] = useState<RubricCriterion[]>([]);
   const rubricHydrationRef = useRef(false);
 
   useEffect(() => {
     rubricHydrationRef.current = false;
-    assignmentErrorLogRef.current = false;
   }, [courseId]);
-
-  useEffect(() => {
-    if (!assignmentsQuery.isError || assignmentErrorLogRef.current) {
-      return;
-    }
-
-    const status =
-      assignmentsQuery.error instanceof ApiError ? assignmentsQuery.error.status : undefined;
-    console.warn('[course-management] backend course assignments unavailable; using empty fallback', {
-      endpoint: '/api/v1/courses/:courseId/assignments',
-      courseId,
-      status,
-      reason: 'request_failed',
-      fallbackCount: 0,
-    });
-
-    assignmentErrorLogRef.current = true;
-  }, [assignmentsQuery.error, assignmentsQuery.isError, courseId]);
 
   useEffect(() => {
     if (rubricHydrationRef.current) {
@@ -106,14 +83,8 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
       rubricHydrationRef.current = true;
       return;
     }
-
-    if (courseDefaultRubricTemplateQuery.isError) {
-      setRubricCriteria(defaultRubric);
-      rubricHydrationRef.current = true;
-    }
   }, [
     courseDefaultRubricTemplateQuery.data?.template.criteria,
-    courseDefaultRubricTemplateQuery.isError,
   ]);
 
   const enrolledStudents = useMemo(() => {
@@ -138,8 +109,13 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
   );
 
   const reload = useCallback(async () => {
-    await Promise.all([courseQuery.refetch(), studentsQuery.refetch(), assignmentsQuery.refetch()]);
-  }, [assignmentsQuery, courseQuery, studentsQuery]);
+    await Promise.all([
+      courseQuery.refetch(),
+      studentsQuery.refetch(),
+      assignmentsQuery.refetch(),
+      courseDefaultRubricTemplateQuery.refetch(),
+    ]);
+  }, [assignmentsQuery, courseDefaultRubricTemplateQuery, courseQuery, studentsQuery]);
 
   const data: CourseManagementData = {
     course,
@@ -167,6 +143,7 @@ export function useTeacherCourseManagement(courseId: string): CourseManagementVi
       courseError: courseQuery.error,
       studentsError: studentsQuery.error,
       assignmentsError: assignmentsQuery.error,
+      rubricTemplateError: courseDefaultRubricTemplateQuery.error,
     }),
     reload,
     details: data.details,
