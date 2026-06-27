@@ -12,7 +12,6 @@ import { cn } from '@components/ui/utils';
 import { formatFileSize } from '@lib/utils';
 import type { SubmissionFile } from '@domain';
 import {
-  FALLBACK_FILE_UPLOAD_POLICY,
   UploadStage,
   isAllowedFile,
   uploadFileWithProgress,
@@ -78,8 +77,9 @@ export function FileUploader<T extends BaseFile>(
 ): JSX.Element {
   const { value, onChange, onBusyChange } = props;
   const policyQuery = useFileUploadConfig();
-  const policy = policyQuery.data ?? FALLBACK_FILE_UPLOAD_POLICY;
-  const { maxFileSize, maxTotalSize } = policy.limits;
+  const policy = policyQuery.data;
+  const maxFileSize = policy?.limits.maxFileSize ?? 0;
+  const maxTotalSize = policy?.limits.maxTotalSize ?? 0;
   const inputId = useId();
   const helperId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -152,6 +152,10 @@ export function FileUploader<T extends BaseFile>(
     if (!selected.length) {
       return;
     }
+    if (!policy) {
+      toast.error('Upload policy is unavailable because the server config could not be loaded.');
+      return;
+    }
     let runningTotal = totalSize;
     selected.forEach((file) => {
       const { ok, reason } = isAllowedFile(file, policy);
@@ -196,6 +200,29 @@ export function FileUploader<T extends BaseFile>(
   const handleBrowseClick = () => {
     inputRef.current?.click();
   };
+
+  if (policyQuery.isLoading) {
+    return (
+      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        Loading upload policy...
+      </div>
+    );
+  }
+
+  if (policyQuery.error || !policy) {
+    const message =
+      policyQuery.error instanceof Error
+        ? policyQuery.error.message
+        : 'The upload policy response was empty.';
+
+    return (
+      <div className="rounded-lg border border-destructive/30 bg-card p-6 text-center">
+        <p className="font-medium text-destructive">Unable to load upload policy.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <input
