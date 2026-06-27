@@ -65,7 +65,10 @@ export function IeltsQuestionListEditor({
   const {
     trueFalseOptions,
     yesNoOptions,
-    error: booleanOptionsError,
+    trueFalseIsLoading,
+    yesNoIsLoading,
+    trueFalseError,
+    yesNoError,
   } = useBooleanQuestionOptions();
   const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? '';
   const defaultYesNoValue = yesNoOptions[0]?.value ?? '';
@@ -135,14 +138,26 @@ export function IeltsQuestionListEditor({
 
   const isBooleanTypeUnavailable = (type: IeltsQuestionType): boolean => {
     if (type === 'true_false_not_given') {
-      return !defaultTrueFalseValue;
+      return trueFalseIsLoading || Boolean(trueFalseError) || !defaultTrueFalseValue;
     }
 
     if (type === 'yes_no_not_given') {
-      return !defaultYesNoValue;
+      return yesNoIsLoading || Boolean(yesNoError) || !defaultYesNoValue;
     }
 
     return false;
+  };
+
+  const getBooleanOptionsError = (type: IeltsQuestionType): Error | null => {
+    if (type === 'true_false_not_given') {
+      return trueFalseError;
+    }
+
+    if (type === 'yes_no_not_given') {
+      return yesNoError;
+    }
+
+    return null;
   };
 
   const getBooleanOptions = (type: IeltsQuestionType) => {
@@ -158,176 +173,196 @@ export function IeltsQuestionListEditor({
 
   return (
     <div className="space-y-4">
-      {questions.map((question, index) => (
-        <Card key={question.id} className="p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-2">
-              <Label>Question {index + 1}</Label>
-              <Select
-                value={question.type}
-                onValueChange={(value) => handleTypeChange(question.id, value as IeltsQuestionType)}
-              >
-                <SelectTrigger className="w-56">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {typeOptions.map((option) => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value}
-                      disabled={isBooleanTypeUnavailable(option.value)}
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => removeQuestion(question.id)}
-              aria-label={`Remove question ${index + 1}`}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
+      {questions.map((question, index) => {
+        const booleanOptionsError = getBooleanOptionsError(question.type);
+        const booleanOptionsLoading =
+          !booleanOptionsError && isBooleanTypeUnavailable(question.type);
+        const showBooleanAnswerControls =
+          isBooleanQuestionType(question.type) &&
+          !booleanOptionsError &&
+          !booleanOptionsLoading;
+        const showTextAnswerControls = !isBooleanQuestionType(question.type);
 
-          <div className="mt-4 space-y-3">
-            <div className="space-y-2">
-              <Label>Prompt</Label>
-              <Textarea
-                rows={3}
-                value={question.prompt}
-                onChange={(event) => updateQuestion(question.id, { prompt: event.target.value })}
-                placeholder="Write the question prompt or instruction."
-              />
-            </div>
-
-            {booleanOptionsError && (
-              <div className="rounded-[8px] border border-destructive/30 p-3 text-sm" role="alert">
-                <p className="font-medium text-destructive">Unable to load boolean answer options.</p>
-                <p className="mt-1 text-muted-foreground">{booleanOptionsError.message}</p>
-              </div>
-            )}
-
-            {!booleanOptionsError && isBooleanTypeUnavailable(question.type) && (
-              <div className="rounded-[8px] border p-3 text-sm text-muted-foreground" role="status">
-                Loading boolean answer options...
-              </div>
-            )}
-
-            {/* Completion format selector */}
-            {question.type === 'completion' && (
+        return (
+          <Card key={question.id} className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-2">
-                <Label>Completion Format</Label>
+                <Label>Question {index + 1}</Label>
                 <Select
-                  value={question.format || 'summary'}
+                  value={question.type}
                   onValueChange={(value) =>
-                    updateQuestion(question.id, { format: value as IeltsCompletionFormat })
+                    handleTypeChange(question.id, value as IeltsQuestionType)
                   }
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select format" />
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Select type" />
                   </SelectTrigger>
-              <SelectContent>
-                {completionFormats.map((format) => (
-                  <SelectItem key={format.value} value={format.value}>
-                    {format.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+                  <SelectContent>
+                    {typeOptions.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        disabled={isBooleanTypeUnavailable(option.value)}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
-            )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => removeQuestion(question.id)}
+                aria-label={`Remove question ${index + 1}`}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
 
-            {/* Matching Editor */}
-            {MATCHING_TYPES.has(question.type) && question.matchingItems && question.matchingOptions && (
-              <MatchingEditor
-                items={question.matchingItems}
-                options={question.matchingOptions}
-                onChange={(items, options) => handleMatchingChange(question.id, items, options)}
-              />
-            )}
+            <div className="mt-4 space-y-3">
+              <div className="space-y-2">
+                <Label>Prompt</Label>
+                <Textarea
+                  rows={3}
+                  value={question.prompt}
+                  onChange={(event) =>
+                    updateQuestion(question.id, { prompt: event.target.value })
+                  }
+                  placeholder="Write the question prompt or instruction."
+                />
+              </div>
 
-            {/* Diagram Labeling Editor */}
-            {DIAGRAM_LABELING_TYPES.has(question.type) && (
-              <DiagramLabelingEditor
-                imageIds={question.diagramImageIds || []}
-                labels={question.diagramLabels || []}
-                uploadedImages={uploadedImages}
-                onImageUpload={onImageUpload}
-                onUploadBusyChange={(scopeId, busy) =>
-                  onUploadBusyChange?.(`question:${question.id}:${scopeId}`, busy)
-                }
-                onImageRemove={(imageId) => handleDiagramImageRemove(question.id, imageId)}
-                onLabelsChange={(labels) => handleDiagramLabelsChange(question.id, labels)}
-                onImageFilesChange={(imageId, files) =>
-                  handleDiagramImageFilesChange(question.id, imageId, files)
-                }
-              />
-            )}
+              {booleanOptionsError && (
+                <div
+                  className="rounded-[8px] border border-destructive/30 p-3 text-sm"
+                  role="alert"
+                >
+                  <p className="font-medium text-destructive">
+                    Unable to load boolean answer options.
+                  </p>
+                  <p className="mt-1 text-muted-foreground">{booleanOptionsError.message}</p>
+                </div>
+              )}
 
-            {/* Options for multiple choice */}
-            {OPTION_TYPES.has(question.type) && (
-              <StringListEditor
-                label="Options"
-                values={question.options}
-                onChange={(options) => updateQuestion(question.id, { options })}
-                placeholder="Option text"
-                addLabel="Add option"
-                dense
-              />
-            )}
+              {booleanOptionsLoading && (
+                <div className="rounded-[8px] border p-3 text-sm text-muted-foreground" role="status">
+                  Loading boolean answer options...
+                </div>
+              )}
 
-            {/* Correct answer for non-matching, non-diagram types */}
-            {!MATCHING_TYPES.has(question.type) && !DIAGRAM_LABELING_TYPES.has(question.type) && (
-              <>
-                {isBooleanQuestionType(question.type) &&
-                  !booleanOptionsError &&
-                  !isBooleanTypeUnavailable(question.type) && (
-                  <div className="space-y-2">
-                    <Label>Correct Answer</Label>
-                    <Select
-                      value={getBooleanAnswerValue(question)}
-                      onValueChange={(value) =>
-                        updateQuestion(question.id, {
-                          correctAnswer: normalizeQuestionOptionValue(value),
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select answer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getBooleanOptions(question.type).map((option) => (
+              {/* Completion format selector */}
+              {question.type === 'completion' && (
+                <div className="space-y-2">
+                  <Label>Completion Format</Label>
+                  <Select
+                    value={question.format || 'summary'}
+                    onValueChange={(value) =>
+                      updateQuestion(question.id, { format: value as IeltsCompletionFormat })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {completionFormats.map((format) => (
+                        <SelectItem key={format.value} value={format.value}>
+                          {format.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Matching Editor */}
+              {MATCHING_TYPES.has(question.type) &&
+                question.matchingItems &&
+                question.matchingOptions && (
+                  <MatchingEditor
+                    items={question.matchingItems}
+                    options={question.matchingOptions}
+                    onChange={(items, options) => handleMatchingChange(question.id, items, options)}
+                  />
+                )}
+
+              {/* Diagram Labeling Editor */}
+              {DIAGRAM_LABELING_TYPES.has(question.type) && (
+                <DiagramLabelingEditor
+                  imageIds={question.diagramImageIds || []}
+                  labels={question.diagramLabels || []}
+                  uploadedImages={uploadedImages}
+                  onImageUpload={onImageUpload}
+                  onUploadBusyChange={(scopeId, busy) =>
+                    onUploadBusyChange?.(`question:${question.id}:${scopeId}`, busy)
+                  }
+                  onImageRemove={(imageId) => handleDiagramImageRemove(question.id, imageId)}
+                  onLabelsChange={(labels) => handleDiagramLabelsChange(question.id, labels)}
+                  onImageFilesChange={(imageId, files) =>
+                    handleDiagramImageFilesChange(question.id, imageId, files)
+                  }
+                />
+              )}
+
+              {/* Options for multiple choice */}
+              {OPTION_TYPES.has(question.type) && (
+                <StringListEditor
+                  label="Options"
+                  values={question.options}
+                  onChange={(options) => updateQuestion(question.id, { options })}
+                  placeholder="Option text"
+                  addLabel="Add option"
+                  dense
+                />
+              )}
+
+              {/* Correct answer for non-matching, non-diagram types */}
+              {!MATCHING_TYPES.has(question.type) && !DIAGRAM_LABELING_TYPES.has(question.type) && (
+                <>
+                  {showBooleanAnswerControls && (
+                    <div className="space-y-2">
+                      <Label>Correct Answer</Label>
+                      <Select
+                        value={getBooleanAnswerValue(question)}
+                        onValueChange={(value) =>
+                          updateQuestion(question.id, {
+                            correctAnswer: normalizeQuestionOptionValue(value),
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select answer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getBooleanOptions(question.type).map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                {!isBooleanQuestionType(question.type) && (
-                  <div className="space-y-2">
-                    <Label>Correct Answer</Label>
-                    <Input
-                      value={question.correctAnswer}
-                      placeholder="Correct response"
-                      onChange={(event) =>
-                        updateQuestion(question.id, { correctAnswer: event.target.value })
-                      }
-                    />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </Card>
-      ))}
+                  {showTextAnswerControls && (
+                    <div className="space-y-2">
+                      <Label>Correct Answer</Label>
+                      <Input
+                        value={question.correctAnswer}
+                        placeholder="Correct response"
+                        onChange={(event) =>
+                          updateQuestion(question.id, { correctAnswer: event.target.value })
+                        }
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </Card>
+        );
+      })}
 
       <Button type="button" variant="outline" onClick={addQuestion}>
         <Plus className="mr-2 size-4" />
