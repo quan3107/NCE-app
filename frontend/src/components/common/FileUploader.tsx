@@ -201,10 +201,38 @@ export function FileUploader<T extends BaseFile>(
     inputRef.current?.click();
   };
 
+  const renderCompletedFiles = () =>
+    value.map((file) => (
+      <div
+        key={file.id}
+        className="flex items-center gap-3 rounded-md border border-muted-foreground/20 p-3"
+      >
+        <CheckCircle2 className="size-4 text-green-600" />
+        <div className="flex-1">
+          <p className="text-sm font-medium">{file.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {formatFileSize(file.size)} · {file.mime}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => removeCompletedFile(file.id)}
+          aria-label={`Remove ${file.name}`}
+        >
+          <X className="size-4" />
+        </Button>
+      </div>
+    ));
+
   if (policyQuery.isLoading) {
     return (
-      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        Loading upload policy...
+      <div className="space-y-3">
+        <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          Loading upload policy...
+        </div>
+        {value.length > 0 && <div className="space-y-2">{renderCompletedFiles()}</div>}
       </div>
     );
   }
@@ -216,9 +244,12 @@ export function FileUploader<T extends BaseFile>(
         : 'The upload policy response was empty.';
 
     return (
-      <div className="rounded-lg border border-destructive/30 bg-card p-6 text-center">
-        <p className="font-medium text-destructive">Unable to load upload policy.</p>
-        <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+      <div className="space-y-3">
+        <div className="rounded-lg border border-destructive/30 bg-card p-6 text-center">
+          <p className="font-medium text-destructive">Unable to load upload policy.</p>
+          <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+        </div>
+        {value.length > 0 && <div className="space-y-2">{renderCompletedFiles()}</div>}
       </div>
     );
   }
@@ -267,29 +298,7 @@ export function FileUploader<T extends BaseFile>(
       </div>
       {(value.length > 0 || uploads.length > 0) && (
         <div className="space-y-2">
-          {value.map((file) => (
-            <div
-              key={file.id}
-              className="flex items-center gap-3 rounded-md border border-muted-foreground/20 p-3"
-            >
-              <CheckCircle2 className="size-4 text-green-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">{file.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatFileSize(file.size)} · {file.mime}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => removeCompletedFile(file.id)}
-                aria-label={`Remove ${file.name}`}
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
-          ))}
+          {renderCompletedFiles()}
 
           {uploads.map((item) => (
             <div
