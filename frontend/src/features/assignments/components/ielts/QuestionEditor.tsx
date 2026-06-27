@@ -70,7 +70,11 @@ export function QuestionEditor({
   canMoveUp,
   canMoveDown,
 }: QuestionEditorProps) {
-  const { trueFalseOptions, yesNoOptions } = useBooleanQuestionOptions();
+  const {
+    trueFalseOptions,
+    yesNoOptions,
+    error: booleanOptionsError,
+  } = useBooleanQuestionOptions();
 
   const needsOptions = OPTION_BASED_TYPES.includes(question.type);
   const isTrueFalse = question.type === 'true_false_not_given';
@@ -78,8 +82,9 @@ export function QuestionEditor({
   const isCompletion = question.type === 'completion';
   const isMatching = MATCHING_TYPES.includes(question.type);
   const isDiagramLabeling = DIAGRAM_LABELING_TYPES.includes(question.type);
-  const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? 'true';
-  const defaultYesNoValue = yesNoOptions[0]?.value ?? 'yes';
+  const canRenderAnswerControls = !booleanOptionsError || (!isTrueFalse && !isYesNo);
+  const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? '';
+  const defaultYesNoValue = yesNoOptions[0]?.value ?? '';
 
   const createId = () =>
     globalThis.crypto?.randomUUID?.() ?? `q-${Date.now()}-${Math.random()}`;
@@ -247,6 +252,13 @@ export function QuestionEditor({
             className="min-h-[60px] resize-none text-sm"
           />
 
+          {booleanOptionsError && (
+            <div className="rounded-[8px] border border-destructive/30 p-3 text-sm" role="alert">
+              <p className="font-medium text-destructive">Unable to load boolean answer options.</p>
+              <p className="mt-1 text-muted-foreground">{booleanOptionsError.message}</p>
+            </div>
+          )}
+
           {/* Matching Editor */}
           {isMatching && question.matchingItems && question.matchingOptions && (
             <MatchingEditor
@@ -269,22 +281,24 @@ export function QuestionEditor({
             />
           )}
 
-          <QuestionAnswerControls
-            question={question}
-            needsOptions={needsOptions}
-            isTrueFalse={isTrueFalse}
-            isYesNo={isYesNo}
-            isMatching={isMatching}
-            isDiagramLabeling={isDiagramLabeling}
-            trueFalseOptions={trueFalseOptions}
-            yesNoOptions={yesNoOptions}
-            defaultTrueFalseValue={defaultTrueFalseValue}
-            defaultYesNoValue={defaultYesNoValue}
-            onChange={onChange}
-            onAddOption={handleAddOption}
-            onRemoveOption={handleRemoveOption}
-            onOptionChange={handleOptionChange}
-          />
+          {canRenderAnswerControls && (
+            <QuestionAnswerControls
+              question={question}
+              needsOptions={needsOptions}
+              isTrueFalse={isTrueFalse}
+              isYesNo={isYesNo}
+              isMatching={isMatching}
+              isDiagramLabeling={isDiagramLabeling}
+              trueFalseOptions={trueFalseOptions}
+              yesNoOptions={yesNoOptions}
+              defaultTrueFalseValue={defaultTrueFalseValue}
+              defaultYesNoValue={defaultYesNoValue}
+              onChange={onChange}
+              onAddOption={handleAddOption}
+              onRemoveOption={handleRemoveOption}
+              onOptionChange={handleOptionChange}
+            />
+          )}
         </div>
 
         {/* Delete button */}
