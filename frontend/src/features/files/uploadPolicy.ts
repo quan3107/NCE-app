@@ -26,45 +26,6 @@ export type FileUploadPolicy = {
   allowedExtensions: ReadonlySet<string>;
 };
 
-const FALLBACK_ALLOWED_TYPES: FileUploadAllowedType[] = [
-  {
-    mimeType: 'application/pdf',
-    extensions: ['.pdf'],
-    label: 'PDF Document',
-    acceptToken: '.pdf',
-  },
-  {
-    mimeType: 'application/msword',
-    extensions: ['.doc'],
-    label: 'Word Document',
-    acceptToken: '.doc',
-  },
-  {
-    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    extensions: ['.docx'],
-    label: 'Word Document',
-    acceptToken: '.docx',
-  },
-  {
-    mimeType: 'audio/*',
-    extensions: ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac', '.webm'],
-    label: 'Audio Files',
-    acceptToken: 'audio/*',
-  },
-  {
-    mimeType: 'image/*',
-    extensions: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'],
-    label: 'Image Files',
-    acceptToken: 'image/*',
-  },
-];
-
-const FALLBACK_LIMITS: FileUploadLimits = {
-  maxFileSize: 25 * 1024 * 1024,
-  maxTotalSize: 100 * 1024 * 1024,
-  maxFilesPerUpload: 5,
-};
-
 function normalizeExtension(value: string): string {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) {
@@ -148,13 +109,6 @@ export function createFileUploadPolicy({
   };
 }
 
-export const FALLBACK_FILE_UPLOAD_POLICY = createFileUploadPolicy({
-  limits: FALLBACK_LIMITS,
-  allowedTypes: FALLBACK_ALLOWED_TYPES,
-  accept: '.pdf,.doc,.docx,audio/*,image/*',
-  typeLabel: 'PDF, DOC, DOCX, audio, or image files',
-});
-
 function getFileExtension(fileName: string): string {
   const trimmed = fileName.trim().toLowerCase();
   const lastDot = trimmed.lastIndexOf('.');
@@ -177,8 +131,15 @@ function mimeMatchesPolicy(mime: string, allowedMimeTypes: ReadonlySet<string>):
 
 export function isAllowedFile(
   file: Pick<File, 'name' | 'type'>,
-  policy: FileUploadPolicy = FALLBACK_FILE_UPLOAD_POLICY,
+  policy?: FileUploadPolicy,
 ): { ok: boolean; reason?: string } {
+  if (!policy) {
+    return {
+      ok: false,
+      reason: 'Upload policy is unavailable because the server config could not be loaded.',
+    };
+  }
+
   const extension = getFileExtension(file.name);
   const mime = typeof file.type === 'string' ? file.type.toLowerCase() : '';
 
