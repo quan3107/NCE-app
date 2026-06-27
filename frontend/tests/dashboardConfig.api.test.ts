@@ -1,8 +1,8 @@
 /// <reference lib="dom" />
 /**
  * Location: tests/dashboardConfig.api.test.ts
- * Purpose: Validate dashboard config API normalization and fallback behavior.
- * Why: Protects role dashboard rendering from malformed or unavailable config responses.
+ * Purpose: Validate dashboard config API normalization and error behavior.
+ * Why: Prevents client-side fallback widgets from hiding unavailable config responses.
  */
 
 import assert from 'node:assert/strict';
@@ -118,7 +118,7 @@ test('fetchMyDashboardConfig validates and returns API payload', async () => {
   );
 });
 
-test('fetchDashboardWidgetDefaults falls back when endpoint fails', async () => {
+test('fetchDashboardWidgetDefaults rejects when endpoint fails', async () => {
   await withPatchedGlobals(
     {
       fetch: async () =>
@@ -129,11 +129,10 @@ test('fetchDashboardWidgetDefaults falls back when endpoint fails', async () => 
       localStorage: createStorage(),
     },
     async () => {
-      const payload = await fetchDashboardWidgetDefaults('teacher');
-
-      assert.equal(payload.role, 'teacher');
-      assert.ok(payload.widgets.length > 0);
-      assert.equal(payload.widgets[0].id, 'teacher_active_assignments');
+      await assert.rejects(
+        fetchDashboardWidgetDefaults('teacher'),
+        /Service unavailable/,
+      );
     },
   );
 });
