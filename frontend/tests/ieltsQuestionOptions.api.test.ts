@@ -1,8 +1,8 @@
 /// <reference lib="dom" />
 /**
  * Location: tests/ieltsQuestionOptions.api.test.ts
- * Purpose: Validate IELTS question option API mapping, fallback, and value normalization.
- * Why: Prevents regressions when replacing hardcoded option arrays with backend-driven values.
+ * Purpose: Validate IELTS question option API mapping and value normalization.
+ * Why: Prevents client-side fallback options from hiding backend config failures.
  */
 
 import assert from 'node:assert/strict';
@@ -106,7 +106,7 @@ test('fetchQuestionOptions maps API payload and normalizes legacy not given valu
   );
 });
 
-test('fetchQuestionOptions falls back when endpoint fails', async () => {
+test('fetchQuestionOptions rejects when endpoint fails', async () => {
   await withPatchedGlobals(
     {
       fetch: async () =>
@@ -117,11 +117,7 @@ test('fetchQuestionOptions falls back when endpoint fails', async () => {
       localStorage: createStorage(),
     },
     async () => {
-      const payload = await fetchQuestionOptions('yes_no');
-
-      assert.equal(payload.type, 'yes_no');
-      assert.equal(payload.options.length, 3);
-      assert.equal(payload.options[2].value, 'not_given');
+      await assert.rejects(fetchQuestionOptions('yes_no'), /Service unavailable/);
     },
   );
 });
