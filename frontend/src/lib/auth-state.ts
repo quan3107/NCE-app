@@ -42,12 +42,10 @@ export const loadInitialState = (): InitialSnapshot => {
       throw new Error('Invalid stored auth payload');
     }
 
-    const parsedToken =
-      'token' in parsed
-        ? typeof parsed.token === 'string' && parsed.token.length > 0
-          ? parsed.token
-          : null
-        : null;
+    let parsedToken: string | null = null;
+    if ('token' in parsed && typeof parsed.token === 'string' && parsed.token.length > 0) {
+      parsedToken = parsed.token;
+    }
     const liveUser = parsed.liveUser ?? null;
 
     return {
