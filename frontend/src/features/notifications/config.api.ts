@@ -6,7 +6,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { ApiError, apiClient } from '@lib/apiClient';
+import { apiClient } from '@lib/apiClient';
 import type { Role } from '@domain';
 
 export type NotificationTypeConfig = {
@@ -41,144 +41,8 @@ type NotificationRole = Exclude<Role, 'public'>;
 
 const NOTIFICATION_TYPES_QUERY_KEY = 'config:notification-types';
 
-const FALLBACK_NOTIFICATION_TYPES_BY_ROLE: Record<NotificationRole, NotificationTypeConfig[]> = {
-  student: [
-    {
-      id: 'assignment_published',
-      label: 'Assignment Published',
-      description: 'When a new assignment is published.',
-      category: 'assignments',
-      icon: 'file-text',
-      accent: 'info',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 1,
-    },
-    {
-      id: 'due_soon',
-      label: 'Due Soon',
-      description: 'When an assignment deadline is approaching.',
-      category: 'assignments',
-      icon: 'clock',
-      accent: 'warning',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 2,
-    },
-    {
-      id: 'graded',
-      label: 'Graded',
-      description: 'When feedback and scores are released.',
-      category: 'grading',
-      icon: 'check-circle',
-      accent: 'success',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 3,
-    },
-    {
-      id: 'reminder',
-      label: 'Reminder',
-      description: 'General reminders and nudges.',
-      category: 'general',
-      icon: 'bell',
-      accent: 'info',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 4,
-    },
-    {
-      id: 'weekly_digest',
-      label: 'Weekly Digest',
-      description: 'A weekly summary of upcoming coursework.',
-      category: 'digest',
-      icon: 'inbox',
-      accent: 'neutral',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 5,
-    },
-  ],
-  teacher: [
-    {
-      id: 'new_submission',
-      label: 'New Submission',
-      description: 'When a student submits new work.',
-      category: 'grading',
-      icon: 'file-text',
-      accent: 'info',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 1,
-    },
-    {
-      id: 'reminder',
-      label: 'Reminder',
-      description: 'General reminders and workflow nudges.',
-      category: 'general',
-      icon: 'bell',
-      accent: 'info',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 2,
-    },
-    {
-      id: 'weekly_digest',
-      label: 'Weekly Digest',
-      description: 'A weekly summary of assignment activity.',
-      category: 'digest',
-      icon: 'inbox',
-      accent: 'neutral',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 3,
-    },
-  ],
-  admin: [
-    {
-      id: 'reminder',
-      label: 'Reminder',
-      description: 'General operational reminders.',
-      category: 'general',
-      icon: 'bell',
-      accent: 'info',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 1,
-    },
-    {
-      id: 'weekly_digest',
-      label: 'Weekly Digest',
-      description: 'A weekly platform activity summary.',
-      category: 'digest',
-      icon: 'inbox',
-      accent: 'neutral',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 2,
-    },
-    {
-      id: 'schedule_update',
-      label: 'Schedule Update',
-      description: 'When class schedules or events are updated.',
-      category: 'system',
-      icon: 'clock',
-      accent: 'info',
-      defaultEnabled: true,
-      enabled: true,
-      sortOrder: 3,
-    },
-  ],
-};
-
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function toFallbackTypes(role: NotificationRole): NotificationTypeConfig[] {
-  const fallback = FALLBACK_NOTIFICATION_TYPES_BY_ROLE[role]
-    ?? FALLBACK_NOTIFICATION_TYPES_BY_ROLE.student;
-  return fallback.map(type => ({ ...type }));
 }
 
 function mapNotificationType(value: unknown): NotificationTypeConfig | null {
@@ -228,51 +92,26 @@ export function getNotificationTypeLabel(
 }
 
 export async function fetchNotificationTypes(
-  role: NotificationRole = 'student',
+  _role: NotificationRole = 'student',
 ): Promise<NotificationTypeConfig[]> {
-  try {
-    const response = await apiClient<NotificationTypesResponse>(
-      '/api/v1/config/notification-types',
-    );
+  const response = await apiClient<NotificationTypesResponse>(
+    '/api/v1/config/notification-types',
+  );
 
-    const mapped = Array.isArray(response.types)
-      ? response.types
-          .map(mapNotificationType)
-          .filter(
-            (type): type is NotificationTypeConfig =>
-              Boolean(type && type.enabled),
-          )
-      : [];
+  const mapped = Array.isArray(response.types)
+    ? response.types
+        .map(mapNotificationType)
+        .filter(
+          (type): type is NotificationTypeConfig =>
+            Boolean(type && type.enabled),
+        )
+    : [];
 
-    if (mapped.length === 0) {
-      console.warn(
-        '[notifications] invalid notification types payload; using fallback',
-        {
-          endpoint: '/api/v1/config/notification-types',
-          reason: 'empty_or_invalid_types',
-          role,
-          fallbackCount: FALLBACK_NOTIFICATION_TYPES_BY_ROLE[role].length,
-        },
-      );
-      return toFallbackTypes(role);
-    }
-
-    return mapped.sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
-  } catch (error) {
-    const status = error instanceof ApiError ? error.status : undefined;
-
-    console.error(
-      '[notifications] backend notification types unavailable; using fallback',
-      {
-        endpoint: '/api/v1/config/notification-types',
-        status,
-        reason: 'request_failed',
-        role,
-        fallbackCount: FALLBACK_NOTIFICATION_TYPES_BY_ROLE[role].length,
-      },
-    );
-    return toFallbackTypes(role);
+  if (mapped.length === 0) {
+    throw new Error('Invalid notification types payload returned by API.');
   }
+
+  return mapped.sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
 }
 
 export function useNotificationTypes(role: NotificationRole = 'student') {
@@ -281,12 +120,6 @@ export function useNotificationTypes(role: NotificationRole = 'student') {
     queryFn: () => fetchNotificationTypes(role),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    retry: 1,
+    retry: 0,
   });
-}
-
-export function getNotificationTypeFallback(
-  role: NotificationRole = 'student',
-): NotificationTypeConfig[] {
-  return toFallbackTypes(role);
 }
