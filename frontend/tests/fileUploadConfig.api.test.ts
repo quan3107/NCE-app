@@ -1,8 +1,8 @@
 /// <reference lib="dom" />
 /**
  * Location: tests/fileUploadConfig.api.test.ts
- * Purpose: Validate file upload config API normalization and fallback behavior.
- * Why: Ensures role-based upload policy reads remain resilient when config endpoints fail.
+ * Purpose: Validate file upload config API normalization and error behavior.
+ * Why: Prevents bundled upload policy data from hiding config endpoint failures.
  */
 
 import assert from 'node:assert/strict';
@@ -125,7 +125,7 @@ test('fetchFileUploadConfig maps API payloads into runtime policy', async () => 
   );
 });
 
-test('fetchFileUploadConfig falls back when config endpoint fails', async () => {
+test('fetchFileUploadConfig rejects when config endpoint fails', async () => {
   await withPatchedGlobals(
     {
       fetch: async (input) => {
@@ -156,12 +156,7 @@ test('fetchFileUploadConfig falls back when config endpoint fails', async () => 
       localStorage: createStorage(),
     },
     async () => {
-      const config = await fetchFileUploadConfig();
-
-      assert.equal(config.limits.maxFileSize, 25 * 1024 * 1024);
-      assert.equal(config.limits.maxTotalSize, 100 * 1024 * 1024);
-      assert.equal(config.accept, '.pdf,.doc,.docx,audio/*,image/*');
-      assert.equal(config.typeLabel, 'PDF, DOC, DOCX, audio, or image files');
+      await assert.rejects(fetchFileUploadConfig(), /Service unavailable/);
     },
   );
 });
