@@ -1,8 +1,8 @@
 /// <reference lib="dom" />
 /**
  * Location: tests/notificationTypes.api.test.ts
- * Purpose: Validate notification type config API mapping, fallback behavior, and logging.
- * Why: Ensures fallback paths are explicit when backend config data is unavailable.
+ * Purpose: Validate notification type config API mapping and error behavior.
+ * Why: Prevents client-side notification type fallbacks from hiding backend config failures.
  */
 
 import assert from 'node:assert/strict';
@@ -138,9 +138,7 @@ test('fetchNotificationTypes maps backend payload into runtime config', async ()
   );
 });
 
-test('fetchNotificationTypes logs warning and falls back when payload is invalid', async () => {
-  const warnings: unknown[][] = [];
-
+test('fetchNotificationTypes rejects when payload is invalid', async () => {
   await withPatchedGlobals(
     {
       fetch: async () =>
@@ -149,80 +147,44 @@ test('fetchNotificationTypes logs warning and falls back when payload is invalid
           headers: { 'content-type': 'application/json' },
         }),
       localStorage: createStorage(),
-      warn: (...args: unknown[]) => {
-        warnings.push(args);
-      },
     },
     async () => {
-      const types = await fetchNotificationTypes();
-      assert.equal(types.length >= 4, true);
-      assert.equal(types[0].id, 'assignment_published');
-      assert.equal(types[0].icon, 'file-text');
-      assert.equal(types[0].accent, 'info');
-    },
-  );
-
-  assert.equal(warnings.length > 0, true);
-  assert.equal(
-    String(warnings[0][0]).includes(
-      '[notifications] invalid notification types payload; using fallback',
-    ),
-    true,
-  );
-});
-
-test('fetchNotificationTypes logs error and falls back when request fails', async () => {
-  const errors: unknown[][] = [];
-
-  await withPatchedGlobals(
-    {
-      fetch: async () =>
-        new Response(JSON.stringify({ message: 'Service unavailable' }), {
-          status: 503,
-          headers: { 'content-type': 'application/json' },
-        }),
-      localStorage: createStorage(),
-      error: (...args: unknown[]) => {
-        errors.push(args);
-      },
-    },
-    async () => {
-      const types = await fetchNotificationTypes();
-      assert.equal(types.length >= 4, true);
-      assert.equal(types[1].id, 'due_soon');
-      assert.equal(types[1].icon, 'clock');
-      assert.equal(types[1].accent, 'warning');
-    },
-  );
-
-  assert.equal(errors.length > 0, true);
-  assert.equal(
-    String(errors[0][0]).includes(
-      '[notifications] backend notification types unavailable; using fallback',
-    ),
-    true,
-  );
-});
-
-test('fetchNotificationTypes teacher fallback excludes graded type', async () => {
-  await withPatchedGlobals(
-    {
-      fetch: async () =>
-        new Response(JSON.stringify({ message: 'Service unavailable' }), {
-          status: 503,
-          headers: { 'content-type': 'application/json' },
-        }),
-      localStorage: createStorage(),
-    },
-    async () => {
-      const types = await fetchNotificationTypes('teacher');
-      assert.equal(types.some((type) => type.id === 'graded'), false);
-      assert.deepEqual(
-        types.map((type) => type.id),
-        ['new_submission', 'reminder', 'weekly_digest'],
+      await assert.rejects(
+        fetchNotificationTypes(),
+        /Invalid notification types payload/,
       );
-      assert.equal(types[0].icon, 'file-text');
-      assert.equal(types[0].accent, 'info');
+    },
+  );
+});
+
+test('fetchNotificationTypes rejects when request fails', async () => {
+  await withPatchedGlobals(
+    {
+      fetch: async () =>
+        new Response(JSON.stringify({ message: 'Service unavailable' }), {
+          status: 503,
+          headers: { 'content-type': 'application/json' },
+        }),
+      localStorage: createStorage(),
+    },
+    async () => {
+      await assert.rejects(fetchNotificationTypes(), /Service unavailable/);
+    },
+  );
+});
+
+test('fetchNotificationTypes teacher request rejects instead of using fallback', async () => {
+  await withPatchedGlobals(
+    {
+      fetch: async () =>
+        new Response(JSON.stringify({ message: 'Service unavailable' }), {
+          status: 503,
+          headers: { 'content-type': 'application/json' },
+        }),
+      localStorage: createStorage(),
+    },
+    async () => {
+      await assert.rejects(fetchNotificationTypes('teacher'), /Service unavailable/);
     },
   );
 });
