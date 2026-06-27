@@ -85,11 +85,30 @@ export function QuestionEditor({
   const canRenderAnswerControls = !booleanOptionsError || (!isTrueFalse && !isYesNo);
   const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? '';
   const defaultYesNoValue = yesNoOptions[0]?.value ?? '';
+  const booleanOptionsLoading =
+    !booleanOptionsError &&
+    ((isTrueFalse && !defaultTrueFalseValue) || (isYesNo && !defaultYesNoValue));
 
   const createId = () =>
     globalThis.crypto?.randomUUID?.() ?? `q-${Date.now()}-${Math.random()}`;
 
+  const isBooleanTypeUnavailable = (type: IeltsQuestionType): boolean => {
+    if (type === 'true_false_not_given') {
+      return !defaultTrueFalseValue;
+    }
+
+    if (type === 'yes_no_not_given') {
+      return !defaultYesNoValue;
+    }
+
+    return false;
+  };
+
   const handleTypeChange = (newType: IeltsQuestionType) => {
+    if (isBooleanTypeUnavailable(newType)) {
+      return;
+    }
+
     onChange(
       buildQuestionTypeChange({
         question,
@@ -218,7 +237,12 @@ export function QuestionEditor({
             </SelectTrigger>
             <SelectContent>
               {questionTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value} className="text-xs">
+                <SelectItem
+                  key={type.value}
+                  value={type.value}
+                  className="text-xs"
+                  disabled={isBooleanTypeUnavailable(type.value)}
+                >
                   {type.label}
                 </SelectItem>
               ))}
@@ -259,6 +283,12 @@ export function QuestionEditor({
             </div>
           )}
 
+          {booleanOptionsLoading && (
+            <div className="rounded-[8px] border p-3 text-sm text-muted-foreground" role="status">
+              Loading boolean answer options...
+            </div>
+          )}
+
           {/* Matching Editor */}
           {isMatching && question.matchingItems && question.matchingOptions && (
             <MatchingEditor
@@ -281,7 +311,7 @@ export function QuestionEditor({
             />
           )}
 
-          {canRenderAnswerControls && (
+          {canRenderAnswerControls && !booleanOptionsLoading && (
             <QuestionAnswerControls
               question={question}
               needsOptions={needsOptions}
@@ -291,8 +321,6 @@ export function QuestionEditor({
               isDiagramLabeling={isDiagramLabeling}
               trueFalseOptions={trueFalseOptions}
               yesNoOptions={yesNoOptions}
-              defaultTrueFalseValue={defaultTrueFalseValue}
-              defaultYesNoValue={defaultYesNoValue}
               onChange={onChange}
               onAddOption={handleAddOption}
               onRemoveOption={handleRemoveOption}
