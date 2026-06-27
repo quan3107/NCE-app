@@ -6,10 +6,7 @@
 
 import { Card, CardContent } from '@components/ui/card';
 import { cn } from '@components/ui/utils';
-import {
-  getIeltsTypeMetadataFallback,
-  useIeltsTypeMetadata,
-} from '@features/ielts-config/typeMetadata.api';
+import { useIeltsTypeMetadata } from '@features/ielts-config/typeMetadata.api';
 import type { IeltsAssignmentType } from '@lib/ielts';
 
 import {
@@ -23,8 +20,29 @@ type IeltsTypeSelectionProps = {
 };
 
 export function IeltsTypeSelection({ onSelect }: IeltsTypeSelectionProps) {
-  const { data } = useIeltsTypeMetadata();
-  const typeCards = data ?? getIeltsTypeMetadataFallback();
+  const { data, error, isLoading } = useIeltsTypeMetadata();
+  const typeCards = data ?? [];
+
+  if (isLoading) {
+    return (
+      <Card className="max-w-2xl mx-auto border-dashed">
+        <CardContent className="p-8 text-center text-sm text-muted-foreground">
+          Loading IELTS assignment types...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="max-w-2xl mx-auto border-destructive/30">
+        <CardContent className="p-8 text-center text-sm">
+          <p className="font-medium text-destructive">Unable to load IELTS assignment types.</p>
+          <p className="mt-2 text-muted-foreground">{error.message}</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (typeCards.length === 0) {
     return (
