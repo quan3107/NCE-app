@@ -71,6 +71,8 @@ export function StudentNotificationsPage() {
     );
   }, [configuredTypes, notifications]);
 
+  const canFilterNotifications = !notificationTypesQuery.isLoading && !configError;
+
   useEffect(() => {
     const validFilters = new Set(['all', 'unread', ...filterTypes.map(type => type.id)]);
     if (!validFilters.has(filter)) {
@@ -81,10 +83,11 @@ export function StudentNotificationsPage() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const filteredNotifications = useMemo(() => {
+    if (!canFilterNotifications) return notifications;
     if (filter === 'all') return notifications;
     if (filter === 'unread') return notifications.filter(n => !n.read);
     return notifications.filter(n => n.type === filter);
-  }, [notifications, filter]);
+  }, [notifications, filter, canFilterNotifications]);
 
   const handleMarkAllRead = () => {
     markNotificationsRead({ userId: currentUser.id });
@@ -129,67 +132,65 @@ export function StudentNotificationsPage() {
     );
   }
 
-  let notificationListContent: JSX.Element | null = null;
-  if (!notificationTypesQuery.isLoading && !configError) {
-    if (isLoading) {
-      notificationListContent = (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Loading notifications...
-          </CardContent>
-        </Card>
-      );
-    } else if (error) {
-      notificationListContent = (
-        <Card>
-          <CardContent className="py-12 text-center text-destructive">
-            Unable to load notifications. Try again later.
-          </CardContent>
-        </Card>
-      );
-    } else {
-      notificationListContent = (
-        <div className="space-y-2">
-          {filteredNotifications.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Bell className="size-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="mb-2">No Notifications</h3>
-                <p className="text-muted-foreground">You're all caught up!</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredNotifications.map(notification => {
-              const typeConfig = typeConfigById.get(notification.type);
+  let notificationListContent: JSX.Element;
+  if (isLoading) {
+    notificationListContent = (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          Loading notifications...
+        </CardContent>
+      </Card>
+    );
+  } else if (error) {
+    notificationListContent = (
+      <Card>
+        <CardContent className="py-12 text-center text-destructive">
+          Unable to load notifications. Try again later.
+        </CardContent>
+      </Card>
+    );
+  } else {
+    notificationListContent = (
+      <div className="space-y-2">
+        {filteredNotifications.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Bell className="size-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="mb-2">No Notifications</h3>
+              <p className="text-muted-foreground">You're all caught up!</p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredNotifications.map(notification => {
+            const typeConfig = typeConfigById.get(notification.type);
 
-              return (
-                <Card key={notification.id} className={notification.read ? 'opacity-60' : ''}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div
-                        className={`mt-1 ${getNotificationAccentClass(typeConfig?.accent, notification.type)}`}
-                      >
-                        {getNotificationIconNode(typeConfig?.icon, notification.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="mb-1">{notification.title}</h4>
-                        <p className="text-sm text-muted-foreground">{notification.message}</p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
-                        </p>
-                      </div>
-                      {!notification.read && (
-                        <Badge variant="default" className="flex-shrink-0">New</Badge>
-                      )}
+            return (
+              <Card key={notification.id} className={notification.read ? 'opacity-60' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`mt-1 ${getNotificationAccentClass(typeConfig?.accent, notification.type)}`}
+                    >
+                      {getNotificationIconNode(typeConfig?.icon, notification.type)}
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-      );
-    }
+                    <div className="flex-1 min-w-0">
+                      <h4 className="mb-1">{notification.title}</h4>
+                      <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                      </p>
+                    </div>
+                    {!notification.read && (
+                      <Badge variant="default" className="flex-shrink-0">New</Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+    );
   }
 
   return (
