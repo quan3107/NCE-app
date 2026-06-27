@@ -39,6 +39,10 @@ export function AdminDashboardPage() {
     });
   };
 
+  const handleRefresh = () => {
+    void Promise.all([refetch(), dashboardConfig.refetch()]);
+  };
+
   return (
     <div>
       <PageHeader
@@ -51,7 +55,7 @@ export function AdminDashboardPage() {
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-                  onClick={() => refetch()}
+                  onClick={handleRefresh}
                   disabled={pageIsLoading}
                 >
                   <RefreshCw className="size-4" />
