@@ -19,6 +19,8 @@ export function AdminDashboardPage() {
   const [isWidgetEditorOpen, setIsWidgetEditorOpen] = useState(false);
   const dashboardConfig = useDashboardConfig();
   const { metrics, isLoading, error, refetch } = useAdminDashboardMetrics();
+  const pageIsLoading = isLoading || dashboardConfig.isLoading;
+  const pageError = error ?? dashboardConfig.error ?? null;
   const widgetMetrics = {
     'admin.users_total': metrics.users,
     'admin.courses_total': metrics.courses,
@@ -50,7 +52,7 @@ export function AdminDashboardPage() {
                   type="button"
                   className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
                   onClick={() => refetch()}
-                  disabled={isLoading}
+                  disabled={pageIsLoading}
                 >
                   <RefreshCw className="size-4" />
                   Refresh
@@ -72,16 +74,17 @@ export function AdminDashboardPage() {
         }
       />
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-        {isLoading ? (
+        {pageIsLoading ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
               Loading dashboard metrics...
             </CardContent>
           </Card>
-        ) : error ? (
+        ) : pageError ? (
           <Card>
-            <CardContent className="py-12 text-center text-destructive">
-              Unable to load dashboard metrics.
+            <CardContent className="py-12 text-center">
+              <p className="text-destructive font-medium">Unable to load dashboard data.</p>
+              <p className="text-sm text-muted-foreground mt-2">{pageError.message}</p>
             </CardContent>
           </Card>
         ) : (
