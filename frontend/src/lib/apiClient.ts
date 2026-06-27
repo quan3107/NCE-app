@@ -6,16 +6,9 @@
 
 import { authBridge } from './authBridge';
 import { API_BASE_URL } from './apiBaseUrl';
-import { ENABLE_DEV_AUTH_FALLBACK, STORAGE_KEYS } from './constants';
-import {
-  DEFAULT_PERSONA,
-  PERSONA_HEADERS,
-  PersonaKey,
-  roleToPersonaKey,
-} from './devPersonas';
+import { STORAGE_KEYS } from './constants';
 
 type Primitive = string | number | boolean;
-type AuthMode = 'live' | 'persona';
 
 export type ApiClientOptions<TBody = unknown> = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -41,39 +34,13 @@ export class ApiError extends Error {
 
 const JSON_CONTENT_TYPE = 'application/json';
 
-type StoredPersona = {
-  basePersona: PersonaKey;
-  actingPersona: PersonaKey | null;
-};
-
 type StoredAuthPayload = {
-  mode?: AuthMode;
   token?: string | null;
-  persona?: {
-    basePersona?: unknown;
-    actingPersona?: unknown;
-  };
   liveUser?: {
     id?: string;
     role?: string;
   } | null;
-  basePersona?: unknown;
-  actingPersona?: unknown;
-  effective?: {
-    id?: string;
-    role?: string;
-  };
-  id?: string;
-  role?: string;
 };
-
-type StoredAuthContext = {
-  mode: AuthMode;
-  token: string | null;
-  persona: StoredPersona;
-};
-
-const FALLBACK_AUTH = PERSONA_HEADERS.admin;
 
 const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
 const API_VERSION_PREFIX = '/api/v1';
@@ -110,12 +77,7 @@ function buildUrl(endpoint: string, params?: ApiClientOptions['params']) {
   return url;
 }
 
-const resolvePersonaKey = (value: unknown): PersonaKey | null =>
-  typeof value === 'string' && value in PERSONA_HEADERS
-    ? (value as PersonaKey)
-    : null;
-
-function readStoredAuth(): StoredAuthContext | null {
+function readStoredBearerToken(): string | null {
   const storage = (globalThis as { localStorage?: Storage }).localStorage;
   if (!storage) {
     return null;
@@ -132,55 +94,15 @@ function readStoredAuth(): StoredAuthContext | null {
       throw new Error('Invalid stored auth payload');
     }
 
-    const mode: AuthMode = parsed.mode === 'live' ? 'live' : 'persona';
-    const token =
-      typeof parsed.token === 'string' && parsed.token.length > 0 ? parsed.token : null;
+    if (!parsed.liveUser) {
+      return null;
+    }
 
-    const personaCandidate = parsed.persona ?? {};
-    const basePersona =
-      resolvePersonaKey((personaCandidate as Record<string, unknown>).basePersona) ??
-      resolvePersonaKey(parsed.basePersona) ??
-      (typeof parsed.role === 'string'
-        ? resolvePersonaKey(
-            roleToPersonaKey[parsed.role as keyof typeof roleToPersonaKey],
-          )
-        : null) ??
-      DEFAULT_PERSONA;
-    const actingPersona =
-      resolvePersonaKey((personaCandidate as Record<string, unknown>).actingPersona) ??
-      resolvePersonaKey(parsed.actingPersona) ??
-      null;
-
-    return {
-      mode,
-      token,
-      persona: {
-        basePersona,
-        actingPersona,
-      },
-    };
+    return typeof parsed.token === 'string' && parsed.token.length > 0 ? parsed.token : null;
   } catch {
     return null;
   }
 }
-
-const personaHeadersFromStored = (context: StoredAuthContext | null) => {
-  if (!context || context.mode !== 'persona' || !context.token) {
-    return null;
-  }
-
-  const personaKey =
-    context.persona.actingPersona !== null
-      ? context.persona.actingPersona
-      : context.persona.basePersona;
-
-  const persona = PERSONA_HEADERS[personaKey] ?? FALLBACK_AUTH;
-
-  return {
-    'x-user-id': persona.id,
-    'x-user-role': persona.role,
-  };
-};
 
 function getAuthHeaders(): Record<string, string> {
   const token = authBridge.getAccessToken();
@@ -190,19 +112,11 @@ function getAuthHeaders(): Record<string, string> {
     };
   }
 
-  const storedContext = readStoredAuth();
-
-  if (storedContext?.mode === 'live' && storedContext.token) {
+  const storedToken = readStoredBearerToken();
+  if (storedToken) {
     return {
-      Authorization: `Bearer ${storedContext.token}`,
+      Authorization: `Bearer ${storedToken}`,
     };
-  }
-
-  if (ENABLE_DEV_AUTH_FALLBACK) {
-    const personaHeaders = personaHeadersFromStored(storedContext);
-    if (personaHeaders) {
-      return personaHeaders;
-    }
   }
 
   return {};
@@ -278,7 +192,17 @@ async function apiClientInternal<TResponse, TBody>(
     init.body = typeof body === 'string' ? body : JSON.stringify(body);
   }
 
-  const response = await fetch(url, init);
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch (error) {
+    logApiError(method, url, 0, error);
+    throw new ApiError(
+      'Server is unavailable. Please check that the backend API is running.',
+      0,
+      error,
+    );
+  }
 
   if (response.status === 401 && withAuth && hasBearerAuth && !hasRetried) {
     const refreshed = await authBridge.refreshAccessToken();
