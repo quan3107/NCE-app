@@ -73,7 +73,10 @@ export function QuestionEditor({
   const {
     trueFalseOptions,
     yesNoOptions,
-    error: booleanOptionsError,
+    trueFalseIsLoading,
+    yesNoIsLoading,
+    trueFalseError,
+    yesNoError,
   } = useBooleanQuestionOptions();
 
   const needsOptions = OPTION_BASED_TYPES.includes(question.type);
@@ -82,23 +85,35 @@ export function QuestionEditor({
   const isCompletion = question.type === 'completion';
   const isMatching = MATCHING_TYPES.includes(question.type);
   const isDiagramLabeling = DIAGRAM_LABELING_TYPES.includes(question.type);
-  const canRenderAnswerControls = !booleanOptionsError || (!isTrueFalse && !isYesNo);
   const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? '';
   const defaultYesNoValue = yesNoOptions[0]?.value ?? '';
-  const booleanOptionsLoading =
-    !booleanOptionsError &&
-    ((isTrueFalse && !defaultTrueFalseValue) || (isYesNo && !defaultYesNoValue));
+
+  let activeBooleanError: Error | null = null;
+  if (isTrueFalse) {
+    activeBooleanError = trueFalseError;
+  } else if (isYesNo) {
+    activeBooleanError = yesNoError;
+  }
+
+  let booleanOptionsLoading = false;
+  if (isTrueFalse && !activeBooleanError) {
+    booleanOptionsLoading = trueFalseIsLoading || !defaultTrueFalseValue;
+  } else if (isYesNo && !activeBooleanError) {
+    booleanOptionsLoading = yesNoIsLoading || !defaultYesNoValue;
+  }
+
+  const canRenderAnswerControls = !activeBooleanError && !booleanOptionsLoading;
 
   const createId = () =>
     globalThis.crypto?.randomUUID?.() ?? `q-${Date.now()}-${Math.random()}`;
 
   const isBooleanTypeUnavailable = (type: IeltsQuestionType): boolean => {
     if (type === 'true_false_not_given') {
-      return !defaultTrueFalseValue;
+      return trueFalseIsLoading || Boolean(trueFalseError) || !defaultTrueFalseValue;
     }
 
     if (type === 'yes_no_not_given') {
-      return !defaultYesNoValue;
+      return yesNoIsLoading || Boolean(yesNoError) || !defaultYesNoValue;
     }
 
     return false;
@@ -276,10 +291,10 @@ export function QuestionEditor({
             className="min-h-[60px] resize-none text-sm"
           />
 
-          {booleanOptionsError && (
+          {activeBooleanError && (
             <div className="rounded-[8px] border border-destructive/30 p-3 text-sm" role="alert">
               <p className="font-medium text-destructive">Unable to load boolean answer options.</p>
-              <p className="mt-1 text-muted-foreground">{booleanOptionsError.message}</p>
+              <p className="mt-1 text-muted-foreground">{activeBooleanError.message}</p>
             </div>
           )}
 
