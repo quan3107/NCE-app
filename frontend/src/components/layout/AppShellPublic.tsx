@@ -15,9 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@components/ui/dropdown-menu';
-import { getFallbackNavigation } from '@features/navigation/utils/fallbackNav';
+import type { NavigationItem } from '@features/navigation/types';
 import { getIcon } from '@features/navigation/utils/iconMap';
-import { clearBadgeCache, clearNavigationCache } from '@features/navigation/utils/cache';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
@@ -27,6 +26,57 @@ type AppShellPublicProps = {
   children: ReactNode;
 };
 
+const publicNavigationItems: NavigationItem[] = [
+  {
+    id: 'public-home',
+    label: 'Home',
+    path: '/',
+    iconName: 'home',
+    requiredPermission: null,
+    orderIndex: 0,
+    badgeSource: null,
+    children: [],
+    isActive: true,
+    featureFlag: null,
+  },
+  {
+    id: 'public-courses',
+    label: 'Courses',
+    path: '/courses',
+    iconName: 'book-open',
+    requiredPermission: null,
+    orderIndex: 1,
+    badgeSource: null,
+    children: [],
+    isActive: true,
+    featureFlag: null,
+  },
+  {
+    id: 'public-about',
+    label: 'About',
+    path: '/about',
+    iconName: 'info',
+    requiredPermission: null,
+    orderIndex: 2,
+    badgeSource: null,
+    children: [],
+    isActive: true,
+    featureFlag: null,
+  },
+  {
+    id: 'public-contact',
+    label: 'Contact',
+    path: '/contact',
+    iconName: 'mail',
+    requiredPermission: null,
+    orderIndex: 3,
+    badgeSource: null,
+    children: [],
+    isActive: true,
+    featureFlag: null,
+  },
+];
+
 export function AppShellPublic({ children }: AppShellPublicProps) {
   const { currentUser, isAuthenticated, logout } = useAuthStore();
   const { currentPath, navigate } = useRouter();
@@ -34,24 +84,8 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
   const isLoggedIn = isAuthenticated && currentUser.role !== 'public';
   const dashboardPath = DASHBOARD_PATH_BY_ROLE[currentUser.role];
   const profilePath = resolveProfilePath(currentUser.role);
-  const publicNavigationItems = getFallbackNavigation().items;
-
-  const clearCurrentUserNavigationCache = () => {
-    if (currentUser.role === 'public') {
-      return;
-    }
-
-    const cacheIdentity = {
-      userId: currentUser.id,
-      role: currentUser.role,
-    };
-
-    clearNavigationCache(cacheIdentity);
-    clearBadgeCache(cacheIdentity);
-  };
 
   const handleLogout = () => {
-    clearCurrentUserNavigationCache();
     void logout();
     navigate('/');
   };
