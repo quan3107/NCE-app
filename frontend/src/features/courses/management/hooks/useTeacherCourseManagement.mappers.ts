@@ -13,25 +13,24 @@ import type {
 } from '../api';
 import type { EnrollmentState, ManagedCourse, RubricCriterion } from '../types';
 
-export const defaultRubric: RubricCriterion[] = [
-  { name: 'Task Achievement', weight: 25, description: 'How well the task requirements are met' },
-  { name: 'Coherence & Cohesion', weight: 25, description: 'Logical organization and flow' },
-  { name: 'Lexical Resource', weight: 25, description: 'Vocabulary range and accuracy' },
-  { name: 'Grammatical Range', weight: 25, description: 'Grammar variety and accuracy' },
-];
-
 type CourseManagementPageErrorInput = {
   courseError?: Error | null;
   studentsError?: Error | null;
   assignmentsError?: Error | null;
+  rubricTemplateError?: Error | null;
 };
 
 export const toCourseManagementPageError = ({
   courseError,
   studentsError,
   assignmentsError,
+  rubricTemplateError,
 }: CourseManagementPageErrorInput): string | null =>
-  courseError?.message ?? studentsError?.message ?? assignmentsError?.message ?? null;
+  courseError?.message ??
+  studentsError?.message ??
+  assignmentsError?.message ??
+  rubricTemplateError?.message ??
+  null;
 
 const toRubricWeightPercent = (weight: number, shouldScaleFractionalWeights: boolean): number => {
   const nextWeight = shouldScaleFractionalWeights ? weight * 100 : weight;
@@ -53,7 +52,7 @@ export const toCourseRubricCriteria = (
     description: item.description ?? '',
   }));
 
-  return mapped.length > 0 ? mapped : defaultRubric;
+  return mapped;
 };
 
 export const toManagedCourse = (input: CourseDetailResponse): ManagedCourse => ({
