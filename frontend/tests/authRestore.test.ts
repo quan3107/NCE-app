@@ -14,7 +14,6 @@ import {
 
 test('protected live route without an authenticated role restores before redirecting', () => {
   const decision = resolveProtectedRouteAuthDecision({
-    authMode: 'live',
     currentUserRole: 'public',
     isAuthenticated: false,
     isRestoringSession: false,
@@ -27,7 +26,6 @@ test('protected live route without an authenticated role restores before redirec
 
 test('protected live route renders loading while restore is in progress', () => {
   const decision = resolveProtectedRouteAuthDecision({
-    authMode: 'live',
     currentUserRole: 'public',
     isAuthenticated: false,
     isRestoringSession: true,
@@ -40,7 +38,6 @@ test('protected live route renders loading while restore is in progress', () => 
 
 test('restore failure redirects to login with the original path preserved', () => {
   const decision = resolveProtectedRouteAuthDecision({
-    authMode: 'live',
     currentUserRole: 'public',
     isAuthenticated: false,
     isRestoringSession: false,
@@ -59,7 +56,6 @@ test('restore failure redirects to login with the original path preserved', () =
 
 test('public routes do not trigger live-session restore', () => {
   const decision = resolveProtectedRouteAuthDecision({
-    authMode: 'live',
     currentUserRole: 'public',
     isAuthenticated: false,
     isRestoringSession: false,
@@ -70,24 +66,14 @@ test('public routes do not trigger live-session restore', () => {
   assert.equal(decision, 'allow');
 });
 
-test('persona fallback behavior does not start live restore', () => {
-  const unauthenticatedDecision = resolveProtectedRouteAuthDecision({
-    authMode: 'persona',
+test('protected route redirects after server restore has already failed', () => {
+  const decision = resolveProtectedRouteAuthDecision({
     currentUserRole: 'public',
     isAuthenticated: false,
     isRestoringSession: false,
     requiresAuth: true,
-    restoreAttempted: false,
-  });
-  const authenticatedDecision = resolveProtectedRouteAuthDecision({
-    authMode: 'persona',
-    currentUserRole: 'student',
-    isAuthenticated: true,
-    isRestoringSession: false,
-    requiresAuth: true,
-    restoreAttempted: false,
+    restoreAttempted: true,
   });
 
-  assert.equal(unauthenticatedDecision, 'redirect');
-  assert.equal(authenticatedDecision, 'allow');
+  assert.equal(decision, 'redirect');
 });
