@@ -110,12 +110,18 @@ export function useBadgeCounts() {
     null;
 
   const refetch = useCallback(async () => {
-    await Promise.all([
-      notificationsQuery.refetch(),
-      assignmentsQuery.refetch(),
-      submissionsQuery.refetch(),
-    ]);
-  }, [assignmentsQuery, notificationsQuery, submissionsQuery]);
+    const refetches: Promise<unknown>[] = [notificationsQuery.refetch()];
+
+    if (isAuthenticated && role === 'student') {
+      refetches.push(assignmentsQuery.refetch());
+    }
+
+    if (isAuthenticated && (role === 'teacher' || role === 'admin')) {
+      refetches.push(submissionsQuery.refetch());
+    }
+
+    await Promise.all(refetches);
+  }, [assignmentsQuery, isAuthenticated, notificationsQuery, role, submissionsQuery]);
 
   return {
     counts: badgeCounts,
