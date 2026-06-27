@@ -27,18 +27,26 @@ import {
 
 const toRubricCriteriaFromTemplate = (
   criteria: RubricTemplateCriterion[],
-): RubricCriterion[] => {
+): RubricCriterion[] | null => {
+  if (criteria.length === 0) {
+    return null;
+  }
+
+  const hasMissingLevels = criteria.some(
+    (criterion) => !criterion.levels || criterion.levels.length === 0,
+  );
+  if (hasMissingLevels) {
+    return null;
+  }
+
   return criteria.map((criterion) => ({
     criterion: criterion.name,
     weight: criterion.weight,
-    levels:
-      criterion.levels && criterion.levels.length > 0
-        ? criterion.levels.map((level) => ({
-            label: level.label,
-            points: level.points,
-            desc: level.desc ?? '',
-          }))
-        : [],
+    levels: criterion.levels!.map((level) => ({
+      label: level.label,
+      points: level.points,
+      desc: level.desc ?? '',
+    })),
   }));
 };
 
@@ -74,18 +82,20 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
   const defaultRubricsQuery = useDefaultRubricsQuery('assignment', 'writing');
 
   const courseOptions = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
-  const createRubricCriteria = useMemo<RubricCriterion[] | null>(() => {
-    const template =
+  const defaultRubricTemplate = useMemo(() => {
+    return (
       defaultRubricsQuery.data?.templates.find(
         (item) => item.context === 'assignment' && item.assignmentType === 'writing',
-      ) ?? defaultRubricsQuery.data?.templates[0];
-
-    if (!template) {
+      ) ?? defaultRubricsQuery.data?.templates[0] ?? null
+    );
+  }, [defaultRubricsQuery.data?.templates]);
+  const createRubricCriteria = useMemo<RubricCriterion[] | null>(() => {
+    if (!defaultRubricTemplate) {
       return null;
     }
 
-    return toRubricCriteriaFromTemplate(template.criteria);
-  }, [defaultRubricsQuery.data?.templates]);
+    return toRubricCriteriaFromTemplate(defaultRubricTemplate.criteria);
+  }, [defaultRubricTemplate]);
 
   const handleCreateRubric = async () => {
     if (!selectedCourseId) {
@@ -100,7 +110,7 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
     }
 
     if (!createRubricCriteria) {
-      toast.error('Unable to create rubric until the backend default template loads.');
+      toast.error('Unable to create rubric until the backend default template includes criterion levels.');
       return;
     }
 
@@ -122,6 +132,8 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
     templateStatusMessage = 'Loading backend default rubric template...';
   } else if (defaultRubricsQuery.error) {
     templateStatusMessage = `Unable to load backend default rubric template: ${defaultRubricsQuery.error.message}`;
+  } else if (defaultRubricTemplate && !createRubricCriteria) {
+    templateStatusMessage = 'Backend default rubric template is missing levels for one or more criteria.';
   } else if (createRubricCriteria) {
     const criteriaNames = createRubricCriteria
       .map((criterion) => criterion.criterion)
