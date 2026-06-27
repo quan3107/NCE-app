@@ -25,19 +25,6 @@ export type IeltsQuestionOptionsResponse = {
 
 const IELTS_QUESTION_OPTIONS_QUERY_KEY = 'ielts:question-options';
 
-const FALLBACK_OPTIONS: Record<IeltsQuestionOptionType, IeltsQuestionOption[]> = {
-  true_false: [
-    { value: 'true', label: 'True', score: 1, enabled: true, sort_order: 1 },
-    { value: 'false', label: 'False', score: 0, enabled: true, sort_order: 2 },
-    { value: 'not_given', label: 'Not Given', score: 0, enabled: true, sort_order: 3 },
-  ],
-  yes_no: [
-    { value: 'yes', label: 'Yes', score: 1, enabled: true, sort_order: 1 },
-    { value: 'no', label: 'No', score: 0, enabled: true, sort_order: 2 },
-    { value: 'not_given', label: 'Not Given', score: 0, enabled: true, sort_order: 3 },
-  ],
-};
-
 const OPTION_VALUE_ALIASES: Record<string, string> = {
   true: 'true',
   false: 'false',
@@ -50,14 +37,6 @@ const OPTION_VALUE_ALIASES: Record<string, string> = {
 export function normalizeQuestionOptionValue(value: string): string {
   const normalized = value.trim().toLowerCase();
   return OPTION_VALUE_ALIASES[normalized] ?? value;
-}
-
-function toFallback(type: IeltsQuestionOptionType): IeltsQuestionOptionsResponse {
-  return {
-    type,
-    version: 0,
-    options: FALLBACK_OPTIONS[type],
-  };
 }
 
 function mapOption(option: unknown): IeltsQuestionOption | null {
@@ -87,27 +66,23 @@ export async function fetchQuestionOptions(
   const query = version ? `?type=${type}&version=${version}` : `?type=${type}`;
   const url = `/api/v1/config/ielts/question-options${query}`;
 
-  try {
-    const response = await apiClient<IeltsQuestionOptionsResponse>(url);
+  const response = await apiClient<IeltsQuestionOptionsResponse>(url);
 
-    const mappedOptions = Array.isArray(response.options)
-      ? response.options
-          .map(mapOption)
-          .filter((option): option is IeltsQuestionOption => Boolean(option && option.enabled))
-      : [];
+  const mappedOptions = Array.isArray(response.options)
+    ? response.options
+        .map(mapOption)
+        .filter((option): option is IeltsQuestionOption => Boolean(option && option.enabled))
+    : [];
 
-    if (mappedOptions.length === 0) {
-      return toFallback(type);
-    }
-
-    return {
-      type,
-      version: typeof response.version === 'number' ? response.version : 0,
-      options: mappedOptions,
-    };
-  } catch {
-    return toFallback(type);
+  if (mappedOptions.length === 0) {
+    throw new Error('Invalid IELTS question options payload returned by API.');
   }
+
+  return {
+    type,
+    version: typeof response.version === 'number' ? response.version : 0,
+    options: mappedOptions,
+  };
 }
 
 export function useQuestionOptions(type: IeltsQuestionOptionType, version?: number) {
@@ -116,7 +91,7 @@ export function useQuestionOptions(type: IeltsQuestionOptionType, version?: numb
     queryFn: () => fetchQuestionOptions(type, version),
     staleTime: 0,
     gcTime: 0,
-    retry: 1,
+    retry: 0,
   });
 }
 
@@ -125,8 +100,9 @@ export function useBooleanQuestionOptions() {
   const yesNoQuery = useQuestionOptions('yes_no');
 
   return {
-    trueFalseOptions: trueFalseQuery.data?.options ?? FALLBACK_OPTIONS.true_false,
-    yesNoOptions: yesNoQuery.data?.options ?? FALLBACK_OPTIONS.yes_no,
+    trueFalseOptions: trueFalseQuery.data?.options ?? [],
+    yesNoOptions: yesNoQuery.data?.options ?? [],
     isLoading: trueFalseQuery.isLoading || yesNoQuery.isLoading,
+    error: trueFalseQuery.error ?? yesNoQuery.error ?? null,
   };
 }
