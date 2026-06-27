@@ -14,7 +14,6 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Separator } from '@components/ui/separator';
 import { ApiError } from '@lib/apiClient';
-import { ENABLE_DEV_AUTH_FALLBACK } from '@lib/constants';
 import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
@@ -136,21 +135,21 @@ export function LoginRoute() {
         toast.success('Signed in successfully.');
         return;
       }
-      if (mode === 'persona') {
-        toast.success('Signed in with demo mode. Use Passw0rd! for personas.');
-        return;
-      }
-      const fallbackMessage = ENABLE_DEV_AUTH_FALLBACK
-        ? 'Invalid credentials. Try Passw0rd! for demo access.'
-        : 'Invalid email or password.';
-      setErrorMessage(fallbackMessage);
+      setErrorMessage('Invalid email or password.');
     } catch (error) {
       const validationMessage =
         error instanceof ApiError && error.status === 400
           ? pickValidationMessage(error.details)
           : null;
-      const fallbackMessage = validationMessage ?? 'Unable to sign in. Please try again.';
-      setErrorMessage(fallbackMessage);
+      if (validationMessage) {
+        setErrorMessage(validationMessage);
+        return;
+      }
+      if (error instanceof ApiError && (error.status === 0 || error.status >= 500)) {
+        setErrorMessage(error.message);
+        return;
+      }
+      setErrorMessage('Unable to sign in. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -279,14 +278,6 @@ export function LoginRoute() {
             </button>
           </div>
 
-          {ENABLE_DEV_AUTH_FALLBACK && (
-            <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-              <p className="font-medium mb-1">Demo accounts:</p>
-              <p>Student: alice@example.com</p>
-              <p>Teacher: carol@example.com</p>
-              <p>Admin: david@example.com</p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
