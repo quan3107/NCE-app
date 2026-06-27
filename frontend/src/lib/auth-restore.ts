@@ -5,12 +5,10 @@
  */
 
 import type { Role } from '@domain';
-import type { AuthMode } from './auth-types';
 
 export type ProtectedRouteAuthDecision = 'allow' | 'loading' | 'redirect' | 'restore';
 
 type ProtectedRouteAuthDecisionInput = {
-  authMode: AuthMode;
   currentUserRole: Role;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
@@ -29,7 +27,6 @@ export function buildAuthReturnTo(location: ReturnToLocation) {
 }
 
 export function resolveProtectedRouteAuthDecision({
-  authMode,
   currentUserRole,
   isAuthenticated,
   isRestoringSession,
@@ -42,10 +39,6 @@ export function resolveProtectedRouteAuthDecision({
 
   if (isAuthenticated && currentUserRole !== 'public') {
     return 'allow';
-  }
-
-  if (authMode !== 'live') {
-    return 'redirect';
   }
 
   if (isRestoringSession) {
