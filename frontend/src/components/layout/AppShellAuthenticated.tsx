@@ -18,55 +18,21 @@ import {
 } from '@components/ui/dropdown-menu';
 import { useNavigationContext } from '@features/navigation';
 import { NavigationItem as NavigationItemRow } from '@features/navigation/components/NavigationItem';
-import { clearBadgeCache, clearNavigationCache } from '@features/navigation/utils/cache';
-import { ENABLE_DEV_AUTH_FALLBACK } from '@lib/constants';
-import { type Role } from '@domain';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
-import { DASHBOARD_PATH_BY_ROLE, getBadgeCountForSource, resolveProfilePath } from './appShell.helpers';
+import { getBadgeCountForSource, resolveProfilePath } from './appShell.helpers';
 
 type AppShellAuthenticatedProps = {
   children: ReactNode;
 };
 
-function RoleSwitcher({ currentRole }: { currentRole: Role }) {
-  const { switchRole } = useAuthStore();
-  const { navigate } = useRouter();
-
-  const handleRoleSwitch = (role: Role) => {
-    if (role === 'public') {
-      return;
-    }
-
-    switchRole(role);
-    navigate(DASHBOARD_PATH_BY_ROLE[role]);
-  };
-
-  return (
-    <div className="flex gap-1">
-      {(['student', 'teacher', 'admin'] as Role[]).map((role) => (
-        <Button
-          key={role}
-          variant={currentRole === role ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => handleRoleSwitch(role)}
-          className="flex-1 text-xs capitalize"
-        >
-          {role[0].toUpperCase()}
-        </Button>
-      ))}
-    </div>
-  );
-}
-
 export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) {
-  const { currentUser, logout, authMode } = useAuthStore();
+  const { currentUser, logout } = useAuthStore();
   const { currentPath, navigate } = useRouter();
   const { items, badgeCounts, source, error, isLoading, refetch } = useNavigationContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const showRoleSwitcher = ENABLE_DEV_AUTH_FALLBACK && authMode === 'persona';
   const resolvedProfilePath = resolveProfilePath(currentUser.role);
   const profileItem = resolvedProfilePath
     ? items.find((item) => item.path === resolvedProfilePath)
@@ -95,27 +61,12 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
     });
   }, [error, source]);
 
-  const clearCurrentUserNavigationCache = () => {
-    if (currentUser.role === 'public') {
-      return;
-    }
-
-    const cacheIdentity = {
-      userId: currentUser.id,
-      role: currentUser.role,
-    };
-
-    clearNavigationCache(cacheIdentity);
-    clearBadgeCache(cacheIdentity);
-  };
-
   const handleNavClick = (path: string) => {
     navigate(path);
     setSidebarOpen(false);
   };
 
   const handleLogout = () => {
-    clearCurrentUserNavigationCache();
     void logout();
   };
 
@@ -222,11 +173,15 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
               </p>
             )}
 
-            {!isLoading && source === 'unavailable' && error && (
+            {!isLoading && error && (
               <div className="px-2 py-3 space-y-3" role="alert">
                 <div className="flex gap-2 text-sm text-muted-foreground">
                   <AlertCircle className="mt-0.5 size-4 text-destructive" />
-                  <span>Navigation is unavailable.</span>
+                  <span>
+                    {source === 'unavailable'
+                      ? 'Navigation is unavailable.'
+                      : 'Navigation counts are unavailable.'}
+                  </span>
                 </div>
                 <Button
                   type="button"
@@ -257,12 +212,6 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
             )}
           </nav>
 
-          {showRoleSwitcher && (
-            <div className="p-4 border-t bg-background/60">
-              <p className="text-xs text-muted-foreground mb-2">Demo: Switch Role</p>
-              <RoleSwitcher currentRole={currentUser.role} />
-            </div>
-          )}
         </aside>
 
         {sidebarOpen && (
