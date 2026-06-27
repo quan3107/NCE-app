@@ -5,7 +5,6 @@
  */
 
 export * from './api';
-export * from './fallback';
 export * from './types';
 export * from './useDashboardConfig';
 export * from './valueResolvers';
