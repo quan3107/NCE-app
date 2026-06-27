@@ -36,26 +36,32 @@ test('formatFileSize renders bytes in human-friendly units', () => {
   assert.equal(formatFileSize(10 * 1024 * 1024), '10 MB');
 });
 
-test('isAllowedFile accepts document, audio, and image files', () => {
+test('isAllowedFile requires a runtime policy', () => {
   const pdfFile = { name: 'essay.pdf', type: 'application/pdf' } as File;
-  const docxFile = {
-    name: 'draft.docx',
-    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  } as File;
-  const audioFile = { name: 'response.mp3', type: 'audio/mpeg' } as File;
-  const audioByExtension = { name: 'voice.m4a', type: '' } as File;
-  const imageFile = { name: 'chart.png', type: 'image/png' } as File;
+  const result = isAllowedFile(pdfFile);
 
-  assert.equal(isAllowedFile(pdfFile).ok, true);
-  assert.equal(isAllowedFile(docxFile).ok, true);
-  assert.equal(isAllowedFile(audioFile).ok, true);
-  assert.equal(isAllowedFile(audioByExtension).ok, true);
-  assert.equal(isAllowedFile(imageFile).ok, true);
+  assert.equal(result.ok, false);
+  assert.match(result.reason ?? '', /Upload policy is unavailable/);
 });
 
 test('isAllowedFile rejects unsupported files', () => {
   const exeFile = { name: 'script.exe', type: 'application/octet-stream' } as File;
-  const result = isAllowedFile(exeFile);
+  const policy = createFileUploadPolicy({
+    limits: {
+      maxFileSize: 1024,
+      maxTotalSize: 4096,
+      maxFilesPerUpload: 3,
+    },
+    allowedTypes: [
+      {
+        mimeType: 'application/pdf',
+        extensions: ['.pdf'],
+        label: 'PDF Document',
+        acceptToken: '.pdf',
+      },
+    ],
+  });
+  const result = isAllowedFile(exeFile, policy);
 
   assert.equal(result.ok, false);
   assert.ok(result.reason?.includes('Unsupported'));
