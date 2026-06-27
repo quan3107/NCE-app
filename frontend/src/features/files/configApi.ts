@@ -1,7 +1,7 @@
 /**
  * Location: features/files/configApi.ts
  * Purpose: Fetch role-based file upload policy from backend config endpoints.
- * Why: Keeps upload validation aligned with backend-enforced policy while preserving fallbacks.
+ * Why: Keeps upload validation aligned with backend-enforced policy.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -9,7 +9,6 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@lib/apiClient';
 
 import {
-  FALLBACK_FILE_UPLOAD_POLICY,
   createFileUploadPolicy,
   type FileUploadPolicy,
 } from './uploadPolicy';
@@ -57,16 +56,12 @@ function mapToPolicy(
 }
 
 export async function fetchFileUploadConfig(): Promise<FileUploadPolicy> {
-  try {
-    const [limitsResponse, allowedTypesResponse] = await Promise.all([
-      apiClient<FileUploadLimitsResponse>('/api/v1/config/file-upload-limits'),
-      apiClient<AllowedFileTypesResponse>('/api/v1/config/allowed-file-types'),
-    ]);
+  const [limitsResponse, allowedTypesResponse] = await Promise.all([
+    apiClient<FileUploadLimitsResponse>('/api/v1/config/file-upload-limits'),
+    apiClient<AllowedFileTypesResponse>('/api/v1/config/allowed-file-types'),
+  ]);
 
-    return mapToPolicy(limitsResponse, allowedTypesResponse);
-  } catch {
-    return FALLBACK_FILE_UPLOAD_POLICY;
-  }
+  return mapToPolicy(limitsResponse, allowedTypesResponse);
 }
 
 export function useFileUploadConfig() {
