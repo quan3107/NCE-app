@@ -36,7 +36,7 @@ export type NavigationPayload = {
   version: string;
 };
 
-export type NavigationSource = 'live' | 'cache' | 'fallback';
+export type NavigationSource = 'live' | 'cache' | 'fallback' | 'unavailable';
 
 export type NavigationContextValue = {
   navigation: NavigationPayload;

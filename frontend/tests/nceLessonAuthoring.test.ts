@@ -75,9 +75,8 @@ test('teacher navigation exposes NCE lesson authoring entry points', async () =>
   const fallbackSource = await readFile(fallbackNavPath, 'utf8');
   const seedSource = await readFile(navigationSeedPath, 'utf8');
 
-  assert.match(fallbackSource, /teacher-nce-lessons/);
-  assert.match(fallbackSource, /NCE Lessons/);
-  assert.match(fallbackSource, /\/teacher\/nce-lessons/);
+  assert.doesNotMatch(fallbackSource, /teacher-nce-lessons/);
+  assert.doesNotMatch(fallbackSource, /\/teacher\/nce-lessons/);
   assert.match(seedSource, /NCE Lessons/);
   assert.match(seedSource, /\/teacher\/nce-lessons/);
 });
@@ -86,13 +85,8 @@ test('student navigation exposes NCE learning path entry points', async () => {
   const fallbackSource = await readFile(fallbackNavPath, 'utf8');
   const seedSource = await readFile(navigationSeedPath, 'utf8');
 
-  assert.match(fallbackSource, /student-nce-path/);
-  assert.match(fallbackSource, /NCE Path/);
-  assert.match(fallbackSource, /\/student\/nce/);
-  assert.match(
-    fallbackSource,
-    /student:\s*\{[\s\S]*permissions:\s*\[[^\]]*'courses:read'/,
-  );
+  assert.doesNotMatch(fallbackSource, /student-nce-path/);
+  assert.doesNotMatch(fallbackSource, /\/student\/nce/);
   assert.match(
     seedSource,
     /label: "NCE Path"[\s\S]*path: "\/student\/nce"[\s\S]*permission: "courses:read"/,
