@@ -17,10 +17,7 @@ import { DeadlinesTab } from './components/tabs/DeadlinesTab';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { StudentsTab } from './components/tabs/StudentsTab';
-import {
-  getCourseManagementTabsFallback,
-  useCourseManagementTabs,
-} from './courseTabs.config.api';
+import { useCourseManagementTabs } from './courseTabs.config.api';
 import {
   type ResolvedCourseTab,
   isSupportedTabId,
@@ -52,7 +49,7 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
 
   const tabsQuery = useCourseManagementTabs();
 
-  const configuredTabs = tabsQuery.data ?? getCourseManagementTabsFallback();
+  const configuredTabs = tabsQuery.data ?? [];
 
   const visibleTabs = useMemo<ResolvedCourseTab[]>(
     () => toResolvedCourseTabs(configuredTabs, unsupportedTabWarningsRef.current),
@@ -111,6 +108,58 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
             <ArrowLeft className="mr-2 size-4" />
             Back to Courses
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (tabsQuery.isLoading) {
+    return (
+      <div>
+        <PageHeader
+          title={course.title}
+          description="Manage all aspects of this course"
+          actions={
+            <Button variant="outline" onClick={() => navigate('/teacher/courses')}>
+              <ArrowLeft className="mr-2 size-4" />
+              Back to Courses
+            </Button>
+          }
+        />
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="rounded-lg border border-dashed p-8 text-center">
+            <p className="text-sm text-muted-foreground">Loading course workspace configuration...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (tabsQuery.error) {
+    const message =
+      tabsQuery.error instanceof Error
+        ? tabsQuery.error.message
+        : 'The course workspace configuration response was unavailable.';
+
+    return (
+      <div>
+        <PageHeader
+          title={course.title}
+          description="Manage all aspects of this course"
+          actions={
+            <Button variant="outline" onClick={() => navigate('/teacher/courses')}>
+              <ArrowLeft className="mr-2 size-4" />
+              Back to Courses
+            </Button>
+          }
+        />
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="rounded-lg border border-destructive/30 p-8 text-center" role="alert">
+            <p className="font-medium text-destructive">
+              Unable to load course workspace configuration.
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+          </div>
         </div>
       </div>
     );
