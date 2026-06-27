@@ -5,15 +5,8 @@
  */
 
 import type { Role, User } from '@domain';
-import type { PersonaKey } from './devPersonas';
 
-export type AuthMode = 'live' | 'persona';
 export type SupportedRole = Exclude<Role, 'public'>;
-
-export type PersonaState = {
-  basePersona: PersonaKey;
-  actingPersona: PersonaKey | null;
-};
 
 export type LiveUser = User;
 
@@ -48,42 +41,24 @@ export type RegisterPayload = {
 };
 
 export type StoredAuthPayload = {
-  mode?: AuthMode;
   token?: string | null;
-  persona?: PersonaState;
   liveUser?: LiveUser | null;
-  basePersona?: PersonaKey;
-  actingPersona?: PersonaKey | null;
-  effective?: {
-    id?: string;
-    role?: Role;
-  };
-  id?: string;
-  role?: Role;
 };
 
 export type AuthContextType = {
-  authMode: AuthMode;
   currentUser: User;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
-  actingRole: Role | null;
-  isImpersonating: boolean;
-  login: (email: string, password: string) => Promise<AuthMode | null>;
+  login: (email: string, password: string) => Promise<'live' | null>;
   register: (payload: RegisterPayload) => Promise<RegisterResult>;
   loginWithGoogle: () => Promise<void>;
   completeGoogleLogin: () => Promise<'live'>;
   restoreLiveSession: () => Promise<boolean>;
   logout: () => Promise<void>;
-  switchRole: (role: Role) => void;
-  viewAs: (role: Role) => void;
-  stopImpersonating: () => void;
 };
 
 export type PersistSnapshot = {
-  mode: AuthMode;
   token: string | null;
-  persona: PersonaState;
   liveUser: LiveUser | null;
 };
 
