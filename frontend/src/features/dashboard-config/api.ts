@@ -8,9 +8,6 @@ import { ApiError, apiClient } from '@lib/apiClient';
 import type { DashboardRole } from '@lib/backend-schema';
 
 import {
-  getFallbackDashboardWidgetDefaults,
-} from './fallback';
-import {
   type DashboardWidgetDefaultsResponse,
   type MyDashboardConfigResponse,
   type UpdateMyDashboardConfigRequest,
@@ -33,7 +30,7 @@ function toErrorMessage(error: unknown, fallback: string): string {
 }
 
 export async function fetchDashboardWidgetDefaults(
-  role: DashboardRole,
+  _role: DashboardRole,
 ): Promise<DashboardWidgetDefaultsResponse> {
   try {
     const response = await apiClient<unknown>('/api/v1/config/dashboard-widgets');
@@ -43,8 +40,8 @@ export async function fetchDashboardWidgetDefaults(
     }
 
     return response;
-  } catch {
-    return getFallbackDashboardWidgetDefaults(role);
+  } catch (error) {
+    throw new Error(toErrorMessage(error, DEFAULT_ERROR_MESSAGE));
   }
 }
 

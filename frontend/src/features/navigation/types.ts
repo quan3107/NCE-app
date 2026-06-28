@@ -4,8 +4,6 @@
  * Why: Keeps API parsing, cache validation, and context contracts consistent.
  */
 
-import type { Role } from '@domain';
-
 export const BADGE_SOURCES = ['notifications', 'assignments', 'submissions'] as const;
 
 export type BadgeSource = (typeof BADGE_SOURCES)[number];
@@ -36,7 +34,7 @@ export type NavigationPayload = {
   version: string;
 };
 
-export type NavigationSource = 'live' | 'cache' | 'fallback' | 'unavailable';
+export type NavigationSource = 'live' | 'unavailable';
 
 export type NavigationContextValue = {
   navigation: NavigationPayload;
@@ -50,18 +48,6 @@ export type NavigationContextValue = {
   hasAllPermissions: (requiredPermissions: string[]) => boolean;
   isFeatureEnabled: (featureFlag: string | null | undefined) => boolean;
   refetch: () => Promise<void>;
-};
-
-export type NavigationCacheRecord = {
-  data: NavigationPayload;
-  role: Role;
-  timestamp: number;
-};
-
-export type BadgeCacheRecord = {
-  data: BadgeCounts;
-  role: Role;
-  timestamp: number;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

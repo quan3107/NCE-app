@@ -1,24 +1,22 @@
 /// <reference lib="dom" />
 /**
  * Location: tests/marketingContent.test.ts
- * Purpose: Validate CMS marketing formatting, fallback resolution, and icon mapping behavior.
- * Why: Prevents regressions in public route resilience and user-visible stat rendering.
+ * Purpose: Validate CMS marketing formatting and server-data-only route wiring.
+ * Why: Prevents regressions that reintroduce client-side fallback marketing content.
  */
 
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { test } from 'node:test'
 import { isValidElement } from 'react'
 
 import { formatStatValue } from '../src/components/marketing/StatsOverview'
-import {
-  resolveAboutPageContent,
-  resolveHomepageContent,
-} from '../src/features/marketing/contentResolver'
-import {
-  fallbackAboutPageContent,
-  fallbackHomepageContent,
-} from '../src/features/marketing/fallback'
 import { getIconComponent } from '../src/features/marketing/iconMap'
+
+const frontendRoot = path.resolve(import.meta.dirname, '..')
+const homeRoutePath = path.join(frontendRoot, 'src/routes/Home.tsx')
+const aboutRoutePath = path.join(frontendRoot, 'src/routes/About.tsx')
 
 test('formatStatValue renders CMS number formats correctly', () => {
   assert.equal(
@@ -35,38 +33,16 @@ test('formatStatValue renders CMS number formats correctly', () => {
   )
 })
 
-test('resolveHomepageContent falls back and logs details when query errors', () => {
-  const originalWarn = console.warn
-  const warnings: unknown[][] = []
-  console.warn = (...args: unknown[]) => {
-    warnings.push(args)
-  }
+test('marketing routes render server errors instead of fallback content', async () => {
+  const homeSource = await readFile(homeRoutePath, 'utf8')
+  const aboutSource = await readFile(aboutRoutePath, 'utf8')
 
-  try {
-    const resolved = resolveHomepageContent(undefined, new Error('cms unavailable'))
-    assert.deepEqual(resolved, fallbackHomepageContent)
-    assert.equal(warnings.length, 1)
-    assert.match(String(warnings[0][0]), /Falling back to homepage static content/)
-    assert.equal((warnings[0][1] as Record<string, unknown>).reason, 'query_error')
-  } finally {
-    console.warn = originalWarn
-  }
-})
-
-test('resolveAboutPageContent can use fallback silently during initial loading', () => {
-  const originalWarn = console.warn
-  let warnCalls = 0
-  console.warn = () => {
-    warnCalls += 1
-  }
-
-  try {
-    const resolved = resolveAboutPageContent(undefined, null, false)
-    assert.deepEqual(resolved, fallbackAboutPageContent)
-    assert.equal(warnCalls, 0)
-  } finally {
-    console.warn = originalWarn
-  }
+  assert.doesNotMatch(homeSource, /resolveHomepageContent|fallbackHomepageContent/)
+  assert.doesNotMatch(aboutSource, /resolveAboutPageContent|fallbackAboutPageContent/)
+  assert.match(homeSource, /homepageQuery\.error/)
+  assert.match(aboutSource, /aboutQuery\.error/)
+  assert.match(homeSource, /Unable to load homepage content/)
+  assert.match(aboutSource, /Unable to load about page content/)
 })
 
 test('getIconComponent returns mapped icons and warns on unknown names', () => {

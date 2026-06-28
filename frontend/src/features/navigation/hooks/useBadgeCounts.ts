@@ -1,10 +1,10 @@
 /**
  * Location: src/features/navigation/hooks/useBadgeCounts.ts
- * Purpose: Compute role-aware badge counts with short-lived cache fallback.
- * Why: Reduces badge flicker and preserves recent counts through transient API failures.
+ * Purpose: Compute role-aware badge counts from backend endpoints.
+ * Why: Keeps badge counts server-sourced and surfaces count failures directly.
  */
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
@@ -16,7 +16,6 @@ import {
   fetchSubmissionsPendingCount,
 } from '../api';
 import type { BadgeCounts } from '../types';
-import { readBadgeCache, writeBadgeCache } from '../utils/cache';
 
 const ASSIGNMENTS_BADGE_QUERY_KEY = 'navigation:badge:assignments';
 const SUBMISSIONS_BADGE_QUERY_KEY = 'navigation:badge:submissions';
@@ -46,19 +45,6 @@ export function useBadgeCounts() {
   }, [currentUser.role, isAuthenticated]);
   const userId = currentUser.id || 'public';
 
-  const cacheIdentity = useMemo(
-    () => ({
-      userId,
-      role,
-    }),
-    [role, userId],
-  );
-
-  const cachedBadgeCounts = useMemo(
-    () => readBadgeCache(cacheIdentity),
-    [cacheIdentity],
-  );
-
   const notificationsQuery = useUserNotifications(
     isAuthenticated && userId.length > 0 ? userId : undefined,
   );
@@ -76,10 +62,9 @@ export function useBadgeCounts() {
         return result.count;
       }
 
-      return cachedBadgeCounts?.assignments ?? 0;
+      throw new Error(result.error);
     },
     enabled: isAuthenticated && role === 'student',
-    initialData: role === 'student' ? (cachedBadgeCounts?.assignments ?? 0) : 0,
     staleTime: 60_000,
     retry: 0,
   });
@@ -92,13 +77,9 @@ export function useBadgeCounts() {
         return result.count;
       }
 
-      return cachedBadgeCounts?.submissions ?? 0;
+      throw new Error(result.error);
     },
     enabled: isAuthenticated && (role === 'teacher' || role === 'admin'),
-    initialData:
-      role === 'teacher' || role === 'admin'
-        ? (cachedBadgeCounts?.submissions ?? 0)
-        : 0,
     staleTime: 60_000,
     retry: 0,
   });
@@ -122,14 +103,6 @@ export function useBadgeCounts() {
     submissionsQuery.data,
   ]);
 
-  useEffect(() => {
-    if (!isAuthenticated || role === 'public') {
-      return;
-    }
-
-    writeBadgeCache(cacheIdentity, badgeCounts);
-  }, [badgeCounts, cacheIdentity, isAuthenticated, role]);
-
   const error =
     (assignmentsQuery.error instanceof Error && assignmentsQuery.error) ||
     (submissionsQuery.error instanceof Error && submissionsQuery.error) ||
@@ -137,12 +110,18 @@ export function useBadgeCounts() {
     null;
 
   const refetch = useCallback(async () => {
-    await Promise.all([
-      notificationsQuery.refetch(),
-      assignmentsQuery.refetch(),
-      submissionsQuery.refetch(),
-    ]);
-  }, [assignmentsQuery, notificationsQuery, submissionsQuery]);
+    const refetches: Promise<unknown>[] = [notificationsQuery.refetch()];
+
+    if (isAuthenticated && role === 'student') {
+      refetches.push(assignmentsQuery.refetch());
+    }
+
+    if (isAuthenticated && (role === 'teacher' || role === 'admin')) {
+      refetches.push(submissionsQuery.refetch());
+    }
+
+    await Promise.all(refetches);
+  }, [assignmentsQuery, isAuthenticated, notificationsQuery, role, submissionsQuery]);
 
   return {
     counts: badgeCounts,

@@ -25,44 +25,28 @@ import {
   useDefaultRubricsQuery,
 } from '@features/rubrics/api';
 
-const DEFAULT_CRITERIA: RubricCriterion[] = [
-  {
-    criterion: 'Overall Performance',
-    weight: 100,
-    levels: [
-      {
-        label: 'Meets expectations',
-        points: 100,
-        desc: 'Meets the rubric requirements.',
-      },
-    ],
-  },
-];
-
 const toRubricCriteriaFromTemplate = (
   criteria: RubricTemplateCriterion[],
-): RubricCriterion[] => {
+): RubricCriterion[] | null => {
   if (criteria.length === 0) {
-    return DEFAULT_CRITERIA;
+    return null;
+  }
+
+  const hasMissingLevels = criteria.some(
+    (criterion) => !criterion.levels || criterion.levels.length === 0,
+  );
+  if (hasMissingLevels) {
+    return null;
   }
 
   return criteria.map((criterion) => ({
     criterion: criterion.name,
     weight: criterion.weight,
-    levels:
-      criterion.levels && criterion.levels.length > 0
-        ? criterion.levels.map((level) => ({
-            label: level.label,
-            points: level.points,
-            desc: level.desc ?? '',
-          }))
-        : [
-            {
-              label: 'Meets expectations',
-              points: 100,
-              desc: 'Meets the rubric requirements.',
-            },
-          ],
+    levels: criterion.levels!.map((level) => ({
+      label: level.label,
+      points: level.points,
+      desc: level.desc ?? '',
+    })),
   }));
 };
 
@@ -98,18 +82,20 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
   const defaultRubricsQuery = useDefaultRubricsQuery('assignment', 'writing');
 
   const courseOptions = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
-  const createRubricCriteria = useMemo(() => {
-    const template =
+  const defaultRubricTemplate = useMemo(() => {
+    return (
       defaultRubricsQuery.data?.templates.find(
         (item) => item.context === 'assignment' && item.assignmentType === 'writing',
-      ) ?? defaultRubricsQuery.data?.templates[0];
-
-    if (!template) {
-      return DEFAULT_CRITERIA;
+      ) ?? defaultRubricsQuery.data?.templates[0] ?? null
+    );
+  }, [defaultRubricsQuery.data?.templates]);
+  const createRubricCriteria = useMemo<RubricCriterion[] | null>(() => {
+    if (!defaultRubricTemplate) {
+      return null;
     }
 
-    return toRubricCriteriaFromTemplate(template.criteria);
-  }, [defaultRubricsQuery.data?.templates]);
+    return toRubricCriteriaFromTemplate(defaultRubricTemplate.criteria);
+  }, [defaultRubricTemplate]);
 
   const handleCreateRubric = async () => {
     if (!selectedCourseId) {
@@ -120,6 +106,11 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
     const trimmedName = rubricName.trim();
     if (!trimmedName) {
       toast.error('Rubric name is required.');
+      return;
+    }
+
+    if (!createRubricCriteria) {
+      toast.error('Unable to create rubric until the backend default template includes criterion levels.');
       return;
     }
 
@@ -135,6 +126,20 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
       toast.error(error instanceof Error ? error.message : 'Unable to create rubric.');
     }
   };
+
+  let templateStatusMessage = 'No backend default rubric template is available.';
+  if (defaultRubricsQuery.isFetching) {
+    templateStatusMessage = 'Loading backend default rubric template...';
+  } else if (defaultRubricsQuery.error) {
+    templateStatusMessage = `Unable to load backend default rubric template: ${defaultRubricsQuery.error.message}`;
+  } else if (defaultRubricTemplate && !createRubricCriteria) {
+    templateStatusMessage = 'Backend default rubric template is missing levels for one or more criteria.';
+  } else if (createRubricCriteria) {
+    const criteriaNames = createRubricCriteria
+      .map((criterion) => criterion.criterion)
+      .join(', ');
+    templateStatusMessage = `Backend template criteria loaded: ${criteriaNames}.`;
+  }
 
   return (
     <div>
@@ -249,7 +254,7 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
           <DialogHeader>
             <DialogTitle>Create Rubric</DialogTitle>
             <DialogDescription>
-              Start with a minimal single-level rubric and adjust later.
+              Start from the backend default rubric template and adjust later.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -262,15 +267,17 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
               />
             </div>
             <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-              Default criteria: Overall Performance (100%) with one level: Meets expectations.
-              {defaultRubricsQuery.isFetching ? ' Syncing backend template...' : ''}
+              {templateStatusMessage}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateRubric} disabled={createRubricMutation.isPending}>
+            <Button
+              onClick={handleCreateRubric}
+              disabled={createRubricMutation.isPending || !createRubricCriteria}
+            >
               {createRubricMutation.isPending ? 'Creating...' : 'Create Rubric'}
             </Button>
           </DialogFooter>

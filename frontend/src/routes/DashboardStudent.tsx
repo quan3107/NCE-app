@@ -33,11 +33,14 @@ export function DashboardStudentRoute() {
     submissions,
     enrollments,
     courses,
-    isLoading,
-    error,
+    isLoading: assignmentResourcesLoading,
+    error: assignmentResourcesError,
   } = useAssignmentResources();
 
   if (!currentUser) return null;
+
+  const isLoading = assignmentResourcesLoading || dashboardConfig.isLoading;
+  const error = assignmentResourcesError ?? dashboardConfig.error ?? null;
 
   if (isLoading) {
     return (

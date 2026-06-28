@@ -70,7 +70,14 @@ export function QuestionEditor({
   canMoveUp,
   canMoveDown,
 }: QuestionEditorProps) {
-  const { trueFalseOptions, yesNoOptions } = useBooleanQuestionOptions();
+  const {
+    trueFalseOptions,
+    yesNoOptions,
+    trueFalseIsLoading,
+    yesNoIsLoading,
+    trueFalseError,
+    yesNoError,
+  } = useBooleanQuestionOptions();
 
   const needsOptions = OPTION_BASED_TYPES.includes(question.type);
   const isTrueFalse = question.type === 'true_false_not_given';
@@ -78,13 +85,45 @@ export function QuestionEditor({
   const isCompletion = question.type === 'completion';
   const isMatching = MATCHING_TYPES.includes(question.type);
   const isDiagramLabeling = DIAGRAM_LABELING_TYPES.includes(question.type);
-  const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? 'true';
-  const defaultYesNoValue = yesNoOptions[0]?.value ?? 'yes';
+  const defaultTrueFalseValue = trueFalseOptions[0]?.value ?? '';
+  const defaultYesNoValue = yesNoOptions[0]?.value ?? '';
+
+  let activeBooleanError: Error | null = null;
+  if (isTrueFalse) {
+    activeBooleanError = trueFalseError;
+  } else if (isYesNo) {
+    activeBooleanError = yesNoError;
+  }
+
+  let booleanOptionsLoading = false;
+  if (isTrueFalse && !activeBooleanError) {
+    booleanOptionsLoading = trueFalseIsLoading || !defaultTrueFalseValue;
+  } else if (isYesNo && !activeBooleanError) {
+    booleanOptionsLoading = yesNoIsLoading || !defaultYesNoValue;
+  }
+
+  const canRenderAnswerControls = !activeBooleanError && !booleanOptionsLoading;
 
   const createId = () =>
     globalThis.crypto?.randomUUID?.() ?? `q-${Date.now()}-${Math.random()}`;
 
+  const isBooleanTypeUnavailable = (type: IeltsQuestionType): boolean => {
+    if (type === 'true_false_not_given') {
+      return trueFalseIsLoading || Boolean(trueFalseError) || !defaultTrueFalseValue;
+    }
+
+    if (type === 'yes_no_not_given') {
+      return yesNoIsLoading || Boolean(yesNoError) || !defaultYesNoValue;
+    }
+
+    return false;
+  };
+
   const handleTypeChange = (newType: IeltsQuestionType) => {
+    if (isBooleanTypeUnavailable(newType)) {
+      return;
+    }
+
     onChange(
       buildQuestionTypeChange({
         question,
@@ -213,7 +252,12 @@ export function QuestionEditor({
             </SelectTrigger>
             <SelectContent>
               {questionTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value} className="text-xs">
+                <SelectItem
+                  key={type.value}
+                  value={type.value}
+                  className="text-xs"
+                  disabled={isBooleanTypeUnavailable(type.value)}
+                >
                   {type.label}
                 </SelectItem>
               ))}
@@ -247,6 +291,19 @@ export function QuestionEditor({
             className="min-h-[60px] resize-none text-sm"
           />
 
+          {activeBooleanError && (
+            <div className="rounded-[8px] border border-destructive/30 p-3 text-sm" role="alert">
+              <p className="font-medium text-destructive">Unable to load boolean answer options.</p>
+              <p className="mt-1 text-muted-foreground">{activeBooleanError.message}</p>
+            </div>
+          )}
+
+          {booleanOptionsLoading && (
+            <div className="rounded-[8px] border p-3 text-sm text-muted-foreground" role="status">
+              Loading boolean answer options...
+            </div>
+          )}
+
           {/* Matching Editor */}
           {isMatching && question.matchingItems && question.matchingOptions && (
             <MatchingEditor
@@ -269,22 +326,22 @@ export function QuestionEditor({
             />
           )}
 
-          <QuestionAnswerControls
-            question={question}
-            needsOptions={needsOptions}
-            isTrueFalse={isTrueFalse}
-            isYesNo={isYesNo}
-            isMatching={isMatching}
-            isDiagramLabeling={isDiagramLabeling}
-            trueFalseOptions={trueFalseOptions}
-            yesNoOptions={yesNoOptions}
-            defaultTrueFalseValue={defaultTrueFalseValue}
-            defaultYesNoValue={defaultYesNoValue}
-            onChange={onChange}
-            onAddOption={handleAddOption}
-            onRemoveOption={handleRemoveOption}
-            onOptionChange={handleOptionChange}
-          />
+          {canRenderAnswerControls && !booleanOptionsLoading && (
+            <QuestionAnswerControls
+              question={question}
+              needsOptions={needsOptions}
+              isTrueFalse={isTrueFalse}
+              isYesNo={isYesNo}
+              isMatching={isMatching}
+              isDiagramLabeling={isDiagramLabeling}
+              trueFalseOptions={trueFalseOptions}
+              yesNoOptions={yesNoOptions}
+              onChange={onChange}
+              onAddOption={handleAddOption}
+              onRemoveOption={handleRemoveOption}
+              onOptionChange={handleOptionChange}
+            />
+          )}
         </div>
 
         {/* Delete button */}

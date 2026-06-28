@@ -122,7 +122,7 @@ test('authenticated navigation failure does not expose hardcoded feature links',
   assert.equal(screen.queryByText('/student/dashboard'), null);
 });
 
-test('authenticated navigation keeps current live items after a later refetch fails', async () => {
+test('authenticated navigation shows an unavailable state after a later refetch fails', async () => {
   let requestCount = 0;
 
   vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
@@ -153,10 +153,10 @@ test('authenticated navigation keeps current live items after a later refetch fa
   await waitFor(
     () => {
       assert.equal(screen.getByTestId('error').textContent, 'Navigation unavailable');
-      assert.equal(screen.getByTestId('source').textContent, 'live');
+      assert.equal(screen.getByTestId('source').textContent, 'unavailable');
     },
     { timeout: 3_000 },
   );
 
-  assert.ok(screen.getByText('/student/dashboard'));
+  assert.equal(screen.queryByText('/student/dashboard'), null);
 });

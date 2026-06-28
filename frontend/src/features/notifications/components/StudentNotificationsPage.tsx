@@ -37,6 +37,8 @@ export function StudentNotificationsPage() {
   if (!currentUser) return null;
 
   const configuredTypes = notificationTypesQuery.data ?? [];
+  const configError =
+    notificationTypesQuery.error instanceof Error ? notificationTypesQuery.error : null;
   const typeConfigById = useMemo(
     () => new Map(configuredTypes.map(type => [type.id, type])),
     [configuredTypes],
@@ -69,6 +71,8 @@ export function StudentNotificationsPage() {
     );
   }, [configuredTypes, notifications]);
 
+  const canFilterNotifications = !notificationTypesQuery.isLoading && !configError;
+
   useEffect(() => {
     const validFilters = new Set(['all', 'unread', ...filterTypes.map(type => type.id)]);
     if (!validFilters.has(filter)) {
@@ -79,15 +83,115 @@ export function StudentNotificationsPage() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const filteredNotifications = useMemo(() => {
+    if (!canFilterNotifications) return notifications;
     if (filter === 'all') return notifications;
     if (filter === 'unread') return notifications.filter(n => !n.read);
     return notifications.filter(n => n.type === filter);
-  }, [notifications, filter]);
+  }, [notifications, filter, canFilterNotifications]);
 
   const handleMarkAllRead = () => {
     markNotificationsRead({ userId: currentUser.id });
     toast.success('All notifications marked as read');
   };
+
+  let settingsContent: JSX.Element;
+  if (notificationTypesQuery.isLoading) {
+    settingsContent = (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          Loading notification settings...
+        </CardContent>
+      </Card>
+    );
+  } else if (configError) {
+    settingsContent = (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-destructive font-medium">Unable to load notification settings.</p>
+          <p className="text-sm text-muted-foreground mt-2">{configError.message}</p>
+        </CardContent>
+      </Card>
+    );
+  } else {
+    settingsContent = (
+      <Card>
+        <CardContent className="pt-6">
+          <Tabs value={filter} onValueChange={setFilter}>
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="unread">Unread</TabsTrigger>
+              {filterTypes.map(type => (
+                <TabsTrigger key={type.id} value={type.id}>
+                  {type.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  let notificationListContent: JSX.Element;
+  if (isLoading) {
+    notificationListContent = (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          Loading notifications...
+        </CardContent>
+      </Card>
+    );
+  } else if (error) {
+    notificationListContent = (
+      <Card>
+        <CardContent className="py-12 text-center text-destructive">
+          Unable to load notifications. Try again later.
+        </CardContent>
+      </Card>
+    );
+  } else {
+    notificationListContent = (
+      <div className="space-y-2">
+        {filteredNotifications.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Bell className="size-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="mb-2">No Notifications</h3>
+              <p className="text-muted-foreground">You're all caught up!</p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredNotifications.map(notification => {
+            const typeConfig = typeConfigById.get(notification.type);
+
+            return (
+              <Card key={notification.id} className={notification.read ? 'opacity-60' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`mt-1 ${getNotificationAccentClass(typeConfig?.accent, notification.type)}`}
+                    >
+                      {getNotificationIconNode(typeConfig?.icon, notification.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="mb-1">{notification.title}</h4>
+                      <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                      </p>
+                    </div>
+                    {!notification.read && (
+                      <Badge variant="default" className="flex-shrink-0">New</Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -107,75 +211,8 @@ export function StudentNotificationsPage() {
         }
       />
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <Tabs value={filter} onValueChange={setFilter}>
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="unread">Unread</TabsTrigger>
-                {filterTypes.map(type => (
-                  <TabsTrigger key={type.id} value={type.id}>
-                    {type.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        {isLoading ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              Loading notifications...
-            </CardContent>
-          </Card>
-        ) : error ? (
-          <Card>
-            <CardContent className="py-12 text-center text-destructive">
-              Unable to load notifications. Try again later.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {filteredNotifications.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Bell className="size-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="mb-2">No Notifications</h3>
-                  <p className="text-muted-foreground">You're all caught up!</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredNotifications.map(notification => {
-                const typeConfig = typeConfigById.get(notification.type);
-
-                return (
-                  <Card key={notification.id} className={notification.read ? 'opacity-60' : ''}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div
-                          className={`mt-1 ${getNotificationAccentClass(typeConfig?.accent, notification.type)}`}
-                        >
-                          {getNotificationIconNode(typeConfig?.icon, notification.type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="mb-1">{notification.title}</h4>
-                          <p className="text-sm text-muted-foreground">{notification.message}</p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
-                          </p>
-                        </div>
-                        {!notification.read && (
-                          <Badge variant="default" className="flex-shrink-0">New</Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
-        )}
+        {settingsContent}
+        {notificationListContent}
       </div>
     </div>
   );

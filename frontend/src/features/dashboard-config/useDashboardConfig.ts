@@ -1,10 +1,9 @@
 /**
  * Location: src/features/dashboard-config/useDashboardConfig.ts
- * Purpose: Expose dashboard config query/mutation hooks with safe fallback behavior.
- * Why: Lets dashboard routes consume backend-driven widget metadata without losing resilience.
+ * Purpose: Expose dashboard config query/mutation hooks.
+ * Why: Lets dashboard routes consume backend-driven widget metadata and surface config failures.
  */
 
-import { useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { queryClient } from '@lib/queryClient';
@@ -16,10 +15,8 @@ import {
   resetMyDashboardConfig,
   saveMyDashboardConfig,
 } from './api';
-import { getFallbackDashboardConfig } from './fallback';
 import type {
   DashboardRole,
-  MyDashboardConfigResponse,
   UpdateMyDashboardConfigRequest,
 } from './types';
 
@@ -57,14 +54,6 @@ export function useDashboardConfig() {
   const { currentUser, isAuthenticated } = useAuthStore();
   const role = toDashboardRole(currentUser.role);
 
-  const fallbackConfig = useMemo<MyDashboardConfigResponse | null>(() => {
-    if (!role) {
-      return null;
-    }
-
-    return getFallbackDashboardConfig(role);
-  }, [role]);
-
   const queryKey = [DASHBOARD_CONFIG_KEY, currentUser.id || 'anonymous', role ?? 'none'] as const;
 
   const query = useQuery({
@@ -97,11 +86,11 @@ export function useDashboardConfig() {
     },
   });
 
-  const config = query.data ?? fallbackConfig;
+  const config = query.data ?? null;
 
   return {
     config,
-    source: query.data ? 'live' : 'fallback',
+    source: query.data ? 'live' : 'unavailable',
     isLoading: query.isLoading || query.isFetching,
     error: query.error instanceof Error ? query.error : null,
     refetch: query.refetch,

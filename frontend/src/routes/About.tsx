@@ -1,21 +1,47 @@
 /**
  * Location: src/routes/About.tsx
- * Purpose: Render the public About route with CMS-managed content and fallback.
- * Why: Keeps static marketing narratives editable in backend without breaking UX during outages.
+ * Purpose: Render the public About route with CMS-managed content.
+ * Why: Keeps public content server-sourced and surfaces CMS/API failures directly.
  */
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@components/ui/card'
 import { useAboutPageContentQuery } from '@features/marketing/api'
-import { resolveAboutPageContent } from '@features/marketing/contentResolver'
 import { getIconComponent } from '@features/marketing/iconMap'
 
 export function AboutRoute() {
   const aboutQuery = useAboutPageContentQuery()
-  const content = resolveAboutPageContent(
-    aboutQuery.data,
-    aboutQuery.error,
-    !aboutQuery.isLoading,
-  )
+
+  if (aboutQuery.isLoading) {
+    return (
+      <section className="content-band py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-muted-foreground">
+          Loading about page content...
+        </div>
+      </section>
+    )
+  }
+
+  if (aboutQuery.error || !aboutQuery.data) {
+    const message =
+      aboutQuery.error instanceof Error
+        ? aboutQuery.error.message
+        : 'The about page CMS response was empty.'
+
+    return (
+      <section className="content-band py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl rounded-[8px] border border-destructive/30 bg-card p-6">
+            <h1 className="text-2xl font-semibold tracking-normal text-destructive">
+              Unable to load about page content.
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const content = aboutQuery.data
 
   return (
     <div>

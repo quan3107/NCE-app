@@ -16,6 +16,7 @@ import {
 } from '@components/ui/select';
 import { Trash2, Plus } from 'lucide-react';
 import { normalizeQuestionOptionValue } from '@features/ielts-config/questionOptions.api';
+import { getBooleanAnswerSelectValue } from './questionEditor.logic';
 
 type BooleanAnswerOption = {
   value: string;
@@ -31,8 +32,6 @@ type QuestionAnswerControlsProps = {
   isDiagramLabeling: boolean;
   trueFalseOptions: BooleanAnswerOption[];
   yesNoOptions: BooleanAnswerOption[];
-  defaultTrueFalseValue: string;
-  defaultYesNoValue: string;
   onChange: (updated: IeltsQuestion) => void;
   onAddOption: () => void;
   onRemoveOption: (index: number) => void;
@@ -48,8 +47,6 @@ export function QuestionAnswerControls({
   isDiagramLabeling,
   trueFalseOptions,
   yesNoOptions,
-  defaultTrueFalseValue,
-  defaultYesNoValue,
   onChange,
   onAddOption,
   onRemoveOption,
@@ -101,14 +98,7 @@ export function QuestionAnswerControls({
           <p className="text-xs text-muted-foreground">Correct Answer</p>
           {isTrueFalse ? (
             <Select
-              value={
-                trueFalseOptions.some(
-                  (option) =>
-                    option.value === normalizeQuestionOptionValue(question.correctAnswer || ''),
-                )
-                  ? normalizeQuestionOptionValue(question.correctAnswer || '')
-                  : defaultTrueFalseValue
-              }
+              value={getBooleanAnswerSelectValue(question.correctAnswer, trueFalseOptions)}
               onValueChange={(value) =>
                 onChange({
                   ...question,
@@ -129,14 +119,7 @@ export function QuestionAnswerControls({
             </Select>
           ) : isYesNo ? (
             <Select
-              value={
-                yesNoOptions.some(
-                  (option) =>
-                    option.value === normalizeQuestionOptionValue(question.correctAnswer || ''),
-                )
-                  ? normalizeQuestionOptionValue(question.correctAnswer || '')
-                  : defaultYesNoValue
-              }
+              value={getBooleanAnswerSelectValue(question.correctAnswer, yesNoOptions)}
               onValueChange={(value) =>
                 onChange({
                   ...question,

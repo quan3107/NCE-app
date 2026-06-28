@@ -1,7 +1,7 @@
 /**
  * Location: src/features/navigation/hooks/useNavigation.ts
- * Purpose: Load navigation with cache-first behavior and resilient fallback handling.
- * Why: Keeps menu rendering responsive even during transient backend failures.
+ * Purpose: Load authenticated navigation from the backend.
+ * Why: Keeps menu rendering server-sourced and surfaces navigation failures directly.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -11,8 +11,6 @@ import { useAuthStore } from '@store/authStore';
 
 import { fetchNavigationFromMe } from '../api';
 import type { NavigationPayload, NavigationSource } from '../types';
-import { getFallbackNavigation } from '../utils/fallbackNav';
-import { readNavigationCache, writeNavigationCache } from '../utils/cache';
 
 const NAVIGATION_QUERY_KEY = 'navigation:me';
 const EMPTY_AUTHENTICATED_NAVIGATION: NavigationPayload = {
@@ -41,27 +39,8 @@ export function useNavigation() {
   }, [currentUser.role, isAuthenticated]);
   const userId = currentUser.id || 'public';
 
-  const cacheIdentity = useMemo(
-    () => ({
-      userId,
-      role,
-    }),
-    [role, userId],
-  );
-
   const isPublicNavigation = !isAuthenticated || role === 'public';
-  const fallbackNavigation = useMemo<NavigationPayload>(() => getFallbackNavigation(), []);
-  const cachedNavigation = useMemo<NavigationPayload | null>(
-    () => readNavigationCache(cacheIdentity),
-    [cacheIdentity],
-  );
-  const initialNavigation = cachedNavigation ?? (isPublicNavigation ? fallbackNavigation : undefined);
-
-  const initialSource: NavigationSource = cachedNavigation
-    ? 'cache'
-    : isPublicNavigation
-      ? 'fallback'
-      : 'unavailable';
+  const initialSource: NavigationSource = 'unavailable';
   const [source, setSource] = useState<NavigationSource>(initialSource);
 
   useEffect(() => {
@@ -72,25 +51,15 @@ export function useNavigation() {
 
   const query = useQuery({
     queryKey: [NAVIGATION_QUERY_KEY, userId, role],
-    queryFn: async () => {
-      const payload = await fetchNavigationFromMe();
-      writeNavigationCache(cacheIdentity, payload);
-      return payload;
-    },
+    queryFn: fetchNavigationFromMe,
     enabled: queryEnabled,
-    initialData: initialNavigation,
-    retry: 1,
+    retry: 0,
     refetchOnWindowFocus: false,
   });
-  const failedSource: NavigationSource = cachedNavigation
-    ? 'cache'
-    : query.data
-      ? 'live'
-      : 'unavailable';
 
   useEffect(() => {
     if (!queryEnabled) {
-      setSource('fallback');
+      setSource('unavailable');
       return;
     }
 
@@ -100,19 +69,16 @@ export function useNavigation() {
     }
 
     if (query.isError) {
-      setSource(failedSource);
+      setSource('unavailable');
     }
-  }, [failedSource, query.isError, query.isFetching, query.isSuccess, queryEnabled]);
+  }, [query.isError, query.isFetching, query.isSuccess, queryEnabled]);
 
-  const navigation =
-    query.data ??
-    cachedNavigation ??
-    (isPublicNavigation ? fallbackNavigation : EMPTY_AUTHENTICATED_NAVIGATION);
+  const navigation = query.isError ? EMPTY_AUTHENTICATED_NAVIGATION : query.data ?? EMPTY_AUTHENTICATED_NAVIGATION;
   const error = query.error instanceof Error ? query.error : null;
 
   const refetch = useCallback(async () => {
     if (!queryEnabled) {
-      setSource('fallback');
+      setSource('unavailable');
       return;
     }
 
@@ -122,8 +88,8 @@ export function useNavigation() {
       return;
     }
 
-    setSource(failedSource);
-  }, [failedSource, query, queryEnabled]);
+    setSource('unavailable');
+  }, [query, queryEnabled]);
 
   return {
     navigation,

@@ -12,6 +12,7 @@ import type {
   MatchingItem,
   MatchingOption,
 } from '@lib/ielts';
+import { normalizeQuestionOptionValue } from '@features/ielts-config/questionOptions.api';
 
 export const OPTION_BASED_TYPES: IeltsQuestionType[] = ['multiple_choice'];
 
@@ -29,6 +30,20 @@ export const DIAGRAM_LABELING_TYPES: IeltsQuestionType[] = [
 
 export type QuestionTypeOption = { value: IeltsQuestionType; label: string };
 export type CompletionFormatOption = { value: IeltsCompletionFormat; label: string };
+export type BooleanAnswerOption = { value: string; label: string };
+
+export const getBooleanAnswerSelectValue = (
+  correctAnswer: string | null | undefined,
+  options: BooleanAnswerOption[],
+): string | undefined => {
+  const normalized = normalizeQuestionOptionValue(correctAnswer || '');
+
+  if (options.some((option) => option.value === normalized)) {
+    return normalized;
+  }
+
+  return undefined;
+};
 
 type BuildTypeChangeParams = {
   question: IeltsQuestion;

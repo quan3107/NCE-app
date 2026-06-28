@@ -2,7 +2,7 @@
 /**
  * Location: tests/courseManagementMappers.test.ts
  * Purpose: Validate course-management mapping helpers used by the teacher view.
- * Why: Guards page-level fallback and rubric formatting regressions.
+ * Why: Guards page-level error reporting and rubric formatting regressions.
  */
 
 import { test } from 'node:test';
@@ -13,14 +13,15 @@ import {
   toCourseRubricCriteria,
 } from '../src/features/courses/management/hooks/useTeacherCourseManagement.mappers';
 
-test('toCourseManagementPageError ignores default rubric template fallback errors', () => {
+test('toCourseManagementPageError includes rubric template errors', () => {
   const error = toCourseManagementPageError({
     courseError: null,
     studentsError: null,
     assignmentsError: null,
+    rubricTemplateError: new Error('Rubric template unavailable'),
   });
 
-  assert.equal(error, null);
+  assert.equal(error, 'Rubric template unavailable');
 });
 
 test('toCourseRubricCriteria converts fractional backend weights to percentages', () => {
@@ -47,4 +48,10 @@ test('toCourseRubricCriteria preserves percentage backend weights', () => {
     criteria.map((criterion) => criterion.weight),
     [25, 25],
   );
+});
+
+test('toCourseRubricCriteria does not fabricate criteria when backend template is empty', () => {
+  const criteria = toCourseRubricCriteria([]);
+
+  assert.deepEqual(criteria, []);
 });

@@ -151,7 +151,6 @@ const resolveLanding = (role: Role) => roleLanding[role] ?? '/';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const {
-    authMode,
     isAuthenticated,
     isRestoringSession,
     currentUser,
@@ -162,7 +161,6 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const [restoreAttemptedFor, setRestoreAttemptedFor] = useState<string | null>(null);
   const restoreAttempted = restoreAttemptedFor === returnTo;
   const decision = resolveProtectedRouteAuthDecision({
-    authMode,
     currentUserRole: currentUser.role,
     isAuthenticated,
     isRestoringSession,

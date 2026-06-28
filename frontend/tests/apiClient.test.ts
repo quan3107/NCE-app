@@ -122,16 +122,11 @@ test('apiClient attaches bearer token supplied by authBridge', async () => {
   );
 });
 
-test('apiClient ignores stored persona headers when dev fallback is disabled', async () => {
+test('apiClient ignores stored snapshots without a live user', async () => {
   let capturedHeaders: Headers | null = null;
 
   const storedPayload = JSON.stringify({
-    mode: 'persona',
     token: 'dev-teacher-token',
-    persona: {
-      basePersona: 'teacher',
-      actingPersona: null,
-    },
   });
 
   await withPatchedGlobals(
@@ -154,7 +149,7 @@ test('apiClient ignores stored persona headers when dev fallback is disabled', a
         clearSession: () => {},
       });
 
-      await apiClient('/persona');
+      await apiClient('/stored-token');
       assert.equal(capturedHeaders?.get('authorization'), null);
       assert.equal(capturedHeaders?.get('x-user-role'), null);
       assert.equal(capturedHeaders?.get('x-user-id'), null);
@@ -205,24 +200,13 @@ test('apiClient retries once on 401 when refresh succeeds', async () => {
   );
 });
 
-test('apiClient does not clear persona session on 401 without bearer auth', async () => {
+test('apiClient does not clear session on 401 without bearer auth', async () => {
   let cleared = false;
-
-  const storedPayload = JSON.stringify({
-    mode: 'persona',
-    token: 'dev-admin-token',
-    persona: {
-      basePersona: 'admin',
-      actingPersona: null,
-    },
-  });
 
   await withPatchedGlobals(
     {
       fetch: async () => new Response('', { status: 401, statusText: 'Unauthorized' }),
-      localStorage: createStorage({
-        currentUser: storedPayload,
-      }),
+      localStorage: createStorage(),
     },
     async () => {
       authBridge.configure({
@@ -234,7 +218,7 @@ test('apiClient does not clear persona session on 401 without bearer auth', asyn
       });
 
       await assert.rejects(
-        () => apiClient('/persona-protected'),
+        () => apiClient('/unauthenticated-protected'),
         (error: unknown) =>
           error instanceof Error &&
           error.message.includes('Unauthorized') &&
@@ -242,6 +226,26 @@ test('apiClient does not clear persona session on 401 without bearer auth', asyn
       );
 
       assert.equal(cleared, false);
+    },
+  );
+});
+
+test('apiClient reports network failures as server unavailable', async () => {
+  await withPatchedGlobals(
+    {
+      fetch: async () => {
+        throw new TypeError('fetch failed');
+      },
+      localStorage: createStorage(),
+    },
+    async () => {
+      await assert.rejects(
+        () => apiClient('/server-down'),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message.includes('Server is unavailable') &&
+          (error as { status?: number }).status === 0,
+      );
     },
   );
 });
