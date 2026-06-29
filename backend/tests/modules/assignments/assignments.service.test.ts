@@ -87,6 +87,20 @@ describe('assignments.service.createAssignment', () => {
         }),
       }),
     )
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerTeacher.id,
+        action: 'assignment.created',
+        entity: 'assignment',
+        entityId: 'assignment-1',
+        diff: expect.objectContaining({
+          changes: expect.objectContaining({
+            courseId,
+            type: 'reading',
+          }),
+        }),
+      }),
+    })
     expect(result).toBe(record)
   })
 
@@ -207,6 +221,87 @@ describe('assignments.service.updateAssignment', () => {
     expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
       'Read and answer all questions.',
     )
+  })
+
+  it('keeps assignment updates successful when audit writing fails', async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    )
+    transactionAuditLogCreate.mockRejectedValueOnce(new Error('audit failed'))
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      type: 'reading',
+      assignmentConfig: readingConfigWithAiOff,
+    })
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      type: 'reading',
+      assignmentConfig: {
+        ...readingConfig,
+        aiPolicy: {
+          writingFeedbackMode: 'off',
+          objectiveExplanations: 'on_demand_student_visible',
+          providerTier: 'low_cost',
+        },
+      },
+    } as never)
+
+    const result = await updateAssignment(
+      { courseId, assignmentId },
+      {
+        assignmentConfig: {
+          ...readingConfig,
+          aiPolicy: {
+            writingFeedbackMode: 'off',
+            objectiveExplanations: 'on_demand_student_visible',
+            providerTier: 'low_cost',
+          },
+        },
+      },
+      ownerTeacher,
+    )
+
+    expect(result.id).toBe(assignmentId)
+    expect(transactionAuditLogCreate).toHaveBeenCalled()
+  })
+
+  it('audits deleted assignments', async () => {
+    prisma.assignment.findFirst.mockResolvedValueOnce({ id: assignmentId })
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+      deletedAt: new Date('2026-06-29T00:00:00.000Z'),
+    } as never)
+
+    const { deleteAssignment } = await import(
+      '../../../src/modules/assignments/assignments.service.js'
+    )
+
+    await deleteAssignment({ courseId, assignmentId }, ownerTeacher)
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerTeacher.id,
+        action: 'assignment.deleted',
+        entity: 'assignment',
+        entityId: assignmentId,
+        diff: expect.objectContaining({
+          changes: expect.objectContaining({
+            courseId,
+            deletedAt: expect.objectContaining({
+              from: null,
+              to: expect.any(String),
+            }),
+          }),
+        }),
+      }),
+    })
   })
 })
 
