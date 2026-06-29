@@ -12,6 +12,7 @@ import {
   AI_FEEDBACK_AUDIT_ACTIONS,
   recordAiFeedbackAudit,
 } from '../audit-logs/ai-feedback-audit.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import {
   assignmentAccessWhere,
   ensureCourseAssignmentAccess,
@@ -210,7 +211,7 @@ export async function createAssignment(
       ? (validatedAssignmentConfig as Prisma.InputJsonObject)
       : undefined
 
-  return prisma.assignment.create({
+  const assignment = await prisma.assignment.create({
     data: {
       courseId,
       title: payload.title,
@@ -222,6 +223,21 @@ export async function createAssignment(
       publishedAt,
     },
   })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'assignment.created',
+    entity: 'assignment',
+    entityId: assignment.id,
+    diff: {
+      courseId,
+      title: payload.title,
+      type: payload.type,
+      publishedAt: publishedAt?.toISOString() ?? null,
+    },
+  })
+
+  return assignment
 }
 
 export async function updateAssignment(
@@ -309,6 +325,7 @@ export async function updateAssignment(
           },
         },
         tx,
+        true,
       )
     }
 
@@ -328,8 +345,23 @@ export async function deleteAssignment(params: unknown, actor: CourseManager) {
     throw createNotFoundError('Assignment', assignmentId)
   }
 
+  const deletedAt = new Date()
   await prisma.assignment.update({
     where: { id: assignmentId },
-    data: { deletedAt: new Date() },
+    data: { deletedAt },
+  })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'assignment.deleted',
+    entity: 'assignment',
+    entityId: assignmentId,
+    diff: {
+      courseId,
+      deletedAt: {
+        from: null,
+        to: deletedAt.toISOString(),
+      },
+    },
   })
 }
