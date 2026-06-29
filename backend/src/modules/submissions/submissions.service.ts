@@ -26,6 +26,7 @@ import {
 import { autoScoreSubmission } from "../scoring/ieltsScoring.service.js";
 import { enqueueAiWritingFeedbackForSubmission } from "../ai-feedback/ai-feedback.service.js";
 import { notifyTeachersAboutSubmittedWork } from "./submissions.notifications.js";
+import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import {
   applyAssignmentSubmissionPolicy,
   assertAssignmentPublishedForSubmission,
@@ -43,6 +44,94 @@ type SubmissionAssignmentForAiFeedback = {
   type: string;
   assignmentConfig: unknown;
 };
+
+function summarizeSubmissionPayload(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== "object") {
+    return { type: typeof payload };
+  }
+
+  if (Array.isArray(payload)) {
+    return {
+      type: "array",
+      length: payload.length,
+    };
+  }
+
+  const payloadRecord = payload as Record<string, unknown>;
+  const keys = Object.keys(payloadRecord);
+  const summary: Record<string, unknown> = {
+    type: "object",
+    keys,
+  };
+
+  for (const key of keys) {
+    const value = payloadRecord[key];
+    if (Array.isArray(value)) {
+      summary[key] = {
+        type: "array",
+        length: value.length,
+      };
+    } else if (value && typeof value === "object") {
+      summary[key] = {
+        type: "object",
+        keys: Object.keys(value as Record<string, unknown>),
+      };
+    } else {
+      summary[key] = {
+        type: typeof value,
+      };
+    }
+  }
+
+  return summary;
+}
+
+function serializeSubmittedAt(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return value;
+}
+
+async function writeSubmissionAuditLog(input: {
+  actorId: string;
+  action: string;
+  assignmentId: string;
+  courseId: string;
+  studentId: string;
+  submissionId: string;
+  statusBefore: string | null;
+  statusAfter: string;
+  submittedAtBefore?: Date | string | null;
+  submittedAtAfter?: Date | string | null;
+  payload: unknown;
+}) {
+  await writeAuditLogSafely({
+    actorId: input.actorId,
+    action: input.action,
+    entity: "submission",
+    entityId: input.submissionId,
+    diff: {
+      assignmentId: input.assignmentId,
+      courseId: input.courseId ?? null,
+      studentId: input.studentId,
+      status: {
+        before: input.statusBefore,
+        after: input.statusAfter,
+      },
+      submittedAt: {
+        before: serializeSubmittedAt(input.submittedAtBefore),
+        after: serializeSubmittedAt(input.submittedAtAfter),
+      },
+      payload: summarizeSubmissionPayload(input.payload),
+    },
+  });
+}
 
 function shouldEnqueueWritingFeedback(
   assignment: SubmissionAssignmentForAiFeedback,
@@ -247,6 +336,23 @@ export async function createSubmission(
         payload: payloadWithVersion,
       },
     });
+    let action = "submission.updated";
+    if (existing.status === "draft" && status !== "draft") {
+      action = "submission.submitted";
+    }
+    await writeSubmissionAuditLog({
+      actorId: user.id,
+      action,
+      assignmentId,
+      courseId: assignment.courseId,
+      studentId: user.id,
+      submissionId: updatedSubmission.id,
+      statusBefore: existing.status,
+      statusAfter: status,
+      submittedAtBefore: existing.submittedAt,
+      submittedAtAfter: updatedSubmission.submittedAt,
+      payload: payloadWithVersion,
+    });
     if (
       (status === "submitted" || status === "late") &&
       (assignment.type === "reading" || assignment.type === "listening")
@@ -300,6 +406,19 @@ export async function createSubmission(
       submittedAt,
       payload: payloadWithVersion,
     },
+  });
+  await writeSubmissionAuditLog({
+    actorId: user.id,
+    action: "submission.created",
+    assignmentId,
+    courseId: assignment.courseId,
+    studentId: user.id,
+    submissionId: createdSubmission.id,
+    statusBefore: null,
+    statusAfter: status,
+    submittedAtBefore: null,
+    submittedAtAfter: createdSubmission.submittedAt,
+    payload: payloadWithVersion,
   });
   if (
     (status === "submitted" || status === "late") &&
