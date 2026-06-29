@@ -3,7 +3,7 @@
  * Purpose: Implement assignment data access and validation via Prisma.
  * Why: Keeps assignment-specific operations encapsulated away from controllers.
  */
-import { Prisma, UserRole } from '../../prisma/index.js'
+import { Prisma, UserRole, type Assignment } from '../../prisma/index.js'
 
 import { prisma } from '../../prisma/client.js'
 import type { CourseManager } from '../courses/courses.types.js'
@@ -72,6 +72,49 @@ function stableJson(value: unknown): string {
 
 function hasAiPolicyChanged(before: unknown, after: unknown): boolean {
   return stableJson(aiPolicyFromConfig(before)) !== stableJson(aiPolicyFromConfig(after))
+}
+
+function toIsoStringOrNull(value: Date | null): string | null {
+  return value ? value.toISOString() : null
+}
+
+function buildAssignmentUpdateAuditDiff(
+  existing: Assignment,
+  updated: Assignment,
+  payload: UpdateAssignmentPayload,
+  courseId: string,
+): Record<string, unknown> {
+  const diff: Record<string, unknown> = { courseId }
+
+  if (payload.title !== undefined) {
+    diff.title = { from: existing.title, to: updated.title }
+  }
+  if (payload.descriptionMd !== undefined) {
+    diff.descriptionMd = { changed: true }
+  }
+  if (payload.type !== undefined) {
+    diff.type = { from: existing.type, to: updated.type }
+  }
+  if (payload.dueAt !== undefined) {
+    diff.dueAt = {
+      from: toIsoStringOrNull(existing.dueAt),
+      to: toIsoStringOrNull(updated.dueAt),
+    }
+  }
+  if (payload.latePolicy !== undefined) {
+    diff.latePolicy = { changed: true }
+  }
+  if (payload.assignmentConfig !== undefined) {
+    diff.assignmentConfig = { changed: true }
+  }
+  if (payload.publishedAt !== undefined) {
+    diff.publishedAt = {
+      from: toIsoStringOrNull(existing.publishedAt),
+      to: toIsoStringOrNull(updated.publishedAt),
+    }
+  }
+
+  return diff
 }
 
 export async function listAssignments(params: unknown, actor: CourseManager) {
@@ -307,6 +350,19 @@ export async function updateAssignment(
       where: { id: assignmentId },
       data: updateData,
     })
+
+    if (Object.keys(updateData).length > 0) {
+      await writeAuditLogSafely(
+        {
+          actorId: actor.id,
+          action: 'assignment.updated',
+          entity: 'assignment',
+          entityId: assignmentId,
+          diff: buildAssignmentUpdateAuditDiff(existing, updated, payload, courseId),
+        },
+        tx,
+      )
+    }
 
     if (
       payload.assignmentConfig !== undefined &&
