@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '../../prisma/client.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import {
   HeroContentSchema,
   StatItemSchema,
@@ -181,6 +182,15 @@ export const updateHomepageStatsWithRealtimeData = async (): Promise<void> => {
   const statsSection = homepage.sections[0]
   if (!statsSection) return
 
+  const updatedItems: Array<{
+    itemId: string
+    itemKey: string | null
+    value: {
+      from: number
+      to: number
+    }
+  }> = []
+
   const updatePromises = statsSection.items.map(async (item) => {
     const itemKey = item.itemKey
     const currentContent = item.contentJson as {
@@ -210,8 +220,30 @@ export const updateHomepageStatsWithRealtimeData = async (): Promise<void> => {
           },
         },
       })
+      updatedItems.push({
+        itemId: item.id,
+        itemKey,
+        value: {
+          from: currentContent.value,
+          to: newValue,
+        },
+      })
     }
   })
 
   await Promise.all(updatePromises)
+
+  if (updatedItems.length > 0) {
+    await writeAuditLogSafely({
+      actorId: null,
+      action: 'cms.homepage_stats_refreshed',
+      entity: 'cms_page_content',
+      entityId: homepage.id,
+      diff: {
+        pageKey: 'homepage',
+        sectionKey: 'stats',
+        updatedItems,
+      },
+    })
+  }
 }
