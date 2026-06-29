@@ -18,6 +18,7 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
     enrollment: {
       findUnique: vi.fn(),
       upsert: vi.fn(),
+      update: vi.fn(),
     },
     user: {
       findFirst: vi.fn(),
@@ -25,10 +26,18 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
   },
 }));
 
+vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+  writeAuditLogSafely: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/config/prismaClient.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
+const auditLogsModule = await import(
+  "../../../src/modules/audit-logs/audit-logs.service.js"
+);
+const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely);
 
-const { addStudentToCourse } = await import(
+const { addStudentToCourse, removeStudentFromCourse } = await import(
   "../../../src/modules/courses/courses.students.service.js"
 );
 
@@ -45,6 +54,7 @@ const student = {
   role: UserRole.student,
   status: UserStatus.active,
 };
+const enrollmentId = "55555555-5555-4555-8555-555555555555";
 
 describe("courses.students.service.addStudentToCourse", () => {
   beforeEach(() => {
@@ -59,10 +69,11 @@ describe("courses.students.service.addStudentToCourse", () => {
     const enrolledAt = new Date("2026-05-29T00:00:00.000Z");
     prisma.user.findFirst.mockResolvedValueOnce(student);
     prisma.enrollment.findUnique.mockResolvedValueOnce({
-      id: "55555555-5555-4555-8555-555555555555",
+      id: enrollmentId,
       deletedAt: new Date("2026-05-01T00:00:00.000Z"),
     });
     prisma.enrollment.upsert.mockResolvedValueOnce({
+      id: enrollmentId,
       createdAt: enrolledAt,
       user: {
         id: student.id,
@@ -97,6 +108,23 @@ describe("courses.students.service.addStudentToCourse", () => {
         },
       }),
     );
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: adminActor.id,
+      action: "course.student_added",
+      entity: "enrollment",
+      entityId: enrollmentId,
+      before: {
+        id: enrollmentId,
+        deletedAt: new Date("2026-05-01T00:00:00.000Z"),
+      },
+      after: {
+        id: enrollmentId,
+        courseId,
+        studentId: student.id,
+        roleInCourse: EnrollmentRole.student,
+        deletedAt: null,
+      },
+    });
     expect(result).toEqual({
       id: student.id,
       fullName: student.fullName,
@@ -104,5 +132,44 @@ describe("courses.students.service.addStudentToCourse", () => {
       status: student.status,
       enrolledAt: enrolledAt.toISOString(),
     });
+  });
+
+  it("writes an audit log when removing a student enrollment", async () => {
+    const removedAt = new Date("2026-05-30T00:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(removedAt);
+    prisma.enrollment.findUnique.mockResolvedValueOnce({
+      id: enrollmentId,
+      deletedAt: null,
+      roleInCourse: EnrollmentRole.student,
+    });
+    prisma.enrollment.update.mockResolvedValueOnce({
+      id: enrollmentId,
+      deletedAt: removedAt,
+      roleInCourse: EnrollmentRole.student,
+    });
+
+    await removeStudentFromCourse({ courseId, studentId }, adminActor);
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: adminActor.id,
+      action: "course.student_removed",
+      entity: "enrollment",
+      entityId: enrollmentId,
+      before: {
+        id: enrollmentId,
+        deletedAt: null,
+        roleInCourse: EnrollmentRole.student,
+      },
+      after: {
+        id: enrollmentId,
+        courseId,
+        studentId,
+        roleInCourse: EnrollmentRole.student,
+        deletedAt: removedAt,
+      },
+    });
+
+    vi.useRealTimers();
   });
 });
