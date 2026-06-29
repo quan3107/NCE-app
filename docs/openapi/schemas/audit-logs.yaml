@@ -33,6 +33,7 @@ AuditLog:
       type: string
     diff:
       type: object
+      description: Redacted audit summary. Sensitive text, credentials, tokens, OAuth payloads, and file keys are summarized instead of stored verbatim.
       additionalProperties: true
       nullable: true
     createdAt:
@@ -54,8 +55,26 @@ AuditLogPage:
       type: array
       items:
         $ref: './audit-logs.yaml#/AuditLog'
-    nextCursor:
-      type: string
-      format: uuid
+    nextOffset:
+      type: integer
+      format: int32
       nullable: true
-  required: [data, nextCursor]
+      description: Offset for the next page, or null when no more rows are available.
+  required: [data, nextOffset]
+
+AuditLogRedactedValue:
+  type: object
+  properties:
+    redacted:
+      type: boolean
+      enum: [true]
+    reason:
+      type: string
+      enum: [sensitive-key, sensitive-value]
+    hash:
+      type: string
+      nullable: true
+    length:
+      type: integer
+      nullable: true
+  required: [redacted, reason]
