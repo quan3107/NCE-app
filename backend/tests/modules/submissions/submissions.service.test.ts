@@ -38,6 +38,9 @@ vi.mock(
 vi.mock("../../../src/modules/notifications/notifications.service.js", () => ({
   enqueueNotification: vi.fn(),
 }));
+vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+  writeAuditLogSafely: vi.fn(),
+}));
 
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
@@ -60,6 +63,13 @@ const enqueueNotification = vi.mocked(
 );
 const enqueueAiWritingFeedbackForSubmission = vi.mocked(
   aiFeedbackModule.enqueueAiWritingFeedbackForSubmission,
+  true,
+);
+const auditLogsModule = await import(
+  "../../../src/modules/audit-logs/audit-logs.service.js"
+);
+const writeAuditLogSafely = vi.mocked(
+  auditLogsModule.writeAuditLogSafely,
   true,
 );
 
@@ -130,6 +140,205 @@ describe("submissions.service.createSubmission", () => {
       }),
     );
     expect(result).toBe(record);
+  });
+
+  it("writes a submission.created audit log with summarized payload details", async () => {
+    const assignmentRecord = {
+      id: assignmentId,
+      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
+      title: "Writing Practice",
+      type: "writing",
+      assignmentConfig: null,
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      course: {
+        title: "IELTS Writing",
+      },
+    };
+    const submission = {
+      id: "submission-audit-created",
+      status: "draft",
+      submittedAt: null,
+    } as Submission;
+
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
+    prisma.submission.findUnique.mockResolvedValueOnce(null);
+    prisma.submission.create.mockResolvedValueOnce(submission);
+
+    await createSubmission(
+      { assignmentId },
+      {
+        payload: {
+          version: 1,
+          task1: { text: "A".repeat(5000) },
+          task2: { text: "B".repeat(5000) },
+        },
+      },
+      { id: studentId, role: "student" },
+    );
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: studentId,
+        action: "submission.created",
+        entity: "submission",
+        entityId: submission.id,
+        diff: expect.objectContaining({
+          assignmentId,
+          courseId: assignmentRecord.courseId,
+          studentId,
+          status: {
+            before: null,
+            after: "draft",
+          },
+          submittedAt: {
+            before: null,
+            after: null,
+          },
+          payload: expect.objectContaining({
+            keys: ["version", "task1", "task2"],
+          }),
+        }),
+      }),
+    );
+    expect(JSON.stringify(writeAuditLogSafely.mock.calls[0])).not.toContain(
+      "AAAA",
+    );
+  });
+
+  it("writes submission.submitted audit logs for draft-to-submitted updates", async () => {
+    const submittedAt = new Date("2026-02-09T10:00:00.000Z");
+    const assignmentRecord = {
+      id: assignmentId,
+      courseId: "course-audit-submit",
+      title: "Reading Practice",
+      type: "reading",
+      assignmentConfig: null,
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      course: {
+        title: "IELTS Reading",
+      },
+    };
+    const existingSubmission = {
+      id: "submission-audit-submitted",
+      status: "draft",
+      submittedAt: null,
+      payload: { version: 1 },
+    } as Submission;
+    const updatedSubmission = {
+      id: existingSubmission.id,
+      status: "submitted",
+      submittedAt,
+    } as Submission;
+
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
+    prisma.submission.findUnique.mockResolvedValueOnce(existingSubmission);
+    prisma.submission.update.mockResolvedValueOnce(updatedSubmission);
+
+    await createSubmission(
+      { assignmentId },
+      {
+        submittedAt: submittedAt.toISOString(),
+        status: "submitted",
+        payload: {
+          version: 1,
+          answers: [{ questionId: "q1", value: "A" }],
+        },
+      },
+      { id: studentId, role: "student" },
+    );
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: studentId,
+        action: "submission.submitted",
+        entity: "submission",
+        entityId: existingSubmission.id,
+        diff: expect.objectContaining({
+          assignmentId,
+          courseId: assignmentRecord.courseId,
+          studentId,
+          status: {
+            before: "draft",
+            after: "submitted",
+          },
+          submittedAt: {
+            before: null,
+            after: expect.any(String),
+          },
+          payload: expect.objectContaining({
+            keys: ["version", "answers"],
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("writes submission.updated audit logs for existing draft saves", async () => {
+    const assignmentRecord = {
+      id: assignmentId,
+      courseId: "course-audit-update",
+      title: "Reading Practice",
+      type: "reading",
+      assignmentConfig: null,
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      course: {
+        title: "IELTS Reading",
+      },
+    };
+    const existingSubmission = {
+      id: "submission-audit-updated",
+      status: "draft",
+      submittedAt: null,
+      payload: { version: 1 },
+    } as Submission;
+    const updatedSubmission = {
+      id: existingSubmission.id,
+      status: "draft",
+      submittedAt: null,
+    } as Submission;
+
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
+    prisma.submission.findUnique.mockResolvedValueOnce(existingSubmission);
+    prisma.submission.update.mockResolvedValueOnce(updatedSubmission);
+
+    await createSubmission(
+      { assignmentId },
+      {
+        status: "draft",
+        payload: {
+          version: 1,
+          answers: [{ questionId: "q1", value: "B" }],
+        },
+      },
+      { id: studentId, role: "student" },
+    );
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: studentId,
+        action: "submission.updated",
+        entity: "submission",
+        entityId: existingSubmission.id,
+        diff: expect.objectContaining({
+          assignmentId,
+          courseId: assignmentRecord.courseId,
+          studentId,
+          status: {
+            before: "draft",
+            after: "draft",
+          },
+          payload: expect.objectContaining({
+            keys: ["version", "answers"],
+          }),
+        }),
+      }),
+    );
   });
 
   it("does not create submissions for assignments in archived courses", async () => {
