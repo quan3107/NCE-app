@@ -20,8 +20,16 @@ vi.mock("../../../src/prisma/client.js", () => ({
   },
 }));
 
+vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+  writeAuditLogSafely: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
+const auditLogsModule = await import(
+  "../../../src/modules/audit-logs/audit-logs.service.js"
+);
+const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely);
 
 const {
   getDashboardWidgetDefaultsForRole,
@@ -219,6 +227,61 @@ describe("dashboard-config.service", () => {
         widgetDefinitionId: {
           in: ["def-1", "def-2"],
         },
+      },
+    });
+  });
+
+  it("audits saved dashboard personalization", async () => {
+    prisma.dashboardWidgetDefinition.findMany
+      .mockResolvedValueOnce(studentDefinitions)
+      .mockResolvedValueOnce(studentDefinitions);
+    prisma.userDashboardWidgetPreference.findMany.mockResolvedValueOnce([]);
+
+    await saveMyDashboardConfigForUser("user-1", "student", {
+      widgets: [
+        {
+          id: "student_completed",
+          visible: true,
+          order: 0,
+          position: { x: 0, y: 0, w: 1, h: 1 },
+        },
+        {
+          id: "student_due_soon",
+          visible: false,
+          order: 1,
+          position: { x: 1, y: 0, w: 2, h: 1 },
+        },
+      ],
+    });
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: "user-1",
+      action: "dashboard_config.saved",
+      entity: "user_dashboard_config",
+      entityId: "user-1",
+      diff: {
+        role: "student",
+        widgetCount: 2,
+        visibleCount: 1,
+        widgetIds: ["student_completed", "student_due_soon"],
+      },
+    });
+  });
+
+  it("audits reset dashboard personalization", async () => {
+    prisma.dashboardWidgetDefinition.findMany.mockResolvedValue(studentDefinitions);
+
+    await resetMyDashboardConfigForUser("user-1", "student");
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: "user-1",
+      action: "dashboard_config.reset",
+      entity: "user_dashboard_config",
+      entityId: "user-1",
+      diff: {
+        role: "student",
+        widgetCount: 2,
+        widgetIds: ["student_due_soon", "student_completed"],
       },
     });
   });
