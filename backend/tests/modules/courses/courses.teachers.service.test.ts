@@ -26,8 +26,16 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
   },
 }));
 
+vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+  writeAuditLogSafely: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/config/prismaClient.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
+const auditLogsModule = await import(
+  "../../../src/modules/audit-logs/audit-logs.service.js"
+);
+const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely);
 
 const {
   addCoTeacherToCourse,
@@ -108,6 +116,7 @@ describe("courses.teachers.service", () => {
       roleInCourse: EnrollmentRole.teacher,
     });
     prisma.enrollment.upsert.mockResolvedValueOnce({
+      id: enrollmentId,
       createdAt: enrolledAt,
       user: {
         id: coTeacher.id,
@@ -142,6 +151,24 @@ describe("courses.teachers.service", () => {
         },
       }),
     );
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: ownerActor.id,
+      action: "course.teacher_added",
+      entity: "enrollment",
+      entityId: enrollmentId,
+      before: {
+        id: enrollmentId,
+        deletedAt: new Date("2026-05-01T00:00:00.000Z"),
+        roleInCourse: EnrollmentRole.teacher,
+      },
+      after: {
+        id: enrollmentId,
+        courseId,
+        teacherId: coTeacher.id,
+        roleInCourse: EnrollmentRole.teacher,
+        deletedAt: null,
+      },
+    });
     expect(result).toEqual({
       id: coTeacher.id,
       fullName: coTeacher.fullName,
@@ -176,5 +203,44 @@ describe("courses.teachers.service", () => {
     });
 
     expect(prisma.enrollment.update).not.toHaveBeenCalled();
+  });
+
+  it("writes an audit log when removing a co-teacher enrollment", async () => {
+    const removedAt = new Date("2026-05-31T02:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(removedAt);
+    prisma.enrollment.findUnique.mockResolvedValueOnce({
+      id: enrollmentId,
+      deletedAt: null,
+      roleInCourse: EnrollmentRole.teacher,
+    });
+    prisma.enrollment.update.mockResolvedValueOnce({
+      id: enrollmentId,
+      deletedAt: removedAt,
+      roleInCourse: EnrollmentRole.teacher,
+    });
+
+    await removeCoTeacherFromCourse({ courseId, teacherId }, ownerActor);
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: ownerActor.id,
+      action: "course.teacher_removed",
+      entity: "enrollment",
+      entityId: enrollmentId,
+      before: {
+        id: enrollmentId,
+        deletedAt: null,
+        roleInCourse: EnrollmentRole.teacher,
+      },
+      after: {
+        id: enrollmentId,
+        courseId,
+        teacherId,
+        roleInCourse: EnrollmentRole.teacher,
+        deletedAt: removedAt,
+      },
+    });
+
+    vi.useRealTimers();
   });
 });
