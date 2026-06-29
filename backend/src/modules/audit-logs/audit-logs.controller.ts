@@ -15,8 +15,23 @@ export async function getAuditLogs(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const { limit, offset } = auditLogQuerySchema.parse(req.query);
+  const {
+    actorId,
+    action,
+    entity,
+    entityId,
+    createdFrom,
+    createdTo,
+    limit,
+    offset,
+  } = auditLogQuerySchema.parse(req.query);
   const payload = await listAuditLogs({
+    actorId,
+    action,
+    entity,
+    entityId,
+    from: createdFrom,
+    to: createdTo,
     limit: limit ?? DEFAULT_AUDIT_LOG_LIMIT,
     offset,
   });
