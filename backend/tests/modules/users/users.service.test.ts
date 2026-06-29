@@ -98,9 +98,11 @@ describe("users.service teacher approvals", () => {
         entity: "user",
         entityId: pendingTeacher.id,
         diff: {
-          status: {
-            from: UserStatus.pending,
-            to: UserStatus.active,
+          changes: {
+            status: {
+              from: UserStatus.pending,
+              to: UserStatus.active,
+            },
           },
         },
       },
@@ -197,5 +199,25 @@ describe("users.service teacher approvals", () => {
       }),
     );
     expect(result.status).toBe(UserStatus.invited);
+  });
+
+  it("does not fail invitations when audit writing fails", async () => {
+    prisma.user.create.mockResolvedValueOnce({
+      ...pendingTeacher,
+      status: UserStatus.invited,
+    });
+    prisma.auditLog.create.mockRejectedValueOnce(new Error("audit failed"));
+
+    const result = await inviteUser(
+      {
+        email: "Teacher@Example.com",
+        fullName: "Invited Teacher",
+        role: "teacher",
+      },
+      actor,
+    );
+
+    expect(result.status).toBe(UserStatus.invited);
+    expect(prisma.auditLog.create).toHaveBeenCalled();
   });
 });
