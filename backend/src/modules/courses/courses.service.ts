@@ -6,6 +6,7 @@
 import { Prisma, UserRole, UserStatus } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
+import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import { canManageCourse } from "./courses.shared.js";
 import {
@@ -114,7 +115,7 @@ export async function createCourse(payload: unknown) {
     });
   }
 
-  return prisma.course.create({
+  const course = await prisma.course.create({
     data: {
       title: data.title,
       description: data.description,
@@ -125,6 +126,16 @@ export async function createCourse(payload: unknown) {
         : undefined,
     },
   });
+
+  await writeAuditLogSafely({
+    actorId: data.ownerTeacherId,
+    action: "course.created",
+    entity: "course",
+    entityId: course.id,
+    after: course,
+  });
+
+  return course;
 }
 
 export async function updateCourse(
@@ -163,10 +174,22 @@ export async function updateCourse(
     updateData.scheduleJson = jsonInput(data.schedule);
   }
 
-  return prisma.course.update({
+  const updatedCourse = await prisma.course.update({
     where: { id: course.id },
     data: updateData,
   });
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: "course.updated",
+    entity: "course",
+    entityId: course.id,
+    before: course,
+    after: updatedCourse,
+    diff: data,
+  });
+
+  return updatedCourse;
 }
 
 export async function archiveCourse(
@@ -175,10 +198,22 @@ export async function archiveCourse(
 ) {
   const course = await getCourseForMutation(params, actor, "active");
 
-  return prisma.course.update({
+  const archivedCourse = await prisma.course.update({
     where: { id: course.id },
     data: { deletedAt: new Date() },
   });
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: "course.archived",
+    entity: "course",
+    entityId: course.id,
+    before: course,
+    after: archivedCourse,
+    diff: { deletedAt: archivedCourse.deletedAt },
+  });
+
+  return archivedCourse;
 }
 
 export async function restoreCourse(
@@ -187,8 +222,20 @@ export async function restoreCourse(
 ) {
   const course = await getCourseForMutation(params, actor, "archived");
 
-  return prisma.course.update({
+  const restoredCourse = await prisma.course.update({
     where: { id: course.id },
     data: { deletedAt: null },
   });
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: "course.restored",
+    entity: "course",
+    entityId: course.id,
+    before: course,
+    after: restoredCourse,
+    diff: { deletedAt: restoredCourse.deletedAt },
+  });
+
+  return restoredCourse;
 }
