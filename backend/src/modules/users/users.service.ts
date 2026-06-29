@@ -6,6 +6,7 @@
 import { UserRole, UserStatus } from "../../prisma/index.js";
 import { prisma } from "../../prisma/client.js";
 import { isUniqueConstraintError } from "../auth/auth.errors.js";
+import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import {
   createUserSchema,
@@ -86,8 +87,8 @@ export async function inviteUser(payload: unknown, actor: UserActor) {
         select: userSelect,
       });
 
-      await tx.auditLog.create({
-        data: {
+      await writeAuditLogSafely(
+        {
           actorId: actor.id,
           action: "user.invited",
           entity: "user",
@@ -97,7 +98,8 @@ export async function inviteUser(payload: unknown, actor: UserActor) {
             status: { to: user.status },
           },
         },
-      });
+        tx,
+      );
 
       return user;
     });
@@ -191,8 +193,8 @@ async function transitionPendingTeacher(input: {
       throw createNotFoundError("Teacher request", input.userId);
     }
 
-    await tx.auditLog.create({
-      data: {
+    await writeAuditLogSafely(
+      {
         actorId: input.actor.id,
         action: input.auditAction,
         entity: "user",
@@ -204,7 +206,8 @@ async function transitionPendingTeacher(input: {
           },
         },
       },
-    });
+      tx,
+    );
 
     return updated;
   });
