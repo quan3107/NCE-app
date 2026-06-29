@@ -140,11 +140,7 @@ describe('assignments.service.updateAssignment', () => {
     })
 
     await expect(
-      updateAssignment(
-        { courseId, assignmentId },
-        { type: 'reading' },
-        ownerTeacher,
-      ),
+      updateAssignment({ courseId, assignmentId }, { type: 'reading' }, ownerTeacher),
     ).rejects.toBeInstanceOf(ZodError)
 
     expect(prisma.assignment.update).not.toHaveBeenCalled()
@@ -223,6 +219,82 @@ describe('assignments.service.updateAssignment', () => {
     )
   })
 
+  it('audits standard assignment field updates', async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    )
+    const originalDueAt = new Date('2026-07-01T00:00:00.000Z')
+    const updatedDueAt = new Date('2026-07-08T00:00:00.000Z')
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      title: 'Draft Reading',
+      description: 'Old description',
+      type: 'reading',
+      dueAt: originalDueAt,
+      latePolicy: null,
+      assignmentConfig: readingConfigWithAiOff,
+      publishedAt: null,
+    })
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      title: 'Published Reading',
+      description: 'New description',
+      type: 'reading',
+      dueAt: updatedDueAt,
+      latePolicy: null,
+      assignmentConfig: readingConfigWithAiOff,
+      publishedAt: updatedDueAt,
+    } as never)
+
+    await updateAssignment(
+      { courseId, assignmentId },
+      {
+        title: 'Published Reading',
+        descriptionMd: 'New description',
+        dueAt: updatedDueAt.toISOString(),
+        publishedAt: updatedDueAt.toISOString(),
+      },
+      ownerTeacher,
+    )
+
+    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerTeacher.id,
+        action: 'assignment.updated',
+        entity: 'assignment',
+        entityId: assignmentId,
+        diff: expect.objectContaining({
+          changes: expect.objectContaining({
+            courseId,
+            title: { from: 'Draft Reading', to: 'Published Reading' },
+            descriptionMd: { changed: true },
+            dueAt: {
+              from: originalDueAt.toISOString(),
+              to: updatedDueAt.toISOString(),
+            },
+            publishedAt: {
+              from: null,
+              to: updatedDueAt.toISOString(),
+            },
+          }),
+        }),
+      }),
+    })
+    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+      'New description',
+    )
+    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+      'Old description',
+    )
+  })
+
   it('keeps assignment updates successful when audit writing fails', async () => {
     prisma.$transaction.mockImplementation(async (callback) =>
       callback({
@@ -279,9 +351,8 @@ describe('assignments.service.updateAssignment', () => {
       deletedAt: new Date('2026-06-29T00:00:00.000Z'),
     } as never)
 
-    const { deleteAssignment } = await import(
-      '../../../src/modules/assignments/assignments.service.js'
-    )
+    const { deleteAssignment } =
+      await import('../../../src/modules/assignments/assignments.service.js')
 
     await deleteAssignment({ courseId, assignmentId }, ownerTeacher)
 
