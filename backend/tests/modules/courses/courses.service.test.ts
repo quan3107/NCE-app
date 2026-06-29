@@ -20,8 +20,16 @@ vi.mock("../../../src/prisma/client.js", () => ({
   },
 }));
 
+vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+  writeAuditLogSafely: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
+const auditLogsModule = await import(
+  "../../../src/modules/audit-logs/audit-logs.service.js"
+);
+const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely);
 
 const { createCourse } = await import(
   "../../../src/modules/courses/courses.service.js"
@@ -81,6 +89,13 @@ describe("courses.service.createCourse", () => {
         ownerId: validCoursePayload.ownerTeacherId,
         scheduleJson: undefined,
       },
+    });
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: validCoursePayload.ownerTeacherId,
+      action: "course.created",
+      entity: "course",
+      entityId: createdCourse.id,
+      after: createdCourse,
     });
     expect(result).toBe(createdCourse);
   });
@@ -176,6 +191,26 @@ describe("courses.service course settings mutations", () => {
         scheduleJson: updatedCourse.scheduleJson,
       },
     });
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: ownerActor.id,
+      action: "course.updated",
+      entity: "course",
+      entityId: courseId,
+      before: {
+        id: courseId,
+        ownerId,
+        deletedAt: null,
+      },
+      after: updatedCourse,
+      diff: {
+        title: updatedCourse.title,
+        description: updatedCourse.description,
+        learningOutcomes: updatedCourse.learningOutcomes,
+        structureSummary: updatedCourse.structureSummary,
+        prerequisitesSummary: updatedCourse.prerequisitesSummary,
+        schedule: updatedCourse.scheduleJson,
+      },
+    });
     expect(result).toBe(updatedCourse);
   });
 
@@ -200,6 +235,24 @@ describe("courses.service course settings mutations", () => {
     expect(prisma.course.update).toHaveBeenNthCalledWith(2, {
       where: { id: courseId },
       data: { deletedAt: null },
+    });
+    expect(writeAuditLogSafely).toHaveBeenNthCalledWith(1, {
+      actorId: adminActor.id,
+      action: "course.archived",
+      entity: "course",
+      entityId: courseId,
+      before: { id: courseId, ownerId, deletedAt: null },
+      after: { id: courseId, ownerId, deletedAt: archivedAt },
+      diff: { deletedAt: archivedAt },
+    });
+    expect(writeAuditLogSafely).toHaveBeenNthCalledWith(2, {
+      actorId: adminActor.id,
+      action: "course.restored",
+      entity: "course",
+      entityId: courseId,
+      before: { id: courseId, ownerId, deletedAt: archivedAt },
+      after: { id: courseId, ownerId, deletedAt: null },
+      diff: { deletedAt: null },
     });
 
     vi.useRealTimers();
