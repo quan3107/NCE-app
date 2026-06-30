@@ -3,22 +3,22 @@
  * Purpose: Implement user CRUD workflows backed by Prisma.
  * Why: Keeps the domain logic isolated from Express concerns for clean layering.
  */
-import { UserRole, UserStatus } from "../../prisma/index.js";
-import { prisma } from "../../prisma/client.js";
-import { isUniqueConstraintError } from "../auth/auth.errors.js";
-import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
-import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
+import { UserRole, UserStatus } from '../../prisma/index.js'
+import { prisma } from '../../prisma/client.js'
+import { isUniqueConstraintError } from '../auth/auth.errors.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
+import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
 import {
   createUserSchema,
   DEFAULT_USER_LIMIT,
   inviteUserSchema,
   userQuerySchema,
   userIdParamsSchema,
-} from "./users.schema.js";
+} from './users.schema.js'
 
 type UserActor = {
-  id: string;
-};
+  id: string
+}
 
 const userSelect = {
   id: true,
@@ -29,39 +29,38 @@ const userSelect = {
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
-};
+}
 
 export async function listUsers(query: unknown) {
-  const { limit: rawLimit, offset: rawOffset } =
-    userQuerySchema.parse(query);
-  const limit = rawLimit ?? DEFAULT_USER_LIMIT;
-  const offset = rawOffset ?? 0;
+  const { limit: rawLimit, offset: rawOffset } = userQuerySchema.parse(query)
+  const limit = rawLimit ?? DEFAULT_USER_LIMIT
+  const offset = rawOffset ?? 0
 
   return prisma.user.findMany({
     where: { deletedAt: null },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit,
     skip: offset,
     // Exclude password hashes from API responses.
     select: userSelect,
-  });
+  })
 }
 
 export async function getUserById(params: unknown) {
-  const { userId } = userIdParamsSchema.parse(params);
+  const { userId } = userIdParamsSchema.parse(params)
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null },
     select: userSelect,
-  });
+  })
   if (!user) {
-    throw createNotFoundError("User", userId);
+    throw createNotFoundError('User', userId)
   }
-  return user;
+  return user
 }
 
-export async function createUser(payload: unknown) {
-  const data = createUserSchema.parse(payload);
-  return prisma.user.create({
+export async function createUser(payload: unknown, actor: UserActor) {
+  const data = createUserSchema.parse(payload)
+  const user = await prisma.user.create({
     data: {
       email: data.email,
       fullName: data.fullName,
@@ -69,15 +68,28 @@ export async function createUser(payload: unknown) {
       status: data.status,
     },
     select: userSelect,
-  });
+  })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'user.created',
+    entity: 'user',
+    entityId: user.id,
+    diff: {
+      role: { to: user.role },
+      status: { to: user.status },
+    },
+  })
+
+  return user
 }
 
 export async function inviteUser(payload: unknown, actor: UserActor) {
-  const data = inviteUserSchema.parse(payload);
+  const data = inviteUserSchema.parse(payload)
 
   try {
-    return await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+    const user = await prisma.$transaction(async (tx) =>
+      tx.user.create({
         data: {
           email: data.email,
           fullName: data.fullName,
@@ -85,65 +97,56 @@ export async function inviteUser(payload: unknown, actor: UserActor) {
           status: UserStatus.invited,
         },
         select: userSelect,
-      });
+      }),
+    )
 
-      await writeAuditLogSafely(
-        {
-          actorId: actor.id,
-          action: "user.invited",
-          entity: "user",
-          entityId: user.id,
-          diff: {
-            role: { to: user.role },
-            status: { to: user.status },
-          },
-        },
-        tx,
-      );
+    await writeAuditLogSafely({
+      actorId: actor.id,
+      action: 'user.invited',
+      entity: 'user',
+      entityId: user.id,
+      diff: {
+        role: { to: user.role },
+        status: { to: user.status },
+      },
+    })
 
-      return user;
-    });
+    return user
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      throw createHttpError(409, "An account with that email already exists.");
+      throw createHttpError(409, 'An account with that email already exists.')
     }
-    throw error;
+    throw error
   }
 }
 
-export async function approveTeacherRequest(
-  params: unknown,
-  actor: UserActor,
-) {
-  const { userId } = userIdParamsSchema.parse(params);
+export async function approveTeacherRequest(params: unknown, actor: UserActor) {
+  const { userId } = userIdParamsSchema.parse(params)
   return transitionPendingTeacher({
     userId,
     actor,
     nextStatus: UserStatus.active,
-    auditAction: "user.teacher_approved",
-  });
+    auditAction: 'user.teacher_approved',
+  })
 }
 
-export async function rejectTeacherRequest(
-  params: unknown,
-  actor: UserActor,
-) {
-  const { userId } = userIdParamsSchema.parse(params);
+export async function rejectTeacherRequest(params: unknown, actor: UserActor) {
+  const { userId } = userIdParamsSchema.parse(params)
   return transitionPendingTeacher({
     userId,
     actor,
     nextStatus: UserStatus.suspended,
-    auditAction: "user.teacher_rejected",
-  });
+    auditAction: 'user.teacher_rejected',
+  })
 }
 
 async function transitionPendingTeacher(input: {
-  userId: string;
-  actor: UserActor;
-  nextStatus: UserStatus;
-  auditAction: string;
+  userId: string
+  actor: UserActor
+  nextStatus: UserStatus
+  auditAction: string
 }) {
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.user.updateMany({
       where: {
         id: input.userId,
@@ -154,7 +157,7 @@ async function transitionPendingTeacher(input: {
       data: {
         status: input.nextStatus,
       },
-    });
+    })
 
     if (result.count === 0) {
       const current = await tx.user.findFirst({
@@ -166,19 +169,15 @@ async function transitionPendingTeacher(input: {
           role: true,
           status: true,
         },
-      });
+      })
 
       if (!current || current.role !== UserRole.teacher) {
-        throw createNotFoundError("Teacher request", input.userId);
+        throw createNotFoundError('Teacher request', input.userId)
       }
 
-      throw createHttpError(
-        409,
-        "Only pending teacher requests can be transitioned.",
-        {
-          status: current.status,
-        },
-      );
+      throw createHttpError(409, 'Only pending teacher requests can be transitioned.', {
+        status: current.status,
+      })
     }
 
     const updated = await tx.user.findFirst({
@@ -187,28 +186,27 @@ async function transitionPendingTeacher(input: {
         deletedAt: null,
       },
       select: userSelect,
-    });
+    })
 
     if (!updated) {
-      throw createNotFoundError("Teacher request", input.userId);
+      throw createNotFoundError('Teacher request', input.userId)
     }
 
-    await writeAuditLogSafely(
-      {
-        actorId: input.actor.id,
-        action: input.auditAction,
-        entity: "user",
-        entityId: updated.id,
-        diff: {
-          status: {
-            from: UserStatus.pending,
-            to: input.nextStatus,
-          },
-        },
-      },
-      tx,
-    );
+    return updated
+  })
 
-    return updated;
-  });
+  await writeAuditLogSafely({
+    actorId: input.actor.id,
+    action: input.auditAction,
+    entity: 'user',
+    entityId: updated.id,
+    diff: {
+      status: {
+        from: UserStatus.pending,
+        to: input.nextStatus,
+      },
+    },
+  })
+
+  return updated
 }
