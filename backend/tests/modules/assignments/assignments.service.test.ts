@@ -190,7 +190,7 @@ describe('assignments.service.updateAssignment', () => {
       ownerTeacher,
     )
 
-    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: ownerTeacher.id,
         action: 'ai_feedback.policy_changed',
@@ -213,8 +213,8 @@ describe('assignments.service.updateAssignment', () => {
         }),
       }),
     })
-    expect(prisma.auditLog.create).not.toHaveBeenCalled()
-    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+    expect(transactionAuditLogCreate).not.toHaveBeenCalled()
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       'Read and answer all questions.',
     )
   })
@@ -264,7 +264,7 @@ describe('assignments.service.updateAssignment', () => {
       ownerTeacher,
     )
 
-    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: ownerTeacher.id,
         action: 'assignment.updated',
@@ -287,10 +287,11 @@ describe('assignments.service.updateAssignment', () => {
         }),
       }),
     })
-    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+    expect(transactionAuditLogCreate).not.toHaveBeenCalled()
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       'New description',
     )
-    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       'Old description',
     )
   })
@@ -304,7 +305,7 @@ describe('assignments.service.updateAssignment', () => {
         },
       }),
     )
-    transactionAuditLogCreate.mockRejectedValueOnce(new Error('audit failed'))
+    prisma.auditLog.create.mockRejectedValueOnce(new Error('audit failed'))
     prisma.assignment.findFirst.mockResolvedValueOnce({
       id: assignmentId,
       courseId,
@@ -341,7 +342,8 @@ describe('assignments.service.updateAssignment', () => {
     )
 
     expect(result.id).toBe(assignmentId)
-    expect(transactionAuditLogCreate).toHaveBeenCalled()
+    expect(prisma.auditLog.create).toHaveBeenCalled()
+    expect(transactionAuditLogCreate).not.toHaveBeenCalled()
   })
 
   it('audits deleted assignments', async () => {
