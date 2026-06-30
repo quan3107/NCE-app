@@ -14,6 +14,7 @@ import { AUTH_ERROR, createAuthError, isUniqueConstraintError } from './auth.err
 import { generateRefreshToken } from './auth.crypto.js'
 import { authRateLimiter } from './auth.rate-limit.js'
 import { persistSession } from './auth.sessions.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import {
   assertActiveUser,
   assertUserIsActive,
@@ -26,6 +27,11 @@ import type {
 } from './auth.types.js'
 
 const PASSWORD_SALT_ROUNDS = 12
+
+const requestMetadataFromContext = (context: SessionContext) => ({
+  ipAddress: context.ipAddress ?? null,
+  userAgent: context.userAgent ?? null,
+})
 
 function getInitialRegistrationStatus(role: UserRole): UserStatus {
   return role === UserRole.teacher ? UserStatus.pending : UserStatus.active
@@ -118,6 +124,19 @@ export async function handlePasswordLogin(
 
   authRateLimiter.recordPasswordLoginSuccess(loginAttempt)
 
+  await writeAuditLogSafely({
+    actorId: user.id,
+    action: 'auth.login_succeeded',
+    entity: 'auth_session',
+    entityId: session.id,
+    diff: {
+      userId: user.id,
+      role: user.role,
+      status: user.status,
+    },
+    requestMetadata: requestMetadataFromContext(context),
+  })
+
   return {
     user: toAuthenticatedUser(user),
     accessToken,
@@ -187,6 +206,18 @@ export async function handleRegisterAccount(
   )
 
   if (userRecord.status === UserStatus.pending) {
+    await writeAuditLogSafely({
+      actorId: userRecord.id,
+      action: 'auth.registered',
+      entity: 'user',
+      entityId: userRecord.id,
+      diff: {
+        role: { to: userRecord.role },
+        status: { to: userRecord.status },
+      },
+      requestMetadata: requestMetadataFromContext(context),
+    })
+
     return {
       status: 'pending_approval',
       user: {
@@ -204,6 +235,18 @@ export async function handleRegisterAccount(
     userId: userRecord.id,
     role: userRecord.role,
     status: userRecord.status,
+  })
+
+  await writeAuditLogSafely({
+    actorId: userRecord.id,
+    action: 'auth.registered',
+    entity: 'user',
+    entityId: userRecord.id,
+    diff: {
+      role: { to: userRecord.role },
+      status: { to: userRecord.status },
+    },
+    requestMetadata: requestMetadataFromContext(context),
   })
 
   return {
