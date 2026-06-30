@@ -3,8 +3,14 @@
  * Purpose: Implement notification persistence workflows via Prisma.
  * Why: Keeps notification logic isolated from transport-specific code.
  */
-import { NotificationChannel, Prisma, UserRole } from "../../prisma/index.js";
+import {
+  NotificationChannel,
+  NotificationStatus,
+  Prisma,
+  UserRole,
+} from "../../prisma/index.js";
 
+import { logger } from "../../config/logger.js";
 import { prisma } from "../../prisma/client.js";
 import {
   createHttpError,
@@ -74,13 +80,56 @@ export async function getNotificationById(
   actor: NotificationActor,
 ) {
   const { notificationId } = notificationIdParamsSchema.parse(params);
+  const where: Prisma.NotificationWhereInput = {
+    id: notificationId,
+    deletedAt: null,
+  };
+
+  if (actor.role !== UserRole.admin) {
+    where.userId = actor.id;
+  }
+
   const notification = await prisma.notification.findFirst({
-    where: { id: notificationId, deletedAt: null, userId: actor.id },
+    where,
   });
   if (!notification) {
     throw createNotFoundError("Notification", notificationId);
   }
   return notification;
+}
+
+export async function resendNotification(params: unknown) {
+  const { notificationId } = notificationIdParamsSchema.parse(params);
+  const notification = await prisma.notification.findFirst({
+    where: { id: notificationId, deletedAt: null },
+  });
+
+  if (!notification) {
+    throw createNotFoundError("Notification", notificationId);
+  }
+
+  const resentNotification = await prisma.notification.update({
+    where: { id: notificationId },
+    data: {
+      attemptCount: 0,
+      deadLetteredAt: null,
+      failureReason: null,
+      lastAttemptAt: null,
+      nextAttemptAt: null,
+      status: NotificationStatus.queued,
+    },
+  });
+
+  logger.info(
+    {
+      event: "notification_delivery_resent",
+      notification_id: notificationId,
+      previous_status: notification.status,
+    },
+    "Notification queued for resend",
+  );
+
+  return resentNotification;
 }
 
 export async function markNotificationsRead(
