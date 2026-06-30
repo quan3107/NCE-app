@@ -3,87 +3,89 @@
  * Purpose: Verify enrollment write-side validation rules.
  * Why: Keeps course rosters aligned with account roles and lifecycle states.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  EnrollmentRole,
-  UserRole,
-  UserStatus,
-} from "../../../src/prisma/index.js";
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EnrollmentRole, UserRole, UserStatus } from '../../../src/prisma/index.js'
 
-vi.mock("../../../src/prisma/client.js", () => ({
+vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
     course: {
       findFirst: vi.fn(),
     },
     enrollment: {
       findUnique: vi.fn(),
+      update: vi.fn(),
       upsert: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
     },
     user: {
       findFirst: vi.fn(),
     },
   },
-}));
+}))
 
-const prismaModule = await import("../../../src/prisma/client.js");
-const prisma = vi.mocked(prismaModule.prisma, true);
+const prismaModule = await import('../../../src/prisma/client.js')
+const prisma = vi.mocked(prismaModule.prisma, true)
 
-const { createEnrollment } = await import(
-  "../../../src/modules/enrollments/enrollments.service.js"
-);
+const { createEnrollment, deleteEnrollment } =
+  await import('../../../src/modules/enrollments/enrollments.service.js')
 
-const courseId = "11111111-1111-4111-8111-111111111111";
-const userId = "22222222-2222-4222-8222-222222222222";
+const courseId = '11111111-1111-4111-8111-111111111111'
+const userId = '22222222-2222-4222-8222-222222222222'
+const actor = {
+  id: '44444444-4444-4444-8444-444444444444',
+}
 
 const studentEnrollmentPayload = {
   courseId,
   userId,
   roleInCourse: EnrollmentRole.student,
-};
+}
 
-const buildEnrollment = (
-  roleInCourse: EnrollmentRole,
-  userRole: UserRole,
-) => ({
-  id: "33333333-3333-4333-8333-333333333333",
+const buildEnrollment = (roleInCourse: EnrollmentRole, userRole: UserRole) => ({
+  id: '33333333-3333-4333-8333-333333333333',
   courseId,
   userId,
   roleInCourse,
-  createdAt: new Date("2026-05-29T00:00:00.000Z"),
-  updatedAt: new Date("2026-05-29T00:00:00.000Z"),
+  createdAt: new Date('2026-05-29T00:00:00.000Z'),
+  updatedAt: new Date('2026-05-29T00:00:00.000Z'),
   user: {
     id: userId,
-    fullName: "Amelia Chan",
-    email: "amelia.chan@example.com",
+    fullName: 'Amelia Chan',
+    email: 'amelia.chan@example.com',
     role: userRole,
     status: UserStatus.active,
   },
   course: {
     id: courseId,
-    title: "IELTS Writing Intensive",
+    title: 'IELTS Writing Intensive',
   },
-});
+})
 
-describe("enrollments.service.createEnrollment", () => {
+describe('enrollments.service.createEnrollment', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    prisma.course.findFirst.mockResolvedValue({ id: courseId });
-  });
+    vi.clearAllMocks()
+    prisma.course.findFirst.mockReset()
+    prisma.user.findFirst.mockReset()
+    prisma.enrollment.findUnique.mockReset()
+    prisma.enrollment.update.mockReset()
+    prisma.enrollment.upsert.mockReset()
+    prisma.auditLog.create.mockReset()
+    prisma.course.findFirst.mockResolvedValue({ id: courseId })
+  })
 
-  it("creates a student enrollment for an active student", async () => {
-    const createdEnrollment = buildEnrollment(
-      EnrollmentRole.student,
-      UserRole.student,
-    );
+  it('creates a student enrollment for an active student', async () => {
+    const createdEnrollment = buildEnrollment(EnrollmentRole.student, UserRole.student)
     prisma.user.findFirst.mockResolvedValueOnce({
       id: userId,
       role: UserRole.student,
       status: UserStatus.active,
-    });
-    prisma.enrollment.findUnique.mockResolvedValueOnce(null);
-    prisma.enrollment.upsert.mockResolvedValueOnce(createdEnrollment);
+    })
+    prisma.enrollment.findUnique.mockResolvedValueOnce(null)
+    prisma.enrollment.upsert.mockResolvedValueOnce(createdEnrollment)
 
-    const result = await createEnrollment(studentEnrollmentPayload);
+    const result = await createEnrollment(studentEnrollmentPayload, actor)
 
     expect(prisma.enrollment.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -103,28 +105,40 @@ describe("enrollments.service.createEnrollment", () => {
           roleInCourse: EnrollmentRole.student,
         },
       }),
-    );
-    expect(result).toBe(createdEnrollment);
-  });
+    )
+    expect(result).toBe(createdEnrollment)
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: actor.id,
+        action: 'enrollment.created',
+        entity: 'enrollment',
+        entityId: createdEnrollment.id,
+        diff: expect.objectContaining({
+          changes: expect.objectContaining({
+            courseId,
+            userId,
+            roleInCourse: EnrollmentRole.student,
+          }),
+        }),
+      }),
+    })
+  })
 
-  it("creates a teacher enrollment for an active teacher", async () => {
+  it('creates a teacher enrollment for an active teacher', async () => {
     const teacherEnrollmentPayload = {
       ...studentEnrollmentPayload,
       roleInCourse: EnrollmentRole.teacher,
-    };
-    const createdEnrollment = buildEnrollment(
-      EnrollmentRole.teacher,
-      UserRole.teacher,
-    );
+    }
+    const createdEnrollment = buildEnrollment(EnrollmentRole.teacher, UserRole.teacher)
     prisma.user.findFirst.mockResolvedValueOnce({
       id: userId,
       role: UserRole.teacher,
       status: UserStatus.active,
-    });
-    prisma.enrollment.findUnique.mockResolvedValueOnce(null);
-    prisma.enrollment.upsert.mockResolvedValueOnce(createdEnrollment);
+    })
+    prisma.enrollment.findUnique.mockResolvedValueOnce(null)
+    prisma.enrollment.upsert.mockResolvedValueOnce(createdEnrollment)
 
-    const result = await createEnrollment(teacherEnrollmentPayload);
+    const result = await createEnrollment(teacherEnrollmentPayload, actor)
 
     expect(prisma.enrollment.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -144,114 +158,164 @@ describe("enrollments.service.createEnrollment", () => {
           roleInCourse: EnrollmentRole.teacher,
         },
       }),
-    );
-    expect(result).toBe(createdEnrollment);
-  });
+    )
+    expect(result).toBe(createdEnrollment)
+  })
 
-  it("rejects a teacher enrolled with the student course role", async () => {
+  it('rejects a teacher enrolled with the student course role', async () => {
     prisma.user.findFirst.mockResolvedValueOnce({
       id: userId,
       role: UserRole.teacher,
       status: UserStatus.active,
-    });
+    })
 
-    await expect(createEnrollment(studentEnrollmentPayload)).rejects.toMatchObject({
-      statusCode: 409,
-      message: "Enrollment role must match the user's account role.",
-      details: {
-        code: "invalid_role_pairing",
-        expectedRole: UserRole.student,
-        actualRole: UserRole.teacher,
+    await expect(createEnrollment(studentEnrollmentPayload, actor)).rejects.toMatchObject(
+      {
+        statusCode: 409,
+        message: "Enrollment role must match the user's account role.",
+        details: {
+          code: 'invalid_role_pairing',
+          expectedRole: UserRole.student,
+          actualRole: UserRole.teacher,
+        },
       },
-    });
+    )
 
-    expect(prisma.enrollment.upsert).not.toHaveBeenCalled();
-  });
+    expect(prisma.enrollment.upsert).not.toHaveBeenCalled()
+  })
 
-  it("rejects a student enrolled with the teacher course role", async () => {
+  it('rejects a student enrolled with the teacher course role', async () => {
     prisma.user.findFirst.mockResolvedValueOnce({
       id: userId,
       role: UserRole.student,
       status: UserStatus.active,
-    });
+    })
 
     await expect(
-      createEnrollment({
-        ...studentEnrollmentPayload,
-        roleInCourse: EnrollmentRole.teacher,
-      }),
+      createEnrollment(
+        {
+          ...studentEnrollmentPayload,
+          roleInCourse: EnrollmentRole.teacher,
+        },
+        actor,
+      ),
     ).rejects.toMatchObject({
       statusCode: 409,
       message: "Enrollment role must match the user's account role.",
       details: {
-        code: "invalid_role_pairing",
+        code: 'invalid_role_pairing',
         expectedRole: UserRole.teacher,
         actualRole: UserRole.student,
       },
-    });
+    })
 
-    expect(prisma.enrollment.upsert).not.toHaveBeenCalled();
-  });
+    expect(prisma.enrollment.upsert).not.toHaveBeenCalled()
+  })
 
-  it("rejects a suspended user before creating an enrollment", async () => {
+  it('rejects a suspended user before creating an enrollment', async () => {
     prisma.user.findFirst.mockResolvedValueOnce({
       id: userId,
       role: UserRole.student,
       status: UserStatus.suspended,
-    });
+    })
 
-    await expect(createEnrollment(studentEnrollmentPayload)).rejects.toMatchObject({
-      statusCode: 409,
-      message: "Suspended users cannot be enrolled in courses.",
-      details: {
-        code: "invalid_role_pairing",
-        actualStatus: UserStatus.suspended,
+    await expect(createEnrollment(studentEnrollmentPayload, actor)).rejects.toMatchObject(
+      {
+        statusCode: 409,
+        message: 'Suspended users cannot be enrolled in courses.',
+        details: {
+          code: 'invalid_role_pairing',
+          actualStatus: UserStatus.suspended,
+        },
       },
-    });
+    )
 
-    expect(prisma.enrollment.upsert).not.toHaveBeenCalled();
-  });
+    expect(prisma.enrollment.upsert).not.toHaveBeenCalled()
+  })
 
-  it("returns a conflict for a duplicate active enrollment", async () => {
+  it('returns a conflict for a duplicate active enrollment', async () => {
     prisma.user.findFirst.mockResolvedValueOnce({
       id: userId,
       role: UserRole.student,
       status: UserStatus.active,
-    });
+    })
     prisma.enrollment.findUnique.mockResolvedValueOnce({
-      id: "33333333-3333-4333-8333-333333333333",
+      id: '33333333-3333-4333-8333-333333333333',
       deletedAt: null,
-    });
+    })
 
-    await expect(createEnrollment(studentEnrollmentPayload)).rejects.toMatchObject({
-      statusCode: 409,
-      message: "Enrollment already exists",
-      details: {
-        code: "duplicate_active_enrollment",
+    await expect(createEnrollment(studentEnrollmentPayload, actor)).rejects.toMatchObject(
+      {
+        statusCode: 409,
+        message: 'Enrollment already exists',
+        details: {
+          code: 'duplicate_active_enrollment',
+        },
       },
-    });
+    )
 
-    expect(prisma.enrollment.upsert).not.toHaveBeenCalled();
-  });
+    expect(prisma.enrollment.upsert).not.toHaveBeenCalled()
+  })
 
-  it("revalidates role compatibility before reactivating a deleted enrollment", async () => {
+  it('revalidates role compatibility before reactivating a deleted enrollment', async () => {
     prisma.user.findFirst.mockResolvedValueOnce({
       id: userId,
       role: UserRole.teacher,
       status: UserStatus.active,
-    });
+    })
     prisma.enrollment.findUnique.mockResolvedValueOnce({
-      id: "33333333-3333-4333-8333-333333333333",
-      deletedAt: new Date("2026-05-01T00:00:00.000Z"),
-    });
+      id: '33333333-3333-4333-8333-333333333333',
+      deletedAt: new Date('2026-05-01T00:00:00.000Z'),
+    })
 
-    await expect(createEnrollment(studentEnrollmentPayload)).rejects.toMatchObject({
-      statusCode: 409,
-      details: {
-        code: "invalid_role_pairing",
+    await expect(createEnrollment(studentEnrollmentPayload, actor)).rejects.toMatchObject(
+      {
+        statusCode: 409,
+        details: {
+          code: 'invalid_role_pairing',
+        },
       },
-    });
+    )
 
-    expect(prisma.enrollment.upsert).not.toHaveBeenCalled();
-  });
-});
+    expect(prisma.enrollment.upsert).not.toHaveBeenCalled()
+  })
+
+  it('audits deleted enrollments', async () => {
+    prisma.enrollment.findUnique.mockResolvedValueOnce({
+      id: '33333333-3333-4333-8333-333333333333',
+      courseId,
+      userId,
+      roleInCourse: EnrollmentRole.student,
+      deletedAt: null,
+    })
+    prisma.enrollment.update.mockResolvedValueOnce({
+      id: '33333333-3333-4333-8333-333333333333',
+      deletedAt: new Date('2026-06-30T00:00:00.000Z'),
+    })
+
+    await deleteEnrollment(
+      { enrollmentId: '33333333-3333-4333-8333-333333333333' },
+      actor,
+    )
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: actor.id,
+        action: 'enrollment.deleted',
+        entity: 'enrollment',
+        entityId: '33333333-3333-4333-8333-333333333333',
+        diff: expect.objectContaining({
+          changes: expect.objectContaining({
+            courseId,
+            userId,
+            roleInCourse: EnrollmentRole.student,
+            deletedAt: {
+              from: null,
+              to: expect.any(String),
+            },
+          }),
+        }),
+      }),
+    })
+  })
+})
