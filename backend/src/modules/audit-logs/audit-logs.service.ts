@@ -119,6 +119,10 @@ function sanitizeAuditValue(key: string, value: unknown): unknown {
     return value.map((entry) => sanitizeAuditValue(key, entry))
   }
 
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+
   if (value && typeof value === 'object') {
     return sanitizeAuditRecord(value as JsonRecord)
   }
