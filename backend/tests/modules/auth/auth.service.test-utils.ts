@@ -20,6 +20,10 @@ const joseMocks = vi.hoisted(() => {
   };
 });
 
+const roleContext = vi.hoisted(() => ({
+  depth: 0,
+}));
+
 vi.mock("node:crypto", async () => {
   const actual = await vi.importActual<typeof import("node:crypto")>(
     "node:crypto",
@@ -62,9 +66,14 @@ vi.mock("../../../src/config/prismaClient.js", () => {
 });
 
 vi.mock("../../../src/prisma/client.js", () => ({
-  runWithRole: vi.fn(async (_options, fn: (tx: unknown) => Promise<unknown>) =>
-    fn({}),
-  ),
+  runWithRole: vi.fn(async (_options, fn: (tx: unknown) => Promise<unknown>) => {
+    roleContext.depth += 1;
+    try {
+      return await fn({});
+    } finally {
+      roleContext.depth -= 1;
+    }
+  }),
 }));
 
 vi.mock("bcrypt", () => {
@@ -116,6 +125,7 @@ export const bcryptCompareMock = bcrypt.compare as unknown as MockedFunction<
 export const createRemoteJWKSetMock = joseMocks.createRemoteJWKSet;
 export const jwtVerifyMock = joseMocks.jwtVerify;
 export const googleRemoteJwksMock = joseMocks.remoteJwks;
+export const isRunWithRoleActive = () => roleContext.depth > 0;
 
 export const {
   resetAuthRateLimiter,
