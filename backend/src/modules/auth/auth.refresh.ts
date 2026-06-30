@@ -196,7 +196,7 @@ export async function handleLogout(
         return null
       }
 
-      await prisma.authSession.updateMany({
+      const revokeResult = await prisma.authSession.updateMany({
         where: {
           refreshTokenHash,
           revokedAt: null,
@@ -205,6 +205,10 @@ export async function handleLogout(
           revokedAt: new Date(),
         },
       })
+
+      if (revokeResult.count !== 1) {
+        return null
+      }
 
       return session
     },
