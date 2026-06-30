@@ -28,6 +28,33 @@ Notification:
       type: string
       format: date-time
       nullable: true
+    attemptCount:
+      type: integer
+      format: int32
+      description: Number of delivery attempts already made.
+    maxAttempts:
+      type: integer
+      format: int32
+      description: Maximum delivery attempts before dead-lettering.
+    nextAttemptAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Next retry time for queued transport failures.
+    lastAttemptAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Most recent delivery attempt time.
+    failureReason:
+      type: string
+      nullable: true
+      description: Redacted delivery failure or suppression reason.
+    deadLetteredAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Time the notification reached the dead-letter state.
     createdAt:
       type: string
       format: date-time
@@ -38,7 +65,17 @@ Notification:
       type: string
       format: date-time
       nullable: true
-  required: [id, userId, type, payload, channel, status, createdAt, updatedAt]
+  required:
+    - id
+    - userId
+    - type
+    - payload
+    - channel
+    - status
+    - attemptCount
+    - maxAttempts
+    - createdAt
+    - updatedAt
 
 CreateNotificationRequest:
   type: object
@@ -78,3 +115,7 @@ MarkNotificationsReadResponse:
       type: integer
       format: int32
   required: [userId, updatedCount]
+
+ResendNotificationResponse:
+  allOf:
+    - $ref: '#/Notification'
