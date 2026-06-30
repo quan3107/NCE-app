@@ -196,6 +196,12 @@ model Notification {
   status    NotificationStatus
   sentAt    DateTime?           @map("sent_at") @db.Timestamptz
   readAt    DateTime?           @map("read_at") @db.Timestamptz
+  attemptCount   Int            @default(0) @map("attempt_count")
+  maxAttempts    Int            @default(3) @map("max_attempts")
+  nextAttemptAt  DateTime?      @map("next_attempt_at") @db.Timestamptz
+  lastAttemptAt  DateTime?      @map("last_attempt_at") @db.Timestamptz
+  failureReason  String?        @map("failure_reason")
+  deadLetteredAt DateTime?      @map("dead_lettered_at") @db.Timestamptz
   user      User                @relation(fields: [userId], references: [id])
   createdAt DateTime            @default(now()) @db.Timestamptz
   updatedAt DateTime            @updatedAt @db.Timestamptz
@@ -203,6 +209,7 @@ model Notification {
 
   @@index([userId, deletedAt, createdAt], map: "notifications_user_id_deletedAt_createdAt_idx")
   @@index([status, deletedAt, createdAt], map: "notifications_status_deletedAt_createdAt_idx")
+  @@index([status, deletedAt, nextAttemptAt], map: "notifications_status_deletedAt_nextAttemptAt_idx")
   @@index([userId, readAt, deletedAt], map: "notifications_user_id_read_at_deletedAt_idx")
   @@index([userId, status, sentAt])
   @@map("notifications")
@@ -638,6 +645,8 @@ enum NotificationStatus {
   sent
   failed
   read
+  suppressed
+  dead_letter
 }
 
 enum IdentityProvider {
