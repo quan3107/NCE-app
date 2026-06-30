@@ -9,6 +9,7 @@ import { prisma } from "../prisma/client.js";
 import { sendNotificationEmail } from "../utils/emailClient.js";
 
 const DELIVERY_BATCH_SIZE = 50;
+const DEFAULT_MAX_DELIVERY_ATTEMPTS = 3;
 
 const EMAIL_SUBJECTS: Record<string, string> = {
   due_soon: "Assignment due soon",
@@ -18,10 +19,12 @@ const EMAIL_SUBJECTS: Record<string, string> = {
 };
 
 export async function handleDeliverQueuedJob(): Promise<void> {
+  const now = new Date();
   const queuedNotifications = await prisma.notification.findMany({
     where: {
       status: "queued",
       deletedAt: null,
+      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
     },
     include: {
       user: {
@@ -73,7 +76,9 @@ export async function handleDeliverQueuedJob(): Promise<void> {
           await prisma.notification.update({
             where: { id: notification.id },
             data: {
-              status: "failed",
+              failureReason: "suppressed_by_preference",
+              lastAttemptAt: now,
+              status: "suppressed",
             },
           });
           continue;
@@ -107,21 +112,104 @@ export async function handleDeliverQueuedJob(): Promise<void> {
       await prisma.notification.update({
         where: { id: notification.id },
         data: {
+          failureReason: null,
+          lastAttemptAt: now,
+          nextAttemptAt: null,
           status: "sent",
-          sentAt: new Date(),
+          sentAt: now,
         },
       });
-    } catch (error) {
-      logger.error(
-        { err: error, notificationId: notification.id },
-        "Notification delivery failed",
+      logger.info(
+        {
+          event: "notification_delivery_sent",
+          notification_id: notification.id,
+          user_id: notification.userId,
+          type: notification.type,
+          channel: notification.channel,
+        },
+        "Queued notification delivered",
       );
-      await prisma.notification.update({
-        where: { id: notification.id },
-        data: {
-          status: "failed",
-        },
-      });
+    } catch (error) {
+      await recordDeliveryFailure(notification, error, now);
     }
   }
+}
+
+type QueuedNotification = Awaited<
+  ReturnType<typeof prisma.notification.findMany>
+>[number];
+
+async function recordDeliveryFailure(
+  notification: QueuedNotification,
+  error: unknown,
+  attemptedAt: Date,
+): Promise<void> {
+  const attemptCount = notification.attemptCount + 1;
+  const maxAttempts =
+    notification.maxAttempts > 0
+      ? notification.maxAttempts
+      : DEFAULT_MAX_DELIVERY_ATTEMPTS;
+  const failureReason = redactFailureReason(error);
+
+  if (attemptCount >= maxAttempts) {
+    logger.error(
+      {
+        err: error,
+        event: "notification_delivery_dead_lettered",
+        notification_id: notification.id,
+        attempt_count: attemptCount,
+        max_attempts: maxAttempts,
+      },
+      "Notification delivery dead-lettered",
+    );
+    await prisma.notification.update({
+      where: { id: notification.id },
+      data: {
+        attemptCount: { increment: 1 },
+        deadLetteredAt: attemptedAt,
+        failureReason,
+        lastAttemptAt: attemptedAt,
+        nextAttemptAt: null,
+        status: "dead_letter",
+      },
+    });
+    return;
+  }
+
+  const nextAttemptAt = calculateNextAttemptAt(attemptCount, attemptedAt);
+  logger.info(
+    {
+      err: error,
+      event: "notification_delivery_retry_scheduled",
+      notification_id: notification.id,
+      attempt_count: attemptCount,
+      max_attempts: maxAttempts,
+      next_attempt_at: nextAttemptAt.toISOString(),
+    },
+    "Notification delivery retry scheduled",
+  );
+  await prisma.notification.update({
+    where: { id: notification.id },
+    data: {
+      attemptCount: { increment: 1 },
+      failureReason,
+      lastAttemptAt: attemptedAt,
+      nextAttemptAt,
+      status: "queued",
+    },
+  });
+}
+
+function calculateNextAttemptAt(attemptCount: number, attemptedAt: Date): Date {
+  const delayMinutes = Math.min(60, 2 ** attemptCount);
+  return new Date(attemptedAt.getTime() + delayMinutes * 60 * 1000);
+}
+
+function redactFailureReason(error: unknown): string {
+  const rawReason = error instanceof Error ? error.message : String(error);
+  const redactedReason = rawReason.replace(
+    /\b(password|token|secret|api[_-]?key|authorization)\b\s*[:=]?\s*\S+/gi,
+    (_match, label: string) => `${label} [redacted]`,
+  );
+  return redactedReason.slice(0, 500);
 }
