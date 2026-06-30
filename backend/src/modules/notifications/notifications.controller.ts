@@ -10,6 +10,7 @@ import {
   getNotificationById,
   listNotifications,
   markNotificationsRead,
+  resendNotification,
 } from "./notifications.service.js";
 
 export async function getNotifications(
@@ -66,4 +67,12 @@ export async function postNotificationsRead(
 
   const result = await markNotificationsRead(req.body, actor);
   res.status(200).json(result);
+}
+
+export async function postNotificationResend(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const notification = await resendNotification(req.params);
+  res.status(200).json(notification);
 }
