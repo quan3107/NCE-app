@@ -156,6 +156,42 @@ describe('audit log service', () => {
     )
   })
 
+  it('serializes Date values in audit diffs', async () => {
+    prisma.auditLog.create.mockResolvedValueOnce({ id: 'audit-1' } as never)
+    const archivedAt = new Date('2026-06-30T04:15:00.000Z')
+
+    await writeAuditLog({
+      actorId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
+      action: 'course.archived',
+      entity: 'course',
+      entityId: 'course-1',
+      before: {
+        deletedAt: null,
+      },
+      after: {
+        deletedAt: archivedAt,
+      },
+      diff: {
+        deletedAt: { from: null, to: archivedAt },
+      },
+    })
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        diff: expect.objectContaining({
+          before: { deletedAt: null },
+          after: { deletedAt: archivedAt.toISOString() },
+          changes: {
+            deletedAt: {
+              from: null,
+              to: archivedAt.toISOString(),
+            },
+          },
+        }),
+      }),
+    })
+  })
+
   it('logs and swallows audit insertion failures for safe writes', async () => {
     const error = new Error('insert failed')
     prisma.auditLog.create.mockRejectedValueOnce(error as never)
