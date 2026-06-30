@@ -345,48 +345,47 @@ export async function updateAssignment(
     updateData.publishedAt = publishedAt
   }
 
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.assignment.update({
+  const shouldAuditAssignmentUpdate = Object.keys(updateData).length > 0
+  const shouldAuditAiPolicyChange =
+    payload.assignmentConfig !== undefined &&
+    hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
+
+  const updated = await prisma.$transaction(async (tx) =>
+    tx.assignment.update({
       where: { id: assignmentId },
       data: updateData,
+    }),
+  )
+
+  if (shouldAuditAssignmentUpdate) {
+    await writeAuditLogSafely({
+      actorId: actor.id,
+      action: 'assignment.updated',
+      entity: 'assignment',
+      entityId: assignmentId,
+      diff: buildAssignmentUpdateAuditDiff(existing, updated, payload, courseId),
     })
+  }
 
-    if (Object.keys(updateData).length > 0) {
-      await writeAuditLogSafely(
-        {
-          actorId: actor.id,
-          action: 'assignment.updated',
-          entity: 'assignment',
-          entityId: assignmentId,
-          diff: buildAssignmentUpdateAuditDiff(existing, updated, payload, courseId),
+  if (shouldAuditAiPolicyChange) {
+    await recordAiFeedbackAudit(
+      {
+        actorId: actor.id,
+        action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
+        entity: 'assignment',
+        entityId: assignmentId,
+        entityIds: { courseId, assignmentId },
+        payload: {
+          before: aiPolicyFromConfig(existing.assignmentConfig),
+          after: aiPolicyFromConfig(assignmentConfig),
         },
-        tx,
-      )
-    }
+      },
+      undefined,
+      true,
+    )
+  }
 
-    if (
-      payload.assignmentConfig !== undefined &&
-      hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
-    ) {
-      await recordAiFeedbackAudit(
-        {
-          actorId: actor.id,
-          action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
-          entity: 'assignment',
-          entityId: assignmentId,
-          entityIds: { courseId, assignmentId },
-          payload: {
-            before: aiPolicyFromConfig(existing.assignmentConfig),
-            after: aiPolicyFromConfig(assignmentConfig),
-          },
-        },
-        tx,
-        true,
-      )
-    }
-
-    return updated
-  })
+  return updated
 }
 
 export async function deleteAssignment(params: unknown, actor: CourseManager) {
