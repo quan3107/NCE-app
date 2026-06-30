@@ -177,42 +177,51 @@ export async function handleLogout(
 
   const refreshTokenHash = hashValue(refreshToken)
 
-  await runWithRole({ role: 'service_role', userRole: 'service_role' }, async () => {
-    const session = await prisma.authSession.findFirst({
-      where: {
-        refreshTokenHash,
-        revokedAt: null,
-      },
-      select: {
-        id: true,
-        userId: true,
-        familyId: true,
-      },
-    })
+  const revokedSession = await runWithRole(
+    { role: 'service_role', userRole: 'service_role' },
+    async () => {
+      const session = await prisma.authSession.findFirst({
+        where: {
+          refreshTokenHash,
+          revokedAt: null,
+        },
+        select: {
+          id: true,
+          userId: true,
+          familyId: true,
+        },
+      })
 
-    if (!session) {
-      return
-    }
+      if (!session) {
+        return null
+      }
 
-    await prisma.authSession.updateMany({
-      where: {
-        refreshTokenHash,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    })
+      await prisma.authSession.updateMany({
+        where: {
+          refreshTokenHash,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      })
 
-    await writeAuditLogSafely({
-      actorId: session.userId,
-      action: 'auth.session_revoked',
-      entity: 'auth_session',
-      entityId: session.id,
-      diff: {
-        familyId: session.familyId,
-      },
-      requestMetadata: requestMetadataFromContext(context),
-    })
+      return session
+    },
+  )
+
+  if (!revokedSession) {
+    return
+  }
+
+  await writeAuditLogSafely({
+    actorId: revokedSession.userId,
+    action: 'auth.session_revoked',
+    entity: 'auth_session',
+    entityId: revokedSession.id,
+    diff: {
+      familyId: revokedSession.familyId,
+    },
+    requestMetadata: requestMetadataFromContext(context),
   })
 }
