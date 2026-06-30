@@ -16,9 +16,15 @@ import {
 import { assertActiveUser, toAuthenticatedUser } from './auth.users.js'
 import { signAccessToken } from './auth.tokens.js'
 import type { AuthSessionResult, SessionContext } from './auth.types.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 
 const invalidRefreshTokenError = () =>
   createAuthError(401, 'Refresh token is invalid or expired.')
+
+const requestMetadataFromContext = (context: SessionContext) => ({
+  ipAddress: context.ipAddress ?? null,
+  userAgent: context.userAgent ?? null,
+})
 
 export async function handleSessionRefresh(
   payload: unknown,
@@ -133,6 +139,18 @@ export async function handleSessionRefresh(
     status: user.status,
   })
 
+  await writeAuditLogSafely({
+    actorId: user.id,
+    action: 'auth.session_refreshed',
+    entity: 'auth_session',
+    entityId: rotated.id,
+    diff: {
+      previousSessionId: rotated.rotatedFromId,
+      familyId: rotated.familyId,
+    },
+    requestMetadata: requestMetadataFromContext(context),
+  })
+
   return {
     user: toAuthenticatedUser(user),
     accessToken,
@@ -159,15 +177,55 @@ export async function handleLogout(
 
   const refreshTokenHash = hashValue(refreshToken)
 
-  await runWithRole({ role: 'service_role', userRole: 'service_role' }, async () => {
-    await prisma.authSession.updateMany({
-      where: {
-        refreshTokenHash,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    })
+  const revokedSession = await runWithRole(
+    { role: 'service_role', userRole: 'service_role' },
+    async () => {
+      const session = await prisma.authSession.findFirst({
+        where: {
+          refreshTokenHash,
+          revokedAt: null,
+        },
+        select: {
+          id: true,
+          userId: true,
+          familyId: true,
+        },
+      })
+
+      if (!session) {
+        return null
+      }
+
+      const revokeResult = await prisma.authSession.updateMany({
+        where: {
+          refreshTokenHash,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      })
+
+      if (revokeResult.count !== 1) {
+        return null
+      }
+
+      return session
+    },
+  )
+
+  if (!revokedSession) {
+    return
+  }
+
+  await writeAuditLogSafely({
+    actorId: revokedSession.userId,
+    action: 'auth.session_revoked',
+    entity: 'auth_session',
+    entityId: revokedSession.id,
+    diff: {
+      familyId: revokedSession.familyId,
+    },
+    requestMetadata: requestMetadataFromContext(context),
   })
 }

@@ -44,14 +44,14 @@ export async function persistSession(
   userId: string,
   refreshToken: string,
   context: SessionContext,
-): Promise<{ refreshToken: string; expiresAt: Date }> {
+): Promise<{ id: string; refreshToken: string; expiresAt: Date }> {
   const { userAgent, ipHash } = sanitizeSessionMetadata(context);
 
   const sessionId = randomUUID();
   const refreshTokenHash = hashValue(refreshToken);
   const expiresAt = computeExpiry();
 
-  await prisma.authSession.create({
+  const session = await prisma.authSession.create({
     data: {
       id: sessionId,
       userId,
@@ -64,6 +64,7 @@ export async function persistSession(
   });
 
   return {
+    id: session?.id ?? sessionId,
     refreshToken,
     expiresAt,
   };
@@ -73,14 +74,21 @@ export async function rotateSession(
   session: { id: string; userId: string; familyId: string },
   refreshToken: string,
   context: SessionContext,
-): Promise<{ refreshToken: string; expiresAt: Date }> {
+): Promise<{
+  id: string
+  familyId: string
+  rotatedFromId: string | null
+  refreshToken: string
+  expiresAt: Date
+}> {
   const { userAgent, ipHash } = sanitizeSessionMetadata(context);
 
   const refreshTokenHash = hashValue(refreshToken);
   const expiresAt = computeExpiry();
   const replacedAt = new Date();
+  const rotatedSessionId = randomUUID();
 
-  await prisma.$transaction(async (tx) => {
+  const rotated = await prisma.$transaction(async (tx) => {
     const claim = await tx.authSession.updateMany({
       where: {
         id: session.id,
@@ -96,8 +104,9 @@ export async function rotateSession(
       throw new RefreshSessionClaimError(session.familyId, replacedAt);
     }
 
-    await tx.authSession.create({
+    return tx.authSession.create({
       data: {
+        id: rotatedSessionId,
         userId: session.userId,
         familyId: session.familyId,
         rotatedFromId: session.id,
@@ -110,6 +119,9 @@ export async function rotateSession(
   });
 
   return {
+    id: rotated?.id ?? rotatedSessionId,
+    familyId: rotated?.familyId ?? session.familyId,
+    rotatedFromId: rotated?.rotatedFromId ?? session.id,
     refreshToken,
     expiresAt,
   };

@@ -18,6 +18,7 @@ import {
   prisma,
   randomBytesMock,
   resetAuthServiceMocks,
+  writeAuditLogSafely,
 } from "./auth.service.test-utils.js";
 
 const buildGoogleIdToken = (payload: Record<string, unknown>): string =>
@@ -206,5 +207,25 @@ describe("auth.service Google OAuth", () => {
     expect(sessionCall?.data.ipHash).toBe(
       crypto.createHash("sha256").update("127.0.0.1").digest("hex"),
     );
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: "user-1",
+      action: "auth.google_login_succeeded",
+      entity: "auth_session",
+      entityId: "session-google-login",
+      diff: {
+        userId: "user-1",
+        identityId: "identity-1",
+        role: "teacher",
+        status: "active",
+        emailVerifiedUpdated: true,
+      },
+      requestMetadata: {
+        ipAddress: "127.0.0.1",
+        userAgent: "oauth-test",
+      },
+    });
+    const auditPayload = JSON.stringify(writeAuditLogSafely.mock.calls);
+    expect(auditPayload).not.toContain("access-token");
+    expect(auditPayload).not.toContain(idToken);
   });
 });
