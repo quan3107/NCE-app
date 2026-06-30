@@ -17,6 +17,7 @@ import {
   createNotFoundError,
 } from "../../utils/httpError.js";
 import { enqueueNotification } from "../notifications/notifications.service.js";
+import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import { getStudentVisibleAiFeedbackDraft } from "../ai-feedback/ai-feedback.repository.js";
 import {
   calculateIeltsManualBand,
@@ -260,6 +261,32 @@ function toProvisionalOnlyGrade(
   };
 }
 
+async function writeGradeAuditLog(input: {
+  actorId: string;
+  entityId: string;
+  submissionId: string;
+  graderId: string;
+  rawScore?: number | null;
+  finalScore?: number | null;
+  band?: number | null;
+  feedbackMd?: string;
+}) {
+  await writeAuditLogSafely({
+    actorId: input.actorId,
+    action: "grade.upserted",
+    entity: "grade",
+    entityId: input.entityId,
+    diff: {
+      submissionId: input.submissionId,
+      graderId: input.graderId,
+      rawScore: input.rawScore,
+      finalScore: input.finalScore,
+      band: input.band,
+      feedbackMd: input.feedbackMd,
+    },
+  });
+}
+
 function feedbackLabelForGrade(grade: {
   aiFeedbackDrafts?: Array<{
     status: string;
@@ -378,6 +405,16 @@ export async function upsertGrade(
       data: { status: "graded" },
     }),
   ]);
+  await writeGradeAuditLog({
+    actorId: actor.id,
+    entityId: grade.id ?? submissionId,
+    submissionId,
+    graderId: actor.id,
+    rawScore: normalizedData.rawScore,
+    finalScore: normalizedData.finalScore,
+    band: normalizedData.band,
+    feedbackMd: normalizedData.feedbackMd,
+  });
 
   const channels: NotificationChannel[] = ["inapp", "email"];
   const payloadJson: Prisma.InputJsonObject = {

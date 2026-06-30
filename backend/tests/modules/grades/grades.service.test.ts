@@ -31,6 +31,9 @@ vi.mock("../../../src/modules/notifications/notifications.service.js", () => ({
 vi.mock("../../../src/modules/ai-feedback/ai-feedback.repository.js", () => ({
   getStudentVisibleAiFeedbackDraft: vi.fn(),
 }));
+vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+  writeAuditLogSafely: vi.fn(),
+}));
 
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
@@ -46,6 +49,13 @@ const aiFeedbackRepositoryModule = await import(
 );
 const getStudentVisibleAiFeedbackDraft = vi.mocked(
   aiFeedbackRepositoryModule.getStudentVisibleAiFeedbackDraft,
+);
+const auditLogsModule = await import(
+  "../../../src/modules/audit-logs/audit-logs.service.js"
+);
+const writeAuditLogSafely = vi.mocked(
+  auditLogsModule.writeAuditLogSafely,
+  true,
 );
 
 const { getGrade, upsertGrade } = await import(
@@ -126,6 +136,46 @@ describe("grades.service.upsertGrade", () => {
       }),
     );
     expect(grade).toEqual({ id: "grade-1" });
+  });
+
+  it("writes a grade.upserted audit log with grading fields", async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce(buildSubmission() as never);
+    prisma.grade.upsert.mockResolvedValueOnce({
+      id: "grade-audit-1",
+      submissionId,
+      graderId: teacherId,
+      rawScore: 6,
+      finalScore: 7,
+      band: 7,
+    } as never);
+
+    await upsertGrade(
+      { submissionId },
+      {
+        rawScore: 6,
+        finalScore: 7,
+        band: 7,
+        feedbackMd: "Detailed private feedback.",
+      },
+      { id: teacherId, role: UserRole.teacher },
+    );
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: teacherId,
+        action: "grade.upserted",
+        entity: "grade",
+        entityId: "grade-audit-1",
+        diff: expect.objectContaining({
+          submissionId,
+          graderId: teacherId,
+          rawScore: 6,
+          finalScore: 7,
+          band: 7,
+          feedbackMd: "Detailed private feedback.",
+        }),
+      }),
+    );
   });
 
   it("loads grade targets only from active assignments and courses", async () => {

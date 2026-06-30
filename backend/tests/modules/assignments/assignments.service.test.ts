@@ -87,6 +87,20 @@ describe('assignments.service.createAssignment', () => {
         }),
       }),
     )
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerTeacher.id,
+        action: 'assignment.created',
+        entity: 'assignment',
+        entityId: 'assignment-1',
+        diff: expect.objectContaining({
+          changes: expect.objectContaining({
+            courseId,
+            type: 'reading',
+          }),
+        }),
+      }),
+    })
     expect(result).toBe(record)
   })
 
@@ -126,11 +140,7 @@ describe('assignments.service.updateAssignment', () => {
     })
 
     await expect(
-      updateAssignment(
-        { courseId, assignmentId },
-        { type: 'reading' },
-        ownerTeacher,
-      ),
+      updateAssignment({ courseId, assignmentId }, { type: 'reading' }, ownerTeacher),
     ).rejects.toBeInstanceOf(ZodError)
 
     expect(prisma.assignment.update).not.toHaveBeenCalled()
@@ -180,7 +190,7 @@ describe('assignments.service.updateAssignment', () => {
       ownerTeacher,
     )
 
-    expect(transactionAuditLogCreate).toHaveBeenCalledWith({
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId: ownerTeacher.id,
         action: 'ai_feedback.policy_changed',
@@ -203,10 +213,168 @@ describe('assignments.service.updateAssignment', () => {
         }),
       }),
     })
-    expect(prisma.auditLog.create).not.toHaveBeenCalled()
-    expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
+    expect(transactionAuditLogCreate).not.toHaveBeenCalled()
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       'Read and answer all questions.',
     )
+  })
+
+  it('audits standard assignment field updates', async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    )
+    const originalDueAt = new Date('2026-07-01T00:00:00.000Z')
+    const updatedDueAt = new Date('2026-07-08T00:00:00.000Z')
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      title: 'Draft Reading',
+      description: 'Old description',
+      type: 'reading',
+      dueAt: originalDueAt,
+      latePolicy: null,
+      assignmentConfig: readingConfigWithAiOff,
+      publishedAt: null,
+    })
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      title: 'Published Reading',
+      description: 'New description',
+      type: 'reading',
+      dueAt: updatedDueAt,
+      latePolicy: null,
+      assignmentConfig: readingConfigWithAiOff,
+      publishedAt: updatedDueAt,
+    } as never)
+
+    await updateAssignment(
+      { courseId, assignmentId },
+      {
+        title: 'Published Reading',
+        descriptionMd: 'New description',
+        dueAt: updatedDueAt.toISOString(),
+        publishedAt: updatedDueAt.toISOString(),
+      },
+      ownerTeacher,
+    )
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerTeacher.id,
+        action: 'assignment.updated',
+        entity: 'assignment',
+        entityId: assignmentId,
+        diff: expect.objectContaining({
+          changes: expect.objectContaining({
+            courseId,
+            title: { from: 'Draft Reading', to: 'Published Reading' },
+            descriptionMd: { changed: true },
+            dueAt: {
+              from: originalDueAt.toISOString(),
+              to: updatedDueAt.toISOString(),
+            },
+            publishedAt: {
+              from: null,
+              to: updatedDueAt.toISOString(),
+            },
+          }),
+        }),
+      }),
+    })
+    expect(transactionAuditLogCreate).not.toHaveBeenCalled()
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+      'New description',
+    )
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
+      'Old description',
+    )
+  })
+
+  it('keeps assignment updates successful when audit writing fails', async () => {
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({
+        ...prisma,
+        auditLog: {
+          create: transactionAuditLogCreate,
+        },
+      }),
+    )
+    prisma.auditLog.create.mockRejectedValueOnce(new Error('audit failed'))
+    prisma.assignment.findFirst.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      type: 'reading',
+      assignmentConfig: readingConfigWithAiOff,
+    })
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+      courseId,
+      type: 'reading',
+      assignmentConfig: {
+        ...readingConfig,
+        aiPolicy: {
+          writingFeedbackMode: 'off',
+          objectiveExplanations: 'on_demand_student_visible',
+          providerTier: 'low_cost',
+        },
+      },
+    } as never)
+
+    const result = await updateAssignment(
+      { courseId, assignmentId },
+      {
+        assignmentConfig: {
+          ...readingConfig,
+          aiPolicy: {
+            writingFeedbackMode: 'off',
+            objectiveExplanations: 'on_demand_student_visible',
+            providerTier: 'low_cost',
+          },
+        },
+      },
+      ownerTeacher,
+    )
+
+    expect(result.id).toBe(assignmentId)
+    expect(prisma.auditLog.create).toHaveBeenCalled()
+    expect(transactionAuditLogCreate).not.toHaveBeenCalled()
+  })
+
+  it('audits deleted assignments', async () => {
+    prisma.assignment.findFirst.mockResolvedValueOnce({ id: assignmentId })
+    prisma.assignment.update.mockResolvedValueOnce({
+      id: assignmentId,
+      deletedAt: new Date('2026-06-29T00:00:00.000Z'),
+    } as never)
+
+    const { deleteAssignment } =
+      await import('../../../src/modules/assignments/assignments.service.js')
+
+    await deleteAssignment({ courseId, assignmentId }, ownerTeacher)
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: ownerTeacher.id,
+        action: 'assignment.deleted',
+        entity: 'assignment',
+        entityId: assignmentId,
+        diff: expect.objectContaining({
+          changes: expect.objectContaining({
+            courseId,
+            deletedAt: expect.objectContaining({
+              from: null,
+              to: expect.any(String),
+            }),
+          }),
+        }),
+      }),
+    })
   })
 })
 

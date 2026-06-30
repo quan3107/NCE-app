@@ -3,7 +3,7 @@
  * Purpose: Implement assignment data access and validation via Prisma.
  * Why: Keeps assignment-specific operations encapsulated away from controllers.
  */
-import { Prisma, UserRole } from '../../prisma/index.js'
+import { Prisma, UserRole, type Assignment } from '../../prisma/index.js'
 
 import { prisma } from '../../prisma/client.js'
 import type { CourseManager } from '../courses/courses.types.js'
@@ -12,6 +12,7 @@ import {
   AI_FEEDBACK_AUDIT_ACTIONS,
   recordAiFeedbackAudit,
 } from '../audit-logs/ai-feedback-audit.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import {
   assignmentAccessWhere,
   ensureCourseAssignmentAccess,
@@ -71,6 +72,49 @@ function stableJson(value: unknown): string {
 
 function hasAiPolicyChanged(before: unknown, after: unknown): boolean {
   return stableJson(aiPolicyFromConfig(before)) !== stableJson(aiPolicyFromConfig(after))
+}
+
+function toIsoStringOrNull(value: Date | null): string | null {
+  return value ? value.toISOString() : null
+}
+
+function buildAssignmentUpdateAuditDiff(
+  existing: Assignment,
+  updated: Assignment,
+  payload: UpdateAssignmentPayload,
+  courseId: string,
+): Record<string, unknown> {
+  const diff: Record<string, unknown> = { courseId }
+
+  if (payload.title !== undefined) {
+    diff.title = { from: existing.title, to: updated.title }
+  }
+  if (payload.descriptionMd !== undefined) {
+    diff.descriptionMd = { changed: true }
+  }
+  if (payload.type !== undefined) {
+    diff.type = { from: existing.type, to: updated.type }
+  }
+  if (payload.dueAt !== undefined) {
+    diff.dueAt = {
+      from: toIsoStringOrNull(existing.dueAt),
+      to: toIsoStringOrNull(updated.dueAt),
+    }
+  }
+  if (payload.latePolicy !== undefined) {
+    diff.latePolicy = { changed: true }
+  }
+  if (payload.assignmentConfig !== undefined) {
+    diff.assignmentConfig = { changed: true }
+  }
+  if (payload.publishedAt !== undefined) {
+    diff.publishedAt = {
+      from: toIsoStringOrNull(existing.publishedAt),
+      to: toIsoStringOrNull(updated.publishedAt),
+    }
+  }
+
+  return diff
 }
 
 export async function listAssignments(params: unknown, actor: CourseManager) {
@@ -210,7 +254,7 @@ export async function createAssignment(
       ? (validatedAssignmentConfig as Prisma.InputJsonObject)
       : undefined
 
-  return prisma.assignment.create({
+  const assignment = await prisma.assignment.create({
     data: {
       courseId,
       title: payload.title,
@@ -222,6 +266,21 @@ export async function createAssignment(
       publishedAt,
     },
   })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'assignment.created',
+    entity: 'assignment',
+    entityId: assignment.id,
+    diff: {
+      courseId,
+      title: payload.title,
+      type: payload.type,
+      publishedAt: publishedAt?.toISOString() ?? null,
+    },
+  })
+
+  return assignment
 }
 
 export async function updateAssignment(
@@ -286,34 +345,47 @@ export async function updateAssignment(
     updateData.publishedAt = publishedAt
   }
 
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.assignment.update({
+  const shouldAuditAssignmentUpdate = Object.keys(updateData).length > 0
+  const shouldAuditAiPolicyChange =
+    payload.assignmentConfig !== undefined &&
+    hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
+
+  const updated = await prisma.$transaction(async (tx) =>
+    tx.assignment.update({
       where: { id: assignmentId },
       data: updateData,
+    }),
+  )
+
+  if (shouldAuditAssignmentUpdate) {
+    await writeAuditLogSafely({
+      actorId: actor.id,
+      action: 'assignment.updated',
+      entity: 'assignment',
+      entityId: assignmentId,
+      diff: buildAssignmentUpdateAuditDiff(existing, updated, payload, courseId),
     })
+  }
 
-    if (
-      payload.assignmentConfig !== undefined &&
-      hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
-    ) {
-      await recordAiFeedbackAudit(
-        {
-          actorId: actor.id,
-          action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
-          entity: 'assignment',
-          entityId: assignmentId,
-          entityIds: { courseId, assignmentId },
-          payload: {
-            before: aiPolicyFromConfig(existing.assignmentConfig),
-            after: aiPolicyFromConfig(assignmentConfig),
-          },
+  if (shouldAuditAiPolicyChange) {
+    await recordAiFeedbackAudit(
+      {
+        actorId: actor.id,
+        action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
+        entity: 'assignment',
+        entityId: assignmentId,
+        entityIds: { courseId, assignmentId },
+        payload: {
+          before: aiPolicyFromConfig(existing.assignmentConfig),
+          after: aiPolicyFromConfig(assignmentConfig),
         },
-        tx,
-      )
-    }
+      },
+      undefined,
+      true,
+    )
+  }
 
-    return updated
-  })
+  return updated
 }
 
 export async function deleteAssignment(params: unknown, actor: CourseManager) {
@@ -328,8 +400,23 @@ export async function deleteAssignment(params: unknown, actor: CourseManager) {
     throw createNotFoundError('Assignment', assignmentId)
   }
 
+  const deletedAt = new Date()
   await prisma.assignment.update({
     where: { id: assignmentId },
-    data: { deletedAt: new Date() },
+    data: { deletedAt },
+  })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'assignment.deleted',
+    entity: 'assignment',
+    entityId: assignmentId,
+    diff: {
+      courseId,
+      deletedAt: {
+        from: null,
+        to: deletedAt.toISOString(),
+      },
+    },
   })
 }

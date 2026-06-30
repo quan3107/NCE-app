@@ -6,6 +6,7 @@
 import { EnrollmentRole, UserRole, UserStatus } from "../../prisma/index.js";
 
 import { prisma } from "../../config/prismaClient.js";
+import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import {
   addCourseTeacherSchema,
   courseIdParamsSchema,
@@ -180,6 +181,7 @@ export async function addCoTeacherToCourse(
       roleInCourse: EnrollmentRole.teacher,
     },
     select: {
+      id: true,
       createdAt: true,
       user: {
         select: {
@@ -195,6 +197,21 @@ export async function addCoTeacherToCourse(
   if (!enrollment.user) {
     throw createHttpError(500, "Enrollment created without teacher");
   }
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: "course.teacher_added",
+    entity: "enrollment",
+    entityId: enrollment.id,
+    before: existingEnrollment ?? undefined,
+    after: {
+      id: enrollment.id,
+      courseId,
+      teacherId: user.id,
+      roleInCourse: EnrollmentRole.teacher,
+      deletedAt: null,
+    },
+  });
 
   return toCourseTeacher(enrollment);
 }
@@ -232,10 +249,25 @@ export async function removeCoTeacherFromCourse(
     return;
   }
 
-  await prisma.enrollment.update({
+  const updatedEnrollment = await prisma.enrollment.update({
     where: { id: enrollment.id },
     data: {
       deletedAt: new Date(),
+    },
+  });
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: "course.teacher_removed",
+    entity: "enrollment",
+    entityId: enrollment.id,
+    before: enrollment,
+    after: {
+      id: enrollment.id,
+      courseId,
+      teacherId,
+      roleInCourse: EnrollmentRole.teacher,
+      deletedAt: updatedEnrollment.deletedAt,
     },
   });
 }

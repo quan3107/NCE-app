@@ -8,6 +8,39 @@ AuditLogs:
     summary: List audit logs (admin)
     parameters:
       - in: query
+        name: actorId
+        schema:
+          type: string
+          format: uuid
+        description: Restrict results to audit rows written for a specific actor.
+      - in: query
+        name: action
+        schema:
+          type: string
+        description: Restrict results to an exact audit action.
+      - in: query
+        name: entity
+        schema:
+          type: string
+        description: Restrict results to an entity type.
+      - in: query
+        name: entityId
+        schema:
+          type: string
+        description: Restrict results to an entity identifier.
+      - in: query
+        name: createdFrom
+        schema:
+          type: string
+          format: date-time
+        description: Return audit rows created at or after this timestamp.
+      - in: query
+        name: createdTo
+        schema:
+          type: string
+          format: date-time
+        description: Return audit rows created at or before this timestamp.
+      - in: query
         name: limit
         schema:
           type: integer
@@ -16,11 +49,12 @@ AuditLogs:
           maximum: 100
         description: Max number of audit logs to return (default 50).
       - in: query
-        name: cursor
+        name: offset
         schema:
-          type: string
-          format: uuid
-        description: Audit log id to continue pagination after.
+          type: integer
+          format: int32
+          minimum: 0
+        description: Number of matching audit rows to skip before returning results.
     responses:
       '200':
         description: Audit logs

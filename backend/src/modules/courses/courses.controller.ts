@@ -3,185 +3,159 @@
  * Purpose: Bridge HTTP requests to course services with persisted responses.
  * Why: Keeps the routing layer declarative while business logic evolves.
  */
-import { type Request, type Response } from "express";
+import { type Request, type Response } from 'express'
 
 import {
   archiveCourse,
   createCourse,
   restoreCourse,
   updateCourse,
-} from "./courses.service.js";
-import {
-  getCourseById,
-  listCourses,
-} from "./courses.read.service.js";
+} from './courses.service.js'
+import { getCourseById, listCourses } from './courses.read.service.js'
 import {
   addStudentToCourse,
   listStudentsForCourse,
   removeStudentFromCourse,
-} from "./courses.students.service.js";
+} from './courses.students.service.js'
 import {
   addCoTeacherToCourse,
   listCoTeachersForCourse,
   removeCoTeacherFromCourse,
-} from "./courses.teachers.service.js";
+} from './courses.teachers.service.js'
 
 export async function getCourses(req: Request, res: Response): Promise<void> {
-  const courses = await listCourses(req.user, req.query);
-  res.status(200).json(courses);
+  const courses = await listCourses(req.user, req.query)
+  res.status(200).json(courses)
 }
 
 export async function getCourse(req: Request, res: Response): Promise<void> {
-  const actor = req.user;
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  const course = await getCourseById(req.params, actor);
-  res.status(200).json(course);
+  const course = await getCourseById(req.params, actor)
+  res.status(200).json(course)
 }
 
-export async function postCourse(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const course = await createCourse(req.body);
-  res.status(201).json(course);
-}
-
-export async function patchCourse(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function postCourse(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  const course = await updateCourse(req.params, req.body, actor);
-  res.status(200).json(course);
+  const course = await createCourse(req.body, actor)
+  res.status(201).json(course)
 }
 
-export async function postCourseArchive(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function patchCourse(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  const course = await archiveCourse(req.params, actor);
-  res.status(200).json(course);
+  const course = await updateCourse(req.params, req.body, actor)
+  res.status(200).json(course)
 }
 
-export async function postCourseRestore(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function postCourseArchive(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  const course = await restoreCourse(req.params, actor);
-  res.status(200).json(course);
+  const course = await archiveCourse(req.params, actor)
+  res.status(200).json(course)
 }
 
-export async function getCourseStudents(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function postCourseRestore(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  const payload = await listStudentsForCourse(req.params, actor);
-  res.status(200).json(payload);
+  const course = await restoreCourse(req.params, actor)
+  res.status(200).json(course)
 }
 
-export async function postCourseStudent(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function getCourseStudents(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  const student = await addStudentToCourse(req.params, req.body, actor);
-  res.status(201).json(student);
+  const payload = await listStudentsForCourse(req.params, actor)
+  res.status(200).json(payload)
 }
 
-export async function deleteCourseStudent(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function postCourseStudent(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  await removeStudentFromCourse(req.params, actor);
-  res.status(204).send();
+  const student = await addStudentToCourse(req.params, req.body, actor)
+  res.status(201).json(student)
 }
 
-export async function getCourseTeachers(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function deleteCourseStudent(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  const payload = await listCoTeachersForCourse(req.params, actor);
-  res.status(200).json(payload);
+  await removeStudentFromCourse(req.params, actor)
+  res.status(204).send()
 }
 
-export async function postCourseTeacher(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function getCourseTeachers(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  const teacher = await addCoTeacherToCourse(req.params, req.body, actor);
-  res.status(201).json(teacher);
+  const payload = await listCoTeachersForCourse(req.params, actor)
+  res.status(200).json(payload)
 }
 
-export async function deleteCourseTeacher(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  const actor = req.user;
+export async function postCourseTeacher(req: Request, res: Response): Promise<void> {
+  const actor = req.user
 
   if (!actor) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    res.status(401).json({ message: 'Unauthorized' })
+    return
   }
 
-  await removeCoTeacherFromCourse(req.params, actor);
-  res.status(204).send();
+  const teacher = await addCoTeacherToCourse(req.params, req.body, actor)
+  res.status(201).json(teacher)
+}
+
+export async function deleteCourseTeacher(req: Request, res: Response): Promise<void> {
+  const actor = req.user
+
+  if (!actor) {
+    res.status(401).json({ message: 'Unauthorized' })
+    return
+  }
+
+  await removeCoTeacherFromCourse(req.params, actor)
+  res.status(204).send()
 }

@@ -60,7 +60,7 @@ type ApiAuditLog = {
 
 type ApiAuditLogPage = {
   data: ApiAuditLog[];
-  nextCursor?: string | null;
+  nextOffset: number | null;
 };
 
 type CreateUserRequest = {

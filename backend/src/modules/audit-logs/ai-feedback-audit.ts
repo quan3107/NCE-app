@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 
 import { prisma } from "../../prisma/client.js";
 import { Prisma } from "../../prisma/index.js";
+import { writeAuditLog, writeAuditLogSafely } from "./audit-logs.service.js";
 
 export const AI_FEEDBACK_AUDIT_ACTIONS = {
   policyChanged: "ai_feedback.policy_changed",
@@ -141,17 +142,23 @@ export function buildAiFeedbackAuditDiff(
 export async function recordAiFeedbackAudit(
   input: RecordAiFeedbackAuditInput,
   client: AuditLogClient = prisma,
+  safe = false,
 ): Promise<void> {
-  await client.auditLog.create({
-    data: {
-      actorId: input.actorId ?? undefined,
-      action: input.action,
-      entity: input.entity,
-      entityId: input.entityId,
-      diff: {
-        entityIds: input.entityIds ?? {},
-        ...buildAiFeedbackAuditDiff(input),
-      } as Prisma.InputJsonObject,
-    },
-  });
+  const writerInput = {
+    actorId: input.actorId,
+    action: input.action,
+    entity: input.entity,
+    entityId: input.entityId,
+    redactedDiff: {
+      entityIds: input.entityIds ?? {},
+      ...buildAiFeedbackAuditDiff(input),
+    } as Prisma.InputJsonObject,
+  };
+
+  if (safe) {
+    await writeAuditLogSafely(writerInput, client);
+    return;
+  }
+
+  await writeAuditLog(writerInput, client);
 }

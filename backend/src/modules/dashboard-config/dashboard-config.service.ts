@@ -7,6 +7,7 @@
 import { prisma } from "../../prisma/client.js";
 import type { UserRole } from "../../prisma/index.js";
 import { createHttpError } from "../../utils/httpError.js";
+import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import type {
   DashboardWidgetDefaultsResponse,
   MyDashboardConfigResponse,
@@ -243,6 +244,19 @@ export async function saveMyDashboardConfigForUser(
     });
   });
 
+  await writeAuditLogSafely({
+    actorId: userId,
+    action: "dashboard_config.saved",
+    entity: "user_dashboard_config",
+    entityId: userId,
+    diff: {
+      role,
+      widgetCount: payload.widgets.length,
+      visibleCount: payload.widgets.filter((widget) => widget.visible).length,
+      widgetIds: payload.widgets.map((widget) => widget.id),
+    },
+  });
+
   return getMyDashboardConfigForUser(userId, role);
 }
 
@@ -262,6 +276,18 @@ export async function resetMyDashboardConfigForUser(
       widgetDefinitionId: {
         in: definitions.map((definition) => definition.id),
       },
+    },
+  });
+
+  await writeAuditLogSafely({
+    actorId: userId,
+    action: "dashboard_config.reset",
+    entity: "user_dashboard_config",
+    entityId: userId,
+    diff: {
+      role,
+      widgetCount: definitions.length,
+      widgetIds: definitions.map((definition) => definition.widgetKey),
     },
   });
 }

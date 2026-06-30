@@ -3,90 +3,86 @@
  * Purpose: Implement course data workflows backed by Prisma.
  * Why: Encapsulates course-specific logic to keep controllers slim.
  */
-import { Prisma, UserRole, UserStatus } from "../../prisma/index.js";
+import { Prisma, UserRole, UserStatus } from '../../prisma/index.js'
 
-import { prisma } from "../../prisma/client.js";
-import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
-import { canManageCourse } from "./courses.shared.js";
+import { prisma } from '../../prisma/client.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
+import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
+import { canManageCourse } from './courses.shared.js'
 import {
   courseIdParamsSchema,
   createCourseSchema,
   updateCourseSchema,
-} from "./courses.schema.js";
+} from './courses.schema.js'
 
 type CourseMutationActor = {
-  id: string;
-  role: UserRole;
-};
+  id: string
+  role: UserRole
+}
 
 const jsonInput = (
   value: unknown,
 ): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue =>
-  value === null
-    ? Prisma.JsonNull
-    : (value as Prisma.InputJsonValue);
+  value === null ? Prisma.JsonNull : (value as Prisma.InputJsonValue)
 
 async function getCourseForMutation(
   params: unknown,
   actor: CourseMutationActor,
-  mode: "active" | "archived",
+  mode: 'active' | 'archived',
 ) {
-  const { courseId } = courseIdParamsSchema.parse(params);
+  const { courseId } = courseIdParamsSchema.parse(params)
   const course = await prisma.course.findFirst({
     where: {
       id: courseId,
-      deletedAt: mode === "active" ? null : { not: null },
+      deletedAt: mode === 'active' ? null : { not: null },
     },
     select: {
       id: true,
       ownerId: true,
       deletedAt: true,
     },
-  });
+  })
 
   if (!course) {
-    throw createNotFoundError("Course", courseId);
+    throw createNotFoundError('Course', courseId)
   }
 
   if (!canManageCourse(course.ownerId, actor)) {
-    throw createHttpError(
-      403,
-      "You do not have permission to manage this course",
-    );
+    throw createHttpError(403, 'You do not have permission to manage this course')
   }
 
-  return course;
+  return course
 }
 
 export async function listCourses() {
   return prisma.course.findMany({
     where: { deletedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
+    orderBy: { createdAt: 'desc' },
+  })
 }
 
 export async function getCourseById(params: unknown) {
-  const { courseId } = courseIdParamsSchema.parse(params);
+  const { courseId } = courseIdParamsSchema.parse(params)
   const course = await prisma.course.findFirst({
     where: { id: courseId, deletedAt: null },
-  });
+  })
   if (!course) {
-    throw createNotFoundError("Course", courseId);
+    throw createNotFoundError('Course', courseId)
   }
-  return course;
+  return course
 }
 
-export async function createCourse(payload: unknown) {
+export async function createCourse(payload: unknown, actor: CourseMutationActor) {
   // Map validation failures to 400s so bad payloads don't surface as 500s.
-  const parseResult = createCourseSchema.safeParse(payload);
+  const parseResult = createCourseSchema.safeParse(payload)
 
   if (!parseResult.success) {
-    throw createHttpError(400, "Invalid course payload.", {
+    throw createHttpError(400, 'Invalid course payload.', {
       issues: parseResult.error.flatten(),
-    });
+    })
   }
 
-  const data = parseResult.data;
+  const data = parseResult.data
 
   const owner = await prisma.user.findFirst({
     where: {
@@ -98,33 +94,41 @@ export async function createCourse(payload: unknown) {
       role: true,
       status: true,
     },
-  });
+  })
 
   if (!owner) {
-    throw createNotFoundError("Owner teacher", data.ownerTeacherId);
+    throw createNotFoundError('Owner teacher', data.ownerTeacherId)
   }
 
   if (owner.role !== UserRole.teacher || owner.status !== UserStatus.active) {
-    throw createHttpError(409, "Course owner must be an active teacher.", {
-      code: "invalid_role_pairing",
+    throw createHttpError(409, 'Course owner must be an active teacher.', {
+      code: 'invalid_role_pairing',
       expectedRole: UserRole.teacher,
       actualRole: owner.role,
       expectedStatus: UserStatus.active,
       actualStatus: owner.status,
-    });
+    })
   }
 
-  return prisma.course.create({
+  const course = await prisma.course.create({
     data: {
       title: data.title,
       description: data.description,
       ownerId: data.ownerTeacherId,
       // Cast validated maps to Prisma JSON input for schedule metadata.
-      scheduleJson: data.schedule
-        ? (data.schedule as Prisma.InputJsonObject)
-        : undefined,
+      scheduleJson: data.schedule ? (data.schedule as Prisma.InputJsonObject) : undefined,
     },
-  });
+  })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'course.created',
+    entity: 'course',
+    entityId: course.id,
+    after: course,
+  })
+
+  return course
 }
 
 export async function updateCourse(
@@ -132,63 +136,93 @@ export async function updateCourse(
   payload: unknown,
   actor: CourseMutationActor,
 ) {
-  const course = await getCourseForMutation(params, actor, "active");
-  const parseResult = updateCourseSchema.safeParse(payload);
+  const course = await getCourseForMutation(params, actor, 'active')
+  const parseResult = updateCourseSchema.safeParse(payload)
 
   if (!parseResult.success) {
-    throw createHttpError(400, "Invalid course update payload.", {
+    throw createHttpError(400, 'Invalid course update payload.', {
       issues: parseResult.error.flatten(),
-    });
+    })
   }
 
-  const data = parseResult.data;
-  const updateData: Prisma.CourseUpdateInput = {};
+  const data = parseResult.data
+  const updateData: Prisma.CourseUpdateInput = {}
 
-  if ("title" in data) {
-    updateData.title = data.title;
+  if ('title' in data) {
+    updateData.title = data.title
   }
-  if ("description" in data) {
-    updateData.description = data.description;
+  if ('description' in data) {
+    updateData.description = data.description
   }
-  if ("learningOutcomes" in data) {
-    updateData.learningOutcomes = jsonInput(data.learningOutcomes);
+  if ('learningOutcomes' in data) {
+    updateData.learningOutcomes = jsonInput(data.learningOutcomes)
   }
-  if ("structureSummary" in data) {
-    updateData.structureSummary = data.structureSummary;
+  if ('structureSummary' in data) {
+    updateData.structureSummary = data.structureSummary
   }
-  if ("prerequisitesSummary" in data) {
-    updateData.prerequisitesSummary = data.prerequisitesSummary;
+  if ('prerequisitesSummary' in data) {
+    updateData.prerequisitesSummary = data.prerequisitesSummary
   }
-  if ("schedule" in data) {
-    updateData.scheduleJson = jsonInput(data.schedule);
+  if ('schedule' in data) {
+    updateData.scheduleJson = jsonInput(data.schedule)
   }
 
-  return prisma.course.update({
+  const updatedCourse = await prisma.course.update({
     where: { id: course.id },
     data: updateData,
-  });
+  })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'course.updated',
+    entity: 'course',
+    entityId: course.id,
+    before: course,
+    after: updatedCourse,
+    diff: data,
+  })
+
+  return updatedCourse
 }
 
-export async function archiveCourse(
-  params: unknown,
-  actor: CourseMutationActor,
-) {
-  const course = await getCourseForMutation(params, actor, "active");
+export async function archiveCourse(params: unknown, actor: CourseMutationActor) {
+  const course = await getCourseForMutation(params, actor, 'active')
 
-  return prisma.course.update({
+  const archivedCourse = await prisma.course.update({
     where: { id: course.id },
     data: { deletedAt: new Date() },
-  });
+  })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'course.archived',
+    entity: 'course',
+    entityId: course.id,
+    before: course,
+    after: archivedCourse,
+    diff: { deletedAt: archivedCourse.deletedAt },
+  })
+
+  return archivedCourse
 }
 
-export async function restoreCourse(
-  params: unknown,
-  actor: CourseMutationActor,
-) {
-  const course = await getCourseForMutation(params, actor, "archived");
+export async function restoreCourse(params: unknown, actor: CourseMutationActor) {
+  const course = await getCourseForMutation(params, actor, 'archived')
 
-  return prisma.course.update({
+  const restoredCourse = await prisma.course.update({
     where: { id: course.id },
     data: { deletedAt: null },
-  });
+  })
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'course.restored',
+    entity: 'course',
+    entityId: course.id,
+    before: course,
+    after: restoredCourse,
+    diff: { deletedAt: restoredCourse.deletedAt },
+  })
+
+  return restoredCourse
 }
