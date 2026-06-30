@@ -19,6 +19,7 @@ import {
 import { fetchGoogleProfile } from './auth.google.profile.js'
 import { findOrCreateGoogleIdentity } from './auth.google.identity.js'
 import type { AuthSessionResult, SessionContext } from './auth.types.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 
 type CompleteGoogleAuthorizationOptions = {
   redirectUri: string
@@ -28,6 +29,11 @@ type CompleteGoogleAuthorizationOptions = {
 }
 
 export { buildGoogleAuthorizationUrl }
+
+const requestMetadataFromContext = (context: SessionContext) => ({
+  ipAddress: context.ipAddress ?? null,
+  userAgent: context.userAgent ?? null,
+})
 
 export async function completeGoogleAuthorization(
   query: unknown,
@@ -56,7 +62,7 @@ export async function completeGoogleAuthorization(
 
   const refreshToken = generateRefreshToken()
 
-  const { finalUser, session } = await runWithRole(
+  const { finalUser, session, identityId, emailVerifiedUpdated } = await runWithRole(
     { role: 'service_role', userRole: 'service_role' },
     async () => {
       const identityRecord = await findOrCreateGoogleIdentity(profile)
@@ -64,7 +70,8 @@ export async function completeGoogleAuthorization(
       const finalUser = identityRecord.user
       assertUserIsActive(finalUser)
 
-      if (profile.emailVerified && !identityRecord.emailVerified) {
+      const emailVerifiedUpdated = profile.emailVerified && !identityRecord.emailVerified
+      if (emailVerifiedUpdated) {
         await prisma.identity.update({
           where: { id: identityRecord.id },
           data: {
@@ -77,7 +84,12 @@ export async function completeGoogleAuthorization(
         ...context,
       })
 
-      return { finalUser, session }
+      return {
+        finalUser,
+        session,
+        identityId: identityRecord.id,
+        emailVerifiedUpdated,
+      }
     },
   )
 
@@ -85,6 +97,21 @@ export async function completeGoogleAuthorization(
     userId: finalUser.id,
     role: finalUser.role,
     status: finalUser.status,
+  })
+
+  await writeAuditLogSafely({
+    actorId: finalUser.id,
+    action: 'auth.google_login_succeeded',
+    entity: 'auth_session',
+    entityId: session.id,
+    diff: {
+      userId: finalUser.id,
+      identityId,
+      role: finalUser.role,
+      status: finalUser.status,
+      emailVerifiedUpdated,
+    },
+    requestMetadata: requestMetadataFromContext(context),
   })
 
   return {
