@@ -24,6 +24,7 @@ import {
   handlePasswordLogin,
   handleRegisterAccount,
   handleSessionRefresh,
+  isRunWithRoleActive,
   ipHash,
   prisma,
   randomBytesMock,
@@ -670,6 +671,9 @@ describe("auth.service", () => {
       }),
     );
     prisma.authSession.updateMany.mockResolvedValueOnce({ count: 1 });
+    writeAuditLogSafely.mockImplementationOnce(async () => {
+      expect(isRunWithRoleActive()).toBe(false);
+    });
 
     await handleLogout({}, { refreshToken: "to-revoke", userAgent: "logout-test" });
 
