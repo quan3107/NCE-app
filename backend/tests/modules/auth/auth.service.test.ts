@@ -707,4 +707,31 @@ describe("auth.service", () => {
     );
   });
 
+  it("does not audit logout when a concurrent revocation already claimed the session", async () => {
+    prisma.authSession.findFirst.mockResolvedValueOnce(
+      buildAuthSession({
+        id: "session-logout",
+        userId: "user-logout",
+        familyId: "family-logout",
+      }),
+    );
+    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await handleLogout({}, { refreshToken: "already-revoked" });
+
+    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        refreshTokenHash: crypto
+          .createHash("sha256")
+          .update("already-revoked")
+          .digest("hex"),
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: expect.any(Date),
+      },
+    });
+    expect(writeAuditLogSafely).not.toHaveBeenCalled();
+  });
+
 });
