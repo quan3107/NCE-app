@@ -81,6 +81,10 @@ vi.mock("../../../src/modules/auth/auth.tokens.js", () => ({
   signAccessToken: vi.fn(),
 }));
 
+vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+  writeAuditLogSafely: vi.fn(),
+}));
+
 vi.mock("jose", () => ({
   createRemoteJWKSet: joseMocks.createRemoteJWKSet,
   jwtVerify: joseMocks.jwtVerify,
@@ -99,6 +103,10 @@ const tokensModule = vi.mocked(
   await import("../../../src/modules/auth/auth.tokens.js"),
 );
 export const { signAccessToken } = tokensModule;
+const auditLogsModule = vi.mocked(
+  await import("../../../src/modules/audit-logs/audit-logs.service.js"),
+);
+export const { writeAuditLogSafely } = auditLogsModule;
 export const bcryptHashMock = bcrypt.hash as unknown as MockedFunction<
   (data: string | Buffer, rounds: string | number) => Promise<string>
 >;
@@ -130,6 +138,7 @@ export function resetAuthServiceMocks(): void {
   fetchMock.mockReset();
   resetAuthRateLimiter();
   jwtVerifyMock.mockReset();
+  writeAuditLogSafely.mockReset();
   randomBytesMock.mockImplementation((size?: number) =>
     Buffer.alloc(size ?? 48, 1),
   );
