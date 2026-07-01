@@ -57,7 +57,12 @@ describe("jobs.notificationDelivery", () => {
     vi.resetAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-30T10:00:00.000Z"));
-    prisma.notification.updateMany.mockResolvedValue({ count: 1 });
+    prisma.notification.updateMany.mockImplementation(async (args) => {
+      if (args.data.status === "delivery_unknown") {
+        return { count: 0 };
+      }
+      return { count: 1 };
+    });
   });
 
   afterEach(() => {
@@ -86,8 +91,31 @@ describe("jobs.notificationDelivery", () => {
     await handleDeliverQueuedJob();
 
     expect(sendNotificationEmail).not.toHaveBeenCalled();
-    expect(prisma.notification.update).toHaveBeenCalledWith({
-      where: { id: "n-1" },
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "n-1",
+        deletedAt: null,
+        OR: [
+          {
+            status: "queued",
+            OR: [
+              { nextAttemptAt: null },
+              {
+                nextAttemptAt: {
+                  lte: new Date("2026-06-30T10:00:00.000Z"),
+                },
+              },
+            ],
+          },
+        ],
+      },
+      data: {
+        lastAttemptAt: new Date("2026-06-30T10:00:00.000Z"),
+        status: "sending",
+      },
+    });
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: "n-1", deletedAt: null, status: "sending" },
       data: {
         failureReason: "suppressed_by_preference",
         lastAttemptAt: new Date("2026-06-30T10:00:00.000Z"),
@@ -160,9 +188,9 @@ describe("jobs.notificationDelivery", () => {
     await handleDeliverQueuedJob();
 
     expect(sendNotificationEmail).toHaveBeenCalledTimes(1);
-    expect(prisma.notification.update).toHaveBeenCalledWith(
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "n-2" },
+        where: { id: "n-2", deletedAt: null, status: "sending" },
         data: expect.objectContaining({
           failureReason: null,
           lastAttemptAt: expect.any(Date),
@@ -191,11 +219,11 @@ describe("jobs.notificationDelivery", () => {
         },
       },
     ]);
-    prisma.notification.update.mockImplementation(async (args) => {
+    prisma.notification.updateMany.mockImplementation(async (args) => {
       if (args.data.status === "sent") {
         throw new Error("database unavailable");
       }
-      return {};
+      return { count: 1 };
     });
 
     await handleDeliverQueuedJob();
@@ -224,21 +252,19 @@ describe("jobs.notificationDelivery", () => {
         status: "sending",
       },
     });
-    expect(prisma.notification.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "n-5" },
-        data: expect.objectContaining({ status: "sent" }),
-      }),
-    );
-    expect(prisma.notification.update).toHaveBeenCalledWith({
-      where: { id: "n-5" },
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: "n-5", deletedAt: null, status: "sending" },
+      data: expect.objectContaining({ status: "sent" }),
+    });
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: "n-5", deletedAt: null, status: "sending" },
       data: {
         failureReason: "delivery_state_unknown",
         nextAttemptAt: null,
         status: "delivery_unknown",
       },
     });
-    expect(prisma.notification.update).toHaveBeenCalledTimes(2);
+    expect(prisma.notification.update).not.toHaveBeenCalled();
   });
 
   it("skips transport when another worker already claimed the notification", async () => {
@@ -316,8 +342,8 @@ describe("jobs.notificationDelivery", () => {
 
     await handleDeliverQueuedJob();
 
-    expect(prisma.notification.update).toHaveBeenCalledWith({
-      where: { id: "n-3" },
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: "n-3", deletedAt: null, status: "sending" },
       data: {
         attemptCount: { increment: 1 },
         failureReason: "SMTP password [redacted] failed",
@@ -349,8 +375,8 @@ describe("jobs.notificationDelivery", () => {
 
     await handleDeliverQueuedJob();
 
-    expect(prisma.notification.update).toHaveBeenCalledWith({
-      where: { id: "n-4" },
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: "n-4", deletedAt: null, status: "sending" },
       data: {
         attemptCount: { increment: 1 },
         deadLetteredAt: new Date("2026-06-30T10:00:00.000Z"),
@@ -385,8 +411,8 @@ describe("jobs.notificationDelivery", () => {
 
     await handleDeliverQueuedJob();
 
-    expect(prisma.notification.update).toHaveBeenCalledWith({
-      where: { id: "n-6" },
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: "n-6", deletedAt: null, status: "sending" },
       data: expect.objectContaining({
         failureReason: "Authorization: [redacted]",
       }),
