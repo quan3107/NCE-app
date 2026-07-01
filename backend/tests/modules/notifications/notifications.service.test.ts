@@ -62,6 +62,8 @@ describe("notifications.service", () => {
         failureReason: null,
         lastAttemptAt: null,
         nextAttemptAt: null,
+        readAt: null,
+        sentAt: null,
         status: "queued",
       },
     });
@@ -77,6 +79,24 @@ describe("notifications.service", () => {
       }),
     ).rejects.toMatchObject({
       statusCode: 404,
+    });
+
+    expect(prisma.notification.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects resend for already delivered notifications", async () => {
+    prisma.notification.findFirst.mockResolvedValueOnce({
+      id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+      status: "sent",
+      deletedAt: null,
+    });
+
+    await expect(
+      resendNotification({
+        notificationId: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 409,
     });
 
     expect(prisma.notification.update).not.toHaveBeenCalled();
