@@ -57,7 +57,8 @@ Notifications:
 NotificationById:
   get:
     tags: [notifications]
-    summary: Get notification (own)
+    summary: Get notification by ID
+    description: Users can retrieve their own notifications; admins can retrieve any notification for recovery review.
     parameters:
       - in: path
         name: notificationId
