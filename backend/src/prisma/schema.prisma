@@ -642,6 +642,7 @@ enum NotificationChannel {
 
 enum NotificationStatus {
   queued
+  sending
   sent
   failed
   read
