@@ -33,6 +33,7 @@ const RESENDABLE_STATUSES = new Set<NotificationStatus>([
   NotificationStatus.failed,
   NotificationStatus.dead_letter,
   NotificationStatus.suppressed,
+  NotificationStatus.delivery_unknown,
 ]);
 
 export async function listNotifications(
