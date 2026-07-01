@@ -10,6 +10,7 @@ import { sendNotificationEmail } from "../utils/emailClient.js";
 
 const DELIVERY_BATCH_SIZE = 50;
 const DEFAULT_MAX_DELIVERY_ATTEMPTS = 3;
+const SENDING_LEASE_MINUTES = 15;
 
 const EMAIL_SUBJECTS: Record<string, string> = {
   due_soon: "Assignment due soon",
@@ -20,11 +21,22 @@ const EMAIL_SUBJECTS: Record<string, string> = {
 
 export async function handleDeliverQueuedJob(): Promise<void> {
   const now = new Date();
+  const staleSendingBefore = new Date(
+    now.getTime() - SENDING_LEASE_MINUTES * 60 * 1000,
+  );
   const queuedNotifications = await prisma.notification.findMany({
     where: {
-      status: "queued",
       deletedAt: null,
-      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      OR: [
+        {
+          status: "queued",
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        },
+        {
+          status: "sending",
+          lastAttemptAt: { lte: staleSendingBefore },
+        },
+      ],
     },
     include: {
       user: {
@@ -86,13 +98,39 @@ export async function handleDeliverQueuedJob(): Promise<void> {
       }
 
       try {
-        await prisma.notification.update({
-          where: { id: notification.id },
+        const claimResult = await prisma.notification.updateMany({
+          where: {
+            id: notification.id,
+            deletedAt: null,
+            OR: [
+              {
+                status: "queued",
+                OR: [
+                  { nextAttemptAt: null },
+                  { nextAttemptAt: { lte: now } },
+                ],
+              },
+              {
+                status: "sending",
+                lastAttemptAt: { lte: staleSendingBefore },
+              },
+            ],
+          },
           data: {
             lastAttemptAt: now,
             status: "sending",
           },
         });
+        if (claimResult.count !== 1) {
+          logger.info(
+            {
+              event: "notification_delivery_claim_lost",
+              notification_id: notification.id,
+            },
+            "Queued notification delivery claim skipped",
+          );
+          continue;
+        }
       } catch (error) {
         logger.error(
           {
