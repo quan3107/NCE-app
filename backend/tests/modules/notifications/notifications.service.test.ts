@@ -84,6 +84,24 @@ describe("notifications.service", () => {
     expect(prisma.notification.update).not.toHaveBeenCalled();
   });
 
+  it("allows admin resend for unknown delivery state", async () => {
+    prisma.notification.findFirst.mockResolvedValueOnce({
+      id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+      status: "delivery_unknown",
+      deletedAt: null,
+    });
+    prisma.notification.update.mockResolvedValueOnce({
+      id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+      status: "queued",
+    });
+
+    const result = await resendNotification({
+      notificationId: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+    });
+
+    expect(result.status).toBe("queued");
+  });
+
   it("rejects resend for already delivered notifications", async () => {
     prisma.notification.findFirst.mockResolvedValueOnce({
       id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
