@@ -85,6 +85,26 @@ export async function handleDeliverQueuedJob(): Promise<void> {
         }
       }
 
+      try {
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: {
+            lastAttemptAt: now,
+            status: "sending",
+          },
+        });
+      } catch (error) {
+        logger.error(
+          {
+            err: error,
+            event: "notification_delivery_claim_failed",
+            notification_id: notification.id,
+          },
+          "Notification delivery claim failed",
+        );
+        continue;
+      }
+
       if (notification.channel === "email") {
         const subject =
           EMAIL_SUBJECTS[notification.type] ?? "Notification update";
@@ -108,7 +128,12 @@ export async function handleDeliverQueuedJob(): Promise<void> {
           bodyText,
         });
       }
+    } catch (error) {
+      await recordDeliveryFailure(notification, error, now);
+      continue;
+    }
 
+    try {
       await prisma.notification.update({
         where: { id: notification.id },
         data: {
@@ -130,7 +155,17 @@ export async function handleDeliverQueuedJob(): Promise<void> {
         "Queued notification delivered",
       );
     } catch (error) {
-      await recordDeliveryFailure(notification, error, now);
+      logger.error(
+        {
+          err: error,
+          event: "notification_delivery_sent_persistence_failed",
+          notification_id: notification.id,
+          user_id: notification.userId,
+          type: notification.type,
+          channel: notification.channel,
+        },
+        "Notification sent but status persistence failed",
+      );
     }
   }
 }
@@ -207,8 +242,12 @@ function calculateNextAttemptAt(attemptCount: number, attemptedAt: Date): Date {
 
 function redactFailureReason(error: unknown): string {
   const rawReason = error instanceof Error ? error.message : String(error);
-  const redactedReason = rawReason.replace(
-    /\b(password|token|secret|api[_-]?key|authorization)\b\s*[:=]?\s*\S+/gi,
+  let redactedReason = rawReason.replace(
+    /\b(authorization)\b\s*[:=]\s*(?:bearer|basic)?\s*[^\s,;]+/gi,
+    (_match, label: string) => `${label}: [redacted]`,
+  );
+  redactedReason = redactedReason.replace(
+    /\b(password|token|secret|api[_-]?key)\b\s*[:=]?\s*\S+/gi,
     (_match, label: string) => `${label} [redacted]`,
   );
   return redactedReason.slice(0, 500);
