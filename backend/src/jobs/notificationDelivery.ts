@@ -56,6 +56,45 @@ export async function handleDeliverQueuedJob(): Promise<void> {
 
   for (const notification of queuedNotifications) {
     try {
+      const claimResult = await prisma.notification.updateMany({
+        where: {
+          id: notification.id,
+          deletedAt: null,
+          OR: [
+            {
+              status: "queued",
+              OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+            },
+          ],
+        },
+        data: {
+          lastAttemptAt: now,
+          status: "sending",
+        },
+      });
+      if (claimResult.count !== 1) {
+        logger.info(
+          {
+            event: "notification_delivery_claim_lost",
+            notification_id: notification.id,
+          },
+          "Queued notification delivery claim skipped",
+        );
+        continue;
+      }
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          event: "notification_delivery_claim_failed",
+          notification_id: notification.id,
+        },
+        "Notification delivery claim failed",
+      );
+      continue;
+    }
+
+    try {
       if (notification.user.role === "teacher") {
         const cacheKey = `${notification.userId}:${notification.type}`;
         let enabled = teacherPreferenceCache.get(cacheKey);
@@ -79,58 +118,29 @@ export async function handleDeliverQueuedJob(): Promise<void> {
             },
             "Queued notification delivery suppressed because preference is disabled",
           );
-          await prisma.notification.update({
-            where: { id: notification.id },
+          const suppressionResult = await prisma.notification.updateMany({
+            where: {
+              id: notification.id,
+              deletedAt: null,
+              status: "sending",
+            },
             data: {
               failureReason: "suppressed_by_preference",
               lastAttemptAt: now,
               status: "suppressed",
             },
           });
-          continue;
-        }
-      }
-
-      try {
-        const claimResult = await prisma.notification.updateMany({
-          where: {
-            id: notification.id,
-            deletedAt: null,
-            OR: [
+          if (suppressionResult.count !== 1) {
+            logger.info(
               {
-                status: "queued",
-                OR: [
-                  { nextAttemptAt: null },
-                  { nextAttemptAt: { lte: now } },
-                ],
+                event: "notification_delivery_suppression_transition_lost",
+                notification_id: notification.id,
               },
-            ],
-          },
-          data: {
-            lastAttemptAt: now,
-            status: "sending",
-          },
-        });
-        if (claimResult.count !== 1) {
-          logger.info(
-            {
-              event: "notification_delivery_claim_lost",
-              notification_id: notification.id,
-            },
-            "Queued notification delivery claim skipped",
-          );
+              "Notification suppression skipped because delivery state changed",
+            );
+          }
           continue;
         }
-      } catch (error) {
-        logger.error(
-          {
-            err: error,
-            event: "notification_delivery_claim_failed",
-            notification_id: notification.id,
-          },
-          "Notification delivery claim failed",
-        );
-        continue;
       }
 
       if (notification.channel === "email") {
@@ -162,8 +172,12 @@ export async function handleDeliverQueuedJob(): Promise<void> {
     }
 
     try {
-      await prisma.notification.update({
-        where: { id: notification.id },
+      const sentResult = await prisma.notification.updateMany({
+        where: {
+          id: notification.id,
+          deletedAt: null,
+          status: "sending",
+        },
         data: {
           failureReason: null,
           lastAttemptAt: now,
@@ -172,6 +186,16 @@ export async function handleDeliverQueuedJob(): Promise<void> {
           sentAt: now,
         },
       });
+      if (sentResult.count !== 1) {
+        logger.info(
+          {
+            event: "notification_delivery_sent_transition_lost",
+            notification_id: notification.id,
+          },
+          "Notification sent status skipped because delivery state changed",
+        );
+        continue;
+      }
       logger.info(
         {
           event: "notification_delivery_sent",
@@ -232,8 +256,12 @@ async function recoverStaleSendingNotifications(
 
 async function markDeliveryUnknown(notificationId: string): Promise<void> {
   try {
-    await prisma.notification.update({
-      where: { id: notificationId },
+    await prisma.notification.updateMany({
+      where: {
+        id: notificationId,
+        deletedAt: null,
+        status: "sending",
+      },
       data: {
         failureReason: "delivery_state_unknown",
         nextAttemptAt: null,
@@ -275,8 +303,12 @@ async function recordDeliveryFailure(
       },
       "Notification delivery dead-lettered",
     );
-    await prisma.notification.update({
-      where: { id: notification.id },
+    const failureResult = await prisma.notification.updateMany({
+      where: {
+        id: notification.id,
+        deletedAt: null,
+        status: "sending",
+      },
       data: {
         attemptCount: { increment: 1 },
         deadLetteredAt: attemptedAt,
@@ -286,6 +318,15 @@ async function recordDeliveryFailure(
         status: "dead_letter",
       },
     });
+    if (failureResult.count !== 1) {
+      logger.info(
+        {
+          event: "notification_delivery_failure_transition_lost",
+          notification_id: notification.id,
+        },
+        "Notification dead-letter transition skipped because delivery state changed",
+      );
+    }
     return;
   }
 
@@ -301,8 +342,12 @@ async function recordDeliveryFailure(
     },
     "Notification delivery retry scheduled",
   );
-  await prisma.notification.update({
-    where: { id: notification.id },
+  const failureResult = await prisma.notification.updateMany({
+    where: {
+      id: notification.id,
+      deletedAt: null,
+      status: "sending",
+    },
     data: {
       attemptCount: { increment: 1 },
       failureReason,
@@ -311,6 +356,15 @@ async function recordDeliveryFailure(
       status: "queued",
     },
   });
+  if (failureResult.count !== 1) {
+    logger.info(
+      {
+        event: "notification_delivery_failure_transition_lost",
+        notification_id: notification.id,
+      },
+      "Notification retry transition skipped because delivery state changed",
+    );
+  }
 }
 
 function calculateNextAttemptAt(attemptCount: number, attemptedAt: Date): Date {
