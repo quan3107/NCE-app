@@ -53,7 +53,7 @@ const { handleDeliverQueuedJob } = await import(
 
 describe("jobs.notificationDelivery", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-30T10:00:00.000Z"));
   });
@@ -151,6 +151,50 @@ describe("jobs.notificationDelivery", () => {
     );
   });
 
+  it("does not schedule a retry when sent-status persistence fails after email delivery", async () => {
+    prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n-5",
+        userId: "student-1",
+        type: "due_soon",
+        attemptCount: 0,
+        maxAttempts: 3,
+        channel: "email",
+        payload: {},
+        user: {
+          role: "student",
+          email: "student@example.com",
+          fullName: "Student One",
+        },
+      },
+    ]);
+    prisma.notification.update.mockImplementation(async (args) => {
+      if (args.data.status === "sent") {
+        throw new Error("database unavailable");
+      }
+      return {};
+    });
+
+    await handleDeliverQueuedJob();
+
+    expect(sendNotificationEmail).toHaveBeenCalledTimes(1);
+    expect(prisma.notification.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "n-5" },
+      data: {
+        lastAttemptAt: new Date("2026-06-30T10:00:00.000Z"),
+        status: "sending",
+      },
+    });
+    expect(prisma.notification.update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: "n-5" },
+        data: expect.objectContaining({ status: "sent" }),
+      }),
+    );
+    expect(prisma.notification.update).toHaveBeenCalledTimes(2);
+  });
+
   it("schedules retry with redacted failure reason after transient delivery failure", async () => {
     prisma.notification.findMany.mockResolvedValue([
       {
@@ -217,6 +261,37 @@ describe("jobs.notificationDelivery", () => {
         nextAttemptAt: null,
         status: "dead_letter",
       },
+    });
+  });
+
+  it("redacts bearer authorization values from stored failure reasons", async () => {
+    prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n-6",
+        userId: "student-1",
+        type: "due_soon",
+        attemptCount: 0,
+        maxAttempts: 3,
+        channel: "email",
+        payload: {},
+        user: {
+          role: "student",
+          email: "student@example.com",
+          fullName: "Student One",
+        },
+      },
+    ]);
+    sendNotificationEmail.mockRejectedValue(
+      new Error("Authorization: Bearer real-token"),
+    );
+
+    await handleDeliverQueuedJob();
+
+    expect(prisma.notification.update).toHaveBeenCalledWith({
+      where: { id: "n-6" },
+      data: expect.objectContaining({
+        failureReason: "Authorization: [redacted]",
+      }),
     });
   });
 });
