@@ -29,6 +29,12 @@ type NotificationActor = {
   role: UserRole;
 };
 
+const RESENDABLE_STATUSES = new Set<NotificationStatus>([
+  NotificationStatus.failed,
+  NotificationStatus.dead_letter,
+  NotificationStatus.suppressed,
+]);
+
 export async function listNotifications(
   actor: NotificationActor,
   query: unknown,
@@ -108,6 +114,12 @@ export async function resendNotification(params: unknown) {
     throw createNotFoundError("Notification", notificationId);
   }
 
+  if (!RESENDABLE_STATUSES.has(notification.status)) {
+    throw createHttpError(409, "Notification is not in a resendable state.", {
+      status: notification.status,
+    });
+  }
+
   const resentNotification = await prisma.notification.update({
     where: { id: notificationId },
     data: {
@@ -116,6 +128,8 @@ export async function resendNotification(params: unknown) {
       failureReason: null,
       lastAttemptAt: null,
       nextAttemptAt: null,
+      readAt: null,
+      sentAt: null,
       status: NotificationStatus.queued,
     },
   });
