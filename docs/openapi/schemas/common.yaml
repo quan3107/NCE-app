@@ -37,4 +37,4 @@ NotificationChannel:
 
 NotificationStatus:
   type: string
-  enum: [queued, sending, sent, failed, read, suppressed, dead_letter]
+  enum: [queued, sending, sent, failed, read, suppressed, dead_letter, delivery_unknown]
