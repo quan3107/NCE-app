@@ -121,8 +121,12 @@ export async function resendNotification(params: unknown) {
     });
   }
 
-  const resentNotification = await prisma.notification.update({
-    where: { id: notificationId },
+  const resendResult = await prisma.notification.updateMany({
+    where: {
+      id: notificationId,
+      deletedAt: null,
+      status: notification.status,
+    },
     data: {
       attemptCount: 0,
       deadLetteredAt: null,
@@ -134,6 +138,18 @@ export async function resendNotification(params: unknown) {
       status: NotificationStatus.queued,
     },
   });
+  if (resendResult.count !== 1) {
+    throw createHttpError(409, "Notification state changed before resend.", {
+      status: notification.status,
+    });
+  }
+
+  const resentNotification = await prisma.notification.findFirst({
+    where: { id: notificationId, deletedAt: null },
+  });
+  if (!resentNotification) {
+    throw createNotFoundError("Notification", notificationId);
+  }
 
   logger.info(
     {
@@ -173,7 +189,6 @@ export async function markNotificationsRead(
     },
     data: {
       readAt: new Date(),
-      status: "read",
     },
   });
 
