@@ -24,19 +24,13 @@ export async function handleDeliverQueuedJob(): Promise<void> {
   const staleSendingBefore = new Date(
     now.getTime() - SENDING_LEASE_MINUTES * 60 * 1000,
   );
+  await recoverStaleSendingNotifications(staleSendingBefore);
+
   const queuedNotifications = await prisma.notification.findMany({
     where: {
+      status: "queued",
       deletedAt: null,
-      OR: [
-        {
-          status: "queued",
-          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
-        },
-        {
-          status: "sending",
-          lastAttemptAt: { lte: staleSendingBefore },
-        },
-      ],
+      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
     },
     include: {
       user: {
@@ -109,10 +103,6 @@ export async function handleDeliverQueuedJob(): Promise<void> {
                   { nextAttemptAt: null },
                   { nextAttemptAt: { lte: now } },
                 ],
-              },
-              {
-                status: "sending",
-                lastAttemptAt: { lte: staleSendingBefore },
               },
             ],
           },
@@ -193,6 +183,7 @@ export async function handleDeliverQueuedJob(): Promise<void> {
         "Queued notification delivered",
       );
     } catch (error) {
+      await markDeliveryUnknown(notification.id);
       logger.error(
         {
           err: error,
@@ -211,6 +202,55 @@ export async function handleDeliverQueuedJob(): Promise<void> {
 type QueuedNotification = Awaited<
   ReturnType<typeof prisma.notification.findMany>
 >[number];
+
+async function recoverStaleSendingNotifications(
+  staleSendingBefore: Date,
+): Promise<void> {
+  const result = await prisma.notification.updateMany({
+    where: {
+      status: "sending",
+      deletedAt: null,
+      lastAttemptAt: { lte: staleSendingBefore },
+    },
+    data: {
+      failureReason: "delivery_state_unknown",
+      nextAttemptAt: null,
+      status: "delivery_unknown",
+    },
+  });
+
+  if (result.count > 0) {
+    logger.error(
+      {
+        event: "notification_delivery_unknown_recovered",
+        recovered_count: result.count,
+      },
+      "Stale notification delivery claims require manual review",
+    );
+  }
+}
+
+async function markDeliveryUnknown(notificationId: string): Promise<void> {
+  try {
+    await prisma.notification.update({
+      where: { id: notificationId },
+      data: {
+        failureReason: "delivery_state_unknown",
+        nextAttemptAt: null,
+        status: "delivery_unknown",
+      },
+    });
+  } catch (error) {
+    logger.error(
+      {
+        err: error,
+        event: "notification_delivery_unknown_persistence_failed",
+        notification_id: notificationId,
+      },
+      "Notification delivery state could not be marked unknown",
+    );
+  }
+}
 
 async function recordDeliveryFailure(
   notification: QueuedNotification,
