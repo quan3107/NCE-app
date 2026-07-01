@@ -10,6 +10,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
     notification: {
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
@@ -19,13 +20,12 @@ const prismaTypes = await import("../../../src/prisma/index.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
 const { UserRole } = prismaTypes;
 
-const { getNotificationById, resendNotification } = await import(
-  "../../../src/modules/notifications/notifications.service.js"
-);
+const { getNotificationById, markNotificationsRead, resendNotification } =
+  await import("../../../src/modules/notifications/notifications.service.js");
 
 describe("notifications.service", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("resets retry metadata for admin resend", async () => {
@@ -34,7 +34,8 @@ describe("notifications.service", () => {
       status: "dead_letter",
       deletedAt: null,
     });
-    prisma.notification.update.mockResolvedValueOnce({
+    prisma.notification.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.notification.findFirst.mockResolvedValueOnce({
       id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
       status: "queued",
       attemptCount: 0,
@@ -54,8 +55,12 @@ describe("notifications.service", () => {
         deletedAt: null,
       },
     });
-    expect(prisma.notification.update).toHaveBeenCalledWith({
-      where: { id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2" },
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+        deletedAt: null,
+        status: "dead_letter",
+      },
       data: {
         attemptCount: 0,
         deadLetteredAt: null,
@@ -67,6 +72,7 @@ describe("notifications.service", () => {
         status: "queued",
       },
     });
+    expect(prisma.notification.update).not.toHaveBeenCalled();
     expect(result.status).toBe("queued");
   });
 
@@ -81,7 +87,7 @@ describe("notifications.service", () => {
       statusCode: 404,
     });
 
-    expect(prisma.notification.update).not.toHaveBeenCalled();
+    expect(prisma.notification.updateMany).not.toHaveBeenCalled();
   });
 
   it("allows admin resend for unknown delivery state", async () => {
@@ -90,7 +96,8 @@ describe("notifications.service", () => {
       status: "delivery_unknown",
       deletedAt: null,
     });
-    prisma.notification.update.mockResolvedValueOnce({
+    prisma.notification.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.notification.findFirst.mockResolvedValueOnce({
       id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
       status: "queued",
     });
@@ -100,6 +107,23 @@ describe("notifications.service", () => {
     });
 
     expect(result.status).toBe("queued");
+  });
+
+  it("rejects resend when the notification state changes before update", async () => {
+    prisma.notification.findFirst.mockResolvedValueOnce({
+      id: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+      status: "failed",
+      deletedAt: null,
+    });
+    prisma.notification.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      resendNotification({
+        notificationId: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+    });
   });
 
   it("rejects resend for already delivered notifications", async () => {
@@ -117,7 +141,31 @@ describe("notifications.service", () => {
       statusCode: 409,
     });
 
-    expect(prisma.notification.update).not.toHaveBeenCalled();
+    expect(prisma.notification.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("marks notifications read without changing delivery status", async () => {
+    prisma.notification.updateMany.mockResolvedValueOnce({ count: 2 });
+
+    const result = await markNotificationsRead(
+      { userId: "8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3" },
+      {
+        id: "8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3",
+        role: UserRole.student,
+      },
+    );
+
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: "8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3",
+        deletedAt: null,
+        readAt: null,
+      },
+      data: {
+        readAt: expect.any(Date),
+      },
+    });
+    expect(result.updatedCount).toBe(2);
   });
 
   it("lets admins inspect notification failure details by id", async () => {
