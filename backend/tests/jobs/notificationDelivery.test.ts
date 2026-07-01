@@ -96,7 +96,28 @@ describe("jobs.notificationDelivery", () => {
     });
   });
 
-  it("only fetches due queued notifications and stale sending notifications", async () => {
+  it("recovers stale sending notifications into an unknown delivery state", async () => {
+    prisma.notification.findMany.mockResolvedValue([]);
+
+    await handleDeliverQueuedJob();
+
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: {
+        status: "sending",
+        deletedAt: null,
+        lastAttemptAt: {
+          lte: new Date("2026-06-30T09:45:00.000Z"),
+        },
+      },
+      data: {
+        failureReason: "delivery_state_unknown",
+        nextAttemptAt: null,
+        status: "delivery_unknown",
+      },
+    });
+  });
+
+  it("only fetches queued notifications that are due for delivery", async () => {
     prisma.notification.findMany.mockResolvedValue([]);
 
     await handleDeliverQueuedJob();
@@ -104,25 +125,11 @@ describe("jobs.notificationDelivery", () => {
     expect(prisma.notification.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          status: "queued",
           deletedAt: null,
           OR: [
-            {
-              status: "queued",
-              OR: [
-                { nextAttemptAt: null },
-                {
-                  nextAttemptAt: {
-                    lte: new Date("2026-06-30T10:00:00.000Z"),
-                  },
-                },
-              ],
-            },
-            {
-              status: "sending",
-              lastAttemptAt: {
-                lte: new Date("2026-06-30T09:45:00.000Z"),
-              },
-            },
+            { nextAttemptAt: null },
+            { nextAttemptAt: { lte: new Date("2026-06-30T10:00:00.000Z") } },
           ],
         },
       }),
@@ -210,12 +217,6 @@ describe("jobs.notificationDelivery", () => {
               },
             ],
           },
-          {
-            status: "sending",
-            lastAttemptAt: {
-              lte: new Date("2026-06-30T09:45:00.000Z"),
-            },
-          },
         ],
       },
       data: {
@@ -229,7 +230,15 @@ describe("jobs.notificationDelivery", () => {
         data: expect.objectContaining({ status: "sent" }),
       }),
     );
-    expect(prisma.notification.update).toHaveBeenCalledTimes(1);
+    expect(prisma.notification.update).toHaveBeenCalledWith({
+      where: { id: "n-5" },
+      data: {
+        failureReason: "delivery_state_unknown",
+        nextAttemptAt: null,
+        status: "delivery_unknown",
+      },
+    });
+    expect(prisma.notification.update).toHaveBeenCalledTimes(2);
   });
 
   it("skips transport when another worker already claimed the notification", async () => {
@@ -268,12 +277,6 @@ describe("jobs.notificationDelivery", () => {
                 },
               },
             ],
-          },
-          {
-            status: "sending",
-            lastAttemptAt: {
-              lte: new Date("2026-06-30T09:45:00.000Z"),
-            },
           },
         ],
       },
