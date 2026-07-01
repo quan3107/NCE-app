@@ -91,7 +91,7 @@ NotificationResend:
   post:
     tags: [notifications]
     summary: Resend notification (admin)
-    description: Resets retry and dead-letter metadata so the delivery job can attempt the notification again.
+    description: Resets retry and dead-letter metadata for failed, suppressed, or dead-lettered notifications so the delivery job can attempt the notification again.
     parameters:
       - in: path
         name: notificationId
@@ -120,6 +120,12 @@ NotificationResend:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Notification is not in a resendable state
         content:
           application/json:
             schema:
