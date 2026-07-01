@@ -4,6 +4,7 @@
 
 ALTER TYPE "NotificationStatus" ADD VALUE IF NOT EXISTS 'suppressed';
 ALTER TYPE "NotificationStatus" ADD VALUE IF NOT EXISTS 'dead_letter';
+ALTER TYPE "NotificationStatus" ADD VALUE IF NOT EXISTS 'sending';
 
 ALTER TABLE public.notifications
   ADD COLUMN IF NOT EXISTS attempt_count INTEGER NOT NULL DEFAULT 0,
