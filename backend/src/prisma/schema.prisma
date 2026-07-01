@@ -648,6 +648,7 @@ enum NotificationStatus {
   read
   suppressed
   dead_letter
+  delivery_unknown
 }
 
 enum IdentityProvider {
