@@ -8,44 +8,38 @@ import {
   NotificationStatus,
   Prisma,
   UserRole,
-} from "../../prisma/index.js";
+} from '../../prisma/index.js'
 
-import { logger } from "../../config/logger.js";
-import { prisma } from "../../prisma/client.js";
-import {
-  createHttpError,
-  createNotFoundError,
-} from "../../utils/httpError.js";
+import { logger } from '../../config/logger.js'
+import { prisma } from '../../prisma/client.js'
+import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
 import {
   createNotificationSchema,
   DEFAULT_NOTIFICATION_LIMIT,
   markNotificationsReadSchema,
   notificationQuerySchema,
   notificationIdParamsSchema,
-} from "./notifications.schema.js";
+} from './notifications.schema.js'
 
 type NotificationActor = {
-  id: string;
-  role: UserRole;
-};
+  id: string
+  role: UserRole
+}
 
 const RESENDABLE_STATUSES = new Set<NotificationStatus>([
   NotificationStatus.failed,
   NotificationStatus.dead_letter,
   NotificationStatus.suppressed,
   NotificationStatus.delivery_unknown,
-]);
+])
 
-export async function listNotifications(
-  actor: NotificationActor,
-  query: unknown,
-) {
-  const { limit: rawLimit, cursor } = notificationQuerySchema.parse(query);
-  const limit = rawLimit ?? DEFAULT_NOTIFICATION_LIMIT;
+export async function listNotifications(actor: NotificationActor, query: unknown) {
+  const { limit: rawLimit, cursor } = notificationQuerySchema.parse(query)
+  const limit = rawLimit ?? DEFAULT_NOTIFICATION_LIMIT
 
   const notifications = await prisma.notification.findMany({
     where: { deletedAt: null, userId: actor.id },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
     ...(cursor
       ? {
@@ -53,22 +47,22 @@ export async function listNotifications(
           skip: 1,
         }
       : {}),
-  });
+  })
 
-  const hasMore = notifications.length > limit;
-  const data = hasMore ? notifications.slice(0, limit) : notifications;
-  const nextCursor = hasMore ? data[data.length - 1]?.id ?? null : null;
+  const hasMore = notifications.length > limit
+  const data = hasMore ? notifications.slice(0, limit) : notifications
+  const nextCursor = hasMore ? (data[data.length - 1]?.id ?? null) : null
 
   return {
     data,
     nextCursor,
-  };
+  }
 }
 
 export async function createNotification(payload: unknown) {
-  const data = createNotificationSchema.parse(payload);
+  const data = createNotificationSchema.parse(payload)
   // Default payload to empty object for required JSON column.
-  const payloadJson = (data.payload ?? {}) as Prisma.InputJsonObject;
+  const payloadJson = (data.payload ?? {}) as Prisma.InputJsonObject
 
   return prisma.notification.create({
     data: {
@@ -77,48 +71,45 @@ export async function createNotification(payload: unknown) {
       payload: payloadJson,
       channel: data.channel,
       // New notifications start queued until delivery jobs update status.
-      status: "queued",
+      status: 'queued',
     },
-  });
+  })
 }
 
-export async function getNotificationById(
-  params: unknown,
-  actor: NotificationActor,
-) {
-  const { notificationId } = notificationIdParamsSchema.parse(params);
+export async function getNotificationById(params: unknown, actor: NotificationActor) {
+  const { notificationId } = notificationIdParamsSchema.parse(params)
   const where: Prisma.NotificationWhereInput = {
     id: notificationId,
     deletedAt: null,
-  };
+  }
 
   if (actor.role !== UserRole.admin) {
-    where.userId = actor.id;
+    where.userId = actor.id
   }
 
   const notification = await prisma.notification.findFirst({
     where,
-  });
+  })
   if (!notification) {
-    throw createNotFoundError("Notification", notificationId);
+    throw createNotFoundError('Notification', notificationId)
   }
-  return notification;
+  return notification
 }
 
 export async function resendNotification(params: unknown) {
-  const { notificationId } = notificationIdParamsSchema.parse(params);
+  const { notificationId } = notificationIdParamsSchema.parse(params)
   const notification = await prisma.notification.findFirst({
     where: { id: notificationId, deletedAt: null },
-  });
+  })
 
   if (!notification) {
-    throw createNotFoundError("Notification", notificationId);
+    throw createNotFoundError('Notification', notificationId)
   }
 
   if (!RESENDABLE_STATUSES.has(notification.status)) {
-    throw createHttpError(409, "Notification is not in a resendable state.", {
+    throw createHttpError(409, 'Notification is not in a resendable state.', {
       status: notification.status,
-    });
+    })
   }
 
   const resendResult = await prisma.notification.updateMany({
@@ -137,49 +128,46 @@ export async function resendNotification(params: unknown) {
       sentAt: null,
       status: NotificationStatus.queued,
     },
-  });
+  })
   if (resendResult.count !== 1) {
-    throw createHttpError(409, "Notification state changed before resend.", {
+    throw createHttpError(409, 'Notification state changed before resend.', {
       status: notification.status,
-    });
+    })
   }
 
   const resentNotification = await prisma.notification.findFirst({
     where: { id: notificationId, deletedAt: null },
-  });
+  })
   if (!resentNotification) {
-    throw createNotFoundError("Notification", notificationId);
+    throw createNotFoundError('Notification', notificationId)
   }
 
   logger.info(
     {
-      event: "notification_delivery_resent",
+      event: 'notification_delivery_resent',
       notification_id: notificationId,
       previous_status: notification.status,
     },
-    "Notification queued for resend",
-  );
+    'Notification queued for resend',
+  )
 
-  return resentNotification;
+  return resentNotification
 }
 
-export async function markNotificationsRead(
-  payload: unknown,
-  actor: NotificationActor,
-) {
-  const data = markNotificationsReadSchema.parse(payload);
+export async function markNotificationsRead(payload: unknown, actor: NotificationActor) {
+  const data = markNotificationsReadSchema.parse(payload)
 
   if (actor.role !== UserRole.admin && actor.id !== data.userId) {
-    throw createHttpError(403, "Forbidden");
+    throw createHttpError(403, 'Forbidden')
   }
 
   const where: Prisma.NotificationWhereInput = {
     userId: data.userId,
     deletedAt: null,
-  };
+  }
 
   if (data.notificationIds && data.notificationIds.length > 0) {
-    where.id = { in: data.notificationIds };
+    where.id = { in: data.notificationIds }
   }
 
   const result = await prisma.notification.updateMany({
@@ -190,27 +178,27 @@ export async function markNotificationsRead(
     data: {
       readAt: new Date(),
     },
-  });
+  })
 
   return {
     userId: data.userId,
     updatedCount: result.count,
-  };
+  }
 }
 
 type EnqueueNotificationInput = {
-  userId: string;
-  type: string;
-  payload: Prisma.InputJsonObject;
-  channels: NotificationChannel[];
-};
+  userId: string
+  type: string
+  payload: Prisma.InputJsonObject
+  channels: NotificationChannel[]
+}
 
 export async function enqueueNotification(
   input: EnqueueNotificationInput,
 ): Promise<void> {
-  const payload = (input.payload ?? {}) as Prisma.InputJsonObject;
+  const payload = (input.payload ?? {}) as Prisma.InputJsonObject
   if (input.channels.length === 0) {
-    return;
+    return
   }
 
   await prisma.notification.createMany({
@@ -219,7 +207,7 @@ export async function enqueueNotification(
       type: input.type,
       payload,
       channel,
-      status: "queued",
+      status: 'queued',
     })),
-  });
+  })
 }
