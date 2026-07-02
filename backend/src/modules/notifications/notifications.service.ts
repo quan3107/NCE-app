@@ -67,7 +67,7 @@ export async function createNotification(payload: unknown) {
   // Default payload to empty object for required JSON column.
   const payloadJson = (data.payload ?? {}) as Prisma.InputJsonObject
 
-  return prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: {
       userId: data.userId,
       type: data.template,
@@ -77,6 +77,8 @@ export async function createNotification(payload: unknown) {
       status: 'queued',
     },
   })
+
+  return toDisplayNotification(notification)
 }
 
 export async function getNotificationById(params: unknown, actor: NotificationActor) {
