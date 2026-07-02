@@ -68,11 +68,13 @@ NotificationById:
           format: uuid
     responses:
       '200':
-        description: Notification
+        description: Notification. Admin recovery reads include delivery metadata.
         content:
           application/json:
             schema:
-              $ref: '../schemas/notifications.yaml#/Notification'
+              oneOf:
+                - $ref: '../schemas/notifications.yaml#/Notification'
+                - $ref: '../schemas/notifications.yaml#/NotificationRecovery'
       '401':
         description: Unauthorized
         content:
