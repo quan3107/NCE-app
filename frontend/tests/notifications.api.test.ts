@@ -54,11 +54,16 @@ test('mapApiNotificationToNotification uses payload title/message when provided'
 });
 
 test('notification OpenAPI separates display and recovery metadata schemas', async () => {
-  const filePath = path.resolve(
+  const schemaPath = path.resolve(
     import.meta.dirname,
     '../../docs/openapi/schemas/notifications.yaml',
   );
-  const source = await readFile(filePath, 'utf8');
+  const pathFilePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/notifications.yaml',
+  );
+  const source = await readFile(schemaPath, 'utf8');
+  const pathSource = await readFile(pathFilePath, 'utf8');
   const notificationSchema = source.slice(
     source.indexOf('Notification:'),
     source.indexOf('NotificationRecovery:'),
@@ -69,4 +74,6 @@ test('notification OpenAPI separates display and recovery metadata schemas', asy
   assert.match(source, /NotificationRecovery:/);
   assert.match(source, /attemptCount:/);
   assert.match(source, /failureReason:/);
+  assert.match(pathSource, /anyOf:/);
+  assert.doesNotMatch(pathSource, /oneOf:/);
 });
