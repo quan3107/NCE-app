@@ -26,6 +26,8 @@ type NotificationActor = {
   role: UserRole
 }
 
+type NotificationRecord = Awaited<ReturnType<typeof prisma.notification.findMany>>[number]
+
 const RESENDABLE_STATUSES = new Set<NotificationStatus>([
   NotificationStatus.failed,
   NotificationStatus.dead_letter,
@@ -50,7 +52,8 @@ export async function listNotifications(actor: NotificationActor, query: unknown
   })
 
   const hasMore = notifications.length > limit
-  const data = hasMore ? notifications.slice(0, limit) : notifications
+  const visibleNotifications = hasMore ? notifications.slice(0, limit) : notifications
+  const data = visibleNotifications.map(toDisplayNotification)
   const nextCursor = hasMore ? (data[data.length - 1]?.id ?? null) : null
 
   return {
@@ -93,7 +96,26 @@ export async function getNotificationById(params: unknown, actor: NotificationAc
   if (!notification) {
     throw createNotFoundError('Notification', notificationId)
   }
+  if (actor.role !== UserRole.admin) {
+    return toDisplayNotification(notification)
+  }
   return notification
+}
+
+function toDisplayNotification(notification: NotificationRecord) {
+  return {
+    id: notification.id,
+    userId: notification.userId,
+    type: notification.type,
+    payload: notification.payload,
+    channel: notification.channel,
+    status: notification.status,
+    sentAt: notification.sentAt,
+    readAt: notification.readAt,
+    createdAt: notification.createdAt,
+    updatedAt: notification.updatedAt,
+    deletedAt: notification.deletedAt,
+  }
 }
 
 export async function resendNotification(params: unknown) {
