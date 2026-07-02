@@ -15,5 +15,5 @@ ALTER TABLE public.notifications
   ADD COLUMN IF NOT EXISTS failure_reason TEXT,
   ADD COLUMN IF NOT EXISTS dead_lettered_at TIMESTAMPTZ;
 
-CREATE INDEX IF NOT EXISTS notifications_status_deletedAt_nextAttemptAt_idx
+CREATE INDEX IF NOT EXISTS "notifications_status_deletedAt_nextAttemptAt_idx"
   ON public.notifications(status, "deletedAt", next_attempt_at);
