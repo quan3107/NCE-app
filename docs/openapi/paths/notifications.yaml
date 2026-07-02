@@ -72,7 +72,7 @@ NotificationById:
         content:
           application/json:
             schema:
-              oneOf:
+              anyOf:
                 - $ref: '../schemas/notifications.yaml#/Notification'
                 - $ref: '../schemas/notifications.yaml#/NotificationRecovery'
       '401':
