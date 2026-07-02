@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
     notification: {
+      create: vi.fn(),
       findMany: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
@@ -22,6 +23,7 @@ const prisma = vi.mocked(prismaModule.prisma, true)
 const { UserRole } = prismaTypes
 
 const {
+  createNotification,
   getNotificationById,
   listNotifications,
   markNotificationsRead,
@@ -99,6 +101,32 @@ describe('notifications.service', () => {
       userId: '8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3',
       type: 'due_soon',
       status: 'dead_letter',
+    })
+    expectNoRecoveryMetadata(result as Record<string, unknown>)
+  })
+
+  it('hides recovery metadata from created notification responses', async () => {
+    prisma.notification.create.mockResolvedValueOnce({
+      ...notificationWithRecoveryMetadata,
+      status: 'queued',
+      attemptCount: 0,
+      maxAttempts: 3,
+      failureReason: null,
+      deadLetteredAt: null,
+    })
+
+    const result = await createNotification({
+      userId: '8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3',
+      template: 'due_soon',
+      channel: 'email',
+      payload: { title: 'Due soon' },
+    })
+
+    expect(result).toMatchObject({
+      id: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
+      userId: '8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3',
+      type: 'due_soon',
+      status: 'queued',
     })
     expectNoRecoveryMetadata(result as Record<string, unknown>)
   })
