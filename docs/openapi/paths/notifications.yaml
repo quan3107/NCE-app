@@ -57,7 +57,8 @@ Notifications:
 NotificationById:
   get:
     tags: [notifications]
-    summary: Get notification (own)
+    summary: Get notification by ID
+    description: Users can retrieve their own notifications; admins can retrieve any notification for recovery review.
     parameters:
       - in: path
         name: notificationId
@@ -67,11 +68,13 @@ NotificationById:
           format: uuid
     responses:
       '200':
-        description: Notification
+        description: Notification. Admin recovery reads include delivery metadata.
         content:
           application/json:
             schema:
-              $ref: '../schemas/notifications.yaml#/Notification'
+              anyOf:
+                - $ref: '../schemas/notifications.yaml#/Notification'
+                - $ref: '../schemas/notifications.yaml#/NotificationRecovery'
       '401':
         description: Unauthorized
         content:
@@ -80,6 +83,52 @@ NotificationById:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+NotificationResend:
+  post:
+    tags: [notifications]
+    summary: Resend notification (admin)
+    description: Resets retry and dead-letter metadata for failed, suppressed, dead-lettered, or unknown-delivery notifications so the delivery job can attempt the notification again after admin review.
+    parameters:
+      - in: path
+        name: notificationId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Notification queued for resend
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/notifications.yaml#/ResendNotificationResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Notification is not in a resendable state
         content:
           application/json:
             schema:

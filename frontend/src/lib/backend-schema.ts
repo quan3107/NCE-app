@@ -18,7 +18,15 @@ export type AssignmentType =
   | 'speaking';
 export type SubmissionStatus = 'draft' | 'submitted' | 'late' | 'graded';
 export type NotificationChannel = 'inapp' | 'email' | 'push' | 'sms';
-export type NotificationStatus = 'queued' | 'sent' | 'failed' | 'read';
+export type NotificationStatus =
+  | 'queued'
+  | 'sending'
+  | 'sent'
+  | 'failed'
+  | 'read'
+  | 'suppressed'
+  | 'dead_letter'
+  | 'delivery_unknown';
 
 export type DashboardRole = UserRole;
 

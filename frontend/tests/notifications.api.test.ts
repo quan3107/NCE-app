@@ -5,6 +5,8 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { before, test } from 'node:test';
 
 type MapApiNotificationToNotification =
@@ -49,4 +51,29 @@ test('mapApiNotificationToNotification uses payload title/message when provided'
   assert.equal(mapped.title, 'Due in 24h');
   assert.equal(mapped.message, 'Please submit before midnight.');
   assert.equal(mapped.read, true);
+});
+
+test('notification OpenAPI separates display and recovery metadata schemas', async () => {
+  const schemaPath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/schemas/notifications.yaml',
+  );
+  const pathFilePath = path.resolve(
+    import.meta.dirname,
+    '../../docs/openapi/paths/notifications.yaml',
+  );
+  const source = await readFile(schemaPath, 'utf8');
+  const pathSource = await readFile(pathFilePath, 'utf8');
+  const notificationSchema = source.slice(
+    source.indexOf('Notification:'),
+    source.indexOf('NotificationRecovery:'),
+  );
+
+  assert.equal(notificationSchema.includes('attemptCount:'), false);
+  assert.equal(notificationSchema.includes('failureReason:'), false);
+  assert.match(source, /NotificationRecovery:/);
+  assert.match(source, /attemptCount:/);
+  assert.match(source, /failureReason:/);
+  assert.match(pathSource, /anyOf:/);
+  assert.doesNotMatch(pathSource, /oneOf:/);
 });
