@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-08:** Updated the database architecture runbook so the obsolete assignment backup table row-count check is only run after `to_regclass` confirms the backup table exists. This keeps the supported missing-table migration path from failing during pre-deployment verification.
 - **2026-06-30:** Completed PR-46 notification delivery recovery by adding retry metadata, due retry filtering, exponential backoff, redacted failure reasons, explicit suppression and dead-letter states, and an admin resend endpoint. Documented retry fields and resend behavior in OpenAPI with focused delivery and notification service coverage.
 - **2026-06-29:** Completed audit write instrumentation by adding centralized `writeAuditLog` and safe audit writes, redacted audit summaries, admin audit filters, and representative mutation audit rows across auth registration/login/session flows, users, courses/enrollments, assignments, submissions, grades, CMS stat refreshes, and dashboard settings. Updated the audit OpenAPI contract for filters and offset pagination with focused service coverage.
 - **2026-06-18:** Completed PR-42 backend NCE lesson authoring support by adding teacher/admin lesson create, patch, publish, unpublish, and ordered course assignment endpoints. Added validation for lesson parent units, exercise answer keys, publish completeness, and course teacher/admin access, with focused service and router coverage plus OpenAPI documentation.
@@ -50,6 +51,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-08:** No frontend files changed for the database runbook correction; the update was limited to backend/database documentation and the progress log.
 - **2026-06-18:** Completed PR-42 frontend NCE lesson authoring support by adding typed lesson mutation helpers, cache invalidation, teacher lesson list and editor routes, objective/exercise editors, publish/unpublish actions, and source/API coverage for the new authoring flow.
 - **2026-06-04:** Completed PR-24 frontend assignment AI policy contract support by typing the IELTS AI policy shape, defaulting new IELTS assignment configs to AI-off, preserving normalized API policy values, and adding assignment mapper coverage.
 - **2026-06-04:** Updated the frontend lockfile to resolve the React Router audit advisory surfaced by the CI audit gate, moving React Router packages to the patched 6.30.4 line without changing application code.
