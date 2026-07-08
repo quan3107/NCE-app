@@ -4,6 +4,7 @@
  * Why: Keeps the pre-signed upload UX consistent across submission flows.
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { Button } from '@components/ui/button';
@@ -68,13 +69,13 @@ const createUploadId = (): string => {
   return `upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-export function FileUploader(props: DefaultFileUploaderProps): JSX.Element;
+export function FileUploader(props: DefaultFileUploaderProps): ReactElement;
 export function FileUploader<T extends BaseFile>(
   props: CustomFileUploaderProps<T>,
-): JSX.Element;
+): ReactElement;
 export function FileUploader<T extends BaseFile>(
   props: DefaultFileUploaderProps | CustomFileUploaderProps<T>,
-): JSX.Element {
+): ReactElement {
   const { value, onChange, onBusyChange } = props;
   const policyQuery = useFileUploadConfig();
   const policy = policyQuery.data;

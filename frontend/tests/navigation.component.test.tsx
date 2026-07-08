@@ -34,7 +34,7 @@ vi.mock('@features/notifications/api', () => ({
 
 afterEach(() => {
   cleanup();
-  localStorage.clear();
+  window.localStorage?.clear();
   vi.restoreAllMocks();
 });
 

@@ -1,14 +1,217 @@
 /**
  * File: src/jobs/cleanupJob.ts
- * Purpose: Placeholder maintenance tasks to prune expired records and keep storage tidy.
- * Why: Allocates a dedicated module for scheduled cleanup so production scripts have a stable hook.
+ * Purpose: Run idempotent retention cleanup for expired sessions and stale notification metadata.
+ * Why: Scheduled maintenance must perform real bounded cleanup with audit-friendly counts.
  */
-import { logger } from "../config/logger.js";
+import PgBoss from "pg-boss";
 
-export async function purgeExpiredSessions(): Promise<void> {
-  logger.warn("purgeExpiredSessions job not implemented yet");
+import { config } from "../config/env.js";
+import { logger } from "../config/logger.js";
+import { buildExpiredUnusableSessionWhere } from "../modules/auth/auth.sessions.js";
+import { writeAuditLogSafely } from "../modules/audit-logs/audit-logs.service.js";
+import { NotificationStatus, Prisma } from "../prisma/index.js";
+import { prisma } from "../prisma/client.js";
+
+export const CLEANUP_JOB_NAME = "cleanup.retention";
+const CLEANUP_JOB_CRON = "17 3 * * *";
+
+export type CleanupJobMode = "dry-run" | "execute";
+
+export type CleanupRetentionPolicy = {
+  authSessionRetentionDays: number;
+  notificationMetadataRetentionDays: number;
+};
+
+export type CleanupJobResult = {
+  mode: CleanupJobMode;
+  cutoffs: {
+    authSessions: Date;
+    notificationMetadata: Date;
+  };
+  counts: {
+    authSessions: number;
+    notificationMetadata: number;
+  };
+};
+
+type CleanupJobOptions = {
+  mode?: CleanupJobMode;
+  now?: () => Date;
+  retentionPolicy?: Partial<CleanupRetentionPolicy>;
+};
+
+type CleanupJobDeps = Omit<CleanupJobOptions, "mode">;
+
+function daysBefore(now: Date, days: number): Date {
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 }
 
-export async function purgeSoftDeletedEntities(): Promise<void> {
-  logger.warn("purgeSoftDeletedEntities job not implemented yet");
+function resolveRetentionPolicy(
+  override?: Partial<CleanupRetentionPolicy>,
+): CleanupRetentionPolicy {
+  return {
+    authSessionRetentionDays:
+      override?.authSessionRetentionDays ??
+      config.cleanupRetention.authSessionRetentionDays,
+    notificationMetadataRetentionDays:
+      override?.notificationMetadataRetentionDays ??
+      config.cleanupRetention.notificationMetadataRetentionDays,
+  };
+}
+
+function buildStaleNotificationMetadataWhere(
+  cutoff: Date,
+): Prisma.NotificationWhereInput {
+  return {
+    deletedAt: null,
+    status: {
+      in: [NotificationStatus.failed, NotificationStatus.dead_letter],
+    },
+    AND: [
+      {
+        OR: [
+          { deadLetteredAt: { lte: cutoff } },
+          { updatedAt: { lte: cutoff } },
+        ],
+      },
+      {
+        OR: [
+          { failureReason: { not: null } },
+          { deadLetteredAt: { not: null } },
+          { nextAttemptAt: { not: null } },
+        ],
+      },
+    ],
+  };
+}
+
+export async function runCleanupRetentionJob(
+  options: CleanupJobOptions = {},
+): Promise<CleanupJobResult> {
+  const mode = options.mode ?? "execute";
+  const now = options.now?.() ?? new Date();
+  const retentionPolicy = resolveRetentionPolicy(options.retentionPolicy);
+  const authSessionCutoff = daysBefore(
+    now,
+    retentionPolicy.authSessionRetentionDays,
+  );
+  const notificationMetadataCutoff = daysBefore(
+    now,
+    retentionPolicy.notificationMetadataRetentionDays,
+  );
+  const authSessionWhere = buildExpiredUnusableSessionWhere(authSessionCutoff);
+  const notificationMetadataWhere = buildStaleNotificationMetadataWhere(
+    notificationMetadataCutoff,
+  );
+
+  if (mode === "dry-run") {
+    const [authSessions, notificationMetadata] = await Promise.all([
+      prisma.authSession.count({ where: authSessionWhere }),
+      prisma.notification.count({ where: notificationMetadataWhere }),
+    ]);
+
+    logger.info(
+      {
+        event: "cleanup_retention_dry_run",
+        auth_sessions: authSessions,
+        notification_metadata: notificationMetadata,
+        auth_session_cutoff: authSessionCutoff.toISOString(),
+        notification_metadata_cutoff: notificationMetadataCutoff.toISOString(),
+      },
+      "Cleanup retention dry-run completed",
+    );
+
+    return {
+      mode,
+      cutoffs: {
+        authSessions: authSessionCutoff,
+        notificationMetadata: notificationMetadataCutoff,
+      },
+      counts: {
+        authSessions,
+        notificationMetadata,
+      },
+    };
+  }
+
+  const [authSessionResult, notificationMetadataResult] = await Promise.all([
+    prisma.authSession.updateMany({
+      where: authSessionWhere,
+      data: {
+        deletedAt: now,
+      },
+    }),
+    prisma.notification.updateMany({
+      where: notificationMetadataWhere,
+      data: {
+        deadLetteredAt: null,
+        failureReason: null,
+        nextAttemptAt: null,
+      },
+    }),
+  ]);
+
+  const counts = {
+    authSessions: authSessionResult.count,
+    notificationMetadata: notificationMetadataResult.count,
+  };
+
+  logger.info(
+    {
+      event: "cleanup_retention_executed",
+      auth_sessions: counts.authSessions,
+      notification_metadata: counts.notificationMetadata,
+      auth_session_cutoff: authSessionCutoff.toISOString(),
+      notification_metadata_cutoff: notificationMetadataCutoff.toISOString(),
+    },
+    "Cleanup retention executed",
+  );
+
+  await writeAuditLogSafely({
+    actorId: null,
+    action: "cleanup.retention_executed",
+    entity: "maintenance_job",
+    entityId: "cleanup-retention",
+    diff: {
+      authSessions: counts.authSessions,
+      notificationMetadata: counts.notificationMetadata,
+      authSessionCutoff: authSessionCutoff.toISOString(),
+      notificationMetadataCutoff: notificationMetadataCutoff.toISOString(),
+    },
+  });
+
+  return {
+    mode,
+    cutoffs: {
+      authSessions: authSessionCutoff,
+      notificationMetadata: notificationMetadataCutoff,
+    },
+    counts,
+  };
+}
+
+export async function handleCleanupJob(
+  _jobOrJobs?: PgBoss.Job<unknown> | PgBoss.Job<unknown>[],
+  deps: CleanupJobDeps = {},
+): Promise<void> {
+  await runCleanupRetentionJob({
+    ...deps,
+    mode: "execute",
+  });
+}
+
+export async function registerCleanupJobs(boss: PgBoss): Promise<void> {
+  await boss.createQueue(CLEANUP_JOB_NAME);
+  await boss.work(CLEANUP_JOB_NAME, handleCleanupJob);
+  await boss.schedule(CLEANUP_JOB_NAME, CLEANUP_JOB_CRON);
+
+  logger.info("Cleanup jobs registered");
+}
+
+export async function purgeExpiredSessions(): Promise<CleanupJobResult> {
+  return runCleanupRetentionJob({ mode: "execute" });
+}
+
+export async function purgeSoftDeletedEntities(): Promise<CleanupJobResult> {
+  return runCleanupRetentionJob({ mode: "execute" });
 }

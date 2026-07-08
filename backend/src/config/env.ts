@@ -183,6 +183,16 @@ const envSchema = z
       .int()
       .positive()
       .default(defaultAuthRateLimit.maxTrackedKeys),
+    CLEANUP_AUTH_SESSION_RETENTION_DAYS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(30),
+    CLEANUP_NOTIFICATION_METADATA_RETENTION_DAYS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(90),
     TRUST_PROXY: z.string().default(defaultTrustProxy).transform(parseTrustProxy),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
@@ -281,6 +291,12 @@ const envConfig = {
       windowMs: parseResult.data.AUTH_IP_RATE_LIMIT_WINDOW_MS,
     },
     maxTrackedKeys: parseResult.data.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS,
+  },
+  cleanupRetention: {
+    authSessionRetentionDays:
+      parseResult.data.CLEANUP_AUTH_SESSION_RETENTION_DAYS,
+    notificationMetadataRetentionDays:
+      parseResult.data.CLEANUP_NOTIFICATION_METADATA_RETENTION_DAYS,
   },
   trustProxy: parseResult.data.TRUST_PROXY,
   logLevel: parseResult.data.LOG_LEVEL,
