@@ -79,7 +79,12 @@ hosted:
 
 ```sql
 SELECT to_regclass('public.assignments_backup_20260204') AS backup_table;
+```
 
+If `backup_table` is `NULL`, the backup table is already absent and there is no
+row count to check. Only run this count after `backup_table` is non-null:
+
+```sql
 SELECT count(*) AS backup_rows
 FROM public.assignments_backup_20260204;
 ```
