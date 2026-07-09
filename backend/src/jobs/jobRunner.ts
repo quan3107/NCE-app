@@ -12,6 +12,7 @@ import {
   clearJobRunnerBoss,
   setJobRunnerBoss,
 } from "./aiFeedbackJob.enqueue.js";
+import { registerCleanupJobs } from "./cleanupJob.js";
 import { registerNotificationJobs } from "./notificationJob.js";
 
 let bossInstance: PgBoss | null = null;
@@ -33,6 +34,7 @@ export async function startJobRunner(): Promise<void> {
   await boss.start();
   await registerAiFeedbackJobs(boss);
   await registerNotificationJobs(boss);
+  await registerCleanupJobs(boss);
 
   bossInstance = boss;
   setJobRunnerBoss(boss);

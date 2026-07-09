@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "../../config/prismaClient.js";
+import { Prisma } from "../../prisma/index.js";
 import { hashValue } from "./auth.crypto.js";
 import type { SessionContext } from "./auth.types.js";
 
@@ -30,6 +31,20 @@ const sanitizeSessionMetadata = (context: SessionContext) => ({
       ? hashValue(context.ipAddress)
       : null,
 });
+
+export function buildExpiredUnusableSessionWhere(
+  cutoff: Date,
+): Prisma.AuthSessionWhereInput {
+  return {
+    deletedAt: null,
+    OR: [
+      { expiresAt: { lte: cutoff } },
+      { revokedAt: { lte: cutoff } },
+      { replacedAt: { lte: cutoff } },
+      { reuseDetectedAt: { lte: cutoff } },
+    ],
+  };
+}
 
 export class RefreshSessionClaimError extends Error {
   constructor(

@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@components/ui/tabs';
@@ -94,7 +95,7 @@ export function StudentNotificationsPage() {
     toast.success('All notifications marked as read');
   };
 
-  let settingsContent: JSX.Element;
+  let settingsContent: ReactElement;
   if (notificationTypesQuery.isLoading) {
     settingsContent = (
       <Card>
@@ -132,7 +133,7 @@ export function StudentNotificationsPage() {
     );
   }
 
-  let notificationListContent: JSX.Element;
+  let notificationListContent: ReactElement;
   if (isLoading) {
     notificationListContent = (
       <Card>

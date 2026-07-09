@@ -1,4 +1,4 @@
-﻿# English Education Backend
+# English Education Backend
 
 Node.js 20 + Express 5 + TypeScript scaffold providing REST APIs for the English education platform.
 
@@ -66,6 +66,30 @@ controls, image policy, and live-provider readiness guidance. See
 `../docs/ai-feedback-prompts.md` for prompt contracts, criteria versioning,
 parser failure policy, and provider-free harness behavior.
 
+## Cleanup and Retention Jobs
+
+The pg-boss runner schedules `cleanup.retention` daily at 03:17. The job
+soft-deletes expired or otherwise unusable auth sessions older than
+`CLEANUP_AUTH_SESSION_RETENTION_DAYS` and clears stale failure metadata from
+failed or dead-letter notification rows older than
+`CLEANUP_NOTIFICATION_METADATA_RETENTION_DAYS`. Defaults are conservative:
+30 days for auth sessions and 90 days for notification failure metadata.
+Execute mode selects IDs in bounded batches before mutating rows. Tune
+`CLEANUP_RETENTION_BATCH_SIZE` and `CLEANUP_RETENTION_MAX_BATCHES` if a backlog
+needs a slower or faster drain.
+
+Dry-run mode is available through `runCleanupRetentionJob({ mode: 'dry-run' })`
+for operational checks. Execute mode returns processed counts for that bounded
+run, logs the cleanup totals, and writes a redacted audit entry. If
+`reachedBatchLimit` is true, more eligible rows may remain for a later run.
+Cleanup does not delete remote object storage data; storage retention should be
+handled by a documented provider lifecycle policy.
+
+The cleanup index migration uses ordinary `CREATE INDEX` statements to match the
+repository's existing migration style. For large production `auth_sessions` or
+`notifications` tables, schedule the migration during low traffic or use a
+separate concurrent-index rollout.
+
 ## Structure
 
 - `src/app.ts` - Express app factory with core middleware, versioned routing, and error handling.
@@ -75,7 +99,7 @@ parser failure policy, and provider-free harness behavior.
 - `src/modules/` - Feature modules (auth, users, courses, assignments, submissions, grades, notifications) with Zod schemas, controllers, and routers returning `501 Not Implemented` placeholders.
 - `src/modules/router.ts` - Composes feature routers under `/api/v1`.
 - `src/utils/` - Domain-agnostic helpers (date utilities).
-- `src/jobs/` - pg-boss worker placeholders for notifications and cleanup.
+- `src/jobs/` - pg-boss workers for notifications, AI feedback, and cleanup.
 - `src/prisma/` - Prisma schema and migrations.
 - `tests/` - Vitest + Supertest suites (pending coverage for new modules).
 

@@ -29,6 +29,10 @@ const defaultedEnvKeys = [
   'AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS',
   'AUTH_IP_RATE_LIMIT_WINDOW_MS',
   'AUTH_RATE_LIMIT_MAX_TRACKED_KEYS',
+  'CLEANUP_AUTH_SESSION_RETENTION_DAYS',
+  'CLEANUP_NOTIFICATION_METADATA_RETENTION_DAYS',
+  'CLEANUP_RETENTION_BATCH_SIZE',
+  'CLEANUP_RETENTION_MAX_BATCHES',
   'TRUST_PROXY',
   'LOG_LEVEL',
   'LOG_PRETTY',
@@ -91,6 +95,10 @@ describe('test environment defaults', () => {
       expect(process.env.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS).toBe('3')
       expect(process.env.AUTH_IP_RATE_LIMIT_WINDOW_MS).toBe('60000')
       expect(process.env.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS).toBe('100')
+      expect(process.env.CLEANUP_AUTH_SESSION_RETENTION_DAYS).toBe('30')
+      expect(process.env.CLEANUP_NOTIFICATION_METADATA_RETENTION_DAYS).toBe('90')
+      expect(process.env.CLEANUP_RETENTION_BATCH_SIZE).toBe('500')
+      expect(process.env.CLEANUP_RETENTION_MAX_BATCHES).toBe('20')
       expect(process.env.TRUST_PROXY).toBe('loopback')
       expect(process.env.LOG_LEVEL).toBe('silent')
       expect(process.env.LOG_PRETTY).toBe('false')
@@ -150,6 +158,12 @@ describe('test environment defaults', () => {
         windowMs: 60_000,
       },
       maxTrackedKeys: 100,
+    })
+    expect(config.cleanupRetention).toEqual({
+      authSessionRetentionDays: 30,
+      notificationMetadataRetentionDays: 90,
+      batchSize: 500,
+      maxBatches: 20,
     })
     expect(config.trustProxy).toEqual(['loopback'])
     expect(config.logLevel).toBe('silent')
