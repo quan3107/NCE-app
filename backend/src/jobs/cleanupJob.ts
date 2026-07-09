@@ -11,13 +11,19 @@ import { buildExpiredUnusableSessionWhere } from "../modules/auth/auth.sessions.
 import { writeAuditLogSafely } from "../modules/audit-logs/audit-logs.service.js";
 import { NotificationStatus, Prisma } from "../prisma/index.js";
 import { prisma } from "../prisma/client.js";
+import {
+  logBatchLimitIfReached,
+  scrubNotificationMetadataInBatches,
+  softDeleteExpiredAuthSessionsInBatches,
+  type CleanupBatchLimits,
+} from "./cleanupRetentionBatches.js";
 
 export const CLEANUP_JOB_NAME = "cleanup.retention";
 const CLEANUP_JOB_CRON = "17 3 * * *";
 
 export type CleanupJobMode = "dry-run" | "execute";
 
-export type CleanupRetentionPolicy = {
+export type CleanupRetentionPolicy = CleanupBatchLimits & {
   authSessionRetentionDays: number;
   notificationMetadataRetentionDays: number;
 };
@@ -31,6 +37,18 @@ export type CleanupJobResult = {
   counts: {
     authSessions: number;
     notificationMetadata: number;
+  };
+  limits: {
+    batchSize: number;
+    maxBatches: number;
+  };
+  batchCounts: {
+    authSessions: number;
+    notificationMetadata: number;
+  };
+  reachedBatchLimit: {
+    authSessions: boolean;
+    notificationMetadata: boolean;
   };
 };
 
@@ -56,6 +74,8 @@ function resolveRetentionPolicy(
     notificationMetadataRetentionDays:
       override?.notificationMetadataRetentionDays ??
       config.cleanupRetention.notificationMetadataRetentionDays,
+    batchSize: override?.batchSize ?? config.cleanupRetention.batchSize,
+    maxBatches: override?.maxBatches ?? config.cleanupRetention.maxBatches,
   };
 }
 
@@ -131,29 +151,52 @@ export async function runCleanupRetentionJob(
         authSessions,
         notificationMetadata,
       },
+      limits: {
+        batchSize: retentionPolicy.batchSize,
+        maxBatches: retentionPolicy.maxBatches,
+      },
+      batchCounts: {
+        authSessions: 0,
+        notificationMetadata: 0,
+      },
+      reachedBatchLimit: {
+        authSessions: false,
+        notificationMetadata: false,
+      },
     };
   }
 
-  const [authSessionResult, notificationMetadataResult] = await Promise.all([
-    prisma.authSession.updateMany({
-      where: authSessionWhere,
-      data: {
-        deletedAt: now,
-      },
-    }),
-    prisma.notification.updateMany({
-      where: notificationMetadataWhere,
-      data: {
-        deadLetteredAt: null,
-        failureReason: null,
-        nextAttemptAt: null,
-      },
-    }),
-  ]);
+  const authSessionResult = await softDeleteExpiredAuthSessionsInBatches(
+    authSessionWhere,
+    now,
+    retentionPolicy,
+  );
+  const notificationMetadataResult = await scrubNotificationMetadataInBatches(
+    notificationMetadataWhere,
+    retentionPolicy,
+  );
+  logBatchLimitIfReached(
+    "auth_sessions",
+    authSessionResult,
+    retentionPolicy,
+  );
+  logBatchLimitIfReached(
+    "notification_metadata",
+    notificationMetadataResult,
+    retentionPolicy,
+  );
 
   const counts = {
     authSessions: authSessionResult.count,
     notificationMetadata: notificationMetadataResult.count,
+  };
+  const batchCounts = {
+    authSessions: authSessionResult.batches,
+    notificationMetadata: notificationMetadataResult.batches,
+  };
+  const reachedBatchLimit = {
+    authSessions: authSessionResult.reachedLimit,
+    notificationMetadata: notificationMetadataResult.reachedLimit,
   };
 
   logger.info(
@@ -161,6 +204,13 @@ export async function runCleanupRetentionJob(
       event: "cleanup_retention_executed",
       auth_sessions: counts.authSessions,
       notification_metadata: counts.notificationMetadata,
+      auth_session_batches: batchCounts.authSessions,
+      notification_metadata_batches: batchCounts.notificationMetadata,
+      batch_size: retentionPolicy.batchSize,
+      max_batches: retentionPolicy.maxBatches,
+      auth_session_batch_limit_reached: reachedBatchLimit.authSessions,
+      notification_metadata_batch_limit_reached:
+        reachedBatchLimit.notificationMetadata,
       auth_session_cutoff: authSessionCutoff.toISOString(),
       notification_metadata_cutoff: notificationMetadataCutoff.toISOString(),
     },
@@ -175,6 +225,13 @@ export async function runCleanupRetentionJob(
     diff: {
       authSessions: counts.authSessions,
       notificationMetadata: counts.notificationMetadata,
+      authSessionBatches: batchCounts.authSessions,
+      notificationMetadataBatches: batchCounts.notificationMetadata,
+      batchSize: retentionPolicy.batchSize,
+      maxBatches: retentionPolicy.maxBatches,
+      authSessionBatchLimitReached: reachedBatchLimit.authSessions,
+      notificationMetadataBatchLimitReached:
+        reachedBatchLimit.notificationMetadata,
       authSessionCutoff: authSessionCutoff.toISOString(),
       notificationMetadataCutoff: notificationMetadataCutoff.toISOString(),
     },
@@ -187,6 +244,12 @@ export async function runCleanupRetentionJob(
       notificationMetadata: notificationMetadataCutoff,
     },
     counts,
+    limits: {
+      batchSize: retentionPolicy.batchSize,
+      maxBatches: retentionPolicy.maxBatches,
+    },
+    batchCounts,
+    reachedBatchLimit,
   };
 }
 

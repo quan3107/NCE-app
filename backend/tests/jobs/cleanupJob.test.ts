@@ -9,10 +9,12 @@ vi.mock("../../src/prisma/client.js", () => ({
   prisma: {
     authSession: {
       count: vi.fn(),
+      findMany: vi.fn(),
       updateMany: vi.fn(),
     },
     notification: {
       count: vi.fn(),
+      findMany: vi.fn(),
       updateMany: vi.fn(),
     },
   },
@@ -52,6 +54,8 @@ const notificationCutoff = new Date("2026-04-09T10:00:00.000Z");
 const retentionPolicy = {
   authSessionRetentionDays: 30,
   notificationMetadataRetentionDays: 90,
+  batchSize: 5,
+  maxBatches: 3,
 };
 
 const expiredSessionWhere = {
@@ -86,9 +90,19 @@ const staleNotificationMetadataWhere = {
 
 describe("jobs.cleanupJob", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     prisma.authSession.count.mockResolvedValue(2 as never);
     prisma.notification.count.mockResolvedValue(3 as never);
+    prisma.authSession.findMany
+      .mockResolvedValueOnce([{ id: "session-1" }, { id: "session-2" }] as never)
+      .mockResolvedValueOnce([] as never);
+    prisma.notification.findMany
+      .mockResolvedValueOnce([
+        { id: "notification-1" },
+        { id: "notification-2" },
+        { id: "notification-3" },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
     prisma.authSession.updateMany.mockResolvedValue({ count: 2 } as never);
     prisma.notification.updateMany.mockResolvedValue({ count: 3 } as never);
   });
@@ -110,6 +124,18 @@ describe("jobs.cleanupJob", () => {
         authSessions: 2,
         notificationMetadata: 3,
       },
+      limits: {
+        batchSize: 5,
+        maxBatches: 3,
+      },
+      batchCounts: {
+        authSessions: 0,
+        notificationMetadata: 0,
+      },
+      reachedBatchLimit: {
+        authSessions: false,
+        notificationMetadata: false,
+      },
     });
     expect(prisma.authSession.count).toHaveBeenCalledWith({
       where: expiredSessionWhere,
@@ -117,6 +143,8 @@ describe("jobs.cleanupJob", () => {
     expect(prisma.notification.count).toHaveBeenCalledWith({
       where: staleNotificationMetadataWhere,
     });
+    expect(prisma.authSession.findMany).not.toHaveBeenCalled();
+    expect(prisma.notification.findMany).not.toHaveBeenCalled();
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
     expect(prisma.notification.updateMany).not.toHaveBeenCalled();
     expect(writeAuditLogSafely).not.toHaveBeenCalled();
@@ -142,13 +170,27 @@ describe("jobs.cleanupJob", () => {
       notificationMetadata: 3,
     });
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
-      where: expiredSessionWhere,
+      where: {
+        AND: [
+          expiredSessionWhere,
+          { id: { in: ["session-1", "session-2"] } },
+        ],
+      },
       data: {
         deletedAt: fixedNow,
       },
     });
     expect(prisma.notification.updateMany).toHaveBeenCalledWith({
-      where: staleNotificationMetadataWhere,
+      where: {
+        AND: [
+          staleNotificationMetadataWhere,
+          {
+            id: {
+              in: ["notification-1", "notification-2", "notification-3"],
+            },
+          },
+        ],
+      },
       data: {
         deadLetteredAt: null,
         failureReason: null,
@@ -163,6 +205,12 @@ describe("jobs.cleanupJob", () => {
       diff: {
         authSessions: 2,
         notificationMetadata: 3,
+        authSessionBatches: 1,
+        notificationMetadataBatches: 1,
+        batchSize: 5,
+        maxBatches: 3,
+        authSessionBatchLimitReached: false,
+        notificationMetadataBatchLimitReached: false,
         authSessionCutoff: authCutoff.toISOString(),
         notificationMetadataCutoff: notificationCutoff.toISOString(),
       },
@@ -180,6 +228,12 @@ describe("jobs.cleanupJob", () => {
   it("returns executed counts from mutations so repeated runs become idempotent", async () => {
     prisma.authSession.count.mockResolvedValue(4 as never);
     prisma.notification.count.mockResolvedValue(5 as never);
+    prisma.authSession.findMany.mockReset();
+    prisma.notification.findMany.mockReset();
+    prisma.authSession.findMany
+      .mockResolvedValueOnce([{ id: "session-1" }] as never)
+      .mockResolvedValueOnce([] as never);
+    prisma.notification.findMany.mockResolvedValueOnce([] as never);
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 } as never);
     prisma.notification.updateMany.mockResolvedValue({ count: 0 } as never);
 

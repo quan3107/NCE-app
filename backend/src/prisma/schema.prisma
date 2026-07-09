@@ -212,6 +212,8 @@ model Notification {
   @@index([status, deletedAt, nextAttemptAt], map: "notifications_status_deletedAt_nextAttemptAt_idx")
   @@index([userId, readAt, deletedAt], map: "notifications_user_id_read_at_deletedAt_idx")
   @@index([userId, status, sentAt])
+  @@index([status, deletedAt, deadLetteredAt, id], map: "notifications_status_deletedAt_deadLetteredAt_id_idx")
+  @@index([status, deletedAt, updatedAt, id], map: "notifications_status_deletedAt_updatedAt_id_idx")
   @@map("notifications")
 }
 
@@ -306,6 +308,10 @@ model AuthSession {
   @@index([familyId, revokedAt], map: "auth_sessions_family_id_revoked_at_idx")
   @@index([rotatedFromId], map: "auth_sessions_rotated_from_id_idx")
   @@index([userId, expiresAt])
+  @@index([deletedAt, expiresAt, id], map: "auth_sessions_deletedAt_expiresAt_id_idx")
+  @@index([deletedAt, revokedAt, id], map: "auth_sessions_deletedAt_revokedAt_id_idx")
+  @@index([deletedAt, replacedAt, id], map: "auth_sessions_deletedAt_replacedAt_id_idx")
+  @@index([deletedAt, reuseDetectedAt, id], map: "auth_sessions_deletedAt_reuseDetectedAt_id_idx")
   @@map("auth_sessions")
 }
 

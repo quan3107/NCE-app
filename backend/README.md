@@ -74,6 +74,9 @@ soft-deletes expired or otherwise unusable auth sessions older than
 failed or dead-letter notification rows older than
 `CLEANUP_NOTIFICATION_METADATA_RETENTION_DAYS`. Defaults are conservative:
 30 days for auth sessions and 90 days for notification failure metadata.
+Execute mode selects IDs in bounded batches before mutating rows. Tune
+`CLEANUP_RETENTION_BATCH_SIZE` and `CLEANUP_RETENTION_MAX_BATCHES` if a backlog
+needs a slower or faster drain.
 
 Dry-run mode is available through `runCleanupRetentionJob({ mode: 'dry-run' })`
 for operational checks. Execute mode returns the same entity counts, logs the

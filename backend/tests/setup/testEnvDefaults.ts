@@ -26,6 +26,8 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.AUTH_RATE_LIMIT_MAX_TRACKED_KEYS ??= '100'
   process.env.CLEANUP_AUTH_SESSION_RETENTION_DAYS ??= '30'
   process.env.CLEANUP_NOTIFICATION_METADATA_RETENTION_DAYS ??= '90'
+  process.env.CLEANUP_RETENTION_BATCH_SIZE ??= '500'
+  process.env.CLEANUP_RETENTION_MAX_BATCHES ??= '20'
   process.env.TRUST_PROXY ??= 'loopback'
   process.env.LOG_LEVEL ??= 'silent'
   process.env.LOG_PRETTY ??= 'false'

@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-09:** Addressed PR-47 cleanup review feedback by changing execute mode to select bounded ID batches before mutation, adding configurable batch size/max-batch limits, logging/auditing batch-limit signals, and adding targeted Prisma cleanup indexes for auth-session and notification retention predicates.
 - **2026-07-08:** Implemented PR-47 cleanup retention jobs by adding env-backed conservative retention windows, dry-run and execute cleanup counts, soft-delete cleanup for expired unusable auth sessions, stale notification failure metadata scrubbing, audit/log entries for execute runs, and daily pg-boss scheduling.
 - **2026-07-08:** Updated the database architecture runbook so the obsolete assignment backup table row-count check is only run after `to_regclass` confirms the backup table exists. This keeps the supported missing-table migration path from failing during pre-deployment verification.
 - **2026-06-30:** Completed PR-46 notification delivery recovery by adding retry metadata, due retry filtering, exponential backoff, redacted failure reasons, explicit suppression and dead-letter states, and an admin resend endpoint. Documented retry fields and resend behavior in OpenAPI with focused delivery and notification service coverage.
@@ -52,6 +53,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-09:** No frontend files changed while addressing PR-47 cleanup batching review feedback; the follow-up was limited to backend worker, schema, migration, tests, and documentation updates.
 - **2026-07-08:** Kept PR-47 CI-ready by replacing global `JSX.Element` annotations with React type imports in two frontend files and making navigation component test storage cleanup tolerate jsdom runs without localStorage after frontend gates exposed existing typecheck and test-environment issues.
 - **2026-07-08:** No frontend files changed for the database runbook correction; the update was limited to backend/database documentation and the progress log.
 - **2026-06-18:** Completed PR-42 frontend NCE lesson authoring support by adding typed lesson mutation helpers, cache invalidation, teacher lesson list and editor routes, objective/exercise editors, publish/unpublish actions, and source/API coverage for the new authoring flow.

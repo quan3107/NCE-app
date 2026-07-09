@@ -193,6 +193,8 @@ const envSchema = z
       .int()
       .positive()
       .default(90),
+    CLEANUP_RETENTION_BATCH_SIZE: z.coerce.number().int().positive().default(500),
+    CLEANUP_RETENTION_MAX_BATCHES: z.coerce.number().int().positive().default(20),
     TRUST_PROXY: z.string().default(defaultTrustProxy).transform(parseTrustProxy),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.enum(["true", "false"]).optional(),
@@ -297,6 +299,8 @@ const envConfig = {
       parseResult.data.CLEANUP_AUTH_SESSION_RETENTION_DAYS,
     notificationMetadataRetentionDays:
       parseResult.data.CLEANUP_NOTIFICATION_METADATA_RETENTION_DAYS,
+    batchSize: parseResult.data.CLEANUP_RETENTION_BATCH_SIZE,
+    maxBatches: parseResult.data.CLEANUP_RETENTION_MAX_BATCHES,
   },
   trustProxy: parseResult.data.TRUST_PROXY,
   logLevel: parseResult.data.LOG_LEVEL,
