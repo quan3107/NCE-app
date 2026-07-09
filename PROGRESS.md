@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-09:** Softened the PR-47 cleanup `reachedBatchLimit` documentation to describe a possible remaining backlog rather than guaranteeing another eligible row exists when the final allowed batch is full.
 - **2026-07-09:** Clarified PR-47 cleanup documentation after batching review feedback so dry-run eligible counts are distinct from execute processed counts, `reachedBatchLimit` is documented, and ordinary cleanup index rollout risk is called out for large production tables.
 - **2026-07-09:** Addressed PR-47 cleanup review feedback by changing execute mode to select bounded ID batches before mutation, adding configurable batch size/max-batch limits, logging/auditing batch-limit signals, and adding targeted Prisma cleanup indexes for auth-session and notification retention predicates.
 - **2026-07-08:** Implemented PR-47 cleanup retention jobs by adding env-backed conservative retention windows, dry-run and execute cleanup counts, soft-delete cleanup for expired unusable auth sessions, stale notification failure metadata scrubbing, audit/log entries for execute runs, and daily pg-boss scheduling.
@@ -54,6 +55,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-09:** No frontend files changed for the PR-47 cleanup batch-limit wording adjustment; the update was limited to backend README wording and the progress log.
 - **2026-07-09:** No frontend files changed for the PR-47 cleanup documentation clarification; the update was limited to backend README wording and the progress log.
 - **2026-07-09:** No frontend files changed while addressing PR-47 cleanup batching review feedback; the follow-up was limited to backend worker, schema, migration, tests, and documentation updates.
 - **2026-07-08:** Kept PR-47 CI-ready by replacing global `JSX.Element` annotations with React type imports in two frontend files and making navigation component test storage cleanup tolerate jsdom runs without localStorage after frontend gates exposed existing typecheck and test-environment issues.
