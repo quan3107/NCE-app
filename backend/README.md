@@ -79,10 +79,16 @@ Execute mode selects IDs in bounded batches before mutating rows. Tune
 needs a slower or faster drain.
 
 Dry-run mode is available through `runCleanupRetentionJob({ mode: 'dry-run' })`
-for operational checks. Execute mode returns the same entity counts, logs the
-cleanup totals, and writes a redacted audit entry. Cleanup does not delete
-remote object storage data; storage retention should be handled by a documented
-provider lifecycle policy.
+for operational checks. Execute mode returns processed counts for that bounded
+run, logs the cleanup totals, and writes a redacted audit entry. If
+`reachedBatchLimit` is true, more eligible rows remain for a later run. Cleanup
+does not delete remote object storage data; storage retention should be handled
+by a documented provider lifecycle policy.
+
+The cleanup index migration uses ordinary `CREATE INDEX` statements to match the
+repository's existing migration style. For large production `auth_sessions` or
+`notifications` tables, schedule the migration during low traffic or use a
+separate concurrent-index rollout.
 
 ## Structure
 
