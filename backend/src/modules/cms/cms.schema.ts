@@ -94,7 +94,8 @@ export const CmsPageKeySchema = z.enum(['homepage', 'about', 'contact'])
 
 export const CmsDraftUpdateSchema = z.object({
   content: z.unknown(),
-})
+  expectedDraftVersion: z.number().int().nonnegative(),
+}).strict()
 
 export const CmsPublishSchema = z.object({
   content: z.unknown(),
