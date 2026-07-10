@@ -10,6 +10,7 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Label } from '@components/ui/label';
 import {
+  isCmsVersionConflict,
   useCmsDraftQuery,
   useCmsPagesQuery,
   useCmsRevisionsQuery,
@@ -24,9 +25,11 @@ import type {
   CmsRevision,
 } from '@features/admin/cmsTypes';
 import { ConfirmRollbackDialog } from './ConfirmRollbackDialog';
+import { CmsConflictActions } from './CmsConflictActions';
 import { CmsContentEditor } from './CmsContentEditor';
 import { CmsRevisionHistory } from './CmsRevisionHistory';
 import { DiscardPageChangesDialog } from './DiscardPageChangesDialog';
+import { useCmsUnsavedChangesGuard } from './useCmsUnsavedChangesGuard';
 
 type CmsEditorState = {
   pageKey: CmsPageKey;
@@ -85,8 +88,12 @@ export function AdminCmsPage() {
   const hasLocalChanges = Boolean(
     editor && JSON.stringify(editor.content) !== JSON.stringify(editor.sourceContent),
   );
+  const navigationBlocker = useCmsUnsavedChangesGuard(hasLocalChanges);
   const hasServerConflict = Boolean(
     hasLocalChanges && draft && editor && draft.draftVersion !== editor.baseDraftVersion,
+  );
+  const hasValidDraft = Boolean(
+    !draftQuery.isLoading && !draftQuery.error && draft && editor?.pageKey === pageKey,
   );
   const canPublish = Boolean(draft?.hasUnpublishedChanges || hasLocalChanges);
   const revisions = revisionsQuery.data?.pages.flatMap((page) => page.revisions) ?? [];
@@ -96,6 +103,21 @@ export function AdminCmsPage() {
     setPageKey(nextPageKey);
     setShowPreview(false);
     setPendingPageKey(null);
+  };
+
+  const reloadServerDraft = () => {
+    if (!draft) return;
+    setEditor(toEditorState(draft));
+    setShowPreview(false);
+  };
+
+  const rebaseLocalChanges = () => {
+    if (!draft) return;
+    setEditor((current) => current?.pageKey === pageKey ? {
+      ...current,
+      sourceContent: draft.content,
+      baseDraftVersion: draft.draftVersion,
+    } : current);
   };
 
   return (
@@ -191,21 +213,22 @@ export function AdminCmsPage() {
                 </div>
 
                 {hasServerConflict ? (
-                  <p className="text-sm text-destructive" role="alert">
-                    This draft changed on the server. Reload before saving or publishing.
-                  </p>
+                  <CmsConflictActions
+                    onReload={reloadServerDraft}
+                    onRebase={rebaseLocalChanges}
+                  />
                 ) : null}
-                {saveMutation.error ? (
+                {saveMutation.error && !isCmsVersionConflict(saveMutation.error) ? (
                   <p className="text-sm text-destructive" role="alert">
                     Unable to save the draft. Please try again.
                   </p>
                 ) : null}
-                {publishMutation.error ? (
+                {publishMutation.error && !isCmsVersionConflict(publishMutation.error) ? (
                   <p className="text-sm text-destructive" role="alert">
                     Unable to publish the draft. Reload and try again.
                   </p>
                 ) : null}
-                {rollbackMutation.error ? (
+                {rollbackMutation.error && !isCmsVersionConflict(rollbackMutation.error) ? (
                   <p className="text-sm text-destructive" role="alert">
                     Unable to roll back the revision. Please try again.
                   </p>
@@ -229,7 +252,7 @@ export function AdminCmsPage() {
           currentRevision={draftQuery.data?.publishedRevision}
           isLoading={revisionsQuery.isLoading}
           error={revisionsQuery.error}
-          isBusy={isBusy || hasServerConflict}
+          isBusy={isBusy || hasServerConflict || !hasValidDraft}
           hasNextPage={Boolean(revisionsQuery.hasNextPage)}
           isFetchingNextPage={revisionsQuery.isFetchingNextPage}
           onLoadMore={() => void revisionsQuery.fetchNextPage()}
@@ -241,6 +264,13 @@ export function AdminCmsPage() {
         open={pendingPageKey !== null}
         onCancel={() => setPendingPageKey(null)}
         onConfirm={() => pendingPageKey && switchPage(pendingPageKey)}
+      />
+      <DiscardPageChangesDialog
+        open={navigationBlocker.state === 'blocked'}
+        description="Leaving this page will discard the edits currently shown."
+        confirmLabel="Discard changes and leave"
+        onCancel={() => navigationBlocker.state === 'blocked' && navigationBlocker.reset()}
+        onConfirm={() => navigationBlocker.state === 'blocked' && navigationBlocker.proceed()}
       />
       <ConfirmRollbackDialog
         open={pendingRollback !== null}
