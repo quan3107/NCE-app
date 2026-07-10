@@ -9,11 +9,11 @@ const managedItemPatterns: Record<CmsPageKey, Record<string, RegExp>> = {
   homepage: {
     hero: /^hero_main$/,
     stats: /^stat_(students|band_score|success_rate|\d+)$/,
-    features: /^(section_meta|feature_\d+)$/,
+    features: /^(section_meta|feature_(practice|feedback|progress|\d+))$/,
   },
   about: {
     hero: /^hero_main$/,
-    values: /^value_\d+$/,
+    values: /^value_(mission|success|instructors|results|\d+)$/,
     story: /^story_p\d+$/,
   },
   contact: {
@@ -29,7 +29,8 @@ export function isManagedCmsItemKey(
   sectionKey: string,
   itemKey: string | null | undefined,
 ) {
-  return typeof itemKey === 'string' && Boolean(
-    managedItemPatterns[pageKey][sectionKey]?.test(itemKey),
+  return (
+    typeof itemKey === 'string' &&
+    Boolean(managedItemPatterns[pageKey][sectionKey]?.test(itemKey))
   )
 }
