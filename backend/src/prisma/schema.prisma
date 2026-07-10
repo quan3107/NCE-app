@@ -1032,7 +1032,6 @@ id                    String            @id @default(uuid()) @db.Uuid
 pageKey               String            @unique @map("page_key")
 label                 String
 isActive              Boolean           @default(true) @map("is_active")
-draftContent          Json?             @map("draft_content")
 draftVersion          Int               @default(0) @map("draft_version")
 publishedDraftVersion Int               @default(0) @map("published_draft_version")
 publishedRevision     Int               @default(0) @map("published_revision")
@@ -1041,8 +1040,19 @@ createdAt             DateTime          @default(now()) @map("created_at") @db.T
 updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 sections              CmsSection[]
 revisions             CmsPageRevision[]
+draft                 CmsPageDraft?
 
 @@map("cms_page_contents")
+}
+
+model CmsPageDraft {
+  pageId    String         @id @map("page_id") @db.Uuid
+  content   Json           @map("content_json")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  page      CmsPageContent @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("cms_page_drafts")
 }
 
 model CmsSection {
