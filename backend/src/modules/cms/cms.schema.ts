@@ -67,6 +67,35 @@ export const AboutPageContentSchema = z.object({
   }),
 })
 
+export const ContactPageContentSchema = z.object({
+  header: z.object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+  }),
+  form: z.object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+    submitLabel: z.string().min(1),
+  }),
+  details: z.object({
+    email: z.string().email(),
+    phone: z.string().min(1),
+    address: z.string().min(1),
+  }),
+  hours: z.array(
+    z.object({
+      label: z.string().min(1),
+      value: z.string().min(1),
+    }),
+  ),
+})
+
+export const CmsPageKeySchema = z.enum(['homepage', 'about', 'contact'])
+
+export const CmsDraftUpdateSchema = z.object({
+  content: z.unknown(),
+})
+
 export type HeroContent = z.infer<typeof HeroContentSchema>
 export type StatItem = z.infer<typeof StatItemSchema>
 export type FeatureItem = z.infer<typeof FeatureItemSchema>
@@ -77,3 +106,9 @@ export type ValueItem = z.infer<typeof ValueItemSchema>
 export type StoryParagraph = z.infer<typeof StoryParagraphSchema>
 export type HomepageContent = z.infer<typeof HomepageContentSchema>
 export type AboutPageContent = z.infer<typeof AboutPageContentSchema>
+export type ContactPageContent = z.infer<typeof ContactPageContentSchema>
+export type CmsPageKey = z.infer<typeof CmsPageKeySchema>
+export type CmsPageContent =
+  | HomepageContent
+  | AboutPageContent
+  | ContactPageContent
