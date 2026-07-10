@@ -17,9 +17,9 @@ const transactionClient = {
     create: vi.fn(),
     findFirst: vi.fn(),
   },
-  cmsSection: {
-    deleteMany: vi.fn(),
-    create: vi.fn(),
+  cmsSection: { deleteMany: vi.fn(), upsert: vi.fn() },
+  cmsContentItem: {
+    findMany: vi.fn(), update: vi.fn(), create: vi.fn(), deleteMany: vi.fn(),
   },
 }
 
@@ -70,7 +70,13 @@ describe('cms admin service', () => {
     vi.clearAllMocks()
     transactionClient.$queryRaw.mockResolvedValue([{ id: 'page-1' }])
     transactionClient.cmsSection.deleteMany.mockResolvedValue({ count: 1 })
-    transactionClient.cmsSection.create.mockResolvedValue({ id: 'section-1' })
+    transactionClient.cmsSection.upsert.mockImplementation(async (args) => ({
+      id: `section-${args.create.sectionKey}`,
+    }))
+    transactionClient.cmsContentItem.findMany.mockResolvedValue([])
+    transactionClient.cmsContentItem.update.mockResolvedValue({ id: 'item-1' })
+    transactionClient.cmsContentItem.create.mockResolvedValue({ id: 'item-1' })
+    transactionClient.cmsContentItem.deleteMany.mockResolvedValue({ count: 0 })
   })
 
   it('stores an audited draft without replacing published sections', async () => {
@@ -147,6 +153,15 @@ describe('cms admin service', () => {
   })
 
   it('publishes the draft as an immutable revision and normalized sections', async () => {
+    transactionClient.cmsContentItem.findMany.mockImplementation(async ({ where }) =>
+      where.sectionId === 'section-stats'
+        ? [
+            { id: 'obsolete-managed', itemKey: 'stat_4', isActive: true },
+            { id: 'custom-active', itemKey: 'custom_stat', isActive: true },
+            { id: 'inactive-managed', itemKey: 'stat_5', isActive: false },
+          ]
+        : [],
+    )
     transactionClient.cmsPageContent.findUnique.mockResolvedValueOnce({
       id: 'page-1',
       pageKey: 'homepage',
@@ -184,11 +199,9 @@ describe('cms admin service', () => {
         operation: 'publish',
       }),
     })
-    expect(transactionClient.cmsSection.deleteMany).toHaveBeenCalledWith({
-      where: {
-        pageId: 'page-1',
-        sectionKey: { in: ['hero', 'stats', 'features'] },
-      },
+    expect(transactionClient.cmsSection.deleteMany).not.toHaveBeenCalled()
+    expect(transactionClient.cmsContentItem.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['obsolete-managed'] } },
     })
     expect(transactionClient.cmsPageDraft.upsert).toHaveBeenCalledWith({
       where: { pageId: 'page-1' },
