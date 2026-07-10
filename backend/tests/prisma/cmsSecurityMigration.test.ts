@@ -45,7 +45,8 @@ const corePageMigrations = [
     `src/prisma/migrations/${name}/migration.sql`,
   )
   return existsSync(migrationPath) ? readFileSync(migrationPath, 'utf8') : ''
-}).join('\n')
+})
+const combinedCorePageMigrations = corePageMigrations.join('\n')
 
 describe('CMS security migrations', () => {
   it('stores draft JSON outside the publicly readable page table', () => {
@@ -92,11 +93,26 @@ describe('CMS security migrations', () => {
   })
 
   it('bootstraps missing core pages with their own baseline revisions', () => {
-    expect(corePageMigrations).toMatch(/page_key[\s\S]*'homepage'/i)
-    expect(corePageMigrations).toMatch(/page_key[\s\S]*'about'/i)
-    expect(corePageMigrations.match(/INSERT INTO public\.cms_page_revisions/gi)).toHaveLength(2)
-    expect(corePageMigrations.match(/WHERE NOT EXISTS/gi)?.length).toBeGreaterThanOrEqual(4)
-    expect(corePageMigrations).not.toMatch(/DELETE FROM/i)
+    expect(combinedCorePageMigrations).toMatch(/page_key[\s\S]*'homepage'/i)
+    expect(combinedCorePageMigrations).toMatch(/page_key[\s\S]*'about'/i)
+    expect(
+      combinedCorePageMigrations.match(/INSERT INTO public\.cms_page_revisions/gi),
+    ).toHaveLength(2)
+    expect(
+      combinedCorePageMigrations.match(/WHERE NOT EXISTS/gi)?.length,
+    ).toBeGreaterThanOrEqual(4)
+    expect(combinedCorePageMigrations).not.toMatch(/DELETE FROM/i)
+  })
+
+  it('adds core page defaults only when that migration creates the page', () => {
+    for (const migration of corePageMigrations) {
+      expect(migration).toMatch(
+        /RETURNING id INTO created_page_id;\s*IF NOT FOUND THEN\s+RETURN;/i,
+      )
+      expect(migration).toMatch(
+        /INSERT INTO public\.cms_sections[\s\S]*created_page_id/i,
+      )
+    }
   })
 
   it('requires active ancestors when public roles read CMS children', () => {
