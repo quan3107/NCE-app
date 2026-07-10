@@ -5,7 +5,7 @@
  */
 import { type Request, type Response } from 'express'
 import { createHttpError } from '../../utils/httpError.js'
-import { CmsDraftUpdateSchema } from './cms.schema.js'
+import { CmsDraftUpdateSchema, CmsPublishSchema } from './cms.schema.js'
 import * as cmsService from './cms.service.js'
 
 function actorFromRequest(req: Request) {
@@ -49,7 +49,15 @@ export async function getAdminPreview(req: Request, res: Response) {
 }
 
 export async function postAdminPublish(req: Request, res: Response) {
-  res.json(await cmsService.publishCmsDraft(req.params.pageKey, actorFromRequest(req)))
+  const { content, expectedDraftVersion } = CmsPublishSchema.parse(req.body)
+  res.json(
+    await cmsService.publishCmsDraft(
+      req.params.pageKey,
+      content,
+      expectedDraftVersion,
+      actorFromRequest(req),
+    ),
+  )
 }
 
 export async function getAdminRevisions(req: Request, res: Response) {
