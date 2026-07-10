@@ -39,6 +39,27 @@ describe('cms content conversion', () => {
     expect(parseCmsPageContent('homepage', normalizedPage)).toEqual(homepage)
   })
 
+  it('preserves legacy homepage metadata when section_meta is missing', () => {
+    const legacyPage = {
+      sections: [
+        { sectionKey: 'hero', label: 'Hero', sortOrder: 0, items: [
+          { sortOrder: 0, contentType: 'hero', contentJson: homepage.hero },
+        ] },
+        { sectionKey: 'stats', label: 'Statistics', sortOrder: 1, items: [] },
+        { sectionKey: 'features', label: 'Legacy How It Works', sortOrder: 2, items: [
+          { sortOrder: 0, contentType: 'feature', contentJson: homepage.howItWorks.features[0] },
+        ] },
+      ],
+    }
+
+    expect(parseCmsPageContent('homepage', legacyPage).howItWorks).toEqual({
+      title: 'Legacy How It Works',
+      description:
+        'Our structured approach helps you improve systematically across all IELTS test components with expert guidance every step of the way.',
+      features: homepage.howItWorks.features,
+    })
+  })
+
   it('round-trips contact content needed by the public contact route', () => {
     const contact = {
       header: {
