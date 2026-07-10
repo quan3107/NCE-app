@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-10:** Addressed CMS review feedback by restricting publish/rollback replacement to modeled section keys so unmanaged rows survive, rejecting trimmed-empty required public text across Homepage/About/Contact payloads, and moving existing admin Settings navigation after Content during production migration upgrades. Added focused persistence, validation, and migration regressions.
 - **2026-07-10:** Scoped homepage and About default insertion to pages created by their forward migrations, preserving customized existing pages and keeping revision 1 aligned with post-migration published content. Added a migration contract regression and disposable-database coverage for intentionally removed defaults.
 - **2026-07-10:** Completed CMS production hardening with migrate-only Contact/admin bootstrap, baseline revision snapshots, ancestor-aware child RLS, managed-page filtering, idempotent saves, version-claimed rollback, validated UUID/query inputs, and bounded metadata-only revision history. Added migration, service, route, and OpenAPI regression coverage.
 - **2026-07-10:** Completed CMS administration support with validated homepage/about/contact drafts, admin preview and publish endpoints, immutable revision history, rollback-as-new-revision behavior, published-only public reads, audited draft/publish/rollback operations, a non-destructive idempotent CMS seed, and OpenAPI coverage. Added focused conversion, service, and route tests plus the draft/revision database migration.
@@ -58,6 +59,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-10:** Addressed CMS review feedback by invalidating draft/page caches after Save/Publish/Rollback version conflicts, preserving local edits with explicit server-reload or rebase choices, guarding dirty drafts across route and browser exits, and disabling rollback until a valid draft is available. Added data-router, conflict, unload, and rollback-state component coverage.
 - **2026-07-10:** No frontend files changed for the CMS baseline-alignment correction; the fix is limited to forward migrations, backend migration coverage, and this progress record.
 - **2026-07-10:** Hardened CMS administration with authoritative mutation caching, awaited invalidation, unchanged-Save disabling, dirty page-switch and rollback confirmations, rollback rebasing, cursor-paginated revision loading, and the Content navigation icon mapping. Preserved versioned editor conflict handling and distinct request failures.
 - **2026-07-10:** Added the admin content-management route with structured homepage, about, and contact forms, local draft preview, save/publish actions, revision history, and rollback controls. Added cache-aware CMS admin API helpers, CMS-driven published contact-page content, navigation wiring, and focused request/component/marketing tests.
