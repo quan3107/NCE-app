@@ -107,6 +107,7 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'hero'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (item.item_key IS NULL OR item.item_key = 'hero_main')
         ORDER BY item.sort_order LIMIT 1
       ), '{}'::jsonb),
       'stats', COALESCE((
@@ -115,6 +116,10 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'stats'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (
+            item.item_key IS NULL
+            OR item.item_key ~ '^stat_(students|band_score|success_rate|[0-9]+)$'
+          )
       ), '[]'::jsonb),
       'howItWorks', jsonb_build_object(
         'title', COALESCE((
@@ -123,6 +128,10 @@ WITH managed_pages AS (
           JOIN public.cms_content_items item ON item.section_id = section.id
           WHERE section.page_id = page.id AND section.section_key = 'features'
             AND section.is_active = TRUE AND item.is_active = TRUE
+            AND (
+              item.item_key IS NULL
+              OR item.item_key = 'section_meta'
+            )
             AND (item.content_type = 'section_meta' OR item.item_key = 'section_meta')
           ORDER BY item.sort_order LIMIT 1
         ), (
@@ -136,6 +145,10 @@ WITH managed_pages AS (
           JOIN public.cms_content_items item ON item.section_id = section.id
           WHERE section.page_id = page.id AND section.section_key = 'features'
             AND section.is_active = TRUE AND item.is_active = TRUE
+            AND (
+              item.item_key IS NULL
+              OR item.item_key = 'section_meta'
+            )
             AND (item.content_type = 'section_meta' OR item.item_key = 'section_meta')
           ORDER BY item.sort_order LIMIT 1
         ), 'Our structured approach helps you improve systematically across all IELTS test components with expert guidance every step of the way.'),
@@ -145,7 +158,11 @@ WITH managed_pages AS (
           JOIN public.cms_content_items item ON item.section_id = section.id
           WHERE section.page_id = page.id AND section.section_key = 'features'
             AND section.is_active = TRUE AND item.is_active = TRUE
-            AND item.content_type = 'feature' AND item.item_key IS DISTINCT FROM 'section_meta'
+            AND (
+              item.item_key IS NULL
+              OR item.item_key ~ '^feature_(practice|feedback|progress|[0-9]+)$'
+            )
+            AND item.content_type = 'feature'
         ), '[]'::jsonb)
       )
     )
@@ -156,6 +173,7 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'hero'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (item.item_key IS NULL OR item.item_key = 'hero_main')
         ORDER BY item.sort_order LIMIT 1
       ), '{}'::jsonb),
       'values', COALESCE((
@@ -164,6 +182,10 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'values'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (
+            item.item_key IS NULL
+            OR item.item_key ~ '^value_(mission|success|instructors|results|[0-9]+)$'
+          )
       ), '[]'::jsonb),
       'story', jsonb_build_object('sections', COALESCE((
         SELECT jsonb_agg(item.content_json -> 'text' ORDER BY item.sort_order)
@@ -171,6 +193,10 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'story'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (
+            item.item_key IS NULL
+            OR item.item_key ~ '^story_p[0-9]+$'
+          )
       ), '[]'::jsonb))
     )
     WHEN 'contact' THEN jsonb_build_object(
@@ -179,6 +205,7 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'header'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (item.item_key IS NULL OR item.item_key = 'header_main')
         ORDER BY item.sort_order LIMIT 1
       ), '{}'::jsonb),
       'form', COALESCE((
@@ -186,6 +213,7 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'form'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (item.item_key IS NULL OR item.item_key = 'form_main')
         ORDER BY item.sort_order LIMIT 1
       ), '{}'::jsonb),
       'details', COALESCE((
@@ -193,6 +221,7 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'details'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (item.item_key IS NULL OR item.item_key = 'details_main')
         ORDER BY item.sort_order LIMIT 1
       ), '{}'::jsonb),
       'hours', COALESCE((
@@ -201,6 +230,10 @@ WITH managed_pages AS (
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'hours'
           AND section.is_active = TRUE AND item.is_active = TRUE
+          AND (
+            item.item_key IS NULL
+            OR item.item_key ~ '^hours_[0-9]+$'
+          )
       ), '[]'::jsonb)
     )
   END AS content_json
