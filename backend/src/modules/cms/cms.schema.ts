@@ -96,6 +96,11 @@ export const CmsDraftUpdateSchema = z.object({
   content: z.unknown(),
 })
 
+export const CmsPublishSchema = z.object({
+  content: z.unknown(),
+  expectedDraftVersion: z.number().int().nonnegative(),
+}).strict()
+
 export type HeroContent = z.infer<typeof HeroContentSchema>
 export type StatItem = z.infer<typeof StatItemSchema>
 export type FeatureItem = z.infer<typeof FeatureItemSchema>
