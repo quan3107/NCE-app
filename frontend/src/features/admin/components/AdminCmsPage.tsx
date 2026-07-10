@@ -111,7 +111,7 @@ export function AdminCmsPage() {
     setShowPreview(false);
   };
 
-  const rebaseLocalChanges = () => {
+  const overwriteServerDraft = () => {
     if (!draft) return;
     setEditor((current) => current?.pageKey === pageKey ? {
       ...current,
@@ -215,7 +215,7 @@ export function AdminCmsPage() {
                 {hasServerConflict ? (
                   <CmsConflictActions
                     onReload={reloadServerDraft}
-                    onRebase={rebaseLocalChanges}
+                    onOverwrite={overwriteServerDraft}
                   />
                 ) : null}
                 {saveMutation.error && !isCmsVersionConflict(saveMutation.error) ? (
