@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-10:** Addressed CMS review findings by isolating draft JSON in an admin-only RLS table, restoring legacy homepage metadata fallbacks, synchronizing automated statistics under page-first locks, and requiring atomic expected-version publication of reviewed content. Added migration, service, parser, route, and OpenAPI regression coverage.
 - **2026-07-10:** Completed CMS administration support with validated homepage/about/contact drafts, admin preview and publish endpoints, immutable revision history, rollback-as-new-revision behavior, published-only public reads, audited draft/publish/rollback operations, a non-destructive idempotent CMS seed, and OpenAPI coverage. Added focused conversion, service, and route tests plus the draft/revision database migration.
 - **2026-07-09:** Softened the PR-47 cleanup `reachedBatchLimit` documentation to describe a possible remaining backlog rather than guaranteeing another eligible row exists when the final allowed batch is full.
 - **2026-07-09:** Clarified PR-47 cleanup documentation after batching review feedback so dry-run eligible counts are distinct from execute processed counts, `reachedBatchLimit` is documented, and ordinary cleanup index rollout risk is called out for large production tables.
@@ -56,6 +57,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-10:** Hardened CMS administration by publishing versioned editor snapshots, blocking stale local saves/publishes after a server draft change, enabling publish for unsaved local edits, and showing distinct page, draft, revision, save, publish, and rollback failures instead of misleading empty states.
 - **2026-07-10:** Added the admin content-management route with structured homepage, about, and contact forms, local draft preview, save/publish actions, revision history, and rollback controls. Added cache-aware CMS admin API helpers, CMS-driven published contact-page content, navigation wiring, and focused request/component/marketing tests.
 - **2026-07-09:** No frontend files changed for the PR-47 cleanup batch-limit wording adjustment; the update was limited to backend README wording and the progress log.
 - **2026-07-09:** No frontend files changed for the PR-47 cleanup documentation clarification; the update was limited to backend README wording and the progress log.
