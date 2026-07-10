@@ -4,6 +4,8 @@
  * Why: Keeps the executable seed script small, focused, and under the repo LOC guideline.
  */
 
+import { CMS_CONTACT_PAGE } from './cmsContactContent.data.js'
+
 export type CmsSeedItem = {
   itemKey: string
   sortOrder: number
@@ -244,4 +246,5 @@ export const CMS_PAGES: CmsSeedPage[] = [
       },
     ],
   },
+  CMS_CONTACT_PAGE,
 ]
