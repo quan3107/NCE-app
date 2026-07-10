@@ -19,6 +19,13 @@ const transactionClient = {
   cmsSection: {
     deleteMany: vi.fn(),
     create: vi.fn(),
+    upsert: vi.fn(),
+  },
+  cmsContentItem: {
+    findMany: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
+    deleteMany: vi.fn(),
   },
 }
 
@@ -47,6 +54,13 @@ describe('CMS revision service', () => {
     transactionClient.$queryRaw.mockResolvedValue([{ id: 'page-1' }])
     transactionClient.cmsSection.deleteMany.mockResolvedValue({ count: 1 })
     transactionClient.cmsSection.create.mockResolvedValue({ id: 'section-1' })
+    transactionClient.cmsSection.upsert.mockImplementation(async (args) => ({
+      id: `section-${args.create.sectionKey}`,
+    }))
+    transactionClient.cmsContentItem.findMany.mockResolvedValue([])
+    transactionClient.cmsContentItem.update.mockResolvedValue({ id: 'item-1' })
+    transactionClient.cmsContentItem.create.mockResolvedValue({ id: 'item-1' })
+    transactionClient.cmsContentItem.deleteMany.mockResolvedValue({ count: 0 })
   })
 
   it('filters the admin page list to managed page keys', async () => {
