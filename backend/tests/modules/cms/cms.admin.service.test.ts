@@ -185,7 +185,10 @@ describe('cms admin service', () => {
       }),
     })
     expect(transactionClient.cmsSection.deleteMany).toHaveBeenCalledWith({
-      where: { pageId: 'page-1' },
+      where: {
+        pageId: 'page-1',
+        sectionKey: { in: ['hero', 'stats', 'features'] },
+      },
     })
     expect(transactionClient.cmsPageDraft.upsert).toHaveBeenCalledWith({
       where: { pageId: 'page-1' },
