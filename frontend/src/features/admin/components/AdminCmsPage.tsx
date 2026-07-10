@@ -152,7 +152,11 @@ export function AdminCmsPage() {
                   <Button
                     type="button"
                     disabled={isBusy || hasServerConflict}
-                    onClick={() => saveMutation.mutate({ pageKey, content })}
+                    onClick={() => saveMutation.mutate({
+                      pageKey,
+                      content,
+                      expectedDraftVersion: editor!.baseDraftVersion,
+                    })}
                   >
                     Save draft
                   </Button>
