@@ -3,7 +3,6 @@
 -- Why: Public content must remain stable until an administrator explicitly publishes it.
 
 ALTER TABLE public.cms_page_contents
-  ADD COLUMN draft_content JSONB,
   ADD COLUMN draft_version INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN published_draft_version INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN published_revision INTEGER NOT NULL DEFAULT 0,
@@ -12,6 +11,13 @@ ALTER TABLE public.cms_page_contents
 UPDATE public.cms_page_contents
 SET published_at = updated_at
 WHERE published_at IS NULL;
+
+CREATE TABLE public.cms_page_drafts (
+  page_id UUID PRIMARY KEY REFERENCES public.cms_page_contents(id) ON DELETE CASCADE,
+  content_json JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE public.cms_page_revisions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -32,5 +38,5 @@ CREATE INDEX cms_page_revisions_created_by_idx
   ON public.cms_page_revisions(created_by_id);
 
 GRANT SELECT, INSERT, UPDATE ON public.cms_page_revisions TO authenticated;
-GRANT UPDATE (draft_content, draft_version, published_draft_version, published_revision, published_at)
+GRANT UPDATE (draft_version, published_draft_version, published_revision, published_at, updated_at)
   ON public.cms_page_contents TO authenticated;
