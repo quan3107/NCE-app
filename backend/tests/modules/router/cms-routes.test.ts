@@ -86,6 +86,23 @@ describe('modules.router cms routes', () => {
     expect(responses.every((response) => response.status === 401)).toBe(true)
   })
 
+  it('saves content only at the expected draft version', async () => {
+    const content = { hero: { title: 'Reviewed draft' } }
+    const response = await request(app)
+      .put('/api/v1/cms/admin/pages/homepage/draft')
+      .set('x-user-id', '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b')
+      .set('x-user-role', 'admin')
+      .send({ content, expectedDraftVersion: 3 })
+
+    expect(response.status).toBe(200)
+    expect(cmsService.updateCmsDraft).toHaveBeenCalledWith(
+      'homepage',
+      content,
+      3,
+      expect.objectContaining({ id: '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b' }),
+    )
+  })
+
   it('publishes the reviewed content only at the expected draft version', async () => {
     const content = {
       hero: {
