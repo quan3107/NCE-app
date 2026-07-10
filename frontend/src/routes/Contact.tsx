@@ -1,7 +1,7 @@
 /**
  * Location: src/routes/Contact.tsx
- * Purpose: Provide the marketing contact route with a simple form submission handler.
- * Why: Keeps contact flow isolated at the routing layer after the refactor.
+ * Purpose: Render the contact route with CMS-published copy and contact details.
+ * Why: Keeps public contact content server-managed while submission remains a separate feature.
  */
 
 import { Mail, MapPin, Phone } from 'lucide-react';
@@ -11,20 +11,44 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import { toast } from 'sonner@2.0.3';
+import { useContactPageContentQuery } from '@features/marketing/api';
 
 export function ContactRoute() {
+  const contactQuery = useContactPageContentQuery();
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     toast.success("Message sent! We'll get back to you soon.");
   };
 
+  if (contactQuery.isLoading) {
+    return <div className="content-band px-4 py-16 text-muted-foreground">Loading contact page content...</div>;
+  }
+
+  if (contactQuery.error || !contactQuery.data) {
+    const message = contactQuery.error instanceof Error
+      ? contactQuery.error.message
+      : 'The contact page CMS response was empty.';
+    return (
+      <section className="content-band py-16 sm:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl rounded-[8px] border border-destructive/30 bg-card p-6">
+            <h1 className="text-2xl font-semibold text-destructive">Unable to load contact page content.</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const content = contactQuery.data;
+
   return (
     <div className="content-band py-16 sm:py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mb-10">
-          <h1 className="mb-4 text-4xl font-semibold tracking-normal">Contact Us</h1>
+          <h1 className="mb-4 text-4xl font-semibold tracking-normal">{content.header.title}</h1>
           <p className="text-lg text-muted-foreground">
-            Have questions about our IELTS courses or need guidance? We'd love to hear from you. Send us a message and we'll respond within 24 hours.
+            {content.header.description}
           </p>
         </div>
 
@@ -32,8 +56,8 @@ export function ContactRoute() {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>Send us a message</CardTitle>
-                <CardDescription>Whether you're interested in our IELTS courses or have questions about the test, we're here to help</CardDescription>
+                <CardTitle>{content.form.title}</CardTitle>
+                <CardDescription>{content.form.description}</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -59,7 +83,7 @@ export function ContactRoute() {
                     <Label htmlFor="message">Message</Label>
                     <Textarea id="message" name="message" rows={6} required />
                   </div>
-                  <Button type="submit" className="w-full sm:w-auto">Send Message</Button>
+                  <Button type="submit" className="w-full sm:w-auto">{content.form.submitLabel}</Button>
                 </form>
               </CardContent>
             </Card>
@@ -75,24 +99,21 @@ export function ContactRoute() {
                   <Mail className="size-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium mb-1">Email</p>
-                    <p className="text-sm text-muted-foreground">support@nce.com</p>
+                    <p className="text-sm text-muted-foreground">{content.details.email}</p>
                   </div>
                 </div>
                 <div className="flex gap-3 rounded-[8px] border bg-background/45 p-3">
                   <Phone className="size-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium mb-1">Phone</p>
-                    <p className="text-sm text-muted-foreground">+1 (555) 123-4567</p>
+                    <p className="text-sm text-muted-foreground">{content.details.phone}</p>
                   </div>
                 </div>
                 <div className="flex gap-3 rounded-[8px] border bg-background/45 p-3">
                   <MapPin className="size-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium mb-1">Office</p>
-                    <p className="text-sm text-muted-foreground">
-                      123 Education Street<br />
-                      Bangkok, Thailand 10110
-                    </p>
+                    <p className="whitespace-pre-line text-sm text-muted-foreground">{content.details.address}</p>
                   </div>
                 </div>
               </CardContent>
@@ -103,18 +124,12 @@ export function ContactRoute() {
                 <CardTitle>Office Hours</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Monday - Friday</span>
-                  <span className="font-medium">9:00 AM - 6:00 PM</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Saturday</span>
-                  <span className="font-medium">10:00 AM - 2:00 PM</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Sunday</span>
-                  <span className="font-medium">Closed</span>
-                </div>
+                {content.hours.map((entry) => (
+                  <div key={entry.label} className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{entry.label}</span>
+                    <span className="font-medium">{entry.value}</span>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>
