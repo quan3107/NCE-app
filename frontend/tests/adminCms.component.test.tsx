@@ -14,6 +14,16 @@ import { AdminCmsPage } from '../src/features/admin/components/AdminCmsPage';
 const saveMutate = vi.hoisted(() => vi.fn());
 const publishMutate = vi.hoisted(() => vi.fn());
 const rollbackMutate = vi.hoisted(() => vi.fn());
+const cmsState = vi.hoisted(() => ({
+  draftVersion: 1,
+  hasUnpublishedChanges: true,
+  pagesError: null as Error | null,
+  draftError: null as Error | null,
+  revisionError: null as Error | null,
+  saveError: null as Error | null,
+  publishError: null as Error | null,
+  rollbackError: null as Error | null,
+}));
 
 vi.mock('@features/admin/cmsApi', () => ({
   useCmsPagesQuery: () => ({
@@ -40,7 +50,7 @@ vi.mock('@features/admin/cmsApi', () => ({
       ],
     },
     isLoading: false,
-    error: null,
+    error: cmsState.pagesError,
   }),
   useCmsDraftQuery: (pageKey: string) => ({
     data: {
@@ -64,14 +74,14 @@ vi.mock('@features/admin/cmsApi', () => ({
             stats: [],
             howItWorks: { title: 'How it works', description: 'Steps', features: [] },
           },
-      draftVersion: 1,
+      draftVersion: cmsState.draftVersion,
       publishedDraftVersion: 0,
       publishedRevision: 0,
       publishedAt: null,
-      hasUnpublishedChanges: true,
+      hasUnpublishedChanges: cmsState.hasUnpublishedChanges,
     },
     isLoading: false,
-    error: null,
+    error: cmsState.draftError,
   }),
   useCmsRevisionsQuery: () => ({
     data: {
@@ -87,15 +97,36 @@ vi.mock('@features/admin/cmsApi', () => ({
       ],
     },
     isLoading: false,
+    error: cmsState.revisionError,
   }),
-  useSaveCmsDraftMutation: () => ({ mutate: saveMutate, isPending: false }),
-  usePublishCmsDraftMutation: () => ({ mutate: publishMutate, isPending: false }),
-  useRollbackCmsRevisionMutation: () => ({ mutate: rollbackMutate, isPending: false }),
+  useSaveCmsDraftMutation: () => ({
+    mutate: saveMutate,
+    isPending: false,
+    error: cmsState.saveError,
+  }),
+  usePublishCmsDraftMutation: () => ({
+    mutate: publishMutate,
+    isPending: false,
+    error: cmsState.publishError,
+  }),
+  useRollbackCmsRevisionMutation: () => ({
+    mutate: rollbackMutate,
+    isPending: false,
+    error: cmsState.rollbackError,
+  }),
 }));
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  cmsState.draftVersion = 1;
+  cmsState.hasUnpublishedChanges = true;
+  cmsState.pagesError = null;
+  cmsState.draftError = null;
+  cmsState.revisionError = null;
+  cmsState.saveError = null;
+  cmsState.publishError = null;
+  cmsState.rollbackError = null;
 });
 
 test('admin CMS page submits edited drafts, publishes, and rolls back', () => {
@@ -114,11 +145,84 @@ test('admin CMS page submits edited drafts, publishes, and rolls back', () => {
 
   assert.equal(saveMutate.mock.calls[0]?.[0].pageKey, 'homepage');
   assert.equal(saveMutate.mock.calls[0]?.[0].content.hero.title, 'Updated title');
-  assert.deepEqual(publishMutate.mock.calls[0]?.[0], 'homepage');
+  assert.equal(publishMutate.mock.calls[0]?.[0].pageKey, 'homepage');
+  assert.equal(publishMutate.mock.calls[0]?.[0].content.hero.title, 'Updated title');
+  assert.equal(publishMutate.mock.calls[0]?.[0].expectedDraftVersion, 1);
   assert.deepEqual(rollbackMutate.mock.calls[0]?.[0], {
     pageKey: 'homepage',
     revisionId: 'revision-1',
   });
+});
+
+test('publishes unsaved displayed content when the saved draft has no changes', () => {
+  cmsState.hasUnpublishedChanges = false;
+  render(
+    <MemoryRouter>
+      <AdminCmsPage />
+    </MemoryRouter>,
+  );
+
+  fireEvent.change(screen.getByLabelText('Hero title'), {
+    target: { value: 'Unsaved reviewed title' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+
+  assert.equal(publishMutate.mock.calls[0]?.[0].content.hero.title, 'Unsaved reviewed title');
+  assert.equal(publishMutate.mock.calls[0]?.[0].expectedDraftVersion, 1);
+});
+
+test('shows revision, save, publish, and rollback failures', () => {
+  cmsState.revisionError = new Error('revision failed');
+  cmsState.saveError = new Error('save failed');
+  cmsState.publishError = new Error('publish failed');
+  cmsState.rollbackError = new Error('rollback failed');
+  render(
+    <MemoryRouter>
+      <AdminCmsPage />
+    </MemoryRouter>,
+  );
+
+  assert.ok(screen.getByText('Unable to load revision history. Please try again.'));
+  assert.ok(screen.getByText('Unable to save the draft. Please try again.'));
+  assert.ok(screen.getByText('Unable to publish the draft. Reload and try again.'));
+  assert.ok(screen.getByText('Unable to roll back the revision. Please try again.'));
+  assert.equal(screen.queryByText('No published revisions yet.'), null);
+});
+
+test('retains dirty content with its base version when the server draft advances', () => {
+  const view = render(
+    <MemoryRouter>
+      <AdminCmsPage />
+    </MemoryRouter>,
+  );
+  fireEvent.change(screen.getByLabelText('Hero title'), {
+    target: { value: 'Locally reviewed title' },
+  });
+
+  cmsState.draftVersion = 2;
+  view.rerender(
+    <MemoryRouter>
+      <AdminCmsPage />
+    </MemoryRouter>,
+  );
+
+  assert.equal(screen.getByLabelText('Hero title').getAttribute('value'), 'Locally reviewed title');
+  assert.ok(screen.getByText('This draft changed on the server. Reload before saving or publishing.'));
+  assert.equal((screen.getByRole('button', { name: 'Publish' }) as HTMLButtonElement).disabled, true);
+});
+
+test('shows page-list and draft-load failures distinctly', () => {
+  cmsState.pagesError = new Error('pages failed');
+  cmsState.draftError = new Error('draft failed');
+  render(
+    <MemoryRouter>
+      <AdminCmsPage />
+    </MemoryRouter>,
+  );
+
+  assert.ok(screen.getByText('Unable to load CMS pages. Please refresh and try again.'));
+  assert.ok(screen.getByText('Unable to load the page draft. Please refresh and try again.'));
+  assert.equal(screen.queryByText('Loading page draft…'), null);
 });
 
 test('switching page types never renders the previous draft through the new editor', async () => {
