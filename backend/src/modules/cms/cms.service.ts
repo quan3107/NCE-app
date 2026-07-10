@@ -5,8 +5,10 @@
  */
 
 import { prisma } from '../../prisma/client.js'
+import type { Prisma } from '../../prisma/generated.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
-import { parseCmsPageContent } from './cms.content.js'
+import { parseCmsPageContent, validateCmsPageContent } from './cms.content.js'
+import { lockCmsPageByKey } from './cms.persistence.js'
 import type {
   AboutPageContent,
   ContactPageContent,
@@ -90,83 +92,98 @@ export const getRealtimeStats = async () => {
 
 export const updateHomepageStatsWithRealtimeData = async (): Promise<void> => {
   const stats = await getRealtimeStats()
-
-  const homepage = await prisma.cmsPageContent.findUnique({
-    where: { pageKey: 'homepage' },
-    include: {
-      sections: {
-        where: { sectionKey: 'stats' },
-        include: { items: true },
-      },
-    },
-  })
-
-  if (!homepage) return
-
-  const statsSection = homepage.sections[0]
-  if (!statsSection) return
-
-  const updatedItems: Array<{
-    itemId: string
-    itemKey: string | null
-    value: {
-      from: number
-      to: number
-    }
-  }> = []
-
-  const updatePromises = statsSection.items.map(async (item) => {
-    const itemKey = item.itemKey
-    const currentContent = item.contentJson as {
-      value: number
-      label: string
-      format: string
-      suffix?: string
-    }
-
-    let newValue = currentContent.value
-
-    if (itemKey === 'stat_students') {
-      newValue = stats.activeStudents
-    } else if (itemKey === 'stat_band_score') {
-      newValue = stats.avgBandScore
-    } else if (itemKey === 'stat_success_rate') {
-      newValue = stats.successRate
-    }
-
-    if (newValue !== currentContent.value) {
-      await prisma.cmsContentItem.update({
-        where: { id: item.id },
-        data: {
-          contentJson: {
-            ...currentContent,
-            value: newValue,
-          },
+  const result = await prisma.$transaction(async (tx) => {
+    const pageId = await lockCmsPageByKey(tx, 'homepage')
+    if (!pageId) return null
+    const homepage = await tx.cmsPageContent.findUnique({
+      where: { id: pageId },
+      include: {
+        draft: true,
+        sections: {
+          where: { sectionKey: 'stats' },
+          include: { items: true },
         },
+      },
+    })
+    const statsSection = homepage?.sections[0]
+    if (!homepage || !statsSection) return null
+
+    const updatedItems: Array<{
+      itemId: string
+      itemKey: string | null
+      value: { from: number; to: number }
+    }> = []
+    const valueByKey = new Map<string, number>([
+      ['stat_students', stats.activeStudents],
+      ['stat_band_score', stats.avgBandScore],
+      ['stat_success_rate', stats.successRate],
+    ])
+    const draftContent = homepage.draft
+      ? (validateCmsPageContent('homepage', homepage.draft.content) as HomepageContent)
+      : null
+    const realtimeValues = [stats.activeStudents, stats.avgBandScore, stats.successRate]
+    const draftStats = draftContent?.stats.map((item, index) => ({
+      ...item,
+      value: realtimeValues[index] ?? item.value,
+    }))
+    const draftChanged = Boolean(
+      draftContent && JSON.stringify(draftStats) !== JSON.stringify(draftContent.stats),
+    )
+
+    for (const item of statsSection.items) {
+      const itemKey = item.itemKey
+      const currentContent = item.contentJson as {
+        value: number
+        label: string
+        format: string
+        suffix?: string
+      }
+      const newValue = itemKey
+        ? (valueByKey.get(itemKey) ?? currentContent.value)
+        : currentContent.value
+      if (newValue === currentContent.value) continue
+
+      await tx.cmsContentItem.update({
+        where: { id: item.id },
+        data: { contentJson: { ...currentContent, value: newValue } },
       })
       updatedItems.push({
         itemId: item.id,
         itemKey,
-        value: {
-          from: currentContent.value,
-          to: newValue,
-        },
+        value: { from: currentContent.value, to: newValue },
       })
     }
+
+    if (draftContent && draftStats && draftChanged) {
+      await tx.cmsPageDraft.update({
+        where: { pageId: homepage.id },
+        data: {
+          content: { ...draftContent, stats: draftStats } as Prisma.InputJsonValue,
+        },
+      })
+      const draftVersion = homepage.draftVersion + 1
+      await tx.cmsPageContent.update({
+        where: { id: homepage.id },
+        data:
+          homepage.draftVersion === homepage.publishedDraftVersion
+            ? { draftVersion, publishedDraftVersion: draftVersion }
+            : { draftVersion },
+      })
+    }
+    return { homepageId: homepage.id, updatedItems, draftChanged }
   })
 
-  await Promise.all(updatePromises)
-
-  if (updatedItems.length > 0) {
+  if (result && (result.updatedItems.length > 0 || result.draftChanged)) {
     await writeAuditLogSafely({
       actorId: null,
       action: 'cms.homepage_stats_refreshed',
       entity: 'cms_page_content',
-      entityId: homepage.id,
+      entityId: result.homepageId,
       diff: {
         pageKey: 'homepage',
         sectionKey: 'stats',
-        updatedItems,
+        updatedItems: result.updatedItems,
+        draftSynchronized: result.draftChanged,
       },
     })
   }
