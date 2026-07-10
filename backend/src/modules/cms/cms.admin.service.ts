@@ -110,6 +110,7 @@ export async function getCmsPreview(pageKey: string) {
 export async function updateCmsDraft(
   pageKeyValue: string,
   contentInput: unknown,
+  expectedDraftVersion: number,
   actor: CmsActor,
 ) {
   const pageKey = pageKeyFrom(pageKeyValue)
@@ -119,6 +120,9 @@ export async function updateCmsDraft(
     if (!pageId) throw createHttpError(404, 'CMS page not found')
     const existing = await tx.cmsPageContent.findUnique({ where: { id: pageId } })
     if (!existing) throw createHttpError(404, 'CMS page not found')
+    if (existing.draftVersion !== expectedDraftVersion) {
+      throw createHttpError(409, 'CMS draft changed; reload before saving')
+    }
     const updated = await tx.cmsPageContent.update({
       where: { id: existing.id },
       data: { draftVersion: { increment: 1 } },
