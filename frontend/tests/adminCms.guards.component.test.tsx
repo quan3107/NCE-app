@@ -4,12 +4,10 @@
  * Why: Destructive transitions must be deliberate and must preserve version consistency.
  */
 import assert from 'node:assert/strict';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, test, vi } from 'vitest';
 
-import { AdminCmsPage } from '../src/features/admin/components/AdminCmsPage';
+import { renderAdminCmsPage } from './adminCms.test-utils';
 
 const saveMutate = vi.hoisted(() => vi.fn());
 const publishMutate = vi.hoisted(() => vi.fn());
@@ -27,6 +25,8 @@ const homepageContent = {
 };
 
 vi.mock('@features/admin/cmsApi', () => ({
+  isCmsVersionConflict: (error: unknown) =>
+    (error as { status?: number } | null)?.status === 409,
   useCmsPagesQuery: () => ({
     data: { pages: [
       { pageKey: 'homepage', label: 'Homepage' },
@@ -83,7 +83,7 @@ afterEach(() => {
   state.hasNextPage = false;
 });
 
-const renderPage = () => render(<MemoryRouter><AdminCmsPage /></MemoryRouter>);
+const renderPage = () => renderAdminCmsPage();
 
 test('disables Save until local content changes', () => {
   renderPage();
@@ -130,4 +130,29 @@ test('loads the next bounded revision page on demand', () => {
   renderPage();
   fireEvent.click(screen.getByRole('button', { name: 'Load more revisions' }));
   assert.equal(fetchNextPage.mock.calls.length, 1);
+});
+
+test('warns before the browser unloads a dirty CMS draft', () => {
+  renderPage();
+  fireEvent.change(screen.getByLabelText('Hero title'), { target: { value: 'Edited' } });
+  const event = new Event('beforeunload', { cancelable: true });
+
+  window.dispatchEvent(event);
+
+  assert.equal(event.defaultPrevented, true);
+});
+
+test('blocks route navigation until dirty changes are explicitly discarded', async () => {
+  renderPage();
+  fireEvent.change(screen.getByLabelText('Hero title'), { target: { value: 'Edited' } });
+  fireEvent.click(screen.getByRole('link', { name: 'Leave CMS' }));
+
+  assert.equal(screen.queryByText('Other page'), null);
+  assert.ok(screen.getByText('Leaving this page will discard the edits currently shown.'));
+  fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+  assert.equal(screen.getByLabelText('Hero title').getAttribute('value'), 'Edited');
+
+  fireEvent.click(screen.getByRole('link', { name: 'Leave CMS' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Discard changes and leave' }));
+  assert.ok(await screen.findByText('Other page'));
 });
