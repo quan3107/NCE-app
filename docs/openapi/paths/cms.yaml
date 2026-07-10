@@ -133,8 +133,14 @@ AdminPagePublish:
     - $ref: '../schemas/cms.yaml#/CmsPageKeyParameter'
   post:
     tags: [cms]
-    summary: Publish the saved CMS draft as a revision (admin only)
+    summary: Publish reviewed CMS content as a revision (admin only)
     security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/cms.yaml#/CmsPublishRequest'
     responses:
       '200':
         description: Published CMS page state
@@ -145,7 +151,7 @@ AdminPagePublish:
       '401': { description: Unauthorized }
       '403': { description: Forbidden }
       '404': { description: CMS page not found }
-      '409': { description: No unpublished changes }
+      '409': { description: Draft changed after the administrator loaded it }
 
 AdminPageRevisions:
   parameters:
