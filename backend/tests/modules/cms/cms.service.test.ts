@@ -5,6 +5,20 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const database = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
+  cmsPageContent: {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  },
+  cmsPageDraft: {
+    update: vi.fn(),
+  },
+  cmsContentItem: {
+    update: vi.fn(),
+  },
+}));
+
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
     user: {
@@ -16,12 +30,8 @@ vi.mock("../../../src/prisma/client.js", () => ({
     grade: {
       aggregate: vi.fn(),
     },
-    cmsPageContent: {
-      findUnique: vi.fn(),
-    },
-    cmsContentItem: {
-      update: vi.fn(),
-    },
+    ...database,
+    $transaction: vi.fn(async (operation) => operation(database)),
   },
 }));
 
@@ -43,6 +53,7 @@ const { updateHomepageStatsWithRealtimeData } = await import(
 describe("cms.service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    database.$queryRaw.mockResolvedValue([{ id: "homepage-1" }]);
   });
 
   it("audits homepage stat refreshes without storing full CMS content", async () => {
@@ -54,6 +65,31 @@ describe("cms.service", () => {
     });
     prisma.cmsPageContent.findUnique.mockResolvedValueOnce({
       id: "homepage-1",
+      draftVersion: 3,
+      publishedDraftVersion: 2,
+      draft: {
+        content: {
+          hero: {
+            badge: "Badge",
+            title: "Draft title",
+            description: "Draft description",
+            cta_primary: "Browse",
+            cta_secondary: "Sign in",
+          },
+          stats: [
+            {
+              value: 10,
+              label: "Active students",
+              format: "number",
+            },
+          ],
+          howItWorks: {
+            title: "How it works",
+            description: "Steps",
+            features: [],
+          },
+        },
+      },
       sections: [
         {
           id: "stats-section",
@@ -84,6 +120,28 @@ describe("cms.service", () => {
         },
       },
     });
+    expect(prisma.cmsPageDraft.update).toHaveBeenCalledWith({
+      where: { pageId: "homepage-1" },
+      data: {
+        content: expect.objectContaining({
+          stats: [
+            {
+              value: 42,
+              label: "Active students",
+              format: "number",
+            },
+          ],
+        }),
+      },
+    });
+    expect(prisma.cmsPageContent.update).toHaveBeenCalledWith({
+      where: { id: "homepage-1" },
+      data: { draftVersion: 4 },
+    });
+    expect(prisma.$queryRaw).toHaveBeenCalledOnce();
+    expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.cmsContentItem.update.mock.invocationCallOrder[0] ?? 0,
+    );
     expect(writeAuditLogSafely).toHaveBeenCalledWith({
       actorId: null,
       action: "cms.homepage_stats_refreshed",
@@ -92,6 +150,7 @@ describe("cms.service", () => {
       diff: {
         pageKey: "homepage",
         sectionKey: "stats",
+        draftSynchronized: true,
         updatedItems: [
           {
             itemId: "item-students",
