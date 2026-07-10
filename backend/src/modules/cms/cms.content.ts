@@ -36,6 +36,10 @@ type SectionCreateInput = Omit<CmsSectionRow, 'items'> & {
   items: { create: Array<CmsItemRow & { isActive: boolean }> }
 }
 
+const FALLBACK_HOW_IT_WORKS_TITLE = 'How It Works'
+const FALLBACK_HOW_IT_WORKS_DESCRIPTION =
+  'Our structured approach helps you improve systematically across all IELTS test components with expert guidance every step of the way.'
+
 const item = (
   itemKey: string,
   sortOrder: number,
@@ -70,16 +74,19 @@ function activeItems(page: CmsPageRow, key: string) {
 
 function parseHomepage(page: CmsPageRow) {
   const hero = activeItems(page, 'hero')[0]?.contentJson
+  const featuresSection = activeSection(page, 'features')
   const featureItems = activeItems(page, 'features')
   const meta = featureItems.find((candidate) => candidate.contentType === 'section_meta')
+  const metaContent = meta?.contentJson as
+    | { title?: unknown; description?: unknown }
+    | undefined
 
   return HomepageContentSchema.parse({
     hero,
     stats: activeItems(page, 'stats').map((candidate) => candidate.contentJson),
     howItWorks: {
-      title: (meta?.contentJson as { title?: unknown } | undefined)?.title,
-      description: (meta?.contentJson as { description?: unknown } | undefined)
-        ?.description,
+      title: metaContent?.title ?? featuresSection?.label ?? FALLBACK_HOW_IT_WORKS_TITLE,
+      description: metaContent?.description ?? FALLBACK_HOW_IT_WORKS_DESCRIPTION,
       features: featureItems
         .filter((candidate) => candidate.contentType === 'feature')
         .map((candidate) => candidate.contentJson),
