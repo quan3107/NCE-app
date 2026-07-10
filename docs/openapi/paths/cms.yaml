@@ -149,6 +149,7 @@ AdminPagePublish:
           application/json:
             schema:
               $ref: '../schemas/cms.yaml#/CmsPageState'
+      '400': { description: Publish request or content validation failed }
       '401': { description: Unauthorized }
       '403': { description: Forbidden }
       '404': { description: CMS page not found }
@@ -157,6 +158,12 @@ AdminPagePublish:
 AdminPageRevisions:
   parameters:
     - $ref: '../schemas/cms.yaml#/CmsPageKeyParameter'
+    - name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    - name: cursor
+      in: query
+      schema: { type: string, format: uuid }
   get:
     tags: [cms]
     summary: List published CMS revisions (admin only)
@@ -168,6 +175,7 @@ AdminPageRevisions:
           application/json:
             schema:
               $ref: '../schemas/cms.yaml#/CmsRevisionsResponse'
+      '400': { description: Invalid revision pagination query }
       '401': { description: Unauthorized }
       '403': { description: Forbidden }
       '404': { description: CMS page not found }
@@ -183,6 +191,12 @@ AdminPageRollback:
     tags: [cms]
     summary: Restore and publish an earlier CMS revision (admin only)
     security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/cms.yaml#/CmsRollbackRequest'
     responses:
       '200':
         description: Restored CMS page state
@@ -190,9 +204,11 @@ AdminPageRollback:
           application/json:
             schema:
               $ref: '../schemas/cms.yaml#/CmsPageState'
+      '400': { description: Invalid revision ID or rollback request }
       '401': { description: Unauthorized }
       '403': { description: Forbidden }
       '404': { description: CMS page or revision not found }
+      '409': { description: Draft changed after the administrator loaded it }
 
 RefreshStats:
   post:
