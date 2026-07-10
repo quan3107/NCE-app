@@ -48,7 +48,11 @@ test('CMS admin helpers target draft and revision endpoints', async () => {
 
   await cmsApi.fetchCmsPages();
   await cmsApi.fetchCmsDraft('homepage');
-  await cmsApi.saveCmsDraft({ pageKey: 'homepage', content: { hero: {} } as never });
+  await cmsApi.saveCmsDraft({
+    pageKey: 'homepage',
+    content: { hero: {} } as never,
+    expectedDraftVersion: 3,
+  });
   await cmsApi.publishCmsDraft({
     pageKey: 'homepage',
     content: { hero: { title: 'Reviewed title' } } as never,
@@ -68,7 +72,10 @@ test('CMS admin helpers target draft and revision endpoints', async () => {
       ['/api/v1/cms/admin/pages/homepage/revisions/revision-1/rollback', 'POST'],
     ],
   );
-  assert.equal(calls[2]?.init?.body, JSON.stringify({ content: { hero: {} } }));
+  assert.equal(
+    calls[2]?.init?.body,
+    JSON.stringify({ content: { hero: {} }, expectedDraftVersion: 3 }),
+  );
   assert.equal(
     calls[3]?.init?.body,
     JSON.stringify({
