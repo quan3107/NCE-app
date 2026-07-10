@@ -34,11 +34,12 @@ export async function getAdminDraft(req: Request, res: Response) {
 }
 
 export async function putAdminDraft(req: Request, res: Response) {
-  const { content } = CmsDraftUpdateSchema.parse(req.body)
+  const { content, expectedDraftVersion } = CmsDraftUpdateSchema.parse(req.body)
   res.json(
     await cmsService.updateCmsDraft(
       req.params.pageKey,
       content,
+      expectedDraftVersion,
       actorFromRequest(req),
     ),
   )
