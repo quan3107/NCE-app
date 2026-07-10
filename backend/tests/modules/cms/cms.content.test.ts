@@ -64,6 +64,35 @@ describe('cms content conversion', () => {
     expect(parseCmsPageContent('homepage', normalizedPage)).toEqual(homepage)
   })
 
+  it('does not duplicate an active custom array item on publish round-trip', () => {
+    const sections = toCmsSectionsCreateInput('homepage', homepage)
+    const normalizedPage = {
+      sections: sections.map((section) => ({
+        ...section,
+        items: section.items.create,
+      })),
+    }
+    const stats = normalizedPage.sections.find(
+      (section) => section.sectionKey === 'stats',
+    )
+    stats?.items.push({
+      itemKey: 'custom_stat',
+      sortOrder: 1,
+      contentType: 'stat',
+      contentJson: homepage.stats[0],
+      isActive: true,
+    })
+
+    const parsed = parseCmsPageContent('homepage', normalizedPage)
+    const republished = toCmsSectionsCreateInput('homepage', parsed)
+    const republishedStats = republished.find(
+      (section) => section.sectionKey === 'stats',
+    )
+
+    expect(parsed.stats).toEqual(homepage.stats)
+    expect(republishedStats?.items.create).toHaveLength(1)
+  })
+
   it('preserves legacy homepage metadata when section_meta is missing', () => {
     const legacyPage = {
       sections: [
