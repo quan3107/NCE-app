@@ -58,8 +58,16 @@ test('CMS admin helpers target draft and revision endpoints', async () => {
     content: { hero: { title: 'Reviewed title' } } as never,
     expectedDraftVersion: 4,
   });
-  await cmsApi.fetchCmsRevisions('homepage');
-  await cmsApi.rollbackCmsRevision({ pageKey: 'homepage', revisionId: 'revision-1' });
+  const revisionId = '6db57b0d-34d4-4ed8-a391-d01911dd6e06';
+  await cmsApi.fetchCmsRevisions('homepage', {
+    limit: 25,
+    cursor: revisionId,
+  });
+  await cmsApi.rollbackCmsRevision({
+    pageKey: 'homepage',
+    revisionId,
+    expectedDraftVersion: 5,
+  });
 
   assert.deepEqual(
     calls.map(({ url, init }) => [url.pathname, init?.method ?? 'GET']),
@@ -69,7 +77,7 @@ test('CMS admin helpers target draft and revision endpoints', async () => {
       ['/api/v1/cms/admin/pages/homepage/draft', 'PUT'],
       ['/api/v1/cms/admin/pages/homepage/publish', 'POST'],
       ['/api/v1/cms/admin/pages/homepage/revisions', 'GET'],
-      ['/api/v1/cms/admin/pages/homepage/revisions/revision-1/rollback', 'POST'],
+      [`/api/v1/cms/admin/pages/homepage/revisions/${revisionId}/rollback`, 'POST'],
     ],
   );
   assert.equal(
@@ -82,5 +90,10 @@ test('CMS admin helpers target draft and revision endpoints', async () => {
       content: { hero: { title: 'Reviewed title' } },
       expectedDraftVersion: 4,
     }),
+  );
+  assert.equal(calls[4]?.url.search, `?limit=25&cursor=${revisionId}`);
+  assert.equal(
+    calls[5]?.init?.body,
+    JSON.stringify({ expectedDraftVersion: 5 }),
   );
 });
