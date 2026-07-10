@@ -35,6 +35,7 @@ model User {
   aiObjectiveExplanationRequests AiObjectiveExplanation[] @relation("AiObjectiveExplanationRequester")
   nceLessonProgress NceLessonProgress[]
   nceExerciseAttempts NceExerciseAttempt[]
+  cmsRevisions CmsPageRevision[] @relation("CmsRevisionCreator")
   createdAt     DateTime       @default(now()) @db.Timestamptz
   updatedAt     DateTime       @updatedAt @db.Timestamptz
   deletedAt     DateTime?      @db.Timestamptz
@@ -1027,13 +1028,20 @@ model IeltsSampleTimingOption {
 
 // CMS Content models
 model CmsPageContent {
-id  String   @id @default(uuid()) @db.Uuid
-pageKey String @unique @map("page_key")
-label String
-isActive Boolean @default(true) @map("is_active")
-createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
-sections CmsSection[]
+id                    String            @id @default(uuid()) @db.Uuid
+pageKey               String            @unique @map("page_key")
+label                 String
+isActive              Boolean           @default(true) @map("is_active")
+draftContent          Json?             @map("draft_content")
+draftVersion          Int               @default(0) @map("draft_version")
+publishedDraftVersion Int               @default(0) @map("published_draft_version")
+publishedRevision     Int               @default(0) @map("published_revision")
+publishedAt           DateTime?         @map("published_at") @db.Timestamptz
+createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+sections              CmsSection[]
+revisions             CmsPageRevision[]
+
 @@map("cms_page_contents")
 }
 
@@ -1066,4 +1074,24 @@ updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 section CmsSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 @@index([sectionId, sortOrder, isActive])
 @@map("cms_content_items")
+}
+
+model CmsPageRevision {
+  id                String            @id @default(uuid()) @db.Uuid
+  pageId            String            @map("page_id") @db.Uuid
+  revisionNumber    Int               @map("revision_number")
+  contentJson       Json              @map("content_json")
+  operation         String
+  createdById       String?           @map("created_by_id") @db.Uuid
+  sourceRevisionId  String?           @map("source_revision_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  page              CmsPageContent    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdBy         User?             @relation("CmsRevisionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  sourceRevision    CmsPageRevision?  @relation("CmsRevisionRollback", fields: [sourceRevisionId], references: [id], onDelete: SetNull)
+  rollbackRevisions CmsPageRevision[] @relation("CmsRevisionRollback")
+
+  @@unique([pageId, revisionNumber])
+  @@index([pageId, createdAt])
+  @@index([createdById])
+  @@map("cms_page_revisions")
 }
