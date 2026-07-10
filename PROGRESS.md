@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-10:** Hardened CMS revision integrity by filtering migration baselines with runtime ownership rules, creating revision 1 atomically when the CMS seed restores a page, and attributing admin-triggered stats refreshes to the authenticated actor. Added transaction-rolled-back PostgreSQL upgrade/seed coverage plus focused service and route regressions.
 - **2026-07-10:** Aligned modeled CMS ownership with the semantic homepage feature and About value keys used by production bootstrap migrations and seeds. Normalization now emits those canonical keys, publish reconciliation preserves them, and migration-backed parser regressions cover the exact inserted rows.
 - **2026-07-10:** Prevented active legacy keyless CMS rows from duplicating during publish by reconciling them in deterministic order and assigning canonical keys in place. Added direct persistence regression coverage for `itemKey: null` with a noncanonical legacy sort order.
 - **2026-07-10:** Prevented active custom CMS array rows from being duplicated under canonical keys by sharing modeled-key ownership between parsing and persistence. Custom keyed rows are excluded from editor snapshots while legacy null-key rows remain readable, with a parser-to-publish round-trip regression.
@@ -63,6 +64,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-10:** Replaced the CMS draft JSON dump with page-specific rendered Homepage, About, and Contact previews of the current local editor value, and disabled revision rollback while unsaved edits exist. Extracted the draft workspace so admin components remain below the 300-line limit and added preview/guard coverage.
 - **2026-07-10:** No frontend files changed for the CMS bootstrap ownership correction; the fix is isolated to backend key ownership, normalization, reconciliation coverage, and this progress record.
 - **2026-07-10:** No frontend files changed for legacy keyless CMS row reconciliation; the correction is isolated to backend persistence, its regression coverage, and this progress record.
 - **2026-07-10:** No frontend files changed for the active custom CMS array round-trip correction; that follow-up is isolated to backend modeled-key parsing, persistence ownership, regression coverage, and this progress record.
