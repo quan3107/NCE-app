@@ -4,11 +4,13 @@
 
 GRANT INSERT, UPDATE, DELETE ON public.cms_sections TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.cms_content_items TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.cms_page_drafts TO authenticated;
 
 ALTER TABLE public.cms_page_contents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cms_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cms_content_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cms_page_revisions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cms_page_drafts ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY cms_page_contents_public_read
   ON public.cms_page_contents FOR SELECT
@@ -47,4 +49,18 @@ CREATE POLICY cms_page_revisions_admin_read
 CREATE POLICY cms_page_revisions_admin_insert
   ON public.cms_page_revisions FOR INSERT
   TO authenticated
+  WITH CHECK (current_setting('app.current_user_role', true) = 'admin');
+
+CREATE POLICY cms_page_drafts_admin_read
+  ON public.cms_page_drafts FOR SELECT
+  TO authenticated
+  USING (current_setting('app.current_user_role', true) = 'admin');
+CREATE POLICY cms_page_drafts_admin_insert
+  ON public.cms_page_drafts FOR INSERT
+  TO authenticated
+  WITH CHECK (current_setting('app.current_user_role', true) = 'admin');
+CREATE POLICY cms_page_drafts_admin_update
+  ON public.cms_page_drafts FOR UPDATE
+  TO authenticated
+  USING (current_setting('app.current_user_role', true) = 'admin')
   WITH CHECK (current_setting('app.current_user_role', true) = 'admin');
