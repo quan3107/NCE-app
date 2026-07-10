@@ -89,7 +89,9 @@ export const getRealtimeStats = async () => {
   }
 }
 
-export const updateHomepageStatsWithRealtimeData = async (): Promise<void> => {
+export const updateHomepageStatsWithRealtimeData = async (actor?: {
+  id: string
+}): Promise<void> => {
   const stats = await getRealtimeStats()
   const result = await prisma.$transaction(async (tx) => {
     const pageId = await lockCmsPageByKey(tx, 'homepage')
@@ -174,7 +176,7 @@ export const updateHomepageStatsWithRealtimeData = async (): Promise<void> => {
 
   if (result && (result.updatedItems.length > 0 || result.draftChanged)) {
     await writeAuditLogSafely({
-      actorId: null,
+      actorId: actor?.id ?? null,
       action: 'cms.homepage_stats_refreshed',
       entity: 'cms_page_content',
       entityId: result.homepageId,
