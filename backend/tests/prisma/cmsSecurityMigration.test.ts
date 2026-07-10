@@ -83,6 +83,12 @@ describe('CMS security migrations', () => {
     expect(bootstrapMigration).not.toMatch(/DELETE FROM/i)
   })
 
+  it('moves Settings after Content for production upgrades', () => {
+    expect(bootstrapMigration).toMatch(
+      /UPDATE public\.navigation_items[\s\S]*SET order_index = 6[\s\S]*role = 'admin'[\s\S]*path = '\/admin\/settings'[\s\S]*order_index = 5/i,
+    )
+  })
+
   it('captures ordered baseline revisions only when history is absent', () => {
     expect(bootstrapMigration).toMatch(/INSERT INTO public\.cms_page_revisions/i)
     expect(bootstrapMigration).toMatch(/jsonb_agg\([\s\S]*ORDER BY/i)
