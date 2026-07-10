@@ -102,6 +102,20 @@ export const CmsPublishSchema = z.object({
   expectedDraftVersion: z.number().int().nonnegative(),
 }).strict()
 
+export const CmsRevisionQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.string().uuid().optional(),
+}).strict()
+
+export const CmsRollbackParamsSchema = z.object({
+  pageKey: CmsPageKeySchema,
+  revisionId: z.string().uuid(),
+}).strict()
+
+export const CmsRollbackSchema = z.object({
+  expectedDraftVersion: z.number().int().nonnegative(),
+}).strict()
+
 export type HeroContent = z.infer<typeof HeroContentSchema>
 export type StatItem = z.infer<typeof StatItemSchema>
 export type FeatureItem = z.infer<typeof FeatureItemSchema>
