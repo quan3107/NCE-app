@@ -14,6 +14,7 @@ import { AdminCmsPage } from '../src/features/admin/components/AdminCmsPage';
 const saveMutate = vi.hoisted(() => vi.fn());
 const publishMutate = vi.hoisted(() => vi.fn());
 const rollbackMutate = vi.hoisted(() => vi.fn());
+const fetchNextPage = vi.hoisted(() => vi.fn());
 const cmsState = vi.hoisted(() => ({
   draftVersion: 1,
   hasUnpublishedChanges: true,
@@ -23,6 +24,7 @@ const cmsState = vi.hoisted(() => ({
   saveError: null as Error | null,
   publishError: null as Error | null,
   rollbackError: null as Error | null,
+  hasNextPage: false,
 }));
 
 vi.mock('@features/admin/cmsApi', () => ({
@@ -85,19 +87,27 @@ vi.mock('@features/admin/cmsApi', () => ({
   }),
   useCmsRevisionsQuery: () => ({
     data: {
-      revisions: [
+      pages: [
         {
-          id: 'revision-1',
-          revisionNumber: 1,
-          operation: 'publish',
-          createdAt: '2026-07-01T00:00:00.000Z',
-          createdBy: { id: 'admin-1', fullName: 'Admin User' },
-          sourceRevision: null,
+          revisions: [
+            {
+              id: 'revision-1',
+              revisionNumber: 1,
+              operation: 'publish',
+              createdAt: '2026-07-01T00:00:00.000Z',
+              createdBy: { id: 'admin-1', fullName: 'Admin User' },
+              sourceRevision: null,
+            },
+          ],
+          nextCursor: null,
         },
       ],
     },
     isLoading: false,
     error: cmsState.revisionError,
+    hasNextPage: cmsState.hasNextPage,
+    isFetchingNextPage: false,
+    fetchNextPage,
   }),
   useSaveCmsDraftMutation: () => ({
     mutate: saveMutate,
@@ -127,6 +137,7 @@ afterEach(() => {
   cmsState.saveError = null;
   cmsState.publishError = null;
   cmsState.rollbackError = null;
+  cmsState.hasNextPage = false;
 });
 
 test('admin CMS page submits edited drafts, publishes, and rolls back', () => {
@@ -142,6 +153,7 @@ test('admin CMS page submits edited drafts, publishes, and rolls back', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
   fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
   fireEvent.click(screen.getByRole('button', { name: 'Roll back to revision 1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm rollback' }));
 
   assert.equal(saveMutate.mock.calls[0]?.[0].pageKey, 'homepage');
   assert.equal(saveMutate.mock.calls[0]?.[0].content.hero.title, 'Updated title');
@@ -152,6 +164,7 @@ test('admin CMS page submits edited drafts, publishes, and rolls back', () => {
   assert.deepEqual(rollbackMutate.mock.calls[0]?.[0], {
     pageKey: 'homepage',
     revisionId: 'revision-1',
+    expectedDraftVersion: 1,
   });
 });
 
