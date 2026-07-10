@@ -6,36 +6,31 @@
 
 import { prisma } from '../../prisma/client.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
-import {
-  HeroContentSchema,
-  StatItemSchema,
-  FeatureItemSchema,
-  HowItWorksMetaSchema,
-  AboutHeroContentSchema,
-  ValueItemSchema,
-  StoryParagraphSchema,
+import { parseCmsPageContent } from './cms.content.js'
+import type {
+  AboutPageContent,
+  ContactPageContent,
+  HomepageContent,
+  CmsPageKey,
 } from './cms.schema.js'
 
-import type {
-  StatItem,
-  FeatureItem,
-  HowItWorksContent,
-  ValueItem,
-  HomepageContent,
-  AboutPageContent,
-} from './cms.schema.js'
+export {
+  getCmsDraft,
+  getCmsPreview,
+  listCmsPages,
+  listCmsRevisions,
+  publishCmsDraft,
+  rollbackCmsRevision,
+  updateCmsDraft,
+} from './cms.admin.service.js'
 
 // ============================================================================
 // Database Queries
 // ============================================================================
 
-const FALLBACK_HOW_IT_WORKS_TITLE = 'How It Works'
-const FALLBACK_HOW_IT_WORKS_DESCRIPTION =
-  'Our structured approach helps you improve systematically across all IELTS test components with expert guidance every step of the way.'
-
-export const getHomepageContent = async (): Promise<HomepageContent> => {
+async function getPublishedPage(pageKey: CmsPageKey) {
   const page = await prisma.cmsPageContent.findUnique({
-    where: { pageKey: 'homepage', isActive: true },
+    where: { pageKey, isActive: true },
     include: {
       sections: {
         where: { isActive: true },
@@ -51,91 +46,20 @@ export const getHomepageContent = async (): Promise<HomepageContent> => {
   })
 
   if (!page) {
-    throw new Error('Homepage content not found')
+    throw new Error(`${pageKey} content not found`)
   }
 
-  const heroSection = page.sections.find((s) => s.sectionKey === 'hero')
-  const statsSection = page.sections.find((s) => s.sectionKey === 'stats')
-  const featuresSection = page.sections.find((s) => s.sectionKey === 'features')
-
-  const heroItem = heroSection?.items[0]
-  if (!heroItem) {
-    throw new Error('Hero content not found')
-  }
-  const hero = HeroContentSchema.parse(heroItem.contentJson)
-
-  const stats: StatItem[] = (statsSection?.items || []).map((item) =>
-    StatItemSchema.parse(item.contentJson),
-  )
-
-  const featureItems = (featuresSection?.items || []).filter(
-    (item) => item.contentType === 'feature',
-  )
-  const features: FeatureItem[] = featureItems.map((item) =>
-    FeatureItemSchema.parse(item.contentJson),
-  )
-  const howItWorksMetaItem = (featuresSection?.items || []).find(
-    (item) => item.contentType === 'section_meta' || item.itemKey === 'section_meta',
-  )
-  const howItWorksMeta = howItWorksMetaItem
-    ? HowItWorksMetaSchema.parse(howItWorksMetaItem.contentJson)
-    : null
-
-  const howItWorks: HowItWorksContent = {
-    title:
-      howItWorksMeta?.title ??
-      featuresSection?.label ??
-      FALLBACK_HOW_IT_WORKS_TITLE,
-    description:
-      howItWorksMeta?.description ?? FALLBACK_HOW_IT_WORKS_DESCRIPTION,
-    features,
-  }
-
-  return { hero, stats, howItWorks }
+  return parseCmsPageContent(pageKey, page)
 }
 
-export const getAboutPageContent = async (): Promise<AboutPageContent> => {
-  const page = await prisma.cmsPageContent.findUnique({
-    where: { pageKey: 'about', isActive: true },
-    include: {
-      sections: {
-        where: { isActive: true },
-        orderBy: { sortOrder: 'asc' },
-        include: {
-          items: {
-            where: { isActive: true },
-            orderBy: { sortOrder: 'asc' },
-          },
-        },
-      },
-    },
-  })
+export const getHomepageContent = async (): Promise<HomepageContent> =>
+  getPublishedPage('homepage') as Promise<HomepageContent>
 
-  if (!page) {
-    throw new Error('About page content not found')
-  }
+export const getAboutPageContent = async (): Promise<AboutPageContent> =>
+  getPublishedPage('about') as Promise<AboutPageContent>
 
-  const heroSection = page.sections.find((s) => s.sectionKey === 'hero')
-  const valuesSection = page.sections.find((s) => s.sectionKey === 'values')
-  const storySection = page.sections.find((s) => s.sectionKey === 'story')
-
-  const heroItem = heroSection?.items[0]
-  if (!heroItem) {
-    throw new Error('Hero content not found')
-  }
-  const hero = AboutHeroContentSchema.parse(heroItem.contentJson)
-
-  const values: ValueItem[] = (valuesSection?.items || []).map((item) =>
-    ValueItemSchema.parse(item.contentJson),
-  )
-
-  const storySections: string[] = (storySection?.items || []).map((item) => {
-    const storyData = StoryParagraphSchema.parse(item.contentJson)
-    return storyData.text
-  })
-
-  return { hero, values, story: { sections: storySections } }
-}
+export const getContactPageContent = async (): Promise<ContactPageContent> =>
+  getPublishedPage('contact') as Promise<ContactPageContent>
 
 export const getRealtimeStats = async () => {
   const [activeStudents, totalSubmissions, gradedSubmissions] = await Promise.all([
