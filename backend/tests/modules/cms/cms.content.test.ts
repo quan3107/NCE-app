@@ -60,6 +60,32 @@ describe('cms content conversion', () => {
     })
   })
 
+  it('reads legacy homepage metadata identified only by itemKey', () => {
+    const legacyPage = {
+      sections: [
+        { sectionKey: 'hero', label: 'Hero', sortOrder: 0, items: [
+          { sortOrder: 0, contentType: 'hero', contentJson: homepage.hero },
+        ] },
+        { sectionKey: 'stats', label: 'Statistics', sortOrder: 1, items: [] },
+        { sectionKey: 'features', label: 'Fallback label', sortOrder: 2, items: [
+          {
+            itemKey: 'section_meta',
+            sortOrder: 0,
+            contentType: 'feature',
+            contentJson: { title: 'Saved legacy title', description: 'Saved legacy description' },
+          },
+          { sortOrder: 1, contentType: 'feature', contentJson: homepage.howItWorks.features[0] },
+        ] },
+      ],
+    }
+
+    expect(parseCmsPageContent('homepage', legacyPage).howItWorks).toEqual({
+      title: 'Saved legacy title',
+      description: 'Saved legacy description',
+      features: homepage.howItWorks.features,
+    })
+  })
+
   it('round-trips contact content needed by the public contact route', () => {
     const contact = {
       header: {
