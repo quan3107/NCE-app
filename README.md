@@ -253,6 +253,7 @@ Production needs:
 
 - Node.js 20+ for the backend runtime;
 - PostgreSQL with migrations applied through `npx prisma migrate deploy --config prisma.config.ts`;
+- the committed forward migrations provision missing Contact CMS content, CMS admin permission/navigation, baseline revisions, and ancestor-aware CMS RLS without running production seed scripts or replacing managed rows;
 - runtime roles `anon`, `authenticated`, and `service_role`;
 - active IELTS reference data verified by `npm run verify:ielts-config`;
 - explicit `CORS_ALLOWED_ORIGINS` because production refuses an empty allowlist;
