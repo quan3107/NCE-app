@@ -18,12 +18,16 @@ type DiscardPageChangesDialogProps = {
   open: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  description?: string;
+  confirmLabel?: string;
 };
 
 export function DiscardPageChangesDialog({
   open,
   onCancel,
   onConfirm,
+  description = 'Switching pages will discard the edits currently shown in this editor.',
+  confirmLabel = 'Discard changes and switch',
 }: DiscardPageChangesDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(nextOpen) => !nextOpen && onCancel()}>
@@ -31,14 +35,12 @@ export function DiscardPageChangesDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
           <AlertDialogDescription>
-            Switching pages will discard the edits currently shown in this editor.
+            {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Keep editing</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>
-            Discard changes and switch
-          </AlertDialogAction>
+          <AlertDialogAction onClick={onConfirm}>{confirmLabel}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
