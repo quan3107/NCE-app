@@ -38,9 +38,21 @@ export const saveCmsDraft = ({
     { method: 'PUT', body: { content } },
   );
 
-export const publishCmsDraft = (pageKey: CmsPageKey) =>
-  apiClient<CmsPageState>(`/cms/admin/pages/${pageKey}/publish`, {
+export const publishCmsDraft = ({
+  pageKey,
+  content,
+  expectedDraftVersion,
+}: {
+  pageKey: CmsPageKey;
+  content: CmsPageContent;
+  expectedDraftVersion: number;
+}) =>
+  apiClient<
+    CmsPageState,
+    { content: CmsPageContent; expectedDraftVersion: number }
+  >(`/cms/admin/pages/${pageKey}/publish`, {
     method: 'POST',
+    body: { content, expectedDraftVersion },
   });
 
 export const fetchCmsRevisions = (pageKey: CmsPageKey) =>
