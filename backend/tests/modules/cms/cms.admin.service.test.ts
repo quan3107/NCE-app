@@ -6,10 +6,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const transactionClient = {
+  $queryRaw: vi.fn(),
   cmsPageContent: {
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
+  cmsPageDraft: { upsert: vi.fn() },
   cmsPageRevision: {
     create: vi.fn(),
     findFirst: vi.fn(),
@@ -38,8 +41,6 @@ vi.mock('../../../src/modules/audit-logs/audit-logs.service.js', () => ({
   writeAuditLogSafely: vi.fn(),
 }))
 
-const prismaModule = await import('../../../src/prisma/client.js')
-const prisma = vi.mocked(prismaModule.prisma, true)
 const auditModule = await import('../../../src/modules/audit-logs/audit-logs.service.js')
 const writeAuditLogSafely = vi.mocked(auditModule.writeAuditLogSafely)
 const { publishCmsDraft, rollbackCmsRevision, updateCmsDraft } =
@@ -65,12 +66,13 @@ const draftContent = {
 describe('cms admin service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    transactionClient.$queryRaw.mockResolvedValue([{ id: 'page-1' }])
     transactionClient.cmsSection.deleteMany.mockResolvedValue({ count: 1 })
     transactionClient.cmsSection.create.mockResolvedValue({ id: 'section-1' })
   })
 
   it('stores an audited draft without replacing published sections', async () => {
-    prisma.cmsPageContent.findUnique.mockResolvedValueOnce({
+    transactionClient.cmsPageContent.findUnique.mockResolvedValueOnce({
       id: 'page-1',
       pageKey: 'homepage',
       label: 'Homepage',
@@ -79,11 +81,10 @@ describe('cms admin service', () => {
       publishedRevision: 2,
       publishedAt: new Date('2026-07-01T00:00:00.000Z'),
     })
-    prisma.cmsPageContent.update.mockResolvedValueOnce({
+    transactionClient.cmsPageContent.update.mockResolvedValueOnce({
       id: 'page-1',
       pageKey: 'homepage',
       label: 'Homepage',
-      draftContent,
       draftVersion: 4,
       publishedDraftVersion: 2,
       publishedRevision: 2,
@@ -93,14 +94,21 @@ describe('cms admin service', () => {
 
     const result = await updateCmsDraft('homepage', draftContent, actor)
 
-    expect(prisma.cmsPageContent.update).toHaveBeenCalledWith({
+    expect(transactionClient.cmsPageDraft.upsert).toHaveBeenCalledWith({
+      where: { pageId: 'page-1' },
+      create: { pageId: 'page-1', content: draftContent },
+      update: { content: draftContent },
+    })
+    expect(transactionClient.cmsPageContent.update).toHaveBeenCalledWith({
       where: { id: 'page-1' },
       data: {
-        draftContent,
         draftVersion: { increment: 1 },
       },
     })
     expect(transactionClient.cmsSection.deleteMany).not.toHaveBeenCalled()
+    expect(transactionClient.cmsPageContent.update.mock.invocationCallOrder[0]).toBeLessThan(
+      transactionClient.cmsPageDraft.upsert.mock.invocationCallOrder[0] ?? 0,
+    )
     expect(result.hasUnpublishedChanges).toBe(true)
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -116,7 +124,6 @@ describe('cms admin service', () => {
       id: 'page-1',
       pageKey: 'homepage',
       label: 'Homepage',
-      draftContent,
       draftVersion: 4,
       publishedDraftVersion: 2,
       publishedRevision: 2,
@@ -126,19 +133,20 @@ describe('cms admin service', () => {
       id: 'revision-3',
       revisionNumber: 3,
     })
-    transactionClient.cmsPageContent.update.mockResolvedValueOnce({
+    transactionClient.cmsPageContent.updateMany.mockResolvedValueOnce({ count: 1 })
+    transactionClient.cmsPageContent.findUnique.mockResolvedValueOnce({
       id: 'page-1',
       pageKey: 'homepage',
       label: 'Homepage',
-      draftContent,
-      draftVersion: 4,
-      publishedDraftVersion: 4,
+      draft: { content: draftContent },
+      draftVersion: 5,
+      publishedDraftVersion: 5,
       publishedRevision: 3,
       publishedAt: new Date('2026-07-10T00:00:00.000Z'),
       updatedAt: new Date('2026-07-10T00:00:00.000Z'),
     })
 
-    const result = await publishCmsDraft('homepage', actor)
+    const result = await publishCmsDraft('homepage', draftContent, 4, actor)
 
     expect(transactionClient.cmsPageRevision.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -152,10 +160,42 @@ describe('cms admin service', () => {
     expect(transactionClient.cmsSection.deleteMany).toHaveBeenCalledWith({
       where: { pageId: 'page-1' },
     })
+    expect(transactionClient.cmsPageDraft.upsert).toHaveBeenCalledWith({
+      where: { pageId: 'page-1' },
+      create: { pageId: 'page-1', content: draftContent },
+      update: { content: draftContent },
+    })
+    expect(transactionClient.cmsPageContent.updateMany).toHaveBeenCalledWith({
+      where: { id: 'page-1', draftVersion: 4 },
+      data: expect.objectContaining({
+        draftVersion: 5,
+        publishedDraftVersion: 5,
+        publishedRevision: 3,
+      }),
+    })
     expect(result.hasUnpublishedChanges).toBe(false)
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'cms.published', actorId: actor.id }),
     )
+  })
+
+  it('rejects publishing when the reviewed draft version is stale', async () => {
+    transactionClient.cmsPageContent.findUnique.mockResolvedValueOnce({
+      id: 'page-1',
+      pageKey: 'homepage',
+      label: 'Homepage',
+      draftVersion: 5,
+      publishedDraftVersion: 2,
+      publishedRevision: 2,
+      publishedAt: new Date('2026-07-01T00:00:00.000Z'),
+    })
+
+    await expect(
+      publishCmsDraft('homepage', draftContent, 4, actor),
+    ).rejects.toMatchObject({ statusCode: 409 })
+    expect(transactionClient.cmsPageRevision.create).not.toHaveBeenCalled()
+    expect(transactionClient.cmsSection.deleteMany).not.toHaveBeenCalled()
+    expect(transactionClient.cmsPageDraft.upsert).not.toHaveBeenCalled()
   })
 
   it('rolls back by publishing a new revision copied from history', async () => {
@@ -201,6 +241,9 @@ describe('cms admin service', () => {
       }),
     })
     expect(result.publishedRevision).toBe(4)
+    expect(transactionClient.cmsPageContent.update.mock.invocationCallOrder[0]).toBeLessThan(
+      transactionClient.cmsPageDraft.upsert.mock.invocationCallOrder[0] ?? 0,
+    )
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'cms.rolled_back', actorId: actor.id }),
     )
