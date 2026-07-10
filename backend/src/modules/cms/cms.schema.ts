@@ -6,51 +6,53 @@
 
 import { z } from 'zod'
 
+const requiredText = z.string().trim().min(1)
+
 export const HeroContentSchema = z.object({
-  badge: z.string(),
-  title: z.string(),
-  description: z.string(),
-  cta_primary: z.string(),
-  cta_secondary: z.string(),
+  badge: requiredText,
+  title: requiredText,
+  description: requiredText,
+  cta_primary: requiredText,
+  cta_secondary: requiredText,
 })
 
 export const StatItemSchema = z.object({
-  label: z.string(),
+  label: requiredText,
   value: z.number(),
   format: z.enum(['number', 'decimal', 'percentage']),
-  suffix: z.string().optional(),
+  suffix: z.string().trim().optional(),
 })
 
 export const FeatureItemSchema = z.object({
-  icon: z.string(),
-  title: z.string(),
-  description: z.string(),
+  icon: requiredText,
+  title: requiredText,
+  description: requiredText,
 })
 
 export const HowItWorksMetaSchema = z.object({
-  title: z.string().optional(),
-  description: z.string(),
+  title: requiredText.optional(),
+  description: requiredText,
 })
 
 export const HowItWorksContentSchema = z.object({
-  title: z.string(),
-  description: z.string(),
+  title: requiredText,
+  description: requiredText,
   features: z.array(FeatureItemSchema),
 })
 
 export const AboutHeroContentSchema = z.object({
-  title: z.string(),
-  description: z.string(),
+  title: requiredText,
+  description: requiredText,
 })
 
 export const ValueItemSchema = z.object({
-  icon: z.string(),
-  title: z.string(),
-  description: z.string(),
+  icon: requiredText,
+  title: requiredText,
+  description: requiredText,
 })
 
 export const StoryParagraphSchema = z.object({
-  text: z.string(),
+  text: requiredText,
 })
 
 export const HomepageContentSchema = z.object({
@@ -63,29 +65,29 @@ export const AboutPageContentSchema = z.object({
   hero: AboutHeroContentSchema,
   values: z.array(ValueItemSchema),
   story: z.object({
-    sections: z.array(z.string()),
+    sections: z.array(requiredText),
   }),
 })
 
 export const ContactPageContentSchema = z.object({
   header: z.object({
-    title: z.string().min(1),
-    description: z.string().min(1),
+    title: requiredText,
+    description: requiredText,
   }),
   form: z.object({
-    title: z.string().min(1),
-    description: z.string().min(1),
-    submitLabel: z.string().min(1),
+    title: requiredText,
+    description: requiredText,
+    submitLabel: requiredText,
   }),
   details: z.object({
-    email: z.string().email(),
-    phone: z.string().min(1),
-    address: z.string().min(1),
+    email: z.string().trim().email(),
+    phone: requiredText,
+    address: requiredText,
   }),
   hours: z.array(
     z.object({
-      label: z.string().min(1),
-      value: z.string().min(1),
+      label: requiredText,
+      value: requiredText,
     }),
   ),
 })
