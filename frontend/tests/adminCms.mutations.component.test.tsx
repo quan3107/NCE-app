@@ -9,7 +9,11 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import React, { type PropsWithChildren } from 'react';
 import { afterEach, test, vi } from 'vitest';
 
-import { useSaveCmsDraftMutation } from '../src/features/admin/cmsApi';
+import {
+  usePublishCmsDraftMutation,
+  useRollbackCmsRevisionMutation,
+  useSaveCmsDraftMutation,
+} from '../src/features/admin/cmsApi';
 import { queryClient } from '../src/lib/queryClient';
 
 const originalFetch = globalThis.fetch;
@@ -78,4 +82,66 @@ test('save caches the returned version and stays pending through invalidation', 
 
   releaseInvalidation();
   await waitFor(() => assert.equal(result.current.isPending, false));
+});
+
+test.each([
+  {
+    name: 'save',
+    useMutation: useSaveCmsDraftMutation,
+    variables: {
+      pageKey: 'homepage' as const,
+      content: {
+        hero: {
+          badge: 'Badge', title: 'Title', description: 'Description',
+          cta_primary: 'Browse', cta_secondary: 'Sign in',
+        },
+        stats: [],
+        howItWorks: { title: 'How it works', description: 'Steps', features: [] },
+      },
+      expectedDraftVersion: 5,
+    },
+  },
+  {
+    name: 'publish',
+    useMutation: usePublishCmsDraftMutation,
+    variables: {
+      pageKey: 'homepage' as const,
+      content: {
+        hero: {
+          badge: 'Badge', title: 'Title', description: 'Description',
+          cta_primary: 'Browse', cta_secondary: 'Sign in',
+        },
+        stats: [],
+        howItWorks: { title: 'How it works', description: 'Steps', features: [] },
+      },
+      expectedDraftVersion: 5,
+    },
+  },
+  {
+    name: 'rollback',
+    useMutation: useRollbackCmsRevisionMutation,
+    variables: {
+      pageKey: 'homepage' as const,
+      revisionId: '6db57b0d-34d4-4ed8-a391-d01911dd6e06',
+      expectedDraftVersion: 5,
+    },
+  },
+])('$name refreshes stale CMS state after a 409', async ({ useMutation, variables }) => {
+  globalThis.fetch = vi.fn(async () => new Response(
+    JSON.stringify({ message: 'CMS draft changed; reload before continuing' }),
+    { status: 409, headers: { 'content-type': 'application/json' } },
+  ));
+  const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+  const { result } = renderHook(() => useMutation(), { wrapper });
+
+  act(() => result.current.mutate(variables as never));
+
+  await waitFor(() => assert.equal(result.current.isError, true));
+  assert.deepEqual(
+    invalidate.mock.calls.map(([filters]) => filters.queryKey),
+    [
+      ['admin', 'cms', 'homepage', 'draft'],
+      ['admin', 'cms', 'pages'],
+    ],
+  );
 });
