@@ -50,6 +50,7 @@ vi.mock('../../../src/modules/cms/cms.service.js', () => ({
 }))
 
 import { app } from '../../../src/app.js'
+import * as cmsService from '../../../src/modules/cms/cms.service.js'
 
 describe('modules.router cms routes', () => {
   it('mounts GET /api/v1/cms/homepage-content', async () => {
@@ -83,6 +84,43 @@ describe('modules.router cms routes', () => {
 
     const responses = await Promise.all(endpoints)
     expect(responses.every((response) => response.status === 401)).toBe(true)
+  })
+
+  it('publishes the reviewed content only at the expected draft version', async () => {
+    const content = {
+      hero: {
+        badge: 'Badge',
+        title: 'Reviewed title',
+        description: 'Description',
+        cta_primary: 'Browse',
+        cta_secondary: 'Sign in',
+      },
+      stats: [],
+      howItWorks: { title: 'How it works', description: 'Steps', features: [] },
+    }
+    const response = await request(app)
+      .post('/api/v1/cms/admin/pages/homepage/publish')
+      .set('x-user-id', '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b')
+      .set('x-user-role', 'admin')
+      .send({ content, expectedDraftVersion: 4 })
+
+    expect(response.status).toBe(200)
+    expect(cmsService.publishCmsDraft).toHaveBeenCalledWith(
+      'homepage',
+      content,
+      4,
+      expect.objectContaining({ id: '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b' }),
+    )
+  })
+
+  it('rejects unknown publish request properties', async () => {
+    const response = await request(app)
+      .post('/api/v1/cms/admin/pages/homepage/publish')
+      .set('x-user-id', '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b')
+      .set('x-user-role', 'admin')
+      .send({ content: {}, expectedDraftVersion: 4, unexpected: true })
+
+    expect(response.status).toBe(400)
   })
 
   it('requires auth for POST /api/v1/cms/refresh-stats', async () => {
