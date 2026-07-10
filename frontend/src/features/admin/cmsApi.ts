@@ -5,7 +5,7 @@
  */
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 
-import { apiClient } from '@lib/apiClient';
+import { apiClient, ApiError } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
 import type {
   CmsPageContent,
@@ -19,6 +19,9 @@ const pagesKey = ['admin', 'cms', 'pages'] as const;
 const draftKey = (pageKey: CmsPageKey) => ['admin', 'cms', pageKey, 'draft'] as const;
 const revisionsKey = (pageKey: CmsPageKey) =>
   ['admin', 'cms', pageKey, 'revisions'] as const;
+
+export const isCmsVersionConflict = (error: unknown) =>
+  error instanceof ApiError && error.status === 409;
 
 export const fetchCmsPages = () =>
   apiClient<CmsPagesResponse>('/cms/admin/pages');
@@ -103,6 +106,14 @@ async function refreshPage(
   await Promise.all(invalidations);
 }
 
+async function refreshAfterVersionConflict(error: unknown, pageKey: CmsPageKey) {
+  if (!isCmsVersionConflict(error)) return;
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: draftKey(pageKey) }),
+    queryClient.invalidateQueries({ queryKey: pagesKey }),
+  ]);
+}
+
 export function useCmsPagesQuery() {
   return useQuery({ queryKey: pagesKey, queryFn: fetchCmsPages });
 }
@@ -127,6 +138,8 @@ export function useSaveCmsDraftMutation() {
   return useMutation({
     mutationFn: saveCmsDraft,
     onSuccess: (page) => refreshPage(page),
+    onError: (error, variables) =>
+      refreshAfterVersionConflict(error, variables.pageKey),
   });
 }
 
@@ -134,6 +147,8 @@ export function usePublishCmsDraftMutation() {
   return useMutation({
     mutationFn: publishCmsDraft,
     onSuccess: (page) => refreshPage(page, { revisions: true, published: true }),
+    onError: (error, variables) =>
+      refreshAfterVersionConflict(error, variables.pageKey),
   });
 }
 
@@ -141,5 +156,7 @@ export function useRollbackCmsRevisionMutation() {
   return useMutation({
     mutationFn: rollbackCmsRevision,
     onSuccess: (page) => refreshPage(page, { revisions: true, published: true }),
+    onError: (error, variables) =>
+      refreshAfterVersionConflict(error, variables.pageKey),
   });
 }
