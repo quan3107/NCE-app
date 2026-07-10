@@ -37,6 +37,18 @@ type SectionCreateInput = Omit<CmsSectionRow, 'items'> & {
   items: { create: Array<CmsItemRow & { isActive: boolean }> }
 }
 
+const HOMEPAGE_FEATURE_KEYS = [
+  'feature_practice',
+  'feature_feedback',
+  'feature_progress',
+] as const
+const ABOUT_VALUE_KEYS = [
+  'value_mission',
+  'value_success',
+  'value_instructors',
+  'value_results',
+] as const
+
 const FALLBACK_HOW_IT_WORKS_TITLE = 'How It Works'
 const FALLBACK_HOW_IT_WORKS_DESCRIPTION =
   'Our structured approach helps you improve systematically across all IELTS test components with expert guidance every step of the way.'
@@ -76,8 +88,7 @@ function activeItems(page: CmsPageRow, key: string) {
 function modeledItems(pageKey: CmsPageKey, page: CmsPageRow, key: string) {
   return activeItems(page, key).filter(
     (candidate) =>
-      candidate.itemKey == null ||
-      isManagedCmsItemKey(pageKey, key, candidate.itemKey),
+      candidate.itemKey == null || isManagedCmsItemKey(pageKey, key, candidate.itemKey),
   )
 }
 
@@ -174,7 +185,12 @@ function homepageSections(content: ReturnType<typeof HomepageContentSchema.parse
         description: content.howItWorks.description,
       }),
       ...content.howItWorks.features.map((value, index) =>
-        item(`feature_${index + 1}`, index + 1, 'feature', value),
+        item(
+          HOMEPAGE_FEATURE_KEYS[index] ?? `feature_${index + 1}`,
+          index + 1,
+          'feature',
+          value,
+        ),
       ),
     ]),
   ]
@@ -188,7 +204,7 @@ function aboutSections(content: ReturnType<typeof AboutPageContentSchema.parse>)
       'Our Values',
       1,
       content.values.map((value, index) =>
-        item(`value_${index + 1}`, index, 'value', value),
+        item(ABOUT_VALUE_KEYS[index] ?? `value_${index + 1}`, index, 'value', value),
       ),
     ),
     section(
