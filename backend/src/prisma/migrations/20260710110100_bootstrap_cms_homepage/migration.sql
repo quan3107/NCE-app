@@ -2,21 +2,28 @@
 -- Purpose: Provision a missing homepage and its initial rollback baseline.
 -- Why: Fresh production databases must not depend on a post-migration CMS seed.
 
-INSERT INTO public.cms_page_contents (page_key, label, is_active, published_at)
-SELECT 'homepage', 'Homepage', TRUE, NOW()
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.cms_page_contents WHERE page_key = 'homepage'
-);
+DO $migration$
+DECLARE
+  created_page_id public.cms_page_contents.id%TYPE;
+BEGIN
+  INSERT INTO public.cms_page_contents (page_key, label, is_active, published_at)
+  SELECT 'homepage', 'Homepage', TRUE, NOW()
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.cms_page_contents WHERE page_key = 'homepage'
+  )
+  RETURNING id INTO created_page_id;
+
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
 
 INSERT INTO public.cms_sections (page_id, section_key, label, sort_order, is_active)
-SELECT page.id, defaults.section_key, defaults.label, defaults.sort_order, TRUE
-FROM public.cms_page_contents page
-CROSS JOIN (VALUES
+SELECT created_page_id, defaults.section_key, defaults.label, defaults.sort_order, TRUE
+FROM (VALUES
   ('hero', 'Hero Section', 0),
   ('stats', 'Statistics', 1),
   ('features', 'How It Works', 2)
 ) AS defaults(section_key, label, sort_order)
-WHERE page.page_key = 'homepage'
 ON CONFLICT (page_id, section_key) DO NOTHING;
 
 WITH defaults(section_key, item_key, sort_order, content_type, content_json) AS (
@@ -60,9 +67,8 @@ INSERT INTO public.cms_content_items (
 SELECT section.id, defaults.item_key, defaults.sort_order,
   defaults.content_type, defaults.content_json, TRUE
 FROM defaults
-JOIN public.cms_page_contents page ON page.page_key = 'homepage'
 JOIN public.cms_sections section
-  ON section.page_id = page.id AND section.section_key = defaults.section_key
+  ON section.page_id = created_page_id AND section.section_key = defaults.section_key
 WHERE NOT EXISTS (
   SELECT 1 FROM public.cms_content_items existing
   WHERE existing.section_id = section.id AND existing.item_key = defaults.item_key
@@ -71,7 +77,7 @@ WHERE NOT EXISTS (
 INSERT INTO public.cms_page_revisions (
   page_id, revision_number, content_json, operation, created_by_id
 )
-SELECT page.id, 1, $cms${
+SELECT created_page_id, 1, $cms${
   "hero":{
     "badge":"Professional IELTS Training",
     "title":"Achieve Your Target IELTS Band Score",
@@ -93,18 +99,19 @@ SELECT page.id, 1, $cms${
     ]
   }
 }$cms$::jsonb, 'publish', NULL
-FROM public.cms_page_contents page
-WHERE page.page_key = 'homepage'
-  AND NOT EXISTS (
-    SELECT 1 FROM public.cms_page_revisions revision WHERE revision.page_id = page.id
-  );
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.cms_page_revisions revision
+  WHERE revision.page_id = created_page_id
+);
 
 UPDATE public.cms_page_contents page
 SET published_revision = 1,
     published_at = COALESCE(page.published_at, NOW())
-WHERE page.page_key = 'homepage'
+WHERE page.id = created_page_id
   AND page.published_revision = 0
   AND EXISTS (
     SELECT 1 FROM public.cms_page_revisions revision
     WHERE revision.page_id = page.id AND revision.revision_number = 1
   );
+END;
+$migration$;
