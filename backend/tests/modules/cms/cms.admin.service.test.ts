@@ -43,8 +43,10 @@ vi.mock('../../../src/modules/audit-logs/audit-logs.service.js', () => ({
 
 const auditModule = await import('../../../src/modules/audit-logs/audit-logs.service.js')
 const writeAuditLogSafely = vi.mocked(auditModule.writeAuditLogSafely)
-const { publishCmsDraft, rollbackCmsRevision, updateCmsDraft } =
+const { publishCmsDraft, updateCmsDraft } =
   await import('../../../src/modules/cms/cms.admin.service.js')
+const { rollbackCmsRevision } =
+  await import('../../../src/modules/cms/cms.revisions.service.js')
 
 const actor = { id: '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b' }
 const draftContent = {
@@ -76,6 +78,13 @@ describe('cms admin service', () => {
       id: 'page-1',
       pageKey: 'homepage',
       label: 'Homepage',
+      draft: {
+        content: {
+          ...draftContent,
+          hero: { ...draftContent.hero, title: 'Previous draft title' },
+        },
+      },
+      sections: [],
       draftVersion: 3,
       publishedDraftVersion: 2,
       publishedRevision: 2,
@@ -236,7 +245,8 @@ describe('cms admin service', () => {
       id: 'revision-4',
       revisionNumber: 4,
     })
-    transactionClient.cmsPageContent.update.mockResolvedValueOnce({
+    transactionClient.cmsPageContent.updateMany.mockResolvedValueOnce({ count: 1 })
+    transactionClient.cmsPageContent.findUnique.mockResolvedValueOnce({
       id: 'page-1',
       pageKey: 'homepage',
       label: 'Homepage',
@@ -248,7 +258,7 @@ describe('cms admin service', () => {
       updatedAt: new Date('2026-07-10T01:00:00.000Z'),
     })
 
-    const result = await rollbackCmsRevision('homepage', 'revision-1', actor)
+    const result = await rollbackCmsRevision('homepage', 'revision-1', 4, actor)
 
     expect(transactionClient.cmsPageRevision.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -259,7 +269,7 @@ describe('cms admin service', () => {
       }),
     })
     expect(result.publishedRevision).toBe(4)
-    expect(transactionClient.cmsPageContent.update.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(transactionClient.cmsPageContent.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
       transactionClient.cmsPageDraft.upsert.mock.invocationCallOrder[0] ?? 0,
     )
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
