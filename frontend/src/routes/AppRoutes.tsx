@@ -19,6 +19,9 @@ import {
 const AdminAuditLogsPage = lazy(() =>
   import('@features/admin/components/AdminAuditLogsPage').then((module) => ({ default: module.AdminAuditLogsPage })),
 );
+const AdminCmsPage = lazy(() =>
+  import('@features/admin/components/AdminCmsPage').then((module) => ({ default: module.AdminCmsPage })),
+);
 const AdminCoursesPage = lazy(() =>
   import('@features/admin/components/AdminCoursesPage').then((module) => ({ default: module.AdminCoursesPage })),
 );
@@ -317,6 +320,7 @@ export function AppRoutes() {
           <Route path="admin/courses" element={<AdminCoursesPage />} />
           <Route path="admin/enrollments" element={<AdminEnrollmentsPage />} />
           <Route path="admin/logs" element={<AdminAuditLogsPage />} />
+          <Route path="admin/content" element={<AdminCmsPage />} />
           <Route path="admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>
