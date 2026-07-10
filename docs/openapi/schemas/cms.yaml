@@ -197,10 +197,15 @@ CmsPagesResponse:
 
 CmsDraftUpdate:
   type: object
-  required: [content]
+  additionalProperties: false
+  required: [content, expectedDraftVersion]
   properties:
     content:
       $ref: './cms.yaml#/CmsPageContent'
+    expectedDraftVersion:
+      type: integer
+      minimum: 0
+      description: Draft version loaded when the administrator began editing.
 
 CmsPublishRequest:
   type: object
