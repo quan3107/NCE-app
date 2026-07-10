@@ -219,7 +219,7 @@ Backend commands, from `backend/`:
 | `npm run test:coverage` | Run backend tests with coverage. |
 | `npm run prisma:migrate` | Apply local development migrations. |
 | `npm run seed:ielts-config` | Seed IELTS reference data required at startup. |
-| `npm run seed:cms` | Seed homepage and about-page CMS content. |
+| `npm run seed:cms` | Seed Homepage, About, and Contact CMS content. |
 | `npm run seed:navigation` | Seed permissions, navigation, and feature flags. |
 | `npm run seed` | Reset and seed representative local app data. |
 | `npm run verify:ielts-config` | Check that the active IELTS config is complete. |
