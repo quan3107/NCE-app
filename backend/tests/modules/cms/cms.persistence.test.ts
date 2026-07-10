@@ -54,4 +54,70 @@ describe('CMS persistence', () => {
       }),
     })
   })
+
+  it.each([
+    {
+      pageKey: 'homepage' as const,
+      sectionKey: 'features',
+      itemKey: 'feature_practice',
+      content: {
+        ...homepageContent,
+        howItWorks: {
+          ...homepageContent.howItWorks,
+          features: [
+            {
+              icon: 'book-open',
+              title: 'Practice',
+              description: 'Use authentic tasks.',
+            },
+          ],
+        },
+      },
+    },
+    {
+      pageKey: 'about' as const,
+      sectionKey: 'values',
+      itemKey: 'value_mission',
+      content: {
+        hero: { title: 'About us', description: 'Learn about our school.' },
+        values: [
+          {
+            icon: 'target',
+            title: 'Our Mission',
+            description: 'Help every learner succeed.',
+          },
+        ],
+        story: { sections: ['We started with a clear teaching mission.'] },
+      },
+    },
+  ])(
+    'preserves the $pageKey bootstrap key during reconciliation',
+    async ({ pageKey, sectionKey, itemKey, content }) => {
+      const tx = {
+        cmsSection: {
+          upsert: vi.fn(async ({ create }) => ({ id: `section-${create.sectionKey}` })),
+        },
+        cmsContentItem: {
+          findMany: vi.fn(async ({ where }) =>
+            where.sectionId === `section-${sectionKey}`
+              ? [{ id: 'bootstrap-item', itemKey, sortOrder: 0, isActive: true }]
+              : [],
+          ),
+          update: vi.fn(async () => ({ id: 'bootstrap-item' })),
+          create: vi.fn(async () => ({ id: 'created-item' })),
+          deleteMany: vi.fn(async () => ({ count: 0 })),
+        },
+      }
+
+      await replacePublishedSections(tx as never, 'page-1', pageKey, content)
+
+      expect(tx.cmsContentItem.update).toHaveBeenCalledWith({
+        where: { id: 'bootstrap-item' },
+        data: expect.objectContaining({ itemKey }),
+      })
+      expect(tx.cmsContentItem.deleteMany).not.toHaveBeenCalledWith({
+        where: { id: { in: ['bootstrap-item'] } },
+      })
+    },
+  )
 })
