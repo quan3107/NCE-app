@@ -208,7 +208,10 @@ test('retains dirty content with its base version when the server draft advances
   assert.ok(screen.getByText('This draft changed on the server. Reload before saving or publishing.'));
   assert.equal((screen.getByRole('button', { name: 'Publish' }) as HTMLButtonElement).disabled, true);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Rebase my changes' }));
+  assert.ok(screen.getByText(
+    'Overwriting will replace every newer server change with the complete local draft.',
+  ));
+  fireEvent.click(screen.getByRole('button', { name: 'Overwrite server draft' }));
   assert.equal(screen.getByLabelText('Hero title').getAttribute('value'), 'Locally reviewed title');
   assert.equal((screen.getByRole('button', { name: 'Publish' }) as HTMLButtonElement).disabled, false);
   assert.equal(screen.queryByText('This draft changed on the server. Reload before saving or publishing.'), null);
