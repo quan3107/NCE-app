@@ -17,8 +17,16 @@ import {
   useRollbackCmsRevisionMutation,
   useSaveCmsDraftMutation,
 } from '@features/admin/cmsApi';
-import type { CmsPageContent, CmsPageKey } from '@features/admin/cmsTypes';
+import type {
+  CmsPageContent,
+  CmsPageKey,
+  CmsPageState,
+  CmsRevision,
+} from '@features/admin/cmsTypes';
+import { ConfirmRollbackDialog } from './ConfirmRollbackDialog';
 import { CmsContentEditor } from './CmsContentEditor';
+import { CmsRevisionHistory } from './CmsRevisionHistory';
+import { DiscardPageChangesDialog } from './DiscardPageChangesDialog';
 
 type CmsEditorState = {
   pageKey: CmsPageKey;
@@ -27,9 +35,15 @@ type CmsEditorState = {
   baseDraftVersion: number;
 };
 
-function formatDate(value: string | null | undefined) {
-  return value ? new Date(value).toLocaleString() : 'Not published yet';
-}
+const formatDate = (value: string | null | undefined) =>
+  value ? new Date(value).toLocaleString() : 'Not published yet';
+
+const toEditorState = (page: CmsPageState): CmsEditorState => ({
+  pageKey: page.pageKey,
+  content: page.content,
+  sourceContent: page.content,
+  baseDraftVersion: page.draftVersion,
+});
 
 export function AdminCmsPage() {
   const pagesQuery = useCmsPagesQuery();
@@ -41,6 +55,8 @@ export function AdminCmsPage() {
   const rollbackMutation = useRollbackCmsRevisionMutation();
   const [editor, setEditor] = useState<CmsEditorState | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [pendingPageKey, setPendingPageKey] = useState<CmsPageKey | null>(null);
+  const [pendingRollback, setPendingRollback] = useState<CmsRevision | null>(null);
   const draft = draftQuery.data;
   const content = editor?.pageKey === pageKey ? editor.content : null;
 
@@ -60,12 +76,7 @@ export function AdminCmsPage() {
         const matchesIncoming = JSON.stringify(current.content) === JSON.stringify(incoming.content);
         if (isDirty && !matchesIncoming) return current;
       }
-      return {
-        pageKey,
-        content: incoming.content,
-        sourceContent: incoming.content,
-        baseDraftVersion: incoming.draftVersion,
-      };
+      return toEditorState(incoming);
     });
   }, [draftQuery.data?.draftVersion, pageKey]);
 
@@ -78,6 +89,14 @@ export function AdminCmsPage() {
     hasLocalChanges && draft && editor && draft.draftVersion !== editor.baseDraftVersion,
   );
   const canPublish = Boolean(draft?.hasUnpublishedChanges || hasLocalChanges);
+  const revisions = revisionsQuery.data?.pages.flatMap((page) => page.revisions) ?? [];
+
+  const switchPage = (nextPageKey: CmsPageKey) => {
+    setEditor(null);
+    setPageKey(nextPageKey);
+    setShowPreview(false);
+    setPendingPageKey(null);
+  };
 
   return (
     <div>
@@ -87,24 +106,18 @@ export function AdminCmsPage() {
       />
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         {pagesQuery.error ? (
-          <Card>
-            <CardContent className="py-6 text-sm text-destructive">
-              Unable to load CMS pages. Please refresh and try again.
-            </CardContent>
-          </Card>
+          <Card><CardContent className="py-6 text-sm text-destructive">
+            Unable to load CMS pages. Please refresh and try again.
+          </CardContent></Card>
         ) : null}
         {draftQuery.error ? (
-          <Card>
-            <CardContent className="py-6 text-sm text-destructive">
-              Unable to load the page draft. Please refresh and try again.
-            </CardContent>
-          </Card>
+          <Card><CardContent className="py-6 text-sm text-destructive">
+            Unable to load the page draft. Please refresh and try again.
+          </CardContent></Card>
         ) : null}
 
         <Card>
-          <CardHeader>
-            <CardTitle>Page draft</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Page draft</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div className="max-w-sm space-y-2">
               <Label htmlFor="cms-page">Marketing page</Label>
@@ -112,16 +125,15 @@ export function AdminCmsPage() {
                 id="cms-page"
                 value={pageKey}
                 onChange={(event) => {
-                  setEditor(null);
-                  setPageKey(event.target.value as CmsPageKey);
-                  setShowPreview(false);
+                  const nextPageKey = event.target.value as CmsPageKey;
+                  if (nextPageKey === pageKey) return;
+                  if (hasLocalChanges) setPendingPageKey(nextPageKey);
+                  else switchPage(nextPageKey);
                 }}
                 className="h-10 w-full rounded-md border bg-background px-3 text-sm"
               >
                 {(pagesQuery.data?.pages ?? []).map((page) => (
-                  <option key={page.pageKey} value={page.pageKey}>
-                    {page.label}
-                  </option>
+                  <option key={page.pageKey} value={page.pageKey}>{page.label}</option>
                 ))}
               </select>
             </div>
@@ -151,11 +163,9 @@ export function AdminCmsPage() {
                 <div className="flex flex-wrap gap-3">
                   <Button
                     type="button"
-                    disabled={isBusy || hasServerConflict}
+                    disabled={isBusy || !hasLocalChanges || hasServerConflict}
                     onClick={() => saveMutation.mutate({
-                      pageKey,
-                      content,
-                      expectedDraftVersion: editor!.baseDraftVersion,
+                      pageKey, content, expectedDraftVersion: editor!.baseDraftVersion,
                     })}
                   >
                     Save draft
@@ -173,9 +183,7 @@ export function AdminCmsPage() {
                     variant="secondary"
                     disabled={isBusy || !canPublish || hasServerConflict}
                     onClick={() => publishMutation.mutate({
-                      pageKey,
-                      content,
-                      expectedDraftVersion: editor!.baseDraftVersion,
+                      pageKey, content, expectedDraftVersion: editor!.baseDraftVersion,
                     })}
                   >
                     Publish
@@ -187,7 +195,6 @@ export function AdminCmsPage() {
                     This draft changed on the server. Reload before saving or publishing.
                   </p>
                 ) : null}
-
                 {saveMutation.error ? (
                   <p className="text-sm text-destructive" role="alert">
                     Unable to save the draft. Please try again.
@@ -207,11 +214,9 @@ export function AdminCmsPage() {
                 {showPreview ? (
                   <Card className="bg-muted/20">
                     <CardHeader><CardTitle>Draft preview</CardTitle></CardHeader>
-                    <CardContent>
-                      <pre className="max-h-96 overflow-auto whitespace-pre-wrap text-xs">
-                        {JSON.stringify(content, null, 2)}
-                      </pre>
-                    </CardContent>
+                    <CardContent><pre className="max-h-96 overflow-auto whitespace-pre-wrap text-xs">
+                      {JSON.stringify(content, null, 2)}
+                    </pre></CardContent>
                   </Card>
                 ) : null}
               </>
@@ -219,42 +224,45 @@ export function AdminCmsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Revision history</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {revisionsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading revisions…</p>
-            ) : revisionsQuery.error ? (
-              <p className="text-sm text-destructive" role="alert">
-                Unable to load revision history. Please try again.
-              </p>
-            ) : (revisionsQuery.data?.revisions ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No published revisions yet.</p>
-            ) : (
-              revisionsQuery.data?.revisions.map((revision) => (
-                <div key={revision.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-                  <div className="text-sm">
-                    <p className="font-medium">Revision {revision.revisionNumber} · {revision.operation}</p>
-                    <p className="text-muted-foreground">
-                      {revision.createdBy?.fullName ?? 'System'} · {formatDate(revision.createdAt)}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isBusy || revision.revisionNumber === draftQuery.data?.publishedRevision}
-                    aria-label={`Roll back to revision ${revision.revisionNumber}`}
-                    onClick={() => rollbackMutation.mutate({ pageKey, revisionId: revision.id })}
-                  >
-                    Roll back
-                  </Button>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        <CmsRevisionHistory
+          revisions={revisions}
+          currentRevision={draftQuery.data?.publishedRevision}
+          isLoading={revisionsQuery.isLoading}
+          error={revisionsQuery.error}
+          isBusy={isBusy || hasServerConflict}
+          hasNextPage={Boolean(revisionsQuery.hasNextPage)}
+          isFetchingNextPage={revisionsQuery.isFetchingNextPage}
+          onLoadMore={() => void revisionsQuery.fetchNextPage()}
+          onRollback={setPendingRollback}
+        />
       </div>
+
+      <DiscardPageChangesDialog
+        open={pendingPageKey !== null}
+        onCancel={() => setPendingPageKey(null)}
+        onConfirm={() => pendingPageKey && switchPage(pendingPageKey)}
+      />
+      <ConfirmRollbackDialog
+        open={pendingRollback !== null}
+        onCancel={() => setPendingRollback(null)}
+        onConfirm={() => {
+          if (!pendingRollback || !editor) return;
+          rollbackMutation.mutate(
+            {
+              pageKey,
+              revisionId: pendingRollback.id,
+              expectedDraftVersion: editor.baseDraftVersion,
+            },
+            {
+              onSuccess: (page) => {
+                setEditor(toEditorState(page));
+                setPendingRollback(null);
+                setShowPreview(false);
+              },
+            },
+          );
+        }}
+      />
     </div>
   );
 }
