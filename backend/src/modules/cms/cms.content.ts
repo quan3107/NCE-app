@@ -76,7 +76,10 @@ function parseHomepage(page: CmsPageRow) {
   const hero = activeItems(page, 'hero')[0]?.contentJson
   const featuresSection = activeSection(page, 'features')
   const featureItems = activeItems(page, 'features')
-  const meta = featureItems.find((candidate) => candidate.contentType === 'section_meta')
+  const meta = featureItems.find(
+    (candidate) =>
+      candidate.contentType === 'section_meta' || candidate.itemKey === 'section_meta',
+  )
   const metaContent = meta?.contentJson as
     | { title?: unknown; description?: unknown }
     | undefined
@@ -88,7 +91,7 @@ function parseHomepage(page: CmsPageRow) {
       title: metaContent?.title ?? featuresSection?.label ?? FALLBACK_HOW_IT_WORKS_TITLE,
       description: metaContent?.description ?? FALLBACK_HOW_IT_WORKS_DESCRIPTION,
       features: featureItems
-        .filter((candidate) => candidate.contentType === 'feature')
+        .filter((candidate) => candidate !== meta && candidate.contentType === 'feature')
         .map((candidate) => candidate.contentJson),
     },
   })
