@@ -3,7 +3,7 @@
  * Purpose: Provide CMS admin request helpers and React Query mutation hooks.
  * Why: Draft, publish, and rollback operations need one cache-aware API boundary.
  */
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
@@ -57,26 +57,50 @@ export const publishCmsDraft = ({
     body: { content, expectedDraftVersion },
   });
 
-export const fetchCmsRevisions = (pageKey: CmsPageKey) =>
-  apiClient<CmsRevisionsResponse>(`/cms/admin/pages/${pageKey}/revisions`);
+export const fetchCmsRevisions = (
+  pageKey: CmsPageKey,
+  query: { limit?: number; cursor?: string } = {},
+) => {
+  const search = new URLSearchParams();
+  if (query.limit !== undefined) search.set('limit', String(query.limit));
+  if (query.cursor) search.set('cursor', query.cursor);
+  const suffix = search.size > 0 ? `?${search.toString()}` : '';
+  return apiClient<CmsRevisionsResponse>(
+    `/cms/admin/pages/${pageKey}/revisions${suffix}`,
+  );
+};
 
 export const rollbackCmsRevision = ({
   pageKey,
   revisionId,
+  expectedDraftVersion,
 }: {
   pageKey: CmsPageKey;
   revisionId: string;
+  expectedDraftVersion: number;
 }) =>
-  apiClient<CmsPageState>(
+  apiClient<CmsPageState, { expectedDraftVersion: number }>(
     `/cms/admin/pages/${pageKey}/revisions/${revisionId}/rollback`,
-    { method: 'POST' },
+    { method: 'POST', body: { expectedDraftVersion } },
   );
 
-function refreshPage(pageKey: CmsPageKey) {
-  queryClient.invalidateQueries({ queryKey: pagesKey });
-  queryClient.invalidateQueries({ queryKey: draftKey(pageKey) });
-  queryClient.invalidateQueries({ queryKey: revisionsKey(pageKey) });
-  queryClient.invalidateQueries({ queryKey: ['cms', pageKey] });
+async function refreshPage(
+  page: CmsPageState,
+  options: { revisions?: boolean; published?: boolean } = {},
+) {
+  queryClient.setQueryData(draftKey(page.pageKey), page);
+  const invalidations = [queryClient.invalidateQueries({ queryKey: pagesKey })];
+  if (options.revisions) {
+    invalidations.push(
+      queryClient.invalidateQueries({ queryKey: revisionsKey(page.pageKey) }),
+    );
+  }
+  if (options.published) {
+    invalidations.push(
+      queryClient.invalidateQueries({ queryKey: ['cms', page.pageKey] }),
+    );
+  }
+  await Promise.all(invalidations);
 }
 
 export function useCmsPagesQuery() {
@@ -88,29 +112,34 @@ export function useCmsDraftQuery(pageKey: CmsPageKey) {
 }
 
 export function useCmsRevisionsQuery(pageKey: CmsPageKey) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: revisionsKey(pageKey),
-    queryFn: () => fetchCmsRevisions(pageKey),
+    queryFn: ({ pageParam }) => fetchCmsRevisions(pageKey, {
+      limit: 25,
+      cursor: pageParam,
+    }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 }
 
 export function useSaveCmsDraftMutation() {
   return useMutation({
     mutationFn: saveCmsDraft,
-    onSuccess: (page) => refreshPage(page.pageKey),
+    onSuccess: (page) => refreshPage(page),
   });
 }
 
 export function usePublishCmsDraftMutation() {
   return useMutation({
     mutationFn: publishCmsDraft,
-    onSuccess: (page) => refreshPage(page.pageKey),
+    onSuccess: (page) => refreshPage(page, { revisions: true, published: true }),
   });
 }
 
 export function useRollbackCmsRevisionMutation() {
   return useMutation({
     mutationFn: rollbackCmsRevision,
-    onSuccess: (page) => refreshPage(page.pageKey),
+    onSuccess: (page) => refreshPage(page, { revisions: true, published: true }),
   });
 }
