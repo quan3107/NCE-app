@@ -180,6 +180,19 @@ describe('modules.router cms routes', () => {
     expect(cmsService.listCmsRevisions).not.toHaveBeenCalled()
   })
 
+  it('attributes an admin-triggered stats refresh to the authenticated actor', async () => {
+    vi.mocked(cmsService.updateHomepageStatsWithRealtimeData).mockClear()
+    const response = await request(app)
+      .post('/api/v1/cms/refresh-stats')
+      .set('x-user-id', '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b')
+      .set('x-user-role', 'admin')
+
+    expect(response.status).toBe(200)
+    expect(cmsService.updateHomepageStatsWithRealtimeData).toHaveBeenCalledWith(
+      expect.objectContaining({ id: '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b' }),
+    )
+  })
+
   it('requires auth for POST /api/v1/cms/refresh-stats', async () => {
     const response = await request(app).post('/api/v1/cms/refresh-stats')
 
