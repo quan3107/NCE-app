@@ -110,6 +110,128 @@ AboutPageContent:
       $ref: './cms.yaml#/AboutStory'
   required: [hero, values, story]
 
+ContactPageContent:
+  type: object
+  required: [header, form, details, hours]
+  properties:
+    header:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string }
+        description: { type: string }
+    form:
+      type: object
+      required: [title, description, submitLabel]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        submitLabel: { type: string }
+    details:
+      type: object
+      required: [email, phone, address]
+      properties:
+        email: { type: string, format: email }
+        phone: { type: string }
+        address: { type: string }
+    hours:
+      type: array
+      items:
+        type: object
+        required: [label, value]
+        properties:
+          label: { type: string }
+          value: { type: string }
+
+CmsPageContent:
+  oneOf:
+    - $ref: './cms.yaml#/HomepageContent'
+    - $ref: './cms.yaml#/AboutPageContent'
+    - $ref: './cms.yaml#/ContactPageContent'
+
+CmsPageKeyParameter:
+  name: pageKey
+  in: path
+  required: true
+  schema:
+    type: string
+    enum: [homepage, about, contact]
+
+CmsPageSummary:
+  type: object
+  required:
+    - pageKey
+    - label
+    - draftVersion
+    - publishedDraftVersion
+    - publishedRevision
+    - publishedAt
+    - hasUnpublishedChanges
+  properties:
+    pageKey: { type: string, enum: [homepage, about, contact] }
+    label: { type: string }
+    draftVersion: { type: integer }
+    publishedDraftVersion: { type: integer }
+    publishedRevision: { type: integer }
+    publishedAt: { type: string, format: date-time, nullable: true }
+    updatedAt: { type: string, format: date-time }
+    hasUnpublishedChanges: { type: boolean }
+
+CmsPageState:
+  allOf:
+    - $ref: './cms.yaml#/CmsPageSummary'
+    - type: object
+      required: [content]
+      properties:
+        content:
+          $ref: './cms.yaml#/CmsPageContent'
+
+CmsPagesResponse:
+  type: object
+  required: [pages]
+  properties:
+    pages:
+      type: array
+      items:
+        $ref: './cms.yaml#/CmsPageSummary'
+
+CmsDraftUpdate:
+  type: object
+  required: [content]
+  properties:
+    content:
+      $ref: './cms.yaml#/CmsPageContent'
+
+CmsRevision:
+  type: object
+  required: [id, revisionNumber, operation, createdAt]
+  properties:
+    id: { type: string, format: uuid }
+    revisionNumber: { type: integer }
+    operation: { type: string, enum: [publish, rollback] }
+    createdAt: { type: string, format: date-time }
+    createdBy:
+      type: object
+      nullable: true
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+    sourceRevision:
+      type: object
+      nullable: true
+      properties:
+        id: { type: string, format: uuid }
+        revisionNumber: { type: integer }
+
+CmsRevisionsResponse:
+  type: object
+  required: [revisions]
+  properties:
+    revisions:
+      type: array
+      items:
+        $ref: './cms.yaml#/CmsRevision'
+
 RefreshStatsResponse:
   type: object
   properties:
