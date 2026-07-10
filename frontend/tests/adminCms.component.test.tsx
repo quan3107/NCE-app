@@ -145,6 +145,7 @@ test('admin CMS page submits edited drafts, publishes, and rolls back', () => {
 
   assert.equal(saveMutate.mock.calls[0]?.[0].pageKey, 'homepage');
   assert.equal(saveMutate.mock.calls[0]?.[0].content.hero.title, 'Updated title');
+  assert.equal(saveMutate.mock.calls[0]?.[0].expectedDraftVersion, 1);
   assert.equal(publishMutate.mock.calls[0]?.[0].pageKey, 'homepage');
   assert.equal(publishMutate.mock.calls[0]?.[0].content.hero.title, 'Updated title');
   assert.equal(publishMutate.mock.calls[0]?.[0].expectedDraftVersion, 1);
