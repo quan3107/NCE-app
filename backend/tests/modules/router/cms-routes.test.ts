@@ -140,6 +140,46 @@ describe('modules.router cms routes', () => {
     expect(response.status).toBe(400)
   })
 
+  it('rolls back only at the expected draft version', async () => {
+    const revisionId = '6db57b0d-34d4-4ed8-a391-d01911dd6e06'
+    const response = await request(app)
+      .post(`/api/v1/cms/admin/pages/homepage/revisions/${revisionId}/rollback`)
+      .set('x-user-id', '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b')
+      .set('x-user-role', 'admin')
+      .send({ expectedDraftVersion: 4 })
+
+    expect(response.status).toBe(200)
+    expect(cmsService.rollbackCmsRevision).toHaveBeenCalledWith(
+      'homepage',
+      revisionId,
+      4,
+      expect.objectContaining({ id: '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b' }),
+    )
+  })
+
+  it('rejects malformed rollback revision IDs before Prisma access', async () => {
+    vi.mocked(cmsService.rollbackCmsRevision).mockClear()
+    const response = await request(app)
+      .post('/api/v1/cms/admin/pages/homepage/revisions/not-a-uuid/rollback')
+      .set('x-user-id', '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b')
+      .set('x-user-role', 'admin')
+      .send({ expectedDraftVersion: 4 })
+
+    expect(response.status).toBe(400)
+    expect(cmsService.rollbackCmsRevision).not.toHaveBeenCalled()
+  })
+
+  it('validates revision pagination query parameters', async () => {
+    vi.mocked(cmsService.listCmsRevisions).mockClear()
+    const response = await request(app)
+      .get('/api/v1/cms/admin/pages/homepage/revisions?limit=101')
+      .set('x-user-id', '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b')
+      .set('x-user-role', 'admin')
+
+    expect(response.status).toBe(400)
+    expect(cmsService.listCmsRevisions).not.toHaveBeenCalled()
+  })
+
   it('requires auth for POST /api/v1/cms/refresh-stats', async () => {
     const response = await request(app).post('/api/v1/cms/refresh-stats')
 
