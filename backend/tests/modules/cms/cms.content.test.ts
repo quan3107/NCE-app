@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import {
   parseCmsPageContent,
   toCmsSectionsCreateInput,
+  validateCmsPageContent,
 } from '../../../src/modules/cms/cms.content.js'
 
 const homepage = {
@@ -27,6 +28,30 @@ const homepage = {
 }
 
 describe('cms content conversion', () => {
+  it('rejects empty or whitespace-only required public text', () => {
+    expect(() =>
+      validateCmsPageContent('homepage', {
+        ...homepage,
+        hero: { ...homepage.hero, title: '' },
+      }),
+    ).toThrow()
+    expect(() =>
+      validateCmsPageContent('about', {
+        hero: { title: 'About us', description: '' },
+        values: [],
+        story: { sections: ['Our story'] },
+      }),
+    ).toThrow()
+    expect(() =>
+      validateCmsPageContent('contact', {
+        header: { title: '   ', description: 'Get in touch.' },
+        form: { title: 'Message us', description: 'We can help.', submitLabel: 'Send' },
+        details: { email: 'support@example.com', phone: '123', address: 'Office' },
+        hours: [],
+      }),
+    ).toThrow()
+  })
+
   it('round-trips homepage snapshots through normalized sections', () => {
     const sections = toCmsSectionsCreateInput('homepage', homepage)
     const normalizedPage = {
