@@ -33,6 +33,19 @@ vi.mock('../../../src/modules/cms/cms.service.js', () => ({
     values: [],
     story: { sections: [] },
   })),
+  getContactPageContent: vi.fn(async () => ({
+    header: { title: 'Contact', description: 'Get in touch.' },
+    form: { title: 'Message us', description: 'We can help.', submitLabel: 'Send' },
+    details: { email: 'support@example.com', phone: '+1 555 0100', address: 'Office' },
+    hours: [],
+  })),
+  listCmsPages: vi.fn(async () => ({ pages: [] })),
+  getCmsDraft: vi.fn(async () => ({ pageKey: 'homepage', content: {} })),
+  updateCmsDraft: vi.fn(async () => ({ pageKey: 'homepage', content: {} })),
+  getCmsPreview: vi.fn(async () => ({ pageKey: 'homepage', content: {} })),
+  publishCmsDraft: vi.fn(async () => ({ pageKey: 'homepage', content: {} })),
+  listCmsRevisions: vi.fn(async () => ({ revisions: [] })),
+  rollbackCmsRevision: vi.fn(async () => ({ pageKey: 'homepage', content: {} })),
   updateHomepageStatsWithRealtimeData: vi.fn(async () => undefined),
 }))
 
@@ -49,6 +62,27 @@ describe('modules.router cms routes', () => {
     const response = await request(app).get('/api/v1/cms/about-page-content')
 
     expect(response.status).not.toBe(404)
+  })
+
+  it('mounts GET /api/v1/cms/contact-page-content', async () => {
+    const response = await request(app).get('/api/v1/cms/contact-page-content')
+
+    expect(response.status).toBe(200)
+  })
+
+  it('requires admin auth for CMS draft and revision routes', async () => {
+    const endpoints = [
+      request(app).get('/api/v1/cms/admin/pages'),
+      request(app).get('/api/v1/cms/admin/pages/homepage/draft'),
+      request(app).put('/api/v1/cms/admin/pages/homepage/draft').send({ content: {} }),
+      request(app).get('/api/v1/cms/admin/pages/homepage/preview'),
+      request(app).post('/api/v1/cms/admin/pages/homepage/publish'),
+      request(app).get('/api/v1/cms/admin/pages/homepage/revisions'),
+      request(app).post('/api/v1/cms/admin/pages/homepage/revisions/revision-1/rollback'),
+    ]
+
+    const responses = await Promise.all(endpoints)
+    expect(responses.every((response) => response.status === 401)).toBe(true)
   })
 
   it('requires auth for POST /api/v1/cms/refresh-stats', async () => {
