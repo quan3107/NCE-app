@@ -92,7 +92,7 @@ describe('cms admin service', () => {
       updatedAt: new Date('2026-07-10T00:00:00.000Z'),
     })
 
-    const result = await updateCmsDraft('homepage', draftContent, actor)
+    const result = await updateCmsDraft('homepage', draftContent, 3, actor)
 
     expect(transactionClient.cmsPageDraft.upsert).toHaveBeenCalledWith({
       where: { pageId: 'page-1' },
@@ -117,6 +117,24 @@ describe('cms admin service', () => {
         entityId: 'page-1',
       }),
     )
+  })
+
+  it('rejects saving when the loaded draft version is stale', async () => {
+    transactionClient.cmsPageContent.findUnique.mockResolvedValueOnce({
+      id: 'page-1',
+      pageKey: 'homepage',
+      label: 'Homepage',
+      draftVersion: 4,
+      publishedDraftVersion: 2,
+      publishedRevision: 2,
+      publishedAt: new Date('2026-07-01T00:00:00.000Z'),
+    })
+
+    await expect(
+      updateCmsDraft('homepage', draftContent, 3, actor),
+    ).rejects.toMatchObject({ statusCode: 409 })
+    expect(transactionClient.cmsPageContent.update).not.toHaveBeenCalled()
+    expect(transactionClient.cmsPageDraft.upsert).not.toHaveBeenCalled()
   })
 
   it('publishes the draft as an immutable revision and normalized sections', async () => {
