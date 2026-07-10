@@ -49,7 +49,11 @@ test('CMS admin helpers target draft and revision endpoints', async () => {
   await cmsApi.fetchCmsPages();
   await cmsApi.fetchCmsDraft('homepage');
   await cmsApi.saveCmsDraft({ pageKey: 'homepage', content: { hero: {} } as never });
-  await cmsApi.publishCmsDraft('homepage');
+  await cmsApi.publishCmsDraft({
+    pageKey: 'homepage',
+    content: { hero: { title: 'Reviewed title' } } as never,
+    expectedDraftVersion: 4,
+  });
   await cmsApi.fetchCmsRevisions('homepage');
   await cmsApi.rollbackCmsRevision({ pageKey: 'homepage', revisionId: 'revision-1' });
 
@@ -65,4 +69,11 @@ test('CMS admin helpers target draft and revision endpoints', async () => {
     ],
   );
   assert.equal(calls[2]?.init?.body, JSON.stringify({ content: { hero: {} } }));
+  assert.equal(
+    calls[3]?.init?.body,
+    JSON.stringify({
+      content: { hero: { title: 'Reviewed title' } },
+      expectedDraftVersion: 4,
+    }),
+  );
 });
