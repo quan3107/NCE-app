@@ -40,4 +40,7 @@ export type CmsRevision = {
 };
 
 export type CmsPagesResponse = { pages: CmsPageSummary[] };
-export type CmsRevisionsResponse = { revisions: CmsRevision[] };
+export type CmsRevisionsResponse = {
+  revisions: CmsRevision[];
+  nextCursor: string | null;
+};
