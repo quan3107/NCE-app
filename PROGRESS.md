@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-10:** Prevented active legacy keyless CMS rows from duplicating during publish by reconciling them in deterministic order and assigning canonical keys in place. Added direct persistence regression coverage for `itemKey: null` with a noncanonical legacy sort order.
 - **2026-07-10:** Prevented active custom CMS array rows from being duplicated under canonical keys by sharing modeled-key ownership between parsing and persistence. Custom keyed rows are excluded from editor snapshots while legacy null-key rows remain readable, with a parser-to-publish round-trip regression.
 - **2026-07-10:** Preserved unrepresented CMS children during publish and rollback by reconciling canonical sections in place, updating or creating desired active modeled items, and deleting only obsolete active modeled item IDs. Custom active rows and all inactive rows now survive, with focused publish/rollback coverage.
 - **2026-07-10:** Addressed CMS review feedback by restricting publish/rollback replacement to modeled section keys so unmanaged rows survive, rejecting trimmed-empty required public text across Homepage/About/Contact payloads, and moving existing admin Settings navigation after Content during production migration upgrades. Added focused persistence, validation, and migration regressions.
@@ -61,6 +62,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-10:** No frontend files changed for legacy keyless CMS row reconciliation; the correction is isolated to backend persistence, its regression coverage, and this progress record.
 - **2026-07-10:** No frontend files changed for the active custom CMS array round-trip correction; that follow-up is isolated to backend modeled-key parsing, persistence ownership, regression coverage, and this progress record.
 - **2026-07-10:** Clarified CMS conflict handling by replacing the misleading Rebase action with an explicit full-draft overwrite warning, and split lazy page declarations into a focused route module so `AppRoutes.tsx` remains below the 300-line repository limit. Added conflict-copy and physical-line regression coverage.
 - **2026-07-10:** Addressed CMS review feedback by invalidating draft/page caches after Save/Publish/Rollback version conflicts, preserving local edits with explicit server-reload or overwrite choices, guarding dirty drafts across route and browser exits, and disabling rollback until a valid draft is available. Added data-router, conflict, unload, and rollback-state component coverage.
