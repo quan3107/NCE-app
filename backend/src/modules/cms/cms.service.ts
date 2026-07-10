@@ -20,11 +20,10 @@ export {
   getCmsDraft,
   getCmsPreview,
   listCmsPages,
-  listCmsRevisions,
   publishCmsDraft,
-  rollbackCmsRevision,
   updateCmsDraft,
 } from './cms.admin.service.js'
+export { listCmsRevisions, rollbackCmsRevision } from './cms.revisions.service.js'
 
 // ============================================================================
 // Database Queries
