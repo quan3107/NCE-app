@@ -219,6 +219,16 @@ CmsPublishRequest:
       minimum: 0
       description: Draft version loaded when the administrator reviewed this content.
 
+CmsRollbackRequest:
+  type: object
+  additionalProperties: false
+  required: [expectedDraftVersion]
+  properties:
+    expectedDraftVersion:
+      type: integer
+      minimum: 0
+      description: Draft version loaded before the administrator requested rollback.
+
 CmsRevision:
   type: object
   required: [id, revisionNumber, operation, createdAt]
@@ -242,12 +252,16 @@ CmsRevision:
 
 CmsRevisionsResponse:
   type: object
-  required: [revisions]
+  required: [revisions, nextCursor]
   properties:
     revisions:
       type: array
       items:
         $ref: './cms.yaml#/CmsRevision'
+    nextCursor:
+      type: string
+      format: uuid
+      nullable: true
 
 RefreshStatsResponse:
   type: object
