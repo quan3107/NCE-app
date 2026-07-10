@@ -4,12 +4,10 @@
  * Why: The management UI is the primary completion path for the CMS workflow.
  */
 import assert from 'node:assert/strict';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, test, vi } from 'vitest';
 
-import { AdminCmsPage } from '../src/features/admin/components/AdminCmsPage';
+import { renderAdminCmsPage } from './adminCms.test-utils';
 
 const saveMutate = vi.hoisted(() => vi.fn());
 const publishMutate = vi.hoisted(() => vi.fn());
@@ -25,9 +23,12 @@ const cmsState = vi.hoisted(() => ({
   publishError: null as Error | null,
   rollbackError: null as Error | null,
   hasNextPage: false,
+  draftLoading: false,
 }));
 
 vi.mock('@features/admin/cmsApi', () => ({
+  isCmsVersionConflict: (error: unknown) =>
+    (error as { status?: number } | null)?.status === 409,
   useCmsPagesQuery: () => ({
     data: {
       pages: [
@@ -82,7 +83,7 @@ vi.mock('@features/admin/cmsApi', () => ({
       publishedAt: null,
       hasUnpublishedChanges: cmsState.hasUnpublishedChanges,
     },
-    isLoading: false,
+    isLoading: cmsState.draftLoading,
     error: cmsState.draftError,
   }),
   useCmsRevisionsQuery: () => ({
@@ -138,14 +139,11 @@ afterEach(() => {
   cmsState.publishError = null;
   cmsState.rollbackError = null;
   cmsState.hasNextPage = false;
+  cmsState.draftLoading = false;
 });
 
 test('admin CMS page submits edited drafts, publishes, and rolls back', () => {
-  render(
-    <MemoryRouter>
-      <AdminCmsPage />
-    </MemoryRouter>,
-  );
+  renderAdminCmsPage();
 
   fireEvent.change(screen.getByLabelText('Hero title'), {
     target: { value: 'Updated title' },
@@ -170,11 +168,7 @@ test('admin CMS page submits edited drafts, publishes, and rolls back', () => {
 
 test('publishes unsaved displayed content when the saved draft has no changes', () => {
   cmsState.hasUnpublishedChanges = false;
-  render(
-    <MemoryRouter>
-      <AdminCmsPage />
-    </MemoryRouter>,
-  );
+  renderAdminCmsPage();
 
   fireEvent.change(screen.getByLabelText('Hero title'), {
     target: { value: 'Unsaved reviewed title' },
@@ -190,11 +184,7 @@ test('shows revision, save, publish, and rollback failures', () => {
   cmsState.saveError = new Error('save failed');
   cmsState.publishError = new Error('publish failed');
   cmsState.rollbackError = new Error('rollback failed');
-  render(
-    <MemoryRouter>
-      <AdminCmsPage />
-    </MemoryRouter>,
-  );
+  renderAdminCmsPage();
 
   assert.ok(screen.getByText('Unable to load revision history. Please try again.'));
   assert.ok(screen.getByText('Unable to save the draft. Please try again.'));
@@ -204,47 +194,68 @@ test('shows revision, save, publish, and rollback failures', () => {
 });
 
 test('retains dirty content with its base version when the server draft advances', () => {
-  const view = render(
-    <MemoryRouter>
-      <AdminCmsPage />
-    </MemoryRouter>,
-  );
+  const view = renderAdminCmsPage();
   fireEvent.change(screen.getByLabelText('Hero title'), {
     target: { value: 'Locally reviewed title' },
   });
 
-  cmsState.draftVersion = 2;
-  view.rerender(
-    <MemoryRouter>
-      <AdminCmsPage />
-    </MemoryRouter>,
-  );
+  act(() => {
+    cmsState.draftVersion = 2;
+    view.rerenderPage();
+  });
 
   assert.equal(screen.getByLabelText('Hero title').getAttribute('value'), 'Locally reviewed title');
   assert.ok(screen.getByText('This draft changed on the server. Reload before saving or publishing.'));
   assert.equal((screen.getByRole('button', { name: 'Publish' }) as HTMLButtonElement).disabled, true);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Rebase my changes' }));
+  assert.equal(screen.getByLabelText('Hero title').getAttribute('value'), 'Locally reviewed title');
+  assert.equal((screen.getByRole('button', { name: 'Publish' }) as HTMLButtonElement).disabled, false);
+  assert.equal(screen.queryByText('This draft changed on the server. Reload before saving or publishing.'), null);
+});
+
+test('reloads the latest server draft when resolving a version conflict', () => {
+  const view = renderAdminCmsPage();
+  fireEvent.change(screen.getByLabelText('Hero title'), {
+    target: { value: 'Discard this local title' },
+  });
+
+  act(() => {
+    cmsState.draftVersion = 2;
+    view.rerenderPage();
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Reload server draft' }));
+
+  assert.equal(screen.getByLabelText('Hero title').getAttribute('value'), 'Original title');
+  assert.equal((screen.getByRole('button', { name: 'Save draft' }) as HTMLButtonElement).disabled, true);
+});
+
+test('disables rollback while the selected draft is loading', () => {
+  cmsState.draftLoading = true;
+  renderAdminCmsPage();
+
+  assert.equal(
+    (screen.getByRole('button', { name: 'Roll back to revision 1' }) as HTMLButtonElement).disabled,
+    true,
+  );
 });
 
 test('shows page-list and draft-load failures distinctly', () => {
   cmsState.pagesError = new Error('pages failed');
   cmsState.draftError = new Error('draft failed');
-  render(
-    <MemoryRouter>
-      <AdminCmsPage />
-    </MemoryRouter>,
-  );
+  renderAdminCmsPage();
 
   assert.ok(screen.getByText('Unable to load CMS pages. Please refresh and try again.'));
   assert.ok(screen.getByText('Unable to load the page draft. Please refresh and try again.'));
+  assert.equal(
+    (screen.getByRole('button', { name: 'Roll back to revision 1' }) as HTMLButtonElement).disabled,
+    true,
+  );
   assert.equal(screen.queryByText('Loading page draft…'), null);
 });
 
 test('switching page types never renders the previous draft through the new editor', async () => {
-  render(
-    <MemoryRouter>
-      <AdminCmsPage />
-    </MemoryRouter>,
-  );
+  renderAdminCmsPage();
 
   fireEvent.change(screen.getByLabelText('Marketing page'), {
     target: { value: 'contact' },
