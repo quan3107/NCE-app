@@ -5,7 +5,14 @@
  */
 import { type Request, type Response } from 'express'
 import { createHttpError } from '../../utils/httpError.js'
-import { CmsDraftUpdateSchema, CmsPublishSchema } from './cms.schema.js'
+import {
+  CmsDraftUpdateSchema,
+  CmsPageKeySchema,
+  CmsPublishSchema,
+  CmsRevisionQuerySchema,
+  CmsRollbackParamsSchema,
+  CmsRollbackSchema,
+} from './cms.schema.js'
 import * as cmsService from './cms.service.js'
 
 function actorFromRequest(req: Request) {
@@ -62,14 +69,19 @@ export async function postAdminPublish(req: Request, res: Response) {
 }
 
 export async function getAdminRevisions(req: Request, res: Response) {
-  res.json(await cmsService.listCmsRevisions(req.params.pageKey))
+  const pageKey = CmsPageKeySchema.parse(req.params.pageKey)
+  const query = CmsRevisionQuerySchema.parse(req.query)
+  res.json(await cmsService.listCmsRevisions(pageKey, query))
 }
 
 export async function postAdminRollback(req: Request, res: Response) {
+  const { pageKey, revisionId } = CmsRollbackParamsSchema.parse(req.params)
+  const { expectedDraftVersion } = CmsRollbackSchema.parse(req.body)
   res.json(
     await cmsService.rollbackCmsRevision(
-      req.params.pageKey,
-      req.params.revisionId,
+      pageKey,
+      revisionId,
+      expectedDraftVersion,
       actorFromRequest(req),
     ),
   )
