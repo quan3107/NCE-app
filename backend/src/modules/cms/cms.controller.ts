@@ -1,50 +1,73 @@
 /**
  * Location: backend/src/modules/cms/cms.controller.ts
- * Purpose: controller for CMS/marketing content enpoints
- * Why: Business logic for serving marketing content from database/config
+ * Purpose: Bridge public and admin CMS HTTP requests to the CMS services.
+ * Why: Keeps response status and authenticated actor handling out of domain logic.
  */
-import { Request, Response } from 'express'
+import { type Request, type Response } from 'express'
+import { createHttpError } from '../../utils/httpError.js'
+import { CmsDraftUpdateSchema } from './cms.schema.js'
 import * as cmsService from './cms.service.js'
 
-export const getHomepageContent = async (_req: Request, res: Response) => {
-  try {
-    const content = await cmsService.getHomepageContent()
-    res.json(content)
-  } catch (error) {
-    console.error('Error fetching homepage content: ', error)
-    res.status(500).json({
-      message: 'Failed to fetch homepage content',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-  }
+function actorFromRequest(req: Request) {
+  if (!req.user) throw createHttpError(401, 'Unauthorized')
+  return req.user
 }
 
-export const getAboutPageContent = async (_req: Request, res: Response) => {
-  try {
-    const content = await cmsService.getAboutPageContent()
-    res.json(content)
-  } catch (error) {
-    console.error('Error fetching about page content: ', error)
-    res.status(500).json({
-      message: 'Failed to fetch about page content',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-  }
+export async function getHomepageContent(_req: Request, res: Response) {
+  res.json(await cmsService.getHomepageContent())
 }
 
-export const refreshStats = async (_req: Request, res: Response) => {
-  try {
-    await cmsService.updateHomepageStatsWithRealtimeData()
-    const content = await cmsService.getHomepageContent()
-    res.json({
-      message: 'Stats refreshed successfully',
+export async function getAboutPageContent(_req: Request, res: Response) {
+  res.json(await cmsService.getAboutPageContent())
+}
+
+export async function getContactPageContent(_req: Request, res: Response) {
+  res.json(await cmsService.getContactPageContent())
+}
+
+export async function getAdminPages(_req: Request, res: Response) {
+  res.json(await cmsService.listCmsPages())
+}
+
+export async function getAdminDraft(req: Request, res: Response) {
+  res.json(await cmsService.getCmsDraft(req.params.pageKey))
+}
+
+export async function putAdminDraft(req: Request, res: Response) {
+  const { content } = CmsDraftUpdateSchema.parse(req.body)
+  res.json(
+    await cmsService.updateCmsDraft(
+      req.params.pageKey,
       content,
-    })
-  } catch (error) {
-    console.error('Error refreshing stats: ', error)
-    res.status(500).json({
-      message: 'Failed to refresh stats',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-  }
+      actorFromRequest(req),
+    ),
+  )
+}
+
+export async function getAdminPreview(req: Request, res: Response) {
+  res.json(await cmsService.getCmsPreview(req.params.pageKey))
+}
+
+export async function postAdminPublish(req: Request, res: Response) {
+  res.json(await cmsService.publishCmsDraft(req.params.pageKey, actorFromRequest(req)))
+}
+
+export async function getAdminRevisions(req: Request, res: Response) {
+  res.json(await cmsService.listCmsRevisions(req.params.pageKey))
+}
+
+export async function postAdminRollback(req: Request, res: Response) {
+  res.json(
+    await cmsService.rollbackCmsRevision(
+      req.params.pageKey,
+      req.params.revisionId,
+      actorFromRequest(req),
+    ),
+  )
+}
+
+export async function refreshStats(_req: Request, res: Response) {
+  await cmsService.updateHomepageStatsWithRealtimeData()
+  const content = await cmsService.getHomepageContent()
+  res.json({ message: 'Stats refreshed successfully', content })
 }
