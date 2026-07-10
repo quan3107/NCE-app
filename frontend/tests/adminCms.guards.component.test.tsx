@@ -1,0 +1,133 @@
+/**
+ * Location: tests/adminCms.guards.component.test.tsx
+ * Purpose: Verify CMS edit guards, rollback rebasing, and revision pagination.
+ * Why: Destructive transitions must be deliberate and must preserve version consistency.
+ */
+import assert from 'node:assert/strict';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, test, vi } from 'vitest';
+
+import { AdminCmsPage } from '../src/features/admin/components/AdminCmsPage';
+
+const saveMutate = vi.hoisted(() => vi.fn());
+const publishMutate = vi.hoisted(() => vi.fn());
+const rollbackMutate = vi.hoisted(() => vi.fn());
+const fetchNextPage = vi.hoisted(() => vi.fn());
+const state = vi.hoisted(() => ({ hasNextPage: false }));
+
+const homepageContent = {
+  hero: {
+    badge: 'Badge', title: 'Original title', description: 'Description',
+    cta_primary: 'Browse', cta_secondary: 'Login',
+  },
+  stats: [],
+  howItWorks: { title: 'How it works', description: 'Steps', features: [] },
+};
+
+vi.mock('@features/admin/cmsApi', () => ({
+  useCmsPagesQuery: () => ({
+    data: { pages: [
+      { pageKey: 'homepage', label: 'Homepage' },
+      { pageKey: 'contact', label: 'Contact Page' },
+    ] },
+    isLoading: false,
+    error: null,
+  }),
+  useCmsDraftQuery: (pageKey: string) => ({
+    data: {
+      pageKey,
+      label: pageKey === 'contact' ? 'Contact Page' : 'Homepage',
+      content: pageKey === 'contact'
+        ? {
+            header: { title: 'Contact us', description: 'Get in touch.' },
+            form: { title: 'Message us', description: 'Help', submitLabel: 'Send' },
+            details: { email: 'support@example.com', phone: '123', address: 'Office' },
+            hours: [],
+          }
+        : homepageContent,
+      draftVersion: 3,
+      publishedDraftVersion: 3,
+      publishedRevision: 2,
+      publishedAt: null,
+      hasUnpublishedChanges: false,
+    },
+    isLoading: false,
+    error: null,
+  }),
+  useCmsRevisionsQuery: () => ({
+    data: { pages: [{
+      revisions: [{
+        id: 'revision-1', revisionNumber: 1, operation: 'publish',
+        createdAt: '2026-07-01T00:00:00.000Z', createdBy: null, sourceRevision: null,
+      }],
+      nextCursor: state.hasNextPage ? 'revision-1' : null,
+    }] },
+    isLoading: false,
+    error: null,
+    hasNextPage: state.hasNextPage,
+    isFetchingNextPage: false,
+    fetchNextPage,
+  }),
+  useSaveCmsDraftMutation: () => ({ mutate: saveMutate, isPending: false, error: null }),
+  usePublishCmsDraftMutation: () => ({ mutate: publishMutate, isPending: false, error: null }),
+  useRollbackCmsRevisionMutation: () => ({
+    mutate: rollbackMutate, isPending: false, error: null,
+  }),
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  state.hasNextPage = false;
+});
+
+const renderPage = () => render(<MemoryRouter><AdminCmsPage /></MemoryRouter>);
+
+test('disables Save until local content changes', () => {
+  renderPage();
+  assert.equal((screen.getByRole('button', { name: 'Save draft' }) as HTMLButtonElement).disabled, true);
+  fireEvent.change(screen.getByLabelText('Hero title'), { target: { value: 'Edited' } });
+  assert.equal((screen.getByRole('button', { name: 'Save draft' }) as HTMLButtonElement).disabled, false);
+});
+
+test('keeps dirty edits until page switching is explicitly confirmed', () => {
+  renderPage();
+  fireEvent.change(screen.getByLabelText('Hero title'), { target: { value: 'Edited' } });
+  fireEvent.change(screen.getByLabelText('Marketing page'), { target: { value: 'contact' } });
+
+  assert.equal((screen.getByLabelText('Marketing page') as HTMLSelectElement).value, 'homepage');
+  fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+  assert.equal(screen.getByLabelText('Hero title').getAttribute('value'), 'Edited');
+
+  fireEvent.change(screen.getByLabelText('Marketing page'), { target: { value: 'contact' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Discard changes and switch' }));
+  assert.equal((screen.getByLabelText('Marketing page') as HTMLSelectElement).value, 'contact');
+});
+
+test('confirms rollback with the editor version and rebases on success', () => {
+  renderPage();
+  fireEvent.change(screen.getByLabelText('Hero title'), { target: { value: 'Unsaved title' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Roll back to revision 1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm rollback' }));
+
+  assert.deepEqual(rollbackMutate.mock.calls[0]?.[0], {
+    pageKey: 'homepage', revisionId: 'revision-1', expectedDraftVersion: 3,
+  });
+  act(() => {
+    rollbackMutate.mock.calls[0]?.[1]?.onSuccess({
+      pageKey: 'homepage', label: 'Homepage', content: homepageContent,
+      draftVersion: 4, publishedDraftVersion: 4, publishedRevision: 3,
+      publishedAt: null, hasUnpublishedChanges: false,
+    });
+  });
+  assert.equal(screen.getByLabelText('Hero title').getAttribute('value'), 'Original title');
+});
+
+test('loads the next bounded revision page on demand', () => {
+  state.hasNextPage = true;
+  renderPage();
+  fireEvent.click(screen.getByRole('button', { name: 'Load more revisions' }));
+  assert.equal(fetchNextPage.mock.calls.length, 1);
+});
