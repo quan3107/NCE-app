@@ -1,10 +1,11 @@
 /**
  * Location: backend/src/modules/cms/cms.persistence.ts
- * Purpose: Replace normalized published CMS sections inside an existing transaction.
- * Why: Publish and rollback require the same atomic persistence sequence.
+ * Purpose: Reconcile normalized published CMS rows inside an existing transaction.
+ * Why: Publish and rollback must update modeled rows without deleting custom content.
  */
 import { Prisma } from '../../prisma/generated.js'
 import { toCmsSectionsCreateInput } from './cms.content.js'
+import { isManagedCmsItemKey } from './cms.managed.js'
 import type { CmsPageContent, CmsPageKey } from './cms.schema.js'
 
 export async function lockCmsPageByKey(
@@ -27,27 +28,58 @@ export async function replacePublishedSections(
   content: CmsPageContent,
 ) {
   const managedSections = toCmsSectionsCreateInput(pageKey, content)
-  await tx.cmsSection.deleteMany({
-    where: {
-      pageId,
-      sectionKey: { in: managedSections.map((section) => section.sectionKey) },
-    },
-  })
   for (const section of managedSections) {
-    await tx.cmsSection.create({
-      data: {
+    const savedSection = await tx.cmsSection.upsert({
+      where: {
+        pageId_sectionKey: { pageId, sectionKey: section.sectionKey },
+      },
+      create: {
         pageId,
         sectionKey: section.sectionKey,
         label: section.label,
         sortOrder: section.sortOrder,
         isActive: section.isActive,
-        items: {
-          create: section.items.create.map((item) => ({
-            ...item,
-            contentJson: item.contentJson as Prisma.InputJsonValue,
-          })),
-        },
+      },
+      update: {
+        label: section.label,
+        sortOrder: section.sortOrder,
+        isActive: section.isActive,
       },
     })
+    const existingItems = await tx.cmsContentItem.findMany({
+      where: { sectionId: savedSection.id },
+      select: { id: true, itemKey: true, isActive: true },
+    })
+    const replaceableItems = existingItems.filter((item) =>
+      item.isActive && isManagedCmsItemKey(pageKey, section.sectionKey, item.itemKey),
+    )
+
+    for (const item of section.items.create) {
+      if (!item.itemKey) throw new Error('Managed CMS item key is required')
+      const existingIndex = replaceableItems.findIndex(
+        (candidate) => candidate.itemKey === item.itemKey,
+      )
+      const data = {
+        itemKey: item.itemKey,
+        sortOrder: item.sortOrder,
+        contentType: item.contentType,
+        contentJson: item.contentJson as Prisma.InputJsonValue,
+        isActive: item.isActive,
+      }
+      if (existingIndex >= 0) {
+        const [existing] = replaceableItems.splice(existingIndex, 1)
+        await tx.cmsContentItem.update({ where: { id: existing.id }, data })
+      } else {
+        await tx.cmsContentItem.create({
+          data: { sectionId: savedSection.id, ...data },
+        })
+      }
+    }
+
+    if (replaceableItems.length > 0) {
+      await tx.cmsContentItem.deleteMany({
+        where: { id: { in: replaceableItems.map((item) => item.id) } },
+      })
+    }
   }
 }
