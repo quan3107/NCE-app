@@ -87,6 +87,13 @@ WHERE NOT EXISTS (
   WHERE role = 'admin' AND path = '/admin/content'
 );
 
+-- Existing installations placed Settings at 5; Content now owns that position.
+UPDATE public.navigation_items
+SET order_index = 6
+WHERE role = 'admin'
+  AND path = '/admin/settings'
+  AND order_index = 5;
+
 WITH managed_pages AS (
   SELECT id, page_key
   FROM public.cms_page_contents
