@@ -9,9 +9,9 @@ import { createHttpError } from '../../utils/httpError.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import {
   parseCmsPageContent,
-  toCmsSectionsCreateInput,
   validateCmsPageContent,
 } from './cms.content.js'
+import { lockCmsPageByKey, replacePublishedSections } from './cms.persistence.js'
 import { CmsPageKeySchema, type CmsPageContent, type CmsPageKey } from './cms.schema.js'
 
 type CmsActor = { id: string }
@@ -20,7 +20,7 @@ type CmsPageStateRecord = {
   id: string
   pageKey: string
   label: string
-  draftContent?: unknown | null
+  draft?: { content: unknown } | null
   draftVersion: number
   publishedDraftVersion: number
   publishedRevision: number
@@ -29,6 +29,7 @@ type CmsPageStateRecord = {
 }
 
 const publicPageInclude = {
+  draft: true,
   sections: {
     where: { isActive: true },
     orderBy: { sortOrder: 'asc' as const },
@@ -63,41 +64,14 @@ function contentFromPage(
   pageKey: CmsPageKey,
   page: CmsPageStateRecord & { sections?: unknown[] },
 ) {
-  if (page.draftContent !== null && page.draftContent !== undefined) {
-    return validateCmsPageContent(pageKey, page.draftContent)
+  if (page.draft) {
+    return validateCmsPageContent(pageKey, page.draft.content)
   }
   return parseCmsPageContent(pageKey, {
     sections: (page.sections ?? []) as Parameters<
       typeof parseCmsPageContent
     >[1]['sections'],
   })
-}
-
-async function replacePublishedSections(
-  tx: Prisma.TransactionClient,
-  pageId: string,
-  pageKey: CmsPageKey,
-  content: CmsPageContent,
-) {
-  await tx.cmsSection.deleteMany({ where: { pageId } })
-  const sections = toCmsSectionsCreateInput(pageKey, content)
-  for (const cmsSection of sections) {
-    await tx.cmsSection.create({
-      data: {
-        pageId,
-        sectionKey: cmsSection.sectionKey,
-        label: cmsSection.label,
-        sortOrder: cmsSection.sortOrder,
-        isActive: cmsSection.isActive,
-        items: {
-          create: cmsSection.items.create.map((cmsItem) => ({
-            ...cmsItem,
-            contentJson: cmsItem.contentJson as Prisma.InputJsonValue,
-          })),
-        },
-      },
-    })
-  }
 }
 
 export async function listCmsPages() {
@@ -140,44 +114,74 @@ export async function updateCmsDraft(
 ) {
   const pageKey = pageKeyFrom(pageKeyValue)
   const content = validateCmsPageContent(pageKey, contentInput)
-  const existing = await prisma.cmsPageContent.findUnique({ where: { pageKey } })
-  if (!existing) throw createHttpError(404, 'CMS page not found')
-
-  const updated = await prisma.cmsPageContent.update({
-    where: { id: existing.id },
-    data: {
-      draftContent: content as Prisma.InputJsonValue,
-      draftVersion: { increment: 1 },
-    },
+  const result = await prisma.$transaction(async (tx) => {
+    const pageId = await lockCmsPageByKey(tx, pageKey)
+    if (!pageId) throw createHttpError(404, 'CMS page not found')
+    const existing = await tx.cmsPageContent.findUnique({ where: { id: pageId } })
+    if (!existing) throw createHttpError(404, 'CMS page not found')
+    const updated = await tx.cmsPageContent.update({
+      where: { id: existing.id },
+      data: { draftVersion: { increment: 1 } },
+    })
+    await tx.cmsPageDraft.upsert({
+      where: { pageId: existing.id },
+      create: { pageId: existing.id, content: content as Prisma.InputJsonValue },
+      update: { content: content as Prisma.InputJsonValue },
+    })
+    return { existing, updated }
   })
   await writeAuditLogSafely({
     actorId: actor.id,
     action: 'cms.draft_updated',
     entity: 'cms_page_content',
-    entityId: existing.id,
+    entityId: result.existing.id,
     diff: {
       pageKey,
-      fromDraftVersion: existing.draftVersion,
-      toDraftVersion: updated.draftVersion,
+      fromDraftVersion: result.existing.draftVersion,
+      toDraftVersion: result.updated.draftVersion,
     },
   })
-  return pageState(updated, content)
+  return pageState(result.updated, content)
 }
 
-export async function publishCmsDraft(pageKeyValue: string, actor: CmsActor) {
+export async function publishCmsDraft(
+  pageKeyValue: string,
+  contentInput: unknown,
+  expectedDraftVersion: number,
+  actor: CmsActor,
+) {
   const pageKey = pageKeyFrom(pageKeyValue)
+  const content = validateCmsPageContent(pageKey, contentInput)
   const result = await prisma.$transaction(async (tx) => {
+    const pageId = await lockCmsPageByKey(tx, pageKey)
+    if (!pageId) throw createHttpError(404, 'CMS page not found')
     const page = await tx.cmsPageContent.findUnique({
-      where: { pageKey, isActive: true },
-      include: publicPageInclude,
+      where: { id: pageId },
     })
-    if (!page) throw createHttpError(404, 'CMS page not found')
-    if (page.draftVersion === page.publishedDraftVersion) {
-      throw createHttpError(409, 'CMS page has no unpublished changes')
+    if (!page || page.isActive === false) throw createHttpError(404, 'CMS page not found')
+    if (page.draftVersion !== expectedDraftVersion) {
+      throw createHttpError(409, 'CMS draft changed; reload before publishing')
     }
 
-    const content = contentFromPage(pageKey, page)
     const revisionNumber = page.publishedRevision + 1
+    const draftVersion = page.draftVersion + 1
+    const claimed = await tx.cmsPageContent.updateMany({
+      where: { id: page.id, draftVersion: expectedDraftVersion },
+      data: {
+        draftVersion,
+        publishedDraftVersion: draftVersion,
+        publishedRevision: revisionNumber,
+        publishedAt: new Date(),
+      },
+    })
+    if (claimed.count !== 1) {
+      throw createHttpError(409, 'CMS draft changed; reload before publishing')
+    }
+    await tx.cmsPageDraft.upsert({
+      where: { pageId: page.id },
+      create: { pageId: page.id, content: content as Prisma.InputJsonValue },
+      update: { content: content as Prisma.InputJsonValue },
+    })
     const revision = await tx.cmsPageRevision.create({
       data: {
         pageId: page.id,
@@ -188,14 +192,10 @@ export async function publishCmsDraft(pageKeyValue: string, actor: CmsActor) {
       },
     })
     await replacePublishedSections(tx, page.id, pageKey, content)
-    const updated = await tx.cmsPageContent.update({
+    const updated = await tx.cmsPageContent.findUnique({
       where: { id: page.id },
-      data: {
-        publishedDraftVersion: page.draftVersion,
-        publishedRevision: revisionNumber,
-        publishedAt: new Date(),
-      },
     })
+    if (!updated) throw createHttpError(404, 'CMS page not found')
     return { page: updated, content, revisionId: revision.id }
   })
 
@@ -235,10 +235,12 @@ export async function rollbackCmsRevision(
 ) {
   const pageKey = pageKeyFrom(pageKeyValue)
   const result = await prisma.$transaction(async (tx) => {
+    const pageId = await lockCmsPageByKey(tx, pageKey)
+    if (!pageId) throw createHttpError(404, 'CMS page not found')
     const page = await tx.cmsPageContent.findUnique({
-      where: { pageKey, isActive: true },
+      where: { id: pageId },
     })
-    if (!page) throw createHttpError(404, 'CMS page not found')
+    if (!page || page.isActive === false) throw createHttpError(404, 'CMS page not found')
     const source = await tx.cmsPageRevision.findFirst({
       where: { id: revisionId, pageId: page.id },
     })
@@ -261,12 +263,16 @@ export async function rollbackCmsRevision(
     const updated = await tx.cmsPageContent.update({
       where: { id: page.id },
       data: {
-        draftContent: content as Prisma.InputJsonValue,
         draftVersion,
         publishedDraftVersion: draftVersion,
         publishedRevision: revisionNumber,
         publishedAt: new Date(),
       },
+    })
+    await tx.cmsPageDraft.upsert({
+      where: { pageId: page.id },
+      create: { pageId: page.id, content: content as Prisma.InputJsonValue },
+      update: { content: content as Prisma.InputJsonValue },
     })
     return { page: updated, content, revisionId: revision.id, source }
   })
