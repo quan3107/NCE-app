@@ -3,6 +3,7 @@
  * Purpose: Manage CMS drafts, publish revisions, previews, and rollback operations.
  * Why: Keeps mutable admin workflows separate from public published-content reads.
  */
+import { isDeepStrictEqual } from 'node:util'
 import { prisma } from '../../prisma/client.js'
 import type { Prisma } from '../../prisma/generated.js'
 import { createHttpError } from '../../utils/httpError.js'
@@ -76,7 +77,10 @@ function contentFromPage(
 
 export async function listCmsPages() {
   const pages = await prisma.cmsPageContent.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      pageKey: { in: CmsPageKeySchema.options },
+    },
     orderBy: { label: 'asc' },
   })
   return {
@@ -118,10 +122,16 @@ export async function updateCmsDraft(
   const result = await prisma.$transaction(async (tx) => {
     const pageId = await lockCmsPageByKey(tx, pageKey)
     if (!pageId) throw createHttpError(404, 'CMS page not found')
-    const existing = await tx.cmsPageContent.findUnique({ where: { id: pageId } })
+    const existing = await tx.cmsPageContent.findUnique({
+      where: { id: pageId },
+      include: publicPageInclude,
+    })
     if (!existing) throw createHttpError(404, 'CMS page not found')
     if (existing.draftVersion !== expectedDraftVersion) {
       throw createHttpError(409, 'CMS draft changed; reload before saving')
+    }
+    if (isDeepStrictEqual(contentFromPage(pageKey, existing), content)) {
+      return { existing, updated: existing, changed: false }
     }
     const updated = await tx.cmsPageContent.update({
       where: { id: existing.id },
@@ -132,19 +142,21 @@ export async function updateCmsDraft(
       create: { pageId: existing.id, content: content as Prisma.InputJsonValue },
       update: { content: content as Prisma.InputJsonValue },
     })
-    return { existing, updated }
+    return { existing, updated, changed: true }
   })
-  await writeAuditLogSafely({
-    actorId: actor.id,
-    action: 'cms.draft_updated',
-    entity: 'cms_page_content',
-    entityId: result.existing.id,
-    diff: {
-      pageKey,
-      fromDraftVersion: result.existing.draftVersion,
-      toDraftVersion: result.updated.draftVersion,
-    },
-  })
+  if (result.changed) {
+    await writeAuditLogSafely({
+      actorId: actor.id,
+      action: 'cms.draft_updated',
+      entity: 'cms_page_content',
+      entityId: result.existing.id,
+      diff: {
+        pageKey,
+        fromDraftVersion: result.existing.draftVersion,
+        toDraftVersion: result.updated.draftVersion,
+      },
+    })
+  }
   return pageState(result.updated, content)
 }
 
@@ -217,82 +229,4 @@ export async function publishCmsDraft(
   return pageState(result.page, result.content)
 }
 
-export async function listCmsRevisions(pageKeyValue: string) {
-  const pageKey = pageKeyFrom(pageKeyValue)
-  const page = await prisma.cmsPageContent.findUnique({ where: { pageKey } })
-  if (!page) throw createHttpError(404, 'CMS page not found')
-  const revisions = await prisma.cmsPageRevision.findMany({
-    where: { pageId: page.id },
-    orderBy: { revisionNumber: 'desc' },
-    include: {
-      createdBy: { select: { id: true, fullName: true } },
-      sourceRevision: { select: { id: true, revisionNumber: true } },
-    },
-  })
-  return { revisions }
-}
-
-export async function rollbackCmsRevision(
-  pageKeyValue: string,
-  revisionId: string,
-  actor: CmsActor,
-) {
-  const pageKey = pageKeyFrom(pageKeyValue)
-  const result = await prisma.$transaction(async (tx) => {
-    const pageId = await lockCmsPageByKey(tx, pageKey)
-    if (!pageId) throw createHttpError(404, 'CMS page not found')
-    const page = await tx.cmsPageContent.findUnique({
-      where: { id: pageId },
-    })
-    if (!page || page.isActive === false) throw createHttpError(404, 'CMS page not found')
-    const source = await tx.cmsPageRevision.findFirst({
-      where: { id: revisionId, pageId: page.id },
-    })
-    if (!source) throw createHttpError(404, 'CMS revision not found')
-
-    const content = validateCmsPageContent(pageKey, source.contentJson)
-    const revisionNumber = page.publishedRevision + 1
-    const draftVersion = page.draftVersion + 1
-    const revision = await tx.cmsPageRevision.create({
-      data: {
-        pageId: page.id,
-        revisionNumber,
-        contentJson: content as Prisma.InputJsonValue,
-        createdById: actor.id,
-        operation: 'rollback',
-        sourceRevisionId: source.id,
-      },
-    })
-    await replacePublishedSections(tx, page.id, pageKey, content)
-    const updated = await tx.cmsPageContent.update({
-      where: { id: page.id },
-      data: {
-        draftVersion,
-        publishedDraftVersion: draftVersion,
-        publishedRevision: revisionNumber,
-        publishedAt: new Date(),
-      },
-    })
-    await tx.cmsPageDraft.upsert({
-      where: { pageId: page.id },
-      create: { pageId: page.id, content: content as Prisma.InputJsonValue },
-      update: { content: content as Prisma.InputJsonValue },
-    })
-    return { page: updated, content, revisionId: revision.id, source }
-  })
-
-  await writeAuditLogSafely({
-    actorId: actor.id,
-    action: 'cms.rolled_back',
-    entity: 'cms_page_content',
-    entityId: result.page.id,
-    diff: {
-      pageKey,
-      revisionId: result.revisionId,
-      revisionNumber: result.page.publishedRevision,
-      sourceRevisionId: result.source.id,
-      sourceRevisionNumber: result.source.revisionNumber,
-    },
-  })
-  return pageState(result.page, result.content)
-}
+export { listCmsRevisions, rollbackCmsRevision } from './cms.revisions.service.js'
