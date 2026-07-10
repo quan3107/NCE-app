@@ -10,6 +10,7 @@ import type {
   CmsFeatureItem as BackendFeatureItem,
   CmsHeroContent as BackendHeroContent,
   CmsHomepageContent as BackendHomepageContent,
+  CmsContactPageContent as BackendContactPageContent,
   CmsHowItWorksContent as BackendHowItWorksContent,
   CmsStatItem as BackendStatItem,
   CmsValueItem as BackendValueItem,
@@ -23,3 +24,4 @@ export type HomepageContent = BackendHomepageContent;
 export type AboutHeroContent = BackendAboutHeroContent;
 export type ValueItem = BackendValueItem;
 export type AboutPageContent = BackendAboutPageContent;
+export type ContactPageContent = BackendContactPageContent;
