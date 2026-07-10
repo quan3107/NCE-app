@@ -10,6 +10,7 @@ import {
   type CmsPageContent,
   type CmsPageKey,
 } from './cms.schema.js'
+import { isManagedCmsItemKey } from './cms.managed.js'
 
 type CmsItemRow = {
   itemKey?: string | null
@@ -72,10 +73,18 @@ function activeItems(page: CmsPageRow, key: string) {
     .sort((left, right) => left.sortOrder - right.sortOrder)
 }
 
+function modeledItems(pageKey: CmsPageKey, page: CmsPageRow, key: string) {
+  return activeItems(page, key).filter(
+    (candidate) =>
+      candidate.itemKey == null ||
+      isManagedCmsItemKey(pageKey, key, candidate.itemKey),
+  )
+}
+
 function parseHomepage(page: CmsPageRow) {
-  const hero = activeItems(page, 'hero')[0]?.contentJson
+  const hero = modeledItems('homepage', page, 'hero')[0]?.contentJson
   const featuresSection = activeSection(page, 'features')
-  const featureItems = activeItems(page, 'features')
+  const featureItems = modeledItems('homepage', page, 'features')
   const meta = featureItems.find(
     (candidate) =>
       candidate.contentType === 'section_meta' || candidate.itemKey === 'section_meta',
@@ -86,7 +95,9 @@ function parseHomepage(page: CmsPageRow) {
 
   return HomepageContentSchema.parse({
     hero,
-    stats: activeItems(page, 'stats').map((candidate) => candidate.contentJson),
+    stats: modeledItems('homepage', page, 'stats').map(
+      (candidate) => candidate.contentJson,
+    ),
     howItWorks: {
       title: metaContent?.title ?? featuresSection?.label ?? FALLBACK_HOW_IT_WORKS_TITLE,
       description: metaContent?.description ?? FALLBACK_HOW_IT_WORKS_DESCRIPTION,
@@ -99,10 +110,12 @@ function parseHomepage(page: CmsPageRow) {
 
 function parseAbout(page: CmsPageRow) {
   return AboutPageContentSchema.parse({
-    hero: activeItems(page, 'hero')[0]?.contentJson,
-    values: activeItems(page, 'values').map((candidate) => candidate.contentJson),
+    hero: modeledItems('about', page, 'hero')[0]?.contentJson,
+    values: modeledItems('about', page, 'values').map(
+      (candidate) => candidate.contentJson,
+    ),
     story: {
-      sections: activeItems(page, 'story').map(
+      sections: modeledItems('about', page, 'story').map(
         (candidate) => (candidate.contentJson as { text: string }).text,
       ),
     },
@@ -111,10 +124,12 @@ function parseAbout(page: CmsPageRow) {
 
 function parseContact(page: CmsPageRow) {
   return ContactPageContentSchema.parse({
-    header: activeItems(page, 'header')[0]?.contentJson,
-    form: activeItems(page, 'form')[0]?.contentJson,
-    details: activeItems(page, 'details')[0]?.contentJson,
-    hours: activeItems(page, 'hours').map((candidate) => candidate.contentJson),
+    header: modeledItems('contact', page, 'header')[0]?.contentJson,
+    form: modeledItems('contact', page, 'form')[0]?.contentJson,
+    details: modeledItems('contact', page, 'details')[0]?.contentJson,
+    hours: modeledItems('contact', page, 'hours').map(
+      (candidate) => candidate.contentJson,
+    ),
   })
 }
 
