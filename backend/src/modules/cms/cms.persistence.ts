@@ -48,17 +48,32 @@ export async function replacePublishedSections(
     })
     const existingItems = await tx.cmsContentItem.findMany({
       where: { sectionId: savedSection.id },
-      select: { id: true, itemKey: true, isActive: true },
+      select: { id: true, itemKey: true, sortOrder: true, isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
     })
-    const replaceableItems = existingItems.filter((item) =>
-      item.isActive && isManagedCmsItemKey(pageKey, section.sectionKey, item.itemKey),
+    const replaceableItems = existingItems.filter(
+      (item) =>
+        item.isActive &&
+        (item.itemKey == null ||
+          isManagedCmsItemKey(pageKey, section.sectionKey, item.itemKey)),
     )
 
     for (const item of section.items.create) {
       if (!item.itemKey) throw new Error('Managed CMS item key is required')
-      const existingIndex = replaceableItems.findIndex(
+      let existingIndex = replaceableItems.findIndex(
         (candidate) => candidate.itemKey === item.itemKey,
       )
+      if (existingIndex < 0) {
+        existingIndex = replaceableItems.findIndex(
+          (candidate) =>
+            candidate.itemKey == null && candidate.sortOrder === item.sortOrder,
+        )
+      }
+      if (existingIndex < 0) {
+        existingIndex = replaceableItems.findIndex(
+          (candidate) => candidate.itemKey == null,
+        )
+      }
       const data = {
         itemKey: item.itemKey,
         sortOrder: item.sortOrder,
