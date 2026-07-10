@@ -26,8 +26,14 @@ export async function replacePublishedSections(
   pageKey: CmsPageKey,
   content: CmsPageContent,
 ) {
-  await tx.cmsSection.deleteMany({ where: { pageId } })
-  for (const section of toCmsSectionsCreateInput(pageKey, content)) {
+  const managedSections = toCmsSectionsCreateInput(pageKey, content)
+  await tx.cmsSection.deleteMany({
+    where: {
+      pageId,
+      sectionKey: { in: managedSections.map((section) => section.sectionKey) },
+    },
+  })
+  for (const section of managedSections) {
     await tx.cmsSection.create({
       data: {
         pageId,
