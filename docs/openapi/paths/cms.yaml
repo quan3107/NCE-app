@@ -109,6 +109,7 @@ AdminPageDraft:
       '401': { description: Unauthorized }
       '403': { description: Forbidden }
       '404': { description: CMS page not found }
+      '409': { description: Draft changed after the administrator loaded it }
 
 AdminPagePreview:
   parameters:
