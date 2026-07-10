@@ -69,6 +69,20 @@ paths:
     $ref: './paths/cms.yaml#/HomepageContent'
   /api/v1/cms/about-page-content:
     $ref: './paths/cms.yaml#/AboutPageContent'
+  /api/v1/cms/contact-page-content:
+    $ref: './paths/cms.yaml#/ContactPageContent'
+  /api/v1/cms/admin/pages:
+    $ref: './paths/cms.yaml#/AdminPages'
+  /api/v1/cms/admin/pages/{pageKey}/draft:
+    $ref: './paths/cms.yaml#/AdminPageDraft'
+  /api/v1/cms/admin/pages/{pageKey}/preview:
+    $ref: './paths/cms.yaml#/AdminPagePreview'
+  /api/v1/cms/admin/pages/{pageKey}/publish:
+    $ref: './paths/cms.yaml#/AdminPagePublish'
+  /api/v1/cms/admin/pages/{pageKey}/revisions:
+    $ref: './paths/cms.yaml#/AdminPageRevisions'
+  /api/v1/cms/admin/pages/{pageKey}/revisions/{revisionId}/rollback:
+    $ref: './paths/cms.yaml#/AdminPageRollback'
   /api/v1/cms/refresh-stats:
     $ref: './paths/cms.yaml#/RefreshStats'
 
