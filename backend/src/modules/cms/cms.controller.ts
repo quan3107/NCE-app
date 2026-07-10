@@ -87,8 +87,8 @@ export async function postAdminRollback(req: Request, res: Response) {
   )
 }
 
-export async function refreshStats(_req: Request, res: Response) {
-  await cmsService.updateHomepageStatsWithRealtimeData()
+export async function refreshStats(req: Request, res: Response) {
+  await cmsService.updateHomepageStatsWithRealtimeData(actorFromRequest(req))
   const content = await cmsService.getHomepageContent()
   res.json({ message: 'Stats refreshed successfully', content })
 }
