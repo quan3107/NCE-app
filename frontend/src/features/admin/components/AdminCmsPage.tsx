@@ -20,6 +20,13 @@ import {
 import type { CmsPageContent, CmsPageKey } from '@features/admin/cmsTypes';
 import { CmsContentEditor } from './CmsContentEditor';
 
+type CmsEditorState = {
+  pageKey: CmsPageKey;
+  content: CmsPageContent;
+  sourceContent: CmsPageContent;
+  baseDraftVersion: number;
+};
+
 function formatDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString() : 'Not published yet';
 }
@@ -32,9 +39,10 @@ export function AdminCmsPage() {
   const saveMutation = useSaveCmsDraftMutation();
   const publishMutation = usePublishCmsDraftMutation();
   const rollbackMutation = useRollbackCmsRevisionMutation();
-  const [content, setContent] = useState<CmsPageContent | null>(null);
+  const [editor, setEditor] = useState<CmsEditorState | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const draft = draftQuery.data;
+  const content = editor?.pageKey === pageKey ? editor.content : null;
 
   useEffect(() => {
     const pages = pagesQuery.data?.pages;
@@ -44,12 +52,32 @@ export function AdminCmsPage() {
   }, [pageKey, pagesQuery.data?.pages]);
 
   useEffect(() => {
-    if (draftQuery.data?.content) setContent(draftQuery.data.content);
+    const incoming = draftQuery.data;
+    if (!incoming?.content) return;
+    setEditor((current) => {
+      if (current?.pageKey === pageKey) {
+        const isDirty = JSON.stringify(current.content) !== JSON.stringify(current.sourceContent);
+        const matchesIncoming = JSON.stringify(current.content) === JSON.stringify(incoming.content);
+        if (isDirty && !matchesIncoming) return current;
+      }
+      return {
+        pageKey,
+        content: incoming.content,
+        sourceContent: incoming.content,
+        baseDraftVersion: incoming.draftVersion,
+      };
+    });
   }, [draftQuery.data?.draftVersion, pageKey]);
 
   const isBusy =
     saveMutation.isPending || publishMutation.isPending || rollbackMutation.isPending;
-  const error = pagesQuery.error ?? draftQuery.error;
+  const hasLocalChanges = Boolean(
+    editor && JSON.stringify(editor.content) !== JSON.stringify(editor.sourceContent),
+  );
+  const hasServerConflict = Boolean(
+    hasLocalChanges && draft && editor && draft.draftVersion !== editor.baseDraftVersion,
+  );
+  const canPublish = Boolean(draft?.hasUnpublishedChanges || hasLocalChanges);
 
   return (
     <div>
@@ -58,10 +86,17 @@ export function AdminCmsPage() {
         description="Edit drafts, preview changes, publish revisions, and restore earlier content."
       />
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-        {error ? (
+        {pagesQuery.error ? (
           <Card>
             <CardContent className="py-6 text-sm text-destructive">
-              Unable to load CMS content. Please refresh and try again.
+              Unable to load CMS pages. Please refresh and try again.
+            </CardContent>
+          </Card>
+        ) : null}
+        {draftQuery.error ? (
+          <Card>
+            <CardContent className="py-6 text-sm text-destructive">
+              Unable to load the page draft. Please refresh and try again.
             </CardContent>
           </Card>
         ) : null}
@@ -77,7 +112,7 @@ export function AdminCmsPage() {
                 id="cms-page"
                 value={pageKey}
                 onChange={(event) => {
-                  setContent(null);
+                  setEditor(null);
                   setPageKey(event.target.value as CmsPageKey);
                   setShowPreview(false);
                 }}
@@ -91,7 +126,7 @@ export function AdminCmsPage() {
               </select>
             </div>
 
-            {draftQuery.isLoading || !content || !draft ? (
+            {draftQuery.error ? null : draftQuery.isLoading || !content || !draft ? (
               <p className="text-sm text-muted-foreground">Loading page draft…</p>
             ) : (
               <>
@@ -106,12 +141,17 @@ export function AdminCmsPage() {
                   ) : null}
                 </div>
 
-                <CmsContentEditor pageKey={pageKey} content={content} onChange={setContent} />
+                <CmsContentEditor
+                  pageKey={pageKey}
+                  content={content}
+                  onChange={(nextContent) => setEditor((current) =>
+                    current ? { ...current, content: nextContent } : current)}
+                />
 
                 <div className="flex flex-wrap gap-3">
                   <Button
                     type="button"
-                    disabled={isBusy}
+                    disabled={isBusy || hasServerConflict}
                     onClick={() => saveMutation.mutate({ pageKey, content })}
                   >
                     Save draft
@@ -127,12 +167,38 @@ export function AdminCmsPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={isBusy || !draft.hasUnpublishedChanges}
-                    onClick={() => publishMutation.mutate(pageKey)}
+                    disabled={isBusy || !canPublish || hasServerConflict}
+                    onClick={() => publishMutation.mutate({
+                      pageKey,
+                      content,
+                      expectedDraftVersion: editor!.baseDraftVersion,
+                    })}
                   >
                     Publish
                   </Button>
                 </div>
+
+                {hasServerConflict ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    This draft changed on the server. Reload before saving or publishing.
+                  </p>
+                ) : null}
+
+                {saveMutation.error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    Unable to save the draft. Please try again.
+                  </p>
+                ) : null}
+                {publishMutation.error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    Unable to publish the draft. Reload and try again.
+                  </p>
+                ) : null}
+                {rollbackMutation.error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    Unable to roll back the revision. Please try again.
+                  </p>
+                ) : null}
 
                 {showPreview ? (
                   <Card className="bg-muted/20">
@@ -154,6 +220,10 @@ export function AdminCmsPage() {
           <CardContent className="space-y-3">
             {revisionsQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Loading revisions…</p>
+            ) : revisionsQuery.error ? (
+              <p className="text-sm text-destructive" role="alert">
+                Unable to load revision history. Please try again.
+              </p>
             ) : (revisionsQuery.data?.revisions ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">No published revisions yet.</p>
             ) : (
