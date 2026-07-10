@@ -110,6 +110,27 @@ export type CmsAboutPageContent = {
   };
 };
 
+export type CmsContactPageContent = {
+  header: {
+    title: string;
+    description: string;
+  };
+  form: {
+    title: string;
+    description: string;
+    submitLabel: string;
+  };
+  details: {
+    email: string;
+    phone: string;
+    address: string;
+  };
+  hours: Array<{
+    label: string;
+    value: string;
+  }>;
+};
+
 type EnabledConfigRecord = {
   id: string;
   label: string;
