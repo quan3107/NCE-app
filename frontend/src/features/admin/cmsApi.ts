@@ -29,13 +29,15 @@ export const fetchCmsDraft = (pageKey: CmsPageKey) =>
 export const saveCmsDraft = ({
   pageKey,
   content,
+  expectedDraftVersion,
 }: {
   pageKey: CmsPageKey;
   content: CmsPageContent;
+  expectedDraftVersion: number;
 }) =>
-  apiClient<CmsPageState, { content: CmsPageContent }>(
+  apiClient<CmsPageState, { content: CmsPageContent; expectedDraftVersion: number }>(
     `/cms/admin/pages/${pageKey}/draft`,
-    { method: 'PUT', body: { content } },
+    { method: 'PUT', body: { content, expectedDraftVersion } },
   );
 
 export const publishCmsDraft = ({
