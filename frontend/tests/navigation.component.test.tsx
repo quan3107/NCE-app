@@ -117,9 +117,9 @@ test('authenticated navigation failure does not expose hardcoded feature links',
     { timeout: 3_000 },
   );
 
-  assert.equal(screen.queryByText('/student/nce'), null);
-  assert.equal(screen.queryByText('/student/assignments'), null);
-  assert.equal(screen.queryByText('/student/dashboard'), null);
+  assert.ok(screen.queryByText('/student/nce') === null);
+  assert.ok(screen.queryByText('/student/assignments') === null);
+  assert.ok(screen.queryByText('/student/dashboard') === null);
 });
 
 test('authenticated navigation shows an unavailable state after a later refetch fails', async () => {
@@ -158,5 +158,5 @@ test('authenticated navigation shows an unavailable state after a later refetch 
     { timeout: 3_000 },
   );
 
-  assert.equal(screen.queryByText('/student/dashboard'), null);
+  assert.ok(screen.queryByText('/student/dashboard') === null);
 });
