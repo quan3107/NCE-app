@@ -3,7 +3,7 @@
  * Purpose: Verify the forward CMS migration reconciles databases that ran the original DDL.
  * Why: Applied migration names cannot be replayed after their SQL is corrected in source control.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -13,6 +13,10 @@ const migration = readFileSync(
     'src/prisma/migrations/20260711160000_reconcile_cms_draft_schema/migration.sql',
   ),
   'utf8',
+)
+const deployedRepairPath = resolve(
+  process.cwd(),
+  'src/prisma/migrations/20260711170000_grant_cms_page_updated_at/migration.sql',
 )
 
 describe('CMS forward reconciliation migration', () => {
@@ -74,5 +78,21 @@ describe('CMS forward reconciliation migration', () => {
       expect(migration).toContain(`CREATE POLICY ${policy}`)
     }
     expect(migration).not.toMatch(/GRANT[^;]+TO anon/i)
+  })
+
+  it('grants every Prisma-managed CMS page update column', () => {
+    expect(migration).toMatch(
+      /GRANT UPDATE \(draft_version, published_draft_version, published_revision, published_at, updated_at\)\s+ON public\.cms_page_contents TO authenticated;/,
+    )
+  })
+
+  it('repairs the grant after the reconciliation was already deployed', () => {
+    expect(existsSync(deployedRepairPath)).toBe(true)
+    if (!existsSync(deployedRepairPath)) return
+
+    const deployedRepair = readFileSync(deployedRepairPath, 'utf8')
+    expect(deployedRepair).toMatch(
+      /GRANT UPDATE \(draft_version, published_draft_version, published_revision, published_at, updated_at\)\s+ON public\.cms_page_contents TO authenticated;/,
+    )
   })
 })
