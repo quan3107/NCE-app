@@ -11,6 +11,7 @@ import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import {
   parseCmsPageContent,
   validateCmsPageContent,
+  validateStoredCmsPageContent,
 } from './cms.content.js'
 import { lockCmsPageByKey, replacePublishedSections } from './cms.persistence.js'
 import { CmsPageKeySchema, type CmsPageContent, type CmsPageKey } from './cms.schema.js'
@@ -66,7 +67,7 @@ function contentFromPage(
   page: CmsPageStateRecord & { sections?: unknown[] },
 ) {
   if (page.draft) {
-    return validateCmsPageContent(pageKey, page.draft.content)
+    return validateStoredCmsPageContent(pageKey, page.draft.content)
   }
   return parseCmsPageContent(pageKey, {
     sections: (page.sections ?? []) as Parameters<
