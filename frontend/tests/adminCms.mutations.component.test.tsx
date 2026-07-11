@@ -29,6 +29,12 @@ const wrapper = ({ children }: PropsWithChildren) => (
   <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 );
 
+const realtimeStats = [
+  { itemKey: 'stat_students' as const, label: 'Students', value: 10, format: 'number' as const },
+  { itemKey: 'stat_band_score' as const, label: 'Band score', value: 7.5, format: 'decimal' as const },
+  { itemKey: 'stat_success_rate' as const, label: 'Success rate', value: 0.8, format: 'percentage' as const },
+];
+
 test('save caches the returned version and stays pending through invalidation', async () => {
   const page = {
     pageKey: 'homepage' as const,
@@ -41,7 +47,7 @@ test('save caches the returned version and stays pending through invalidation', 
         cta_primary: 'Browse',
         cta_secondary: 'Sign in',
       },
-      stats: [],
+      stats: realtimeStats,
       howItWorks: { title: 'How it works', description: 'Steps', features: [] },
     },
     draftVersion: 6,
@@ -95,7 +101,7 @@ test.each([
           badge: 'Badge', title: 'Title', description: 'Description',
           cta_primary: 'Browse', cta_secondary: 'Sign in',
         },
-        stats: [],
+        stats: realtimeStats,
         howItWorks: { title: 'How it works', description: 'Steps', features: [] },
       },
       expectedDraftVersion: 5,
@@ -111,7 +117,7 @@ test.each([
           badge: 'Badge', title: 'Title', description: 'Description',
           cta_primary: 'Browse', cta_secondary: 'Sign in',
         },
-        stats: [],
+        stats: realtimeStats,
         howItWorks: { title: 'How it works', description: 'Steps', features: [] },
       },
       expectedDraftVersion: 5,
