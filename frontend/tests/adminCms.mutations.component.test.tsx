@@ -106,6 +106,10 @@ test.each([
       },
       expectedDraftVersion: 5,
     },
+    expectedKeys: [
+      ['admin', 'cms', 'homepage', 'draft'],
+      ['admin', 'cms', 'pages'],
+    ],
   },
   {
     name: 'publish',
@@ -122,6 +126,12 @@ test.each([
       },
       expectedDraftVersion: 5,
     },
+    expectedKeys: [
+      ['admin', 'cms', 'homepage', 'draft'],
+      ['admin', 'cms', 'pages'],
+      ['admin', 'cms', 'homepage', 'revisions'],
+      ['cms', 'homepage'],
+    ],
   },
   {
     name: 'rollback',
@@ -131,8 +141,18 @@ test.each([
       revisionId: '6db57b0d-34d4-4ed8-a391-d01911dd6e06',
       expectedDraftVersion: 5,
     },
+    expectedKeys: [
+      ['admin', 'cms', 'homepage', 'draft'],
+      ['admin', 'cms', 'pages'],
+      ['admin', 'cms', 'homepage', 'revisions'],
+      ['cms', 'homepage'],
+    ],
   },
-])('$name refreshes stale CMS state after a 409', async ({ useMutation, variables }) => {
+])('$name refreshes affected CMS state after a 409', async ({
+  useMutation,
+  variables,
+  expectedKeys,
+}) => {
   globalThis.fetch = vi.fn(async () => new Response(
     JSON.stringify({ message: 'CMS draft changed; reload before continuing' }),
     { status: 409, headers: { 'content-type': 'application/json' } },
@@ -145,9 +165,6 @@ test.each([
   await waitFor(() => assert.equal(result.current.isError, true));
   assert.deepEqual(
     invalidate.mock.calls.map(([filters]) => filters.queryKey),
-    [
-      ['admin', 'cms', 'homepage', 'draft'],
-      ['admin', 'cms', 'pages'],
-    ],
+    expectedKeys,
   );
 });
