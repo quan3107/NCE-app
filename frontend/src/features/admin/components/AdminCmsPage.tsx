@@ -107,6 +107,9 @@ export function AdminCmsPage() {
     revisionsQuery.data?.pages.flatMap((page) => page.revisions) ?? [];
 
   const switchPage = (nextPageKey: CmsPageKey) => {
+    saveMutation.reset();
+    publishMutation.reset();
+    rollbackMutation.reset();
     setEditor(null);
     setPageKey(nextPageKey);
     setShowPreview(false);
