@@ -16,7 +16,14 @@ export const HeroContentSchema = z.object({
   cta_secondary: requiredText,
 })
 
+export const RealtimeStatKeySchema = z.enum([
+  'stat_students',
+  'stat_band_score',
+  'stat_success_rate',
+])
+
 export const StatItemSchema = z.object({
+  itemKey: RealtimeStatKeySchema,
   label: requiredText,
   value: z.number(),
   format: z.enum(['number', 'decimal', 'percentage']),
@@ -57,7 +64,11 @@ export const StoryParagraphSchema = z.object({
 
 export const HomepageContentSchema = z.object({
   hero: HeroContentSchema,
-  stats: z.array(StatItemSchema),
+  stats: z.array(StatItemSchema).length(3).superRefine((stats, context) => {
+    if (new Set(stats.map((stat) => stat.itemKey)).size !== 3) {
+      context.addIssue({ code: 'custom', message: 'Realtime stat keys must be unique' })
+    }
+  }),
   howItWorks: HowItWorksContentSchema,
 })
 
