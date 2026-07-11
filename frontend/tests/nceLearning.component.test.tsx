@@ -1123,7 +1123,7 @@ test('StudentNceLessonPage does not carry local completion to the next lesson', 
       '/student/nce/courses/course-1/lessons/lesson-2',
     );
     await screen.findByRole('heading', { name: 'Sorry, sir.' }, { timeout: 1000 });
-    assert.equal(screen.queryByText(/lesson completed/i), null);
+    assert.ok(screen.queryByText(/lesson completed/i) === null);
     assert.equal(
       (screen.getByRole('button', { name: /mark lesson complete/i }) as HTMLButtonElement)
         .disabled,
@@ -1241,8 +1241,8 @@ test('StudentNceLessonPage scopes local attempt and completion state by course',
 
     const answer = screen.getByLabelText('Answer for Complete the sentence.');
     assert.equal((answer as HTMLTextAreaElement).disabled, false);
-    assert.equal(screen.queryByText(/score: 1\/1/i), null);
-    assert.equal(screen.queryByText(/lesson completed/i), null);
+    assert.ok(screen.queryByText(/score: 1\/1/i) === null);
+    assert.ok(screen.queryByText(/lesson completed/i) === null);
     assert.equal(
       (screen.getByRole('button', { name: /mark lesson complete/i }) as HTMLButtonElement)
         .disabled,
