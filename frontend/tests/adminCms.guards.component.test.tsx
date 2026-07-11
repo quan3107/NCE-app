@@ -96,16 +96,19 @@ vi.mock("@features/admin/cmsApi", () => ({
   }),
   useSaveCmsDraftMutation: () => ({
     mutate: saveMutate,
+    reset: vi.fn(),
     isPending: false,
     error: null,
   }),
   usePublishCmsDraftMutation: () => ({
     mutate: publishMutate,
+    reset: vi.fn(),
     isPending: false,
     error: null,
   }),
   useRollbackCmsRevisionMutation: () => ({
     mutate: rollbackMutate,
+    reset: vi.fn(),
     isPending: false,
     error: null,
   }),
