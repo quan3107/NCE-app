@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-11:** Addressed CMS review findings by making the admin-write security migration atomic with RLS enabled before grants, and by translating malformed persisted CMS page/draft/revision content into unexposed HTTP 500 failures while preserving request Zod errors as HTTP 400. Added focused migration and stored-content regressions.
 - **2026-07-11:** Closed CMS refresh concurrency and deployment-window gaps by advancing draft versions for published-only stat changes and enabling RLS before the first authenticated CMS grants. Added regressions for no-draft refreshes and migration statement ordering.
 - **2026-07-11:** Corrected CMS revision 1 bootstrap snapshots to embed stable homepage statistic keys, accept only the three canonical realtime rows, and preserve key-to-value identity when persisted rows are reordered. Added source and database regressions covering numeric and custom stat exclusion.
 - **2026-07-11:** Corrected the PostgreSQL-backed CMS bootstrap upgrade fixture for the keyed realtime-stat contract by seeding all three canonical metrics and validating migration-created keyless revision JSON through the legacy storage boundary. Confirmed the connected Supabase project exposes the expected CMS tables; local database execution remained unavailable without PostgreSQL/Docker, so the pushed CI run is the disposable-database verification source.
@@ -70,6 +71,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-11:** Made clean-editor publish and rollback version conflicts visible after automatic draft refetches, with operation-specific retry guidance and focused component coverage.
 - **2026-07-11:** Aligned the CMS OpenAPI public-content contract with runtime validation through a reusable nonblank string schema and coverage for whitespace-only payload rejection.
 - **2026-07-11 (frontend):** Updated the CMS OpenAPI contract so homepage statistics require a canonical `itemKey` and exactly three entries, with a focused schema regression test.
 - **2026-07-11:** Added stable realtime statistic keys to the frontend CMS contract and fixtures, and extracted shared admin CMS component mocks so every touched test file remains below 300 lines while preserving editor, preview, conflict, and mutation coverage.
