@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-11:** Aligned the handwritten CMS draft/revision migration with Prisma's canonical index names, ascending revision-history index, and cascading foreign-key updates. Added a focused schema-fidelity regression.
 - **2026-07-11:** Addressed CMS review findings by making the admin-write security migration atomic with RLS enabled before grants, and by translating malformed persisted CMS page/draft/revision content into unexposed HTTP 500 failures while preserving request Zod errors as HTTP 400. Added focused migration and stored-content regressions.
 - **2026-07-11:** Closed CMS refresh concurrency and deployment-window gaps by advancing draft versions for published-only stat changes and enabling RLS before the first authenticated CMS grants. Added regressions for no-draft refreshes and migration statement ordering.
 - **2026-07-11:** Corrected CMS revision 1 bootstrap snapshots to embed stable homepage statistic keys, accept only the three canonical realtime rows, and preserve key-to-value identity when persisted rows are reordered. Added source and database regressions covering numeric and custom stat exclusion.
@@ -71,6 +72,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-11:** Made publish and rollback version-conflict recovery invalidate revision history and hour-cached public CMS content in addition to draft/page state, while keeping save conflicts scoped to draft/page invalidation. Added mutation-level regressions for each conflict type.
 - **2026-07-11:** Made clean-editor publish and rollback version conflicts visible after automatic draft refetches, with operation-specific retry guidance and focused component coverage.
 - **2026-07-11:** Aligned the CMS OpenAPI public-content contract with runtime validation through a reusable nonblank string schema and coverage for whitespace-only payload rejection.
 - **2026-07-11 (frontend):** Updated the CMS OpenAPI contract so homepage statistics require a canonical `itemKey` and exactly three entries, with a focused schema regression test.
