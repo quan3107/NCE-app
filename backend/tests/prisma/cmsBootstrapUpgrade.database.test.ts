@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   parseCmsPageContent,
+  validateCmsPageContent,
   validateStoredCmsPageContent,
 } from '../../src/modules/cms/cms.content.js'
 import { replacePublishedSections } from '../../src/modules/cms/cms.persistence.js'
@@ -96,28 +97,43 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
                   create: [
                     {
                       itemKey: 'stat_students',
-                      sortOrder: 0,
+                      sortOrder: 2,
                       contentType: 'stat',
                       isActive: true,
                       contentJson: { label: 'Students', value: 10, format: 'number' },
                     },
                     {
                       itemKey: 'stat_band_score',
-                      sortOrder: 1,
+                      sortOrder: 0,
                       contentType: 'stat',
                       isActive: true,
                       contentJson: { label: 'Band score', value: 7.5, format: 'decimal' },
                     },
                     {
                       itemKey: 'stat_success_rate',
-                      sortOrder: 2,
+                      sortOrder: 1,
                       contentType: 'stat',
                       isActive: true,
-                      contentJson: { label: 'Success rate', value: 0.8, format: 'percentage' },
+                      contentJson: {
+                        label: 'Success rate',
+                        value: 0.8,
+                        format: 'percentage',
+                      },
+                    },
+                    {
+                      itemKey: 'stat_4',
+                      sortOrder: 3,
+                      contentType: 'stat',
+                      isActive: true,
+                      contentJson: {
+                        label: 'Numeric custom',
+                        value: 44,
+                        format: 'number',
+                      },
                     },
                     {
                       itemKey: 'custom_stat',
-                      sortOrder: 3,
+                      sortOrder: 4,
                       contentType: 'stat',
                       isActive: true,
                       contentJson: { label: 'Custom', value: 99, format: 'number' },
@@ -141,11 +157,21 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
       const revision = await tx.cmsPageRevision.findUniqueOrThrow({
         where: { pageId_revisionNumber: { pageId: page.id, revisionNumber: 1 } },
       })
-      const content = validateStoredCmsPageContent('homepage', revision.contentJson)
-      expect(content.stats.map((stat) => stat.itemKey)).toEqual([
-        'stat_students',
-        'stat_band_score',
-        'stat_success_rate',
+      const content = validateCmsPageContent('homepage', revision.contentJson)
+      expect(content.stats).toEqual([
+        {
+          itemKey: 'stat_band_score',
+          label: 'Band score',
+          value: 7.5,
+          format: 'decimal',
+        },
+        {
+          itemKey: 'stat_success_rate',
+          label: 'Success rate',
+          value: 0.8,
+          format: 'percentage',
+        },
+        { itemKey: 'stat_students', label: 'Students', value: 10, format: 'number' },
       ])
 
       await replacePublishedSections(tx, page.id, 'homepage', content)
@@ -154,11 +180,12 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
         include: { items: { orderBy: { sortOrder: 'asc' } } },
       })
       expect(statsSection.items.map((item) => item.itemKey)).toEqual([
-        'stat_students',
         'stat_band_score',
         'stat_success_rate',
+        'stat_students',
         'custom_stat',
       ])
+      expect(statsSection.items.some((item) => item.itemKey === 'stat_4')).toBe(false)
       expect(
         statsSection.items.filter((item) => item.itemKey === 'custom_stat'),
       ).toHaveLength(1)
