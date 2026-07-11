@@ -4,7 +4,6 @@
  * Why: Admin content changes must remain unpublished until an audited publish action.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
 const transactionClient = {
   $queryRaw: vi.fn(),
   cmsPageContent: {
@@ -22,7 +21,6 @@ const transactionClient = {
     findMany: vi.fn(), update: vi.fn(), create: vi.fn(), deleteMany: vi.fn(),
   },
 }
-
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
     cmsPageContent: {
@@ -36,7 +34,6 @@ vi.mock('../../../src/prisma/client.js', () => ({
     $transaction: vi.fn(async (operation) => operation(transactionClient)),
   },
 }))
-
 vi.mock('../../../src/modules/audit-logs/audit-logs.service.js', () => ({
   writeAuditLogSafely: vi.fn(),
 }))
@@ -57,12 +54,20 @@ const draftContent = {
     cta_primary: 'Browse',
     cta_secondary: 'Sign in',
   },
-  stats: [],
+  stats: [
+    { itemKey: 'stat_students', label: 'Students', value: 10, format: 'number' },
+    { itemKey: 'stat_band_score', label: 'Band score', value: 7.5, format: 'decimal' },
+    { itemKey: 'stat_success_rate', label: 'Success rate', value: 0.8, format: 'percentage' },
+  ],
   howItWorks: {
     title: 'How it works',
     description: 'Draft steps',
     features: [],
   },
+}
+const legacyDraftContent = {
+  ...draftContent,
+  stats: draftContent.stats.map(({ itemKey: _itemKey, ...stat }) => stat),
 }
 
 describe('cms admin service', () => {
@@ -255,7 +260,7 @@ describe('cms admin service', () => {
       id: 'revision-1',
       pageId: 'page-1',
       revisionNumber: 1,
-      contentJson: draftContent,
+      contentJson: legacyDraftContent,
     })
     transactionClient.cmsPageRevision.create.mockResolvedValueOnce({
       id: 'revision-4',
