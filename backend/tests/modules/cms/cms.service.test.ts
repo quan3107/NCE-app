@@ -80,6 +80,8 @@ describe('cms.service', () => {
               label: 'Active students',
               format: 'number',
             },
+            { value: 7.25, label: 'Band score', format: 'decimal' },
+            { value: 0.8, label: 'Success rate', format: 'percentage' },
           ],
           howItWorks: {
             title: 'How it works',
@@ -101,6 +103,8 @@ describe('cms.service', () => {
                 format: 'number',
               },
             },
+            { id: 'item-band', itemKey: 'stat_band_score', contentJson: { value: 7.25, label: 'Band score', format: 'decimal' } },
+            { id: 'item-success', itemKey: 'stat_success_rate', contentJson: { value: 0.8, label: 'Success rate', format: 'percentage' } },
           ],
         },
       ],
@@ -124,10 +128,13 @@ describe('cms.service', () => {
         content: expect.objectContaining({
           stats: [
             {
+              itemKey: 'stat_students',
               value: 42,
               label: 'Active students',
               format: 'number',
             },
+            { itemKey: 'stat_band_score', value: 7.25, label: 'Band score', format: 'decimal' },
+            { itemKey: 'stat_success_rate', value: 0.8, label: 'Success rate', format: 'percentage' },
           ],
         }),
       },
@@ -182,10 +189,9 @@ describe('cms.service', () => {
             cta_primary: 'Browse', cta_secondary: 'Sign in',
           },
           stats: [
-            { value: 0.1, label: 'Success rate', format: 'percentage' },
-            { value: 10, label: 'Active students', format: 'number' },
-            { value: 6.5, label: 'Band score', format: 'decimal' },
-            { value: 99, label: 'Custom stat', format: 'number' },
+            { itemKey: 'stat_success_rate', value: 0.1, label: 'Success rate', format: 'percentage' },
+            { itemKey: 'stat_students', value: 10, label: 'Active students', format: 'number' },
+            { itemKey: 'stat_band_score', value: 6.5, label: 'Band score', format: 'decimal' },
           ],
           howItWorks: { title: 'How it works', description: 'Steps', features: [] },
         },
@@ -194,9 +200,10 @@ describe('cms.service', () => {
         id: 'stats-section',
         items: [
           { id: 'success', itemKey: 'stat_success_rate', contentJson: { value: 0.1, label: 'Success rate', format: 'percentage' } },
+          { id: 'custom', itemKey: 'custom_stat', contentJson: { value: 99, label: 'Custom stat', format: 'number' } },
           { id: 'students', itemKey: 'stat_students', contentJson: { value: 10, label: 'Active students', format: 'number' } },
+          { id: 'inactive', itemKey: 'stat_band_score', isActive: false, contentJson: { value: 1, label: 'Old band', format: 'decimal' } },
           { id: 'band', itemKey: 'stat_band_score', contentJson: { value: 6.5, label: 'Band score', format: 'decimal' } },
-          { id: 'custom', itemKey: 'stat_4', contentJson: { value: 99, label: 'Custom stat', format: 'number' } },
         ],
       }],
     })
@@ -208,13 +215,18 @@ describe('cms.service', () => {
       data: {
         content: expect.objectContaining({
           stats: [
-            { value: 0.8, label: 'Success rate', format: 'percentage' },
-            { value: 42, label: 'Active students', format: 'number' },
-            { value: 7.25, label: 'Band score', format: 'decimal' },
-            { value: 99, label: 'Custom stat', format: 'number' },
+            { itemKey: 'stat_success_rate', value: 0.8, label: 'Success rate', format: 'percentage' },
+            { itemKey: 'stat_students', value: 42, label: 'Active students', format: 'number' },
+            { itemKey: 'stat_band_score', value: 7.25, label: 'Band score', format: 'decimal' },
           ],
         }),
       },
     })
+    expect(prisma.cmsContentItem.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'inactive' } }),
+    )
+    expect(prisma.cmsContentItem.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'custom' } }),
+    )
   })
 })
