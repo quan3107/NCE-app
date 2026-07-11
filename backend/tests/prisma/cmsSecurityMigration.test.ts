@@ -74,6 +74,30 @@ describe('CMS security migrations', () => {
     }
   })
 
+  it('applies CMS admin write grants atomically after enabling RLS', () => {
+    const begin = securityMigration.indexOf('BEGIN;')
+    const firstGrant = securityMigration.indexOf('GRANT INSERT, UPDATE, DELETE')
+    const commit = securityMigration.lastIndexOf('COMMIT;')
+
+    expect(begin).toBeGreaterThan(0)
+    expect(firstGrant).toBeGreaterThan(begin)
+    expect(commit).toBeGreaterThan(firstGrant)
+
+    for (const table of [
+      'cms_page_contents',
+      'cms_sections',
+      'cms_content_items',
+      'cms_page_revisions',
+      'cms_page_drafts',
+    ]) {
+      const rls = securityMigration.indexOf(
+        `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`,
+      )
+      expect(rls).toBeGreaterThan(begin)
+      expect(rls).toBeLessThan(firstGrant)
+    }
+  })
+
   it('restricts the draft table to authenticated application administrators', () => {
     expect(securityMigration).toMatch(
       /ALTER TABLE public\.cms_page_drafts ENABLE ROW LEVEL SECURITY/i,
