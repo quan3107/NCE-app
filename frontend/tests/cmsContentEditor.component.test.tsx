@@ -18,22 +18,25 @@ function EditorHarness({ pageKey, initial }: { pageKey: CmsPageKey; initial: Cms
   return <CmsContentEditor pageKey={pageKey} content={content} onChange={setContent} />;
 }
 
-test('adds and removes homepage statistics and features', () => {
-  render(<EditorHarness pageKey="homepage" initial={{
+test('keeps realtime statistic membership fixed while features remain variable', () => {
+  const view = render(<EditorHarness pageKey="homepage" initial={{
     hero: { badge: '', title: '', description: '', cta_primary: '', cta_secondary: '' },
-    stats: [],
+    stats: [
+      { label: 'Students', value: 10, format: 'number' },
+      { label: 'Band score', value: 7.5, format: 'decimal' },
+      { label: 'Success rate', value: 0.8, format: 'percentage' },
+    ],
     howItWorks: { title: '', description: '', features: [] },
   }} />);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Add statistic' }));
   assert.ok(screen.getByLabelText('Statistic 1 label'));
-  fireEvent.click(screen.getByRole('button', { name: 'Remove statistic 1' }));
-  assert.equal(screen.queryByLabelText('Statistic 1 label'), null);
+  assert.equal(view.container.textContent?.includes('Add statistic'), false);
+  assert.ok(view.container.querySelector('[aria-label="Remove statistic 1"]') === null);
 
   fireEvent.click(screen.getByRole('button', { name: 'Add feature' }));
   assert.ok(screen.getByLabelText('Feature 1 title'));
   fireEvent.click(screen.getByRole('button', { name: 'Remove feature 1' }));
-  assert.equal(screen.queryByLabelText('Feature 1 title'), null);
+  assert.ok(screen.queryByLabelText('Feature 1 title') === null);
 });
 
 test('adds and removes about values and story paragraphs', () => {
@@ -48,7 +51,7 @@ test('adds and removes about values and story paragraphs', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Add story paragraph' }));
   assert.ok(screen.getByLabelText('Paragraph 1'));
   fireEvent.click(screen.getByRole('button', { name: 'Remove paragraph 1' }));
-  assert.equal(screen.queryByLabelText('Paragraph 1'), null);
+  assert.ok(screen.queryByLabelText('Paragraph 1') === null);
 });
 
 test('adds and removes contact office hours', () => {
@@ -61,5 +64,5 @@ test('adds and removes contact office hours', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Add office hours' }));
   assert.ok(screen.getByLabelText('Hours 1 label'));
   fireEvent.click(screen.getByRole('button', { name: 'Remove office hours 1' }));
-  assert.equal(screen.queryByLabelText('Hours 1 label'), null);
+  assert.ok(screen.queryByLabelText('Hours 1 label') === null);
 });
