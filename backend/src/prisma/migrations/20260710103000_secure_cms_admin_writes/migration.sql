@@ -2,15 +2,17 @@
 -- Purpose: Permit CMS publish writes only for authenticated application administrators.
 -- Why: Request-scoped Prisma uses the authenticated database role for admin CMS transactions.
 
-GRANT INSERT, UPDATE, DELETE ON public.cms_sections TO authenticated;
-GRANT INSERT, UPDATE, DELETE ON public.cms_content_items TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.cms_page_drafts TO authenticated;
+BEGIN;
 
 ALTER TABLE public.cms_page_contents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cms_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cms_content_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cms_page_revisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cms_page_drafts ENABLE ROW LEVEL SECURITY;
+
+GRANT INSERT, UPDATE, DELETE ON public.cms_sections TO authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.cms_content_items TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.cms_page_drafts TO authenticated;
 
 CREATE POLICY cms_page_contents_public_read
   ON public.cms_page_contents FOR SELECT
@@ -64,3 +66,5 @@ CREATE POLICY cms_page_drafts_admin_update
   TO authenticated
   USING (current_setting('app.current_user_role', true) = 'admin')
   WITH CHECK (current_setting('app.current_user_role', true) = 'admin');
+
+COMMIT;
