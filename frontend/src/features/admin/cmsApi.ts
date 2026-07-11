@@ -106,12 +106,27 @@ async function refreshPage(
   await Promise.all(invalidations);
 }
 
-async function refreshAfterVersionConflict(error: unknown, pageKey: CmsPageKey) {
+async function refreshAfterVersionConflict(
+  error: unknown,
+  pageKey: CmsPageKey,
+  options: { revisions?: boolean; published?: boolean } = {},
+) {
   if (!isCmsVersionConflict(error)) return;
-  await Promise.all([
+  const invalidations = [
     queryClient.invalidateQueries({ queryKey: draftKey(pageKey) }),
     queryClient.invalidateQueries({ queryKey: pagesKey }),
-  ]);
+  ];
+  if (options.revisions) {
+    invalidations.push(
+      queryClient.invalidateQueries({ queryKey: revisionsKey(pageKey) }),
+    );
+  }
+  if (options.published) {
+    invalidations.push(
+      queryClient.invalidateQueries({ queryKey: ['cms', pageKey] }),
+    );
+  }
+  await Promise.all(invalidations);
 }
 
 export function useCmsPagesQuery() {
@@ -148,7 +163,10 @@ export function usePublishCmsDraftMutation() {
     mutationFn: publishCmsDraft,
     onSuccess: (page) => refreshPage(page, { revisions: true, published: true }),
     onError: (error, variables) =>
-      refreshAfterVersionConflict(error, variables.pageKey),
+      refreshAfterVersionConflict(error, variables.pageKey, {
+        revisions: true,
+        published: true,
+      }),
   });
 }
 
@@ -157,6 +175,9 @@ export function useRollbackCmsRevisionMutation() {
     mutationFn: rollbackCmsRevision,
     onSuccess: (page) => refreshPage(page, { revisions: true, published: true }),
     onError: (error, variables) =>
-      refreshAfterVersionConflict(error, variables.pageKey),
+      refreshAfterVersionConflict(error, variables.pageKey, {
+        revisions: true,
+        published: true,
+      }),
   });
 }
