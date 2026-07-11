@@ -7,7 +7,7 @@
 import { prisma } from '../../prisma/client.js'
 import type { Prisma } from '../../prisma/generated.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
-import { parseCmsPageContent, validateCmsPageContent } from './cms.content.js'
+import { parseCmsPageContent, validateStoredCmsPageContent } from './cms.content.js'
 import { lockCmsPageByKey } from './cms.persistence.js'
 import type {
   AboutPageContent,
@@ -102,7 +102,12 @@ export const updateHomepageStatsWithRealtimeData = async (actor?: {
         draft: true,
         sections: {
           where: { sectionKey: 'stats' },
-          include: { items: { orderBy: { sortOrder: 'asc' } } },
+          include: {
+            items: {
+              where: { isActive: true },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
         },
       },
     })
@@ -120,19 +125,18 @@ export const updateHomepageStatsWithRealtimeData = async (actor?: {
       ['stat_success_rate', stats.successRate],
     ])
     const draftContent = homepage.draft
-      ? (validateCmsPageContent('homepage', homepage.draft.content) as HomepageContent)
+      ? (validateStoredCmsPageContent('homepage', homepage.draft.content) as HomepageContent)
       : null
-    // Draft arrays follow persisted row order, which is not necessarily canonical.
-    // Resolve each draft position through its row key before applying realtime data.
-    const draftStats = draftContent?.stats.map((item, index) => ({
+    const draftStats = draftContent?.stats.map((item) => ({
       ...item,
-      value: valueByKey.get(statsSection.items[index]?.itemKey ?? '') ?? item.value,
+      value: valueByKey.get(item.itemKey) ?? item.value,
     }))
     const draftChanged = Boolean(
       draftContent && JSON.stringify(draftStats) !== JSON.stringify(draftContent.stats),
     )
 
     for (const item of statsSection.items) {
+      if (item.isActive === false) continue
       const itemKey = item.itemKey
       const currentContent = item.contentJson as {
         value: number
