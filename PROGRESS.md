@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-11:** Repaired the deployed CMS page-write permission set by granting authenticated updates to Prisma-managed `updated_at` alongside the draft/publication version columns. Added the grant to the reconciliation path, a follow-up idempotent repair for databases that already ran it, and focused regression coverage.
 - **2026-07-11:** Added an atomic forward reconciliation migration for hosted databases that already recorded the original CMS migration names. It preserves legacy drafts, removes the superseded content column, aligns defaults/indexes/foreign keys with Prisma, and enables draft RLS policies before grants. Added focused migration coverage.
 - **2026-07-11:** Removed CMS draft timestamp and revision UUID database defaults absent from Prisma, and made later raw SQL revision bootstraps supply UUIDs explicitly. Extended migration drift coverage to column defaults and bootstrap safety.
 - **2026-07-11:** Aligned the handwritten CMS draft/revision migration with Prisma's canonical index names, ascending revision-history index, and cascading foreign-key updates. Added a focused schema-fidelity regression.
@@ -74,6 +75,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-11:** No frontend files changed for the CMS page-write permission repair; the fix is isolated to backend migration grants, regression coverage, and this progress record.
 - **2026-07-11:** No frontend files changed for the hosted CMS migration reconciliation; the upgrade is isolated to backend migration SQL, its regression test, and this progress record.
 - **2026-07-11:** No frontend files changed for CMS database-default alignment; the correction is isolated to backend migrations, their regression coverage, and this progress record.
 - **2026-07-11:** Made publish and rollback version-conflict recovery invalidate revision history and hour-cached public CMS content in addition to draft/page state, while keeping save conflicts scoped to draft/page invalidation. Added mutation-level regressions for each conflict type.
