@@ -6,6 +6,7 @@
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
+import { Button } from '@components/ui/button';
 import type {
   CmsAboutPageContent,
   CmsContactPageContent,
@@ -50,6 +51,20 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function CollectionActions({ addLabel, removeLabel, onAdd, onRemove }: {
+  addLabel?: string;
+  removeLabel?: string;
+  onAdd?: () => void;
+  onRemove?: () => void;
+}) {
+  return (
+    <div className="flex justify-end gap-2">
+      {onRemove ? <Button type="button" variant="outline" size="sm" aria-label={removeLabel} onClick={onRemove}>Remove</Button> : null}
+      {onAdd ? <Button type="button" variant="outline" size="sm" onClick={onAdd}>{addLabel}</Button> : null}
+    </div>
+  );
+}
+
 function HomepageEditor({
   content,
   onChange,
@@ -82,8 +97,10 @@ function HomepageEditor({
             <Field id={`stat-suffix-${index}`} label={`Statistic ${index + 1} suffix`} value={stat.suffix ?? ''} onChange={(value) => {
               const stats = [...content.stats]; stats[index] = { ...stat, suffix: value || undefined }; onChange({ ...content, stats });
             }} />
+            <CollectionActions removeLabel={`Remove statistic ${index + 1}`} onRemove={() => onChange({ ...content, stats: content.stats.filter((_, itemIndex) => itemIndex !== index) })} />
           </div>
         ))}
+        <CollectionActions addLabel="Add statistic" onAdd={() => onChange({ ...content, stats: [...content.stats, { label: '', value: 0, format: 'number' }] })} />
       </Section>
       <Section title="How it works">
         <Field id="how-title" label="Section title" value={content.howItWorks.title} onChange={(value) => onChange({ ...content, howItWorks: { ...content.howItWorks, title: value } })} />
@@ -96,8 +113,10 @@ function HomepageEditor({
                 onChange({ ...content, howItWorks: { ...content.howItWorks, features } });
               }} />
             ))}
+            <CollectionActions removeLabel={`Remove feature ${index + 1}`} onRemove={() => onChange({ ...content, howItWorks: { ...content.howItWorks, features: content.howItWorks.features.filter((_, itemIndex) => itemIndex !== index) } })} />
           </div>
         ))}
+        <CollectionActions addLabel="Add feature" onAdd={() => onChange({ ...content, howItWorks: { ...content.howItWorks, features: [...content.howItWorks.features, { icon: '', title: '', description: '' }] } })} />
       </Section>
     </div>
   );
@@ -118,15 +137,21 @@ function AboutEditor({ content, onChange }: { content: CmsAboutPageContent; onCh
                 const values = [...content.values]; values[index] = { ...entry, [key]: value }; onChange({ ...content, values });
               }} />
             ))}
+            <CollectionActions removeLabel={`Remove value ${index + 1}`} onRemove={() => onChange({ ...content, values: content.values.filter((_, itemIndex) => itemIndex !== index) })} />
           </div>
         ))}
+        <CollectionActions addLabel="Add value" onAdd={() => onChange({ ...content, values: [...content.values, { icon: '', title: '', description: '' }] })} />
       </Section>
       <Section title="Story">
         {content.story.sections.map((paragraph, index) => (
-          <Field key={index} id={`story-${index}`} label={`Paragraph ${index + 1}`} value={paragraph} multiline onChange={(value) => {
-            const sections = [...content.story.sections]; sections[index] = value; onChange({ ...content, story: { sections } });
-          }} />
+          <div key={index} className="space-y-3 rounded-md bg-muted/40 p-3">
+            <Field id={`story-${index}`} label={`Paragraph ${index + 1}`} value={paragraph} multiline onChange={(value) => {
+              const sections = [...content.story.sections]; sections[index] = value; onChange({ ...content, story: { sections } });
+            }} />
+            <CollectionActions removeLabel={`Remove paragraph ${index + 1}`} onRemove={() => onChange({ ...content, story: { sections: content.story.sections.filter((_, itemIndex) => itemIndex !== index) } })} />
+          </div>
         ))}
+        <CollectionActions addLabel="Add story paragraph" onAdd={() => onChange({ ...content, story: { sections: [...content.story.sections, ''] } })} />
       </Section>
     </div>
   );
@@ -159,8 +184,10 @@ function ContactEditor({ content, onChange }: { content: CmsContactPageContent; 
                 const hours = [...content.hours]; hours[index] = { ...entry, [key]: value }; onChange({ ...content, hours });
               }} />
             ))}
+            <CollectionActions removeLabel={`Remove office hours ${index + 1}`} onRemove={() => onChange({ ...content, hours: content.hours.filter((_, itemIndex) => itemIndex !== index) })} />
           </div>
         ))}
+        <CollectionActions addLabel="Add office hours" onAdd={() => onChange({ ...content, hours: [...content.hours, { label: '', value: '' }] })} />
       </Section>
     </div>
   );
