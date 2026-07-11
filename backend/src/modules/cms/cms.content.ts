@@ -3,6 +3,8 @@
  * Purpose: Convert CMS page payloads between API snapshots and normalized database sections.
  * Why: Publish and rollback must share one deterministic content mapping with public reads.
  */
+import { ZodError } from 'zod'
+
 import {
   AboutPageContentSchema,
   ContactPageContentSchema,
@@ -11,6 +13,7 @@ import {
   type CmsPageContent,
   type CmsPageKey,
 } from './cms.schema.js'
+import { StoredCmsContentError } from './cms.errors.js'
 import { isManagedCmsItemKey } from './cms.managed.js'
 
 type CmsItemRow = {
@@ -54,6 +57,17 @@ export const REALTIME_STAT_KEYS = RealtimeStatKeySchema.options
 const FALLBACK_HOW_IT_WORKS_TITLE = 'How It Works'
 const FALLBACK_HOW_IT_WORKS_DESCRIPTION =
   'Our structured approach helps you improve systematically across all IELTS test components with expert guidance every step of the way.'
+
+function parseStoredContent<T>(pageKey: CmsPageKey, parse: () => T): T {
+  try {
+    return parse()
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new StoredCmsContentError(pageKey, error)
+    }
+    throw error
+  }
+}
 
 const item = (
   itemKey: string,
@@ -157,9 +171,11 @@ export function parseCmsPageContent(
   pageKey: CmsPageKey,
   page: CmsPageRow,
 ): CmsPageContent {
-  if (pageKey === 'homepage') return parseHomepage(page)
-  if (pageKey === 'about') return parseAbout(page)
-  return parseContact(page)
+  return parseStoredContent(pageKey, () => {
+    if (pageKey === 'homepage') return parseHomepage(page)
+    if (pageKey === 'about') return parseAbout(page)
+    return parseContact(page)
+  })
 }
 
 export function validateCmsPageContent(
@@ -175,17 +191,23 @@ export function validateStoredCmsPageContent(
   pageKey: CmsPageKey,
   content: unknown,
 ): CmsPageContent {
-  if (pageKey !== 'homepage') return validateCmsPageContent(pageKey, content)
-  if (!content || typeof content !== 'object') return validateCmsPageContent(pageKey, content)
-  const candidate = content as { stats?: unknown }
-  if (!Array.isArray(candidate.stats)) return validateCmsPageContent(pageKey, content)
-  return validateCmsPageContent(pageKey, {
-    ...candidate,
-    stats: candidate.stats.map((stat, index) =>
-      stat && typeof stat === 'object' && !('itemKey' in stat)
-        ? { ...stat, itemKey: REALTIME_STAT_KEYS[index] }
-        : stat,
-    ),
+  return parseStoredContent(pageKey, () => {
+    if (pageKey !== 'homepage') return validateCmsPageContent(pageKey, content)
+    if (!content || typeof content !== 'object') {
+      return validateCmsPageContent(pageKey, content)
+    }
+    const candidate = content as { stats?: unknown }
+    if (!Array.isArray(candidate.stats)) {
+      return validateCmsPageContent(pageKey, content)
+    }
+    return validateCmsPageContent(pageKey, {
+      ...candidate,
+      stats: candidate.stats.map((stat, index) =>
+        stat && typeof stat === 'object' && !('itemKey' in stat)
+          ? { ...stat, itemKey: REALTIME_STAT_KEYS[index] }
+          : stat,
+      ),
+    })
   })
 }
 
