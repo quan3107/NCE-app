@@ -308,7 +308,7 @@ test("shows revision, save, publish, and rollback failures", () => {
   assert.ok(
     screen.getByText("Unable to roll back the revision. Please try again."),
   );
-  assert.equal(screen.queryByText("No published revisions yet."), null);
+  assert.ok(screen.queryByText("No published revisions yet.") === null);
 });
 
 test("retains dirty content with its base version when the server draft advances", () => {
@@ -354,11 +354,10 @@ test("retains dirty content with its base version when the server draft advances
       .disabled,
     false,
   );
-  assert.equal(
+  assert.ok(
     screen.queryByText(
       "This draft changed on the server. Reload before saving or publishing.",
-    ),
-    null,
+    ) === null,
   );
 });
 
@@ -420,7 +419,7 @@ test("shows page-list and draft-load failures distinctly", () => {
     ).disabled,
     true,
   );
-  assert.equal(screen.queryByText("Loading page draft…"), null);
+  assert.ok(screen.queryByText("Loading page draft…") === null);
 });
 
 test("switching page types never renders the previous draft through the new editor", async () => {
