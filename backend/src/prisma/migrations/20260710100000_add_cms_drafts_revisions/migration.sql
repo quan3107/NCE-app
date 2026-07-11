@@ -16,11 +16,11 @@ CREATE TABLE public.cms_page_drafts (
   page_id UUID PRIMARY KEY,
   content_json JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE public.cms_page_revisions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY,
   page_id UUID NOT NULL,
   revision_number INTEGER NOT NULL,
   content_json JSONB NOT NULL,
