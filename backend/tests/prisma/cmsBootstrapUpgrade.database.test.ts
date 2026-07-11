@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   parseCmsPageContent,
-  validateCmsPageContent,
+  validateStoredCmsPageContent,
 } from '../../src/modules/cms/cms.content.js'
 import { replacePublishedSections } from '../../src/modules/cms/cms.persistence.js'
 import { basePrisma } from '../../src/prisma/client.js'
@@ -102,8 +102,22 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
                       contentJson: { label: 'Students', value: 10, format: 'number' },
                     },
                     {
-                      itemKey: 'custom_stat',
+                      itemKey: 'stat_band_score',
                       sortOrder: 1,
+                      contentType: 'stat',
+                      isActive: true,
+                      contentJson: { label: 'Band score', value: 7.5, format: 'decimal' },
+                    },
+                    {
+                      itemKey: 'stat_success_rate',
+                      sortOrder: 2,
+                      contentType: 'stat',
+                      isActive: true,
+                      contentJson: { label: 'Success rate', value: 0.8, format: 'percentage' },
+                    },
+                    {
+                      itemKey: 'custom_stat',
+                      sortOrder: 3,
                       contentType: 'stat',
                       isActive: true,
                       contentJson: { label: 'Custom', value: 99, format: 'number' },
@@ -127,8 +141,12 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
       const revision = await tx.cmsPageRevision.findUniqueOrThrow({
         where: { pageId_revisionNumber: { pageId: page.id, revisionNumber: 1 } },
       })
-      const content = validateCmsPageContent('homepage', revision.contentJson)
-      expect(content.stats).toEqual([{ label: 'Students', value: 10, format: 'number' }])
+      const content = validateStoredCmsPageContent('homepage', revision.contentJson)
+      expect(content.stats.map((stat) => stat.itemKey)).toEqual([
+        'stat_students',
+        'stat_band_score',
+        'stat_success_rate',
+      ])
 
       await replacePublishedSections(tx, page.id, 'homepage', content)
       const statsSection = await tx.cmsSection.findUniqueOrThrow({
@@ -137,6 +155,8 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
       })
       expect(statsSection.items.map((item) => item.itemKey)).toEqual([
         'stat_students',
+        'stat_band_score',
+        'stat_success_rate',
         'custom_stat',
       ])
       expect(
@@ -164,7 +184,7 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
       expect(page.publishedRevision).toBe(1)
       expect(page.revisions).toHaveLength(1)
       expect(page.revisions[0]).toMatchObject({ revisionNumber: 1, operation: 'publish' })
-      const revisionContent = validateCmsPageContent(
+      const revisionContent = validateStoredCmsPageContent(
         'about',
         page.revisions[0]!.contentJson,
       )
