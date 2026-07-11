@@ -8,192 +8,25 @@ import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, test, vi } from "vitest";
 
 import { renderAdminCmsPage } from "./adminCms.test-utils";
+import {
+  cmsState,
+  publishMutate,
+  publishReset,
+  resetCmsComponentState,
+  rollbackMutate,
+  rollbackReset,
+  saveMutate,
+  saveReset,
+} from "./adminCms.component.fixture";
 
-const saveMutate = vi.hoisted(() => vi.fn());
-const publishMutate = vi.hoisted(() => vi.fn());
-const rollbackMutate = vi.hoisted(() => vi.fn());
-const saveReset = vi.hoisted(() => vi.fn());
-const publishReset = vi.hoisted(() => vi.fn());
-const rollbackReset = vi.hoisted(() => vi.fn());
-const fetchNextPage = vi.hoisted(() => vi.fn());
-const cmsState = vi.hoisted(() => ({
-  draftVersion: 1,
-  hasUnpublishedChanges: true,
-  pagesError: null as Error | null,
-  draftError: null as Error | null,
-  revisionError: null as Error | null,
-  saveError: null as Error | null,
-  publishError: null as Error | null,
-  rollbackError: null as Error | null,
-  hasNextPage: false,
-  draftLoading: false,
-}));
-
-vi.mock("@features/admin/cmsApi", () => ({
-  isCmsVersionConflict: (error: unknown) =>
-    (error as { status?: number } | null)?.status === 409,
-  useCmsPagesQuery: () => ({
-    data: {
-      pages: [
-        {
-          pageKey: "homepage",
-          label: "Homepage",
-          draftVersion: 1,
-          publishedDraftVersion: 0,
-          publishedRevision: 0,
-          publishedAt: null,
-          hasUnpublishedChanges: true,
-        },
-        {
-          pageKey: "about",
-          label: "About Page",
-          draftVersion: 1,
-          publishedDraftVersion: 1,
-          publishedRevision: 1,
-          publishedAt: null,
-          hasUnpublishedChanges: false,
-        },
-        {
-          pageKey: "contact",
-          label: "Contact Page",
-          draftVersion: 1,
-          publishedDraftVersion: 1,
-          publishedRevision: 0,
-          publishedAt: null,
-          hasUnpublishedChanges: false,
-        },
-      ],
-    },
-    isLoading: false,
-    error: cmsState.pagesError,
-  }),
-  useCmsDraftQuery: (pageKey: string) => ({
-    data: {
-      pageKey,
-      label:
-        pageKey === "contact"
-          ? "Contact Page"
-          : pageKey === "about"
-            ? "About Page"
-            : "Homepage",
-      content:
-        pageKey === "contact"
-          ? {
-              header: { title: "Contact us", description: "Get in touch." },
-              form: {
-                title: "Message us",
-                description: "We can help.",
-                submitLabel: "Send",
-              },
-              details: {
-                email: "support@example.com",
-                phone: "123",
-                address: "Office",
-              },
-              hours: [{ label: "Weekdays", value: "9 to 5" }],
-            }
-          : pageKey === "about"
-            ? {
-                hero: {
-                  title: "About NCE",
-                  description: "Our teaching mission.",
-                },
-                values: [
-                  {
-                    icon: "target",
-                    title: "Student success",
-                    description: "Learners come first.",
-                  },
-                ],
-                story: { sections: ["We started with expert teachers."] },
-              }
-            : {
-                hero: {
-                  badge: "Badge",
-                  title: "Original title",
-                  description: "Description",
-                  cta_primary: "Browse",
-                  cta_secondary: "Login",
-                },
-                stats: [{ label: "Learners", value: 42, format: "number" }],
-                howItWorks: {
-                  title: "How it works",
-                  description: "Steps",
-                  features: [
-                    {
-                      icon: "book-open",
-                      title: "Practice tasks",
-                      description: "Use real tasks.",
-                    },
-                  ],
-                },
-              },
-      draftVersion: cmsState.draftVersion,
-      publishedDraftVersion: 0,
-      publishedRevision: 0,
-      publishedAt: null,
-      hasUnpublishedChanges: cmsState.hasUnpublishedChanges,
-    },
-    isLoading: cmsState.draftLoading,
-    error: cmsState.draftError,
-  }),
-  useCmsRevisionsQuery: () => ({
-    data: {
-      pages: [
-        {
-          revisions: [
-            {
-              id: "revision-1",
-              revisionNumber: 1,
-              operation: "publish",
-              createdAt: "2026-07-01T00:00:00.000Z",
-              createdBy: { id: "admin-1", fullName: "Admin User" },
-              sourceRevision: null,
-            },
-          ],
-          nextCursor: null,
-        },
-      ],
-    },
-    isLoading: false,
-    error: cmsState.revisionError,
-    hasNextPage: cmsState.hasNextPage,
-    isFetchingNextPage: false,
-    fetchNextPage,
-  }),
-  useSaveCmsDraftMutation: () => ({
-    mutate: saveMutate,
-    reset: saveReset,
-    isPending: false,
-    error: cmsState.saveError,
-  }),
-  usePublishCmsDraftMutation: () => ({
-    mutate: publishMutate,
-    reset: publishReset,
-    isPending: false,
-    error: cmsState.publishError,
-  }),
-  useRollbackCmsRevisionMutation: () => ({
-    mutate: rollbackMutate,
-    reset: rollbackReset,
-    isPending: false,
-    error: cmsState.rollbackError,
-  }),
-}));
+vi.mock("@features/admin/cmsApi", () =>
+  import("./adminCms.component.fixture"),
+);
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  cmsState.draftVersion = 1;
-  cmsState.hasUnpublishedChanges = true;
-  cmsState.pagesError = null;
-  cmsState.draftError = null;
-  cmsState.revisionError = null;
-  cmsState.saveError = null;
-  cmsState.publishError = null;
-  cmsState.rollbackError = null;
-  cmsState.hasNextPage = false;
-  cmsState.draftLoading = false;
+  resetCmsComponentState();
 });
 
 test("admin CMS page submits edited drafts, publishes, and rolls back", () => {
