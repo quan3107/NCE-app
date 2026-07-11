@@ -42,3 +42,16 @@ test('CMS rollback schema requires the loaded draft version', async () => {
   assert.match(rollback, /required: \[expectedDraftVersion\]/);
   assert.match(rollback, /expectedDraftVersion:[\s\S]*minimum: 0/);
 });
+
+test('CMS homepage stats require canonical stable keys', async () => {
+  const schemas = await readFile(path.join(docsRoot, 'schemas/cms.yaml'), 'utf8');
+  const statItem = schemas.match(/StatItem:[\s\S]*?(?=\nFeatureItem:)/)?.[0] ?? '';
+  const homepage = schemas.match(/HomepageContent:[\s\S]*?(?=\nAboutHeroContent:)/)?.[0] ?? '';
+
+  assert.match(statItem, /required: \[itemKey, label, value, format\]/);
+  assert.match(
+    statItem,
+    /itemKey:[\s\S]*enum: \[stat_students, stat_band_score, stat_success_rate\]/,
+  );
+  assert.match(homepage, /stats:[\s\S]*minItems: 3[\s\S]*maxItems: 3/);
+});
