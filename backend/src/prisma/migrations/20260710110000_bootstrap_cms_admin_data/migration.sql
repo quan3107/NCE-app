@@ -111,14 +111,16 @@ WITH managed_pages AS (
         ORDER BY item.sort_order LIMIT 1
       ), '{}'::jsonb),
       'stats', COALESCE((
-        SELECT jsonb_agg(item.content_json ORDER BY item.sort_order)
+        SELECT jsonb_agg(
+          item.content_json || jsonb_build_object('itemKey', item.item_key)
+          ORDER BY item.sort_order
+        )
         FROM public.cms_sections section
         JOIN public.cms_content_items item ON item.section_id = section.id
         WHERE section.page_id = page.id AND section.section_key = 'stats'
           AND section.is_active = TRUE AND item.is_active = TRUE
-          AND (
-            item.item_key IS NULL
-            OR item.item_key ~ '^stat_(students|band_score|success_rate|[0-9]+)$'
+          AND item.item_key IN (
+            'stat_students', 'stat_band_score', 'stat_success_rate'
           )
       ), '[]'::jsonb),
       'howItWorks', jsonb_build_object(
