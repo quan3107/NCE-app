@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-11:** Corrected CMS revision 1 bootstrap snapshots to embed stable homepage statistic keys, accept only the three canonical realtime rows, and preserve key-to-value identity when persisted rows are reordered. Added source and database regressions covering numeric and custom stat exclusion.
 - **2026-07-11:** Corrected the PostgreSQL-backed CMS bootstrap upgrade fixture for the keyed realtime-stat contract by seeding all three canonical metrics and validating migration-created keyless revision JSON through the legacy storage boundary. Confirmed the connected Supabase project exposes the expected CMS tables; local database execution remained unavailable without PostgreSQL/Docker, so the pushed CI run is the disposable-database verification source.
 - **2026-07-11:** Made homepage realtime statistics identity-safe by requiring the complete unique keyed metric set on new API writes, preserving keys through parse/publish, normalizing legacy stored drafts and revisions, and refreshing strictly by key while ignoring custom and inactive rows. Added focused regressions and split CMS migration parsing coverage below the file-size limit.
 - **2026-07-11:** No backend files changed during the Vitest component-test memory investigation; the reproduced failure path is isolated to frontend React/jsdom DOM-node assertion formatting.
@@ -68,6 +69,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-11 (frontend):** Updated the CMS OpenAPI contract so homepage statistics require a canonical `itemKey` and exactly three entries, with a focused schema regression test.
 - **2026-07-11:** Added stable realtime statistic keys to the frontend CMS contract and fixtures, and extracted shared admin CMS component mocks so every touched test file remains below 300 lines while preserving editor, preview, conflict, and mutation coverage.
 - **2026-07-11:** Isolated the component-test runaway memory failure to Node strict-assertion formatting of React-owned jsdom elements. Replaced all 17 direct DOM-query-vs-null strict assertions with primitive boolean assertions and added a source guard preventing the unsafe pattern from returning.
 - **2026-07-11:** Made variable-length CMS features, values, story paragraphs, and office hours manageable with accessible Add/Remove controls while keeping realtime statistic membership fixed to preserve refresh identity. Reset save/publish/rollback mutation errors when switching pages and added focused component regressions.
