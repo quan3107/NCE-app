@@ -7,7 +7,7 @@ import { prisma } from '../../prisma/client.js'
 import type { Prisma } from '../../prisma/generated.js'
 import { createHttpError } from '../../utils/httpError.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
-import { validateCmsPageContent } from './cms.content.js'
+import { validateStoredCmsPageContent } from './cms.content.js'
 import { lockCmsPageByKey, replacePublishedSections } from './cms.persistence.js'
 import {
   CmsPageKeySchema,
@@ -96,7 +96,7 @@ export async function rollbackCmsRevision(
     })
     if (!source) throw createHttpError(404, 'CMS revision not found')
 
-    const content = validateCmsPageContent(pageKey, source.contentJson)
+    const content = validateStoredCmsPageContent(pageKey, source.contentJson)
     const revisionNumber = page.publishedRevision + 1
     const draftVersion = page.draftVersion + 1
     const claimed = await tx.cmsPageContent.updateMany({
