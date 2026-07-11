@@ -75,9 +75,9 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO public.cms_page_revisions (
-  page_id, revision_number, content_json, operation, created_by_id
+  id, page_id, revision_number, content_json, operation, created_by_id
 )
-SELECT created_page_id, 1, $cms${
+SELECT gen_random_uuid(), created_page_id, 1, $cms${
   "hero":{
     "badge":"Professional IELTS Training",
     "title":"Achieve Your Target IELTS Band Score",
