@@ -72,9 +72,9 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO public.cms_page_revisions (
-  page_id, revision_number, content_json, operation, created_by_id
+  id, page_id, revision_number, content_json, operation, created_by_id
 )
-SELECT created_page_id, 1, $cms${
+SELECT gen_random_uuid(), created_page_id, 1, $cms${
   "hero":{
     "title":"About NCE",
     "description":"We're dedicated to helping students achieve their IELTS goals through comprehensive training, expert feedback, and authentic practice materials."
