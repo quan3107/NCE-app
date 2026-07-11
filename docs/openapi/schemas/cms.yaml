@@ -20,6 +20,9 @@ HeroContent:
 StatItem:
   type: object
   properties:
+    itemKey:
+      type: string
+      enum: [stat_students, stat_band_score, stat_success_rate]
     label:
       type: string
     value:
@@ -29,7 +32,7 @@ StatItem:
       enum: [number, decimal, percentage]
     suffix:
       type: string
-  required: [label, value, format]
+  required: [itemKey, label, value, format]
 
 FeatureItem:
   type: object
@@ -62,6 +65,9 @@ HomepageContent:
       $ref: './cms.yaml#/HeroContent'
     stats:
       type: array
+      description: Exactly one item is required for each canonical realtime statistic key.
+      minItems: 3
+      maxItems: 3
       items:
         $ref: './cms.yaml#/StatItem'
     howItWorks:
