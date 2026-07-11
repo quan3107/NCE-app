@@ -58,6 +58,22 @@ describe('CMS security migrations', () => {
     )
   })
 
+  it('enables RLS before granting newly added CMS operations', () => {
+    const firstGrant = draftMigration.indexOf('GRANT SELECT, INSERT, UPDATE')
+    expect(firstGrant).toBeGreaterThan(0)
+    for (const table of [
+      'cms_page_contents',
+      'cms_page_drafts',
+      'cms_page_revisions',
+    ]) {
+      const rls = draftMigration.indexOf(
+        `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`,
+      )
+      expect(rls).toBeGreaterThan(0)
+      expect(rls).toBeLessThan(firstGrant)
+    }
+  })
+
   it('restricts the draft table to authenticated application administrators', () => {
     expect(securityMigration).toMatch(
       /ALTER TABLE public\.cms_page_drafts ENABLE ROW LEVEL SECURITY/i,
