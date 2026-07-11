@@ -55,3 +55,19 @@ test('CMS homepage stats require canonical stable keys', async () => {
   );
   assert.match(homepage, /stats:[\s\S]*minItems: 3[\s\S]*maxItems: 3/);
 });
+
+test('CMS public text documents the runtime nonblank constraint', async () => {
+  const schemas = await readFile(path.join(docsRoot, 'schemas/cms.yaml'), 'utf8');
+  const publicContent = schemas.match(/[\s\S]*?(?=\nCmsPageContent:)/)?.[0] ?? '';
+  const nonBlank = schemas.match(/NonBlankString:[\s\S]*?(?=\nHeroContent:)/)?.[0] ?? '';
+
+  assert.match(nonBlank, /minLength: 1/);
+  assert.match(nonBlank, /pattern: '\\S'/);
+  for (const property of [
+    'badge', 'title', 'description', 'cta_primary', 'cta_secondary',
+    'label', 'icon', 'submitLabel', 'phone', 'address', 'value',
+  ]) {
+    assert.doesNotMatch(publicContent, new RegExp(`${property}:\\n\\s+type: string`));
+  }
+  assert.match(publicContent, /sections:[\s\S]*items:\n\s+\$ref: '.\/cms.yaml#\/NonBlankString'/);
+});
