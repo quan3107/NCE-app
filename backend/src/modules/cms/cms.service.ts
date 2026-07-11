@@ -102,7 +102,7 @@ export const updateHomepageStatsWithRealtimeData = async (actor?: {
         draft: true,
         sections: {
           where: { sectionKey: 'stats' },
-          include: { items: true },
+          include: { items: { orderBy: { sortOrder: 'asc' } } },
         },
       },
     })
@@ -122,10 +122,11 @@ export const updateHomepageStatsWithRealtimeData = async (actor?: {
     const draftContent = homepage.draft
       ? (validateCmsPageContent('homepage', homepage.draft.content) as HomepageContent)
       : null
-    const realtimeValues = [stats.activeStudents, stats.avgBandScore, stats.successRate]
+    // Draft arrays follow persisted row order, which is not necessarily canonical.
+    // Resolve each draft position through its row key before applying realtime data.
     const draftStats = draftContent?.stats.map((item, index) => ({
       ...item,
-      value: realtimeValues[index] ?? item.value,
+      value: valueByKey.get(statsSection.items[index]?.itemKey ?? '') ?? item.value,
     }))
     const draftChanged = Boolean(
       draftContent && JSON.stringify(draftStats) !== JSON.stringify(draftContent.stats),
