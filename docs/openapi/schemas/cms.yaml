@@ -2,19 +2,24 @@
 # Purpose: Define CMS marketing response schemas.
 # Why: Documents homepage/about payload contracts consumed by the frontend.
 
+NonBlankString:
+  type: string
+  minLength: 1
+  pattern: '\S'
+
 HeroContent:
   type: object
   properties:
     badge:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     cta_primary:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     cta_secondary:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
   required: [badge, title, description, cta_primary, cta_secondary]
 
 StatItem:
@@ -24,7 +29,7 @@ StatItem:
       type: string
       enum: [stat_students, stat_band_score, stat_success_rate]
     label:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     value:
       type: number
     format:
@@ -38,20 +43,20 @@ FeatureItem:
   type: object
   properties:
     icon:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
   required: [icon, title, description]
 
 HowItWorksContent:
   type: object
   properties:
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     features:
       type: array
       items:
@@ -78,20 +83,20 @@ AboutHeroContent:
   type: object
   properties:
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
   required: [title, description]
 
 ValueItem:
   type: object
   properties:
     icon:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
   required: [icon, title, description]
 
 AboutStory:
@@ -100,7 +105,7 @@ AboutStory:
     sections:
       type: array
       items:
-        type: string
+        $ref: './cms.yaml#/NonBlankString'
   required: [sections]
 
 AboutPageContent:
@@ -124,30 +129,30 @@ ContactPageContent:
       type: object
       required: [title, description]
       properties:
-        title: { type: string }
-        description: { type: string }
+        title: { $ref: './cms.yaml#/NonBlankString' }
+        description: { $ref: './cms.yaml#/NonBlankString' }
     form:
       type: object
       required: [title, description, submitLabel]
       properties:
-        title: { type: string }
-        description: { type: string }
-        submitLabel: { type: string }
+        title: { $ref: './cms.yaml#/NonBlankString' }
+        description: { $ref: './cms.yaml#/NonBlankString' }
+        submitLabel: { $ref: './cms.yaml#/NonBlankString' }
     details:
       type: object
       required: [email, phone, address]
       properties:
-        email: { type: string, format: email }
-        phone: { type: string }
-        address: { type: string }
+        email: { type: string, format: email, minLength: 1, pattern: '\S' }
+        phone: { $ref: './cms.yaml#/NonBlankString' }
+        address: { $ref: './cms.yaml#/NonBlankString' }
     hours:
       type: array
       items:
         type: object
         required: [label, value]
         properties:
-          label: { type: string }
-          value: { type: string }
+          label: { $ref: './cms.yaml#/NonBlankString' }
+          value: { $ref: './cms.yaml#/NonBlankString' }
 
 CmsPageContent:
   oneOf:
