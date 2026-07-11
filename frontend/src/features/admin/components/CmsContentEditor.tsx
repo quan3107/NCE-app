@@ -97,10 +97,8 @@ function HomepageEditor({
             <Field id={`stat-suffix-${index}`} label={`Statistic ${index + 1} suffix`} value={stat.suffix ?? ''} onChange={(value) => {
               const stats = [...content.stats]; stats[index] = { ...stat, suffix: value || undefined }; onChange({ ...content, stats });
             }} />
-            <CollectionActions removeLabel={`Remove statistic ${index + 1}`} onRemove={() => onChange({ ...content, stats: content.stats.filter((_, itemIndex) => itemIndex !== index) })} />
           </div>
         ))}
-        <CollectionActions addLabel="Add statistic" onAdd={() => onChange({ ...content, stats: [...content.stats, { label: '', value: 0, format: 'number' }] })} />
       </Section>
       <Section title="How it works">
         <Field id="how-title" label="Section title" value={content.howItWorks.title} onChange={(value) => onChange({ ...content, howItWorks: { ...content.howItWorks, title: value } })} />
