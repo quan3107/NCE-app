@@ -14,6 +14,20 @@ const migration = readFileSync(
   ),
   'utf8',
 )
+const schema = readFileSync(
+  resolve(process.cwd(), 'src/prisma/schema.prisma'),
+  'utf8',
+)
+const revisionBootstraps = [
+  '20260710110000_bootstrap_cms_admin_data',
+  '20260710110100_bootstrap_cms_homepage',
+  '20260710110200_bootstrap_cms_about_page',
+].map((name) =>
+  readFileSync(
+    resolve(process.cwd(), `src/prisma/migrations/${name}/migration.sql`),
+    'utf8',
+  ),
+)
 
 describe('CMS draft and revision migration', () => {
   it('uses Prisma-compatible indexes and referential actions', () => {
@@ -40,6 +54,27 @@ describe('CMS draft and revision migration', () => {
           'i',
         ),
       )
+    }
+  })
+
+  it('matches Prisma column defaults and keeps bootstrap IDs explicit', () => {
+    expect(migration).not.toMatch(
+      /CREATE TABLE public\.cms_page_drafts[\s\S]*?updated_at TIMESTAMPTZ NOT NULL DEFAULT/,
+    )
+    expect(schema).toMatch(
+      /model CmsPageDraft[\s\S]*updatedAt\s+DateTime\s+@updatedAt/,
+    )
+    expect(migration).not.toMatch(
+      /CREATE TABLE public\.cms_page_revisions[\s\S]*?id UUID PRIMARY KEY DEFAULT/,
+    )
+    expect(schema).toMatch(
+      /model CmsPageRevision[\s\S]*id\s+String\s+@id\s+@default\(uuid\(\)\)/,
+    )
+    for (const bootstrap of revisionBootstraps) {
+      expect(bootstrap).toMatch(
+        /INSERT INTO public\.cms_page_revisions\s*\(\s*id,\s*page_id,/,
+      )
+      expect(bootstrap).toMatch(/\)\s*SELECT\s+gen_random_uuid\(\),/)
     }
   })
 })
