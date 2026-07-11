@@ -23,7 +23,11 @@ const homepageContent = {
     cta_primary: "Browse",
     cta_secondary: "Login",
   },
-  stats: [],
+  stats: [
+    { itemKey: "stat_students", label: "Students", value: 10, format: "number" },
+    { itemKey: "stat_band_score", label: "Band score", value: 7.5, format: "decimal" },
+    { itemKey: "stat_success_rate", label: "Success rate", value: 0.8, format: "percentage" },
+  ],
   howItWorks: { title: "How it works", description: "Steps", features: [] },
 };
 
