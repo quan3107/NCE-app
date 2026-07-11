@@ -136,9 +136,22 @@ export function CmsDraftWorkspace(props: CmsDraftWorkspaceProps) {
                 Unable to save the draft. Please try again.
               </p>
             ) : null}
+            {props.publishError && isCmsVersionConflict(props.publishError) ? (
+              <p className="text-sm text-destructive" role="alert">
+                The draft changed before it could be published. Review the
+                refreshed draft and try again.
+              </p>
+            ) : null}
             {props.publishError && !isCmsVersionConflict(props.publishError) ? (
               <p className="text-sm text-destructive" role="alert">
                 Unable to publish the draft. Reload and try again.
+              </p>
+            ) : null}
+            {props.rollbackError &&
+            isCmsVersionConflict(props.rollbackError) ? (
+              <p className="text-sm text-destructive" role="alert">
+                The draft changed before the revision could be restored. Review
+                the refreshed draft and try again.
               </p>
             ) : null}
             {props.rollbackError &&
