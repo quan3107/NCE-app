@@ -165,4 +165,56 @@ describe('cms.service', () => {
       'Active students',
     )
   })
+
+  it('refreshes reordered draft stats by their published item keys', async () => {
+    prisma.user.count.mockResolvedValueOnce(42)
+    prisma.submission.count.mockResolvedValueOnce(10)
+    prisma.submission.count.mockResolvedValueOnce(8)
+    prisma.grade.aggregate.mockResolvedValueOnce({ _avg: { band: 7.25 } })
+    prisma.cmsPageContent.findUnique.mockResolvedValueOnce({
+      id: 'homepage-1',
+      draftVersion: 3,
+      publishedDraftVersion: 2,
+      draft: {
+        content: {
+          hero: {
+            badge: 'Badge', title: 'Title', description: 'Description',
+            cta_primary: 'Browse', cta_secondary: 'Sign in',
+          },
+          stats: [
+            { value: 0.1, label: 'Success rate', format: 'percentage' },
+            { value: 10, label: 'Active students', format: 'number' },
+            { value: 6.5, label: 'Band score', format: 'decimal' },
+            { value: 99, label: 'Custom stat', format: 'number' },
+          ],
+          howItWorks: { title: 'How it works', description: 'Steps', features: [] },
+        },
+      },
+      sections: [{
+        id: 'stats-section',
+        items: [
+          { id: 'success', itemKey: 'stat_success_rate', contentJson: { value: 0.1, label: 'Success rate', format: 'percentage' } },
+          { id: 'students', itemKey: 'stat_students', contentJson: { value: 10, label: 'Active students', format: 'number' } },
+          { id: 'band', itemKey: 'stat_band_score', contentJson: { value: 6.5, label: 'Band score', format: 'decimal' } },
+          { id: 'custom', itemKey: 'stat_4', contentJson: { value: 99, label: 'Custom stat', format: 'number' } },
+        ],
+      }],
+    })
+
+    await updateHomepageStatsWithRealtimeData()
+
+    expect(prisma.cmsPageDraft.update).toHaveBeenCalledWith({
+      where: { pageId: 'homepage-1' },
+      data: {
+        content: expect.objectContaining({
+          stats: [
+            { value: 0.8, label: 'Success rate', format: 'percentage' },
+            { value: 42, label: 'Active students', format: 'number' },
+            { value: 7.25, label: 'Band score', format: 'decimal' },
+            { value: 99, label: 'Custom stat', format: 'number' },
+          ],
+        }),
+      },
+    })
+  })
 })
