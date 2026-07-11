@@ -59,6 +59,7 @@ export type DashboardWidgetDefaultsResponse = {
 export type CmsStatFormat = 'number' | 'decimal' | 'percentage';
 
 export type CmsStatItem = {
+  itemKey: 'stat_students' | 'stat_band_score' | 'stat_success_rate';
   label: string;
   value: number;
   format: CmsStatFormat;
