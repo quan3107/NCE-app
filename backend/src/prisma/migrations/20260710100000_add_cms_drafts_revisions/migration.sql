@@ -37,6 +37,11 @@ CREATE INDEX cms_page_revisions_page_created_idx
 CREATE INDEX cms_page_revisions_created_by_idx
   ON public.cms_page_revisions(created_by_id);
 
+-- Secure newly granted operations even if deployment stops before policy creation.
+ALTER TABLE public.cms_page_contents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cms_page_drafts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cms_page_revisions ENABLE ROW LEVEL SECURITY;
+
 GRANT SELECT, INSERT, UPDATE ON public.cms_page_revisions TO authenticated;
 GRANT UPDATE (draft_version, published_draft_version, published_revision, published_at, updated_at)
   ON public.cms_page_contents TO authenticated;
