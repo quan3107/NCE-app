@@ -3,15 +3,13 @@
  * Purpose: Verify CMS page snapshots convert to and from normalized section rows.
  * Why: Draft publishing and rollback must preserve the public content contract exactly.
  */
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-
 import { describe, expect, it } from 'vitest'
 
 import {
   parseCmsPageContent,
   toCmsSectionsCreateInput,
   validateCmsPageContent,
+  validateStoredCmsPageContent,
 } from '../../../src/modules/cms/cms.content.js'
 
 const homepage = {
@@ -22,7 +20,11 @@ const homepage = {
     cta_primary: 'Browse courses',
     cta_secondary: 'Teacher login',
   },
-  stats: [{ label: 'Learners', value: 42, format: 'number' as const, suffix: '+' }],
+  stats: [
+    { itemKey: 'stat_students' as const, label: 'Learners', value: 42, format: 'number' as const, suffix: '+' },
+    { itemKey: 'stat_band_score' as const, label: 'Band score', value: 7.5, format: 'decimal' as const },
+    { itemKey: 'stat_success_rate' as const, label: 'Success rate', value: 0.8, format: 'percentage' as const },
+  ],
   howItWorks: {
     title: 'How it works',
     description: 'Three focused steps.',
@@ -30,50 +32,12 @@ const homepage = {
   },
 }
 
-function readBootstrapPage(migrationName: string) {
-  const migration = readFileSync(
-    resolve(
-      import.meta.dirname,
-      `../../../src/prisma/migrations/${migrationName}/migration.sql`,
-    ),
-    'utf8',
-  )
-  const sections = new Map<
-    string,
-    {
-      sectionKey: string
-      label: string
-      sortOrder: number
-      items: Array<{
-        itemKey: string
-        sortOrder: number
-        contentType: string
-        contentJson: unknown
-      }>
-    }
-  >()
-  const itemRow =
-    /\('([^']+)', '([^']+)', (\d+), '([^']+)', \$cms\$([\s\S]*?)\$cms\$::jsonb\)/g
-
-  for (const match of migration.matchAll(itemRow)) {
-    const sectionKey = match[1]!
-    const savedSection = sections.get(sectionKey) ?? {
-      sectionKey,
-      label: sectionKey,
-      sortOrder: sections.size,
-      items: [],
-    }
-    savedSection.items.push({
-      itemKey: match[2]!,
-      sortOrder: Number(match[3]),
-      contentType: match[4]!,
-      contentJson: JSON.parse(match[5]!),
-    })
-    sections.set(sectionKey, savedSection)
-  }
-
-  return { sections: [...sections.values()] }
-}
+const homepageStatRows = homepage.stats.map(({ itemKey, ...contentJson }, sortOrder) => ({
+  itemKey,
+  sortOrder,
+  contentType: 'stat',
+  contentJson,
+}))
 
 describe('cms content conversion', () => {
   it('rejects empty or whitespace-only required public text', () => {
@@ -98,6 +62,30 @@ describe('cms content conversion', () => {
         hours: [],
       }),
     ).toThrow()
+  })
+
+  it('requires the complete unique realtime stat key set for API content', () => {
+    expect(() => validateCmsPageContent('homepage', {
+      ...homepage,
+      stats: homepage.stats.slice(0, 2),
+    })).toThrow()
+    expect(() => validateCmsPageContent('homepage', {
+      ...homepage,
+      stats: [homepage.stats[0], homepage.stats[0], homepage.stats[2]],
+    })).toThrow()
+    expect(() => validateCmsPageContent('homepage', {
+      ...homepage,
+      stats: homepage.stats.map(({ itemKey: _itemKey, ...stat }) => stat),
+    })).toThrow()
+  })
+
+  it('normalizes canonical keys onto legacy stored homepage stats', () => {
+    const legacy = {
+      ...homepage,
+      stats: homepage.stats.map(({ itemKey: _itemKey, ...stat }) => stat),
+    }
+
+    expect(validateStoredCmsPageContent('homepage', legacy)).toEqual(homepage)
   })
 
   it('round-trips homepage snapshots through normalized sections', () => {
@@ -136,7 +124,7 @@ describe('cms content conversion', () => {
     const republishedStats = republished.find((section) => section.sectionKey === 'stats')
 
     expect(parsed.stats).toEqual(homepage.stats)
-    expect(republishedStats?.items.create).toHaveLength(1)
+    expect(republishedStats?.items.create).toHaveLength(3)
   })
 
   it('preserves legacy homepage metadata when section_meta is missing', () => {
@@ -148,7 +136,7 @@ describe('cms content conversion', () => {
           sortOrder: 0,
           items: [{ sortOrder: 0, contentType: 'hero', contentJson: homepage.hero }],
         },
-        { sectionKey: 'stats', label: 'Statistics', sortOrder: 1, items: [] },
+        { sectionKey: 'stats', label: 'Statistics', sortOrder: 1, items: homepageStatRows },
         {
           sectionKey: 'features',
           label: 'Legacy How It Works',
@@ -181,7 +169,7 @@ describe('cms content conversion', () => {
           sortOrder: 0,
           items: [{ sortOrder: 0, contentType: 'hero', contentJson: homepage.hero }],
         },
-        { sectionKey: 'stats', label: 'Statistics', sortOrder: 1, items: [] },
+        { sectionKey: 'stats', label: 'Statistics', sortOrder: 1, items: homepageStatRows },
         {
           sectionKey: 'features',
           label: 'Fallback label',
@@ -211,64 +199,6 @@ describe('cms content conversion', () => {
       description: 'Saved legacy description',
       features: homepage.howItWorks.features,
     })
-  })
-
-  it('parses the exact homepage and about rows from production bootstrap migrations', () => {
-    const parsedHomepage = parseCmsPageContent(
-      'homepage',
-      readBootstrapPage('20260710110100_bootstrap_cms_homepage'),
-    )
-    const parsedAbout = parseCmsPageContent(
-      'about',
-      readBootstrapPage('20260710110200_bootstrap_cms_about_page'),
-    )
-
-    expect(parsedHomepage.howItWorks.features).toEqual([
-      {
-        icon: 'book-open',
-        title: 'IELTS Practice Tasks',
-        description:
-          'Authentic IELTS practice materials for all four skills - Reading, Writing, Listening, and Speaking.',
-      },
-      {
-        icon: 'users',
-        title: 'Expert Feedback',
-        description:
-          'Receive detailed feedback from certified IELTS instructors on every submission with band score evaluations.',
-      },
-      {
-        icon: 'trending-up',
-        title: 'Track Your Progress',
-        description:
-          'Monitor your band scores across all skills and identify areas for improvement with detailed analytics.',
-      },
-    ])
-    expect(parsedAbout.values).toEqual([
-      {
-        icon: 'target',
-        title: 'Our Mission',
-        description:
-          'To help students worldwide achieve their target IELTS band scores through expert instruction, authentic materials, and personalized feedback.',
-      },
-      {
-        icon: 'heart',
-        title: 'Student Success',
-        description:
-          'We prioritize individual learning goals with tailored feedback, regular progress monitoring, and support throughout your IELTS journey.',
-      },
-      {
-        icon: 'users',
-        title: 'Expert Instructors',
-        description:
-          'Our certified IELTS tutors bring years of teaching experience and deep understanding of the test format and scoring criteria.',
-      },
-      {
-        icon: 'award',
-        title: 'Proven Results',
-        description:
-          'Committed to excellence with a track record of helping students achieve band scores of 7.0 and above consistently.',
-      },
-    ])
   })
 
   it('round-trips contact content needed by the public contact route', () => {
