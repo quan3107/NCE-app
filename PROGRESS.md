@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-11:** Corrected the PostgreSQL-backed CMS bootstrap upgrade fixture for the keyed realtime-stat contract by seeding all three canonical metrics and validating migration-created keyless revision JSON through the legacy storage boundary. Confirmed the connected Supabase project exposes the expected CMS tables; local database execution remained unavailable without PostgreSQL/Docker, so the pushed CI run is the disposable-database verification source.
 - **2026-07-11:** Made homepage realtime statistics identity-safe by requiring the complete unique keyed metric set on new API writes, preserving keys through parse/publish, normalizing legacy stored drafts and revisions, and refreshing strictly by key while ignoring custom and inactive rows. Added focused regressions and split CMS migration parsing coverage below the file-size limit.
 - **2026-07-11:** No backend files changed during the Vitest component-test memory investigation; the reproduced failure path is isolated to frontend React/jsdom DOM-node assertion formatting.
 - **2026-07-11:** Corrected realtime homepage stat refreshes so reordered draft arrays resolve each value through the persisted row's stable `itemKey`, while custom stats remain unchanged. Added regression coverage for noncanonical stat order.
