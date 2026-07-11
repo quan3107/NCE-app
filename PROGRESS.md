@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-11:** Removed CMS draft timestamp and revision UUID database defaults absent from Prisma, and made later raw SQL revision bootstraps supply UUIDs explicitly. Extended migration drift coverage to column defaults and bootstrap safety.
 - **2026-07-11:** Aligned the handwritten CMS draft/revision migration with Prisma's canonical index names, ascending revision-history index, and cascading foreign-key updates. Added a focused schema-fidelity regression.
 - **2026-07-11:** Addressed CMS review findings by making the admin-write security migration atomic with RLS enabled before grants, and by translating malformed persisted CMS page/draft/revision content into unexposed HTTP 500 failures while preserving request Zod errors as HTTP 400. Added focused migration and stored-content regressions.
 - **2026-07-11:** Closed CMS refresh concurrency and deployment-window gaps by advancing draft versions for published-only stat changes and enabling RLS before the first authenticated CMS grants. Added regressions for no-draft refreshes and migration statement ordering.
@@ -72,6 +73,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-11:** No frontend files changed for CMS database-default alignment; the correction is isolated to backend migrations, their regression coverage, and this progress record.
 - **2026-07-11:** Made publish and rollback version-conflict recovery invalidate revision history and hour-cached public CMS content in addition to draft/page state, while keeping save conflicts scoped to draft/page invalidation. Added mutation-level regressions for each conflict type.
 - **2026-07-11:** Made clean-editor publish and rollback version conflicts visible after automatic draft refetches, with operation-specific retry guidance and focused component coverage.
 - **2026-07-11:** Aligned the CMS OpenAPI public-content contract with runtime validation through a reusable nonblank string schema and coverage for whitespace-only payload rejection.
