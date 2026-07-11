@@ -22,9 +22,9 @@ test('keeps realtime statistic membership fixed while features remain variable',
   const view = render(<EditorHarness pageKey="homepage" initial={{
     hero: { badge: '', title: '', description: '', cta_primary: '', cta_secondary: '' },
     stats: [
-      { label: 'Students', value: 10, format: 'number' },
-      { label: 'Band score', value: 7.5, format: 'decimal' },
-      { label: 'Success rate', value: 0.8, format: 'percentage' },
+      { itemKey: 'stat_students', label: 'Students', value: 10, format: 'number' },
+      { itemKey: 'stat_band_score', label: 'Band score', value: 7.5, format: 'decimal' },
+      { itemKey: 'stat_success_rate', label: 'Success rate', value: 0.8, format: 'percentage' },
     ],
     howItWorks: { title: '', description: '', features: [] },
   }} />);
