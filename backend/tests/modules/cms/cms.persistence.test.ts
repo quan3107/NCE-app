@@ -15,7 +15,11 @@ const homepageContent = {
     cta_primary: 'Browse courses',
     cta_secondary: 'Sign in',
   },
-  stats: [{ value: 1_000, label: 'Active students', format: 'number' as const }],
+  stats: [
+    { itemKey: 'stat_students' as const, value: 1_000, label: 'Active students', format: 'number' as const },
+    { itemKey: 'stat_band_score' as const, value: 7.5, label: 'Band score', format: 'decimal' as const },
+    { itemKey: 'stat_success_rate' as const, value: 0.8, label: 'Success rate', format: 'percentage' as const },
+  ],
   howItWorks: {
     title: 'How it works',
     description: 'A clear learning path.',
