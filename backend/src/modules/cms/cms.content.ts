@@ -7,6 +7,7 @@ import {
   AboutPageContentSchema,
   ContactPageContentSchema,
   HomepageContentSchema,
+  RealtimeStatKeySchema,
   type CmsPageContent,
   type CmsPageKey,
 } from './cms.schema.js'
@@ -48,6 +49,7 @@ const ABOUT_VALUE_KEYS = [
   'value_instructors',
   'value_results',
 ] as const
+export const REALTIME_STAT_KEYS = RealtimeStatKeySchema.options
 
 const FALLBACK_HOW_IT_WORKS_TITLE = 'How It Works'
 const FALLBACK_HOW_IT_WORKS_DESCRIPTION =
@@ -106,9 +108,16 @@ function parseHomepage(page: CmsPageRow) {
 
   return HomepageContentSchema.parse({
     hero,
-    stats: modeledItems('homepage', page, 'stats').map(
-      (candidate) => candidate.contentJson,
-    ),
+    stats: activeItems(page, 'stats')
+      .filter((candidate) =>
+        candidate.itemKey == null || REALTIME_STAT_KEYS.includes(
+          candidate.itemKey as (typeof REALTIME_STAT_KEYS)[number],
+        ),
+      )
+      .map((candidate, index) => ({
+        ...(candidate.contentJson as object),
+        itemKey: candidate.itemKey ?? REALTIME_STAT_KEYS[index],
+      })),
     howItWorks: {
       title: metaContent?.title ?? featuresSection?.label ?? FALLBACK_HOW_IT_WORKS_TITLE,
       description: metaContent?.description ?? FALLBACK_HOW_IT_WORKS_DESCRIPTION,
@@ -162,6 +171,24 @@ export function validateCmsPageContent(
   return ContactPageContentSchema.parse(content)
 }
 
+export function validateStoredCmsPageContent(
+  pageKey: CmsPageKey,
+  content: unknown,
+): CmsPageContent {
+  if (pageKey !== 'homepage') return validateCmsPageContent(pageKey, content)
+  if (!content || typeof content !== 'object') return validateCmsPageContent(pageKey, content)
+  const candidate = content as { stats?: unknown }
+  if (!Array.isArray(candidate.stats)) return validateCmsPageContent(pageKey, content)
+  return validateCmsPageContent(pageKey, {
+    ...candidate,
+    stats: candidate.stats.map((stat, index) =>
+      stat && typeof stat === 'object' && !('itemKey' in stat)
+        ? { ...stat, itemKey: REALTIME_STAT_KEYS[index] }
+        : stat,
+    ),
+  })
+}
+
 function homepageSections(content: ReturnType<typeof HomepageContentSchema.parse>) {
   return [
     section('hero', 'Hero Section', 0, [item('hero_main', 0, 'hero', content.hero)]),
@@ -169,14 +196,8 @@ function homepageSections(content: ReturnType<typeof HomepageContentSchema.parse
       'stats',
       'Statistics',
       1,
-      content.stats.map((value, index) =>
-        item(
-          ['stat_students', 'stat_band_score', 'stat_success_rate'][index] ??
-            `stat_${index + 1}`,
-          index,
-          'stat',
-          value,
-        ),
+      content.stats.map(({ itemKey, ...value }, index) =>
+        item(itemKey, index, 'stat', value),
       ),
     ),
     section('features', 'How It Works', 2, [
