@@ -223,7 +223,7 @@ test("blocks route navigation until dirty changes are explicitly discarded", asy
   });
   fireEvent.click(screen.getByRole("link", { name: "Leave CMS" }));
 
-  assert.equal(screen.queryByText("Other page"), null);
+  assert.ok(screen.queryByText("Other page") === null);
   assert.ok(
     screen.getByText(
       "Leaving this page will discard the edits currently shown.",
