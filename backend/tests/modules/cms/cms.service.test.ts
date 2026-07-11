@@ -229,4 +229,41 @@ describe('cms.service', () => {
       expect.objectContaining({ where: { id: 'custom' } }),
     )
   })
+
+  it('advances concurrency versions when refreshing without a draft row', async () => {
+    prisma.user.count.mockResolvedValueOnce(42)
+    prisma.submission.count.mockResolvedValueOnce(10)
+    prisma.submission.count.mockResolvedValueOnce(8)
+    prisma.grade.aggregate.mockResolvedValueOnce({ _avg: { band: 7.25 } })
+    prisma.cmsPageContent.findUnique.mockResolvedValueOnce({
+      id: 'homepage-1',
+      draftVersion: 0,
+      publishedDraftVersion: 0,
+      draft: null,
+      sections: [
+        {
+          id: 'stats-section',
+          items: [
+            {
+              id: 'students',
+              itemKey: 'stat_students',
+              contentJson: {
+                value: 10,
+                label: 'Active students',
+                format: 'number',
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    await updateHomepageStatsWithRealtimeData()
+
+    expect(prisma.cmsPageDraft.update).not.toHaveBeenCalled()
+    expect(prisma.cmsPageContent.update).toHaveBeenCalledWith({
+      where: { id: 'homepage-1' },
+      data: { draftVersion: 1, publishedDraftVersion: 1 },
+    })
+  })
 })
