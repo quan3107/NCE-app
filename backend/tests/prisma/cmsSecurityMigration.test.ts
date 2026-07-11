@@ -98,6 +98,18 @@ describe('CMS security migrations', () => {
     expect(bootstrapMigration).toMatch(/SET published_revision = 1/i)
   })
 
+  it('captures only keyed canonical homepage stats in baseline revisions', () => {
+    expect(bootstrapMigration).toMatch(
+      /item\.content_json\s*\|\|\s*jsonb_build_object\(\s*'itemKey',\s*item\.item_key\s*\)/i,
+    )
+    expect(bootstrapMigration).toMatch(
+      /item\.item_key\s+IN\s*\(\s*'stat_students',\s*'stat_band_score',\s*'stat_success_rate'\s*\)/i,
+    )
+    expect(bootstrapMigration).not.toMatch(
+      /stat_\(students\|band_score\|success_rate\|\[0-9\]\+\)/i,
+    )
+  })
+
   it('bootstraps missing core pages with their own baseline revisions', () => {
     expect(combinedCorePageMigrations).toMatch(/page_key[\s\S]*'homepage'/i)
     expect(combinedCorePageMigrations).toMatch(/page_key[\s\S]*'about'/i)
