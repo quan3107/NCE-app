@@ -12,6 +12,9 @@ import { renderAdminCmsPage } from "./adminCms.test-utils";
 const saveMutate = vi.hoisted(() => vi.fn());
 const publishMutate = vi.hoisted(() => vi.fn());
 const rollbackMutate = vi.hoisted(() => vi.fn());
+const saveReset = vi.hoisted(() => vi.fn());
+const publishReset = vi.hoisted(() => vi.fn());
+const rollbackReset = vi.hoisted(() => vi.fn());
 const fetchNextPage = vi.hoisted(() => vi.fn());
 const cmsState = vi.hoisted(() => ({
   draftVersion: 1,
@@ -160,16 +163,19 @@ vi.mock("@features/admin/cmsApi", () => ({
   }),
   useSaveCmsDraftMutation: () => ({
     mutate: saveMutate,
+    reset: saveReset,
     isPending: false,
     error: cmsState.saveError,
   }),
   usePublishCmsDraftMutation: () => ({
     mutate: publishMutate,
+    reset: publishReset,
     isPending: false,
     error: cmsState.publishError,
   }),
   useRollbackCmsRevisionMutation: () => ({
     mutate: rollbackMutate,
+    reset: rollbackReset,
     isPending: false,
     error: cmsState.rollbackError,
   }),
@@ -428,4 +434,17 @@ test("switching page types never renders the previous draft through the new edit
     (await screen.findByLabelText("Header title")).getAttribute("value"),
     "Contact us",
   );
+});
+
+test("switching pages clears page-scoped mutation errors", async () => {
+  renderAdminCmsPage();
+
+  fireEvent.change(screen.getByLabelText("Marketing page"), {
+    target: { value: "about" },
+  });
+
+  await screen.findByLabelText("Hero description");
+  assert.equal(saveReset.mock.calls.length, 1);
+  assert.equal(publishReset.mock.calls.length, 1);
+  assert.equal(rollbackReset.mock.calls.length, 1);
 });
