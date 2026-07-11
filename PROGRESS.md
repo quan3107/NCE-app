@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-11:** Made homepage realtime statistics identity-safe by requiring the complete unique keyed metric set on new API writes, preserving keys through parse/publish, normalizing legacy stored drafts and revisions, and refreshing strictly by key while ignoring custom and inactive rows. Added focused regressions and split CMS migration parsing coverage below the file-size limit.
 - **2026-07-11:** No backend files changed during the Vitest component-test memory investigation; the reproduced failure path is isolated to frontend React/jsdom DOM-node assertion formatting.
 - **2026-07-11:** Corrected realtime homepage stat refreshes so reordered draft arrays resolve each value through the persisted row's stable `itemKey`, while custom stats remain unchanged. Added regression coverage for noncanonical stat order.
 - **2026-07-10:** Hardened CMS revision integrity by filtering migration baselines with runtime ownership rules, creating revision 1 atomically when the CMS seed restores a page, and attributing admin-triggered stats refreshes to the authenticated actor. Added transaction-rolled-back PostgreSQL upgrade/seed coverage plus focused service and route regressions.
@@ -66,6 +67,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-11:** Added stable realtime statistic keys to the frontend CMS contract and fixtures, and extracted shared admin CMS component mocks so every touched test file remains below 300 lines while preserving editor, preview, conflict, and mutation coverage.
 - **2026-07-11:** Isolated the component-test runaway memory failure to Node strict-assertion formatting of React-owned jsdom elements. Replaced all 17 direct DOM-query-vs-null strict assertions with primitive boolean assertions and added a source guard preventing the unsafe pattern from returning.
 - **2026-07-11:** Made variable-length CMS features, values, story paragraphs, and office hours manageable with accessible Add/Remove controls while keeping realtime statistic membership fixed to preserve refresh identity. Reset save/publish/rollback mutation errors when switching pages and added focused component regressions.
 - **2026-07-10:** Replaced the CMS draft JSON dump with page-specific rendered Homepage, About, and Contact previews of the current local editor value, and disabled revision rollback while unsaved edits exist. Extracted the draft workspace so admin components remain below the 300-line limit and added preview/guard coverage.
