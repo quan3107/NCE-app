@@ -167,6 +167,8 @@ export const updateHomepageStatsWithRealtimeData = async (actor?: {
           content: { ...draftContent, stats: draftStats } as Prisma.InputJsonValue,
         },
       })
+    }
+    if (updatedItems.length > 0 || draftChanged) {
       const draftVersion = homepage.draftVersion + 1
       await tx.cmsPageContent.update({
         where: { id: homepage.id },
