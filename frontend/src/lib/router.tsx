@@ -4,10 +4,11 @@
  * Why: Centralizes navigation wiring while keeping existing hooks stable during migration.
  */
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import {
-  BrowserRouter,
+  createBrowserRouter,
   type NavigateFunction,
+  RouterProvider as ReactRouterProvider,
   useLocation,
   useNavigate,
 } from 'react-router-dom';
@@ -31,13 +32,21 @@ function ScrollToTop() {
   return null;
 }
 
-export function RouterProvider({ children }: { children: ReactNode }) {
+function RouterContent({ children }: { children: ReactNode }) {
   return (
-    <BrowserRouter>
+    <>
       <ScrollToTop />
       {children}
-    </BrowserRouter>
+    </>
   );
+}
+
+export function RouterProvider({ children }: { children: ReactNode }) {
+  const [router] = useState(() => createBrowserRouter([
+    { path: '*', element: <RouterContent>{children}</RouterContent> },
+  ]));
+
+  return <ReactRouterProvider router={router} />;
 }
 
 export function useRouter(): RouterContextType {

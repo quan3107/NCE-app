@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Circle, Home } from 'lucide-react';
+import { Circle, FilePenLine, Home } from 'lucide-react';
 
 import { getIcon } from '../src/features/navigation/utils/iconMap';
 import {
@@ -17,6 +17,7 @@ import {
 
 test('getIcon returns mapped icon and falls back to Circle', () => {
   assert.equal(getIcon('home'), Home);
+  assert.equal(getIcon('file-pen-line'), FilePenLine);
   assert.equal(getIcon('not-a-real-icon'), Circle);
 });
 

@@ -2,26 +2,34 @@
 # Purpose: Define CMS marketing response schemas.
 # Why: Documents homepage/about payload contracts consumed by the frontend.
 
+NonBlankString:
+  type: string
+  minLength: 1
+  pattern: '\S'
+
 HeroContent:
   type: object
   properties:
     badge:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     cta_primary:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     cta_secondary:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
   required: [badge, title, description, cta_primary, cta_secondary]
 
 StatItem:
   type: object
   properties:
-    label:
+    itemKey:
       type: string
+      enum: [stat_students, stat_band_score, stat_success_rate]
+    label:
+      $ref: './cms.yaml#/NonBlankString'
     value:
       type: number
     format:
@@ -29,26 +37,26 @@ StatItem:
       enum: [number, decimal, percentage]
     suffix:
       type: string
-  required: [label, value, format]
+  required: [itemKey, label, value, format]
 
 FeatureItem:
   type: object
   properties:
     icon:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
   required: [icon, title, description]
 
 HowItWorksContent:
   type: object
   properties:
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     features:
       type: array
       items:
@@ -62,6 +70,9 @@ HomepageContent:
       $ref: './cms.yaml#/HeroContent'
     stats:
       type: array
+      description: Exactly one item is required for each canonical realtime statistic key.
+      minItems: 3
+      maxItems: 3
       items:
         $ref: './cms.yaml#/StatItem'
     howItWorks:
@@ -72,20 +83,20 @@ AboutHeroContent:
   type: object
   properties:
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
   required: [title, description]
 
 ValueItem:
   type: object
   properties:
     icon:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     title:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
     description:
-      type: string
+      $ref: './cms.yaml#/NonBlankString'
   required: [icon, title, description]
 
 AboutStory:
@@ -94,7 +105,7 @@ AboutStory:
     sections:
       type: array
       items:
-        type: string
+        $ref: './cms.yaml#/NonBlankString'
   required: [sections]
 
 AboutPageContent:
@@ -109,6 +120,159 @@ AboutPageContent:
     story:
       $ref: './cms.yaml#/AboutStory'
   required: [hero, values, story]
+
+ContactPageContent:
+  type: object
+  required: [header, form, details, hours]
+  properties:
+    header:
+      type: object
+      required: [title, description]
+      properties:
+        title: { $ref: './cms.yaml#/NonBlankString' }
+        description: { $ref: './cms.yaml#/NonBlankString' }
+    form:
+      type: object
+      required: [title, description, submitLabel]
+      properties:
+        title: { $ref: './cms.yaml#/NonBlankString' }
+        description: { $ref: './cms.yaml#/NonBlankString' }
+        submitLabel: { $ref: './cms.yaml#/NonBlankString' }
+    details:
+      type: object
+      required: [email, phone, address]
+      properties:
+        email: { type: string, format: email, minLength: 1, pattern: '\S' }
+        phone: { $ref: './cms.yaml#/NonBlankString' }
+        address: { $ref: './cms.yaml#/NonBlankString' }
+    hours:
+      type: array
+      items:
+        type: object
+        required: [label, value]
+        properties:
+          label: { $ref: './cms.yaml#/NonBlankString' }
+          value: { $ref: './cms.yaml#/NonBlankString' }
+
+CmsPageContent:
+  oneOf:
+    - $ref: './cms.yaml#/HomepageContent'
+    - $ref: './cms.yaml#/AboutPageContent'
+    - $ref: './cms.yaml#/ContactPageContent'
+
+CmsPageKeyParameter:
+  name: pageKey
+  in: path
+  required: true
+  schema:
+    type: string
+    enum: [homepage, about, contact]
+
+CmsPageSummary:
+  type: object
+  required:
+    - pageKey
+    - label
+    - draftVersion
+    - publishedDraftVersion
+    - publishedRevision
+    - publishedAt
+    - hasUnpublishedChanges
+  properties:
+    pageKey: { type: string, enum: [homepage, about, contact] }
+    label: { type: string }
+    draftVersion: { type: integer }
+    publishedDraftVersion: { type: integer }
+    publishedRevision: { type: integer }
+    publishedAt: { type: string, format: date-time, nullable: true }
+    updatedAt: { type: string, format: date-time }
+    hasUnpublishedChanges: { type: boolean }
+
+CmsPageState:
+  allOf:
+    - $ref: './cms.yaml#/CmsPageSummary'
+    - type: object
+      required: [content]
+      properties:
+        content:
+          $ref: './cms.yaml#/CmsPageContent'
+
+CmsPagesResponse:
+  type: object
+  required: [pages]
+  properties:
+    pages:
+      type: array
+      items:
+        $ref: './cms.yaml#/CmsPageSummary'
+
+CmsDraftUpdate:
+  type: object
+  additionalProperties: false
+  required: [content, expectedDraftVersion]
+  properties:
+    content:
+      $ref: './cms.yaml#/CmsPageContent'
+    expectedDraftVersion:
+      type: integer
+      minimum: 0
+      description: Draft version loaded when the administrator began editing.
+
+CmsPublishRequest:
+  type: object
+  additionalProperties: false
+  required: [content, expectedDraftVersion]
+  properties:
+    content:
+      $ref: './cms.yaml#/CmsPageContent'
+    expectedDraftVersion:
+      type: integer
+      minimum: 0
+      description: Draft version loaded when the administrator reviewed this content.
+
+CmsRollbackRequest:
+  type: object
+  additionalProperties: false
+  required: [expectedDraftVersion]
+  properties:
+    expectedDraftVersion:
+      type: integer
+      minimum: 0
+      description: Draft version loaded before the administrator requested rollback.
+
+CmsRevision:
+  type: object
+  required: [id, revisionNumber, operation, createdAt]
+  properties:
+    id: { type: string, format: uuid }
+    revisionNumber: { type: integer }
+    operation: { type: string, enum: [publish, rollback] }
+    createdAt: { type: string, format: date-time }
+    createdBy:
+      type: object
+      nullable: true
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+    sourceRevision:
+      type: object
+      nullable: true
+      properties:
+        id: { type: string, format: uuid }
+        revisionNumber: { type: integer }
+
+CmsRevisionsResponse:
+  type: object
+  required: [revisions, nextCursor]
+  properties:
+    revisions:
+      type: array
+      items:
+        $ref: './cms.yaml#/CmsRevision'
+    nextCursor:
+      type: string
+      format: uuid
+      nullable: true
 
 RefreshStatsResponse:
   type: object

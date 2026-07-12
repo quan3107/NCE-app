@@ -98,7 +98,7 @@ test('question editor keeps true-false controls when yes-no options fail', async
   });
 
   await waitFor(() => {
-    assert.equal(screen.queryByText('Unable to load boolean answer options.'), null);
+    assert.ok(screen.queryByText('Unable to load boolean answer options.') === null);
     assert.ok(screen.getByText('Correct Answer'));
     assert.ok(screen.getByText('True'));
   });
@@ -126,6 +126,6 @@ test('question list editor does not show boolean errors for non-boolean question
     assert.ok(requestedTypes.includes('yes_no'));
   });
 
-  assert.equal(screen.queryByText('Unable to load boolean answer options.'), null);
+  assert.ok(screen.queryByText('Unable to load boolean answer options.') === null);
   assert.ok(screen.getByText('Correct Answer'));
 });

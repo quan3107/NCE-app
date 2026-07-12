@@ -1,78 +1,100 @@
 /**
  * File: backend/src/prisma/seeds/cmsContent.seed.ts
- * Purpose: Seed CMS content for homepage and about pages in an idempotent way.
- * Why: Allows safe re-runs while keeping marketing content as backend-managed data.
+ * Purpose: Seed initial CMS content without replacing existing managed pages.
+ * Why: Safe re-runs must never overwrite administrator-edited production content.
  */
+
+import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 
 import { basePrisma } from '../client.js'
 import type { Prisma } from '../generated.js'
+import { parseCmsPageContent } from '../../modules/cms/cms.content.js'
+import { CmsPageKeySchema } from '../../modules/cms/cms.schema.js'
 import { CMS_PAGES, type CmsSeedPage } from './cmsContent.data.js'
 
 const prisma = basePrisma
 
-async function replacePageContent(page: CmsSeedPage) {
-  const pageRecord = await prisma.cmsPageContent.upsert({
+export async function createPageIfMissing(
+  tx: Prisma.TransactionClient,
+  page: CmsSeedPage,
+) {
+  const existing = await tx.cmsPageContent.findUnique({
     where: { pageKey: page.pageKey },
-    create: {
-      pageKey: page.pageKey,
-      label: page.label,
-      isActive: true,
-    },
-    update: {
-      label: page.label,
-      isActive: true,
-    },
+    select: { id: true },
   })
+  if (existing) return existing.id
 
-  await prisma.cmsSection.deleteMany({
-    where: { pageId: pageRecord.id },
-  })
-
-  for (const section of page.sections) {
-    await prisma.cmsSection.create({
-      data: {
-        pageId: pageRecord.id,
-        sectionKey: section.sectionKey,
-        label: section.label,
-        sortOrder: section.sortOrder,
+  const pageKey = CmsPageKeySchema.parse(page.pageKey)
+  const content = parseCmsPageContent(pageKey, {
+    sections: page.sections.map((section) => ({
+      ...section,
+      isActive: true,
+      items: section.items.map((contentItem) => ({
+        ...contentItem,
         isActive: true,
-        items: {
-          create: section.items.map((item) => ({
-            itemKey: item.itemKey,
-            sortOrder: item.sortOrder,
-            contentType: item.contentType,
-            contentJson: item.contentJson as Prisma.InputJsonValue,
-            isActive: true,
-          })),
+      })),
+    })),
+  })
+  const created = await tx.cmsPageContent.create({
+    data: {
+      pageKey,
+      label: page.label,
+      isActive: true,
+      publishedRevision: 1,
+      publishedAt: new Date(),
+      sections: {
+        create: page.sections.map((section) => ({
+          sectionKey: section.sectionKey,
+          label: section.label,
+          sortOrder: section.sortOrder,
+          isActive: true,
+          items: {
+            create: section.items.map((contentItem) => ({
+              itemKey: contentItem.itemKey,
+              sortOrder: contentItem.sortOrder,
+              contentType: contentItem.contentType,
+              contentJson: contentItem.contentJson as Prisma.InputJsonValue,
+              isActive: true,
+            })),
+          },
+        })),
+      },
+      revisions: {
+        create: {
+          revisionNumber: 1,
+          contentJson: content as Prisma.InputJsonValue,
+          operation: 'publish',
         },
       },
-    })
-  }
+    },
+  })
 
-  return pageRecord.id
+  return created.id
 }
 
-async function seedCmsContent() {
+export async function seedCmsContent() {
   console.log('Seeding CMS content...')
 
-  const [homepageId, aboutPageId] = await prisma.$transaction(async () => {
-    const ids: string[] = []
-    for (const page of CMS_PAGES) {
-      ids.push(await replacePageContent(page))
-    }
-    return ids
-  })
+  const ids: string[] = []
+  for (const page of CMS_PAGES) {
+    ids.push(await prisma.$transaction((tx) => createPageIfMissing(tx, page)))
+  }
+  const [homepageId, aboutPageId, contactPageId] = ids
 
   console.log('✓ CMS content seeded successfully')
   console.log(`  - Homepage: ${homepageId}`)
   console.log(`  - About Page: ${aboutPageId}`)
+  console.log(`  - Contact Page: ${contactPageId}`)
 }
 
-seedCmsContent()
-  .catch((error) => {
-    console.error('Error seeding CMS content:', error)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  })
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  seedCmsContent()
+    .catch((error) => {
+      console.error('Error seeding CMS content:', error)
+      process.exitCode = 1
+    })
+    .finally(async () => {
+      await prisma.$disconnect()
+    })
+}

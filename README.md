@@ -219,7 +219,7 @@ Backend commands, from `backend/`:
 | `npm run test:coverage` | Run backend tests with coverage. |
 | `npm run prisma:migrate` | Apply local development migrations. |
 | `npm run seed:ielts-config` | Seed IELTS reference data required at startup. |
-| `npm run seed:cms` | Seed homepage and about-page CMS content. |
+| `npm run seed:cms` | Seed Homepage, About, and Contact CMS content. |
 | `npm run seed:navigation` | Seed permissions, navigation, and feature flags. |
 | `npm run seed` | Reset and seed representative local app data. |
 | `npm run verify:ielts-config` | Check that the active IELTS config is complete. |
@@ -253,6 +253,7 @@ Production needs:
 
 - Node.js 20+ for the backend runtime;
 - PostgreSQL with migrations applied through `npx prisma migrate deploy --config prisma.config.ts`;
+- the committed forward migrations provision missing Contact CMS content, CMS admin permission/navigation, baseline revisions, and ancestor-aware CMS RLS without running production seed scripts or replacing managed rows;
 - runtime roles `anon`, `authenticated`, and `service_role`;
 - active IELTS reference data verified by `npm run verify:ielts-config`;
 - explicit `CORS_ALLOWED_ORIGINS` because production refuses an empty allowlist;

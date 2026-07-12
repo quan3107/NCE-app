@@ -38,6 +38,178 @@ AboutPageContent:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
 
+ContactPageContent:
+  get:
+    tags: [cms]
+    summary: Get published contact page content
+    responses:
+      '200':
+        description: Contact page CMS content
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/ContactPageContent'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+
+AdminPages:
+  get:
+    tags: [cms]
+    summary: List CMS pages and draft publication status (admin only)
+    security: [{ BearerAuth: [] }]
+    responses:
+      '200':
+        description: CMS page summaries
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/CmsPagesResponse'
+      '401': { description: Unauthorized }
+      '403': { description: Forbidden }
+
+AdminPageDraft:
+  parameters:
+    - $ref: '../schemas/cms.yaml#/CmsPageKeyParameter'
+  get:
+    tags: [cms]
+    summary: Read the current CMS draft (admin only)
+    security: [{ BearerAuth: [] }]
+    responses:
+      '200':
+        description: CMS draft
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/CmsPageState'
+      '401': { description: Unauthorized }
+      '403': { description: Forbidden }
+      '404': { description: CMS page not found }
+  put:
+    tags: [cms]
+    summary: Validate and save a CMS draft (admin only)
+    security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/cms.yaml#/CmsDraftUpdate'
+    responses:
+      '200':
+        description: Updated CMS draft
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/CmsPageState'
+      '400': { description: Draft validation failed }
+      '401': { description: Unauthorized }
+      '403': { description: Forbidden }
+      '404': { description: CMS page not found }
+      '409': { description: Draft changed after the administrator loaded it }
+
+AdminPagePreview:
+  parameters:
+    - $ref: '../schemas/cms.yaml#/CmsPageKeyParameter'
+  get:
+    tags: [cms]
+    summary: Preview the saved CMS draft without publishing it (admin only)
+    security: [{ BearerAuth: [] }]
+    responses:
+      '200':
+        description: CMS draft preview
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/CmsPageState'
+      '401': { description: Unauthorized }
+      '403': { description: Forbidden }
+      '404': { description: CMS page not found }
+
+AdminPagePublish:
+  parameters:
+    - $ref: '../schemas/cms.yaml#/CmsPageKeyParameter'
+  post:
+    tags: [cms]
+    summary: Publish reviewed CMS content as a revision (admin only)
+    security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/cms.yaml#/CmsPublishRequest'
+    responses:
+      '200':
+        description: Published CMS page state
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/CmsPageState'
+      '400': { description: Publish request or content validation failed }
+      '401': { description: Unauthorized }
+      '403': { description: Forbidden }
+      '404': { description: CMS page not found }
+      '409': { description: Draft changed after the administrator loaded it }
+
+AdminPageRevisions:
+  parameters:
+    - $ref: '../schemas/cms.yaml#/CmsPageKeyParameter'
+    - name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    - name: cursor
+      in: query
+      schema: { type: string, format: uuid }
+  get:
+    tags: [cms]
+    summary: List published CMS revisions (admin only)
+    security: [{ BearerAuth: [] }]
+    responses:
+      '200':
+        description: CMS revision history
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/CmsRevisionsResponse'
+      '400': { description: Invalid revision pagination query }
+      '401': { description: Unauthorized }
+      '403': { description: Forbidden }
+      '404': { description: CMS page not found }
+
+AdminPageRollback:
+  parameters:
+    - $ref: '../schemas/cms.yaml#/CmsPageKeyParameter'
+    - name: revisionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  post:
+    tags: [cms]
+    summary: Restore and publish an earlier CMS revision (admin only)
+    security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/cms.yaml#/CmsRollbackRequest'
+    responses:
+      '200':
+        description: Restored CMS page state
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/cms.yaml#/CmsPageState'
+      '400': { description: Invalid revision ID or rollback request }
+      '401': { description: Unauthorized }
+      '403': { description: Forbidden }
+      '404': { description: CMS page or revision not found }
+      '409': { description: Draft changed after the administrator loaded it }
+
 RefreshStats:
   post:
     tags: [cms]

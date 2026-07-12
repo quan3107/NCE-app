@@ -40,6 +40,7 @@ const DEFAULT_PERMISSIONS = [
   { key: "users:manage", name: "Manage Users", roles: [UserRole.admin] },
   { key: "enrollments:manage", name: "Manage Enrollments", roles: [UserRole.admin] },
   { key: "audit-logs:view", name: "View Audit Logs", roles: [UserRole.admin] },
+  { key: "cms:manage", name: "Manage CMS Content", roles: [UserRole.admin] },
   { key: "settings:manage", name: "Manage Settings", roles: [UserRole.admin] },
 ];
 
@@ -87,7 +88,8 @@ const DEFAULT_NAVIGATION_ITEMS = [
   { role: UserRole.admin, label: "Courses", path: "/admin/courses", iconName: "book-open", permission: "courses:manage", order: 2 },
   { role: UserRole.admin, label: "Enrollments", path: "/admin/enrollments", iconName: "graduation-cap", permission: "enrollments:manage", order: 3 },
   { role: UserRole.admin, label: "Audit Logs", path: "/admin/logs", iconName: "scroll-text", permission: "audit-logs:view", order: 4 },
-  { role: UserRole.admin, label: "Settings", path: "/admin/settings", iconName: "settings", permission: "settings:manage", order: 5 },
+  { role: UserRole.admin, label: "Content", path: "/admin/content", iconName: "file-pen-line", permission: "cms:manage", order: 5 },
+  { role: UserRole.admin, label: "Settings", path: "/admin/settings", iconName: "settings", permission: "settings:manage", order: 6 },
 ];
 
 // ============================================================================

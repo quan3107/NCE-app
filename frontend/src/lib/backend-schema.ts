@@ -59,6 +59,7 @@ export type DashboardWidgetDefaultsResponse = {
 export type CmsStatFormat = 'number' | 'decimal' | 'percentage';
 
 export type CmsStatItem = {
+  itemKey: 'stat_students' | 'stat_band_score' | 'stat_success_rate';
   label: string;
   value: number;
   format: CmsStatFormat;
@@ -108,6 +109,27 @@ export type CmsAboutPageContent = {
   story: {
     sections: string[];
   };
+};
+
+export type CmsContactPageContent = {
+  header: {
+    title: string;
+    description: string;
+  };
+  form: {
+    title: string;
+    description: string;
+    submitLabel: string;
+  };
+  details: {
+    email: string;
+    phone: string;
+    address: string;
+  };
+  hours: Array<{
+    label: string;
+    value: string;
+  }>;
 };
 
 type EnabledConfigRecord = {

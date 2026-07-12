@@ -4,7 +4,7 @@
  * Why: Replace the custom router with declarative routes and centralized guards.
  */
 
-import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { AppShell } from '@components/layout/AppShell';
 import { NavigationProvider } from '@features/navigation';
@@ -12,133 +12,49 @@ import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
 import { RouteLoading } from '@routes/RouteLoading';
 import {
+  AboutRoute,
+  AdminAuditLogsPage,
+  AdminCmsPage,
+  AdminCoursesPage,
+  AdminDashboardPage,
+  AdminEnrollmentsPage,
+  AdminSettingsPage,
+  AdminUsersPage,
+  AuthRegister,
+  ContactRoute,
+  CourseDetailRoute,
+  CoursesRoute,
+  DashboardStudentRoute,
+  DashboardTeacherRoute,
+  HomeRoute,
+  LoginRoute,
+  NotFoundRoute,
+  OAuthRoute,
+  StudentAssignmentDetailPage,
+  StudentAssignmentsPage,
+  StudentGradesPage,
+  StudentNceLessonPage,
+  StudentNcePathPage,
+  StudentNotificationsPage,
+  StudentProfilePage,
+  TeacherAnalyticsPage,
+  TeacherAssignmentDetailPage,
+  TeacherAssignmentEditPage,
+  TeacherAssignmentsPage,
+  TeacherCourseManagement,
+  TeacherCoursesPage,
+  TeacherGradeFormPage,
+  TeacherIeltsAssignmentCreatePage,
+  TeacherNceLessonEditorPage,
+  TeacherNceLessonsPage,
+  TeacherProfilePage,
+  TeacherRubricsPage,
+  TeacherSubmissionsPage,
+} from '@routes/lazyRouteComponents';
+import {
   buildAuthReturnTo,
   resolveProtectedRouteAuthDecision,
 } from '@lib/auth-restore';
-
-const AdminAuditLogsPage = lazy(() =>
-  import('@features/admin/components/AdminAuditLogsPage').then((module) => ({ default: module.AdminAuditLogsPage })),
-);
-const AdminCoursesPage = lazy(() =>
-  import('@features/admin/components/AdminCoursesPage').then((module) => ({ default: module.AdminCoursesPage })),
-);
-const AdminDashboardPage = lazy(() =>
-  import('@features/admin/components/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })),
-);
-const AdminEnrollmentsPage = lazy(() =>
-  import('@features/admin/components/AdminEnrollmentsPage').then((module) => ({ default: module.AdminEnrollmentsPage })),
-);
-const AdminSettingsPage = lazy(() =>
-  import('@features/admin/components/AdminSettingsPage').then((module) => ({ default: module.AdminSettingsPage })),
-);
-const AdminUsersPage = lazy(() =>
-  import('@features/admin/components/AdminUsersPage').then((module) => ({ default: module.AdminUsersPage })),
-);
-const TeacherAnalyticsPage = lazy(() =>
-  import('@features/analytics/components/TeacherAnalyticsPage').then((module) => ({ default: module.TeacherAnalyticsPage })),
-);
-const StudentAssignmentDetailPage = lazy(() =>
-  import('@features/assignments/components/StudentAssignmentDetailPage').then((module) => ({
-    default: module.StudentAssignmentDetailPage,
-  })),
-);
-const StudentAssignmentsPage = lazy(() =>
-  import('@features/assignments/components/StudentAssignmentsPage').then((module) => ({ default: module.StudentAssignmentsPage })),
-);
-const TeacherAssignmentDetailPage = lazy(() =>
-  import('@features/assignments/components/TeacherAssignmentDetailPage').then((module) => ({
-    default: module.TeacherAssignmentDetailPage,
-  })),
-);
-const TeacherAssignmentEditPage = lazy(() =>
-  import('@features/assignments/components/TeacherAssignmentEditPage').then((module) => ({
-    default: module.TeacherAssignmentEditPage,
-  })),
-);
-const TeacherAssignmentsPage = lazy(() =>
-  import('@features/assignments/components/TeacherAssignmentsPage').then((module) => ({ default: module.TeacherAssignmentsPage })),
-);
-const TeacherIeltsAssignmentCreatePage = lazy(() =>
-  import('@features/assignments/components/TeacherIeltsAssignmentCreatePage').then((module) => ({
-    default: module.TeacherIeltsAssignmentCreatePage,
-  })),
-);
-const TeacherGradeFormPage = lazy(() =>
-  import('@features/assignments/components/TeacherGradeFormPage').then((module) => ({ default: module.TeacherGradeFormPage })),
-);
-const TeacherSubmissionsPage = lazy(() =>
-  import('@features/assignments/components/TeacherSubmissionsPage').then((module) => ({ default: module.TeacherSubmissionsPage })),
-);
-const TeacherCoursesPage = lazy(() =>
-  import('@features/courses/components/TeacherCoursesPage').then((module) => ({ default: module.TeacherCoursesPage })),
-);
-const TeacherCourseManagement = lazy(() =>
-  import('@features/courses/management/TeacherCourseManagement').then((module) => ({ default: module.TeacherCourseManagement })),
-);
-const TeacherNceLessonEditorPage = lazy(() =>
-  import('@features/nce-content/components/TeacherNceLessonEditorPage').then((module) => ({
-    default: module.TeacherNceLessonEditorPage,
-  })),
-);
-const TeacherNceLessonsPage = lazy(() =>
-  import('@features/nce-content/components/TeacherNceLessonsPage').then((module) => ({ default: module.TeacherNceLessonsPage })),
-);
-const StudentNceLessonPage = lazy(() =>
-  import('@features/nce-learning/components/StudentNceLessonPage').then((module) => ({ default: module.StudentNceLessonPage })),
-);
-const StudentNcePathPage = lazy(() =>
-  import('@features/nce-learning/components/StudentNcePathPage').then((module) => ({ default: module.StudentNcePathPage })),
-);
-const StudentGradesPage = lazy(() =>
-  import('@features/grades/components/StudentGradesPage').then((module) => ({ default: module.StudentGradesPage })),
-);
-const StudentNotificationsPage = lazy(() =>
-  import('@features/notifications/components/StudentNotificationsPage').then((module) => ({
-    default: module.StudentNotificationsPage,
-  })),
-);
-const StudentProfilePage = lazy(() =>
-  import('@features/profile/components/StudentProfilePage').then((module) => ({ default: module.StudentProfilePage })),
-);
-const TeacherProfilePage = lazy(() =>
-  import('@features/profile/components/TeacherProfilePage').then((module) => ({ default: module.TeacherProfilePage })),
-);
-const TeacherRubricsPage = lazy(() =>
-  import('@features/rubrics/components/TeacherRubricsPage').then((module) => ({ default: module.TeacherRubricsPage })),
-);
-const AboutRoute = lazy(() =>
-  import('@routes/About').then((module) => ({ default: module.AboutRoute })),
-);
-const ContactRoute = lazy(() =>
-  import('@routes/Contact').then((module) => ({ default: module.ContactRoute })),
-);
-const CourseDetailRoute = lazy(() =>
-  import('@routes/CourseDetail').then((module) => ({ default: module.CourseDetailRoute })),
-);
-const CoursesRoute = lazy(() =>
-  import('@routes/Courses').then((module) => ({ default: module.CoursesRoute })),
-);
-const DashboardStudentRoute = lazy(() =>
-  import('@routes/DashboardStudent').then((module) => ({ default: module.DashboardStudentRoute })),
-);
-const DashboardTeacherRoute = lazy(() =>
-  import('@routes/DashboardTeacher').then((module) => ({ default: module.DashboardTeacherRoute })),
-);
-const HomeRoute = lazy(() =>
-  import('@routes/Home').then((module) => ({ default: module.HomeRoute })),
-);
-const LoginRoute = lazy(() =>
-  import('@routes/Login').then((module) => ({ default: module.LoginRoute })),
-);
-const NotFoundRoute = lazy(() =>
-  import('@routes/NotFound').then((module) => ({ default: module.NotFoundRoute })),
-);
-const OAuthRoute = lazy(() =>
-  import('@routes/OAuth').then((module) => ({ default: module.OAuthRoute })),
-);
-const AuthRegister = lazy(() =>
-  import('@routes/Registration').then((module) => ({ default: module.AuthRegister })),
-);
 
 const roleLanding: Record<Role, string> = {
   student: '/student/dashboard',
@@ -317,6 +233,7 @@ export function AppRoutes() {
           <Route path="admin/courses" element={<AdminCoursesPage />} />
           <Route path="admin/enrollments" element={<AdminEnrollmentsPage />} />
           <Route path="admin/logs" element={<AdminAuditLogsPage />} />
+          <Route path="admin/content" element={<AdminCmsPage />} />
           <Route path="admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>

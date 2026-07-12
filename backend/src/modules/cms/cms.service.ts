@@ -5,37 +5,33 @@
  */
 
 import { prisma } from '../../prisma/client.js'
+import type { Prisma } from '../../prisma/generated.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
-import {
-  HeroContentSchema,
-  StatItemSchema,
-  FeatureItemSchema,
-  HowItWorksMetaSchema,
-  AboutHeroContentSchema,
-  ValueItemSchema,
-  StoryParagraphSchema,
+import { parseCmsPageContent, validateStoredCmsPageContent } from './cms.content.js'
+import { lockCmsPageByKey } from './cms.persistence.js'
+import type {
+  AboutPageContent,
+  ContactPageContent,
+  HomepageContent,
+  CmsPageKey,
 } from './cms.schema.js'
 
-import type {
-  StatItem,
-  FeatureItem,
-  HowItWorksContent,
-  ValueItem,
-  HomepageContent,
-  AboutPageContent,
-} from './cms.schema.js'
+export {
+  getCmsDraft,
+  getCmsPreview,
+  listCmsPages,
+  publishCmsDraft,
+  updateCmsDraft,
+} from './cms.admin.service.js'
+export { listCmsRevisions, rollbackCmsRevision } from './cms.revisions.service.js'
 
 // ============================================================================
 // Database Queries
 // ============================================================================
 
-const FALLBACK_HOW_IT_WORKS_TITLE = 'How It Works'
-const FALLBACK_HOW_IT_WORKS_DESCRIPTION =
-  'Our structured approach helps you improve systematically across all IELTS test components with expert guidance every step of the way.'
-
-export const getHomepageContent = async (): Promise<HomepageContent> => {
+async function getPublishedPage(pageKey: CmsPageKey) {
   const page = await prisma.cmsPageContent.findUnique({
-    where: { pageKey: 'homepage', isActive: true },
+    where: { pageKey, isActive: true },
     include: {
       sections: {
         where: { isActive: true },
@@ -51,91 +47,20 @@ export const getHomepageContent = async (): Promise<HomepageContent> => {
   })
 
   if (!page) {
-    throw new Error('Homepage content not found')
+    throw new Error(`${pageKey} content not found`)
   }
 
-  const heroSection = page.sections.find((s) => s.sectionKey === 'hero')
-  const statsSection = page.sections.find((s) => s.sectionKey === 'stats')
-  const featuresSection = page.sections.find((s) => s.sectionKey === 'features')
-
-  const heroItem = heroSection?.items[0]
-  if (!heroItem) {
-    throw new Error('Hero content not found')
-  }
-  const hero = HeroContentSchema.parse(heroItem.contentJson)
-
-  const stats: StatItem[] = (statsSection?.items || []).map((item) =>
-    StatItemSchema.parse(item.contentJson),
-  )
-
-  const featureItems = (featuresSection?.items || []).filter(
-    (item) => item.contentType === 'feature',
-  )
-  const features: FeatureItem[] = featureItems.map((item) =>
-    FeatureItemSchema.parse(item.contentJson),
-  )
-  const howItWorksMetaItem = (featuresSection?.items || []).find(
-    (item) => item.contentType === 'section_meta' || item.itemKey === 'section_meta',
-  )
-  const howItWorksMeta = howItWorksMetaItem
-    ? HowItWorksMetaSchema.parse(howItWorksMetaItem.contentJson)
-    : null
-
-  const howItWorks: HowItWorksContent = {
-    title:
-      howItWorksMeta?.title ??
-      featuresSection?.label ??
-      FALLBACK_HOW_IT_WORKS_TITLE,
-    description:
-      howItWorksMeta?.description ?? FALLBACK_HOW_IT_WORKS_DESCRIPTION,
-    features,
-  }
-
-  return { hero, stats, howItWorks }
+  return parseCmsPageContent(pageKey, page)
 }
 
-export const getAboutPageContent = async (): Promise<AboutPageContent> => {
-  const page = await prisma.cmsPageContent.findUnique({
-    where: { pageKey: 'about', isActive: true },
-    include: {
-      sections: {
-        where: { isActive: true },
-        orderBy: { sortOrder: 'asc' },
-        include: {
-          items: {
-            where: { isActive: true },
-            orderBy: { sortOrder: 'asc' },
-          },
-        },
-      },
-    },
-  })
+export const getHomepageContent = async (): Promise<HomepageContent> =>
+  getPublishedPage('homepage') as Promise<HomepageContent>
 
-  if (!page) {
-    throw new Error('About page content not found')
-  }
+export const getAboutPageContent = async (): Promise<AboutPageContent> =>
+  getPublishedPage('about') as Promise<AboutPageContent>
 
-  const heroSection = page.sections.find((s) => s.sectionKey === 'hero')
-  const valuesSection = page.sections.find((s) => s.sectionKey === 'values')
-  const storySection = page.sections.find((s) => s.sectionKey === 'story')
-
-  const heroItem = heroSection?.items[0]
-  if (!heroItem) {
-    throw new Error('Hero content not found')
-  }
-  const hero = AboutHeroContentSchema.parse(heroItem.contentJson)
-
-  const values: ValueItem[] = (valuesSection?.items || []).map((item) =>
-    ValueItemSchema.parse(item.contentJson),
-  )
-
-  const storySections: string[] = (storySection?.items || []).map((item) => {
-    const storyData = StoryParagraphSchema.parse(item.contentJson)
-    return storyData.text
-  })
-
-  return { hero, values, story: { sections: storySections } }
-}
+export const getContactPageContent = async (): Promise<ContactPageContent> =>
+  getPublishedPage('contact') as Promise<ContactPageContent>
 
 export const getRealtimeStats = async () => {
   const [activeStudents, totalSubmissions, gradedSubmissions] = await Promise.all([
@@ -164,85 +89,109 @@ export const getRealtimeStats = async () => {
   }
 }
 
-export const updateHomepageStatsWithRealtimeData = async (): Promise<void> => {
+export const updateHomepageStatsWithRealtimeData = async (actor?: {
+  id: string
+}): Promise<void> => {
   const stats = await getRealtimeStats()
-
-  const homepage = await prisma.cmsPageContent.findUnique({
-    where: { pageKey: 'homepage' },
-    include: {
-      sections: {
-        where: { sectionKey: 'stats' },
-        include: { items: true },
-      },
-    },
-  })
-
-  if (!homepage) return
-
-  const statsSection = homepage.sections[0]
-  if (!statsSection) return
-
-  const updatedItems: Array<{
-    itemId: string
-    itemKey: string | null
-    value: {
-      from: number
-      to: number
-    }
-  }> = []
-
-  const updatePromises = statsSection.items.map(async (item) => {
-    const itemKey = item.itemKey
-    const currentContent = item.contentJson as {
-      value: number
-      label: string
-      format: string
-      suffix?: string
-    }
-
-    let newValue = currentContent.value
-
-    if (itemKey === 'stat_students') {
-      newValue = stats.activeStudents
-    } else if (itemKey === 'stat_band_score') {
-      newValue = stats.avgBandScore
-    } else if (itemKey === 'stat_success_rate') {
-      newValue = stats.successRate
-    }
-
-    if (newValue !== currentContent.value) {
-      await prisma.cmsContentItem.update({
-        where: { id: item.id },
-        data: {
-          contentJson: {
-            ...currentContent,
-            value: newValue,
+  const result = await prisma.$transaction(async (tx) => {
+    const pageId = await lockCmsPageByKey(tx, 'homepage')
+    if (!pageId) return null
+    const homepage = await tx.cmsPageContent.findUnique({
+      where: { id: pageId },
+      include: {
+        draft: true,
+        sections: {
+          where: { sectionKey: 'stats' },
+          include: {
+            items: {
+              where: { isActive: true },
+              orderBy: { sortOrder: 'asc' },
+            },
           },
         },
+      },
+    })
+    const statsSection = homepage?.sections[0]
+    if (!homepage || !statsSection) return null
+
+    const updatedItems: Array<{
+      itemId: string
+      itemKey: string | null
+      value: { from: number; to: number }
+    }> = []
+    const valueByKey = new Map<string, number>([
+      ['stat_students', stats.activeStudents],
+      ['stat_band_score', stats.avgBandScore],
+      ['stat_success_rate', stats.successRate],
+    ])
+    const draftContent = homepage.draft
+      ? (validateStoredCmsPageContent('homepage', homepage.draft.content) as HomepageContent)
+      : null
+    const draftStats = draftContent?.stats.map((item) => ({
+      ...item,
+      value: valueByKey.get(item.itemKey) ?? item.value,
+    }))
+    const draftChanged = Boolean(
+      draftContent && JSON.stringify(draftStats) !== JSON.stringify(draftContent.stats),
+    )
+
+    for (const item of statsSection.items) {
+      if (item.isActive === false) continue
+      const itemKey = item.itemKey
+      const currentContent = item.contentJson as {
+        value: number
+        label: string
+        format: string
+        suffix?: string
+      }
+      const newValue = itemKey
+        ? (valueByKey.get(itemKey) ?? currentContent.value)
+        : currentContent.value
+      if (newValue === currentContent.value) continue
+
+      await tx.cmsContentItem.update({
+        where: { id: item.id },
+        data: { contentJson: { ...currentContent, value: newValue } },
       })
       updatedItems.push({
         itemId: item.id,
         itemKey,
-        value: {
-          from: currentContent.value,
-          to: newValue,
+        value: { from: currentContent.value, to: newValue },
+      })
+    }
+
+    if (draftContent && draftStats && draftChanged) {
+      await tx.cmsPageDraft.update({
+        where: { pageId: homepage.id },
+        data: {
+          content: { ...draftContent, stats: draftStats } as Prisma.InputJsonValue,
         },
       })
     }
+    if (updatedItems.length > 0 || draftChanged) {
+      const draftVersion = homepage.draftVersion + 1
+      await tx.cmsPageContent.update({
+        where: { id: homepage.id },
+        data:
+          homepage.draftVersion === homepage.publishedDraftVersion
+            ? { draftVersion, publishedDraftVersion: draftVersion }
+            : { draftVersion },
+      })
+    }
+    return { homepageId: homepage.id, updatedItems, draftChanged }
   })
 
-  await Promise.all(updatePromises)
-
-  if (updatedItems.length > 0) {
+  if (result && (result.updatedItems.length > 0 || result.draftChanged)) {
     await writeAuditLogSafely({
-      actorId: null,
+      actorId: actor?.id ?? null,
       action: 'cms.homepage_stats_refreshed',
       entity: 'cms_page_content',
-      entityId: homepage.id,
+      entityId: result.homepageId,
       diff: {
         pageKey: 'homepage',
         sectionKey: 'stats',
-        updatedItems,
+        updatedItems: result.updatedItems,
+        draftSynchronized: result.draftChanged,
       },
     })
   }

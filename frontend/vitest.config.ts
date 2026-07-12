@@ -13,6 +13,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@radix-ui/react-slot@1.1.2': '@radix-ui/react-slot',
+      '@radix-ui/react-alert-dialog@1.1.6': '@radix-ui/react-alert-dialog',
       '@radix-ui/react-label@2.1.2': '@radix-ui/react-label',
       '@radix-ui/react-dialog@1.1.6': '@radix-ui/react-dialog',
       '@radix-ui/react-progress@1.1.2': '@radix-ui/react-progress',
