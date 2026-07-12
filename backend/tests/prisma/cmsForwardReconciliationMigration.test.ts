@@ -7,19 +7,23 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const migration = readFileSync(
-  resolve(
-    process.cwd(),
-    'src/prisma/migrations/20260711160000_reconcile_cms_draft_schema/migration.sql',
-  ),
-  'utf8',
+const finalMigrationPath = resolve(
+  process.cwd(),
+  'src/prisma/migrations/20260712100000_finalize_cms_migration_integrity/migration.sql',
 )
+const migration = existsSync(finalMigrationPath)
+  ? readFileSync(finalMigrationPath, 'utf8')
+  : ''
 const deployedRepairPath = resolve(
   process.cwd(),
   'src/prisma/migrations/20260711170000_grant_cms_page_updated_at/migration.sql',
 )
 
-describe('CMS forward reconciliation migration', () => {
+describe('CMS final migration-history reconciliation', () => {
+  it('exists after every previously applied migration', () => {
+    expect(existsSync(finalMigrationPath)).toBe(true)
+  })
+
   it('atomically creates and backfills the draft table before dropping legacy data', () => {
     expect(migration.indexOf('BEGIN;')).toBeLessThan(
       migration.indexOf('CREATE TABLE IF NOT EXISTS'),
@@ -42,6 +46,9 @@ describe('CMS forward reconciliation migration', () => {
     )
     expect(migration).toContain(
       'CREATE INDEX IF NOT EXISTS cms_page_revisions_page_id_created_at_idx',
+    )
+    expect(migration).toContain(
+      'CREATE INDEX IF NOT EXISTS cms_page_revisions_source_revision_id_idx',
     )
     expect(migration).not.toContain('created_at DESC')
 
