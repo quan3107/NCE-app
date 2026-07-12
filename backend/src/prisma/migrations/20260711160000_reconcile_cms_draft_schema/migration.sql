@@ -108,8 +108,6 @@ CREATE POLICY cms_page_drafts_admin_update
   USING (current_setting('app.current_user_role', true) = 'admin')
   WITH CHECK (current_setting('app.current_user_role', true) = 'admin');
 
-GRANT UPDATE (draft_version, published_draft_version, published_revision, published_at, updated_at)
-  ON public.cms_page_contents TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.cms_page_drafts TO authenticated;
 
 COMMIT;
