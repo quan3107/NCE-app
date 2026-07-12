@@ -45,6 +45,9 @@ describe('PR-48A Data API runtime boundary migration', () => {
     expect(migration).toContain(
       'REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC',
     )
+    expect(migration).toContain("to_regprocedure('app.current_user_id()')")
+    expect(migration).toContain("to_regprocedure('app.current_user_role()')")
+    expect(migration).toContain("to_regprocedure('app.is_admin()')")
     expect(migration).toContain(
       'ALTER FUNCTION app.current_user_id() SET search_path = pg_catalog',
     )

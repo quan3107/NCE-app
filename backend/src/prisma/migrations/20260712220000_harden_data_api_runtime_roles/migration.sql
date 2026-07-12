@@ -91,9 +91,19 @@ REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app
   TO anon, authenticated, nce_app_anon, nce_app_authenticated, service_role;
-ALTER FUNCTION app.current_user_id() SET search_path = pg_catalog;
-ALTER FUNCTION app.current_user_role() SET search_path = pg_catalog;
-ALTER FUNCTION app.is_admin() SET search_path = pg_catalog;
+DO $helper_search_paths$
+BEGIN
+  IF to_regprocedure('app.current_user_id()') IS NOT NULL THEN
+    ALTER FUNCTION app.current_user_id() SET search_path = pg_catalog;
+  END IF;
+  IF to_regprocedure('app.current_user_role()') IS NOT NULL THEN
+    ALTER FUNCTION app.current_user_role() SET search_path = pg_catalog;
+  END IF;
+  IF to_regprocedure('app.is_admin()') IS NOT NULL THEN
+    ALTER FUNCTION app.is_admin() SET search_path = pg_catalog;
+  END IF;
+END
+$helper_search_paths$;
 
 -- The application has no GraphQL client. Removing pg_graphql eliminates a
 -- second discovery/query surface over the same public-schema relations.
