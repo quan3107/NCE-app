@@ -15,13 +15,13 @@ const draftMigration = readFileSync(
   ),
   'utf8',
 )
-const securityMigration = readFileSync(
-  resolve(
-    backendRoot,
-    'src/prisma/migrations/20260710103000_secure_cms_admin_writes/migration.sql',
-  ),
-  'utf8',
+const finalMigrationPath = resolve(
+  backendRoot,
+  'src/prisma/migrations/20260712100000_finalize_cms_migration_integrity/migration.sql',
 )
+const finalMigration = existsSync(finalMigrationPath)
+  ? readFileSync(finalMigrationPath, 'utf8')
+  : ''
 const bootstrapMigrationPath = resolve(
   backendRoot,
   'src/prisma/migrations/20260710110000_bootstrap_cms_admin_data/migration.sql',
@@ -50,23 +50,20 @@ const combinedCorePageMigrations = corePageMigrations.join('\n')
 
 describe('CMS security migrations', () => {
   it('stores draft JSON outside the publicly readable page table', () => {
-    expect(draftMigration).not.toMatch(/ADD COLUMN draft_content/i)
-    expect(draftMigration).toMatch(/CREATE TABLE public\.cms_page_drafts/i)
-    expect(draftMigration).toMatch(/content_json JSONB NOT NULL/i)
-    expect(draftMigration).toMatch(
+    expect(draftMigration).toMatch(/ADD COLUMN draft_content/i)
+    expect(finalMigration).toMatch(/CREATE TABLE IF NOT EXISTS public\.cms_page_drafts/i)
+    expect(finalMigration).toMatch(/content_json JSONB NOT NULL/i)
+    expect(finalMigration).toMatch(/DROP COLUMN draft_content/i)
+    expect(finalMigration).toMatch(
       /GRANT UPDATE \([^)]*updated_at[^)]*\)\s+ON public\.cms_page_contents/i,
     )
   })
 
   it('enables RLS before granting newly added CMS operations', () => {
-    const firstGrant = draftMigration.indexOf('GRANT SELECT, INSERT, UPDATE')
+    const firstGrant = finalMigration.indexOf('GRANT SELECT, INSERT, UPDATE')
     expect(firstGrant).toBeGreaterThan(0)
-    for (const table of [
-      'cms_page_contents',
-      'cms_page_drafts',
-      'cms_page_revisions',
-    ]) {
-      const rls = draftMigration.indexOf(
+    for (const table of ['cms_page_contents', 'cms_page_drafts', 'cms_page_revisions']) {
+      const rls = finalMigration.indexOf(
         `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`,
       )
       expect(rls).toBeGreaterThan(0)
@@ -75,9 +72,9 @@ describe('CMS security migrations', () => {
   })
 
   it('applies CMS admin write grants atomically after enabling RLS', () => {
-    const begin = securityMigration.indexOf('BEGIN;')
-    const firstGrant = securityMigration.indexOf('GRANT INSERT, UPDATE, DELETE')
-    const commit = securityMigration.lastIndexOf('COMMIT;')
+    const begin = finalMigration.indexOf('BEGIN;')
+    const firstGrant = finalMigration.indexOf('GRANT INSERT, UPDATE, DELETE')
+    const commit = finalMigration.lastIndexOf('COMMIT;')
 
     expect(begin).toBeGreaterThan(0)
     expect(firstGrant).toBeGreaterThan(begin)
@@ -90,7 +87,7 @@ describe('CMS security migrations', () => {
       'cms_page_revisions',
       'cms_page_drafts',
     ]) {
-      const rls = securityMigration.indexOf(
+      const rls = finalMigration.indexOf(
         `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`,
       )
       expect(rls).toBeGreaterThan(begin)
@@ -99,13 +96,13 @@ describe('CMS security migrations', () => {
   })
 
   it('restricts the draft table to authenticated application administrators', () => {
-    expect(securityMigration).toMatch(
+    expect(finalMigration).toMatch(
       /ALTER TABLE public\.cms_page_drafts ENABLE ROW LEVEL SECURITY/i,
     )
-    expect(securityMigration).toMatch(
+    expect(finalMigration).toMatch(
       /cms_page_drafts_admin_read[\s\S]*TO authenticated[\s\S]*current_setting\('app\.current_user_role', true\) = 'admin'/i,
     )
-    expect(securityMigration).not.toMatch(
+    expect(finalMigration).not.toMatch(
       /(?:GRANT[^;]*ON public\.cms_page_drafts[^;]*TO anon|ON public\.cms_page_drafts[^;]*TO anon)/i,
     )
   })
@@ -116,7 +113,9 @@ describe('CMS security migrations', () => {
     expect(bootstrapMigration).toMatch(/WHERE NOT EXISTS[\s\S]*page_key = 'contact'/i)
     expect(bootstrapMigration).toMatch(/'cms:manage'[\s\S]*ON CONFLICT/i)
     expect(bootstrapMigration).not.toMatch(/ON CONFLICT \(key\) DO UPDATE/i)
-    expect(bootstrapMigration).toMatch(/INSERT INTO public\.role_permissions[\s\S]*'admin'/i)
+    expect(bootstrapMigration).toMatch(
+      /INSERT INTO public\.role_permissions[\s\S]*'admin'/i,
+    )
     expect(bootstrapMigration).toMatch(
       /INSERT INTO public\.navigation_items[\s\S]*'\/admin\/content'[\s\S]*WHERE NOT EXISTS/i,
     )
@@ -167,9 +166,7 @@ describe('CMS security migrations', () => {
       expect(migration).toMatch(
         /RETURNING id INTO created_page_id;\s*IF NOT FOUND THEN\s+RETURN;/i,
       )
-      expect(migration).toMatch(
-        /INSERT INTO public\.cms_sections[\s\S]*created_page_id/i,
-      )
+      expect(migration).toMatch(/INSERT INTO public\.cms_sections[\s\S]*created_page_id/i)
     }
   })
 
