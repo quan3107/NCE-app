@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-12:** Added a third checksum-safe homepage baseline repair for databases where an intervening publish canonicalized live stats before earlier repairs ran. It prefers the earliest structurally valid later revision, conservatively falls back to an exact valid canonical live set, and has rolled-back database coverage through actual publish and rollback persistence.
 - **2026-07-12:** Added a checksum-safe follow-up migration that repairs keyless homepage revision 1 snapshots even when preserved custom keyed stats coexist, matching runtime modeled-key filtering. Extended the rolled-back database fixture with a custom row and explicit 15-second timeouts for both concurrently locking homepage migration tests.
 - **2026-07-12:** Added a forward-only repair for unusable homepage revision 1 snapshots produced from the supported three-keyless-stat legacy state. Added a rolled-back PostgreSQL regression that recreates the legacy rows and validates the idempotent repair through stored-content validation. Deployed the migration to hosted Supabase, where zero rows qualified and existing applied migration files remained untouched.
 - **2026-07-12:** Restored six applied PR-48 CMS migrations to their exact deployed Git bytes, locked their hosted checksums with regression coverage, and moved final-state reconciliation into one forward migration with the missing rollback-source index and Prisma mapping. Applied the forward migration to hosted Supabase, preserved CMS counts, verified rollback behavior in transactions, and cleared the unindexed-FK advisor. Clean empty-database replay remains unavailable locally without PostgreSQL/Docker or a paid Supabase branch.
@@ -78,6 +79,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-12:** No frontend files changed for the intervening-publish homepage baseline repair; the correction is isolated to forward backend migration SQL, rolled-back database coverage, and this progress record.
 - **2026-07-12:** No frontend files changed for the custom-stat-aware homepage baseline repair or database-test concurrency hardening; the follow-up is isolated to backend migration SQL, database tests, and this progress record.
 - **2026-07-12:** No frontend files changed for the legacy keyless homepage baseline repair; the correction is isolated to a forward backend migration, its rolled-back database regression, and this progress record.
 - **2026-07-12:** No frontend files changed for PR-48 migration-history restoration and rollback-source indexing; the work is isolated to backend migrations, Prisma schema/tests, hosted verification, and this progress record.
