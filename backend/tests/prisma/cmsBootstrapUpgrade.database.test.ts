@@ -153,6 +153,11 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
         },
       })
 
+      // The restored bootstrap ran before reconciliation removed this default.
+      // Recreate that historical schema state inside the rolled-back probe.
+      await tx.$executeRawUnsafe(
+        'ALTER TABLE public.cms_page_revisions ALTER COLUMN id SET DEFAULT gen_random_uuid()',
+      )
       await tx.$executeRawUnsafe(snapshotInsertSql)
       const revision = await tx.cmsPageRevision.findUniqueOrThrow({
         where: { pageId_revisionNumber: { pageId: page.id, revisionNumber: 1 } },
