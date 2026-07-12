@@ -174,8 +174,48 @@ jobs:
           SQL
 
       - name: Apply backend migrations
-        run: npx prisma migrate deploy --config prisma.config.ts
+        run: |
+          hardened_migration="src/prisma/migrations/20260712220000_harden_data_api_runtime_roles"
+          held_migration="${RUNNER_TEMP}/20260712220000_harden_data_api_runtime_roles"
+          mv "${hardened_migration}" "${held_migration}"
+          trap 'mv "${held_migration}" "${hardened_migration}"' EXIT
+          DATABASE_URL=postgresql://nce:nce@localhost:5432/nce_test \
+            DIRECT_URL=postgresql://nce:nce@localhost:5432/nce_test \
+            npx prisma migrate deploy --config prisma.config.ts
+          mv "${held_migration}" "${hardened_migration}"
+          trap - EXIT
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
+            -c 'REASSIGN OWNED BY nce TO nce_runtime;'
+          npx prisma migrate deploy --config prisma.config.ts
         working-directory: backend
+
+      - name: Verify non-superuser runtime role boundary
+        run: |
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U nce_runtime -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT pg_has_role(current_user, 'nce_app_anon', 'SET') OR
+               NOT pg_has_role(current_user, 'nce_app_authenticated', 'SET') THEN
+              RAISE EXCEPTION 'runtime login cannot SET ROLE into application roles';
+            END IF;
+            IF has_table_privilege('nce_app_anon', 'public.users', 'TRUNCATE') OR
+               has_table_privilege('nce_app_authenticated', 'public.users', 'REFERENCES') OR
+               has_table_privilege('nce_app_authenticated', 'public.users', 'TRIGGER') THEN
+              RAISE EXCEPTION 'runtime roles received non-DML table privileges';
+            END IF;
+          END
+          $$;
+          BEGIN;
+          SET LOCAL ROLE nce_app_anon;
+          SELECT current_user;
+          ROLLBACK;
+          BEGIN;
+          SET LOCAL ROLE nce_app_authenticated;
+          SELECT current_user;
+          ROLLBACK;
+          SQL
 
       - name: Seed backend CMS test content
         run: npm run seed:cms

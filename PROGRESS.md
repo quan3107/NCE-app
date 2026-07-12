@@ -8,7 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
-- **2026-07-12:** Addressed PR-48A review findings by explicitly granting the non-superuser runtime login `SET ROLE` capability, restricting current and default table grants to RLS-governed DML, and changing CI to replay migrations and run backend checks through a PostgreSQL 17 non-superuser `CREATEROLE` login.
+- **2026-07-12:** Addressed PR-48A review findings by explicitly granting the non-superuser runtime login `SET ROLE` capability, restricting current and default table grants to RLS-governed DML, and adding PostgreSQL 17 CI probes that apply the hardening migration and exercise both runtime roles through a non-superuser `CREATEROLE` login.
 
 - **2026-07-12:** Implemented PR-48A Supabase Data API/runtime-role hardening with non-login anonymous and authenticated backend roles, one-way RLS-policy membership, deny-by-default browser grants outside reviewed public surfaces, RLS on every public table, fixed helper search paths, unused pg_graphql removal, focused migration/middleware coverage, and a hosted rollout/probe runbook. Hosted DDL remains unapplied pending verification.
 
