@@ -16,7 +16,7 @@ import type { Prisma } from '../../src/prisma/generated.js'
 
 const repairPath = resolve(
   import.meta.dirname,
-  '../../src/prisma/migrations/20260712130000_repair_homepage_baseline_from_later_revision/migration.sql',
+  '../../src/prisma/migrations/20260712140000_repair_malformed_homepage_baseline/migration.sql',
 )
 const repairMigration = existsSync(repairPath) ? readFileSync(repairPath, 'utf8') : ''
 const repairStart = repairMigration.indexOf('WITH invalid_baselines AS')
@@ -189,13 +189,30 @@ databaseDescribe('CMS keyless homepage baseline repair', () => {
     })
   }, 15_000)
 
-  it('falls back to an exact current canonical stat set', async () => {
+  it('rejects a malformed later revision and uses the canonical fallback', async () => {
     expect(existsSync(repairPath)).toBe(true)
     if (!existsSync(repairPath)) return
 
     await withRolledBackDatabase(async (tx) => {
       const page = await createBrokenHomepage(tx)
       await replacePublishedSections(tx, page.id, 'homepage', publishedContent)
+      const malformedStats = publishedContent.stats.map((stat, index) =>
+        index === 0
+          ? { itemKey: stat.itemKey, value: stat.value, format: stat.format }
+          : stat,
+      )
+      await tx.cmsPageRevision.update({
+        where: { pageId_revisionNumber: { pageId: page.id, revisionNumber: 1 } },
+        data: { contentJson: { ...publishedContent, stats: malformedStats } },
+      })
+      await tx.cmsPageRevision.create({
+        data: {
+          pageId: page.id,
+          revisionNumber: 2,
+          operation: 'publish',
+          contentJson: { ...publishedContent, stats: malformedStats },
+        },
+      })
 
       expect(await tx.$executeRawUnsafe(repairSql)).toBe(1)
       const repaired = validateStoredCmsPageContent(
