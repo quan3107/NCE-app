@@ -1103,5 +1103,6 @@ model CmsPageRevision {
   @@unique([pageId, revisionNumber])
   @@index([pageId, createdAt])
   @@index([createdById])
+  @@index([sourceRevisionId], map: "cms_page_revisions_source_revision_id_idx")
   @@map("cms_page_revisions")
 }
