@@ -8,6 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-12:** Added a forward-only repair for unusable homepage revision 1 snapshots produced from the supported three-keyless-stat legacy state. Added a rolled-back PostgreSQL regression that recreates the legacy rows and validates the idempotent repair through stored-content validation. Deployed the migration to hosted Supabase, where zero rows qualified and existing applied migration files remained untouched.
 - **2026-07-12:** Restored six applied PR-48 CMS migrations to their exact deployed Git bytes, locked their hosted checksums with regression coverage, and moved final-state reconciliation into one forward migration with the missing rollback-source index and Prisma mapping. Applied the forward migration to hosted Supabase, preserved CMS counts, verified rollback behavior in transactions, and cleared the unindexed-FK advisor. Clean empty-database replay remains unavailable locally without PostgreSQL/Docker or a paid Supabase branch.
 - **2026-07-11:** Repaired the deployed CMS page-write permission set by granting authenticated updates to Prisma-managed `updated_at` alongside the draft/publication version columns. Added the grant to the reconciliation path, a follow-up idempotent repair for databases that already ran it, and focused regression coverage.
 - **2026-07-11:** Added an atomic forward reconciliation migration for hosted databases that already recorded the original CMS migration names. It preserves legacy drafts, removes the superseded content column, aligns defaults/indexes/foreign keys with Prisma, and enables draft RLS policies before grants. Added focused migration coverage.
@@ -76,6 +77,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-12:** No frontend files changed for the legacy keyless homepage baseline repair; the correction is isolated to a forward backend migration, its rolled-back database regression, and this progress record.
 - **2026-07-12:** No frontend files changed for PR-48 migration-history restoration and rollback-source indexing; the work is isolated to backend migrations, Prisma schema/tests, hosted verification, and this progress record.
 - **2026-07-11:** No frontend files changed for the CMS page-write permission repair; the fix is isolated to backend migration grants, regression coverage, and this progress record.
 - **2026-07-11:** No frontend files changed for the hosted CMS migration reconciliation; the upgrade is isolated to backend migration SQL, its regression test, and this progress record.
