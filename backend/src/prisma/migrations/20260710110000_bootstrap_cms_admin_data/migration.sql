@@ -242,9 +242,9 @@ WITH managed_pages AS (
   FROM managed_pages page
 )
 INSERT INTO public.cms_page_revisions (
-  id, page_id, revision_number, content_json, operation, created_by_id
+  page_id, revision_number, content_json, operation, created_by_id
 )
-SELECT gen_random_uuid(), snapshot.id, 1, snapshot.content_json, 'publish', NULL
+SELECT snapshot.id, 1, snapshot.content_json, 'publish', NULL
 FROM snapshots snapshot
 WHERE NOT EXISTS (
   SELECT 1 FROM public.cms_page_revisions revision WHERE revision.page_id = snapshot.id
