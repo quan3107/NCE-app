@@ -26,6 +26,10 @@ RLS becomes mandatory.
 membership lets the backend roles reuse the matching browser-role policies
 without allowing a Supabase token to select a backend role.
 
+The migration/runtime database login receives explicit `SET TRUE` membership
+in both backend roles. It remains a non-superuser, and the roles receive only
+`SELECT`, `INSERT`, `UPDATE`, and `DELETE` table privileges.
+
 ## Intentional view exception
 
 `public.courses_public` remains a narrowly scoped security-definer view. A

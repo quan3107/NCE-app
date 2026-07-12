@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_DB: nce_test
           POSTGRES_USER: nce
@@ -113,8 +113,8 @@ jobs:
           --health-retries 5
     env:
       NODE_ENV: test
-      DATABASE_URL: postgresql://nce:nce@localhost:5432/nce_test
-      DIRECT_URL: postgresql://nce:nce@localhost:5432/nce_test
+      DATABASE_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test
+      DIRECT_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test
       JWT_PRIVATE_KEY_PATH: tests/runtime/generated-jwt-private.pem
       JWT_PUBLIC_KEY_PATH: tests/runtime/generated-jwt-public.pem
       GOOGLE_CLIENT_ID: test-google-client-id
@@ -162,14 +162,15 @@ jobs:
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
               CREATE ROLE service_role;
             END IF;
-            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
-              CREATE ROLE nce_app_anon NOLOGIN;
-            END IF;
-            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_authenticated') THEN
-              CREATE ROLE nce_app_authenticated NOLOGIN;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_runtime') THEN
+              CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime' CREATEROLE;
             END IF;
           END
           $$;
+          GRANT anon, authenticated TO nce_runtime
+            WITH ADMIN TRUE, SET FALSE, INHERIT FALSE;
+          GRANT CONNECT, CREATE ON DATABASE nce_test TO nce_runtime;
+          GRANT USAGE, CREATE ON SCHEMA public TO nce_runtime;
           SQL
 
       - name: Apply backend migrations

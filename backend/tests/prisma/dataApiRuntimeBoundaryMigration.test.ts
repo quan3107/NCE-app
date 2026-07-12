@@ -22,6 +22,9 @@ describe('PR-48A Data API runtime boundary migration', () => {
     expect(migration).toContain('CREATE ROLE nce_app_authenticated NOLOGIN')
     expect(migration).toContain('GRANT anon TO nce_app_anon')
     expect(migration).toContain('GRANT authenticated TO nce_app_authenticated')
+    expect(migration).toContain(
+      'GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER WITH SET TRUE',
+    )
     expect(migration).not.toMatch(
       /GRANT\s+nce_app_(anon|authenticated)\s+TO\s+authenticator/i,
     )
@@ -33,6 +36,21 @@ describe('PR-48A Data API runtime boundary migration', () => {
     expect(migration).toContain("'courses_public'")
     expect(migration).toContain("'cms_page_contents'")
     expect(migration).toContain("'nce_books'")
+  })
+
+  it('limits backend table grants to RLS-governed DML', () => {
+    expect(migration).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public',
+    )
+    expect(migration).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_app_anon, nce_app_authenticated',
+    )
+    expect(migration).not.toContain(
+      'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public',
+    )
+    expect(migration).not.toContain(
+      'GRANT ALL PRIVILEGES ON TABLES TO nce_app_anon, nce_app_authenticated',
+    )
   })
 
   it('enables RLS on every public table and preserves legacy backend behavior', () => {

@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-12:** Addressed PR-48A review findings by explicitly granting the non-superuser runtime login `SET ROLE` capability, restricting current and default table grants to RLS-governed DML, and changing CI to replay migrations and run backend checks through a PostgreSQL 17 non-superuser `CREATEROLE` login.
+
 - **2026-07-12:** Implemented PR-48A Supabase Data API/runtime-role hardening with non-login anonymous and authenticated backend roles, one-way RLS-policy membership, deny-by-default browser grants outside reviewed public surfaces, RLS on every public table, fixed helper search paths, unused pg_graphql removal, focused migration/middleware coverage, and a hosted rollout/probe runbook. Hosted DDL remains unapplied pending verification.
 
 - **2026-07-12:** Added a fourth checksum-safe homepage baseline repair that fails closed on PostgreSQL NULL validation results. It detects malformed non-empty revision 1 stats, rejects malformed later revisions and live rows with `BOOL_AND(COALESCE(..., FALSE))`, and preserves earliest-valid-revision precedence before a strict canonical fallback.
@@ -82,6 +84,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-12:** No frontend files changed for the PR-48A runtime-membership and DML-grant review fixes; frontend CI remains part of the regression gate.
 
 - **2026-07-12:** No frontend files changed for PR-48A; the work is isolated to backend runtime roles, database migration/CI setup, security tests, and database documentation.
 

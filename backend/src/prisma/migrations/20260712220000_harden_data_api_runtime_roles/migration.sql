@@ -17,9 +17,10 @@ $roles$;
 -- PostgREST authenticator is never allowed to assume either backend role.
 GRANT anon TO nce_app_anon;
 GRANT authenticated TO nce_app_authenticated;
+GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER WITH SET TRUE;
 
 GRANT USAGE ON SCHEMA public, app TO nce_app_anon, nce_app_authenticated;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public
   TO nce_app_anon, nce_app_authenticated;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public
   TO nce_app_anon, nce_app_authenticated;
@@ -118,6 +119,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT ALL PRIVILEGES ON TABLES TO nce_app_anon, nce_app_authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_app_anon, nce_app_authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO nce_app_anon, nce_app_authenticated;
