@@ -18,7 +18,7 @@ if (process.env.NODE_ENV !== 'production') {
   loadEnv({ path: envPath, quiet: process.env.NODE_ENV === 'test' })
 }
 
-type PrismaRole = 'authenticated' | 'anon' | 'service_role'
+type PrismaRole = 'nce_app_authenticated' | 'nce_app_anon' | 'service_role'
 
 type RoleContextOptions = {
   role: PrismaRole

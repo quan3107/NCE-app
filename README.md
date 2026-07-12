@@ -106,6 +106,12 @@ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
     CREATE ROLE service_role;
   END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
+    CREATE ROLE nce_app_anon NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_authenticated') THEN
+    CREATE ROLE nce_app_authenticated NOLOGIN;
+  END IF;
 END
 $$;
 SQL
@@ -192,7 +198,11 @@ It also creates extra teachers and students so course rosters, submissions, noti
 
 All API routes mount under `/api/v1`. The OpenAPI entry point is `docs/openapi/openapi.yaml`.
 
-The Prisma client applies request-scoped database context. Public requests run as `anon`; authenticated requests run as `authenticated` with `app.current_user_id` and `app.current_user_role`; auth internals use `service_role` where needed.
+The Prisma client applies request-scoped database context. Public requests run as
+`nce_app_anon`; authenticated requests run as `nce_app_authenticated` with
+`app.current_user_id` and `app.current_user_role`; auth internals use
+`service_role` where needed. The application roles are non-login roles that the
+Supabase Data API authenticator cannot assume.
 
 ## Useful Commands
 
@@ -245,7 +255,7 @@ npm --prefix backend run build
 npm --prefix backend test
 ```
 
-Backend tests apply deterministic defaults from `backend/tests/setup/testEnvDefaults.ts`. Database-backed paths still need PostgreSQL and the `anon`, `authenticated`, and `service_role` roles.
+Backend tests apply deterministic defaults from `backend/tests/setup/testEnvDefaults.ts`. Database-backed paths still need PostgreSQL and the `anon`, `authenticated`, `service_role`, `nce_app_anon`, and `nce_app_authenticated` roles.
 
 ## Production Notes
 
@@ -254,7 +264,8 @@ Production needs:
 - Node.js 20+ for the backend runtime;
 - PostgreSQL with migrations applied through `npx prisma migrate deploy --config prisma.config.ts`;
 - the committed forward migrations provision missing Contact CMS content, CMS admin permission/navigation, baseline revisions, and ancestor-aware CMS RLS without running production seed scripts or replacing managed rows;
-- runtime roles `anon`, `authenticated`, and `service_role`;
+- Supabase roles `anon`, `authenticated`, and `service_role`, plus non-login backend roles `nce_app_anon` and `nce_app_authenticated`;
+- the PR-48A rollout and rolled-back role probes in `docs/supabase-data-api-runtime-boundary.md`;
 - active IELTS reference data verified by `npm run verify:ielts-config`;
 - explicit `CORS_ALLOWED_ORIGINS` because production refuses an empty allowlist;
 - a real `TRUST_PROXY` list, not a boolean;

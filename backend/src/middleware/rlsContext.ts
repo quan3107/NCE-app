@@ -26,7 +26,9 @@ export async function rlsContext(
   // Share parsed actor with downstream handlers so optional-auth routes can
   // still apply role-scoped service logic without requiring authGuard.
   req.user = actor ?? undefined;
-  const role = actor ? "authenticated" : "anon";
+  // Backend-only roles inherit the matching RLS policy role, but PostgREST's
+  // authenticator cannot assume them through a Supabase client token.
+  const role = actor ? "nce_app_authenticated" : "nce_app_anon";
   const userRole = actor?.role ?? "anon";
   const userId = actor?.id ?? "";
 

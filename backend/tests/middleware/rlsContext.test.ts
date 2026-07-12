@@ -60,7 +60,7 @@ describe("middleware.rlsContext", () => {
     });
     expect(withRoleContextMock).toHaveBeenCalledWith(
       {
-        role: "authenticated",
+        role: "nce_app_authenticated",
         userId: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
         userRole: "teacher",
       },
@@ -78,7 +78,7 @@ describe("middleware.rlsContext", () => {
     expect(req.user).toBeUndefined();
     expect(withRoleContextMock).toHaveBeenCalledWith(
       {
-        role: "anon",
+        role: "nce_app_anon",
         userId: "",
         userRole: "anon",
       },
@@ -101,7 +101,7 @@ describe("middleware.rlsContext", () => {
     expect(req.user).toBeUndefined();
     expect(withRoleContextMock).toHaveBeenCalledWith(
       {
-        role: "anon",
+        role: "nce_app_anon",
         userId: "",
         userRole: "anon",
       },
@@ -125,7 +125,7 @@ describe("middleware.rlsContext", () => {
     expect(req.user).toBeUndefined();
     expect(withRoleContextMock).toHaveBeenCalledWith(
       {
-        role: "anon",
+        role: "nce_app_anon",
         userId: "",
         userRole: "anon",
       },

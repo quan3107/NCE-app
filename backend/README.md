@@ -42,6 +42,10 @@ the notification retry column and index check, the guarded
 `assignments_backup_20260204` cleanup check, and the expected Prisma diff exit
 codes.
 
+PR-48A separates backend request roles from Supabase Data API roles. Read
+`../docs/supabase-data-api-runtime-boundary.md` before deploying the role/grant
+migration or running hosted role probes.
+
 ## Tests & Quality
 
 - `npm test` - runs Vitest in the Node environment.

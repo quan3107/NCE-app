@@ -162,6 +162,12 @@ jobs:
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
               CREATE ROLE service_role;
             END IF;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
+              CREATE ROLE nce_app_anon NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_authenticated') THEN
+              CREATE ROLE nce_app_authenticated NOLOGIN;
+            END IF;
           END
           $$;
           SQL
