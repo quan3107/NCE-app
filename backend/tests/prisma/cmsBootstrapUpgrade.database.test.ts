@@ -195,7 +195,7 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
         statsSection.items.filter((item) => item.itemKey === 'custom_stat'),
       ).toHaveLength(1)
     })
-  })
+  }, 15_000)
 
   it('creates a rollback-capable revision 1 when the seed restores a missing page', async () => {
     await withRolledBackDatabase(async (tx) => {

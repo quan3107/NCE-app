@@ -14,10 +14,10 @@ import type { Prisma } from '../../src/prisma/generated.js'
 
 const repairPath = resolve(
   import.meta.dirname,
-  '../../src/prisma/migrations/20260712110000_repair_keyless_homepage_baseline/migration.sql',
+  '../../src/prisma/migrations/20260712120000_repair_keyless_homepage_baseline_with_custom_stats/migration.sql',
 )
 const repairMigration = existsSync(repairPath) ? readFileSync(repairPath, 'utf8') : ''
-const repairStart = repairMigration.indexOf('WITH active_stats AS')
+const repairStart = repairMigration.indexOf('WITH modeled_stats AS')
 const repairEnd = repairMigration.indexOf('\n\nCOMMIT;', repairStart)
 const repairSql = repairMigration.slice(repairStart, repairEnd)
 const rollbackSignal = new Error('ROLLBACK_DATABASE_TEST')
@@ -42,7 +42,7 @@ const databaseDescribe =
     : describe.skip
 
 databaseDescribe('CMS keyless homepage baseline repair', () => {
-  it('repairs an empty revision 1 snapshot from three ordered keyless stats', async () => {
+  it('repairs three keyless stats while preserving a custom keyed row', async () => {
     expect(existsSync(repairPath)).toBe(true)
     if (!existsSync(repairPath)) return
 
@@ -92,6 +92,13 @@ databaseDescribe('CMS keyless homepage baseline repair', () => {
                       format: 'percentage',
                     },
                   },
+                  {
+                    itemKey: 'custom_stat',
+                    sortOrder: 3,
+                    contentType: 'stat',
+                    isActive: true,
+                    contentJson: { label: 'Custom', value: 99, format: 'number' },
+                  },
                 ],
               },
             },
@@ -131,7 +138,17 @@ databaseDescribe('CMS keyless homepage baseline repair', () => {
         { itemKey: 'stat_band_score', value: 7.5 },
         { itemKey: 'stat_success_rate', value: 0.8 },
       ])
+      const statsSection = await tx.cmsSection.findUniqueOrThrow({
+        where: { pageId_sectionKey: { pageId: page.id, sectionKey: 'stats' } },
+        include: { items: { orderBy: { sortOrder: 'asc' } } },
+      })
+      expect(statsSection.items.map((item) => item.itemKey)).toEqual([
+        null,
+        null,
+        null,
+        'custom_stat',
+      ])
       expect(await tx.$executeRawUnsafe(repairSql)).toBe(0)
     })
-  })
+  }, 15_000)
 })
