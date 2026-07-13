@@ -38,6 +38,12 @@ describe('service_role grant normalization', () => {
       'GRANT SELECT, INSERT, UPDATE ON public.identities TO service_role;',
     )
     expect(normalizationMigration).toContain(
+      'GRANT SELECT (id), INSERT ON public.audit_logs TO service_role;',
+    )
+    expect(normalizationMigration).not.toContain(
+      'GRANT SELECT ON public.audit_logs TO service_role;',
+    )
+    expect(normalizationMigration).toContain(
       'GRANT SELECT, INSERT, UPDATE ON public.nce_lesson_progress TO service_role;',
     )
     expect(normalizationMigration).toContain(
