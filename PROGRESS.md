@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Corrected the production runtime-role boot regression to provide an in-memory RSA key pair to the spawned production server, allowing the test to reach readiness and pg-boss without writing JWT secrets to disk.
+
 - **2026-07-13:** Fixed production runtime-role startup by running readiness as `nce_app_anon` and job-handler Prisma work as `service_role`, separating pg-boss onto a pgboss-only login with owner-run schema installation, adding an actual production-server boot regression, and keeping maintenance enabled through all rollout security checks.
 
 - **2026-07-13:** Removed the application Prisma client's `DIRECT_URL` fallback and the migration credential from the runtime environment template, while documenting job-scoped owner credentials for migrations/seeds and a `DATABASE_URL`-only `nce_runtime` backend process.
@@ -98,6 +100,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend changes were required for the production boot-test JWT fixture correction.
 
 - **2026-07-13:** No frontend changes were required for the backend runtime-role startup and rollout corrections.
 
