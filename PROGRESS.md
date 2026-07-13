@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Split hosted rollout verification into owner/PostgREST browser-role probes and dedicated `nce_runtime` backend-role probes, with regression coverage preventing the incompatible single-connection procedure from returning.
+
 - **2026-07-13:** Repaired the fresh local bootstrap guide to provision both runtime logins and the exact SET-only service grant, install pg-boss with a shell-scoped owner URL before Prisma migrations, and lock the documented prerequisite order with a regression test.
 
 - **2026-07-13:** Corrected the production runtime-role boot regression to provide an in-memory RSA key pair to the spawned production server, allowing the test to reach readiness and pg-boss without writing JWT secrets to disk.
@@ -102,6 +104,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend files changed for the hosted rollout probe connection correction.
 
 - **2026-07-13:** Corrected the local CORS note to match the port `3000` already present in the backend environment example; no frontend code changed.
 
