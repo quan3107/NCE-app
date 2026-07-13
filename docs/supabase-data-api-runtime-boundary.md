@@ -15,7 +15,8 @@ Why: Makes the intended grants, exception, rollout, and verification reproducibl
 | `nce_app_anon`          | Backend anonymous reads matching the predecessor `anon` role; no private tables and no login                   |
 | `nce_app_authenticated` | Backend signed-in access matching predecessor grants; no auth/session or service-only tables and no login      |
 | `service_role`          | Backend auth/session and trusted service operations only; never expose its key to clients                      |
-| Migration/runtime login | Shared login selected by both database URLs; SET-only membership in both request roles and `service_role`      |
+| `nce_runtime`           | Dedicated `DATABASE_URL` login; SET-only membership in both request roles and `service_role`                   |
+| `postgres`              | Migration owner selected only by `DIRECT_URL`; never used by the running application                           |
 
 The first migration creates the backend-only roles and reproduces each
 predecessor role's explicit table and column grants. It does not grant either
@@ -38,19 +39,19 @@ access; trusted operations must grant each required object explicitly.
 membership lets the backend roles reuse the matching browser-role policies
 without allowing a Supabase token to select a backend role.
 
-This rollout requires `DATABASE_URL` and `DIRECT_URL` to authenticate as the
-same database role. Before migration, a role administrator must grant that login
-`service_role` membership with `ADMIN FALSE, SET TRUE, INHERIT FALSE`; the
-migration asserts both the positive `SET` requirement and the negative `ADMIN`
-invariant. The migration then grants `CURRENT_USER` the same SET-only membership
-in `nce_app_anon` and `nce_app_authenticated`.
+This rollout deliberately separates migration and runtime identities.
+`DATABASE_URL` must authenticate as `nce_runtime`; `DIRECT_URL` must remain the
+`postgres` migration owner. The migration verifies the exact
+`service_role -> nce_runtime` membership row, including its grantor, and grants
+the request roles to `nce_runtime` rather than `CURRENT_USER`.
 
-[Supabase recommends a separate database user for each service](https://supabase.com/docs/guides/database/postgres/roles#passwords),
-so a dedicated runtime login is the preferred target instead of the
-administrative `postgres` login. This rollout still requires one shared identity
-for `DATABASE_URL` and `DIRECT_URL`; changing to separate migration and runtime
-identities needs an explicit follow-up because the migration grants
-`CURRENT_USER`. Do not split the two URLs during this rollout.
+Hosted PostgreSQL 16+ can store multiple membership rows for the same role and
+member when their grantors differ. Supabase's existing
+`service_role -> postgres` row is granted by `supabase_admin`, so a `GRANT`
+issued as non-superuser `postgres` cannot alter that row. The rollout leaves the
+Supabase-managed administrative membership unchanged and instead creates a new
+SET-only row from `postgres` to the dedicated runtime login. This follows
+[Supabase's recommendation to use a separate database user per service](https://supabase.com/docs/guides/database/postgres/roles#passwords).
 
 ## Intentional view exception
 
@@ -71,24 +72,52 @@ the old application requires Data API role grants that the enforcement migration
 revokes, while the new application requires roles the preparation migration adds.
 
 1. Confirm the PR-48 migrations and hosted checksums are already reconciled.
-2. Run `SELECT current_user` separately through `DATABASE_URL` and `DIRECT_URL`.
-   Stop if the values differ; the migration grants memberships only to the
-   `DIRECT_URL` identity.
-3. As a superuser or role holding ADMIN OPTION on `service_role`, run
-   `GRANT service_role TO <shared_login> WITH ADMIN FALSE, SET TRUE, INHERIT FALSE`.
-   This updates all three membership options, including an existing production
-   membership. Verify `SELECT pg_has_role('<shared_login>', 'service_role', 'SET')`
-   returns true and `SELECT pg_has_role('<shared_login>', 'service_role',
-   'MEMBER WITH ADMIN OPTION')` returns false.
-4. Enter maintenance mode, stop accepting requests, and drain or stop every
+2. Connect as `postgres` and inspect the existing hosted membership. Do not try
+   to rewrite or revoke the `supabase_admin`-granted row.
+
+   ```sql
+   select granted.rolname as granted_role,
+          member.rolname as member_role,
+          grantor.rolname as grantor_role,
+          membership.admin_option,
+          membership.inherit_option,
+          membership.set_option
+   from pg_catalog.pg_auth_members membership
+   join pg_catalog.pg_roles granted on granted.oid = membership.roleid
+   join pg_catalog.pg_roles member on member.oid = membership.member
+   join pg_catalog.pg_roles grantor on grantor.oid = membership.grantor
+   where granted.rolname = 'service_role'
+     and member.rolname in ('postgres', 'nce_runtime')
+   order by member.rolname, grantor.rolname;
+   ```
+
+3. Still connected as `postgres`, create a fresh dedicated login with a
+   generated secret and grant only connect plus SET-only service membership.
+   Stop and inspect instead if `nce_runtime` already exists.
+
+   ```sql
+   create role nce_runtime login password '<generated-secret>'
+     noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
+   grant connect on database postgres to nce_runtime;
+   grant service_role to nce_runtime
+     with admin false, inherit false, set true;
+   ```
+
+4. Repeat the query from step 2. It must show the existing
+   `supabase_admin -> postgres` row and exactly one `postgres -> nce_runtime` row
+   with `admin_option=false`, `inherit_option=false`, and `set_option=true`.
+5. Configure the new release so `DATABASE_URL` uses `nce_runtime` and
+   `DIRECT_URL` uses `postgres`. Do not place the `postgres` credentials in the
+   running application's `DATABASE_URL`.
+6. Enter maintenance mode, stop accepting requests, and drain or stop every
    backend instance. Confirm no old application sessions remain.
-5. Back up the hosted database, then apply both `20260712220000_harden_data_api_runtime_roles`
+7. Back up the hosted database, then apply both `20260712220000_harden_data_api_runtime_roles`
    and `20260712221000_enforce_data_api_boundary` through Prisma.
-6. Start only the new backend release and exit maintenance mode after its health
+8. Start only the new backend release and exit maintenance mode after its health
    check succeeds.
-7. Run the probes below inside transactions and roll them back.
-8. Run the Supabase security advisor. The `courses_public` view warning is the
-   documented exception; exposed-table RLS errors must be zero.
+9. Run the probes below inside transactions and roll them back.
+10. Run the Supabase security advisor. The `courses_public` view warning is the
+    documented exception; exposed-table RLS errors must be zero.
 
 ## Rolled-back hosted probes
 
@@ -100,8 +129,13 @@ begin;
 
 do $probe$
 begin
-  if pg_has_role(current_user, 'service_role', 'MEMBER WITH ADMIN OPTION') then
-    raise exception 'shared login retains service_role ADMIN OPTION';
+  if current_user <> 'nce_runtime' then
+    raise exception 'probe must use the dedicated runtime login';
+  end if;
+  if not pg_has_role(current_user, 'service_role', 'SET') or
+     pg_has_role(current_user, 'service_role', 'USAGE') or
+     pg_has_role(current_user, 'service_role', 'MEMBER WITH ADMIN OPTION') then
+    raise exception 'runtime service_role membership is not SET-only';
   end if;
 end
 $probe$;
@@ -137,7 +171,8 @@ rollback;
 
 Run each expected-denial statement separately if the SQL client aborts the
 transaction on error. Run the three backend role switches while connected as
-the shared `DATABASE_URL`/`DIRECT_URL` identity. Also verify `authenticator` has
-no membership in either backend role and that `anon`/`authenticated` have no
-privileges on private tables, columns, or sequences. The shared login must have
-SET but not ADMIN OPTION on `service_role`.
+the dedicated `DATABASE_URL` identity. Also verify `authenticator` has no
+membership in either backend role and that `anon`/`authenticated` have no
+privileges on private tables, columns, or sequences. The migration's catalog
+check rejects any unexpected `service_role -> nce_runtime` grantor or membership
+options before changing application grants.
