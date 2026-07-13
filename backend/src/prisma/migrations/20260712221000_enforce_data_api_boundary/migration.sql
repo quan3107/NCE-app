@@ -119,8 +119,6 @@ BEGIN
 END
 $helper_search_paths$;
 
-DROP EXTENSION IF EXISTS pg_graphql;
-
 -- Future objects stay private until a migration grants a reviewed surface.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM anon, authenticated, service_role;
