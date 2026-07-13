@@ -78,7 +78,7 @@ async function stopChild(child: ChildProcess): Promise<void> {
 }
 
 databaseDescribe('production server runtime roles', () => {
-  it('starts readiness and processes a real pg-boss job', async () => {
+  it('starts readiness, audits auth, and processes a real pg-boss job', async () => {
     const serverEntry = resolve(process.cwd(), 'dist/server.js')
     expect(existsSync(serverEntry)).toBe(true)
     expect(process.env.DATABASE_URL).toContain('nce_runtime')
@@ -97,8 +97,10 @@ databaseDescribe('production server runtime roles', () => {
       courseId: randomUUID(),
       enrollmentId: randomUUID(),
       assignmentId: randomUUID(),
+      registeredUserId: null as string | null,
     }
     const uniqueSuffix = fixture.assignmentId.slice(0, 8)
+    const registeredEmail = `runtime-auth-${uniqueSuffix}@example.test`
     await ownerPrisma.$transaction(async (tx) => {
       await tx.user.createMany({
         data: [
@@ -200,6 +202,35 @@ databaseDescribe('production server runtime roles', () => {
       expect(healthResponse?.status, output).toBe(200)
       await expect(healthResponse?.json()).resolves.toMatchObject({ ok: true })
 
+      const registrationResponse = await fetch(
+        `http://127.0.0.1:${port}/api/v1/auth/register`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            fullName: 'Runtime Auth Teacher',
+            email: registeredEmail,
+            password: 'runtime-auth-password',
+            role: 'teacher',
+          }),
+        },
+      )
+      expect(registrationResponse.status, output).toBe(202)
+      const registrationBody = (await registrationResponse.json()) as {
+        user: { id: string }
+      }
+      fixture.registeredUserId = registrationBody.user.id
+      await expect(
+        ownerPrisma.auditLog.count({
+          where: {
+            actorId: fixture.registeredUserId,
+            action: 'auth.registered',
+            entity: 'user',
+            entityId: fixture.registeredUserId,
+          },
+        }),
+      ).resolves.toBe(1)
+
       boss = new PgBoss({
         connectionString: jobDatabaseUrl,
         application_name: 'nce-app-runtime-role-test',
@@ -231,6 +262,12 @@ databaseDescribe('production server runtime roles', () => {
       }
       await stopChild(child)
       await ownerPrisma.$transaction(async (tx) => {
+        if (fixture.registeredUserId) {
+          await tx.auditLog.deleteMany({
+            where: { actorId: fixture.registeredUserId },
+          })
+          await tx.user.deleteMany({ where: { id: fixture.registeredUserId } })
+        }
         await tx.notification.deleteMany({ where: { userId: fixture.studentId } })
         await tx.assignment.deleteMany({ where: { id: fixture.assignmentId } })
         await tx.enrollment.deleteMany({ where: { id: fixture.enrollmentId } })
