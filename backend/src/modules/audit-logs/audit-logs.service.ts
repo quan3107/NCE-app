@@ -47,7 +47,7 @@ type AuditLogClient = {
   }
 }
 
-type AuditLogWriteInput = {
+export type AuditLogWriteInput = {
   actorId?: string | null
   action: string
   entity: string
