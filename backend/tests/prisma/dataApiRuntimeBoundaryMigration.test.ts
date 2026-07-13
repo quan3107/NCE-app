@@ -158,6 +158,12 @@ describe('Data API runtime boundary migrations', () => {
     expect(advisor).toBeGreaterThan(probes)
     expect(reopen).toBeGreaterThan(advisor)
     expect(rolloutRunbook).toContain(
+      'Run the browser-role probes with a role-capable owner or PostgREST connection',
+    )
+    expect(rolloutRunbook).toContain(
+      'Run the backend-role probes with the dedicated `nce_runtime` `DATABASE_URL`',
+    )
+    expect(rolloutRunbook).not.toContain(
       'Run with the dedicated `nce_runtime` `DATABASE_URL`',
     )
     expect(rolloutRunbook).not.toContain('Run with a migration-capable connection')
