@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Wrapped registration, password/Google login, refresh, and logout audit writes in explicit `service_role` context; extended the production runtime-role test to verify a real registration audit row; and made the atomic role-hardening migration revoke existing `service_role` table/sequence privileges before restoring only reviewed auth, NCE, and job access. CI now reproduces legacy Supabase-style default grants and probes that unrelated grade access is removed.
+
 - **2026-07-13:** Granted `service_role` only the table operations used by AI, notification, and cleanup workers; made both runtime-boundary migrations atomic; converted rollout denials to caught PL/pgSQL probes; and extended the production boot fixture to process a real pg-boss notification job on the clean database.
 
 - **2026-07-13:** Split hosted rollout verification into owner PostgreSQL browser-role probes and dedicated `nce_runtime` backend-role probes, with regression coverage preventing incompatible connection guidance from returning.
@@ -106,6 +108,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend files changed for auth audit role scoping or hosted `service_role` ACL normalization.
 
 - **2026-07-13:** No frontend files changed for the worker grants, atomic hardening migrations, or transaction-safe rollout probes.
 
