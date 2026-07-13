@@ -233,6 +233,7 @@ describe("AI writing feedback teacher review service", () => {
           teacherDecision: "approved",
         }),
       }),
+      select: { id: true },
     });
     expect(transactionAuditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -247,6 +248,7 @@ describe("AI writing feedback teacher review service", () => {
           }),
         }),
       }),
+      select: { id: true },
     });
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
     expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
@@ -396,6 +398,7 @@ describe("AI writing feedback teacher review service", () => {
           teacherDecision: "rejected",
         }),
       }),
+      select: { id: true },
     });
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
     expect(JSON.stringify(transactionAuditLogCreate.mock.calls)).not.toContain(
