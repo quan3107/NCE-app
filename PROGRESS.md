@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Removed the migration-owned `DROP EXTENSION pg_graphql` that hosted `postgres` cannot execute against Supabase-owned extensions; made Dashboard disablement and catalog verification a fail-closed prerequisite before either runtime-boundary migration; and added a regression preventing extension drops from returning to application migrations.
+
 - **2026-07-13:** Kept audit writes compatible with the least-privilege `service_role` by returning only the inserted audit row ID and granting column-scoped `SELECT (id)` alongside `INSERT`; extended migration, role-probe, and service regressions to reject broad audit-log reads.
 
 - **2026-07-13:** Wrapped registration, password/Google login, refresh, and logout audit writes in explicit `service_role` context; extended the production runtime-role test to verify a real registration audit row; and made the atomic role-hardening migration revoke existing `service_role` table/sequence privileges before restoring only reviewed auth, NCE, and job access. CI now reproduces legacy Supabase-style default grants and probes that unrelated grade access is removed.
@@ -110,6 +112,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend files changed for the hosted `pg_graphql` ownership rollout correction.
 
 - **2026-07-13:** No frontend files changed for the runtime-role audit insert privilege correction.
 
