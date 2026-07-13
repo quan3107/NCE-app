@@ -121,6 +121,7 @@ describe('enrollments.service.createEnrollment', () => {
           }),
         }),
       }),
+      select: { id: true },
     })
   })
 
@@ -316,6 +317,7 @@ describe('enrollments.service.createEnrollment', () => {
           }),
         }),
       }),
+      select: { id: true },
     })
   })
 })
