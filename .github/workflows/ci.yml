@@ -171,27 +171,18 @@ jobs:
             WITH ADMIN TRUE, SET FALSE, INHERIT FALSE;
           GRANT CONNECT, CREATE ON DATABASE nce_test TO nce_runtime;
           GRANT USAGE, CREATE ON SCHEMA public TO nce_runtime;
+          ALTER ROLE nce_runtime SET app.current_user_role = 'admin';
           SQL
 
       - name: Apply backend migrations
-        run: |
-          hardened_migration="src/prisma/migrations/20260712220000_harden_data_api_runtime_roles"
-          held_migration="${RUNNER_TEMP}/20260712220000_harden_data_api_runtime_roles"
-          mv "${hardened_migration}" "${held_migration}"
-          trap 'mv "${held_migration}" "${hardened_migration}"' EXIT
-          DATABASE_URL=postgresql://nce:nce@localhost:5432/nce_test \
-            DIRECT_URL=postgresql://nce:nce@localhost:5432/nce_test \
-            npx prisma migrate deploy --config prisma.config.ts
-          mv "${held_migration}" "${hardened_migration}"
-          trap - EXIT
-          docker exec -i "${{ job.services.postgres.id }}" \
-            psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
-            -c 'REASSIGN OWNED BY nce TO nce_runtime;'
-          npx prisma migrate deploy --config prisma.config.ts
+        run: npx prisma migrate deploy --config prisma.config.ts
         working-directory: backend
 
       - name: Verify non-superuser runtime role boundary
         run: |
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
+            -c 'ALTER ROLE nce_runtime RESET app.current_user_role;'
           docker exec -i "${{ job.services.postgres.id }}" \
             psql -U nce_runtime -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
