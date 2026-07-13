@@ -20,6 +20,10 @@ const ciWorkflow = readFileSync(
   resolve(process.cwd(), '../.github/workflows/ci.yml'),
   'utf8',
 )
+const rolloutRunbook = readFileSync(
+  resolve(process.cwd(), '../docs/supabase-data-api-runtime-boundary.md'),
+  'utf8',
+)
 
 describe('Data API runtime boundary migrations', () => {
   it('binds SET-only memberships to the verified migration/runtime login', () => {
@@ -27,9 +31,12 @@ describe('Data API runtime boundary migrations', () => {
     expect(roleMigration).toContain('CREATE ROLE nce_app_authenticated NOLOGIN')
     expect(roleMigration).toContain("pg_has_role(CURRENT_USER, 'service_role', 'SET')")
     expect(roleMigration).toContain(
+      "pg_has_role(CURRENT_USER, 'service_role', 'MEMBER WITH ADMIN OPTION')",
+    )
+    expect(roleMigration).toContain(
       'GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER',
     )
-    expect(roleMigration).toContain('WITH SET TRUE, INHERIT FALSE')
+    expect(roleMigration).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
     expect(roleMigration).not.toMatch(/GRANT\s+service_role\s+TO\s+CURRENT_USER/i)
     expect(roleMigration).not.toMatch(
       /GRANT\s+nce_app_(anon|authenticated)\s+TO\s+authenticator/i,
@@ -44,12 +51,24 @@ describe('Data API runtime boundary migrations', () => {
       'DIRECT_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test',
     )
     expect(ciWorkflow).toContain('GRANT service_role TO nce_runtime')
-    expect(ciWorkflow).toContain('WITH SET TRUE, INHERIT FALSE;')
+    expect(ciWorkflow).toContain('WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;')
+    expect(ciWorkflow).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;')
+    expect(ciWorkflow.indexOf('WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;')).toBeLessThan(
+      ciWorkflow.indexOf('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;'),
+    )
     expect(ciWorkflow.indexOf('GRANT service_role TO nce_runtime')).toBeLessThan(
       ciWorkflow.indexOf('- name: Apply backend migrations'),
     )
     expect(ciWorkflow).toContain("'MEMBER WITH ADMIN OPTION'")
     expect(ciWorkflow).toContain('SET LOCAL ROLE service_role;')
+  })
+
+  it('documents an ADMIN-negative service-role rollout and hosted probe', () => {
+    expect(rolloutRunbook).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
+    expect(rolloutRunbook).toContain(
+      "pg_has_role(current_user, 'service_role', 'MEMBER WITH ADMIN OPTION')",
+    )
+    expect(rolloutRunbook).toContain('dedicated runtime login')
   })
 
   it('uses explicit predecessor-equivalent grants instead of schema-wide DML', () => {
@@ -108,6 +127,15 @@ describe('Data API runtime boundary migrations', () => {
     expect(boundaryMigration).toContain('DROP EXTENSION IF EXISTS pg_graphql')
     expect(boundaryMigration).toContain(
       'ALTER DEFAULT PRIVILEGES\n  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',
+    )
+    expect(boundaryMigration).toContain(
+      'REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM anon, authenticated, service_role',
+    )
+    expect(boundaryMigration).toContain(
+      'REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM anon, authenticated, service_role',
+    )
+    expect(boundaryMigration).toContain(
+      'REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated, service_role',
     )
     expect(boundaryMigration).not.toMatch(
       /ALTER DEFAULT PRIVILEGES[\s\S]{0,100}GRANT[\s\S]{0,100}nce_app_/,
