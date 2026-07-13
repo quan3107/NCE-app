@@ -4,6 +4,7 @@
  * Why: Startup readiness and pg-boss must both work before HTTP traffic opens.
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -60,9 +61,18 @@ databaseDescribe("production server runtime roles", () => {
     expect(process.env.JOB_DATABASE_URL).toContain("nce_job_runner");
 
     const port = await reservePort();
+    // Production never generates fallback JWT keys, so give the child valid
+    // in-memory key material without creating test secrets on disk.
+    const jwtKeys = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: "pkcs8", format: "pem" },
+      publicKeyEncoding: { type: "spki", format: "pem" },
+    });
     const childEnv = {
       ...process.env,
       CORS_ALLOWED_ORIGINS: "https://app.example.test",
+      JWT_PRIVATE_KEY: jwtKeys.privateKey,
+      JWT_PUBLIC_KEY: jwtKeys.publicKey,
       LOG_LEVEL: "silent",
       LOG_PRETTY: "false",
       NCE_ASSET_ROOT: "tests/fixtures/nce-assets",
