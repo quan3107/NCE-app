@@ -25,6 +25,11 @@ const rolloutRunbook = readFileSync(
   'utf8',
 )
 const rootReadme = readFileSync(resolve(process.cwd(), '../README.md'), 'utf8')
+const runtimePrismaClient = readFileSync(
+  resolve(process.cwd(), 'src/prisma/client.ts'),
+  'utf8',
+)
+const backendEnvExample = readFileSync(resolve(process.cwd(), '.env.example'), 'utf8')
 const databaseTestClient = readFileSync(
   resolve(process.cwd(), 'tests/prisma/databaseTestClient.ts'),
   'utf8',
@@ -79,7 +84,9 @@ describe('Data API runtime boundary migrations', () => {
     expect(rolloutRunbook).toContain('grantor_role')
     expect(rolloutRunbook).toContain('dedicated runtime login')
     expect(rolloutRunbook).toContain('`DATABASE_URL` must authenticate as `nce_runtime`')
-    expect(rolloutRunbook).toMatch(/`DIRECT_URL` must remain the\s+`postgres`/)
+    expect(rolloutRunbook).toMatch(
+      /`DIRECT_URL` is a\s+deployment-only input[\s\S]*`postgres` migration owner/,
+    )
     expect(rootReadme).not.toContain(
       '`DATABASE_URL` and `DIRECT_URL` to authenticate as the same database role',
     )
@@ -93,6 +100,18 @@ describe('Data API runtime boundary migrations', () => {
       expect(databaseUpgradeTest).toContain("from './databaseTestClient.js'")
       expect(databaseUpgradeTest).not.toContain("from '../../src/prisma/client.js'")
     }
+  })
+
+  it('keeps the migration credential out of the running backend', () => {
+    expect(runtimePrismaClient).toContain('const databaseUrl = process.env.DATABASE_URL')
+    expect(runtimePrismaClient).not.toContain(
+      'process.env.DATABASE_URL ?? process.env.DIRECT_URL',
+    )
+    expect(backendEnvExample).not.toContain('DIRECT_URL=')
+    expect(rolloutRunbook).toContain('Do not provide `DIRECT_URL` to the running backend')
+    expect(rolloutRunbook).toMatch(
+      /provide `DIRECT_URL` only to the\s+migration and seed job/,
+    )
   })
 
   it('uses explicit predecessor-equivalent grants instead of schema-wide DML', () => {
