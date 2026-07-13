@@ -23,8 +23,10 @@ export async function startJobRunner(): Promise<void> {
   }
 
   const boss = new PgBoss({
-    connectionString: config.databaseUrl,
+    connectionString: config.jobDatabaseUrl,
     application_name: "nce-app-jobs",
+    // Schema installation and upgrades run separately with DIRECT_URL.
+    migrate: false,
   });
 
   boss.on("error", (error) => {
