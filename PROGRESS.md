@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Fixed production runtime-role startup by running readiness as `nce_app_anon` and job-handler Prisma work as `service_role`, separating pg-boss onto a pgboss-only login with owner-run schema installation, adding an actual production-server boot regression, and keeping maintenance enabled through all rollout security checks.
+
 - **2026-07-13:** Removed the application Prisma client's `DIRECT_URL` fallback and the migration credential from the runtime environment template, while documenting job-scoped owner credentials for migrations/seeds and a `DATABASE_URL`-only `nce_runtime` backend process.
 
 - **2026-07-13:** Routed administrative CMS database-upgrade fixtures through a test-only `DIRECT_URL` Prisma client while preserving `DATABASE_URL` runtime-role coverage, with deterministic client/pool cleanup and a source regression for the split connection contract.
@@ -96,6 +98,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend changes were required for the backend runtime-role startup and rollout corrections.
 
 - **2026-07-13:** No frontend files changed for the production database-credential scoping correction; frontend CI remains part of the pull-request regression gate.
 
