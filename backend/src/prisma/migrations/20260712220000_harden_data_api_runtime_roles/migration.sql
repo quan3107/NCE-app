@@ -59,6 +59,37 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'nce_runtime must be a NOINHERIT least-privilege login';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_roles
+    WHERE rolname = 'nce_job_runner'
+      AND rolcanlogin
+      AND NOT rolsuper
+      AND NOT rolinherit
+      AND NOT rolcreaterole
+      AND NOT rolcreatedb
+      AND NOT rolreplication
+      AND NOT rolbypassrls
+  ) THEN
+    RAISE EXCEPTION 'nce_job_runner must be a NOINHERIT least-privilege login';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_auth_members membership
+    JOIN pg_roles member ON member.oid = membership.member
+    WHERE member.rolname = 'nce_job_runner'
+  ) THEN
+    RAISE EXCEPTION 'nce_job_runner must not inherit or SET ROLE into another role';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_namespace namespace
+    JOIN pg_roles owner ON owner.oid = namespace.nspowner
+    WHERE namespace.nspname = 'pgboss'
+      AND owner.rolname = CURRENT_USER
+  ) THEN
+    RAISE EXCEPTION 'install or upgrade pgboss as the migration owner before applying migrations';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
     CREATE ROLE nce_app_anon NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
   END IF;
@@ -75,6 +106,22 @@ GRANT nce_app_anon, nce_app_authenticated TO nce_runtime
   WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
 
 GRANT USAGE ON SCHEMA public, app TO nce_app_anon, nce_app_authenticated;
+
+-- The dedicated worker login can operate pg-boss but cannot access application
+-- tables or alter the queue schema. Installation and upgrades stay owner-only.
+GRANT USAGE ON SCHEMA pgboss TO nce_job_runner;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA pgboss
+  TO nce_job_runner;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA pgboss
+  TO nce_job_runner;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pgboss TO nce_job_runner;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA pgboss
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_job_runner;
+ALTER DEFAULT PRIVILEGES IN SCHEMA pgboss
+  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO nce_job_runner;
+ALTER DEFAULT PRIVILEGES IN SCHEMA pgboss
+  GRANT EXECUTE ON FUNCTIONS TO nce_job_runner;
 
 -- Preserve only the anonymous role's predecessor reads. Private account,
 -- grade, session, identity, attempt, and authoring tables are intentionally absent.
