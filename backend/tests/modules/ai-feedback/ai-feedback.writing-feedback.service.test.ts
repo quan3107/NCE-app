@@ -244,6 +244,7 @@ describe('requestAiWritingFeedback', () => {
           promptVersion: 'ielts-writing-feedback-v1',
         }),
       }),
+      select: { id: true },
     })
     expect(JSON.stringify(prisma.auditLog.create.mock.calls[0]?.[0])).not.toContain(
       'Cities should invest in public transport.',
@@ -493,6 +494,7 @@ describe('requestAiWritingFeedback', () => {
           }),
         }),
       }),
+      select: { id: true },
     })
     expect(response).toMatchObject({
       status: 'review_required',
