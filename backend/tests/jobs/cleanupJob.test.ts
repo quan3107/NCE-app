@@ -277,7 +277,11 @@ describe("jobs.cleanupJob", () => {
     await registerCleanupJobs(boss as never);
 
     expect(boss.createQueue).toHaveBeenCalledWith(CLEANUP_JOB_NAME);
-    expect(boss.work).toHaveBeenCalledWith(CLEANUP_JOB_NAME, handleCleanupJob);
+    expect(boss.work).toHaveBeenCalledWith(
+      CLEANUP_JOB_NAME,
+      expect.any(Function),
+    );
+    expect(boss.work.mock.calls[0]?.[1]).not.toBe(handleCleanupJob);
     expect(boss.schedule).toHaveBeenCalledWith(CLEANUP_JOB_NAME, "17 3 * * *");
   });
 });
