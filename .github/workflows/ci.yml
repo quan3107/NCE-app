@@ -114,7 +114,7 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test
-      DIRECT_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/nce_test
       JWT_PRIVATE_KEY_PATH: tests/runtime/generated-jwt-private.pem
       JWT_PUBLIC_KEY_PATH: tests/runtime/generated-jwt-public.pem
       GOOGLE_CLIENT_ID: test-google-client-id
@@ -162,20 +162,35 @@ jobs:
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
               CREATE ROLE service_role BYPASSRLS;
             END IF;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_admin') THEN
+              CREATE ROLE supabase_admin NOLOGIN CREATEROLE;
+            END IF;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'postgres') THEN
+              CREATE ROLE postgres LOGIN PASSWORD 'postgres' CREATEROLE;
+            END IF;
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_runtime') THEN
-              CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime' CREATEROLE;
+              CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime'
+                NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+                NOREPLICATION NOBYPASSRLS;
             END IF;
           END
           $$;
-          GRANT service_role TO nce_runtime
+          GRANT service_role TO supabase_admin
             WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;
+          SET ROLE supabase_admin;
+          GRANT service_role TO postgres
+            WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;
+          RESET ROLE;
+          GRANT anon, authenticated TO postgres
+            WITH ADMIN TRUE, SET FALSE, INHERIT FALSE;
+          SET ROLE postgres;
           GRANT service_role TO nce_runtime
             WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
-          GRANT anon, authenticated TO nce_runtime
-            WITH ADMIN TRUE, SET FALSE, INHERIT FALSE;
-          GRANT CONNECT, CREATE ON DATABASE nce_test TO nce_runtime;
-          GRANT USAGE, CREATE ON SCHEMA public TO nce_runtime;
-          ALTER ROLE nce_runtime SET app.current_user_role = 'admin';
+          RESET ROLE;
+          GRANT CONNECT, CREATE ON DATABASE nce_test TO postgres;
+          GRANT USAGE, CREATE ON SCHEMA public TO postgres;
+          GRANT CONNECT ON DATABASE nce_test TO nce_runtime;
+          ALTER ROLE postgres SET app.current_user_role = 'admin';
           SQL
 
       - name: Apply backend migrations
@@ -186,7 +201,41 @@ jobs:
         run: |
           docker exec -i "${{ job.services.postgres.id }}" \
             psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
-            -c 'ALTER ROLE nce_runtime RESET app.current_user_role;'
+            -c 'ALTER ROLE postgres RESET app.current_user_role;'
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U nce -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1
+              FROM pg_auth_members membership
+              JOIN pg_roles granted ON granted.oid = membership.roleid
+              JOIN pg_roles member ON member.oid = membership.member
+              JOIN pg_roles grantor ON grantor.oid = membership.grantor
+              WHERE granted.rolname = 'service_role'
+                AND member.rolname = 'postgres'
+                AND grantor.rolname = 'supabase_admin'
+                AND membership.admin_option
+                AND membership.inherit_option
+                AND membership.set_option
+            ) OR NOT EXISTS (
+              SELECT 1
+              FROM pg_auth_members membership
+              JOIN pg_roles granted ON granted.oid = membership.roleid
+              JOIN pg_roles member ON member.oid = membership.member
+              JOIN pg_roles grantor ON grantor.oid = membership.grantor
+              WHERE granted.rolname = 'service_role'
+                AND member.rolname = 'nce_runtime'
+                AND grantor.rolname = 'postgres'
+                AND NOT membership.admin_option
+                AND NOT membership.inherit_option
+                AND membership.set_option
+            ) THEN
+              RAISE EXCEPTION 'hosted-style service_role grantors were not preserved';
+            END IF;
+          END
+          $$;
+          SQL
           docker exec -i "${{ job.services.postgres.id }}" \
             psql -U nce_runtime -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
