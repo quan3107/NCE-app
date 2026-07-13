@@ -192,6 +192,10 @@ jobs:
           SET ROLE postgres;
           GRANT service_role TO nce_runtime
             WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public
+            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO service_role;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public
+            GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO service_role;
           RESET ROLE;
           GRANT CONNECT, CREATE ON DATABASE nce_test TO postgres;
           GRANT USAGE, CREATE ON SCHEMA public TO postgres;
