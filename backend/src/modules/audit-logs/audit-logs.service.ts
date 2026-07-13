@@ -173,6 +173,7 @@ export async function writeAuditLog(
       entityId: input.entityId,
       diff: buildAuditDiff(input),
     },
+    select: { id: true },
   })
 }
 
