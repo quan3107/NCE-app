@@ -40,8 +40,10 @@ membership lets the backend roles reuse the matching browser-role policies
 without allowing a Supabase token to select a backend role.
 
 This rollout deliberately separates migration and runtime identities.
-`DATABASE_URL` must authenticate as `nce_runtime`; `DIRECT_URL` must remain the
-`postgres` migration owner. The migration verifies the exact
+`DATABASE_URL` must authenticate as `nce_runtime`. `DIRECT_URL` is a
+deployment-only input for the short-lived migration process and must use the
+`postgres` migration owner. Do not provide `DIRECT_URL` to the running backend.
+The migration verifies the exact
 `service_role -> nce_runtime` membership row, including its grantor, and grants
 the request roles to `nce_runtime` rather than `CURRENT_USER`.
 
@@ -106,15 +108,21 @@ revokes, while the new application requires roles the preparation migration adds
 4. Repeat the query from step 2. It must show the existing
    `supabase_admin -> postgres` row and exactly one `postgres -> nce_runtime` row
    with `admin_option=false`, `inherit_option=false`, and `set_option=true`.
-5. Configure the new release so `DATABASE_URL` uses `nce_runtime` and
-   `DIRECT_URL` uses `postgres`. Do not place the `postgres` credentials in the
-   running application's `DATABASE_URL`.
+5. Configure the deployment tooling to provide `DIRECT_URL` only to the
+   migration and seed job, using the `postgres` owner. If a seed command reads
+   `DATABASE_URL`, override that variable with the owner URL only for the seed
+   process. Do not provide `DIRECT_URL` to the running backend, and never place
+   the `postgres` credentials in its `DATABASE_URL`. The long-running backend
+   environment must contain only `DATABASE_URL` using `nce_runtime`.
 6. Enter maintenance mode, stop accepting requests, and drain or stop every
    backend instance. Confirm no old application sessions remain.
 7. Back up the hosted database, then apply both `20260712220000_harden_data_api_runtime_roles`
-   and `20260712221000_enforce_data_api_boundary` through Prisma.
-8. Start only the new backend release and exit maintenance mode after its health
-   check succeeds.
+   and `20260712221000_enforce_data_api_boundary` through Prisma. Run any
+   required deployment seed in the same privileged job, then destroy its
+   environment and credentials.
+8. Confirm `DIRECT_URL` is absent, start only the new backend release with the
+   `nce_runtime` `DATABASE_URL`, and exit maintenance mode after its health check
+   succeeds.
 9. Run the probes below inside transactions and roll them back.
 10. Run the Supabase security advisor. The `courses_public` view warning is the
     documented exception; exposed-table RLS errors must be zero.
