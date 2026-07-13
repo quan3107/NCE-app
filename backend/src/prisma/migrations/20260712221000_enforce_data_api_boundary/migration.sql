@@ -121,10 +121,10 @@ DROP EXTENSION IF EXISTS pg_graphql;
 
 -- Future objects stay private until a migration grants a reviewed surface.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM anon, authenticated;
+  REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM anon, authenticated;
+  REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated, service_role;
