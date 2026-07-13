@@ -35,9 +35,9 @@ type PrismaDelegateOperation = (input: unknown) => Promise<unknown>
 type PrismaDelegateMap = Record<string, Record<string, PrismaDelegateOperation>>
 
 const prismaContext = new AsyncLocalStorage<RequestContext>()
-const databaseUrl = process.env.DATABASE_URL ?? process.env.DIRECT_URL
+const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL or DIRECT_URL must be set for Prisma.')
+  throw new Error('DATABASE_URL must be set for the application Prisma client.')
 }
 const pool = new Pool({ connectionString: databaseUrl })
 const adapter = new PrismaPg(pool)
