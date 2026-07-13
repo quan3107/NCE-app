@@ -34,6 +34,14 @@ const databaseTestClient = readFileSync(
   resolve(process.cwd(), 'tests/prisma/databaseTestClient.ts'),
   'utf8',
 )
+const runtimeRoleProbe = readFileSync(
+  resolve(process.cwd(), 'tests/prisma/runtimeRoleBoundary.probe.sql'),
+  'utf8',
+)
+const runtimeRoleServerTest = readFileSync(
+  resolve(process.cwd(), 'tests/server.runtimeRoles.database.test.ts'),
+  'utf8',
+)
 const databaseUpgradeTests = [
   'cmsBootstrapUpgrade.database.test.ts',
   'cmsKeylessStatsRevisionRepair.database.test.ts',
@@ -57,6 +65,19 @@ describe('Data API runtime boundary migrations', () => {
     expect(roleMigration).toContain('GRANT USAGE ON SCHEMA pgboss TO nce_job_runner')
     expect(roleMigration).toContain(
       'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA pgboss',
+    )
+    expect(roleMigration).toContain(
+      'GRANT SELECT, UPDATE ON\n  public.ai_feedback_drafts,\n  public.ai_objective_explanations\nTO service_role;',
+    )
+    expect(roleMigration).toContain('GRANT INSERT ON public.audit_logs TO service_role;')
+    expect(roleMigration).toContain(
+      'GRANT SELECT, INSERT, UPDATE ON public.notifications TO service_role;',
+    )
+    expect(roleMigration).toContain(
+      'GRANT SELECT, UPDATE ON public.auth_sessions TO service_role;',
+    )
+    expect(runtimeRoleProbe).toMatch(
+      /has_table_privilege\(\s*current_user, 'public\.ai_feedback_drafts', 'SELECT,UPDATE'/,
     )
   })
 
@@ -88,6 +109,8 @@ describe('Data API runtime boundary migrations', () => {
     )
     expect(ciWorkflow).toContain("'MEMBER WITH ADMIN OPTION'")
     expect(ciWorkflow).toContain('SET LOCAL ROLE service_role;')
+    expect(runtimeRoleServerTest).toContain('boss.send(DUE_SOON_JOB_NAME')
+    expect(runtimeRoleServerTest).toContain('ownerPrisma.notification.count')
   })
 
   it('documents the split-login rollout and grantor-aware hosted probe', () => {
@@ -168,6 +191,10 @@ describe('Data API runtime boundary migrations', () => {
       'Run with the dedicated `nce_runtime` `DATABASE_URL`',
     )
     expect(rolloutRunbook).not.toContain('Run with a migration-capable connection')
+    expect(
+      rolloutRunbook.match(/exception when insufficient_privilege then null;/gi),
+    ).toHaveLength(5)
+    expect(rolloutRunbook).not.toContain('Run each expected-denial statement separately')
   })
 
   it('uses explicit predecessor-equivalent grants instead of schema-wide DML', () => {
@@ -177,7 +204,7 @@ describe('Data API runtime boundary migrations', () => {
     expect(roleMigration).toContain('TO nce_app_anon;')
     expect(roleMigration).not.toContain('ALL TABLES IN SCHEMA public')
     expect(roleMigration).not.toMatch(
-      /public\.(auth_sessions|identities)[\s\S]*?TO nce_app_(anon|authenticated)/,
+      /GRANT[^;]*public\.(auth_sessions|identities)[^;]*TO nce_app_(anon|authenticated);/,
     )
     expect(boundaryMigration).not.toContain(
       'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_app_anon',
@@ -219,6 +246,11 @@ describe('Data API runtime boundary migrations', () => {
   })
 
   it('hardens helpers without granting future runtime-role DML', () => {
+    for (const migration of [roleMigration, boundaryMigration]) {
+      const executableSql = migration.replace(/^--.*$/gm, '').trim()
+      expect(executableSql.startsWith('BEGIN;')).toBe(true)
+      expect(executableSql.endsWith('COMMIT;')).toBe(true)
+    }
     expect(boundaryMigration).toContain(
       'REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC',
     )
