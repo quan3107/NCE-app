@@ -53,6 +53,31 @@ BEGIN
 END
 $tables$;
 
+-- IELTS configuration is intentional public reference data. These tables had
+-- browser SELECT grants before RLS, so grants and policies must land together.
+DO $ielts_reference$
+DECLARE
+  relation_name text;
+BEGIN
+  FOREACH relation_name IN ARRAY ARRAY[
+    'ielts_config_versions', 'ielts_question_options',
+    'ielts_assignment_types', 'ielts_question_types',
+    'ielts_writing_task_types', 'ielts_speaking_part_types',
+    'ielts_completion_formats', 'ielts_sample_timing_options'
+  ]
+  LOOP
+    EXECUTE format(
+      'GRANT SELECT ON TABLE public.%I TO anon, authenticated',
+      relation_name
+    );
+    EXECUTE format(
+      'CREATE POLICY ielts_reference_browser_select ON public.%I FOR SELECT TO anon, authenticated USING (true)',
+      relation_name
+    );
+  END LOOP;
+END
+$ielts_reference$;
+
 -- Only these deliberately public product surfaces retain their historical,
 -- policy-filtered and/or column-scoped browser grants. Everything else becomes
 -- backend-only even though it remains in the exposed public schema.
@@ -116,8 +141,10 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
   REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+  REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_app_anon, nce_app_authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public

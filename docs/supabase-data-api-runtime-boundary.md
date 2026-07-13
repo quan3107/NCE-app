@@ -22,6 +22,10 @@ table and sequence access. Tables that already had RLS keep their policies;
 tables that did not have RLS receive backend-only compatibility policies before
 RLS becomes mandatory.
 
+All eight approved IELTS reference tables receive explicit browser `SELECT`
+grants and RLS policies. Future functions lose the global implicit `PUBLIC`
+execute default and require an intentional grant before Data API RPC use.
+
 `authenticator` must never be a member of either `nce_app_*` role. One-way role
 membership lets the backend roles reuse the matching browser-role policies
 without allowing a Supabase token to select a backend role.

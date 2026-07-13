@@ -38,6 +38,24 @@ describe('PR-48A Data API runtime boundary migration', () => {
     expect(migration).toContain("'nce_books'")
   })
 
+  it('keeps every approved IELTS reference table browser-readable', () => {
+    for (const table of [
+      'ielts_config_versions',
+      'ielts_question_options',
+      'ielts_assignment_types',
+      'ielts_question_types',
+      'ielts_writing_task_types',
+      'ielts_speaking_part_types',
+      'ielts_completion_formats',
+      'ielts_sample_timing_options',
+    ]) {
+      expect(migration).toContain(`'${table}'`)
+    }
+    expect(migration).toContain('ielts_reference_browser_select')
+    expect(migration).toContain('FOR SELECT TO anon, authenticated USING (true)')
+    expect(migration).toContain('GRANT SELECT ON TABLE')
+  })
+
   it('limits backend table grants to RLS-governed DML', () => {
     expect(migration).toContain(
       'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public',
@@ -45,9 +63,7 @@ describe('PR-48A Data API runtime boundary migration', () => {
     expect(migration).toContain(
       'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_app_anon, nce_app_authenticated',
     )
-    expect(migration).not.toContain(
-      'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public',
-    )
+    expect(migration).not.toContain('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public')
     expect(migration).not.toContain(
       'GRANT ALL PRIVILEGES ON TABLES TO nce_app_anon, nce_app_authenticated',
     )
@@ -70,5 +86,11 @@ describe('PR-48A Data API runtime boundary migration', () => {
       'ALTER FUNCTION app.current_user_id() SET search_path = pg_catalog',
     )
     expect(migration).toContain('DROP EXTENSION IF EXISTS pg_graphql')
+    expect(migration).toContain(
+      'ALTER DEFAULT PRIVILEGES\n  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',
+    )
+    expect(migration).not.toContain(
+      'ALTER DEFAULT PRIVILEGES IN SCHEMA public\n  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',
+    )
   })
 })

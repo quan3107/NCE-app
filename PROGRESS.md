@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Preserved approved IELTS Data API reads with explicit browser SELECT grants and RLS policies, corrected the global future-function PUBLIC EXECUTE default revoke, and added PostgreSQL-backed allowed/denied read/write probes for every documented database role.
+
 - **2026-07-12:** Addressed PR-48A review findings by explicitly granting the non-superuser runtime login `SET ROLE` capability, restricting current and default table grants to RLS-governed DML, and adding PostgreSQL 17 CI probes that apply the hardening migration and exercise both runtime roles through a non-superuser `CREATEROLE` login.
 
 - **2026-07-12:** Implemented PR-48A Supabase Data API/runtime-role hardening with non-login anonymous and authenticated backend roles, one-way RLS-policy membership, deny-by-default browser grants outside reviewed public surfaces, RLS on every public table, fixed helper search paths, unused pg_graphql removal, focused migration/middleware coverage, and a hosted rollout/probe runbook. Hosted DDL remains unapplied pending verification.
@@ -84,6 +86,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend files changed for the IELTS browser-policy, function-default, or database role-probe follow-up; frontend CI remains part of the regression gate.
 
 - **2026-07-12:** No frontend files changed for the PR-48A runtime-membership and DML-grant review fixes; frontend CI remains part of the regression gate.
 

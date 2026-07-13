@@ -160,7 +160,7 @@ jobs:
               CREATE ROLE authenticated;
             END IF;
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
-              CREATE ROLE service_role;
+              CREATE ROLE service_role BYPASSRLS;
             END IF;
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_runtime') THEN
               CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime' CREATEROLE;
@@ -207,6 +207,9 @@ jobs:
           SELECT current_user;
           ROLLBACK;
           SQL
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
+            < backend/tests/prisma/runtimeRoleBoundary.probe.sql
 
       - name: Seed backend CMS test content
         run: npm run seed:cms
