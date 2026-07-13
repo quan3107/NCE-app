@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Hardened the production runtime-role upgrade by explicitly clearing retained `service_role` ADMIN/INHERIT membership options, asserting the negative ADMIN invariant in migration and hosted probes, reproducing the production ADMIN-true upgrade in CI, and revoking future table, sequence, and function defaults from `service_role` alongside the browser roles.
+
 - **2026-07-13:** Corrected the Data API runtime-role review findings by replacing blanket public-schema DML with explicit predecessor-equivalent grants, excluding private/service-only tables from anonymous access, provisioning SET-only service-role membership before migration, asserting that prerequisite in SQL, testing service-role switching in CI, and requiring a coordinated maintenance-outage rollout.
 
 - **2026-07-13:** Preserved approved IELTS Data API reads with explicit browser SELECT grants and RLS policies, corrected the global future-function PUBLIC EXECUTE default revoke, and added PostgreSQL-backed allowed/denied read/write probes for every documented database role.
@@ -88,6 +90,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend files changed for the retained service-role ADMIN OPTION and default-privilege review fixes; frontend CI remains part of the regression gate.
 
 - **2026-07-13:** No frontend files changed for the IELTS browser-policy, function-default, or database role-probe follow-up; frontend CI remains part of the regression gate.
 
