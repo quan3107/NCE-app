@@ -2,6 +2,8 @@
 -- Purpose: Add isolated backend roles with predecessor-equivalent privileges.
 -- Why: The backend must stop using Data API roles without broadening anonymous access.
 
+BEGIN;
+
 DO $roles$
 BEGIN
   -- The migration owner and runtime login are intentionally separate. Hosted
@@ -123,6 +125,29 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA pgboss
 ALTER DEFAULT PRIVILEGES IN SCHEMA pgboss
   GRANT EXECUTE ON FUNCTIONS TO nce_job_runner;
 
+-- pg-boss transports jobs through its isolated login, while application
+-- handlers use the runtime connection after SET ROLE service_role. Grant only
+-- the table operations exercised by AI, notification, and cleanup handlers.
+GRANT USAGE ON SCHEMA public TO service_role;
+
+GRANT SELECT ON
+  public.assignments,
+  public.courses,
+  public.enrollments,
+  public.users,
+  public.notification_type_configs,
+  public.user_notification_preferences
+TO service_role;
+
+GRANT SELECT, UPDATE ON
+  public.ai_feedback_drafts,
+  public.ai_objective_explanations
+TO service_role;
+
+GRANT SELECT, INSERT, UPDATE ON public.notifications TO service_role;
+GRANT SELECT, UPDATE ON public.auth_sessions TO service_role;
+GRANT INSERT ON public.audit_logs TO service_role;
+
 -- Preserve only the anonymous role's predecessor reads. Private account,
 -- grade, session, identity, attempt, and authoring tables are intentionally absent.
 GRANT SELECT ON
@@ -233,3 +258,5 @@ GRANT SELECT (
   id, lesson_id, objective_id, exercise_type, prompt, content,
   scoring_config, sort_order, created_at, updated_at
 ) ON public.nce_exercises TO nce_app_anon, nce_app_authenticated;
+
+COMMIT;
