@@ -4,16 +4,60 @@
 
 DO $roles$
 BEGIN
-  -- A role administrator must provision this membership because CREATEROLE
-  -- alone cannot manage a service_role created by another identity.
+  -- The migration owner and runtime login are intentionally separate. Hosted
+  -- postgres keeps its Supabase-managed membership; it provisions a new grant
+  -- that it controls for the least-privilege application login.
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
     RAISE EXCEPTION 'provision service_role before applying this migration';
   END IF;
-  IF NOT pg_has_role(CURRENT_USER, 'service_role', 'SET') THEN
-    RAISE EXCEPTION 'grant the migration/runtime login SET membership in service_role before applying this migration';
+  IF CURRENT_USER = 'nce_runtime' THEN
+    RAISE EXCEPTION 'DIRECT_URL must use the migration owner, not nce_runtime';
   END IF;
-  IF pg_has_role(CURRENT_USER, 'service_role', 'MEMBER WITH ADMIN OPTION') THEN
-    RAISE EXCEPTION 'remove service_role ADMIN OPTION from the migration/runtime login before applying this migration';
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_auth_members membership
+    JOIN pg_roles granted ON granted.oid = membership.roleid
+    JOIN pg_roles member ON member.oid = membership.member
+    JOIN pg_roles grantor ON grantor.oid = membership.grantor
+    WHERE granted.rolname = 'service_role'
+      AND member.rolname = 'nce_runtime'
+      AND grantor.rolname = CURRENT_USER
+      AND NOT membership.admin_option
+      AND NOT membership.inherit_option
+      AND membership.set_option
+  ) THEN
+    RAISE EXCEPTION 'provision a SET-only service_role grant from the migration owner to nce_runtime';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_auth_members membership
+    JOIN pg_roles granted ON granted.oid = membership.roleid
+    JOIN pg_roles member ON member.oid = membership.member
+    JOIN pg_roles grantor ON grantor.oid = membership.grantor
+    WHERE granted.rolname = 'service_role'
+      AND member.rolname = 'nce_runtime'
+      AND (
+        grantor.rolname <> CURRENT_USER OR
+        membership.admin_option OR
+        membership.inherit_option OR
+        NOT membership.set_option
+      )
+  ) THEN
+    RAISE EXCEPTION 'nce_runtime has an unexpected service_role membership row';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_roles
+    WHERE rolname = 'nce_runtime'
+      AND rolcanlogin
+      AND NOT rolsuper
+      AND NOT rolinherit
+      AND NOT rolcreaterole
+      AND NOT rolcreatedb
+      AND NOT rolreplication
+      AND NOT rolbypassrls
+  ) THEN
+    RAISE EXCEPTION 'nce_runtime must be a NOINHERIT least-privilege login';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
     CREATE ROLE nce_app_anon NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
@@ -27,7 +71,7 @@ $roles$;
 -- Policy membership is one-way. PostgREST cannot assume either backend role.
 GRANT anon TO nce_app_anon;
 GRANT authenticated TO nce_app_authenticated;
-GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER
+GRANT nce_app_anon, nce_app_authenticated TO nce_runtime
   WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
 
 GRANT USAGE ON SCHEMA public, app TO nce_app_anon, nce_app_authenticated;
