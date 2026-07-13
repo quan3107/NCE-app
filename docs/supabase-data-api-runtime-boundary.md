@@ -30,7 +30,9 @@ an isolated runtime role has an explicit privilege on that table.
 
 All eight approved IELTS reference tables receive explicit browser `SELECT`
 grants and RLS policies. Future functions lose the global implicit `PUBLIC`
-execute default and require an intentional grant before Data API RPC use.
+execute default and require an intentional grant before Data API RPC use. Future
+tables, sequences, and functions also receive no automatic `service_role`
+access; trusted operations must grant each required object explicitly.
 
 `authenticator` must never be a member of either `nce_app_*` role. One-way role
 membership lets the backend roles reuse the matching browser-role policies
@@ -38,11 +40,17 @@ without allowing a Supabase token to select a backend role.
 
 This rollout requires `DATABASE_URL` and `DIRECT_URL` to authenticate as the
 same database role. Before migration, a role administrator must grant that login
-`service_role` membership with `SET TRUE, INHERIT FALSE`; the migration asserts
-the membership exists. The migration then grants `CURRENT_USER` the same
-SET-only membership in `nce_app_anon` and `nce_app_authenticated`. Using
-different login roles is unsupported until a dedicated runtime identity is
-provisioned outside Prisma and granted all three memberships.
+`service_role` membership with `ADMIN FALSE, SET TRUE, INHERIT FALSE`; the
+migration asserts both the positive `SET` requirement and the negative `ADMIN`
+invariant. The migration then grants `CURRENT_USER` the same SET-only membership
+in `nce_app_anon` and `nce_app_authenticated`.
+
+[Supabase recommends a separate database user for each service](https://supabase.com/docs/guides/database/postgres/roles#passwords),
+so a dedicated runtime login is the preferred target instead of the
+administrative `postgres` login. This rollout still requires one shared identity
+for `DATABASE_URL` and `DIRECT_URL`; changing to separate migration and runtime
+identities needs an explicit follow-up because the migration grants
+`CURRENT_USER`. Do not split the two URLs during this rollout.
 
 ## Intentional view exception
 
@@ -67,9 +75,11 @@ revokes, while the new application requires roles the preparation migration adds
    Stop if the values differ; the migration grants memberships only to the
    `DIRECT_URL` identity.
 3. As a superuser or role holding ADMIN OPTION on `service_role`, run
-   `GRANT service_role TO <shared_login> WITH SET TRUE, INHERIT FALSE`. Verify
-   `SELECT pg_has_role('<shared_login>', 'service_role', 'SET')` returns true.
-   Do not grant ADMIN OPTION to the application login.
+   `GRANT service_role TO <shared_login> WITH ADMIN FALSE, SET TRUE, INHERIT FALSE`.
+   This updates all three membership options, including an existing production
+   membership. Verify `SELECT pg_has_role('<shared_login>', 'service_role', 'SET')`
+   returns true and `SELECT pg_has_role('<shared_login>', 'service_role',
+   'MEMBER WITH ADMIN OPTION')` returns false.
 4. Enter maintenance mode, stop accepting requests, and drain or stop every
    backend instance. Confirm no old application sessions remain.
 5. Back up the hosted database, then apply both `20260712220000_harden_data_api_runtime_roles`
@@ -87,6 +97,14 @@ the transaction; do not commit probe mutations.
 
 ```sql
 begin;
+
+do $probe$
+begin
+  if pg_has_role(current_user, 'service_role', 'MEMBER WITH ADMIN OPTION') then
+    raise exception 'shared login retains service_role ADMIN OPTION';
+  end if;
+end
+$probe$;
 
 set local role anon;
 select * from public.courses_public limit 1;
