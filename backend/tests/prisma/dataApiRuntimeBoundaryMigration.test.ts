@@ -67,14 +67,14 @@ describe('Data API runtime boundary migrations', () => {
       'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA pgboss',
     )
     expect(roleMigration).toContain(
-      'GRANT SELECT, UPDATE ON\n  public.ai_feedback_drafts,\n  public.ai_objective_explanations\nTO service_role;',
+      'GRANT SELECT, UPDATE ON\n  public.ai_feedback_drafts, public.ai_objective_explanations\nTO service_role;',
     )
     expect(roleMigration).toContain('GRANT INSERT ON public.audit_logs TO service_role;')
     expect(roleMigration).toContain(
       'GRANT SELECT, INSERT, UPDATE ON public.notifications TO service_role;',
     )
     expect(roleMigration).toContain(
-      'GRANT SELECT, UPDATE ON public.auth_sessions TO service_role;',
+      'GRANT SELECT, INSERT, UPDATE ON public.auth_sessions TO service_role;',
     )
     expect(runtimeRoleProbe).toMatch(
       /has_table_privilege\(\s*current_user, 'public\.ai_feedback_drafts', 'SELECT,UPDATE'/,
@@ -95,6 +95,12 @@ describe('Data API runtime boundary migrations', () => {
     expect(ciWorkflow).toContain('SET ROLE supabase_admin;')
     expect(ciWorkflow).toContain('GRANT service_role TO postgres')
     expect(ciWorkflow).toContain('SET ROLE postgres;')
+    expect(ciWorkflow).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO service_role;',
+    )
+    expect(ciWorkflow).toContain(
+      'GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO service_role;',
+    )
     expect(ciWorkflow).toContain('GRANT service_role TO nce_runtime')
     expect(ciWorkflow).toContain('WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;')
     expect(ciWorkflow).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;')
@@ -202,7 +208,9 @@ describe('Data API runtime boundary migrations', () => {
     expect(roleMigration).toContain('public.grades,')
     expect(roleMigration).toContain('TO nce_app_authenticated;')
     expect(roleMigration).toContain('TO nce_app_anon;')
-    expect(roleMigration).not.toContain('ALL TABLES IN SCHEMA public')
+    expect(roleMigration).not.toMatch(
+      /GRANT[^;]*ALL TABLES IN SCHEMA public[^;]*TO service_role/i,
+    )
     expect(roleMigration).not.toMatch(
       /GRANT[^;]*public\.(auth_sessions|identities)[^;]*TO nce_app_(anon|authenticated);/,
     )
