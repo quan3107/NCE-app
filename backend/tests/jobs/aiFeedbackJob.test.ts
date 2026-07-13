@@ -91,10 +91,16 @@ describe("jobs.aiFeedbackJob", () => {
     );
     expect(boss.work).toHaveBeenCalledWith(
       AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
-      handleGenerateWritingDraftJob,
+      expect.any(Function),
     );
     expect(boss.work).toHaveBeenCalledWith(
       AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
+      expect.any(Function),
+    );
+    expect(boss.work.mock.calls[0]?.[1]).not.toBe(
+      handleGenerateWritingDraftJob,
+    );
+    expect(boss.work.mock.calls[1]?.[1]).not.toBe(
       handleGenerateObjectiveExplanationJob,
     );
   });
