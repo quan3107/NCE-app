@@ -106,6 +106,24 @@ describe('Data API runtime boundary migrations', () => {
     )
   })
 
+  it('documents every fresh local bootstrap prerequisite in execution order', () => {
+    const pgbossInstall = rootReadme.indexOf('npm run pgboss:install')
+    const prismaMigrate = rootReadme.indexOf('npm run prisma:migrate')
+
+    expect(rootReadme).toContain('CREATE ROLE nce_runtime LOGIN')
+    expect(rootReadme).toContain('CREATE ROLE nce_job_runner LOGIN')
+    expect(rootReadme).toContain('GRANT service_role TO nce_runtime')
+    expect(rootReadme).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
+    expect(rootReadme).toContain(
+      'DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app',
+    )
+    expect(pgbossInstall).toBeGreaterThan(-1)
+    expect(pgbossInstall).toBeLessThan(prismaMigrate)
+    expect(rootReadme).not.toContain(
+      "`backend/.env.example` still lists Vite's default `5173`",
+    )
+  })
+
   it('runs administrative database fixtures through the direct login', () => {
     expect(databaseTestClient).toContain(
       'process.env.DIRECT_URL ?? process.env.DATABASE_URL',
