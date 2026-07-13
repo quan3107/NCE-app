@@ -25,6 +25,14 @@ const rolloutRunbook = readFileSync(
   'utf8',
 )
 const rootReadme = readFileSync(resolve(process.cwd(), '../README.md'), 'utf8')
+const databaseTestClient = readFileSync(
+  resolve(process.cwd(), 'tests/prisma/databaseTestClient.ts'),
+  'utf8',
+)
+const databaseUpgradeTests = [
+  'cmsBootstrapUpgrade.database.test.ts',
+  'cmsKeylessStatsRevisionRepair.database.test.ts',
+].map((name) => readFileSync(resolve(process.cwd(), 'tests/prisma', name), 'utf8'))
 
 describe('Data API runtime boundary migrations', () => {
   it('binds SET-only memberships to the dedicated runtime login', () => {
@@ -75,6 +83,16 @@ describe('Data API runtime boundary migrations', () => {
     expect(rootReadme).not.toContain(
       '`DATABASE_URL` and `DIRECT_URL` to authenticate as the same database role',
     )
+  })
+
+  it('runs administrative database fixtures through the direct login', () => {
+    expect(databaseTestClient).toContain(
+      'process.env.DIRECT_URL ?? process.env.DATABASE_URL',
+    )
+    for (const databaseUpgradeTest of databaseUpgradeTests) {
+      expect(databaseUpgradeTest).toContain("from './databaseTestClient.js'")
+      expect(databaseUpgradeTest).not.toContain("from '../../src/prisma/client.js'")
+    }
   })
 
   it('uses explicit predecessor-equivalent grants instead of schema-wide DML', () => {
