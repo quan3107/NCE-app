@@ -116,6 +116,12 @@ SELECT count(*) FROM public.users;
 UPDATE public.users SET email = email WHERE false;
 DO $probe$
 BEGIN
+  IF has_table_privilege(current_user, 'public.grades', 'SELECT') OR
+     has_table_privilege(current_user, 'public.grades', 'INSERT') OR
+     has_table_privilege(current_user, 'public.grades', 'UPDATE') OR
+     has_table_privilege(current_user, 'public.grades', 'DELETE') THEN
+    RAISE EXCEPTION 'service_role retained an unreviewed table privilege';
+  END IF;
   IF NOT has_table_privilege(
     current_user, 'public.ai_feedback_drafts', 'SELECT,UPDATE'
   ) OR NOT has_table_privilege(
