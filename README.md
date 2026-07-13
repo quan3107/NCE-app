@@ -70,7 +70,6 @@ Use your local database values in `backend/.env`. For the current Vite setup, ma
 
 ```dotenv
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/nce_app
-DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
 GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
@@ -203,10 +202,11 @@ The Prisma client applies request-scoped database context. Public requests run a
 `app.current_user_id` and `app.current_user_role`; auth internals use
 `service_role` where needed. The application roles are non-login roles that the
 Supabase Data API authenticator cannot assume. The production rollout requires
-`DATABASE_URL` to use the dedicated `nce_runtime` login while `DIRECT_URL`
-remains the `postgres` migration owner. The grantor-aware preflight and
-coordinated outage are documented in
-`docs/supabase-data-api-runtime-boundary.md`.
+the running backend to receive only `DATABASE_URL` using the dedicated
+`nce_runtime` login. Provide the `postgres` owner URL as `DIRECT_URL` only to the
+short-lived migration process, or as a job-local `DATABASE_URL` when a seed
+command requires it. The grantor-aware preflight and coordinated outage are
+documented in `docs/supabase-data-api-runtime-boundary.md`.
 
 ## Useful Commands
 
