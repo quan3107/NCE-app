@@ -199,6 +199,7 @@ describe("requestAiObjectiveExplanation", () => {
           promptVersion: "objective-explanation-v2",
         }),
       }),
+      select: { id: true },
     });
     const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls[0]?.[0]);
     expect(auditPayload).not.toContain("Which option matches paragraph B?");
