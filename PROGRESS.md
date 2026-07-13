@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Corrected the Data API runtime-role review findings by replacing blanket public-schema DML with explicit predecessor-equivalent grants, excluding private/service-only tables from anonymous access, provisioning SET-only service-role membership before migration, asserting that prerequisite in SQL, testing service-role switching in CI, and requiring a coordinated maintenance-outage rollout.
+
 - **2026-07-13:** Preserved approved IELTS Data API reads with explicit browser SELECT grants and RLS policies, corrected the global future-function PUBLIC EXECUTE default revoke, and added PostgreSQL-backed allowed/denied read/write probes for every documented database role.
 
 - **2026-07-12:** Addressed PR-48A review findings by explicitly granting the non-superuser runtime login `SET ROLE` capability, restricting current and default table grants to RLS-governed DML, and adding PostgreSQL 17 CI probes that apply the hardening migration and exercise both runtime roles through a non-superuser `CREATEROLE` login.

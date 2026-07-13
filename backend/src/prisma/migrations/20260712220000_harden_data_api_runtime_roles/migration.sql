@@ -1,9 +1,17 @@
 -- File: backend/src/prisma/migrations/20260712220000_harden_data_api_runtime_roles/migration.sql
--- Purpose: Isolate backend database roles from Supabase Data API roles.
--- Why: Browser tokens must not inherit the backend's broad application-table access.
+-- Purpose: Add isolated backend roles with predecessor-equivalent privileges.
+-- Why: The backend must stop using Data API roles without broadening anonymous access.
 
 DO $roles$
 BEGIN
+  -- A role administrator must provision this membership because CREATEROLE
+  -- alone cannot manage a service_role created by another identity.
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    RAISE EXCEPTION 'provision service_role before applying this migration';
+  END IF;
+  IF NOT pg_has_role(CURRENT_USER, 'service_role', 'SET') THEN
+    RAISE EXCEPTION 'grant the migration/runtime login SET membership in service_role before applying this migration';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
     CREATE ROLE nce_app_anon NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
   END IF;
@@ -13,139 +21,121 @@ BEGIN
 END
 $roles$;
 
--- Membership is one-way: backend roles reuse existing RLS policies, while the
--- PostgREST authenticator is never allowed to assume either backend role.
+-- Policy membership is one-way. PostgREST cannot assume either backend role.
 GRANT anon TO nce_app_anon;
 GRANT authenticated TO nce_app_authenticated;
-GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER WITH SET TRUE;
+GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER
+  WITH SET TRUE, INHERIT FALSE;
 
 GRANT USAGE ON SCHEMA public, app TO nce_app_anon, nce_app_authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public
-  TO nce_app_anon, nce_app_authenticated;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public
-  TO nce_app_anon, nce_app_authenticated;
 
--- Preserve the pre-hardening backend behavior for tables that did not yet use
--- RLS. Tables with established policies continue to use those policies through
--- the one-way anon/authenticated membership above.
-DO $tables$
-DECLARE
-  relation record;
-BEGIN
-  FOR relation IN
-    SELECT c.oid, c.relname, c.relrowsecurity
-    FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
-  LOOP
-    EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', relation.oid::regclass);
-    IF NOT relation.relrowsecurity THEN
-      EXECUTE format(
-        'CREATE POLICY %I ON %s FOR ALL TO nce_app_anon USING (true) WITH CHECK (true)',
-        'nce_app_legacy_anon_all', relation.oid::regclass
-      );
-      EXECUTE format(
-        'CREATE POLICY %I ON %s FOR ALL TO nce_app_authenticated USING (true) WITH CHECK (true)',
-        'nce_app_legacy_authenticated_all', relation.oid::regclass
-      );
-    END IF;
-  END LOOP;
-END
-$tables$;
+-- Preserve only the anonymous role's predecessor reads. Private account,
+-- grade, session, identity, attempt, and authoring tables are intentionally absent.
+GRANT SELECT ON
+  public.courses,
+  public.courses_public,
+  public.cms_page_contents,
+  public.cms_sections,
+  public.cms_content_items,
+  public.ielts_config_versions,
+  public.ielts_question_options,
+  public.ielts_assignment_types,
+  public.ielts_question_types,
+  public.ielts_writing_task_types,
+  public.ielts_speaking_part_types,
+  public.ielts_completion_formats,
+  public.ielts_sample_timing_options
+TO nce_app_anon;
 
--- IELTS configuration is intentional public reference data. These tables had
--- browser SELECT grants before RLS, so grants and policies must land together.
-DO $ielts_reference$
-DECLARE
-  relation_name text;
-BEGIN
-  FOREACH relation_name IN ARRAY ARRAY[
-    'ielts_config_versions', 'ielts_question_options',
-    'ielts_assignment_types', 'ielts_question_types',
-    'ielts_writing_task_types', 'ielts_speaking_part_types',
-    'ielts_completion_formats', 'ielts_sample_timing_options'
-  ]
-  LOOP
-    EXECUTE format(
-      'GRANT SELECT ON TABLE public.%I TO anon, authenticated',
-      relation_name
-    );
-    EXECUTE format(
-      'CREATE POLICY ielts_reference_browser_select ON public.%I FOR SELECT TO anon, authenticated USING (true)',
-      relation_name
-    );
-  END LOOP;
-END
-$ielts_reference$;
+-- Preserve the authenticated predecessor's application-table privileges.
+-- Auth sessions, identities, attempts, and service-only authoring remain excluded.
+GRANT SELECT, INSERT, UPDATE ON
+  public.users,
+  public.courses,
+  public.enrollments,
+  public.assignments,
+  public.rubrics,
+  public.rubric_templates,
+  public.submissions,
+  public.grades,
+  public.notifications,
+  public.files,
+  public.audit_logs,
+  public.ai_feedback_drafts,
+  public.ai_objective_explanations
+TO nce_app_authenticated;
 
--- Only these deliberately public product surfaces retain their historical,
--- policy-filtered and/or column-scoped browser grants. Everything else becomes
--- backend-only even though it remains in the exposed public schema.
-DO $data_api$
-DECLARE
-  relation record;
-  approved text[] := ARRAY[
-    'courses_public',
-    'cms_page_contents', 'cms_sections', 'cms_content_items',
-    'ielts_config_versions', 'ielts_question_options',
-    'ielts_assignment_types', 'ielts_question_types',
-    'ielts_writing_task_types', 'ielts_speaking_part_types',
-    'ielts_completion_formats', 'ielts_sample_timing_options',
-    'nce_books', 'nce_units', 'nce_lessons', 'nce_objectives',
-    'nce_exercises', 'nce_course_lesson_assignments'
-  ];
-BEGIN
-  FOR relation IN
-    SELECT c.oid, c.relname
-    FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm')
-      AND NOT (c.relname = ANY (approved))
-  LOOP
-    EXECUTE format(
-      'REVOKE ALL PRIVILEGES ON TABLE %s FROM anon, authenticated',
-      relation.oid::regclass
-    );
-  END LOOP;
-END
-$data_api$;
+GRANT SELECT ON
+  public.courses_public,
+  public.file_upload_policies,
+  public.file_upload_allowed_types,
+  public.dashboard_widget_definitions,
+  public.notification_type_configs,
+  public.course_management_tab_configs,
+  public.navigation_items,
+  public.permissions,
+  public.role_permissions,
+  public.feature_flags,
+  public.feature_flag_roles,
+  public.cms_page_contents,
+  public.cms_sections,
+  public.cms_content_items,
+  public.ielts_config_versions,
+  public.ielts_question_options,
+  public.ielts_assignment_types,
+  public.ielts_question_types,
+  public.ielts_writing_task_types,
+  public.ielts_speaking_part_types,
+  public.ielts_completion_formats,
+  public.ielts_sample_timing_options
+TO nce_app_authenticated;
 
-REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+  public.user_dashboard_widget_preferences,
+  public.user_notification_preferences
+TO nce_app_authenticated;
 
--- Application helpers are not a public RPC surface. Explicit grants keep RLS
--- and the intentionally narrow courses_public exception working.
-REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app
-  TO anon, authenticated, nce_app_anon, nce_app_authenticated, service_role;
-DO $helper_search_paths$
-BEGIN
-  IF to_regprocedure('app.current_user_id()') IS NOT NULL THEN
-    ALTER FUNCTION app.current_user_id() SET search_path = pg_catalog;
-  END IF;
-  IF to_regprocedure('app.current_user_role()') IS NOT NULL THEN
-    ALTER FUNCTION app.current_user_role() SET search_path = pg_catalog;
-  END IF;
-  IF to_regprocedure('app.is_admin()') IS NOT NULL THEN
-    ALTER FUNCTION app.is_admin() SET search_path = pg_catalog;
-  END IF;
-END
-$helper_search_paths$;
+GRANT INSERT, UPDATE, DELETE ON
+  public.cms_sections,
+  public.cms_content_items
+TO nce_app_authenticated;
 
--- The application has no GraphQL client. Removing pg_graphql eliminates a
--- second discovery/query surface over the same public-schema relations.
-DROP EXTENSION IF EXISTS pg_graphql;
+GRANT SELECT, INSERT, UPDATE ON
+  public.cms_page_revisions,
+  public.cms_page_drafts
+TO nce_app_authenticated;
 
--- Future Prisma-created objects are private to browser roles unless a later
--- migration deliberately grants a reviewed Data API surface together with RLS.
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES
-  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_app_anon, nce_app_authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO nce_app_anon, nce_app_authenticated;
+GRANT UPDATE (
+  draft_version,
+  published_draft_version,
+  published_revision,
+  published_at,
+  updated_at
+) ON public.cms_page_contents TO nce_app_authenticated;
+
+-- NCE catalog grants remain column-scoped so neither request role can read
+-- teacher notes or answer keys.
+GRANT SELECT (
+  id, code, title, level, description, sort_order, status,
+  published_at, created_at, updated_at, deleted_at
+) ON public.nce_books TO nce_app_anon, nce_app_authenticated;
+
+GRANT SELECT (
+  id, book_id, unit_number, title, description, sort_order, status,
+  published_at, created_at, updated_at, deleted_at
+) ON public.nce_units TO nce_app_anon, nce_app_authenticated;
+
+GRANT SELECT (
+  id, unit_id, lesson_number, title, lesson_text, media_json, sort_order,
+  status, published_at, created_at, updated_at, deleted_at, course_id
+) ON public.nce_lessons TO nce_app_anon, nce_app_authenticated;
+
+GRANT SELECT (
+  id, lesson_id, code, title, category, description, mastery_threshold,
+  sort_order, created_at, updated_at
+) ON public.nce_objectives TO nce_app_anon, nce_app_authenticated;
+
+GRANT SELECT (
+  id, lesson_id, objective_id, exercise_type, prompt, content,
+  scoring_config, sort_order, created_at, updated_at
+) ON public.nce_exercises TO nce_app_anon, nce_app_authenticated;

@@ -12,15 +12,21 @@ Why: Makes the intended grants, exception, rollout, and verification reproducibl
 | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `anon`                  | Existing column-scoped, RLS-filtered public CMS, IELTS reference, NCE catalog, and `courses_public` reads only |
 | `authenticated`         | The same reviewed public/reference surfaces; no private application tables                                     |
-| `nce_app_anon`          | Backend anonymous requests; inherits `anon` RLS policies and cannot log in                                     |
-| `nce_app_authenticated` | Backend signed-in requests; inherits `authenticated` RLS policies and cannot log in                            |
+| `nce_app_anon`          | Backend anonymous reads matching the predecessor `anon` role; no private tables and no login                   |
+| `nce_app_authenticated` | Backend signed-in access matching predecessor grants; no auth/session or service-only tables and no login      |
 | `service_role`          | Backend auth/session and trusted service operations only; never expose its key to clients                      |
+| Migration/runtime login | Shared login selected by both database URLs; SET-only membership in both request roles and `service_role`      |
 
-The migration revokes `anon` and `authenticated` from every relation outside
-the explicit public allowlist. It grants the two backend-only roles application
-table and sequence access. Tables that already had RLS keep their policies;
-tables that did not have RLS receive backend-only compatibility policies before
-RLS becomes mandatory.
+The first migration creates the backend-only roles and reproduces each
+predecessor role's explicit table and column grants. It does not grant either
+role schema-wide DML or default privileges. In particular, `nce_app_anon` has no
+access to users, grades, auth sessions, identities, attempts, or authoring data;
+auth sessions and identities remain `service_role`-only.
+
+The second migration revokes `anon` and `authenticated` from every relation
+outside the explicit public allowlist. Tables that already had RLS keep their
+policies; a table that did not have RLS receives a compatibility policy only if
+an isolated runtime role has an explicit privilege on that table.
 
 All eight approved IELTS reference tables receive explicit browser `SELECT`
 grants and RLS policies. Future functions lose the global implicit `PUBLIC`
@@ -30,9 +36,13 @@ execute default and require an intentional grant before Data API RPC use.
 membership lets the backend roles reuse the matching browser-role policies
 without allowing a Supabase token to select a backend role.
 
-The migration/runtime database login receives explicit `SET TRUE` membership
-in both backend roles. It remains a non-superuser, and the roles receive only
-`SELECT`, `INSERT`, `UPDATE`, and `DELETE` table privileges.
+This rollout requires `DATABASE_URL` and `DIRECT_URL` to authenticate as the
+same database role. Before migration, a role administrator must grant that login
+`service_role` membership with `SET TRUE, INHERIT FALSE`; the migration asserts
+the membership exists. The migration then grants `CURRENT_USER` the same
+SET-only membership in `nce_app_anon` and `nce_app_authenticated`. Using
+different login roles is unsupported until a dedicated runtime identity is
+provisioned outside Prisma and granted all three memberships.
 
 ## Intentional view exception
 
@@ -48,12 +58,27 @@ than maintaining a second public discovery/query surface.
 
 ## Rollout
 
+This is a coordinated maintenance-outage rollout. Do not use a rolling deploy:
+the old application requires Data API role grants that the enforcement migration
+revokes, while the new application requires roles the preparation migration adds.
+
 1. Confirm the PR-48 migrations and hosted checksums are already reconciled.
-2. Back up the hosted database and inspect active sessions using the old roles.
-3. Deploy `20260712220000_harden_data_api_runtime_roles` through the authoritative Prisma migration path.
-4. Restart the backend so new requests select the `nce_app_*` roles.
-5. Run the probes below inside a transaction and roll it back.
-6. Run the Supabase security advisor. The `courses_public` view warning is the documented exception; exposed-table RLS errors must be zero.
+2. Run `SELECT current_user` separately through `DATABASE_URL` and `DIRECT_URL`.
+   Stop if the values differ; the migration grants memberships only to the
+   `DIRECT_URL` identity.
+3. As a superuser or role holding ADMIN OPTION on `service_role`, run
+   `GRANT service_role TO <shared_login> WITH SET TRUE, INHERIT FALSE`. Verify
+   `SELECT pg_has_role('<shared_login>', 'service_role', 'SET')` returns true.
+   Do not grant ADMIN OPTION to the application login.
+4. Enter maintenance mode, stop accepting requests, and drain or stop every
+   backend instance. Confirm no old application sessions remain.
+5. Back up the hosted database, then apply both `20260712220000_harden_data_api_runtime_roles`
+   and `20260712221000_enforce_data_api_boundary` through Prisma.
+6. Start only the new backend release and exit maintenance mode after its health
+   check succeeds.
+7. Run the probes below inside transactions and roll them back.
+8. Run the Supabase security advisor. The `courses_public` view warning is the
+   documented exception; exposed-table RLS errors must be zero.
 
 ## Rolled-back hosted probes
 
@@ -76,17 +101,25 @@ reset role;
 set local role nce_app_anon;
 select set_config('app.current_user_role', 'anon', true);
 select * from public.courses_public limit 1;
+select * from public.users limit 1; -- must fail
 
 reset role;
 set local role nce_app_authenticated;
 select set_config('app.current_user_id', '00000000-0000-0000-0000-000000000000', true);
 select set_config('app.current_user_role', 'student', true);
 select count(*) from public.users;
+select * from public.auth_sessions limit 1; -- must fail
+
+reset role;
+set local role service_role;
+select count(*) from public.auth_sessions;
 
 rollback;
 ```
 
 Run each expected-denial statement separately if the SQL client aborts the
-transaction on error. Also verify `authenticator` has no membership in either
-backend role and that `anon`/`authenticated` have no privileges on private
-tables, columns, or sequences.
+transaction on error. Run the three backend role switches while connected as
+the shared `DATABASE_URL`/`DIRECT_URL` identity. Also verify `authenticator` has
+no membership in either backend role and that `anon`/`authenticated` have no
+privileges on private tables, columns, or sequences. The shared login must have
+SET but not ADMIN OPTION on `service_role`.

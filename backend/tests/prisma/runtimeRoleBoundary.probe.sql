@@ -64,10 +64,19 @@ ROLLBACK;
 
 BEGIN;
 SET LOCAL ROLE nce_app_anon;
-SELECT count(*) FROM public.users;
-UPDATE public.users SET email = email WHERE false;
 DO $probe$
 BEGIN
+  IF has_table_privilege(current_user, 'public.users', 'SELECT') OR
+     has_table_privilege(current_user, 'public.grades', 'UPDATE') OR
+     has_table_privilege(current_user, 'public.auth_sessions', 'SELECT') OR
+     has_table_privilege(current_user, 'public.identities', 'SELECT') THEN
+    RAISE EXCEPTION 'nce_app_anon received a private-table privilege';
+  END IF;
+  BEGIN
+    PERFORM 1 FROM public.users LIMIT 1;
+    RAISE EXCEPTION 'nce_app_anon read users';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
   BEGIN
     TRUNCATE public.users;
     RAISE EXCEPTION 'nce_app_anon truncated users';
@@ -83,6 +92,15 @@ SELECT count(*) FROM public.users;
 UPDATE public.users SET email = email WHERE false;
 DO $probe$
 BEGIN
+  IF has_table_privilege(current_user, 'public.auth_sessions', 'SELECT') OR
+     has_table_privilege(current_user, 'public.identities', 'SELECT') THEN
+    RAISE EXCEPTION 'nce_app_authenticated received auth-table privileges';
+  END IF;
+  BEGIN
+    PERFORM 1 FROM public.auth_sessions LIMIT 1;
+    RAISE EXCEPTION 'nce_app_authenticated read auth sessions';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
   BEGIN
     TRUNCATE public.users;
     RAISE EXCEPTION 'nce_app_authenticated truncated users';

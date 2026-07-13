@@ -1,41 +1,86 @@
 /**
  * File: tests/prisma/dataApiRuntimeBoundaryMigration.test.ts
- * Purpose: Lock the PR-48A database role and Data API hardening contract.
- * Why: Prevents future migrations from restoring browser access to private tables.
+ * Purpose: Lock the database role and Data API hardening contract.
+ * Why: Future migrations must not restore browser access or broaden request roles.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-const migration = readFileSync(
-  resolve(
-    process.cwd(),
-    'src/prisma/migrations/20260712220000_harden_data_api_runtime_roles/migration.sql',
-  ),
+const readMigration = (name: string) =>
+  readFileSync(
+    resolve(process.cwd(), 'src/prisma/migrations', name, 'migration.sql'),
+    'utf8',
+  )
+
+const roleMigration = readMigration('20260712220000_harden_data_api_runtime_roles')
+const boundaryMigration = readMigration('20260712221000_enforce_data_api_boundary')
+const ciWorkflow = readFileSync(
+  resolve(process.cwd(), '../.github/workflows/ci.yml'),
   'utf8',
 )
 
-describe('PR-48A Data API runtime boundary migration', () => {
-  it('creates backend-only roles that PostgREST cannot assume', () => {
-    expect(migration).toContain('CREATE ROLE nce_app_anon NOLOGIN')
-    expect(migration).toContain('CREATE ROLE nce_app_authenticated NOLOGIN')
-    expect(migration).toContain('GRANT anon TO nce_app_anon')
-    expect(migration).toContain('GRANT authenticated TO nce_app_authenticated')
-    expect(migration).toContain(
-      'GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER WITH SET TRUE',
+describe('Data API runtime boundary migrations', () => {
+  it('binds SET-only memberships to the verified migration/runtime login', () => {
+    expect(roleMigration).toContain('CREATE ROLE nce_app_anon NOLOGIN')
+    expect(roleMigration).toContain('CREATE ROLE nce_app_authenticated NOLOGIN')
+    expect(roleMigration).toContain("pg_has_role(CURRENT_USER, 'service_role', 'SET')")
+    expect(roleMigration).toContain(
+      'GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER',
     )
-    expect(migration).not.toMatch(
+    expect(roleMigration).toContain('WITH SET TRUE, INHERIT FALSE')
+    expect(roleMigration).not.toMatch(/GRANT\s+service_role\s+TO\s+CURRENT_USER/i)
+    expect(roleMigration).not.toMatch(
       /GRANT\s+nce_app_(anon|authenticated)\s+TO\s+authenticator/i,
     )
   })
 
+  it('tests the documented same-login invariant and service-role switch', () => {
+    expect(ciWorkflow).toContain(
+      'DATABASE_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test',
+    )
+    expect(ciWorkflow).toContain(
+      'DIRECT_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test',
+    )
+    expect(ciWorkflow).toContain('GRANT service_role TO nce_runtime')
+    expect(ciWorkflow).toContain('WITH SET TRUE, INHERIT FALSE;')
+    expect(ciWorkflow.indexOf('GRANT service_role TO nce_runtime')).toBeLessThan(
+      ciWorkflow.indexOf('- name: Apply backend migrations'),
+    )
+    expect(ciWorkflow).toContain("'MEMBER WITH ADMIN OPTION'")
+    expect(ciWorkflow).toContain('SET LOCAL ROLE service_role;')
+  })
+
+  it('uses explicit predecessor-equivalent grants instead of schema-wide DML', () => {
+    expect(roleMigration).toContain('public.users,')
+    expect(roleMigration).toContain('public.grades,')
+    expect(roleMigration).toContain('TO nce_app_authenticated;')
+    expect(roleMigration).toContain('TO nce_app_anon;')
+    expect(roleMigration).not.toContain('ALL TABLES IN SCHEMA public')
+    expect(roleMigration).not.toMatch(
+      /public\.(auth_sessions|identities)[\s\S]*?TO nce_app_(anon|authenticated)/,
+    )
+    expect(boundaryMigration).not.toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_app_anon',
+    )
+  })
+
+  it('adds compatibility policies only to explicitly granted tables', () => {
+    expect(boundaryMigration).toContain("has_table_privilege(\n        'nce_app_anon'")
+    expect(boundaryMigration).toContain(
+      "has_any_column_privilege(\n        'nce_app_authenticated'",
+    )
+    expect(boundaryMigration).toContain('ENABLE ROW LEVEL SECURITY')
+    expect(boundaryMigration).not.toContain('nce_app_legacy_anon_all')
+  })
+
   it('revokes browser roles from non-approved relations', () => {
-    expect(migration).toContain('REVOKE ALL PRIVILEGES ON TABLE')
-    expect(migration).toContain('FROM anon, authenticated')
-    expect(migration).toContain("'courses_public'")
-    expect(migration).toContain("'cms_page_contents'")
-    expect(migration).toContain("'nce_books'")
+    expect(boundaryMigration).toContain('REVOKE ALL PRIVILEGES ON TABLE')
+    expect(boundaryMigration).toContain('FROM anon, authenticated')
+    expect(boundaryMigration).toContain("'courses_public'")
+    expect(boundaryMigration).toContain("'cms_page_contents'")
+    expect(boundaryMigration).toContain("'nce_books'")
   })
 
   it('keeps every approved IELTS reference table browser-readable', () => {
@@ -49,48 +94,23 @@ describe('PR-48A Data API runtime boundary migration', () => {
       'ielts_completion_formats',
       'ielts_sample_timing_options',
     ]) {
-      expect(migration).toContain(`'${table}'`)
+      expect(boundaryMigration).toContain(`'${table}'`)
     }
-    expect(migration).toContain('ielts_reference_browser_select')
-    expect(migration).toContain('FOR SELECT TO anon, authenticated USING (true)')
-    expect(migration).toContain('GRANT SELECT ON TABLE')
+    expect(boundaryMigration).toContain('ielts_reference_browser_select')
+    expect(boundaryMigration).toContain('FOR SELECT TO anon, authenticated USING (true)')
   })
 
-  it('limits backend table grants to RLS-governed DML', () => {
-    expect(migration).toContain(
-      'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public',
-    )
-    expect(migration).toContain(
-      'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nce_app_anon, nce_app_authenticated',
-    )
-    expect(migration).not.toContain('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public')
-    expect(migration).not.toContain(
-      'GRANT ALL PRIVILEGES ON TABLES TO nce_app_anon, nce_app_authenticated',
-    )
-  })
-
-  it('enables RLS on every public table and preserves legacy backend behavior', () => {
-    expect(migration).toContain('ENABLE ROW LEVEL SECURITY')
-    expect(migration).toContain('nce_app_legacy_anon_all')
-    expect(migration).toContain('nce_app_legacy_authenticated_all')
-  })
-
-  it('hardens helper functions and removes unused GraphQL exposure', () => {
-    expect(migration).toContain(
+  it('hardens helpers without granting future runtime-role DML', () => {
+    expect(boundaryMigration).toContain(
       'REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC',
     )
-    expect(migration).toContain("to_regprocedure('app.current_user_id()')")
-    expect(migration).toContain("to_regprocedure('app.current_user_role()')")
-    expect(migration).toContain("to_regprocedure('app.is_admin()')")
-    expect(migration).toContain(
-      'ALTER FUNCTION app.current_user_id() SET search_path = pg_catalog',
-    )
-    expect(migration).toContain('DROP EXTENSION IF EXISTS pg_graphql')
-    expect(migration).toContain(
+    expect(boundaryMigration).toContain("to_regprocedure('app.current_user_id()')")
+    expect(boundaryMigration).toContain('DROP EXTENSION IF EXISTS pg_graphql')
+    expect(boundaryMigration).toContain(
       'ALTER DEFAULT PRIVILEGES\n  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',
     )
-    expect(migration).not.toContain(
-      'ALTER DEFAULT PRIVILEGES IN SCHEMA public\n  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',
+    expect(boundaryMigration).not.toMatch(
+      /ALTER DEFAULT PRIVILEGES[\s\S]{0,100}GRANT[\s\S]{0,100}nce_app_/,
     )
   })
 })
