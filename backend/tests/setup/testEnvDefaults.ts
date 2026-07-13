@@ -7,6 +7,7 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.NODE_ENV = 'test'
   process.env.DATABASE_URL ??=
     'postgres://test_user:test_password@localhost:5432/nce_test'
+  process.env.JOB_DATABASE_URL ??= process.env.DATABASE_URL
   process.env.DIRECT_URL ??= process.env.DATABASE_URL
   process.env.JWT_PRIVATE_KEY_PATH ??= 'tests/runtime/generated-jwt-private.pem'
   process.env.JWT_PUBLIC_KEY_PATH ??= 'tests/runtime/generated-jwt-public.pem'
