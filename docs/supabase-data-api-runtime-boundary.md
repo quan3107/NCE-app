@@ -14,7 +14,7 @@ Why: Makes the intended grants, exception, rollout, and verification reproducibl
 | `authenticated`         | The same reviewed public/reference surfaces; no private application tables                                     |
 | `nce_app_anon`          | Backend anonymous reads matching the predecessor `anon` role; no private tables and no login                   |
 | `nce_app_authenticated` | Backend signed-in access matching predecessor grants; no auth/session or service-only tables and no login      |
-| `service_role`          | Backend auth/session and trusted service operations only; never expose its key to clients                      |
+| `service_role`          | Backend auth/session, trusted service, and explicitly granted application-job operations; never expose its key |
 | `nce_runtime`           | Dedicated `DATABASE_URL` login; SET-only membership in both request roles and `service_role`                   |
 | `nce_job_runner`        | Dedicated `JOB_DATABASE_URL` login; DML and function access only inside the `pgboss` schema                    |
 | `postgres`              | Migration owner selected only by `DIRECT_URL`; never used by the running application                           |
@@ -153,12 +153,32 @@ begin;
 
 set local role anon;
 select * from public.courses_public limit 1;
-select * from public.courses limit 1; -- must fail with permission denied
+do $probe$
+begin
+  begin
+    perform 1 from public.courses limit 1;
+    raise exception 'anon read private courses';
+  exception when insufficient_privilege then null;
+  end;
+end
+$probe$;
 
 reset role;
 set local role authenticated;
-select password_hash from public.users limit 1; -- must fail
-update public.grades set score = score; -- must fail
+do $probe$
+begin
+  begin
+    perform password_hash from public.users limit 1;
+    raise exception 'authenticated read password hashes';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.grades set score = score where false;
+    raise exception 'authenticated updated grades';
+  exception when insufficient_privilege then null;
+  end;
+end
+$probe$;
 
 rollback;
 ```
@@ -187,14 +207,30 @@ $probe$;
 set local role nce_app_anon;
 select set_config('app.current_user_role', 'anon', true);
 select * from public.courses_public limit 1;
-select * from public.users limit 1; -- must fail
+do $probe$
+begin
+  begin
+    perform 1 from public.users limit 1;
+    raise exception 'nce_app_anon read users';
+  exception when insufficient_privilege then null;
+  end;
+end
+$probe$;
 
 reset role;
 set local role nce_app_authenticated;
 select set_config('app.current_user_id', '00000000-0000-0000-0000-000000000000', true);
 select set_config('app.current_user_role', 'student', true);
 select count(*) from public.users;
-select * from public.auth_sessions limit 1; -- must fail
+do $probe$
+begin
+  begin
+    perform 1 from public.auth_sessions limit 1;
+    raise exception 'nce_app_authenticated read auth sessions';
+  exception when insufficient_privilege then null;
+  end;
+end
+$probe$;
 
 reset role;
 set local role service_role;
@@ -203,10 +239,10 @@ select count(*) from public.auth_sessions;
 rollback;
 ```
 
-Run each expected-denial statement separately if the SQL client aborts the
-transaction on error, using the connection assigned to that probe group. Also
-verify `authenticator` has no membership in either backend role and that
-`anon`/`authenticated` have no privileges on private tables, columns, or
-sequences. The migration's catalog check rejects any unexpected
-`service_role -> nce_runtime` grantor or membership options before changing
-application grants.
+Each expected `insufficient_privilege` denial is caught inside its own PL/pgSQL
+subtransaction, so every later role probe still runs. Unexpected access raises a
+different exception and fails the probe. Also verify `authenticator` has no
+membership in either backend role and that `anon`/`authenticated` have no
+privileges on private tables, columns, or sequences. The migration's catalog
+check rejects any unexpected `service_role -> nce_runtime` grantor or membership
+options before changing application grants.
