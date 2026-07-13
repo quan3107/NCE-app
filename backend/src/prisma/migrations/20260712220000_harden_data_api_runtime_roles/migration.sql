@@ -12,6 +12,9 @@ BEGIN
   IF NOT pg_has_role(CURRENT_USER, 'service_role', 'SET') THEN
     RAISE EXCEPTION 'grant the migration/runtime login SET membership in service_role before applying this migration';
   END IF;
+  IF pg_has_role(CURRENT_USER, 'service_role', 'MEMBER WITH ADMIN OPTION') THEN
+    RAISE EXCEPTION 'remove service_role ADMIN OPTION from the migration/runtime login before applying this migration';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
     CREATE ROLE nce_app_anon NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
   END IF;
@@ -25,7 +28,7 @@ $roles$;
 GRANT anon TO nce_app_anon;
 GRANT authenticated TO nce_app_authenticated;
 GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER
-  WITH SET TRUE, INHERIT FALSE;
+  WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
 
 GRANT USAGE ON SCHEMA public, app TO nce_app_anon, nce_app_authenticated;
 
