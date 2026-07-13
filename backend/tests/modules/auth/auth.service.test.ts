@@ -24,7 +24,7 @@ import {
   handlePasswordLogin,
   handleRegisterAccount,
   handleSessionRefresh,
-  isRunWithRoleActive,
+  isRoleContextActive,
   ipHash,
   prisma,
   randomBytesMock,
@@ -49,6 +49,9 @@ describe("auth.service", () => {
   });
 
   it("registers public teachers in a pending state", async () => {
+    writeAuditLogSafely.mockImplementationOnce(async () => {
+      expect(isRoleContextActive()).toBe(true);
+    });
     prisma.user.findFirst.mockResolvedValueOnce(null);
     bcryptHashMock.mockResolvedValueOnce("hashed-password");
     prisma.user.create.mockResolvedValueOnce(
@@ -120,6 +123,9 @@ describe("auth.service", () => {
   });
 
   it("registers public students and returns auth tokens", async () => {
+    writeAuditLogSafely.mockImplementationOnce(async () => {
+      expect(isRoleContextActive()).toBe(true);
+    });
     prisma.user.findFirst.mockResolvedValueOnce(null);
     bcryptHashMock.mockResolvedValueOnce("hashed-password");
     prisma.user.create.mockResolvedValueOnce(
@@ -243,6 +249,9 @@ describe("auth.service", () => {
   });
 
   it("issues tokens and persists a session on successful password login", async () => {
+    writeAuditLogSafely.mockImplementationOnce(async () => {
+      expect(isRoleContextActive()).toBe(true);
+    });
     const mockUser = buildUser({
       id: "user-1",
       email: "alice@example.com",
@@ -442,6 +451,9 @@ describe("auth.service", () => {
   });
 
   it("rotates sessions and returns a new refresh token during refresh", async () => {
+    writeAuditLogSafely.mockImplementationOnce(async () => {
+      expect(isRoleContextActive()).toBe(true);
+    });
     const existingToken = "existing-refresh";
     const nextTokenBuffer = Buffer.alloc(48, 2);
     randomBytesMock.mockReturnValueOnce(nextTokenBuffer);
@@ -672,7 +684,7 @@ describe("auth.service", () => {
     );
     prisma.authSession.updateMany.mockResolvedValueOnce({ count: 1 });
     writeAuditLogSafely.mockImplementationOnce(async () => {
-      expect(isRunWithRoleActive()).toBe(false);
+      expect(isRoleContextActive()).toBe(true);
     });
 
     await handleLogout({}, { refreshToken: "to-revoke", userAgent: "logout-test" });
