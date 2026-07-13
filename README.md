@@ -202,9 +202,10 @@ The Prisma client applies request-scoped database context. Public requests run a
 `nce_app_anon`; authenticated requests run as `nce_app_authenticated` with
 `app.current_user_id` and `app.current_user_role`; auth internals use
 `service_role` where needed. The application roles are non-login roles that the
-Supabase Data API authenticator cannot assume. The current rollout requires
-`DATABASE_URL` and `DIRECT_URL` to authenticate as the same database role; the
-preflight and coordinated outage are documented in
+Supabase Data API authenticator cannot assume. The production rollout requires
+`DATABASE_URL` to use the dedicated `nce_runtime` login while `DIRECT_URL`
+remains the `postgres` migration owner. The grantor-aware preflight and
+coordinated outage are documented in
 `docs/supabase-data-api-runtime-boundary.md`.
 
 ## Useful Commands
