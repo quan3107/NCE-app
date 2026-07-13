@@ -24,17 +24,16 @@ const rolloutRunbook = readFileSync(
   resolve(process.cwd(), '../docs/supabase-data-api-runtime-boundary.md'),
   'utf8',
 )
+const rootReadme = readFileSync(resolve(process.cwd(), '../README.md'), 'utf8')
 
 describe('Data API runtime boundary migrations', () => {
-  it('binds SET-only memberships to the verified migration/runtime login', () => {
+  it('binds SET-only memberships to the dedicated runtime login', () => {
     expect(roleMigration).toContain('CREATE ROLE nce_app_anon NOLOGIN')
     expect(roleMigration).toContain('CREATE ROLE nce_app_authenticated NOLOGIN')
-    expect(roleMigration).toContain("pg_has_role(CURRENT_USER, 'service_role', 'SET')")
+    expect(roleMigration).toContain("member.rolname = 'nce_runtime'")
+    expect(roleMigration).toContain('grantor.rolname = CURRENT_USER')
     expect(roleMigration).toContain(
-      "pg_has_role(CURRENT_USER, 'service_role', 'MEMBER WITH ADMIN OPTION')",
-    )
-    expect(roleMigration).toContain(
-      'GRANT nce_app_anon, nce_app_authenticated TO CURRENT_USER',
+      'GRANT nce_app_anon, nce_app_authenticated TO nce_runtime',
     )
     expect(roleMigration).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
     expect(roleMigration).not.toMatch(/GRANT\s+service_role\s+TO\s+CURRENT_USER/i)
@@ -43,19 +42,20 @@ describe('Data API runtime boundary migrations', () => {
     )
   })
 
-  it('tests the documented same-login invariant and service-role switch', () => {
+  it('reproduces the hosted grantor split before migration', () => {
     expect(ciWorkflow).toContain(
       'DATABASE_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test',
     )
     expect(ciWorkflow).toContain(
-      'DIRECT_URL: postgresql://nce_runtime:nce_runtime@localhost:5432/nce_test',
+      'DIRECT_URL: postgresql://postgres:postgres@localhost:5432/nce_test',
     )
+    expect(ciWorkflow).toContain('CREATE ROLE supabase_admin')
+    expect(ciWorkflow).toContain('SET ROLE supabase_admin;')
+    expect(ciWorkflow).toContain('GRANT service_role TO postgres')
+    expect(ciWorkflow).toContain('SET ROLE postgres;')
     expect(ciWorkflow).toContain('GRANT service_role TO nce_runtime')
     expect(ciWorkflow).toContain('WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;')
     expect(ciWorkflow).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;')
-    expect(ciWorkflow.indexOf('WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;')).toBeLessThan(
-      ciWorkflow.indexOf('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;'),
-    )
     expect(ciWorkflow.indexOf('GRANT service_role TO nce_runtime')).toBeLessThan(
       ciWorkflow.indexOf('- name: Apply backend migrations'),
     )
@@ -63,12 +63,15 @@ describe('Data API runtime boundary migrations', () => {
     expect(ciWorkflow).toContain('SET LOCAL ROLE service_role;')
   })
 
-  it('documents an ADMIN-negative service-role rollout and hosted probe', () => {
-    expect(rolloutRunbook).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
-    expect(rolloutRunbook).toContain(
-      "pg_has_role(current_user, 'service_role', 'MEMBER WITH ADMIN OPTION')",
-    )
+  it('documents the split-login rollout and grantor-aware hosted probe', () => {
+    expect(rolloutRunbook).toContain('with admin false, inherit false, set true')
+    expect(rolloutRunbook).toContain('grantor_role')
     expect(rolloutRunbook).toContain('dedicated runtime login')
+    expect(rolloutRunbook).toContain('`DATABASE_URL` must authenticate as `nce_runtime`')
+    expect(rolloutRunbook).toMatch(/`DIRECT_URL` must remain the\s+`postgres`/)
+    expect(rootReadme).not.toContain(
+      '`DATABASE_URL` and `DIRECT_URL` to authenticate as the same database role',
+    )
   })
 
   it('uses explicit predecessor-equivalent grants instead of schema-wide DML', () => {
