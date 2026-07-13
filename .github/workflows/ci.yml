@@ -168,7 +168,9 @@ jobs:
           END
           $$;
           GRANT service_role TO nce_runtime
-            WITH SET TRUE, INHERIT FALSE;
+            WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;
+          GRANT service_role TO nce_runtime
+            WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
           GRANT anon, authenticated TO nce_runtime
             WITH ADMIN TRUE, SET FALSE, INHERIT FALSE;
           GRANT CONNECT, CREATE ON DATABASE nce_test TO nce_runtime;
