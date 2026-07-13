@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Routed administrative CMS database-upgrade fixtures through a test-only `DIRECT_URL` Prisma client while preserving `DATABASE_URL` runtime-role coverage, with deterministic client/pool cleanup and a source regression for the split connection contract.
+
 - **2026-07-13:** Corrected the hosted PostgreSQL grantor mismatch by separating the `postgres` migration owner from a dedicated `nce_runtime` application login, validating exact `pg_auth_members` grantors and options before migration, and reproducing Supabase's `supabase_admin -> postgres` plus `postgres -> nce_runtime` membership rows in PostgreSQL 17 CI.
 
 - **2026-07-13:** Hardened the production runtime-role upgrade by explicitly clearing retained `service_role` ADMIN/INHERIT membership options, asserting the negative ADMIN invariant in migration and hosted probes, reproducing the production ADMIN-true upgrade in CI, and revoking future table, sequence, and function defaults from `service_role` alongside the browser roles.
@@ -92,6 +94,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend files changed for the administrative database-fixture connection correction; frontend CI remains part of the pull-request regression gate.
 
 - **2026-07-13:** No frontend files changed for the hosted role-grantor correction and dedicated database runtime login; frontend CI remains part of the regression gate.
 
