@@ -125,28 +125,61 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA pgboss
 ALTER DEFAULT PRIVILEGES IN SCHEMA pgboss
   GRANT EXECUTE ON FUNCTIONS TO nce_job_runner;
 
--- pg-boss transports jobs through its isolated login, while application
--- handlers use the runtime connection after SET ROLE service_role. Grant only
--- the table operations exercised by AI, notification, and cleanup handlers.
+-- Hosted projects may retain Supabase's historical DML defaults on existing
+-- tables. Clear the current ACLs before rebuilding the reviewed backend matrix.
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM service_role;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM service_role;
 GRANT USAGE ON SCHEMA public TO service_role;
 
-GRANT SELECT ON
-  public.assignments,
-  public.courses,
-  public.enrollments,
-  public.users,
-  public.notification_type_configs,
-  public.user_notification_preferences
-TO service_role;
-
-GRANT SELECT, UPDATE ON
-  public.ai_feedback_drafts,
-  public.ai_objective_explanations
-TO service_role;
-
-GRANT SELECT, INSERT, UPDATE ON public.notifications TO service_role;
-GRANT SELECT, UPDATE ON public.auth_sessions TO service_role;
+-- Authentication and immutable audit events.
+GRANT SELECT, INSERT, UPDATE ON public.users TO service_role;
+GRANT SELECT, INSERT, UPDATE ON public.auth_sessions TO service_role;
+GRANT SELECT, INSERT, UPDATE ON public.identities TO service_role;
 GRANT INSERT ON public.audit_logs TO service_role;
+
+-- AI, notification, and cleanup jobs.
+GRANT SELECT ON
+  public.assignments, public.courses, public.enrollments,
+  public.notification_type_configs, public.user_notification_preferences
+TO service_role;
+GRANT SELECT, UPDATE ON
+  public.ai_feedback_drafts, public.ai_objective_explanations
+TO service_role;
+GRANT SELECT, INSERT, UPDATE ON public.notifications TO service_role;
+
+-- NCE catalog reads keep trusted-only notes and answer keys column-scoped.
+GRANT SELECT (
+  id, code, title, level, description, sort_order, status,
+  published_at, created_at, updated_at, deleted_at
+) ON public.nce_books TO service_role;
+GRANT SELECT (
+  id, book_id, unit_number, title, description, sort_order, status,
+  published_at, created_at, updated_at, deleted_at
+) ON public.nce_units TO service_role;
+GRANT SELECT (
+  id, unit_id, lesson_number, title, lesson_text, media_json, teacher_notes,
+  sort_order, status, published_at, created_at, updated_at, deleted_at, course_id
+) ON public.nce_lessons TO service_role;
+GRANT SELECT (
+  id, lesson_id, code, title, category, description, mastery_threshold,
+  sort_order, created_at, updated_at
+) ON public.nce_objectives TO service_role;
+GRANT SELECT (
+  id, lesson_id, objective_id, exercise_type, prompt, content, answer_key,
+  scoring_config, sort_order, created_at, updated_at
+) ON public.nce_exercises TO service_role;
+GRANT SELECT (
+  id, course_id, lesson_id, sequence, available_from, due_at,
+  created_at, updated_at
+) ON public.nce_course_lesson_assignments TO service_role;
+
+-- NCE authoring and attempt persistence.
+GRANT INSERT, UPDATE, DELETE ON public.nce_lessons TO service_role;
+GRANT INSERT, UPDATE, DELETE ON public.nce_objectives TO service_role;
+GRANT INSERT, UPDATE, DELETE ON public.nce_exercises TO service_role;
+GRANT INSERT, UPDATE, DELETE ON public.nce_course_lesson_assignments TO service_role;
+GRANT SELECT, INSERT, UPDATE ON public.nce_lesson_progress TO service_role;
+GRANT SELECT, INSERT, UPDATE ON public.nce_exercise_attempts TO service_role;
 
 -- Preserve only the anonymous role's predecessor reads. Private account,
 -- grade, session, identity, attempt, and authoring tables are intentionally absent.
