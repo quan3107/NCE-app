@@ -220,6 +220,7 @@ describe("jobs.aiFeedbackJob", () => {
           }),
         }),
       }),
+      select: { id: true },
     });
     expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       fixture.providerOutput,
@@ -273,6 +274,7 @@ describe("jobs.aiFeedbackJob", () => {
         entity: "ai_feedback_draft",
         entityId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       }),
+      select: { id: true },
     });
   });
 
@@ -316,6 +318,7 @@ describe("jobs.aiFeedbackJob", () => {
       data: expect.objectContaining({
         action: "ai_feedback.writing_generated",
       }),
+      select: { id: true },
     });
     expect(prisma.aiFeedbackDraft.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -585,6 +588,7 @@ describe("jobs.aiFeedbackJob", () => {
           }),
         }),
       }),
+      select: { id: true },
     });
     expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       fixture.providerOutput,
@@ -680,6 +684,7 @@ describe("jobs.aiFeedbackJob", () => {
       data: expect.objectContaining({
         action: "ai_feedback.explanation_generated",
       }),
+      select: { id: true },
     });
     expect(prisma.aiObjectiveExplanation.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -851,6 +856,7 @@ describe("jobs.aiFeedbackJob", () => {
           model: "gpt-test",
         }),
       }),
+      select: { id: true },
     });
   });
 
