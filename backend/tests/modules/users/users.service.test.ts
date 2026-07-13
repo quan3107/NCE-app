@@ -99,6 +99,7 @@ describe('users.service teacher approvals', () => {
           }),
         }),
       }),
+      select: { id: true },
     })
     expect(result).toBe(createdUser)
   })
@@ -136,6 +137,7 @@ describe('users.service teacher approvals', () => {
           },
         },
       },
+      select: { id: true },
     })
     expect(transactionAuditLogCreate).not.toHaveBeenCalled()
     expect(result.status).toBe(UserStatus.active)
