@@ -100,6 +100,7 @@ describe('assignments.service.createAssignment', () => {
           }),
         }),
       }),
+      select: { id: true },
     })
     expect(result).toBe(record)
   })
@@ -212,6 +213,7 @@ describe('assignments.service.updateAssignment', () => {
           },
         }),
       }),
+      select: { id: true },
     })
     expect(transactionAuditLogCreate).not.toHaveBeenCalled()
     expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
@@ -286,6 +288,7 @@ describe('assignments.service.updateAssignment', () => {
           }),
         }),
       }),
+      select: { id: true },
     })
     expect(transactionAuditLogCreate).not.toHaveBeenCalled()
     expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
@@ -374,6 +377,7 @@ describe('assignments.service.updateAssignment', () => {
           }),
         }),
       }),
+      select: { id: true },
     })
   })
 })
