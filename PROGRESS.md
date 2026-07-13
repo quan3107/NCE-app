@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-13:** Granted `service_role` only the table operations used by AI, notification, and cleanup workers; made both runtime-boundary migrations atomic; converted rollout denials to caught PL/pgSQL probes; and extended the production boot fixture to process a real pg-boss notification job on the clean database.
+
 - **2026-07-13:** Split hosted rollout verification into owner PostgreSQL browser-role probes and dedicated `nce_runtime` backend-role probes, with regression coverage preventing incompatible connection guidance from returning.
 
 - **2026-07-13:** Repaired the fresh local bootstrap guide to provision both runtime logins and the exact SET-only service grant, install pg-boss with a shell-scoped owner URL before Prisma migrations, and lock the documented prerequisite order with a regression test.
@@ -104,6 +106,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-13:** No frontend files changed for the worker grants, atomic hardening migrations, or transaction-safe rollout probes.
 
 - **2026-07-13:** No frontend files changed for the hosted rollout probe connection correction.
 
