@@ -2,6 +2,8 @@
 -- Purpose: Revoke private Data API access after isolated backend roles exist.
 -- Why: Browser tokens must retain only deliberately reviewed public surfaces.
 
+BEGIN;
+
 -- Add compatibility policies only where an isolated role has an explicit grant
 -- and the predecessor table had no RLS. Existing policy-governed tables keep
 -- their policies through one-way anon/authenticated membership.
@@ -128,3 +130,5 @@ ALTER DEFAULT PRIVILEGES
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated, service_role;
+
+COMMIT;
