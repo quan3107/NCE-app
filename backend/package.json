@@ -26,6 +26,7 @@
     "format:write": "prettier --write .",
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:migrate": "prisma migrate dev --schema=src/prisma/schema.prisma",
+    "pgboss:install": "tsx src/jobs/installPgBoss.ts",
     "seed": "tsx src/prisma/seed.ts",
     "seed:ielts-config": "tsx src/prisma/seedIeltsConfig.ts",
     "verify:ielts-config": "tsx src/prisma/verifyIeltsConfig.ts",
