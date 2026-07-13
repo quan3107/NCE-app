@@ -8,7 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
-- **2026-07-13:** Split hosted rollout verification into owner/PostgREST browser-role probes and dedicated `nce_runtime` backend-role probes, with regression coverage preventing the incompatible single-connection procedure from returning.
+- **2026-07-13:** Split hosted rollout verification into owner PostgreSQL browser-role probes and dedicated `nce_runtime` backend-role probes, with regression coverage preventing incompatible connection guidance from returning.
 
 - **2026-07-13:** Repaired the fresh local bootstrap guide to provision both runtime logins and the exact SET-only service grant, install pg-boss with a shell-scoped owner URL before Prisma migrations, and lock the documented prerequisite order with a regression test.
 
