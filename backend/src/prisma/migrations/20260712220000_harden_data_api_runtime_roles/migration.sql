@@ -135,7 +135,7 @@ GRANT USAGE ON SCHEMA public TO service_role;
 GRANT SELECT, INSERT, UPDATE ON public.users TO service_role;
 GRANT SELECT, INSERT, UPDATE ON public.auth_sessions TO service_role;
 GRANT SELECT, INSERT, UPDATE ON public.identities TO service_role;
-GRANT INSERT ON public.audit_logs TO service_role;
+GRANT SELECT (id), INSERT ON public.audit_logs TO service_role;
 
 -- AI, notification, and cleanup jobs.
 GRANT SELECT ON
