@@ -328,6 +328,7 @@ describe("ai-feedback.repository", () => {
           promptVersion: "writing-feedback-v1",
         }),
       }),
+      select: { id: true },
     });
   });
 
