@@ -14,10 +14,10 @@ import {
   validateStoredCmsPageContent,
 } from '../../src/modules/cms/cms.content.js'
 import { replacePublishedSections } from '../../src/modules/cms/cms.persistence.js'
-import { basePrisma } from '../../src/prisma/client.js'
 import type { Prisma } from '../../src/prisma/generated.js'
 import { CMS_PAGES } from '../../src/prisma/seeds/cmsContent.data.js'
 import { createPageIfMissing } from '../../src/prisma/seeds/cmsContent.seed.js'
+import { runDatabaseTestTransaction } from './databaseTestClient.js'
 
 const migration = readFileSync(
   resolve(
@@ -38,13 +38,10 @@ async function withRolledBackDatabase(
   operation: (tx: Prisma.TransactionClient) => Promise<void>,
 ) {
   await expect(
-    basePrisma.$transaction(
-      async (tx) => {
-        await operation(tx)
-        throw rollbackSignal
-      },
-      { timeout: 15_000 },
-    ),
+    runDatabaseTestTransaction(async (tx) => {
+      await operation(tx)
+      throw rollbackSignal
+    }),
   ).rejects.toBe(rollbackSignal)
 }
 
