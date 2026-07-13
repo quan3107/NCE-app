@@ -116,6 +116,31 @@ SELECT count(*) FROM public.users;
 UPDATE public.users SET email = email WHERE false;
 DO $probe$
 BEGIN
+  IF NOT has_table_privilege(
+    current_user, 'public.ai_feedback_drafts', 'SELECT,UPDATE'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.ai_objective_explanations', 'SELECT,UPDATE'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.audit_logs', 'INSERT'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.assignments', 'SELECT'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.courses', 'SELECT'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.enrollments', 'SELECT'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.users', 'SELECT'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.notification_type_configs', 'SELECT'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.user_notification_preferences', 'SELECT'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.notifications', 'SELECT,INSERT,UPDATE'
+  ) OR NOT has_table_privilege(
+    current_user, 'public.auth_sessions', 'SELECT,UPDATE'
+  ) THEN
+    RAISE EXCEPTION 'service_role lacks an application job privilege';
+  END IF;
   BEGIN
     DELETE FROM public.users WHERE false;
     RAISE EXCEPTION 'service_role deleted users';
