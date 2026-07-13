@@ -69,7 +69,9 @@ describe('Data API runtime boundary migrations', () => {
     expect(roleMigration).toContain(
       'GRANT SELECT, UPDATE ON\n  public.ai_feedback_drafts, public.ai_objective_explanations\nTO service_role;',
     )
-    expect(roleMigration).toContain('GRANT INSERT ON public.audit_logs TO service_role;')
+    expect(roleMigration).toContain(
+      'GRANT SELECT (id), INSERT ON public.audit_logs TO service_role;',
+    )
     expect(roleMigration).toContain(
       'GRANT SELECT, INSERT, UPDATE ON public.notifications TO service_role;',
     )
