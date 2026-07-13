@@ -143,10 +143,10 @@ revokes, while the new application requires roles the preparation migration adds
 
 ### Browser-role probes
 
-Run the browser-role probes with a role-capable owner or PostgREST connection
-whose `current_user` can `SET ROLE` to both `anon` and `authenticated`. Do not
-use the `nce_runtime` connection for these probes. Substitute existing UUIDs
-only inside the transaction; do not commit probe mutations.
+Run the browser-role probes with an owner PostgreSQL connection whose
+`current_user` can `SET ROLE` to both `anon` and `authenticated`. Do not use the
+`nce_runtime` connection for these probes. Substitute existing UUIDs only inside
+the transaction; do not commit probe mutations.
 
 ```sql
 begin;
