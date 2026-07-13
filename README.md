@@ -50,7 +50,7 @@ Current flow:
 
 ## Run It Locally
 
-You need Node.js 20+, npm, PostgreSQL, and `psql` access to create the app's local database roles.
+You need Node.js 20+, npm, PostgreSQL 16+, and `psql` access to create the app's local database roles.
 
 Install dependencies from the repo root:
 
@@ -70,11 +70,12 @@ Use your local database values in `backend/.env`. For the current Vite setup, ma
 
 ```dotenv
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/nce_app
+JOB_DATABASE_URL=postgres://postgres:postgres@localhost:5432/nce_app
 GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
-`backend/.env.example` still lists Vite's default `5173`, but this project runs the frontend on `3000`.
+`backend/.env.example` already uses the project's frontend port, `3000`.
 
 Create stable local JWT keys:
 
@@ -87,13 +88,15 @@ openssl rsa -in backend/keys/private.pem -pubout -out backend/keys/public.pem
 Create the local database:
 
 ```bash
-createdb nce_app
+createdb --host localhost --username postgres nce_app
 ```
 
-Create the runtime roles Prisma uses for RLS-aware requests:
+Create every migration-prerequisite role as the same `postgres` owner used by
+`DATABASE_URL`. The migration itself creates the two non-login `nce_app_*`
+request roles.
 
 ```bash
-psql postgres <<'SQL'
+psql postgresql://postgres:postgres@localhost:5432/postgres <<'SQL'
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
@@ -103,24 +106,34 @@ BEGIN
     CREATE ROLE authenticated;
   END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role;
+    CREATE ROLE service_role NOLOGIN BYPASSRLS;
   END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
-    CREATE ROLE nce_app_anon NOLOGIN;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_runtime') THEN
+    CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime'
+      NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS;
   END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_authenticated') THEN
-    CREATE ROLE nce_app_authenticated NOLOGIN;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_job_runner') THEN
+    CREATE ROLE nce_job_runner LOGIN PASSWORD 'nce_job_runner'
+      NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS;
   END IF;
 END
 $$;
+GRANT service_role TO nce_runtime
+  WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
 SQL
 ```
 
-Generate Prisma, run migrations, and seed the local app:
+Install pg-boss with the database owner before Prisma checks its worker grants.
+`installPgBoss.ts` intentionally accepts `DIRECT_URL` only from the invoking
+shell, so the owner credential never enters the long-running backend environment.
+Then run migrations and seed the local app:
 
 ```bash
 cd backend
 npm run prisma:generate
+DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app npm run pgboss:install
 npm run prisma:migrate
 npm run seed:ielts-config
 npm run seed:cms
@@ -231,6 +244,7 @@ Backend commands, from `backend/`:
 | `npm run lint` | Run ESLint. |
 | `npm test` | Generate Prisma and run Vitest with `NODE_ENV=test`. |
 | `npm run test:coverage` | Run backend tests with coverage. |
+| `npm run pgboss:install` | Install or upgrade pg-boss with a shell-provided owner `DIRECT_URL`. |
 | `npm run prisma:migrate` | Apply local development migrations. |
 | `npm run seed:ielts-config` | Seed IELTS reference data required at startup. |
 | `npm run seed:cms` | Seed Homepage, About, and Contact CMS content. |
@@ -259,7 +273,9 @@ npm --prefix backend run build
 npm --prefix backend test
 ```
 
-Backend tests apply deterministic defaults from `backend/tests/setup/testEnvDefaults.ts`. Database-backed paths still need PostgreSQL and the `anon`, `authenticated`, `service_role`, `nce_app_anon`, and `nce_app_authenticated` roles.
+Backend tests apply deterministic defaults from `backend/tests/setup/testEnvDefaults.ts`.
+Database-backed paths still need PostgreSQL 16+ and the role plus pg-boss
+bootstrap sequence documented above.
 
 ## Production Notes
 
@@ -268,7 +284,7 @@ Production needs:
 - Node.js 20+ for the backend runtime;
 - PostgreSQL with migrations applied through `npx prisma migrate deploy --config prisma.config.ts`;
 - the committed forward migrations provision missing Contact CMS content, CMS admin permission/navigation, baseline revisions, and ancestor-aware CMS RLS without running production seed scripts or replacing managed rows;
-- Supabase roles `anon`, `authenticated`, and `service_role`, plus non-login backend roles `nce_app_anon` and `nce_app_authenticated`;
+- Supabase roles `anon`, `authenticated`, and `service_role`, dedicated logins `nce_runtime` and `nce_job_runner`, plus non-login backend roles `nce_app_anon` and `nce_app_authenticated`;
 - the PR-48A rollout and rolled-back role probes in `docs/supabase-data-api-runtime-boundary.md`;
 - active IELTS reference data verified by `npm run verify:ielts-config`;
 - explicit `CORS_ALLOWED_ORIGINS` because production refuses an empty allowlist;
