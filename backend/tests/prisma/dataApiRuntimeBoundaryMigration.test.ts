@@ -59,6 +59,9 @@ describe('Data API runtime boundary migrations', () => {
     expect(ciWorkflow.indexOf('GRANT service_role TO nce_runtime')).toBeLessThan(
       ciWorkflow.indexOf('- name: Apply backend migrations'),
     )
+    expect(ciWorkflow).toMatch(
+      /- name: Seed backend CMS test content[\s\S]{0,160}DATABASE_URL: \$\{\{ env\.DIRECT_URL \}\}/,
+    )
     expect(ciWorkflow).toContain("'MEMBER WITH ADMIN OPTION'")
     expect(ciWorkflow).toContain('SET LOCAL ROLE service_role;')
   })
