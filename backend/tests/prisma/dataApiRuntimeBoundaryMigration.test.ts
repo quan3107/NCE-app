@@ -53,6 +53,11 @@ describe('Data API runtime boundary migrations', () => {
     expect(roleMigration).not.toMatch(
       /GRANT\s+nce_app_(anon|authenticated)\s+TO\s+authenticator/i,
     )
+    expect(roleMigration).toContain("rolname = 'nce_job_runner'")
+    expect(roleMigration).toContain('GRANT USAGE ON SCHEMA pgboss TO nce_job_runner')
+    expect(roleMigration).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA pgboss',
+    )
   })
 
   it('reproduces the hosted grantor split before migration', () => {
@@ -62,6 +67,9 @@ describe('Data API runtime boundary migrations', () => {
     expect(ciWorkflow).toContain(
       'DIRECT_URL: postgresql://postgres:postgres@localhost:5432/nce_test',
     )
+    expect(ciWorkflow).toContain(
+      'JOB_DATABASE_URL: postgresql://nce_job_runner:nce_job_runner@localhost:5432/nce_test',
+    )
     expect(ciWorkflow).toContain('CREATE ROLE supabase_admin')
     expect(ciWorkflow).toContain('SET ROLE supabase_admin;')
     expect(ciWorkflow).toContain('GRANT service_role TO postgres')
@@ -70,6 +78,9 @@ describe('Data API runtime boundary migrations', () => {
     expect(ciWorkflow).toContain('WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;')
     expect(ciWorkflow).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;')
     expect(ciWorkflow.indexOf('GRANT service_role TO nce_runtime')).toBeLessThan(
+      ciWorkflow.indexOf('- name: Apply backend migrations'),
+    )
+    expect(ciWorkflow.indexOf('- name: Install or upgrade pg-boss')).toBeLessThan(
       ciWorkflow.indexOf('- name: Apply backend migrations'),
     )
     expect(ciWorkflow).toMatch(
@@ -84,6 +95,9 @@ describe('Data API runtime boundary migrations', () => {
     expect(rolloutRunbook).toContain('grantor_role')
     expect(rolloutRunbook).toContain('dedicated runtime login')
     expect(rolloutRunbook).toContain('`DATABASE_URL` must authenticate as `nce_runtime`')
+    expect(rolloutRunbook).toContain(
+      '`JOB_DATABASE_URL` must authenticate as `nce_job_runner`',
+    )
     expect(rolloutRunbook).toMatch(
       /`DIRECT_URL` is a\s+deployment-only input[\s\S]*`postgres` migration owner/,
     )
@@ -108,10 +122,27 @@ describe('Data API runtime boundary migrations', () => {
       'process.env.DATABASE_URL ?? process.env.DIRECT_URL',
     )
     expect(backendEnvExample).not.toContain('DIRECT_URL=')
+    expect(backendEnvExample).toContain('JOB_DATABASE_URL=')
     expect(rolloutRunbook).toContain('Do not provide `DIRECT_URL` to the running backend')
     expect(rolloutRunbook).toMatch(
-      /provide `DIRECT_URL` only to the\s+migration and seed job/,
+      /provide `DIRECT_URL` only to the\s+migration, pg-boss installation, and seed job/,
     )
+  })
+
+  it('keeps maintenance enabled through every security gate', () => {
+    const backendStart = rolloutRunbook.indexOf('While maintenance remains enabled')
+    const probes = rolloutRunbook.indexOf('Run the probes below')
+    const advisor = rolloutRunbook.indexOf('Run the Supabase security advisor')
+    const reopen = rolloutRunbook.indexOf('Exit maintenance mode')
+
+    expect(backendStart).toBeGreaterThan(-1)
+    expect(probes).toBeGreaterThan(backendStart)
+    expect(advisor).toBeGreaterThan(probes)
+    expect(reopen).toBeGreaterThan(advisor)
+    expect(rolloutRunbook).toContain(
+      'Run with the dedicated `nce_runtime` `DATABASE_URL`',
+    )
+    expect(rolloutRunbook).not.toContain('Run with a migration-capable connection')
   })
 
   it('uses explicit predecessor-equivalent grants instead of schema-wide DML', () => {
