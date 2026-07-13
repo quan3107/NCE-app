@@ -116,6 +116,7 @@ describe('audit log service', () => {
           },
         },
       },
+      select: { id: true },
     })
 
     const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls)
@@ -150,6 +151,7 @@ describe('audit log service', () => {
           },
         }),
       }),
+      select: { id: true },
     })
     expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       'Clear organization.',
@@ -189,6 +191,7 @@ describe('audit log service', () => {
           },
         }),
       }),
+      select: { id: true },
     })
   })
 
