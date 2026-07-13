@@ -11,6 +11,7 @@ const productionEnv = {
   NODE_ENV: "production",
   PORT: "4000",
   DATABASE_URL: "postgres://test:test@localhost:5432/nce",
+  JOB_DATABASE_URL: "postgres://jobs:jobs@localhost:5432/nce",
   JWT_PRIVATE_KEY_PATH: "keys/private.pem",
   JWT_PUBLIC_KEY_PATH: "keys/public.pem",
   GOOGLE_CLIENT_ID: "test-google-client-id",
@@ -72,6 +73,15 @@ describe("production CORS environment validation", () => {
       "https://app.example.com",
       "https://admin.example.com",
     ]);
+  });
+
+  it("requires a dedicated production pg-boss database URL", async () => {
+    process.env.CORS_ALLOWED_ORIGINS = "https://app.example.com";
+    delete process.env.JOB_DATABASE_URL;
+
+    await expect(import("../../src/config/env.js")).rejects.toThrow(
+      "JOB_DATABASE_URL is required in production",
+    );
   });
 
   it("rejects boolean production trust proxy settings", async () => {
