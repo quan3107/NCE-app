@@ -128,6 +128,10 @@ BEGIN
     current_user, 'public.ai_objective_explanations', 'SELECT,UPDATE'
   ) OR NOT has_table_privilege(
     current_user, 'public.audit_logs', 'INSERT'
+  ) OR NOT has_column_privilege(
+    current_user, 'public.audit_logs', 'id', 'SELECT'
+  ) OR has_table_privilege(
+    current_user, 'public.audit_logs', 'SELECT'
   ) OR NOT has_table_privilege(
     current_user, 'public.assignments', 'SELECT'
   ) OR NOT has_table_privilege(
