@@ -122,9 +122,20 @@ describe('Data API runtime boundary migrations', () => {
   })
 
   it('documents the split-login rollout and grantor-aware hosted probe', () => {
+    const backup = rolloutRunbook.indexOf('Back up the hosted database')
+    const disableGraphql = rolloutRunbook.indexOf('Disable `pg_graphql`')
+    const applyMigrations = rolloutRunbook.indexOf(
+      '`20260712220000_harden_data_api_runtime_roles`',
+    )
+
     expect(rolloutRunbook).toContain('with admin false, inherit false, set true')
     expect(rolloutRunbook).toContain('grantor_role')
     expect(rolloutRunbook).toContain('dedicated runtime login')
+    expect(rolloutRunbook).toContain('Database > Extensions')
+    expect(backup).toBeGreaterThan(-1)
+    expect(backup).toBeLessThan(disableGraphql)
+    expect(disableGraphql).toBeGreaterThan(-1)
+    expect(disableGraphql).toBeLessThan(applyMigrations)
     expect(rolloutRunbook).toContain('`DATABASE_URL` must authenticate as `nce_runtime`')
     expect(rolloutRunbook).toContain(
       '`JOB_DATABASE_URL` must authenticate as `nce_job_runner`',
@@ -265,7 +276,7 @@ describe('Data API runtime boundary migrations', () => {
       'REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC',
     )
     expect(boundaryMigration).toContain("to_regprocedure('app.current_user_id()')")
-    expect(boundaryMigration).toContain('DROP EXTENSION IF EXISTS pg_graphql')
+    expect(boundaryMigration).not.toMatch(/\bDROP\s+EXTENSION\b/i)
     expect(boundaryMigration).toContain(
       'ALTER DEFAULT PRIVILEGES\n  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',
     )
