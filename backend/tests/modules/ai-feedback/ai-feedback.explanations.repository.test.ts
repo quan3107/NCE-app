@@ -275,6 +275,7 @@ describe("ai-feedback objective explanations", () => {
           promptVersion: "objective-explanation-v2",
         }),
       }),
+      select: { id: true },
     });
   });
 
