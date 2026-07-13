@@ -16,6 +16,7 @@ Why: Makes the intended grants, exception, rollout, and verification reproducibl
 | `nce_app_authenticated` | Backend signed-in access matching predecessor grants; no auth/session or service-only tables and no login      |
 | `service_role`          | Backend auth/session and trusted service operations only; never expose its key to clients                      |
 | `nce_runtime`           | Dedicated `DATABASE_URL` login; SET-only membership in both request roles and `service_role`                   |
+| `nce_job_runner`        | Dedicated `JOB_DATABASE_URL` login; DML and function access only inside the `pgboss` schema                    |
 | `postgres`              | Migration owner selected only by `DIRECT_URL`; never used by the running application                           |
 
 The first migration creates the backend-only roles and reproduces each
@@ -43,6 +44,8 @@ This rollout deliberately separates migration and runtime identities.
 `DATABASE_URL` must authenticate as `nce_runtime`. `DIRECT_URL` is a
 deployment-only input for the short-lived migration process and must use the
 `postgres` migration owner. Do not provide `DIRECT_URL` to the running backend.
+`JOB_DATABASE_URL` must authenticate as `nce_job_runner`; that login has no
+application-role memberships and cannot install or upgrade pg-boss.
 The migration verifies the exact
 `service_role -> nce_runtime` membership row, including its grantor, and grants
 the request roles to `nce_runtime` rather than `CURRENT_USER`.
@@ -93,9 +96,10 @@ revokes, while the new application requires roles the preparation migration adds
    order by member.rolname, grantor.rolname;
    ```
 
-3. Still connected as `postgres`, create a fresh dedicated login with a
-   generated secret and grant only connect plus SET-only service membership.
-   Stop and inspect instead if `nce_runtime` already exists.
+3. Still connected as `postgres`, create fresh runtime and worker logins with
+   separate generated secrets. Grant the runtime only connect plus SET-only
+   service membership. Grant the worker only connect; the migration grants its
+   scoped `pgboss` privileges. Stop and inspect instead if either login exists.
 
    ```sql
    create role nce_runtime login password '<generated-secret>'
@@ -103,34 +107,42 @@ revokes, while the new application requires roles the preparation migration adds
    grant connect on database postgres to nce_runtime;
    grant service_role to nce_runtime
      with admin false, inherit false, set true;
+
+   create role nce_job_runner login password '<separate-generated-secret>'
+     noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
+   grant connect on database postgres to nce_job_runner;
    ```
 
 4. Repeat the query from step 2. It must show the existing
    `supabase_admin -> postgres` row and exactly one `postgres -> nce_runtime` row
    with `admin_option=false`, `inherit_option=false`, and `set_option=true`.
 5. Configure the deployment tooling to provide `DIRECT_URL` only to the
-   migration and seed job, using the `postgres` owner. If a seed command reads
-   `DATABASE_URL`, override that variable with the owner URL only for the seed
-   process. Do not provide `DIRECT_URL` to the running backend, and never place
-   the `postgres` credentials in its `DATABASE_URL`. The long-running backend
-   environment must contain only `DATABASE_URL` using `nce_runtime`.
+   migration, pg-boss installation, and seed job, using the `postgres` owner. If
+   a seed command reads `DATABASE_URL`, override that variable with the owner URL
+   only for the seed process. Do not provide `DIRECT_URL` to the running backend,
+   and never place the `postgres` credentials in either runtime URL. The
+   long-running backend must use `nce_runtime` for `DATABASE_URL` and
+   `nce_job_runner` for `JOB_DATABASE_URL`.
 6. Enter maintenance mode, stop accepting requests, and drain or stop every
    backend instance. Confirm no old application sessions remain.
-7. Back up the hosted database, then apply both `20260712220000_harden_data_api_runtime_roles`
-   and `20260712221000_enforce_data_api_boundary` through Prisma. Run any
-   required deployment seed in the same privileged job, then destroy its
-   environment and credentials.
-8. Confirm `DIRECT_URL` is absent, start only the new backend release with the
-   `nce_runtime` `DATABASE_URL`, and exit maintenance mode after its health check
-   succeeds.
+7. Back up the hosted database. Run `npm run pgboss:install` with `DIRECT_URL`,
+   then apply both `20260712220000_harden_data_api_runtime_roles` and
+   `20260712221000_enforce_data_api_boundary` through Prisma. Run any required
+   deployment seed in the same privileged job, then destroy its environment and
+   credentials.
+8. While maintenance remains enabled, confirm `DIRECT_URL` is absent, start only
+   the new backend release with both dedicated runtime URLs, and require its
+   `/health` check to succeed.
 9. Run the probes below inside transactions and roll them back.
 10. Run the Supabase security advisor. The `courses_public` view warning is the
     documented exception; exposed-table RLS errors must be zero.
+11. Exit maintenance mode only after the backend health check, every probe, and
+    the security advisor have all succeeded.
 
 ## Rolled-back hosted probes
 
-Run with a migration-capable connection. Substitute existing UUIDs only inside
-the transaction; do not commit probe mutations.
+Run with the dedicated `nce_runtime` `DATABASE_URL`. Substitute existing UUIDs
+only inside the transaction; do not commit probe mutations.
 
 ```sql
 begin;
