@@ -141,8 +141,32 @@ revokes, while the new application requires roles the preparation migration adds
 
 ## Rolled-back hosted probes
 
-Run with the dedicated `nce_runtime` `DATABASE_URL`. Substitute existing UUIDs
+### Browser-role probes
+
+Run the browser-role probes with a role-capable owner or PostgREST connection
+whose `current_user` can `SET ROLE` to both `anon` and `authenticated`. Do not
+use the `nce_runtime` connection for these probes. Substitute existing UUIDs
 only inside the transaction; do not commit probe mutations.
+
+```sql
+begin;
+
+set local role anon;
+select * from public.courses_public limit 1;
+select * from public.courses limit 1; -- must fail with permission denied
+
+reset role;
+set local role authenticated;
+select password_hash from public.users limit 1; -- must fail
+update public.grades set score = score; -- must fail
+
+rollback;
+```
+
+### Backend-role probes
+
+Run the backend-role probes with the dedicated `nce_runtime` `DATABASE_URL`.
+The login must have SET-only membership in the three backend roles.
 
 ```sql
 begin;
@@ -160,16 +184,6 @@ begin
 end
 $probe$;
 
-set local role anon;
-select * from public.courses_public limit 1;
-select * from public.courses limit 1; -- must fail with permission denied
-
-reset role;
-set local role authenticated;
-select password_hash from public.users limit 1; -- must fail
-update public.grades set score = score; -- must fail
-
-reset role;
 set local role nce_app_anon;
 select set_config('app.current_user_role', 'anon', true);
 select * from public.courses_public limit 1;
@@ -190,9 +204,9 @@ rollback;
 ```
 
 Run each expected-denial statement separately if the SQL client aborts the
-transaction on error. Run the three backend role switches while connected as
-the dedicated `DATABASE_URL` identity. Also verify `authenticator` has no
-membership in either backend role and that `anon`/`authenticated` have no
-privileges on private tables, columns, or sequences. The migration's catalog
-check rejects any unexpected `service_role -> nce_runtime` grantor or membership
-options before changing application grants.
+transaction on error, using the connection assigned to that probe group. Also
+verify `authenticator` has no membership in either backend role and that
+`anon`/`authenticated` have no privileges on private tables, columns, or
+sequences. The migration's catalog check rejects any unexpected
+`service_role -> nce_runtime` grantor or membership options before changing
+application grants.
