@@ -67,8 +67,9 @@ query that table directly. The view filters soft-deleted courses and exposes
 only its reviewed projection. Its `app` helper functions have fixed search
 paths, and implicit `PUBLIC EXECUTE` is revoked.
 
-The product has no GraphQL client, so the migration removes `pg_graphql` rather
-than maintaining a second public discovery/query surface.
+The product has no GraphQL client, so deployment disables `pg_graphql` through
+Supabase's privileged extension interface before either migration runs. The
+application-owned migration must not attempt to drop a Supabase-owned extension.
 
 ## Rollout
 
@@ -125,18 +126,32 @@ revokes, while the new application requires roles the preparation migration adds
    `nce_job_runner` for `JOB_DATABASE_URL`.
 6. Enter maintenance mode, stop accepting requests, and drain or stop every
    backend instance. Confirm no old application sessions remain.
-7. Back up the hosted database. Run `npm run pgboss:install` with `DIRECT_URL`,
-   then apply both `20260712220000_harden_data_api_runtime_roles` and
+7. Back up the hosted database before changing extension or application state.
+8. Disable `pg_graphql` in the
+   [Supabase Dashboard under Database > Extensions](https://supabase.com/docs/guides/database/extensions#enable-and-disable-extensions).
+   Verify that it is absent before continuing; if it remains installed, stop the
+   rollout rather than running either application migration.
+
+   ```sql
+   select not exists (
+     select 1
+     from pg_catalog.pg_extension
+     where extname = 'pg_graphql'
+   ) as pg_graphql_disabled;
+   ```
+
+9. Run `npm run pgboss:install` with `DIRECT_URL`, then apply both
+   `20260712220000_harden_data_api_runtime_roles` and
    `20260712221000_enforce_data_api_boundary` through Prisma. Run any required
    deployment seed in the same privileged job, then destroy its environment and
    credentials.
-8. While maintenance remains enabled, confirm `DIRECT_URL` is absent, start only
+10. While maintenance remains enabled, confirm `DIRECT_URL` is absent, start only
    the new backend release with both dedicated runtime URLs, and require its
    `/health` check to succeed.
-9. Run the probes below inside transactions and roll them back.
-10. Run the Supabase security advisor. The `courses_public` view warning is the
+11. Run the probes below inside transactions and roll them back.
+12. Run the Supabase security advisor. The `courses_public` view warning is the
     documented exception; exposed-table RLS errors must be zero.
-11. Exit maintenance mode only after the backend health check, every probe, and
+13. Exit maintenance mode only after the backend health check, every probe, and
     the security advisor have all succeeded.
 
 ## Rolled-back hosted probes
