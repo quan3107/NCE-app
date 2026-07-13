@@ -37,6 +37,12 @@ Check the active host before running migration commands: this checkout's
 `backend/.env` may point at hosted Supabase, while `.env.example` documents a
 localhost PostgreSQL database for local development.
 
+In production, inject `DIRECT_URL` only into the short-lived Prisma migration
+process. The running backend must receive only the least-privilege
+`DATABASE_URL`; seed processes that use the application Prisma client may
+receive an owner URL as their job-local `DATABASE_URL`, which must be discarded
+before application startup.
+
 Use `../docs/architecture-db.md` for the migration status/deploy/diff sequence,
 the notification retry column and index check, the guarded
 `assignments_backup_20260204` cleanup check, and the expected Prisma diff exit
