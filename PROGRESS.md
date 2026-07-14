@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-14:** Reconciled hosted Supabase application-schema drift through one forward Prisma migration: preserved intentional database defaults, composite IELTS keys, foreign-key actions, runtime-role/RLS boundaries, and database-only objects; enforced preflighted CMS/IELTS nullability; restored query and foreign-key indexes; removed only strict-prefix duplicates; and added normalized checksum, empty replay, two-way diff, integrity-probe, and recovery governance.
+
 - **2026-07-14:** Made the post-migration runtime-role probe fail closed unless `nce_runtime` has exactly the three reviewed SET-only memberships from `postgres`, and added a PostgreSQL 17 CI fixture that proves an unexpected fourth role is rejected before rechecking the clean boundary.
 
 - **2026-07-14:** Removed the test default that promoted `DATABASE_URL` into `DIRECT_URL`, made administrative database fixtures resolve an explicitly configured owner URL only when they execute, and refreshed deployment documentation to reflect the completed Data API boundary and owner-scoped deploy command.
@@ -124,6 +126,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-14:** No frontend files changed for Prisma/Supabase schema reconciliation; frontend behavior and contracts remain unchanged.
 
 - **2026-07-14:** No frontend files changed for the exact runtime-role membership gate; the full frontend CI suite remains part of the regression check.
 

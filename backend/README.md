@@ -33,7 +33,8 @@ npm start
 
 Copy `.env.local.example` to the gitignored `.env.local` and set its owner-only
 `DIRECT_URL`. The `prisma:status`, `prisma:migrate`, `prisma:deploy`,
-`prisma:diff`, `pgboss:install`, and seed scripts load that file only inside a
+`prisma:diff`, `prisma:diff:reverse`, `prisma:checksums:database`,
+`pgboss:install`, and seed scripts load that file only inside a
 short-lived child process. Raw Prisma migration commands fail when `DIRECT_URL`
 is absent instead of silently using the `nce_runtime` URL from `.env`.
 
@@ -88,6 +89,12 @@ Use `../docs/architecture-db.md` for the migration status/deploy/diff sequence,
 the notification retry column and index check, the guarded
 `assignments_backup_20260204` cleanup check, and the expected Prisma diff exit
 codes.
+
+Prisma migrations are the sole application-schema history. Use
+`../docs/prisma-supabase-migration-governance.md` for normalized checksum
+verification, disposable replay, hosted preflight, backup, lock review, and
+forward recovery. The historical Supabase migration ledger is retained but is
+not an application deployment source.
 
 PR-48A separates backend request roles from Supabase Data API roles. Read
 `../docs/supabase-data-api-runtime-boundary.md` before deploying the role/grant
