@@ -127,7 +127,7 @@ model Rubric {
 }
 
 model RubricTemplate {
-  id             String   @id @default(uuid()) @db.Uuid
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name           String
   context        String
   assignmentType String   @map("assignment_type")
@@ -135,7 +135,7 @@ model RubricTemplate {
   isActive       Boolean  @default(true) @map("is_active")
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([context, assignmentType, name], map: "rubric_tpl_ctx_type_name_key")
   @@index([context, assignmentType, isActive, sortOrder], map: "rubric_tpl_ctx_type_active_sort_idx")
@@ -219,19 +219,19 @@ model Notification {
 }
 
 model NotificationTypeConfig {
-  id             String   @id @default(uuid()) @db.Uuid
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   role           UserRole
   type           String
   label          String
-  description    String
-  category       String
+  description    String   @default("")
+  category       String   @default("general")
   icon           String?
   accent         String?
   defaultEnabled Boolean  @default(true) @map("default_enabled")
   enabled        Boolean  @default(true)
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([role, type], map: "notification_type_cfg_role_type_key")
   @@index([role, enabled, sortOrder], map: "notification_type_cfg_role_enabled_sort_idx")
@@ -239,7 +239,7 @@ model NotificationTypeConfig {
 }
 
 model CourseManagementTabConfig {
-  id                 String   @id @default(uuid()) @db.Uuid
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   role               UserRole
   tabId              String   @map("tab_id")
   label              String
@@ -248,7 +248,7 @@ model CourseManagementTabConfig {
   sortOrder          Int      @default(0) @map("sort_order")
   enabled            Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([role, tabId], map: "course_mgmt_tab_cfg_role_tab_key")
   @@index([role, enabled, sortOrder], map: "course_mgmt_tab_cfg_role_enabled_sort_idx")
@@ -256,13 +256,13 @@ model CourseManagementTabConfig {
 }
 
 model UserNotificationPreference {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String   @map("user_id") @db.Uuid
   type      String
   enabled   Boolean  @default(true)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([userId, type], map: "user_notification_prefs_user_type_key")
   @@index([userId, type, enabled], map: "user_notification_prefs_user_type_enabled_idx")
@@ -354,7 +354,7 @@ model AuditLog {
 }
 
 model AiFeedbackDraft {
-  id                             String                    @id @default(uuid()) @db.Uuid
+  id                             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   submissionId                   String                    @map("submission_id") @db.Uuid
   assignmentId                   String                    @map("assignment_id") @db.Uuid
   requesterId                    String                    @map("requester_user_id") @db.Uuid
@@ -399,7 +399,7 @@ model AiFeedbackDraft {
 }
 
 model AiObjectiveExplanation {
-  id                    String                       @id @default(uuid()) @db.Uuid
+  id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   submissionId          String                       @map("submission_id") @db.Uuid
   assignmentId          String                       @map("assignment_id") @db.Uuid
   requesterId           String                       @map("requester_user_id") @db.Uuid
@@ -435,7 +435,7 @@ model AiObjectiveExplanation {
 // ============================================================================
 
 model NceBook {
-  id          String           @id @default(uuid()) @db.Uuid
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code        String
   title       String
   level       String
@@ -445,7 +445,7 @@ model NceBook {
   publishedAt DateTime?        @map("published_at") @db.Timestamptz
   units       NceUnit[]
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
 
   @@unique([code], map: "nce_books_code_key")
@@ -454,7 +454,7 @@ model NceBook {
 }
 
 model NceUnit {
-  id          String           @id @default(uuid()) @db.Uuid
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   bookId      String           @map("book_id") @db.Uuid
   unitNumber  Int              @map("unit_number")
   title       String
@@ -462,10 +462,10 @@ model NceUnit {
   sortOrder   Int              @default(0) @map("sort_order")
   status      NcePublishStatus @default(draft)
   publishedAt DateTime?        @map("published_at") @db.Timestamptz
-  book        NceBook          @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  book        NceBook          @relation(fields: [bookId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   lessons     NceLesson[]
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
 
   @@unique([bookId, unitNumber], map: "nce_units_book_id_unit_number_key")
@@ -474,7 +474,7 @@ model NceUnit {
 }
 
 model NceLesson {
-  id          String           @id @default(uuid()) @db.Uuid
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   courseId    String?          @map("course_id") @db.Uuid
   unitId      String           @map("unit_id") @db.Uuid
   lessonNumber Int             @map("lesson_number")
@@ -485,15 +485,15 @@ model NceLesson {
   sortOrder   Int              @default(0) @map("sort_order")
   status      NcePublishStatus @default(draft)
   publishedAt DateTime?        @map("published_at") @db.Timestamptz
-  course      Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  unit        NceUnit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  course      Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  unit        NceUnit          @relation(fields: [unitId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   objectives  NceObjective[]
   exercises   NceExercise[]
   courseAssignments NceCourseLessonAssignment[]
   progress     NceLessonProgress[]
   attempts     NceExerciseAttempt[]
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
 
   @@index([courseId, unitId, lessonNumber], map: "nce_lessons_course_unit_number_idx")
@@ -502,7 +502,7 @@ model NceLesson {
 }
 
 model NceObjective {
-  id              String        @id @default(uuid()) @db.Uuid
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   lessonId        String        @map("lesson_id") @db.Uuid
   code            String
   title           String
@@ -510,10 +510,10 @@ model NceObjective {
   description     String?
   masteryThreshold Int          @default(80) @map("mastery_threshold")
   sortOrder       Int           @default(0) @map("sort_order")
-  lesson          NceLesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson          NceLesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   exercises       NceExercise[]
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([lessonId, code], map: "nce_objectives_lesson_id_code_key")
   @@index([lessonId, category, sortOrder], map: "nce_objectives_lesson_category_sort_idx")
@@ -521,7 +521,7 @@ model NceObjective {
 }
 
 model NceExercise {
-  id             String          @id @default(uuid()) @db.Uuid
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   lessonId       String          @map("lesson_id") @db.Uuid
   objectiveId    String?         @map("objective_id") @db.Uuid
   exerciseType   NceExerciseType @map("exercise_type")
@@ -530,11 +530,11 @@ model NceExercise {
   answerKey      Json            @map("answer_key")
   scoringConfig  Json?           @map("scoring_config")
   sortOrder      Int             @default(0) @map("sort_order")
-  lesson         NceLesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  objective      NceObjective?   @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  lesson         NceLesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  objective      NceObjective?   @relation(fields: [objectiveId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   attempts       NceExerciseAttempt[]
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([lessonId, exerciseType, sortOrder], map: "nce_exercises_lesson_type_sort_key")
   @@index([objectiveId], map: "nce_exercises_objective_id_idx")
@@ -542,16 +542,16 @@ model NceExercise {
 }
 
 model NceCourseLessonAssignment {
-  id        String    @id @default(uuid()) @db.Uuid
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   courseId  String    @map("course_id") @db.Uuid
   lessonId  String    @map("lesson_id") @db.Uuid
   sequence  Int
   availableFrom DateTime? @map("available_from") @db.Timestamptz
   dueAt     DateTime? @map("due_at") @db.Timestamptz
-  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lesson    NceLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  lesson    NceLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([courseId, lessonId], map: "nce_course_lesson_course_lesson_key")
   @@unique([courseId, sequence], map: "nce_course_lesson_course_sequence_key")
@@ -560,27 +560,28 @@ model NceCourseLessonAssignment {
 }
 
 model NceLessonProgress {
-  id          String                  @id @default(uuid()) @db.Uuid
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   courseId    String                  @map("course_id") @db.Uuid
   lessonId    String                  @map("lesson_id") @db.Uuid
   studentId   String                  @map("student_id") @db.Uuid
   status      NceLessonProgressStatus @default(in_progress)
   startedAt   DateTime                @default(now()) @map("started_at") @db.Timestamptz
   completedAt DateTime?               @map("completed_at") @db.Timestamptz
-  course      Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lesson      NceLesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student     User                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course      Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  lesson      NceLesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  student     User                    @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt   DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([courseId, lessonId, studentId], map: "nce_lesson_progress_course_lesson_student_key")
   @@index([studentId, status, updatedAt], map: "nce_lesson_progress_student_status_updated_idx")
   @@index([courseId, lessonId, status], map: "nce_lesson_progress_course_lesson_status_idx")
+  @@index([lessonId], map: "nce_lesson_progress_lesson_id_idx")
   @@map("nce_lesson_progress")
 }
 
 model NceExerciseAttempt {
-  id          String           @id @default(uuid()) @db.Uuid
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   courseId    String           @map("course_id") @db.Uuid
   lessonId    String           @map("lesson_id") @db.Uuid
   exerciseId  String           @map("exercise_id") @db.Uuid
@@ -591,16 +592,17 @@ model NceExerciseAttempt {
   maxScore    Int?             @map("max_score")
   feedbackJson Json?           @map("feedback_json")
   submittedAt DateTime?        @map("submitted_at") @db.Timestamptz
-  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lesson      NceLesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  exercise    NceExercise      @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  student     User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  lesson      NceLesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  exercise    NceExercise      @relation(fields: [exerciseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  student     User             @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([courseId, studentId, status, updatedAt], map: "nce_attempts_course_student_status_updated_idx")
   @@index([exerciseId, studentId, status], map: "nce_attempts_exercise_student_status_idx")
   @@index([lessonId, studentId, submittedAt], map: "nce_attempts_lesson_student_submitted_idx")
+  @@index([studentId], map: "nce_exercise_attempts_student_id_idx")
   @@map("nce_exercise_attempts")
 }
 
@@ -739,7 +741,7 @@ enum NceLessonProgressStatus {
 // ============================================================================
 
 model Permission {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   key         String   @unique
   name        String
   description String?
@@ -750,18 +752,19 @@ model Permission {
 }
 
 model RolePermission {
-  id           String     @id @default(uuid()) @db.Uuid
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   role         UserRole
-  permission   Permission @relation(fields: [permissionId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   permissionId String     @map("permission_id") @db.Uuid
   createdAt    DateTime   @default(now()) @db.Timestamptz
 
   @@unique([role, permissionId])
+  @@index([permissionId], map: "idx_role_permissions_permission_id")
   @@map("role_permissions")
 }
 
 model NavigationItem {
-  id                 String   @id @default(uuid()) @db.Uuid
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   role               UserRole
   label              String
   path               String
@@ -770,38 +773,39 @@ model NavigationItem {
   orderIndex         Int      @default(0) @map("order_index")
   badgeSource        String?  @map("badge_source")
   parentId           String?  @map("parent_id") @db.Uuid
-  parent             NavigationItem?  @relation("NavItemChildren", fields: [parentId], references: [id])
+  parent             NavigationItem?  @relation("NavItemChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children           NavigationItem[] @relation("NavItemChildren")
   isActive           Boolean  @default(true) @map("is_active")
   featureFlag        String?  @map("feature_flag")
   createdAt          DateTime @default(now()) @db.Timestamptz
-  updatedAt          DateTime @updatedAt @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @db.Timestamptz
 
-  @@index([role, isActive, orderIndex])
+  @@index([role, isActive, orderIndex], map: "idx_navigation_items_role_active_order")
   @@map("navigation_items")
 }
 
 model FeatureFlag {
-  id          String            @id @default(uuid()) @db.Uuid
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   key         String            @unique
   name        String
   description String?
   enabled     Boolean           @default(false)
   roles       FeatureFlagRole[]
   createdAt   DateTime          @default(now()) @db.Timestamptz
-  updatedAt   DateTime          @updatedAt @db.Timestamptz
+  updatedAt   DateTime          @default(now()) @updatedAt @db.Timestamptz
 
   @@map("feature_flags")
 }
 
 model FeatureFlagRole {
-  id            String      @id @default(uuid()) @db.Uuid
-  featureFlag   FeatureFlag @relation(fields: [featureFlagId], references: [id])
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  featureFlag   FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   featureFlagId String      @map("feature_flag_id") @db.Uuid
   role          UserRole
   createdAt     DateTime    @default(now()) @db.Timestamptz
 
   @@unique([featureFlagId, role])
+  @@index([role], map: "idx_feature_flag_roles_role")
   @@map("feature_flag_roles")
 }
 
@@ -810,31 +814,32 @@ model FeatureFlagRole {
 // ============================================================================
 
 model FileUploadPolicy {
-  id                String                  @id @default(uuid()) @db.Uuid
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   role              UserRole                @unique
   maxFileSize       Int                     @map("max_file_size")
   maxTotalSize      Int                     @map("max_total_size")
   maxFilesPerUpload Int                     @default(5) @map("max_files_per_upload")
   allowedTypes      FileUploadAllowedType[]
   createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt         DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("file_upload_policies")
 }
 
 model FileUploadAllowedType {
-  id          String           @id @default(uuid()) @db.Uuid
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   policyId    String           @map("policy_id") @db.Uuid
-  policy      FileUploadPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  policy      FileUploadPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   mimeType    String           @map("mime_type")
   extensions  String[]
   label       String
   acceptToken String           @map("accept_token")
   sortOrder   Int              @default(0) @map("sort_order")
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@index([policyId, sortOrder])
+  @@unique([policyId, acceptToken], map: "file_upload_allowed_types_policy_token_key")
+  @@index([policyId, sortOrder], map: "file_upload_allowed_types_policy_sort_idx")
   @@map("file_upload_allowed_types")
 }
 
@@ -843,7 +848,7 @@ model FileUploadAllowedType {
 // ============================================================================
 
 model DashboardWidgetDefinition {
-  id           String                          @id @default(uuid()) @db.Uuid
+  id           String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   role         UserRole
   widgetKey    String                          @map("widget_key")
   type         String
@@ -861,7 +866,7 @@ model DashboardWidgetDefinition {
   isActive     Boolean                         @default(true) @map("is_active")
   preferences  UserDashboardWidgetPreference[]
   createdAt    DateTime                        @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime                        @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt    DateTime                        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([role, widgetKey], map: "dashboard_widget_defs_role_widget_key_key")
   @@index([role, isActive, defaultOrder], map: "dashboard_widget_defs_role_active_order_idx")
@@ -869,7 +874,7 @@ model DashboardWidgetDefinition {
 }
 
 model UserDashboardWidgetPreference {
-  id                 String                  @id @default(uuid()) @db.Uuid
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId             String                  @map("user_id") @db.Uuid
   widgetDefinitionId String                  @map("widget_definition_id") @db.Uuid
   visible            Boolean                 @default(true)
@@ -878,13 +883,14 @@ model UserDashboardWidgetPreference {
   y                  Int
   w                  Int
   h                  Int
-  user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  widgetDefinition   DashboardWidgetDefinition @relation(fields: [widgetDefinitionId], references: [id], onDelete: Cascade)
+  user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  widgetDefinition   DashboardWidgetDefinition @relation(fields: [widgetDefinitionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt          DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([userId, widgetDefinitionId], map: "user_dashboard_widget_prefs_user_widget_key")
   @@index([userId, orderIndex], map: "user_dashboard_widget_prefs_user_order_idx")
+  @@index([widgetDefinitionId], map: "user_dashboard_widget_preferences_widget_definition_id_idx")
   @@map("user_dashboard_widget_preferences")
 }
 
@@ -893,7 +899,7 @@ model UserDashboardWidgetPreference {
 // ============================================================================
 
 model IeltsConfigVersion {
-  id            String   @id @default(uuid()) @db.Uuid
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   version       Int      @unique
   name          String
   description   String?
@@ -913,7 +919,7 @@ model IeltsConfigVersion {
 }
 
 model IeltsQuestionOption {
-  id             String   @id @default(uuid()) @db.Uuid
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   configVersion  Int      @map("config_version")
   optionType     String   @map("option_type") // 'true_false' or 'yes_no'
   value          String
@@ -923,7 +929,7 @@ model IeltsQuestionOption {
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([configVersion, optionType, value], map: "ielts_question_opts_cfg_type_value_key")
   @@index([configVersion, optionType, enabled, sortOrder], map: "ielts_question_opts_lookup_idx")
@@ -931,7 +937,7 @@ model IeltsQuestionOption {
 }
 
 model IeltsAssignmentType {
-  id             String   @id
+  id             String
   configVersion  Int      @map("config_version")
   label          String
   description    String?
@@ -943,14 +949,15 @@ model IeltsAssignmentType {
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([id, configVersion])
+  @@id([id, configVersion])
+  @@index([configVersion], map: "ielts_assignment_types_config_version_idx")
   @@map("ielts_assignment_types")
 }
 
 model IeltsQuestionType {
-  id             String   @id
+  id             String
   configVersion  Int      @map("config_version")
   skillType      String   @map("skill_type") // 'reading' or 'listening'
   label          String
@@ -959,14 +966,15 @@ model IeltsQuestionType {
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([id, configVersion, skillType])
+  @@id([id, configVersion, skillType])
+  @@index([configVersion], map: "ielts_question_types_config_version_idx")
   @@map("ielts_question_types")
 }
 
 model IeltsWritingTaskType {
-  id             String   @id
+  id             String
   configVersion  Int      @map("config_version")
   taskNumber     Int      @map("task_number") // 1 or 2
   label          String
@@ -975,14 +983,15 @@ model IeltsWritingTaskType {
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([id, configVersion, taskNumber])
+  @@id([id, configVersion, taskNumber])
+  @@index([configVersion], map: "ielts_writing_task_types_config_version_idx")
   @@map("ielts_writing_task_types")
 }
 
 model IeltsSpeakingPartType {
-  id             String   @id
+  id             String
   configVersion  Int      @map("config_version")
   label          String
   description    String?
@@ -990,14 +999,15 @@ model IeltsSpeakingPartType {
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([id, configVersion])
+  @@id([id, configVersion])
+  @@index([configVersion], map: "ielts_speaking_part_types_config_version_idx")
   @@map("ielts_speaking_part_types")
 }
 
 model IeltsCompletionFormat {
-  id             String   @id
+  id             String
   configVersion  Int      @map("config_version")
   label          String
   description    String?
@@ -1005,14 +1015,15 @@ model IeltsCompletionFormat {
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([id, configVersion])
+  @@id([id, configVersion])
+  @@index([configVersion], map: "ielts_completion_formats_config_version_idx")
   @@map("ielts_completion_formats")
 }
 
 model IeltsSampleTimingOption {
-  id             String   @id
+  id             String
   configVersion  Int      @map("config_version")
   label          String
   description    String?
@@ -1020,15 +1031,16 @@ model IeltsSampleTimingOption {
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade)
+  config IeltsConfigVersion @relation(fields: [configVersion], references: [version], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([id, configVersion])
+  @@id([id, configVersion])
+  @@index([configVersion], map: "ielts_sample_timing_options_config_version_idx")
   @@map("ielts_sample_timing_options")
 }
 
 // CMS Content models
 model CmsPageContent {
-id                    String            @id @default(uuid()) @db.Uuid
+id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 pageKey               String            @unique @map("page_key")
 label                 String
 isActive              Boolean           @default(true) @map("is_active")
@@ -1037,7 +1049,7 @@ publishedDraftVersion Int               @default(0) @map("published_draft_versio
 publishedRevision     Int               @default(0) @map("published_revision")
 publishedAt           DateTime?         @map("published_at") @db.Timestamptz
 createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
-updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+updatedAt             DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 sections              CmsSection[]
 revisions             CmsPageRevision[]
 draft                 CmsPageDraft?
@@ -1056,23 +1068,23 @@ model CmsPageDraft {
 }
 
 model CmsSection {
-id String @id @default(uuid()) @db.Uuid
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 pageId String @map("page_id") @db.Uuid
 sectionKey String @map("section_key") // 'hero', 'stats', 'features'
 label String
 sortOrder Int @default(0) @map("sort_order")
 isActive Boolean @default(true) @map("is_active")
 createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
-page CmsPageContent @relation(fields: [pageId], references: [id], onDelete: Cascade)
+updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+page CmsPageContent @relation(fields: [pageId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 items CmsContentItem[]
 @@unique([pageId, sectionKey])
-@@index([pageId, sectionKey])
+@@index([pageId, sortOrder], map: "idx_cms_sections_page_id_sort")
 @@map("cms_sections")
 }
 
 model CmsContentItem {
-id String @id @default(uuid()) @db.Uuid
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 sectionId String @map("section_id") @db.Uuid
 itemKey String? @map("item_key") //optional identifier
 sortOrder Int @default(0) @map("sort_order")
@@ -1080,8 +1092,8 @@ contentType String @map("content_type")
 contentJson Json @map("content_json")
 isActive Boolean @default(true) @map("is_active")
 createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
-section CmsSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+section CmsSection @relation(fields: [sectionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 @@index([sectionId, sortOrder, isActive])
 @@map("cms_content_items")
 }
