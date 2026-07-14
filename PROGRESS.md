@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-14:** Restored the IELTS readiness verifier to the least-privilege runtime `DATABASE_URL`, kept owner credentials scoped to migrations, pg-boss installation, and seeds, and moved detailed local role bootstrap instructions from the root README into the backend database guide.
+
 - **2026-07-14:** Added a cross-platform owner-job launcher that scopes gitignored `.env.local` credentials to migrations, pg-boss installation, and seeds; added and deployed a forward migration that normalizes pre-existing backend request roles while preserving Supabase owner-admin rows; and locked the corrected hosted probe, CI fixture, and documentation workflow with regressions.
 
 - **2026-07-14:** Completed the hosted local-development runtime-role rollout with user-authorized backup waiver for disposable data: provisioned dedicated runtime/worker logins, deployed both boundary migrations, verified local health and pg-boss identity, passed rolled-back access probes and the security advisor gate, and corrected the runbook's stale grade-column probe.
@@ -116,6 +118,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-14:** Applied the repository Prettier style to the frontend CI contract test and its workflow fixture without changing workflow behavior.
 
 - **2026-07-14:** Updated the frontend CI workflow contract test to accept formatter-normalized YAML quote styles; runtime frontend behavior is unchanged.
 
