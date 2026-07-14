@@ -21,8 +21,8 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: "24"
-  CI: "true"
+  NODE_VERSION: '24'
+  CI: 'true'
 
 jobs:
   root:
@@ -125,7 +125,7 @@ jobs:
       BREVO_SENDER_NAME: NCE Tests
       BREVO_SENDER_EMAIL: tests@example.com
       LOG_LEVEL: silent
-      LOG_PRETTY: "false"
+      LOG_PRETTY: 'false'
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -167,7 +167,8 @@ jobs:
               CREATE ROLE supabase_admin NOLOGIN CREATEROLE;
             END IF;
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'postgres') THEN
-              CREATE ROLE postgres LOGIN PASSWORD 'postgres' CREATEROLE;
+              CREATE ROLE postgres LOGIN PASSWORD 'postgres'
+                CREATEDB CREATEROLE REPLICATION BYPASSRLS;
             END IF;
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_runtime') THEN
               CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime'
@@ -179,8 +180,20 @@ jobs:
                 NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
                 NOREPLICATION NOBYPASSRLS;
             END IF;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_app_anon') THEN
+              CREATE ROLE nce_app_anon LOGIN CREATEDB CREATEROLE
+                REPLICATION BYPASSRLS;
+            END IF;
+            IF NOT EXISTS (
+              SELECT FROM pg_roles WHERE rolname = 'nce_app_authenticated'
+            ) THEN
+              CREATE ROLE nce_app_authenticated LOGIN CREATEDB CREATEROLE
+                REPLICATION BYPASSRLS;
+            END IF;
           END
           $$;
+          GRANT nce_app_anon, nce_app_authenticated TO postgres
+            WITH ADMIN TRUE, SET FALSE, INHERIT FALSE;
           GRANT service_role TO supabase_admin
             WITH ADMIN TRUE, SET TRUE, INHERIT TRUE;
           SET ROLE supabase_admin;
@@ -209,7 +222,7 @@ jobs:
         working-directory: backend
 
       - name: Apply backend migrations
-        run: npx prisma migrate deploy --config prisma.config.ts
+        run: npm run prisma:deploy
         working-directory: backend
 
       - name: Verify non-superuser runtime role boundary
@@ -304,8 +317,6 @@ jobs:
       - name: Seed backend CMS test content
         run: npm run seed:cms
         working-directory: backend
-        env:
-          DATABASE_URL: ${{ env.DIRECT_URL }}
 
       - name: Lint backend
         run: npm run lint
