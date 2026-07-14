@@ -314,6 +314,23 @@ jobs:
           SELECT version FROM pgboss.version;
           SQL
           docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U nce -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE nce_unreviewed_runtime_role NOLOGIN;
+          GRANT nce_unreviewed_runtime_role TO nce_runtime
+            WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
+          SQL
+          if docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
+            < backend/tests/prisma/runtimeRoleBoundary.probe.sql; then
+            echo "runtime role probe accepted an unexpected nce_runtime membership"
+            exit 1
+          fi
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U nce -d nce_test -v ON_ERROR_STOP=1 <<'SQL'
+          REVOKE nce_unreviewed_runtime_role FROM nce_runtime;
+          DROP ROLE nce_unreviewed_runtime_role;
+          SQL
+          docker exec -i "${{ job.services.postgres.id }}" \
             psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
             < backend/tests/prisma/runtimeRoleBoundary.probe.sql
 

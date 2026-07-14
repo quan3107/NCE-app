@@ -23,6 +23,7 @@ const normalizationMigration = readBackend(
   'src/prisma/migrations/20260714100000_normalize_backend_request_roles/migration.sql',
 )
 const ciWorkflow = readRepo('.github/workflows/ci.yml')
+const rolloutRunbook = readRepo('docs/supabase-data-api-runtime-boundary.md')
 const rootReadme = readRepo('README.md')
 const backendReadme = readBackend('README.md')
 
@@ -122,5 +123,19 @@ describe('owner-only database workflow', () => {
     )
     expect(runtimeRoleProbe).toContain('backend request role attributes are unsafe')
     expect(runtimeRoleProbe).toContain('authenticator can assume a backend request role')
+  })
+
+  it('rejects unreviewed runtime role memberships', () => {
+    expect(runtimeRoleProbe).toContain("member.rolname = 'nce_runtime'")
+    expect(runtimeRoleProbe).toContain("grantor.rolname = 'postgres'")
+    expect(runtimeRoleProbe).toContain(
+      'nce_runtime memberships do not match the reviewed SET-only roles',
+    )
+    expect(ciWorkflow).toContain('CREATE ROLE nce_unreviewed_runtime_role NOLOGIN;')
+    expect(ciWorkflow).toContain(
+      'runtime role probe accepted an unexpected nce_runtime membership',
+    )
+    expect(ciWorkflow).toContain('DROP ROLE nce_unreviewed_runtime_role;')
+    expect(rolloutRunbook).toContain('exactly three reviewed SET-only memberships')
   })
 })

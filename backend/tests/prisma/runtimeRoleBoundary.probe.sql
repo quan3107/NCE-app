@@ -30,6 +30,29 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'backend request role has an unexpected member';
   END IF;
+  IF (
+    SELECT count(*)
+    FROM pg_auth_members membership
+    JOIN pg_roles member ON member.oid = membership.member
+    WHERE member.rolname = 'nce_runtime'
+  ) <> 3 OR (
+    SELECT count(*)
+    FROM pg_auth_members membership
+    JOIN pg_roles granted ON granted.oid = membership.roleid
+    JOIN pg_roles member ON member.oid = membership.member
+    JOIN pg_roles grantor ON grantor.oid = membership.grantor
+    WHERE member.rolname = 'nce_runtime'
+      AND granted.rolname IN (
+        'nce_app_anon', 'nce_app_authenticated', 'service_role'
+      )
+      AND grantor.rolname = 'postgres'
+      AND NOT membership.admin_option
+      AND NOT membership.inherit_option
+      AND membership.set_option
+  ) <> 3 THEN
+    RAISE EXCEPTION
+      'nce_runtime memberships do not match the reviewed SET-only roles';
+  END IF;
 END
 $probe$;
 ROLLBACK;
