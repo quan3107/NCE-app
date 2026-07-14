@@ -32,6 +32,7 @@ describe('owner-only database workflow', () => {
 
     expect(rootReadme).toContain('CREATE ROLE nce_runtime LOGIN')
     expect(rootReadme).toContain('CREATE ROLE nce_job_runner LOGIN')
+    expect(rootReadme).toContain('CREATE ROLE authenticator NOLOGIN')
     expect(rootReadme).toContain('GRANT service_role TO nce_runtime')
     expect(rootReadme).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
     expect(rootReadme).toContain('cp backend/.env.local.example backend/.env.local')
@@ -79,6 +80,7 @@ describe('owner-only database workflow', () => {
       expect(packageJson.scripts[script]).toContain('scripts/runOwnerJob.ts')
     }
     expect(ciWorkflow).toContain('- name: Seed backend CMS test content')
+    expect(ciWorkflow).toContain('CREATE ROLE authenticator NOLOGIN')
     expect(ciWorkflow).not.toMatch(
       /- name: Seed backend CMS test content[\s\S]{0,160}DATABASE_URL:/,
     )
