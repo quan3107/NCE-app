@@ -18,7 +18,7 @@ if (process.env.NODE_ENV !== 'production') {
   loadEnv({ path: envPath, quiet: process.env.NODE_ENV === 'test' })
 }
 
-type PrismaRole = 'authenticated' | 'anon' | 'service_role'
+type PrismaRole = 'nce_app_authenticated' | 'nce_app_anon' | 'service_role'
 
 type RoleContextOptions = {
   role: PrismaRole
@@ -35,9 +35,9 @@ type PrismaDelegateOperation = (input: unknown) => Promise<unknown>
 type PrismaDelegateMap = Record<string, Record<string, PrismaDelegateOperation>>
 
 const prismaContext = new AsyncLocalStorage<RequestContext>()
-const databaseUrl = process.env.DATABASE_URL ?? process.env.DIRECT_URL
+const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL or DIRECT_URL must be set for Prisma.')
+  throw new Error('DATABASE_URL must be set for the application Prisma client.')
 }
 const pool = new Pool({ connectionString: databaseUrl })
 const adapter = new PrismaPg(pool)

@@ -36,21 +36,21 @@ Current flow:
 
 ## Stack
 
-| Layer | Choices |
-| --- | --- |
-| Frontend | React 18, Vite 6, TypeScript, React Router, TanStack Query |
-| UI | Tailwind CSS 4, Radix UI primitives, lucide-react, Tiptap, Recharts |
-| Backend | Node.js 20+, Express 5, TypeScript, Zod, Pino |
-| Data | PostgreSQL, Prisma 7, Prisma pg adapter, row-level security context |
-| Auth | Password login, Google OAuth, RSA JWT access tokens, HTTP-only refresh cookies |
-| AI | Hosted OpenAI-compatible provider routes, teacher-reviewed writing drafts, objective explanations, provider-free harness |
-| Jobs | pg-boss workers for notification scheduling and delivery |
-| Email | Brevo transactional email |
-| Tests | Node test runner and c8 on the frontend; Vitest and Supertest on the backend |
+| Layer    | Choices                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Frontend | React 18, Vite 6, TypeScript, React Router, TanStack Query                                                               |
+| UI       | Tailwind CSS 4, Radix UI primitives, lucide-react, Tiptap, Recharts                                                      |
+| Backend  | Node.js 20+, Express 5, TypeScript, Zod, Pino                                                                            |
+| Data     | PostgreSQL, Prisma 7, Prisma pg adapter, row-level security context                                                      |
+| Auth     | Password login, Google OAuth, RSA JWT access tokens, HTTP-only refresh cookies                                           |
+| AI       | Hosted OpenAI-compatible provider routes, teacher-reviewed writing drafts, objective explanations, provider-free harness |
+| Jobs     | pg-boss workers for notification scheduling and delivery                                                                 |
+| Email    | Brevo transactional email                                                                                                |
+| Tests    | Node test runner and c8 on the frontend; Vitest and Supertest on the backend                                             |
 
 ## Run It Locally
 
-You need Node.js 20+, npm, PostgreSQL, and `psql` access to create the app's local database roles.
+You need Node.js 20+, npm, PostgreSQL 16+, and `psql` access to create the app's local database roles.
 
 Install dependencies from the repo root:
 
@@ -64,18 +64,28 @@ Create the backend environment file:
 
 ```bash
 cp backend/.env.example backend/.env
+cp backend/.env.local.example backend/.env.local
 ```
 
-Use your local database values in `backend/.env`. For the current Vite setup, make sure CORS points at port `3000`:
+Use dedicated runtime-role values in `backend/.env` and keep the owner URL only
+in the gitignored `backend/.env.local`. For the current Vite setup, make sure
+CORS points at port `3000`:
 
 ```dotenv
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/nce_app
-DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
+DATABASE_URL=postgres://nce_runtime:nce_runtime@localhost:5432/nce_app
+JOB_DATABASE_URL=postgres://nce_job_runner:nce_job_runner@localhost:5432/nce_app
 GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
-`backend/.env.example` still lists Vite's default `5173`, but this project runs the frontend on `3000`.
+`backend/.env.local` contains only the owner connection used by short-lived
+database jobs:
+
+```dotenv
+DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
+```
+
+`backend/.env.example` already uses the project's frontend port, `3000`.
 
 Create stable local JWT keys:
 
@@ -88,35 +98,26 @@ openssl rsa -in backend/keys/private.pem -pubout -out backend/keys/public.pem
 Create the local database:
 
 ```bash
-createdb nce_app
+createdb --host localhost --username postgres nce_app
 ```
 
-Create the runtime roles Prisma uses for RLS-aware requests:
+Create the prerequisite browser, service, runtime, and worker roles by following
+the [local database role bootstrap](backend/README.md#local-database-role-bootstrap).
+The boundary migrations then create and normalize the non-login `nce_app_*`
+request roles.
 
-```bash
-psql postgres <<'SQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role;
-  END IF;
-END
-$$;
-SQL
-```
-
-Generate Prisma, run migrations, and seed the local app:
+The owner-only scripts below read `.env.local`, pass its URL only to their child
+process, and leave the long-running backend on `.env`. Raw Prisma migration
+commands fail clearly when `DIRECT_URL` is not explicitly scoped. Install
+pg-boss before Prisma checks its worker grants, then migrate and seed. The final
+`verify:ielts-config` reads the runtime `DATABASE_URL` and does not require `DIRECT_URL`:
 
 ```bash
 cd backend
 npm run prisma:generate
+npm run pgboss:install
 npm run prisma:migrate
+npm run prisma:status
 npm run seed:ielts-config
 npm run seed:cms
 npm run seed:navigation
@@ -162,9 +163,9 @@ The Playwright workflow starts the Vite dev server on `http://127.0.0.1:3000`, u
 
 The main seed creates these accounts:
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `rosa.admin@ielts.local` | `Passw0rd!` |
+| Role    | Email                     | Password    |
+| ------- | ------------------------- | ----------- |
+| Admin   | `rosa.admin@ielts.local`  | `Passw0rd!` |
 | Teacher | `sarah.tutor@ielts.local` | `Passw0rd!` |
 | Student | `amelia.chan@ielts.local` | `Passw0rd!` |
 
@@ -192,37 +193,50 @@ It also creates extra teachers and students so course rosters, submissions, noti
 
 All API routes mount under `/api/v1`. The OpenAPI entry point is `docs/openapi/openapi.yaml`.
 
-The Prisma client applies request-scoped database context. Public requests run as `anon`; authenticated requests run as `authenticated` with `app.current_user_id` and `app.current_user_role`; auth internals use `service_role` where needed.
+The Prisma client applies request-scoped database context. Public requests run as
+`nce_app_anon`; authenticated requests run as `nce_app_authenticated` with
+`app.current_user_id` and `app.current_user_role`; auth internals use
+`service_role` where needed. The application roles are non-login roles that the
+Supabase Data API authenticator cannot assume. The production rollout uses the
+dedicated `nce_runtime` login for `DATABASE_URL` and the pgboss-only
+`nce_job_runner` login for `JOB_DATABASE_URL`. Provide the `postgres` owner URL
+as `DIRECT_URL` only to short-lived migration, pg-boss installation, and seed
+processes. The grantor-aware preflight and coordinated outage are documented in
+`docs/supabase-data-api-runtime-boundary.md`.
 
 ## Useful Commands
 
 Frontend commands, from `frontend/`:
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start Vite on port `3000`. |
-| `npm run build` | Build into `frontend/build`. |
-| `npm run lint` | Run ESLint with zero warnings allowed. |
-| `npm run typecheck` | Run `tsc --noEmit`. |
-| `npm test` | Run frontend tests. |
-| `npm run test:coverage` | Run frontend tests with c8 coverage. |
+| Command                 | Purpose                                |
+| ----------------------- | -------------------------------------- |
+| `npm run dev`           | Start Vite on port `3000`.             |
+| `npm run build`         | Build into `frontend/build`.           |
+| `npm run lint`          | Run ESLint with zero warnings allowed. |
+| `npm run typecheck`     | Run `tsc --noEmit`.                    |
+| `npm test`              | Run frontend tests.                    |
+| `npm run test:coverage` | Run frontend tests with c8 coverage.   |
 
 Backend commands, from `backend/`:
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the Express API with `tsx watch`. |
-| `npm run build` | Generate Prisma and compile TypeScript. |
-| `npm start` | Run `dist/server.js`. |
-| `npm run lint` | Run ESLint. |
-| `npm test` | Generate Prisma and run Vitest with `NODE_ENV=test`. |
-| `npm run test:coverage` | Run backend tests with coverage. |
-| `npm run prisma:migrate` | Apply local development migrations. |
-| `npm run seed:ielts-config` | Seed IELTS reference data required at startup. |
-| `npm run seed:cms` | Seed Homepage, About, and Contact CMS content. |
-| `npm run seed:navigation` | Seed permissions, navigation, and feature flags. |
-| `npm run seed` | Reset and seed representative local app data. |
-| `npm run verify:ielts-config` | Check that the active IELTS config is complete. |
+| Command                       | Purpose                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `npm run dev`                 | Start the Express API with `tsx watch`.                                  |
+| `npm run build`               | Generate Prisma and compile TypeScript.                                  |
+| `npm start`                   | Run `dist/server.js`.                                                    |
+| `npm run lint`                | Run ESLint.                                                              |
+| `npm test`                    | Generate Prisma and run Vitest with `NODE_ENV=test`.                     |
+| `npm run test:coverage`       | Run backend tests with coverage.                                         |
+| `npm run pgboss:install`      | Install or upgrade pg-boss through the owner-only `.env.local` launcher. |
+| `npm run prisma:migrate`      | Apply local development migrations through the owner-only launcher.      |
+| `npm run prisma:status`       | Check migration status through the owner-only launcher.                  |
+| `npm run prisma:deploy`       | Deploy pending migrations through the owner-only launcher.               |
+| `npm run prisma:diff`         | Compare Prisma schema and database through the owner-only launcher.      |
+| `npm run seed:ielts-config`   | Seed IELTS reference data required at startup.                           |
+| `npm run seed:cms`            | Seed Homepage, About, and Contact CMS content.                           |
+| `npm run seed:navigation`     | Seed permissions, navigation, and feature flags.                         |
+| `npm run seed`                | Reset and seed representative local app data.                            |
+| `npm run verify:ielts-config` | Check the active IELTS config through the runtime `DATABASE_URL`.        |
 
 ## Testing
 
@@ -245,16 +259,19 @@ npm --prefix backend run build
 npm --prefix backend test
 ```
 
-Backend tests apply deterministic defaults from `backend/tests/setup/testEnvDefaults.ts`. Database-backed paths still need PostgreSQL and the `anon`, `authenticated`, and `service_role` roles.
+Backend tests apply deterministic defaults from `backend/tests/setup/testEnvDefaults.ts`.
+Database-backed paths still need PostgreSQL 16+ and the role plus pg-boss
+bootstrap sequence documented above.
 
 ## Production Notes
 
 Production needs:
 
 - Node.js 20+ for the backend runtime;
-- PostgreSQL with migrations applied through `npx prisma migrate deploy --config prisma.config.ts`;
+- PostgreSQL with migrations applied through the owner-scoped `npm --prefix backend run prisma:deploy` command during the coordinated rollout in `docs/supabase-data-api-runtime-boundary.md`;
 - the committed forward migrations provision missing Contact CMS content, CMS admin permission/navigation, baseline revisions, and ancestor-aware CMS RLS without running production seed scripts or replacing managed rows;
-- runtime roles `anon`, `authenticated`, and `service_role`;
+- Supabase roles `anon`, `authenticated`, and `service_role`, dedicated logins `nce_runtime` and `nce_job_runner`, plus non-login backend roles `nce_app_anon` and `nce_app_authenticated`;
+- the PR-48A rollout and rolled-back role probes in `docs/supabase-data-api-runtime-boundary.md`;
 - active IELTS reference data verified by `npm run verify:ielts-config`;
 - explicit `CORS_ALLOWED_ORIGINS` because production refuses an empty allowlist;
 - a real `TRUST_PROXY` list, not a boolean;

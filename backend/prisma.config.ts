@@ -19,13 +19,28 @@ if (process.env.NODE_ENV === 'test') {
 // Load backend/.env regardless of where Prisma CLI is invoked.
 loadEnv({ path: resolve(currentDir, '.env'), quiet: process.env.NODE_ENV === 'test' })
 
-// Prisma 7 moved datasource URLs out of schema.prisma into this config.
-// DIRECT_URL is for Prisma CLI operations (migrate/introspect) and typically
-// points to a direct database connection without PgBouncer. Fall back to
-// DATABASE_URL when DIRECT_URL is not set (e.g. local dev without PgBouncer).
-const directUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL
-if (!directUrl) {
-  throw new Error('DIRECT_URL or DATABASE_URL must be set in environment.')
+// Owner-only commands must never silently run through the least-privilege
+// runtime login. Package scripts inject DIRECT_URL only into their child process.
+const prismaArguments = process.argv.slice(2)
+const databaseCommand = prismaArguments.indexOf('db')
+const requiresOwner =
+  prismaArguments.includes('migrate') ||
+  prismaArguments.includes('introspect') ||
+  (databaseCommand >= 0 &&
+    ['execute', 'pull', 'push', 'seed'].includes(
+      prismaArguments[databaseCommand + 1] ?? '',
+    ))
+
+const directUrl = process.env.DIRECT_URL
+if (requiresOwner && !directUrl) {
+  throw new Error(
+    'DIRECT_URL is required for Prisma migration commands. Use an owner-scoped npm script.',
+  )
+}
+
+const datasourceUrl = directUrl ?? process.env.DATABASE_URL
+if (!datasourceUrl) {
+  throw new Error('DATABASE_URL is required for Prisma generate and validate commands.')
 }
 
 export default defineConfig({
@@ -34,6 +49,6 @@ export default defineConfig({
     path: 'src/prisma/migrations',
   },
   datasource: {
-    url: directUrl,
+    url: datasourceUrl,
   },
 })

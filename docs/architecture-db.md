@@ -1,17 +1,17 @@
 # Database Architecture and Verification
 
-This project uses Prisma migrations against PostgreSQL. `backend/prisma.config.ts`
-loads `backend/.env` and uses `DIRECT_URL` for Prisma CLI operations, falling
-back to `DATABASE_URL` only when `DIRECT_URL` is unset.
+This project uses Prisma migrations against PostgreSQL. Runtime code loads only
+`backend/.env`. Owner-only npm commands load `DIRECT_URL` from the gitignored
+`backend/.env.local` and scope it to one child process; raw migration commands
+fail instead of falling back to the runtime `DATABASE_URL`.
 
 ## Environment Check
 
 Before running migrations, identify the active database without printing
 credentials:
 
-```powershell
-node -e "require('./backend/node_modules/dotenv').config({ path: 'backend/.env' }); for (const key of ['DATABASE_URL','DIRECT_URL']) { const value = process.env[key]; if (!value) { console.log(key + '=unset'); continue; } const url = new URL(value); console.log(key + '=' + url.protocol + '//' + url.hostname + '/' + url.pathname.slice(1)); }"
-```
+Confirm `backend/.env` contains the runtime and worker URLs, while
+`backend/.env.local` contains only `DIRECT_URL`. Do not print either URL.
 
 `backend/.env.example` documents a localhost PostgreSQL database for local
 development. The working `backend/.env` in a developer checkout may point to a
@@ -24,9 +24,9 @@ Run these commands from the repository root:
 
 ```powershell
 npm --prefix backend run prisma:generate
-npx --prefix backend prisma migrate status --config backend/prisma.config.ts
-npx --prefix backend prisma migrate deploy --config backend/prisma.config.ts
-npx --prefix backend prisma migrate diff --config backend/prisma.config.ts --from-schema=backend/src/prisma/schema.prisma --to-config-datasource --exit-code
+npm --prefix backend run prisma:status
+npm --prefix backend run prisma:deploy
+npm --prefix backend run prisma:diff
 ```
 
 For `prisma migrate diff --exit-code`, exit code `0` means Prisma found no
@@ -96,9 +96,8 @@ to export or archive the data before deploying the drop migration.
 
 This runbook intentionally does not resolve all historical schema drift.
 
-| Area | Owner | Risk | Notes |
-| --- | --- | --- | --- |
+| Area                                                    | Owner            | Risk                                                                                                              | Notes                                                                                                                                                                     |
+| ------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Prisma schema drift outside notification retry recovery | Backend/database | Future migrations may mix intentional changes with historical default, nullability, foreign-key, and index drift. | Review the full `prisma migrate diff --exit-code` output before adding schema work. Keep fixes grouped by domain instead of folding them into notification retry cleanup. |
-| Non-retry notification list/read indexes | Backend/database | List and unread queries may lose expected query plans if index drift is applied accidentally. | The PR-46A check is limited to the due-retry index on `status`, `"deletedAt"`, and `next_attempt_at`. |
-| Supabase RLS policy design | Backend/security | Runtime access may rely on grants and app context that are broader than the eventual policy model. | Design policy coverage separately with endpoint-level authorization tests. |
-| Supabase Data API exposure | Backend/security | Tables may be exposed through Supabase APIs before grants and policies are deliberately tightened. | Audit Data API exposure as a separate security follow-up. |
+| Non-retry notification list/read indexes                | Backend/database | List and unread queries may lose expected query plans if index drift is applied accidentally.                     | The PR-46A check is limited to the due-retry index on `status`, `"deletedAt"`, and `next_attempt_at`.                                                                     |
+| Supabase RLS policy design                              | Backend/security | Runtime access may rely on grants and app context that are broader than the eventual policy model.                | Design policy coverage separately with endpoint-level authorization tests.                                                                                                |

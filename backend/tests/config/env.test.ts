@@ -9,10 +9,12 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { config } from '../../src/config/env.js'
+import { requireDatabaseTestOwnerUrl } from '../prisma/databaseTestClient.js'
 import { applyBackendTestEnvDefaults } from '../setup/testEnvDefaults.js'
 
 const defaultedEnvKeys = [
   'DATABASE_URL',
+  'JOB_DATABASE_URL',
   'DIRECT_URL',
   'JWT_PRIVATE_KEY_PATH',
   'JWT_PUBLIC_KEY_PATH',
@@ -71,7 +73,11 @@ describe('test environment defaults', () => {
       expect(process.env.DATABASE_URL).toBe(
         'postgres://test_user:test_password@localhost:5432/nce_test',
       )
-      expect(process.env.DIRECT_URL).toBe(process.env.DATABASE_URL)
+      expect(process.env.JOB_DATABASE_URL).toBe(process.env.DATABASE_URL)
+      expect(process.env.DIRECT_URL).toBeUndefined()
+      expect(() => requireDatabaseTestOwnerUrl()).toThrow(
+        'DIRECT_URL is required for administrative database tests.',
+      )
       expect(process.env.JWT_PRIVATE_KEY_PATH).toBe(
         'tests/runtime/generated-jwt-private.pem',
       )
@@ -140,6 +146,7 @@ describe('test environment defaults', () => {
     expect(existsSync(resolve(process.cwd(), config.jwt.privateKeyPath))).toBe(false)
     expect(existsSync(resolve(process.cwd(), config.jwt.publicKeyPath))).toBe(false)
     expect(config.databaseUrl).toContain('localhost:5432/nce_test')
+    expect(config.jobDatabaseUrl).toContain('localhost:5432/nce_test')
     expect(config.google.clientId).toBeTruthy()
     expect(config.google.clientSecret).toBeTruthy()
     expect(config.email.brevoApiKey).toBeTruthy()

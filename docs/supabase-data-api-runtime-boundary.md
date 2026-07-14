@@ -1,0 +1,291 @@
+<!--
+File: docs/supabase-data-api-runtime-boundary.md
+Purpose: Document the PR-48A Supabase Data API and backend runtime-role boundary.
+Why: Makes the intended grants, exception, rollout, and verification reproducible.
+-->
+
+# Supabase Data API Runtime Boundary
+
+## Access matrix
+
+| Principal               | Intended database access                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `anon`                  | Existing column-scoped, RLS-filtered public CMS, IELTS reference, NCE catalog, and `courses_public` reads only |
+| `authenticated`         | The same reviewed public/reference surfaces; no private application tables                                     |
+| `nce_app_anon`          | Backend anonymous reads matching the predecessor `anon` role; no private tables and no login                   |
+| `nce_app_authenticated` | Backend signed-in access matching predecessor grants; no auth/session or service-only tables and no login      |
+| `service_role`          | Backend auth/session, trusted service, and explicitly granted application-job operations; never expose its key |
+| `nce_runtime`           | Dedicated `DATABASE_URL` login; SET-only membership in both request roles and `service_role`                   |
+| `nce_job_runner`        | Dedicated `JOB_DATABASE_URL` login; DML and function access only inside the `pgboss` schema                    |
+| `postgres`              | Migration owner selected only by `DIRECT_URL`; never used by the running application                           |
+
+The first migration creates the backend-only roles and reproduces each
+predecessor role's explicit table and column grants. It does not grant either
+role schema-wide DML or default privileges. In particular, `nce_app_anon` has no
+access to users, grades, auth sessions, identities, attempts, or authoring data;
+auth sessions and identities remain `service_role`-only.
+
+The second migration revokes `anon` and `authenticated` from every relation
+outside the explicit public allowlist. Tables that already had RLS keep their
+policies; a table that did not have RLS receives a compatibility policy only if
+an isolated runtime role has an explicit privilege on that table.
+
+All eight approved IELTS reference tables receive explicit browser `SELECT`
+grants and RLS policies. Future functions lose the global implicit `PUBLIC`
+execute default and require an intentional grant before Data API RPC use. Future
+tables, sequences, and functions also receive no automatic `service_role`
+access; trusted operations must grant each required object explicitly.
+
+`authenticator` must never be a member of either `nce_app_*` role. One-way role
+membership lets the backend roles reuse the matching browser-role policies
+without allowing a Supabase token to select a backend role.
+
+This rollout deliberately separates migration and runtime identities.
+`DATABASE_URL` must authenticate as `nce_runtime`. `DIRECT_URL` is a
+deployment-only input for the short-lived migration process and must use the
+`postgres` migration owner. Do not provide `DIRECT_URL` to the running backend.
+`JOB_DATABASE_URL` must authenticate as `nce_job_runner`; that login has no
+application-role memberships and cannot install or upgrade pg-boss.
+The migration verifies the exact
+`service_role -> nce_runtime` membership row, including its grantor, and grants
+the request roles to `nce_runtime` rather than `CURRENT_USER`.
+
+Hosted PostgreSQL 16+ can store multiple membership rows for the same role and
+member when their grantors differ. Supabase's existing
+`service_role -> postgres` row is granted by `supabase_admin`, so a `GRANT`
+issued as non-superuser `postgres` cannot alter that row. The rollout leaves the
+Supabase-managed administrative membership unchanged and instead creates a new
+SET-only row from `postgres` to the dedicated runtime login. This follows
+[Supabase's recommendation to use a separate database user per service](https://supabase.com/docs/guides/database/postgres/roles#passwords).
+
+## Intentional view exception
+
+`public.courses_public` remains a narrowly scoped security-definer view. A
+security-invoker view would require granting its callers access to the base
+`courses` table, contradicting the requirement that Data API clients cannot
+query that table directly. The view filters soft-deleted courses and exposes
+only its reviewed projection. Its `app` helper functions have fixed search
+paths, and implicit `PUBLIC EXECUTE` is revoked.
+
+The product has no GraphQL client, so deployment disables `pg_graphql` through
+Supabase's privileged extension interface before either migration runs. The
+application-owned migration must not attempt to drop a Supabase-owned extension.
+
+## Rollout
+
+This is a coordinated maintenance-outage rollout. Do not use a rolling deploy:
+the old application requires Data API role grants that the enforcement migration
+revokes, while the new application requires roles the preparation migration adds.
+
+1. Confirm the PR-48 migrations and hosted checksums are already reconciled.
+2. Connect as `postgres` and inspect the existing hosted membership. Do not try
+   to rewrite or revoke the `supabase_admin`-granted row.
+
+   ```sql
+   select granted.rolname as granted_role,
+          member.rolname as member_role,
+          grantor.rolname as grantor_role,
+          membership.admin_option,
+          membership.inherit_option,
+          membership.set_option
+   from pg_catalog.pg_auth_members membership
+   join pg_catalog.pg_roles granted on granted.oid = membership.roleid
+   join pg_catalog.pg_roles member on member.oid = membership.member
+   join pg_catalog.pg_roles grantor on grantor.oid = membership.grantor
+   where (granted.rolname = 'service_role' and member.rolname = 'postgres')
+      or member.rolname = 'nce_runtime'
+   order by member.rolname, granted.rolname, grantor.rolname;
+   ```
+
+3. Still connected as `postgres`, create fresh runtime and worker logins with
+   separate generated secrets. Grant the runtime only connect plus SET-only
+   service membership. Grant the worker only connect; the migration grants its
+   scoped `pgboss` privileges. Stop and inspect instead if either login exists.
+
+   ```sql
+   create role nce_runtime login password '<generated-secret>'
+     noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
+   grant connect on database postgres to nce_runtime;
+   grant service_role to nce_runtime
+     with admin false, inherit false, set true;
+
+   create role nce_job_runner login password '<separate-generated-secret>'
+     noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
+   grant connect on database postgres to nce_job_runner;
+   ```
+
+4. Repeat the query from step 2. It must show the existing
+   `supabase_admin -> postgres` row and exactly one `postgres -> nce_runtime` row
+   with `admin_option=false`, `inherit_option=false`, and `set_option=true`.
+5. Configure the deployment tooling to provide `DIRECT_URL` only to the
+   migration, pg-boss installation, and seed job, using the `postgres` owner. If
+   a seed command reads `DATABASE_URL`, override that variable with the owner URL
+   only for the seed process. Do not provide `DIRECT_URL` to the running backend,
+   and never place the `postgres` credentials in either runtime URL. The
+   long-running backend must use `nce_runtime` for `DATABASE_URL` and
+   `nce_job_runner` for `JOB_DATABASE_URL`. Local development keeps the owner URL
+   in gitignored `.env.local`; the owner-only npm scripts scope it to their child
+   commands. CI and deployment jobs may inject the same variable directly.
+6. Enter maintenance mode, stop accepting requests, and drain or stop every
+   backend instance. Confirm no old application sessions remain.
+7. Back up the hosted database before changing extension or application state.
+8. Disable `pg_graphql` in the
+   [Supabase Dashboard under Database > Extensions](https://supabase.com/docs/guides/database/extensions#enable-and-disable-extensions).
+   Verify that it is absent before continuing; if it remains installed, stop the
+   rollout rather than running either application migration.
+
+   ```sql
+   select not exists (
+     select 1
+     from pg_catalog.pg_extension
+     where extname = 'pg_graphql'
+   ) as pg_graphql_disabled;
+   ```
+
+9. Run `npm run pgboss:install`, then `npm run prisma:deploy` to apply
+   `20260712220000_harden_data_api_runtime_roles` and
+   `20260712221000_enforce_data_api_boundary`, followed by
+   `20260714100000_normalize_backend_request_roles`. These scripts read the
+   owner-only input only for their short-lived child process. Run any required
+   deployment seed through the same launcher, then destroy its environment and
+   credentials.
+10. While maintenance remains enabled, confirm `DIRECT_URL` is absent, start only
+    the new backend release with both dedicated runtime URLs, and require its
+    `/health` check to succeed.
+11. Run the probes below inside transactions and roll them back.
+12. Run the Supabase security advisor. The `courses_public` view warning is the
+    documented exception; exposed-table RLS errors must be zero.
+13. Exit maintenance mode only after the backend health check, every probe, and
+    the security advisor have all succeeded.
+
+## Rolled-back hosted probes
+
+### Browser-role probes
+
+Run the browser-role probes with an owner PostgreSQL connection whose
+`current_user` can `SET ROLE` to both `anon` and `authenticated`. Do not use the
+`nce_runtime` connection for these probes. Substitute existing UUIDs only inside
+the transaction; do not commit probe mutations.
+
+```sql
+begin;
+
+set local role anon;
+select * from public.courses_public limit 1;
+do $probe$
+begin
+  begin
+    perform 1 from public.courses limit 1;
+    raise exception 'anon read private courses';
+  exception when insufficient_privilege then null;
+  end;
+end
+$probe$;
+
+reset role;
+set local role authenticated;
+do $probe$
+begin
+  begin
+    perform password_hash from public.users limit 1;
+    raise exception 'authenticated read password hashes';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.grades set final_score = final_score where false;
+    raise exception 'authenticated updated grades';
+  exception when insufficient_privilege then null;
+  end;
+end
+$probe$;
+
+rollback;
+```
+
+### Backend-role probes
+
+Run the backend-role probes with the dedicated `nce_runtime` `DATABASE_URL`.
+The login must have SET-only membership in the three backend roles.
+
+```sql
+begin;
+
+do $probe$
+begin
+  if current_user <> 'nce_runtime' then
+    raise exception 'probe must use the dedicated runtime login';
+  end if;
+  if (
+    select count(*)
+    from pg_auth_members membership
+    join pg_roles member on member.oid = membership.member
+    where member.rolname = 'nce_runtime'
+  ) <> 3 or (
+    select count(*)
+    from pg_auth_members membership
+    join pg_roles granted on granted.oid = membership.roleid
+    join pg_roles member on member.oid = membership.member
+    join pg_roles grantor on grantor.oid = membership.grantor
+    where member.rolname = 'nce_runtime'
+      and granted.rolname in (
+        'nce_app_anon', 'nce_app_authenticated', 'service_role'
+      )
+      and grantor.rolname = 'postgres'
+      and not membership.admin_option
+      and not membership.inherit_option
+      and membership.set_option
+  ) <> 3 then
+    raise exception 'runtime memberships differ from the reviewed set';
+  end if;
+  if not pg_has_role(current_user, 'service_role', 'SET') or
+     pg_has_role(current_user, 'service_role', 'USAGE') or
+     pg_has_role(current_user, 'service_role', 'MEMBER WITH ADMIN OPTION') then
+    raise exception 'runtime service_role membership is not SET-only';
+  end if;
+end
+$probe$;
+
+set local role nce_app_anon;
+select set_config('app.current_user_role', 'anon', true);
+select * from public.courses_public limit 1;
+do $probe$
+begin
+  begin
+    perform 1 from public.users limit 1;
+    raise exception 'nce_app_anon read users';
+  exception when insufficient_privilege then null;
+  end;
+end
+$probe$;
+
+reset role;
+set local role nce_app_authenticated;
+select set_config('app.current_user_id', '00000000-0000-0000-0000-000000000000', true);
+select set_config('app.current_user_role', 'student', true);
+select count(*) from public.users;
+do $probe$
+begin
+  begin
+    perform 1 from public.auth_sessions limit 1;
+    raise exception 'nce_app_authenticated read auth sessions';
+  exception when insufficient_privilege then null;
+  end;
+end
+$probe$;
+
+reset role;
+set local role service_role;
+select count(*) from public.auth_sessions;
+
+rollback;
+```
+
+Each expected `insufficient_privilege` denial is caught inside its own PL/pgSQL
+subtransaction, so every later role probe still runs. Unexpected access raises a
+different exception and fails the probe. Also verify `authenticator` has no
+membership in either backend role and that `anon`/`authenticated` have no
+privileges on private tables, columns, or sequences. The migration's catalog
+check validates its required grants before changing application privileges. The
+post-migration probe requires exactly three reviewed SET-only memberships for
+`nce_runtime`, all granted by `postgres`, and rejects every extra role, grantor,
+or option while leaving Supabase-managed and request-role owner rows unchanged.

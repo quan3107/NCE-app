@@ -47,7 +47,7 @@ type AuditLogClient = {
   }
 }
 
-type AuditLogWriteInput = {
+export type AuditLogWriteInput = {
   actorId?: string | null
   action: string
   entity: string
@@ -173,6 +173,7 @@ export async function writeAuditLog(
       entityId: input.entityId,
       diff: buildAuditDiff(input),
     },
+    select: { id: true },
   })
 }
 

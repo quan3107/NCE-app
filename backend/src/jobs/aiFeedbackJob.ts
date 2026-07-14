@@ -16,6 +16,7 @@ import {
   processObjectiveExplanationJob,
   processWritingDraftJob,
 } from "./aiFeedbackJob.processing.js";
+import { withServiceRoleJobHandler } from "./serviceRoleJobHandler.js";
 
 export { AI_FEEDBACK_JOB_NAMES } from "./aiFeedbackJob.types.js";
 export {
@@ -55,11 +56,11 @@ export async function registerAiFeedbackJobs(boss: PgBoss): Promise<void> {
 
   await boss.work(
     AI_FEEDBACK_JOB_NAMES.generateWritingDraft,
-    handleGenerateWritingDraftJob,
+    withServiceRoleJobHandler(handleGenerateWritingDraftJob),
   );
   await boss.work(
     AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
-    handleGenerateObjectiveExplanationJob,
+    withServiceRoleJobHandler(handleGenerateObjectiveExplanationJob),
   );
 
   logger.info("AI feedback jobs registered");

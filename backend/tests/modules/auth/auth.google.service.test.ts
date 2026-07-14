@@ -14,6 +14,7 @@ import {
   fetchMock,
   fixedDate,
   googleRemoteJwksMock,
+  isRoleContextActive,
   jwtVerifyMock,
   prisma,
   randomBytesMock,
@@ -76,6 +77,9 @@ describe("auth.service Google OAuth", () => {
   });
 
   it("completes Google authorization for an existing identity", async () => {
+    writeAuditLogSafely.mockImplementationOnce(async () => {
+      expect(isRoleContextActive()).toBe(true);
+    });
     const state = "state-value";
     const codeVerifier = "a".repeat(64);
 

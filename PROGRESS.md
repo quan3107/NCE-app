@@ -8,11 +8,56 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-14:** Made the post-migration runtime-role probe fail closed unless `nce_runtime` has exactly the three reviewed SET-only memberships from `postgres`, and added a PostgreSQL 17 CI fixture that proves an unexpected fourth role is rejected before rechecking the clean boundary.
+
+- **2026-07-14:** Removed the test default that promoted `DATABASE_URL` into `DIRECT_URL`, made administrative database fixtures resolve an explicitly configured owner URL only when they execute, and refreshed deployment documentation to reflect the completed Data API boundary and owner-scoped deploy command.
+
+- **2026-07-14:** Corrected the runtime-role rollout probe so every required `service_role` job privilege is checked independently instead of relying on PostgreSQL's any-match comma-list form, and added a regression that rejects combined positive privilege assertions.
+
+- **2026-07-14:** Restored the IELTS readiness verifier to the least-privilege runtime `DATABASE_URL`, kept owner credentials scoped to migrations, pg-boss installation, and seeds, and moved detailed local role bootstrap instructions from the root README into the backend database guide.
+
+- **2026-07-14:** Added a cross-platform owner-job launcher that scopes gitignored `.env.local` credentials to migrations, pg-boss installation, and seeds; added and deployed a forward migration that normalizes pre-existing backend request roles while preserving Supabase owner-admin rows; and locked the corrected hosted probe, CI fixture, and documentation workflow with regressions.
+
+- **2026-07-14:** Completed the hosted local-development runtime-role rollout with user-authorized backup waiver for disposable data: provisioned dedicated runtime/worker logins, deployed both boundary migrations, verified local health and pg-boss identity, passed rolled-back access probes and the security advisor gate, and corrected the runbook's stale grade-column probe.
+
+- **2026-07-13:** Removed the migration-owned `DROP EXTENSION pg_graphql` that hosted `postgres` cannot execute against Supabase-owned extensions; made Dashboard disablement and catalog verification a fail-closed prerequisite before either runtime-boundary migration; and added a regression preventing extension drops from returning to application migrations.
+
+- **2026-07-13:** Kept audit writes compatible with the least-privilege `service_role` by returning only the inserted audit row ID and granting column-scoped `SELECT (id)` alongside `INSERT`; extended migration, role-probe, and service regressions to reject broad audit-log reads.
+
+- **2026-07-13:** Wrapped registration, password/Google login, refresh, and logout audit writes in explicit `service_role` context; extended the production runtime-role test to verify a real registration audit row; and made the atomic role-hardening migration revoke existing `service_role` table/sequence privileges before restoring only reviewed auth, NCE, and job access. CI now reproduces legacy Supabase-style default grants and probes that unrelated grade access is removed.
+
+- **2026-07-13:** Granted `service_role` only the table operations used by AI, notification, and cleanup workers; made both runtime-boundary migrations atomic; converted rollout denials to caught PL/pgSQL probes; and extended the production boot fixture to process a real pg-boss notification job on the clean database.
+
+- **2026-07-13:** Split hosted rollout verification into owner PostgreSQL browser-role probes and dedicated `nce_runtime` backend-role probes, with regression coverage preventing incompatible connection guidance from returning.
+
+- **2026-07-13:** Repaired the fresh local bootstrap guide to provision both runtime logins and the exact SET-only service grant, install pg-boss with a shell-scoped owner URL before Prisma migrations, and lock the documented prerequisite order with a regression test.
+
+- **2026-07-13:** Corrected the production runtime-role boot regression to provide an in-memory RSA key pair to the spawned production server, allowing the test to reach readiness and pg-boss without writing JWT secrets to disk.
+
+- **2026-07-13:** Fixed production runtime-role startup by running readiness as `nce_app_anon` and job-handler Prisma work as `service_role`, separating pg-boss onto a pgboss-only login with owner-run schema installation, adding an actual production-server boot regression, and keeping maintenance enabled through all rollout security checks.
+
+- **2026-07-13:** Removed the application Prisma client's `DIRECT_URL` fallback and the migration credential from the runtime environment template, while documenting job-scoped owner credentials for migrations/seeds and a `DATABASE_URL`-only `nce_runtime` backend process.
+
+- **2026-07-13:** Routed administrative CMS database-upgrade fixtures through a test-only `DIRECT_URL` Prisma client while preserving `DATABASE_URL` runtime-role coverage, with deterministic client/pool cleanup and a source regression for the split connection contract.
+
+- **2026-07-13:** Corrected the hosted PostgreSQL grantor mismatch by separating the `postgres` migration owner from a dedicated `nce_runtime` application login, validating exact `pg_auth_members` grantors and options before migration, and reproducing Supabase's `supabase_admin -> postgres` plus `postgres -> nce_runtime` membership rows in PostgreSQL 17 CI.
+
+- **2026-07-13:** Hardened the production runtime-role upgrade by explicitly clearing retained `service_role` ADMIN/INHERIT membership options, asserting the negative ADMIN invariant in migration and hosted probes, reproducing the production ADMIN-true upgrade in CI, and revoking future table, sequence, and function defaults from `service_role` alongside the browser roles.
+
+- **2026-07-13:** Corrected the Data API runtime-role review findings by replacing blanket public-schema DML with explicit predecessor-equivalent grants, excluding private/service-only tables from anonymous access, provisioning SET-only service-role membership before migration, asserting that prerequisite in SQL, testing service-role switching in CI, and requiring a coordinated maintenance-outage rollout.
+
+- **2026-07-13:** Preserved approved IELTS Data API reads with explicit browser SELECT grants and RLS policies, corrected the global future-function PUBLIC EXECUTE default revoke, and added PostgreSQL-backed allowed/denied read/write probes for every documented database role.
+
+- **2026-07-12:** Addressed PR-48A review findings by explicitly granting the non-superuser runtime login `SET ROLE` capability, restricting current and default table grants to RLS-governed DML, and adding PostgreSQL 17 CI probes that apply the hardening migration and exercise both runtime roles through a non-superuser `CREATEROLE` login.
+
+- **2026-07-12:** Implemented PR-48A Supabase Data API/runtime-role hardening with non-login anonymous and authenticated backend roles, one-way RLS-policy membership, deny-by-default browser grants outside reviewed public surfaces, RLS on every public table, fixed helper search paths, unused pg_graphql removal, focused migration/middleware coverage, and a hosted rollout/probe runbook. Hosted DDL remains unapplied pending verification.
+
 - **2026-07-12:** Added a fourth checksum-safe homepage baseline repair that fails closed on PostgreSQL NULL validation results. It detects malformed non-empty revision 1 stats, rejects malformed later revisions and live rows with `BOOL_AND(COALESCE(..., FALSE))`, and preserves earliest-valid-revision precedence before a strict canonical fallback.
 - **2026-07-12:** Added a third checksum-safe homepage baseline repair for databases where an intervening publish canonicalized live stats before earlier repairs ran. It prefers the earliest structurally valid later revision, conservatively falls back to an exact valid canonical live set, and has rolled-back database coverage through actual publish and rollback persistence.
 - **2026-07-12:** Added a checksum-safe follow-up migration that repairs keyless homepage revision 1 snapshots even when preserved custom keyed stats coexist, matching runtime modeled-key filtering. Extended the rolled-back database fixture with a custom row and explicit 15-second timeouts for both concurrently locking homepage migration tests.
 - **2026-07-12:** Added a forward-only repair for unusable homepage revision 1 snapshots produced from the supported three-keyless-stat legacy state. Added a rolled-back PostgreSQL regression that recreates the legacy rows and validates the idempotent repair through stored-content validation. Deployed the migration to hosted Supabase, where zero rows qualified and existing applied migration files remained untouched.
 - **2026-07-12:** Restored six applied PR-48 CMS migrations to their exact deployed Git bytes, locked their hosted checksums with regression coverage, and moved final-state reconciliation into one forward migration with the missing rollback-source index and Prisma mapping. Applied the forward migration to hosted Supabase, preserved CMS counts, verified rollback behavior in transactions, and cleared the unindexed-FK advisor. Clean empty-database replay remains unavailable locally without PostgreSQL/Docker or a paid Supabase branch.
+- **2026-07-12:** Added two documentation-only follow-up PR plans after PR-48: one for Supabase Data API/runtime-role hardening and one for Prisma/hosted-schema reconciliation and migration governance. No backend source, schema, migration, or hosted database changes were made.
 - **2026-07-11:** Repaired the deployed CMS page-write permission set by granting authenticated updates to Prisma-managed `updated_at` alongside the draft/publication version columns. Added the grant to the reconciliation path, a follow-up idempotent repair for databases that already ran it, and focused regression coverage.
 - **2026-07-11:** Added an atomic forward reconciliation migration for hosted databases that already recorded the original CMS migration names. It preserves legacy drafts, removes the superseded content column, aligns defaults/indexes/foreign keys with Prisma, and enables draft RLS policies before grants. Added focused migration coverage.
 - **2026-07-11:** Removed CMS draft timestamp and revision UUID database defaults absent from Prisma, and made later raw SQL revision bootstraps supply UUIDs explicitly. Extended migration drift coverage to column defaults and bootstrap safety.
@@ -80,11 +125,56 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-14:** No frontend files changed for the exact runtime-role membership gate; the full frontend CI suite remains part of the regression check.
+
+- **2026-07-14:** No frontend files changed for the test-owner credential separation and deployment documentation correction; frontend CI remains part of the regression gate.
+
+- **2026-07-14:** No frontend behavior changed for the runtime privilege-probe correction; the existing frontend CI gate remains unchanged.
+
+- **2026-07-14:** Applied the repository Prettier style to the frontend CI contract test and its workflow fixture without changing workflow behavior.
+
+- **2026-07-14:** Updated the frontend CI workflow contract test to accept formatter-normalized YAML quote styles; runtime frontend behavior is unchanged.
+
+- **2026-07-14:** No frontend files changed for the owner-job workflow or backend request-role normalization follow-up.
+
+- **2026-07-14:** No frontend files changed for the hosted local-development runtime-role rollout; frontend behavior remains unchanged.
+
+- **2026-07-13:** No frontend files changed for the hosted `pg_graphql` ownership rollout correction.
+
+- **2026-07-13:** No frontend files changed for the runtime-role audit insert privilege correction.
+
+- **2026-07-13:** No frontend files changed for auth audit role scoping or hosted `service_role` ACL normalization.
+
+- **2026-07-13:** No frontend files changed for the worker grants, atomic hardening migrations, or transaction-safe rollout probes.
+
+- **2026-07-13:** No frontend files changed for the hosted rollout probe connection correction.
+
+- **2026-07-13:** Corrected the local CORS note to match the port `3000` already present in the backend environment example; no frontend code changed.
+
+- **2026-07-13:** No frontend changes were required for the production boot-test JWT fixture correction.
+
+- **2026-07-13:** No frontend changes were required for the backend runtime-role startup and rollout corrections.
+
+- **2026-07-13:** No frontend files changed for the production database-credential scoping correction; frontend CI remains part of the pull-request regression gate.
+
+- **2026-07-13:** No frontend files changed for the administrative database-fixture connection correction; frontend CI remains part of the pull-request regression gate.
+
+- **2026-07-13:** No frontend files changed for the hosted role-grantor correction and dedicated database runtime login; frontend CI remains part of the regression gate.
+
+- **2026-07-13:** No frontend files changed for the retained service-role ADMIN OPTION and default-privilege review fixes; frontend CI remains part of the regression gate.
+
+- **2026-07-13:** No frontend files changed for the IELTS browser-policy, function-default, or database role-probe follow-up; frontend CI remains part of the regression gate.
+
+- **2026-07-12:** No frontend files changed for the PR-48A runtime-membership and DML-grant review fixes; frontend CI remains part of the regression gate.
+
+- **2026-07-12:** No frontend files changed for PR-48A; the work is isolated to backend runtime roles, database migration/CI setup, security tests, and database documentation.
+
 - **2026-07-12:** No frontend files changed for the null-safe homepage baseline validation repair; the follow-up is isolated to forward backend migration SQL, its rolled-back database regression, and this progress record.
 - **2026-07-12:** No frontend files changed for the intervening-publish homepage baseline repair; the correction is isolated to forward backend migration SQL, rolled-back database coverage, and this progress record.
 - **2026-07-12:** No frontend files changed for the custom-stat-aware homepage baseline repair or database-test concurrency hardening; the follow-up is isolated to backend migration SQL, database tests, and this progress record.
 - **2026-07-12:** No frontend files changed for the legacy keyless homepage baseline repair; the correction is isolated to a forward backend migration, its rolled-back database regression, and this progress record.
 - **2026-07-12:** No frontend files changed for PR-48 migration-history restoration and rollback-source indexing; the work is isolated to backend migrations, Prisma schema/tests, hosted verification, and this progress record.
+- **2026-07-12:** No frontend files changed while documenting the PR-48 database-hardening follow-ups; the update is limited to the implementation backlog and progress record.
 - **2026-07-11:** No frontend files changed for the CMS page-write permission repair; the fix is isolated to backend migration grants, regression coverage, and this progress record.
 - **2026-07-11:** No frontend files changed for the hosted CMS migration reconciliation; the upgrade is isolated to backend migration SQL, its regression test, and this progress record.
 - **2026-07-11:** No frontend files changed for CMS database-default alignment; the correction is isolated to backend migrations, their regression coverage, and this progress record.

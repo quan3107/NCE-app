@@ -136,6 +136,10 @@ const envSchema = z
       .default("development"),
     PORT: z.coerce.number().int().positive().default(4000),
     DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+    JOB_DATABASE_URL: z
+      .string()
+      .min(1, "JOB_DATABASE_URL is required")
+      .optional(),
     JWT_PRIVATE_KEY_PATH: z
       .string()
       .min(1, "JWT_PRIVATE_KEY_PATH is required"),
@@ -235,6 +239,13 @@ const envSchema = z
         message: "CORS_ALLOWED_ORIGINS must list at least one origin in production",
       });
     }
+    if (env.NODE_ENV === "production" && !env.JOB_DATABASE_URL) {
+      context.addIssue({
+        code: "custom",
+        path: ["JOB_DATABASE_URL"],
+        message: "JOB_DATABASE_URL is required in production",
+      });
+    }
     if (
       env.NODE_ENV === "production" &&
       typeof process.env.NCE_ASSET_ROOT !== "string"
@@ -265,6 +276,8 @@ const envConfig = {
   nodeEnv: parseResult.data.NODE_ENV,
   port: parseResult.data.PORT,
   databaseUrl: parseResult.data.DATABASE_URL,
+  jobDatabaseUrl:
+    parseResult.data.JOB_DATABASE_URL ?? parseResult.data.DATABASE_URL,
   jwt: {
     privateKeyPath: parseResult.data.JWT_PRIVATE_KEY_PATH,
     publicKeyPath: parseResult.data.JWT_PUBLIC_KEY_PATH,

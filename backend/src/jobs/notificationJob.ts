@@ -12,17 +12,24 @@ import {
   NOTIFICATION_JOB_NAMES,
 } from "./notificationHandlers.js";
 import { handleDeliverQueuedJob } from "./notificationDelivery.js";
+import { withServiceRoleJobHandler } from "./serviceRoleJobHandler.js";
 
 export async function registerNotificationJobs(boss: PgBoss): Promise<void> {
   await boss.createQueue(NOTIFICATION_JOB_NAMES.dueSoon);
   await boss.createQueue(NOTIFICATION_JOB_NAMES.weeklyDigest);
   await boss.createQueue(NOTIFICATION_JOB_NAMES.deliverQueued);
 
-  await boss.work(NOTIFICATION_JOB_NAMES.dueSoon, handleDueSoonJob);
-  await boss.work(NOTIFICATION_JOB_NAMES.weeklyDigest, handleWeeklyDigestJob);
+  await boss.work(
+    NOTIFICATION_JOB_NAMES.dueSoon,
+    withServiceRoleJobHandler(handleDueSoonJob),
+  );
+  await boss.work(
+    NOTIFICATION_JOB_NAMES.weeklyDigest,
+    withServiceRoleJobHandler(handleWeeklyDigestJob),
+  );
   await boss.work(
     NOTIFICATION_JOB_NAMES.deliverQueued,
-    handleDeliverQueuedJob,
+    withServiceRoleJobHandler(handleDeliverQueuedJob),
   );
 
   await boss.schedule(NOTIFICATION_JOB_NAMES.dueSoon, "0 * * * *");

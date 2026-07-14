@@ -14,7 +14,7 @@ import { AUTH_ERROR, createAuthError, isUniqueConstraintError } from './auth.err
 import { generateRefreshToken } from './auth.crypto.js'
 import { authRateLimiter } from './auth.rate-limit.js'
 import { persistSession } from './auth.sessions.js'
-import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
+import { writeAuthAuditLogSafely } from './auth.audit.js'
 import {
   assertActiveUser,
   assertUserIsActive,
@@ -124,7 +124,7 @@ export async function handlePasswordLogin(
 
   authRateLimiter.recordPasswordLoginSuccess(loginAttempt)
 
-  await writeAuditLogSafely({
+  await writeAuthAuditLogSafely({
     actorId: user.id,
     action: 'auth.login_succeeded',
     entity: 'auth_session',
@@ -206,7 +206,7 @@ export async function handleRegisterAccount(
   )
 
   if (userRecord.status === UserStatus.pending) {
-    await writeAuditLogSafely({
+    await writeAuthAuditLogSafely({
       actorId: userRecord.id,
       action: 'auth.registered',
       entity: 'user',
@@ -237,7 +237,7 @@ export async function handleRegisterAccount(
     status: userRecord.status,
   })
 
-  await writeAuditLogSafely({
+  await writeAuthAuditLogSafely({
     actorId: userRecord.id,
     action: 'auth.registered',
     entity: 'user',

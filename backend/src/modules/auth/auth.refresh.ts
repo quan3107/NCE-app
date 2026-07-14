@@ -16,7 +16,7 @@ import {
 import { assertActiveUser, toAuthenticatedUser } from './auth.users.js'
 import { signAccessToken } from './auth.tokens.js'
 import type { AuthSessionResult, SessionContext } from './auth.types.js'
-import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
+import { writeAuthAuditLogSafely } from './auth.audit.js'
 
 const invalidRefreshTokenError = () =>
   createAuthError(401, 'Refresh token is invalid or expired.')
@@ -139,7 +139,7 @@ export async function handleSessionRefresh(
     status: user.status,
   })
 
-  await writeAuditLogSafely({
+  await writeAuthAuditLogSafely({
     actorId: user.id,
     action: 'auth.session_refreshed',
     entity: 'auth_session',
@@ -218,7 +218,7 @@ export async function handleLogout(
     return
   }
 
-  await writeAuditLogSafely({
+  await writeAuthAuditLogSafely({
     actorId: revokedSession.userId,
     action: 'auth.session_revoked',
     entity: 'auth_session',

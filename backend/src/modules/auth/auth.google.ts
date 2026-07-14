@@ -19,7 +19,7 @@ import {
 import { fetchGoogleProfile } from './auth.google.profile.js'
 import { findOrCreateGoogleIdentity } from './auth.google.identity.js'
 import type { AuthSessionResult, SessionContext } from './auth.types.js'
-import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
+import { writeAuthAuditLogSafely } from './auth.audit.js'
 
 type CompleteGoogleAuthorizationOptions = {
   redirectUri: string
@@ -99,7 +99,7 @@ export async function completeGoogleAuthorization(
     status: finalUser.status,
   })
 
-  await writeAuditLogSafely({
+  await writeAuthAuditLogSafely({
     actorId: finalUser.id,
     action: 'auth.google_login_succeeded',
     entity: 'auth_session',

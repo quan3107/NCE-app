@@ -4,7 +4,7 @@
  * Why: Health checks, startup guards, and deploy verification all need one consistent rule.
  */
 
-import { prisma } from "../../prisma/client.js";
+import { prisma, runWithRole } from "../../prisma/client.js";
 
 export type IeltsConfigReadinessCounts = {
   versions: number;
@@ -41,7 +41,7 @@ function emptyCounts(): IeltsConfigReadinessCounts {
 /**
  * Read the minimum set of rows required for IELTS authoring endpoints to work.
  */
-export async function getIeltsConfigReadinessReport(): Promise<IeltsConfigReadinessReport> {
+async function readIeltsConfigReadinessReport(): Promise<IeltsConfigReadinessReport> {
   const versions = await prisma.ieltsConfigVersion.findMany({
     where: { isActive: true },
     select: { version: true },
@@ -102,4 +102,8 @@ export async function getIeltsConfigReadinessReport(): Promise<IeltsConfigReadin
     activeVersion,
     counts,
   };
+}
+
+export async function getIeltsConfigReadinessReport(): Promise<IeltsConfigReadinessReport> {
+  return runWithRole({ role: "nce_app_anon" }, readIeltsConfigReadinessReport);
 }

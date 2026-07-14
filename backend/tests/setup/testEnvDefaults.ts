@@ -7,7 +7,7 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.NODE_ENV = 'test'
   process.env.DATABASE_URL ??=
     'postgres://test_user:test_password@localhost:5432/nce_test'
-  process.env.DIRECT_URL ??= process.env.DATABASE_URL
+  process.env.JOB_DATABASE_URL ??= process.env.DATABASE_URL
   process.env.JWT_PRIVATE_KEY_PATH ??= 'tests/runtime/generated-jwt-private.pem'
   process.env.JWT_PUBLIC_KEY_PATH ??= 'tests/runtime/generated-jwt-public.pem'
   process.env.GOOGLE_CLIENT_ID ??= 'test-google-client-id'
@@ -16,8 +16,7 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.BREVO_API_KEY ??= 'test-brevo-api-key'
   process.env.BREVO_SENDER_NAME ??= 'NCE Test Mailer'
   process.env.BREVO_SENDER_EMAIL ??= 'noreply.test@example.com'
-  process.env.CORS_ALLOWED_ORIGINS ??=
-    'http://localhost:5173,http://127.0.0.1:5173'
+  process.env.CORS_ALLOWED_ORIGINS ??= 'http://localhost:5173,http://127.0.0.1:5173'
   process.env.AUTH_PASSWORD_LOGIN_MAX_FAILURES ??= '3'
   process.env.AUTH_PASSWORD_LOGIN_WINDOW_MS ??= '60000'
   process.env.AUTH_PASSWORD_LOGIN_LOCKOUT_MS ??= '60000'
@@ -47,5 +46,6 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.AI_PREMIUM_REASONING_EFFORT ??= 'high'
   process.env.AI_PREMIUM_SUPPORTS_IMAGE_INPUT ??= 'true'
   process.env.AI_IMAGE_MAX_BYTES ??= '20971520'
-  process.env.AI_IMAGE_SUPPORTED_MIME_TYPES ??= 'image/png,image/jpeg,image/webp,image/gif'
+  process.env.AI_IMAGE_SUPPORTED_MIME_TYPES ??=
+    'image/png,image/jpeg,image/webp,image/gif'
 }

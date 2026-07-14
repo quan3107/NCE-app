@@ -17,6 +17,7 @@ import {
   softDeleteExpiredAuthSessionsInBatches,
   type CleanupBatchLimits,
 } from "./cleanupRetentionBatches.js";
+import { withServiceRoleJobHandler } from "./serviceRoleJobHandler.js";
 
 export const CLEANUP_JOB_NAME = "cleanup.retention";
 const CLEANUP_JOB_CRON = "17 3 * * *";
@@ -265,7 +266,10 @@ export async function handleCleanupJob(
 
 export async function registerCleanupJobs(boss: PgBoss): Promise<void> {
   await boss.createQueue(CLEANUP_JOB_NAME);
-  await boss.work(CLEANUP_JOB_NAME, handleCleanupJob);
+  await boss.work(
+    CLEANUP_JOB_NAME,
+    withServiceRoleJobHandler(handleCleanupJob),
+  );
   await boss.schedule(CLEANUP_JOB_NAME, CLEANUP_JOB_CRON);
 
   logger.info("Cleanup jobs registered");
