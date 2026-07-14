@@ -268,7 +268,7 @@ bootstrap sequence documented above.
 Production needs:
 
 - Node.js 20+ for the backend runtime;
-- PostgreSQL with migrations applied through `npx prisma migrate deploy --config prisma.config.ts`;
+- PostgreSQL with migrations applied through the owner-scoped `npm --prefix backend run prisma:deploy` command during the coordinated rollout in `docs/supabase-data-api-runtime-boundary.md`;
 - the committed forward migrations provision missing Contact CMS content, CMS admin permission/navigation, baseline revisions, and ancestor-aware CMS RLS without running production seed scripts or replacing managed rows;
 - Supabase roles `anon`, `authenticated`, and `service_role`, dedicated logins `nce_runtime` and `nce_job_runner`, plus non-login backend roles `nce_app_anon` and `nce_app_authenticated`;
 - the PR-48A rollout and rolled-back role probes in `docs/supabase-data-api-runtime-boundary.md`;

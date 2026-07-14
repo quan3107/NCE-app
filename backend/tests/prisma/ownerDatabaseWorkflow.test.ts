@@ -85,6 +85,10 @@ describe('owner-only database workflow', () => {
     )
     expect(rootReadme).toContain('`verify:ielts-config` reads the runtime `DATABASE_URL`')
     expect(rootReadme).toContain('does not require `DIRECT_URL`')
+    expect(rootReadme).toContain('npm --prefix backend run prisma:deploy')
+    expect(rootReadme).not.toContain(
+      'npx prisma migrate deploy --config prisma.config.ts',
+    )
     expect(ciWorkflow).toContain('- name: Seed backend CMS test content')
     expect(ciWorkflow).toContain('CREATE ROLE authenticator NOLOGIN')
     expect(ciWorkflow).not.toMatch(
