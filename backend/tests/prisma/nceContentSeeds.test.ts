@@ -84,7 +84,9 @@ describe('NCE Prisma schema', () => {
     )
 
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS course_id')
-    expect(migration).toContain('DROP CONSTRAINT IF EXISTS nce_lessons_unit_id_lesson_number_key')
+    expect(migration).toContain(
+      'DROP CONSTRAINT IF EXISTS nce_lessons_unit_id_lesson_number_key',
+    )
     expect(migration).toContain('nce_lessons_global_unit_number_key')
     expect(migration).toContain('WHERE course_id IS NULL')
     expect(migration).toContain('nce_lessons_course_unit_number_key')
@@ -97,7 +99,9 @@ describe('NCE Prisma schema', () => {
     expect(migration).toContain('nce_lessons_select_published_course_members')
     expect(migration).toContain('nce_objectives_select_published_course_members')
     expect(migration).toContain('nce_exercises_select_published_course_members')
-    expect(migration).toContain("current_setting('app.current_user_role', true) = 'admin'")
+    expect(migration).toContain(
+      "current_setting('app.current_user_role', true) = 'admin'",
+    )
     expect(migration).toContain('course.owner_teacher_id = NULLIF')
     expect(migration).toContain('assignment.course_id = nce_lessons.course_id')
     expect(migration).toContain('assignment.course_id = lesson.course_id')
@@ -167,7 +171,7 @@ describe('NCE seed fixtures', () => {
     const nceSeed = readBackend('src/prisma/seeds/nceContent.seed.ts')
 
     expect(packageJson.scripts['seed:nce-content']).toBe(
-      'tsx src/prisma/seedNceContent.ts',
+      'tsx scripts/runOwnerJob.ts tsx src/prisma/seedNceContent.ts',
     )
     expect(demoSeed).not.toContain('seedNceContent')
     expect(nceSeed).toContain('nceCourseLessonAssignment.deleteMany')
