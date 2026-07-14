@@ -92,9 +92,9 @@ revokes, while the new application requires roles the preparation migration adds
    join pg_catalog.pg_roles granted on granted.oid = membership.roleid
    join pg_catalog.pg_roles member on member.oid = membership.member
    join pg_catalog.pg_roles grantor on grantor.oid = membership.grantor
-   where granted.rolname = 'service_role'
-     and member.rolname in ('postgres', 'nce_runtime')
-   order by member.rolname, grantor.rolname;
+   where (granted.rolname = 'service_role' and member.rolname = 'postgres')
+      or member.rolname = 'nce_runtime'
+   order by member.rolname, granted.rolname, grantor.rolname;
    ```
 
 3. Still connected as `postgres`, create fresh runtime and worker logins with
@@ -215,6 +215,28 @@ begin
   if current_user <> 'nce_runtime' then
     raise exception 'probe must use the dedicated runtime login';
   end if;
+  if (
+    select count(*)
+    from pg_auth_members membership
+    join pg_roles member on member.oid = membership.member
+    where member.rolname = 'nce_runtime'
+  ) <> 3 or (
+    select count(*)
+    from pg_auth_members membership
+    join pg_roles granted on granted.oid = membership.roleid
+    join pg_roles member on member.oid = membership.member
+    join pg_roles grantor on grantor.oid = membership.grantor
+    where member.rolname = 'nce_runtime'
+      and granted.rolname in (
+        'nce_app_anon', 'nce_app_authenticated', 'service_role'
+      )
+      and grantor.rolname = 'postgres'
+      and not membership.admin_option
+      and not membership.inherit_option
+      and membership.set_option
+  ) <> 3 then
+    raise exception 'runtime memberships differ from the reviewed set';
+  end if;
   if not pg_has_role(current_user, 'service_role', 'SET') or
      pg_has_role(current_user, 'service_role', 'USAGE') or
      pg_has_role(current_user, 'service_role', 'MEMBER WITH ADMIN OPTION') then
@@ -263,5 +285,7 @@ subtransaction, so every later role probe still runs. Unexpected access raises a
 different exception and fails the probe. Also verify `authenticator` has no
 membership in either backend role and that `anon`/`authenticated` have no
 privileges on private tables, columns, or sequences. The migration's catalog
-check rejects any unexpected `service_role -> nce_runtime` grantor or membership
-options before changing application grants.
+check validates its required grants before changing application privileges. The
+post-migration probe requires exactly three reviewed SET-only memberships for
+`nce_runtime`, all granted by `postgres`, and rejects every extra role, grantor,
+or option while leaving Supabase-managed and request-role owner rows unchanged.
