@@ -119,6 +119,7 @@ npm run pgboss:install
 npm run prisma:migrate
 npm run prisma:status
 npm run prisma:checksums:database
+npm run prisma:checksums:database:exact
 npm run prisma:diff
 npm run prisma:diff:reverse
 npm run seed:ielts-config
@@ -225,26 +226,28 @@ Frontend commands, from `frontend/`:
 
 Backend commands, from `backend/`:
 
-| Command                       | Purpose                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `npm run dev`                 | Start the Express API with `tsx watch`.                                  |
-| `npm run build`               | Generate Prisma and compile TypeScript.                                  |
-| `npm start`                   | Run `dist/server.js`.                                                    |
-| `npm run lint`                | Run ESLint.                                                              |
-| `npm test`                    | Generate Prisma and run Vitest with `NODE_ENV=test`.                     |
-| `npm run test:coverage`       | Run backend tests with coverage.                                         |
-| `npm run pgboss:install`      | Install or upgrade pg-boss through the owner-only `.env.local` launcher. |
-| `npm run prisma:migrate`      | Apply local development migrations through the owner-only launcher.      |
-| `npm run prisma:status`       | Check migration status through the owner-only launcher.                  |
-| `npm run prisma:deploy`       | Deploy pending migrations through the owner-only launcher.               |
-| `npm run prisma:diff`         | Compare Prisma schema and database through the owner-only launcher.      |
-| `npm run prisma:diff:reverse` | Compare the database back to Prisma through the owner-only launcher.     |
-| `npm run prisma:checksums`    | Verify LF-normalized migration history against the committed manifest.   |
-| `npm run seed:ielts-config`   | Seed IELTS reference data required at startup.                           |
-| `npm run seed:cms`            | Seed Homepage, About, and Contact CMS content.                           |
-| `npm run seed:navigation`     | Seed permissions, navigation, and feature flags.                         |
-| `npm run seed`                | Reset and seed representative local app data.                            |
-| `npm run verify:ielts-config` | Check the active IELTS config through the runtime `DATABASE_URL`.        |
+| Command                                   | Purpose                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| `npm run dev`                             | Start the Express API with `tsx watch`.                                  |
+| `npm run build`                           | Generate Prisma and compile TypeScript.                                  |
+| `npm start`                               | Run `dist/server.js`.                                                    |
+| `npm run lint`                            | Run ESLint.                                                              |
+| `npm test`                                | Generate Prisma and run Vitest with `NODE_ENV=test`.                     |
+| `npm run test:coverage`                   | Run backend tests with coverage.                                         |
+| `npm run pgboss:install`                  | Install or upgrade pg-boss through the owner-only `.env.local` launcher. |
+| `npm run prisma:migrate`                  | Apply local development migrations through the owner-only launcher.      |
+| `npm run prisma:status`                   | Check migration status through the owner-only launcher.                  |
+| `npm run prisma:deploy`                   | Deploy pending migrations through the owner-only launcher.               |
+| `npm run prisma:diff`                     | Compare Prisma schema and database through the owner-only launcher.      |
+| `npm run prisma:diff:reverse`             | Compare the database back to Prisma through the owner-only launcher.     |
+| `npm run prisma:checksums`                | Verify LF-normalized migration history against the committed manifest.   |
+| `npm run prisma:checksums:database`       | Verify deployed checksums while allowing trailing pending migrations.    |
+| `npm run prisma:checksums:database:exact` | Require deployed and repository migration history to converge exactly.   |
+| `npm run seed:ielts-config`               | Seed IELTS reference data required at startup.                           |
+| `npm run seed:cms`                        | Seed Homepage, About, and Contact CMS content.                           |
+| `npm run seed:navigation`                 | Seed permissions, navigation, and feature flags.                         |
+| `npm run seed`                            | Reset and seed representative local app data.                            |
+| `npm run verify:ielts-config`             | Check the active IELTS config through the runtime `DATABASE_URL`.        |
 
 ## Testing
 

@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { Client } from 'pg'
 
@@ -99,19 +100,47 @@ function verifyBaseHistory(baseRef: string): void {
   }
 }
 
-function databaseSsl(connectionString: string): false | { rejectUnauthorized: false } {
-  const host = new URL(connectionString).hostname
-  return host === 'localhost' || host === '127.0.0.1'
-    ? false
-    : { rejectUnauthorized: false }
+export function databaseSsl(
+  connectionString: string,
+  certificateAuthority?: string,
+): false | undefined | { ca: string; rejectUnauthorized: true } {
+  const url = new URL(connectionString)
+  if (['localhost', '127.0.0.1', '::1'].includes(url.hostname)) return false
+
+  const sslMode = url.searchParams.get('sslmode')
+  const urlSslOptions = ['ssl', 'sslmode', 'sslcert', 'sslkey', 'sslrootcert'].filter(
+    (option) => url.searchParams.has(option),
+  )
+
+  if (certificateAuthority && urlSslOptions.length > 0) {
+    throw new Error(
+      'Do not combine DIRECT_DATABASE_CA_CERT_PATH with URL-level SSL options.',
+    )
+  }
+
+  if (certificateAuthority) {
+    return { ca: certificateAuthority, rejectUnauthorized: true }
+  }
+
+  // The alternative URL contract lets pg-connection-string load the CA while
+  // verify-full keeps Node's default hostname verification enabled.
+  if (sslMode === 'verify-full' && url.searchParams.has('sslrootcert')) {
+    return undefined
+  }
+  throw new Error('Remote checksum verification requires DIRECT_DATABASE_CA_CERT_PATH.')
 }
 
 async function loadDeployedMigrations(
   connectionString: string,
 ): Promise<DeployedMigration[]> {
+  const certificatePath = process.env.DIRECT_DATABASE_CA_CERT_PATH
+  const certificateAuthority = certificatePath
+    ? await readFile(path.resolve(certificatePath), 'utf8')
+    : undefined
+  const ssl = databaseSsl(connectionString, certificateAuthority)
   const client = new Client({
     connectionString,
-    ssl: databaseSsl(connectionString),
+    ...(ssl === undefined ? {} : { ssl }),
   })
   await client.connect()
   try {
@@ -127,16 +156,11 @@ async function loadDeployedMigrations(
   }
 }
 
-function verifyDeployedChecksums(
+export function verifyDeployedChecksums(
   deployed: DeployedMigration[],
   migrations: Map<string, Buffer>,
+  requireExact: boolean,
 ): void {
-  if (deployed.length !== migrations.size) {
-    throw new Error(
-      `Database has ${deployed.length} applied migrations; repository has ${migrations.size}.`,
-    )
-  }
-
   for (const row of deployed) {
     const bytes = migrations.get(row.migration_name)
     if (!bytes) throw new Error(`Database has unknown migration: ${row.migration_name}`)
@@ -152,6 +176,21 @@ function verifyDeployedChecksums(
       throw new Error(`Deployed migration checksum differs: ${row.migration_name}`)
     }
   }
+
+  const repositoryNames = [...migrations.keys()].sort()
+  const deployedNames = deployed.map((row) => row.migration_name).sort()
+  const expectedPrefix = repositoryNames.slice(0, deployedNames.length)
+  if (JSON.stringify(deployedNames) !== JSON.stringify(expectedPrefix)) {
+    throw new Error(
+      'Deployed migration history is not a complete prefix of repository history.',
+    )
+  }
+
+  if (requireExact && deployed.length !== migrations.size) {
+    throw new Error(
+      `Exact mode requires exactly ${migrations.size} applied migrations; database has ${deployed.length}.`,
+    )
+  }
 }
 
 async function main(): Promise<void> {
@@ -166,13 +205,23 @@ async function main(): Promise<void> {
     verifyBaseHistory(baseRef)
   }
 
-  if (process.argv.includes('--database')) {
+  const exactDatabase = process.argv.includes('--database-exact')
+  if (process.argv.includes('--database') || exactDatabase) {
     const connectionString = process.env.DIRECT_URL
-    if (!connectionString) throw new Error('DIRECT_URL is required with --database.')
-    verifyDeployedChecksums(await loadDeployedMigrations(connectionString), migrations)
+    if (!connectionString) {
+      throw new Error('DIRECT_URL is required with a database checksum mode.')
+    }
+    verifyDeployedChecksums(
+      await loadDeployedMigrations(connectionString),
+      migrations,
+      exactDatabase,
+    )
   }
 
   console.log(`Verified ${migrations.size} normalized migration checksums.`)
 }
 
-await main()
+const entrypoint = process.argv[1]
+if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
+  await main()
+}

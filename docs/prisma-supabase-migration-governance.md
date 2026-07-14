@@ -42,9 +42,12 @@ boundary and may replace valid constraints only to change representation.
 `.gitattributes` checks out migration SQL with LF endings. The committed
 `applied-migration-checksums.json` records SHA-256 after LF normalization.
 `npm run prisma:checksums` compares repository files with that manifest.
-`npm run prisma:checksums:database` additionally accepts the exact deployed
-bytes plus LF/CRLF variants, which accounts for historical Windows checkouts
-without allowing SQL content changes.
+`npm run prisma:checksums:database` validates every deployed migration and
+allows only trailing repository migrations that are pending deployment.
+`npm run prisma:checksums:database:exact` additionally requires both histories
+to contain the same migrations. Both accept exact deployed bytes plus LF/CRLF
+variants, which accounts for historical Windows checkouts without allowing SQL
+content changes.
 
 When a deployed checksum does not match those variants, stop. Restore the file
 from the deployed source or repository history. Put every correction in a new
@@ -58,6 +61,14 @@ forward migration. Never update `_prisma_migrations.checksum` to conceal drift.
 - `DIRECT_URL` is deployment-only and authenticates as the `postgres` owner.
   Use the direct/session pooler on port `5432` for Prisma migrations. Do not use
   transaction-pooling port `6543` for migrations, advisory locks, or DDL.
+- `DIRECT_DATABASE_CA_CERT_PATH` points to the project Server root certificate
+  downloaded from the dashboard's SSL Configuration panel. Remote checksum
+  verification requires this CA and Node's default hostname verification; keep
+  URL-level SSL parameters out of `DIRECT_URL` in this mode. Alternatively, put
+  both `sslmode=verify-full` and `sslrootcert` in the URL and leave the variable
+  unset. Non-verifying modes are rejected. Supabase recommends `verify-full`
+  with the project CA:
+  <https://supabase.com/docs/guides/platform/ssl-enforcement>.
 - Never provide `DIRECT_URL` to the long-running backend or print any URL.
 
 ## Pre-deploy backup and lock review
@@ -65,7 +76,9 @@ forward migration. Never update `_prisma_migrations.checksum` to conceal drift.
 1. Take a Supabase PITR/manual backup or a tested logical backup before DDL.
    Record its time and restore target outside the repository; do not commit data.
 2. Confirm no migration is failed or pending unexpectedly with
-   `npm run prisma:status` and `npm run prisma:checksums:database`.
+   `npm run prisma:status`. Run `npm run prisma:checksums:database` to verify
+   every deployed migration while allowing only trailing repository migrations
+   that are awaiting deployment.
 3. Run the null, orphan, duplicate, invalid-index, unvalidated-constraint, CMS
    revision, rollback-source, and publication-version queries below.
 4. Review table sizes and active sessions for every `ALTER TABLE` target. The
@@ -127,7 +140,7 @@ npm --prefix backend run prisma:checksums:database
 npm --prefix backend run prisma:status
 npm --prefix backend run prisma:deploy
 npm --prefix backend run prisma:status
-npm --prefix backend run prisma:checksums:database
+npm --prefix backend run prisma:checksums:database:exact
 npm --prefix backend run prisma:diff
 npm --prefix backend run prisma:diff:reverse
 ```
@@ -139,7 +152,7 @@ indexes; do not remove an index solely because a low-traffic advisor marks it
 unused.
 
 CI starts PostgreSQL 17 from empty, creates required roles, replays all Prisma
-migrations, checks every normalized/deployed checksum, checks both diff
+migrations, requires exact normalized/deployed checksum convergence, checks both diff
 directions, rejects any modification/deletion/rename of migration SQL already in
 the Git base, and runs the database-only/integrity probe. Only a newly added
 forward migration is accepted.

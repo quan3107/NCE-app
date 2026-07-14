@@ -22,6 +22,37 @@ END
 $$;
 
 DO $$
+DECLARE
+  missing_initial_detected boolean;
+  valid_sequence_rejected boolean;
+BEGIN
+  WITH revision_order AS (
+    SELECT revision_number,
+      row_number() OVER (ORDER BY revision_number) AS expected_revision
+    FROM unnest(ARRAY[2, 3]) AS revision_number
+  )
+  SELECT EXISTS (
+    SELECT 1 FROM revision_order
+    WHERE revision_number <> expected_revision
+  ) INTO missing_initial_detected;
+
+  WITH revision_order AS (
+    SELECT revision_number,
+      row_number() OVER (ORDER BY revision_number) AS expected_revision
+    FROM unnest(ARRAY[1, 2, 3]) AS revision_number
+  )
+  SELECT EXISTS (
+    SELECT 1 FROM revision_order
+    WHERE revision_number <> expected_revision
+  ) INTO valid_sequence_rejected;
+
+  IF NOT missing_initial_detected OR valid_sequence_rejected THEN
+    RAISE EXCEPTION 'CMS revision-contiguity probe regression';
+  END IF;
+END
+$$;
+
+DO $$
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -101,13 +132,12 @@ BEGIN
     SELECT 1
     FROM (
       SELECT page_id, revision_number,
-        lag(revision_number) OVER (
+        row_number() OVER (
           PARTITION BY page_id ORDER BY revision_number
-        ) AS previous_revision
+        ) AS expected_revision
       FROM public.cms_page_revisions
     ) revision_order
-    WHERE previous_revision IS NOT NULL
-      AND revision_number <> previous_revision + 1
+    WHERE revision_number <> expected_revision
   ) THEN
     RAISE EXCEPTION 'CMS revision history contains a gap';
   END IF;

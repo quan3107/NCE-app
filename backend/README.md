@@ -32,8 +32,11 @@ npm start
 ## Database Verification
 
 Copy `.env.local.example` to the gitignored `.env.local` and set its owner-only
-`DIRECT_URL`. The `prisma:status`, `prisma:migrate`, `prisma:deploy`,
+`DIRECT_URL`. For hosted checksum verification, also set
+`DIRECT_DATABASE_CA_CERT_PATH` to the project Server root certificate downloaded
+from Supabase Database Settings. The `prisma:status`, `prisma:migrate`, `prisma:deploy`,
 `prisma:diff`, `prisma:diff:reverse`, `prisma:checksums:database`,
+`prisma:checksums:database:exact`,
 `pgboss:install`, and seed scripts load that file only inside a
 short-lived child process. Raw Prisma migration commands fail when `DIRECT_URL`
 is absent instead of silently using the `nce_runtime` URL from `.env`.

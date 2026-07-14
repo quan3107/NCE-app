@@ -40,6 +40,9 @@ describe('schema and migration governance', () => {
 
     expect(packageJson.scripts['prisma:checksums']).toContain('verifyMigrationChecksums')
     expect(packageJson.scripts['prisma:checksums:database']).toContain('--database')
+    expect(packageJson.scripts['prisma:checksums:database:exact']).toContain(
+      '--database-exact',
+    )
     expect(packageJson.scripts['prisma:diff']).toContain('--from-schema')
     expect(packageJson.scripts['prisma:diff:reverse']).toContain(
       '--from-config-datasource',
@@ -88,8 +91,21 @@ describe('schema and migration governance', () => {
     expect(workflow).toContain('npm run prisma:checksums:database')
     expect(workflow).toContain('fetch-depth: 0')
     expect(workflow).toContain('npm run prisma:checksums -- --git-base')
+    expect(workflow).toContain('github.event.repository.default_branch')
+    expect(workflow).not.toContain("if: github.event_name != 'workflow_dispatch'")
+    expect(workflow).toContain('npm run prisma:checksums:database:exact')
     expect(workflow).toContain('npm run prisma:diff:reverse')
     expect(workflow).toContain('schemaGovernance.probe.sql')
+  })
+
+  it('proves CMS revision history starts at one and remains contiguous', async () => {
+    const probe = await readRepositoryFile(
+      'backend/tests/prisma/schemaGovernance.probe.sql',
+    )
+
+    expect(probe).toContain('ARRAY[2, 3]')
+    expect(probe).toContain('ARRAY[1, 2, 3]')
+    expect(probe).toContain('revision_number <> expected_revision')
   })
 
   it('documents the single-owner workflow and safe recovery procedure', async () => {

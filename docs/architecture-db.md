@@ -30,9 +30,14 @@ npm --prefix backend run prisma:generate
 npm --prefix backend run prisma:checksums:database
 npm --prefix backend run prisma:status
 npm --prefix backend run prisma:deploy
+npm --prefix backend run prisma:checksums:database:exact
 npm --prefix backend run prisma:diff
 npm --prefix backend run prisma:diff:reverse
 ```
+
+The first database checksum command is the pre-deploy mode: it permits only
+trailing repository migrations that are not deployed yet. The `:exact` command
+is the post-deploy/CI mode and requires both histories to converge.
 
 For `prisma migrate diff --exit-code`, exit code `0` means Prisma found no
 schema diff. Exit code `2` means drift exists. Review drift before applying more
