@@ -118,6 +118,9 @@ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
     CREATE ROLE service_role NOLOGIN BYPASSRLS;
   END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator') THEN
+    CREATE ROLE authenticator NOLOGIN;
+  END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_runtime') THEN
     CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime'
       NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
