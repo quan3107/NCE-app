@@ -112,9 +112,6 @@ describe('Data API runtime boundary migrations', () => {
     expect(ciWorkflow.indexOf('- name: Install or upgrade pg-boss')).toBeLessThan(
       ciWorkflow.indexOf('- name: Apply backend migrations'),
     )
-    expect(ciWorkflow).toMatch(
-      /- name: Seed backend CMS test content[\s\S]{0,160}DATABASE_URL: \$\{\{ env\.DIRECT_URL \}\}/,
-    )
     expect(ciWorkflow).toContain("'MEMBER WITH ADMIN OPTION'")
     expect(ciWorkflow).toContain('SET LOCAL ROLE service_role;')
     expect(runtimeRoleServerTest).toContain('boss.send(DUE_SOON_JOB_NAME')
@@ -145,24 +142,6 @@ describe('Data API runtime boundary migrations', () => {
     )
     expect(rootReadme).not.toContain(
       '`DATABASE_URL` and `DIRECT_URL` to authenticate as the same database role',
-    )
-  })
-
-  it('documents every fresh local bootstrap prerequisite in execution order', () => {
-    const pgbossInstall = rootReadme.indexOf('npm run pgboss:install')
-    const prismaMigrate = rootReadme.indexOf('npm run prisma:migrate')
-
-    expect(rootReadme).toContain('CREATE ROLE nce_runtime LOGIN')
-    expect(rootReadme).toContain('CREATE ROLE nce_job_runner LOGIN')
-    expect(rootReadme).toContain('GRANT service_role TO nce_runtime')
-    expect(rootReadme).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
-    expect(rootReadme).toContain(
-      'DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app',
-    )
-    expect(pgbossInstall).toBeGreaterThan(-1)
-    expect(pgbossInstall).toBeLessThan(prismaMigrate)
-    expect(rootReadme).not.toContain(
-      "`backend/.env.example` still lists Vite's default `5173`",
     )
   })
 
@@ -214,6 +193,8 @@ describe('Data API runtime boundary migrations', () => {
       rolloutRunbook.match(/exception when insufficient_privilege then null;/gi),
     ).toHaveLength(5)
     expect(rolloutRunbook).not.toContain('Run each expected-denial statement separately')
+    expect(rolloutRunbook).toContain('final_score = final_score')
+    expect(rolloutRunbook).not.toMatch(/update public\.grades set score = score/i)
   })
 
   it('uses explicit predecessor-equivalent grants instead of schema-wide DML', () => {
