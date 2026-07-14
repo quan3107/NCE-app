@@ -62,13 +62,17 @@ forward migration. Never update `_prisma_migrations.checksum` to conceal drift.
   Use the direct/session pooler on port `5432` for Prisma migrations. Do not use
   transaction-pooling port `6543` for migrations, advisory locks, or DDL.
 - `DIRECT_DATABASE_CA_CERT_PATH` points to the project Server root certificate
-  downloaded from the dashboard's SSL Configuration panel. Remote checksum
-  verification requires this CA and Node's default hostname verification; keep
-  URL-level SSL parameters out of `DIRECT_URL` in this mode. Alternatively, put
-  both `sslmode=verify-full` and `sslrootcert` in the URL and leave the variable
-  unset. Non-verifying modes are rejected. Supabase recommends `verify-full`
-  with the project CA:
-  <https://supabase.com/docs/guides/platform/ssl-enforcement>.
+  downloaded from the dashboard's SSL Configuration panel, using an absolute
+  path. Every remote owner command requires it. The launcher consumes the CA
+  setting and supplies consumer-specific authenticated TLS parameters: Prisma
+  receives `sslmode=require`, the root CA through `sslcert`, and
+  `sslaccept=strict`; node-postgres/tsx children receive `sslmode=verify-full`
+  plus `sslrootcert`. Keep all
+  URL-level SSL parameters out of `DIRECT_URL`; conflicting or weakening modes
+  are rejected. See the
+  [Prisma PostgreSQL TLS parameters](https://www.prisma.io/docs/orm/overview/databases/postgresql)
+  and Supabase's recommendation to use
+  [`verify-full` with the project CA](https://supabase.com/docs/guides/platform/ssl-enforcement).
 - Never provide `DIRECT_URL` to the long-running backend or print any URL.
 
 ## Pre-deploy backup and lock review

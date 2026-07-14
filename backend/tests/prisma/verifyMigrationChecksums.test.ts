@@ -70,6 +70,7 @@ describe('database SSL policy', () => {
   it('disables TLS only for loopback and verifies remote certificates', () => {
     expect(databaseSsl('postgresql://user:pass@localhost:5432/database')).toBe(false)
     expect(databaseSsl('postgresql://user:pass@127.0.0.1:5432/database')).toBe(false)
+    expect(databaseSsl('postgresql://user:pass@[::1]:5432/database')).toBe(false)
     expect(
       databaseSsl('postgresql://user:pass@db.example.com:5432/database', 'trusted-ca'),
     ).toEqual({ ca: 'trusted-ca', rejectUnauthorized: true })

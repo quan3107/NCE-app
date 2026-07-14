@@ -14,7 +14,9 @@ Before running migrations, identify the active database without printing
 credentials:
 
 Confirm `backend/.env` contains the runtime and worker URLs, while
-`backend/.env.local` contains only `DIRECT_URL`. Do not print either URL.
+`backend/.env.local` contains `DIRECT_URL` and, for hosted owner commands, the
+approved optional `DIRECT_DATABASE_CA_CERT_PATH`. Do not add arbitrary values
+or print either URL.
 
 `backend/.env.example` documents a localhost PostgreSQL database for local
 development. The working `backend/.env` in a developer checkout may point to a

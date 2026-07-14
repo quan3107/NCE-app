@@ -32,19 +32,23 @@ npm start
 ## Database Verification
 
 Copy `.env.local.example` to the gitignored `.env.local` and set its owner-only
-`DIRECT_URL`. For hosted checksum verification, also set
+`DIRECT_URL`. For every hosted owner command, also set
 `DIRECT_DATABASE_CA_CERT_PATH` to the project Server root certificate downloaded
-from Supabase Database Settings. The `prisma:status`, `prisma:migrate`, `prisma:deploy`,
+from Supabase Database Settings using an absolute path. The launcher converts
+the bare owner URL into a consumer-specific, CA-backed authenticated TLS URL.
+The `prisma:status`, `prisma:migrate`, `prisma:deploy`,
 `prisma:diff`, `prisma:diff:reverse`, `prisma:checksums:database`,
 `prisma:checksums:database:exact`,
 `pgboss:install`, and seed scripts load that file only inside a
 short-lived child process. Raw Prisma migration commands fail when `DIRECT_URL`
 is absent instead of silently using the `nce_runtime` URL from `.env`.
-The launcher forwards only these approved owner settings from `.env.local`;
-arbitrary local values are not copied into the child environment.
+The launcher consumes only these approved owner settings from `.env.local`;
+arbitrary local values are not copied into the child environment. Remote owner
+URLs with preconfigured or weakening SSL options are rejected.
 
 CI and deployment jobs may inject `DIRECT_URL` directly instead of creating
-`.env.local`. The launcher scopes it to owner-only Prisma, pg-boss installation,
+`.env.local`; remote jobs must inject `DIRECT_DATABASE_CA_CERT_PATH` with it.
+The launcher scopes these settings to owner-only Prisma, pg-boss installation,
 and seed processes. The running backend loads only `.env`, using the
 least-privilege `DATABASE_URL` plus a pgboss-only `JOB_DATABASE_URL`.
 

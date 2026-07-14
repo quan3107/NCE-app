@@ -67,8 +67,8 @@ cp backend/.env.example backend/.env
 cp backend/.env.local.example backend/.env.local
 ```
 
-Use dedicated runtime-role values in `backend/.env` and keep the owner URL only
-in the gitignored `backend/.env.local`. For the current Vite setup, make sure
+Use dedicated runtime-role values in `backend/.env` and keep the owner settings
+only in the gitignored `backend/.env.local`. For the current Vite setup, make sure
 CORS points at port `3000`:
 
 ```dotenv
@@ -78,11 +78,13 @@ GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
-`backend/.env.local` contains only the owner connection used by short-lived
-database jobs:
+`backend/.env.local` contains the approved owner settings used by short-lived
+database jobs. Localhost needs only the URL; hosted commands also require an
+absolute path to the project Server root certificate:
 
 ```dotenv
 DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
+# DIRECT_DATABASE_CA_CERT_PATH=/absolute/path/to/prod-ca-2021.crt
 ```
 
 `backend/.env.example` already uses the project's frontend port, `3000`.
@@ -106,8 +108,9 @@ the [local database role bootstrap](backend/README.md#local-database-role-bootst
 The boundary migrations then create and normalize the non-login `nce_app_*`
 request roles.
 
-The owner-only scripts below read `.env.local`, pass its URL only to their child
-process, and leave the long-running backend on `.env`. Raw Prisma migration
+The owner-only scripts below read `.env.local`, derive a consumer-specific
+authenticated TLS URL for every hosted child, and leave the long-running backend
+on `.env`. Raw Prisma migration
 commands fail clearly when `DIRECT_URL` is not explicitly scoped. Install
 pg-boss before Prisma checks its worker grants, then migrate and seed. The final
 `verify:ielts-config` reads the runtime `DATABASE_URL` and does not require `DIRECT_URL`:
@@ -204,8 +207,8 @@ The Prisma client applies request-scoped database context. Public requests run a
 Supabase Data API authenticator cannot assume. The production rollout uses the
 dedicated `nce_runtime` login for `DATABASE_URL` and the pgboss-only
 `nce_job_runner` login for `JOB_DATABASE_URL`. Provide the `postgres` owner URL
-as `DIRECT_URL` only to short-lived migration, pg-boss installation, and seed
-processes. The grantor-aware preflight and coordinated outage are documented in
+as `DIRECT_URL` and the hosted project CA path only to short-lived migration,
+pg-boss installation, and seed processes. The grantor-aware preflight and coordinated outage are documented in
 `docs/supabase-data-api-runtime-boundary.md`.
 Prisma owns application-schema migrations; checksum, replay, drift, backup, and
 recovery rules are documented in

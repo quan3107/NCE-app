@@ -12,6 +12,8 @@ import { pathToFileURL } from 'node:url'
 
 import { Client } from 'pg'
 
+import { databaseSslOptions, isLoopbackDatabaseUrl } from './databaseConnectionPolicy.js'
+
 type ChecksumManifest = {
   algorithm: 'sha256'
   lineEndings: 'lf'
@@ -105,11 +107,11 @@ export function databaseSsl(
   certificateAuthority?: string,
 ): false | undefined | { ca: string; rejectUnauthorized: true } {
   const url = new URL(connectionString)
-  if (['localhost', '127.0.0.1', '::1'].includes(url.hostname)) return false
+  if (isLoopbackDatabaseUrl(connectionString)) return false
 
   const sslMode = url.searchParams.get('sslmode')
-  const urlSslOptions = ['ssl', 'sslmode', 'sslcert', 'sslkey', 'sslrootcert'].filter(
-    (option) => url.searchParams.has(option),
+  const urlSslOptions = databaseSslOptions.filter((option) =>
+    url.searchParams.has(option),
   )
 
   if (certificateAuthority && urlSslOptions.length > 0) {
@@ -133,7 +135,7 @@ export function databaseSsl(
 async function loadDeployedMigrations(
   connectionString: string,
 ): Promise<DeployedMigration[]> {
-  if (['localhost', '127.0.0.1', '::1'].includes(new URL(connectionString).hostname)) {
+  if (isLoopbackDatabaseUrl(connectionString)) {
     return await queryDeployedMigrations(connectionString, false)
   }
 

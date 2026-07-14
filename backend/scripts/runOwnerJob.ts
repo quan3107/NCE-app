@@ -11,6 +11,11 @@ import { fileURLToPath } from 'node:url'
 
 import { parse } from 'dotenv'
 
+import {
+  assertUnconfiguredRemoteSsl,
+  isLoopbackDatabaseUrl,
+} from './databaseConnectionPolicy.js'
+
 const require = createRequire(import.meta.url)
 const scriptPath = fileURLToPath(import.meta.url)
 const backendDir = resolve(dirname(scriptPath), '..')
@@ -22,6 +27,8 @@ type OwnerConfig = {
   databaseUrl: string
   certificateAuthorityPath?: string
 }
+
+type OwnerTool = 'prisma' | 'tsx'
 
 export async function loadOwnerConfig(
   directory = backendDir,
@@ -76,15 +83,48 @@ export function buildOwnerJobEnvironment(
   inheritedEnvironment: OwnerEnvironment,
   ownerDatabaseUrl: string,
   certificateAuthorityPath?: string,
+  tool: OwnerTool = 'tsx',
 ): OwnerEnvironment {
+  const { DIRECT_DATABASE_CA_CERT_PATH: ignoredCertificatePath, ...childEnvironment } =
+    inheritedEnvironment
+  const connectionUrl = buildOwnerConnectionUrl(
+    ownerDatabaseUrl,
+    certificateAuthorityPath,
+    tool,
+  )
   return {
-    ...inheritedEnvironment,
-    DATABASE_URL: ownerDatabaseUrl,
-    DIRECT_URL: ownerDatabaseUrl,
-    ...(certificateAuthorityPath
-      ? { DIRECT_DATABASE_CA_CERT_PATH: certificateAuthorityPath }
-      : {}),
+    ...childEnvironment,
+    DATABASE_URL: connectionUrl,
+    DIRECT_URL: connectionUrl,
   }
+}
+
+export function buildOwnerConnectionUrl(
+  ownerDatabaseUrl: string,
+  certificateAuthorityPath: string | undefined,
+  tool: OwnerTool,
+): string {
+  if (isLoopbackDatabaseUrl(ownerDatabaseUrl)) return ownerDatabaseUrl
+
+  const url = new URL(ownerDatabaseUrl)
+  assertUnconfiguredRemoteSsl(url)
+  if (!certificateAuthorityPath) {
+    throw new Error(
+      'Remote owner jobs require DIRECT_DATABASE_CA_CERT_PATH for authenticated TLS.',
+    )
+  }
+
+  if (tool === 'prisma') {
+    // Prisma requires its strict flag in addition to requiring TLS and the root CA.
+    url.searchParams.set('sslcert', resolve(certificateAuthorityPath))
+    url.searchParams.set('sslmode', 'require')
+    url.searchParams.set('sslaccept', 'strict')
+  } else {
+    // node-postgres explicitly preserves CA and hostname verification in verify-full.
+    url.searchParams.set('sslrootcert', resolve(certificateAuthorityPath))
+    url.searchParams.set('sslmode', 'verify-full')
+  }
+  return url.toString()
 }
 
 function resolveToolEntrypoint(tool: string) {
@@ -109,6 +149,7 @@ export async function runOwnerJob(args = process.argv.slice(2)) {
     process.env,
     ownerConfig.databaseUrl,
     ownerConfig.certificateAuthorityPath,
+    tool as OwnerTool,
   )
   const entrypoint = resolveToolEntrypoint(tool ?? '')
 
