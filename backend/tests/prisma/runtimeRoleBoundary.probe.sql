@@ -3,6 +3,38 @@
 -- Why: Static migration checks cannot detect missing grants or RLS policies.
 
 BEGIN;
+DO $probe$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_roles
+    WHERE rolname IN ('nce_app_anon', 'nce_app_authenticated')
+      AND (
+        rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR
+        rolreplication OR rolbypassrls OR NOT rolinherit
+      )
+  ) THEN
+    RAISE EXCEPTION 'backend request role attributes are unsafe';
+  END IF;
+  IF pg_has_role('authenticator', 'nce_app_anon', 'MEMBER') OR
+     pg_has_role('authenticator', 'nce_app_authenticated', 'MEMBER') THEN
+    RAISE EXCEPTION 'authenticator can assume a backend request role';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_auth_members membership
+    JOIN pg_roles granted ON granted.oid = membership.roleid
+    JOIN pg_roles member ON member.oid = membership.member
+    WHERE granted.rolname IN ('nce_app_anon', 'nce_app_authenticated')
+      AND member.rolname NOT IN ('nce_runtime', 'postgres')
+  ) THEN
+    RAISE EXCEPTION 'backend request role has an unexpected member';
+  END IF;
+END
+$probe$;
+ROLLBACK;
+
+BEGIN;
 SET LOCAL ROLE anon;
 SELECT count(*) FROM public.ielts_config_versions;
 SELECT count(*) FROM public.ielts_question_options;
