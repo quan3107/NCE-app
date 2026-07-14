@@ -73,7 +73,7 @@ test('CI uses Node 24 and Node 24-compatible official actions', async () => {
 
   assert.match(
     workflow,
-    /NODE_VERSION: "24"/,
+    /NODE_VERSION:\s*['"]24['"]/,
     'CI should run package installs, builds, and tests on Node 24',
   );
   assert.doesNotMatch(
