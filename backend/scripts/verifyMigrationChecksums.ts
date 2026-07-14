@@ -133,11 +133,22 @@ export function databaseSsl(
 async function loadDeployedMigrations(
   connectionString: string,
 ): Promise<DeployedMigration[]> {
+  if (['localhost', '127.0.0.1', '::1'].includes(new URL(connectionString).hostname)) {
+    return await queryDeployedMigrations(connectionString, false)
+  }
+
   const certificatePath = process.env.DIRECT_DATABASE_CA_CERT_PATH
   const certificateAuthority = certificatePath
     ? await readFile(path.resolve(certificatePath), 'utf8')
     : undefined
   const ssl = databaseSsl(connectionString, certificateAuthority)
+  return await queryDeployedMigrations(connectionString, ssl)
+}
+
+async function queryDeployedMigrations(
+  connectionString: string,
+  ssl: false | undefined | { ca: string; rejectUnauthorized: true },
+): Promise<DeployedMigration[]> {
   const client = new Client({
     connectionString,
     ...(ssl === undefined ? {} : { ssl }),

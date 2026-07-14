@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   buildOwnerJobEnvironment,
+  loadOwnerConfig,
   loadOwnerDatabaseUrl,
 } from '../../scripts/runOwnerJob.js'
 
@@ -43,6 +44,22 @@ describe('owner job environment', () => {
     )
   })
 
+  it('forwards the approved CA path from the local ignored environment file', async () => {
+    const backendDir = await createBackendDirectory()
+    await writeFile(
+      join(backendDir, '.env.local'),
+      [
+        'DIRECT_URL=postgresql://owner:owner@db.example.com:5432/nce',
+        'DIRECT_DATABASE_CA_CERT_PATH=/trusted/project-ca.crt',
+      ].join('\n'),
+    )
+
+    await expect(loadOwnerConfig(backendDir, {})).resolves.toEqual({
+      databaseUrl: 'postgresql://owner:owner@db.example.com:5432/nce',
+      certificateAuthorityPath: '/trusted/project-ca.crt',
+    })
+  })
+
   it('uses an explicitly injected owner URL for CI and deployment jobs', async () => {
     const backendDir = await createBackendDirectory()
 
@@ -51,6 +68,40 @@ describe('owner job environment', () => {
         DIRECT_URL: 'postgresql://ci-owner:owner@localhost:5432/nce',
       }),
     ).resolves.toContain('ci-owner')
+  })
+
+  it('preserves an explicitly injected CA path for CI and deployment jobs', async () => {
+    const backendDir = await createBackendDirectory()
+    await writeFile(
+      join(backendDir, '.env.local'),
+      [
+        'DIRECT_URL=postgresql://owner:owner@db.example.com:5432/nce',
+        'DIRECT_DATABASE_CA_CERT_PATH=/local/project-ca.crt',
+      ].join('\n'),
+    )
+
+    await expect(
+      loadOwnerConfig(backendDir, {
+        DIRECT_DATABASE_CA_CERT_PATH: '/injected/project-ca.crt',
+      }),
+    ).resolves.toEqual({
+      databaseUrl: 'postgresql://owner:owner@db.example.com:5432/nce',
+      certificateAuthorityPath: '/injected/project-ca.crt',
+    })
+  })
+
+  it('keeps local owner jobs CA-free when no hosted CA is configured', async () => {
+    const backendDir = await createBackendDirectory()
+    await writeFile(
+      join(backendDir, '.env.local'),
+      'DIRECT_URL=postgresql://owner:owner@localhost:5432/nce\n',
+    )
+
+    const ownerConfig = await loadOwnerConfig(backendDir, {})
+    expect(ownerConfig.certificateAuthorityPath).toBeUndefined()
+    expect(buildOwnerJobEnvironment({}, ownerConfig.databaseUrl)).not.toHaveProperty(
+      'DIRECT_DATABASE_CA_CERT_PATH',
+    )
   })
 
   it('fails clearly when no owner URL is available', async () => {
@@ -74,5 +125,17 @@ describe('owner job environment', () => {
       DIRECT_URL: ownerDatabaseUrl,
     })
     expect(parentEnvironment).not.toHaveProperty('DIRECT_URL')
+  })
+
+  it('adds a configured CA path only to the short-lived child environment', () => {
+    const parentEnvironment = {}
+    const childEnvironment = buildOwnerJobEnvironment(
+      parentEnvironment,
+      'postgresql://owner:owner@db.example.com:5432/nce',
+      '/trusted/project-ca.crt',
+    )
+
+    expect(childEnvironment.DIRECT_DATABASE_CA_CERT_PATH).toBe('/trusted/project-ca.crt')
+    expect(parentEnvironment).not.toHaveProperty('DIRECT_DATABASE_CA_CERT_PATH')
   })
 })

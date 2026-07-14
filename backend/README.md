@@ -40,6 +40,8 @@ from Supabase Database Settings. The `prisma:status`, `prisma:migrate`, `prisma:
 `pgboss:install`, and seed scripts load that file only inside a
 short-lived child process. Raw Prisma migration commands fail when `DIRECT_URL`
 is absent instead of silently using the `nce_runtime` URL from `.env`.
+The launcher forwards only these approved owner settings from `.env.local`;
+arbitrary local values are not copied into the child environment.
 
 CI and deployment jobs may inject `DIRECT_URL` directly instead of creating
 `.env.local`. The launcher scopes it to owner-only Prisma, pg-boss installation,

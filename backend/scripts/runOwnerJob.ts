@@ -18,12 +18,26 @@ const supportedTools = new Set(['prisma', 'tsx'])
 
 type OwnerEnvironment = NodeJS.ProcessEnv
 
-export async function loadOwnerDatabaseUrl(
+type OwnerConfig = {
+  databaseUrl: string
+  certificateAuthorityPath?: string
+}
+
+export async function loadOwnerConfig(
   directory = backendDir,
   inheritedEnvironment: OwnerEnvironment = process.env,
-) {
+): Promise<OwnerConfig> {
   const injectedUrl = inheritedEnvironment.DIRECT_URL?.trim()
-  if (injectedUrl) return injectedUrl
+  const injectedCertificatePath =
+    inheritedEnvironment.DIRECT_DATABASE_CA_CERT_PATH?.trim()
+  if (injectedUrl) {
+    return {
+      databaseUrl: injectedUrl,
+      ...(injectedCertificatePath
+        ? { certificateAuthorityPath: injectedCertificatePath }
+        : {}),
+    }
+  }
 
   const ownerEnvPath = resolve(directory, '.env.local')
   let ownerEnvSource: string
@@ -36,23 +50,40 @@ export async function loadOwnerDatabaseUrl(
     )
   }
 
-  const ownerDatabaseUrl = parse(ownerEnvSource).DIRECT_URL?.trim()
+  const ownerEnvironment = parse(ownerEnvSource)
+  const ownerDatabaseUrl = ownerEnvironment.DIRECT_URL?.trim()
   if (!ownerDatabaseUrl) {
     throw new Error(
       'Owner database URL is missing. Set DIRECT_URL in backend/.env.local.',
     )
   }
-  return ownerDatabaseUrl
+  const certificateAuthorityPath =
+    injectedCertificatePath || ownerEnvironment.DIRECT_DATABASE_CA_CERT_PATH?.trim()
+  return {
+    databaseUrl: ownerDatabaseUrl,
+    ...(certificateAuthorityPath ? { certificateAuthorityPath } : {}),
+  }
+}
+
+export async function loadOwnerDatabaseUrl(
+  directory = backendDir,
+  inheritedEnvironment: OwnerEnvironment = process.env,
+) {
+  return (await loadOwnerConfig(directory, inheritedEnvironment)).databaseUrl
 }
 
 export function buildOwnerJobEnvironment(
   inheritedEnvironment: OwnerEnvironment,
   ownerDatabaseUrl: string,
+  certificateAuthorityPath?: string,
 ): OwnerEnvironment {
   return {
     ...inheritedEnvironment,
     DATABASE_URL: ownerDatabaseUrl,
     DIRECT_URL: ownerDatabaseUrl,
+    ...(certificateAuthorityPath
+      ? { DIRECT_DATABASE_CA_CERT_PATH: certificateAuthorityPath }
+      : {}),
   }
 }
 
@@ -73,8 +104,12 @@ function resolveToolEntrypoint(tool: string) {
 
 export async function runOwnerJob(args = process.argv.slice(2)) {
   const [tool, ...toolArgs] = args
-  const ownerDatabaseUrl = await loadOwnerDatabaseUrl()
-  const childEnvironment = buildOwnerJobEnvironment(process.env, ownerDatabaseUrl)
+  const ownerConfig = await loadOwnerConfig()
+  const childEnvironment = buildOwnerJobEnvironment(
+    process.env,
+    ownerConfig.databaseUrl,
+    ownerConfig.certificateAuthorityPath,
+  )
   const entrypoint = resolveToolEntrypoint(tool ?? '')
 
   return await new Promise<number>((resolveExit, reject) => {
