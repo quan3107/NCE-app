@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-14:** Corrected the runtime-role rollout probe so every required `service_role` job privilege is checked independently instead of relying on PostgreSQL's any-match comma-list form, and added a regression that rejects combined positive privilege assertions.
+
 - **2026-07-14:** Restored the IELTS readiness verifier to the least-privilege runtime `DATABASE_URL`, kept owner credentials scoped to migrations, pg-boss installation, and seeds, and moved detailed local role bootstrap instructions from the root README into the backend database guide.
 
 - **2026-07-14:** Added a cross-platform owner-job launcher that scopes gitignored `.env.local` credentials to migrations, pg-boss installation, and seeds; added and deployed a forward migration that normalizes pre-existing backend request roles while preserving Supabase owner-admin rows; and locked the corrected hosted probe, CI fixture, and documentation workflow with regressions.
@@ -118,6 +120,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-14:** No frontend behavior changed for the runtime privilege-probe correction; the existing frontend CI gate remains unchanged.
 
 - **2026-07-14:** Applied the repository Prettier style to the frontend CI contract test and its workflow fixture without changing workflow behavior.
 
