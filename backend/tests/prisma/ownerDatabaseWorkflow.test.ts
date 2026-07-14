@@ -57,10 +57,13 @@ describe('owner-only database workflow', () => {
 
   it('scopes owner credentials to approved child commands', () => {
     expect(ownerEnvironment).toContain('DIRECT_URL=')
+    expect(ownerEnvironment).toContain('DIRECT_DATABASE_CA_CERT_PATH=')
     expect(ownerEnvironment).not.toContain('DATABASE_URL=')
     expect(ownerJobRunner).toContain("resolve(directory, '.env.local')")
-    expect(ownerJobRunner).toContain('DIRECT_URL: ownerDatabaseUrl')
-    expect(ownerJobRunner).toContain('DATABASE_URL: ownerDatabaseUrl')
+    expect(ownerJobRunner).toContain('DIRECT_URL: connectionUrl')
+    expect(ownerJobRunner).toContain('DATABASE_URL: connectionUrl')
+    expect(ownerJobRunner).toContain("url.searchParams.set('sslaccept', 'strict')")
+    expect(ownerJobRunner).toContain("url.searchParams.set('sslmode', 'verify-full')")
     expect(prismaConfig).toContain('DIRECT_URL is required for Prisma migration commands')
     expect(prismaConfig).not.toContain(
       'process.env.DIRECT_URL ?? process.env.DATABASE_URL',

@@ -11,6 +11,11 @@ import { fileURLToPath } from 'node:url'
 
 import { parse } from 'dotenv'
 
+import {
+  assertUnconfiguredRemoteSsl,
+  isLoopbackDatabaseUrl,
+} from './databaseConnectionPolicy.js'
+
 const require = createRequire(import.meta.url)
 const scriptPath = fileURLToPath(import.meta.url)
 const backendDir = resolve(dirname(scriptPath), '..')
@@ -18,12 +23,28 @@ const supportedTools = new Set(['prisma', 'tsx'])
 
 type OwnerEnvironment = NodeJS.ProcessEnv
 
-export async function loadOwnerDatabaseUrl(
+type OwnerConfig = {
+  databaseUrl: string
+  certificateAuthorityPath?: string
+}
+
+type OwnerTool = 'prisma' | 'tsx'
+
+export async function loadOwnerConfig(
   directory = backendDir,
   inheritedEnvironment: OwnerEnvironment = process.env,
-) {
+): Promise<OwnerConfig> {
   const injectedUrl = inheritedEnvironment.DIRECT_URL?.trim()
-  if (injectedUrl) return injectedUrl
+  const injectedCertificatePath =
+    inheritedEnvironment.DIRECT_DATABASE_CA_CERT_PATH?.trim()
+  if (injectedUrl) {
+    return {
+      databaseUrl: injectedUrl,
+      ...(injectedCertificatePath
+        ? { certificateAuthorityPath: injectedCertificatePath }
+        : {}),
+    }
+  }
 
   const ownerEnvPath = resolve(directory, '.env.local')
   let ownerEnvSource: string
@@ -36,24 +57,74 @@ export async function loadOwnerDatabaseUrl(
     )
   }
 
-  const ownerDatabaseUrl = parse(ownerEnvSource).DIRECT_URL?.trim()
+  const ownerEnvironment = parse(ownerEnvSource)
+  const ownerDatabaseUrl = ownerEnvironment.DIRECT_URL?.trim()
   if (!ownerDatabaseUrl) {
     throw new Error(
       'Owner database URL is missing. Set DIRECT_URL in backend/.env.local.',
     )
   }
-  return ownerDatabaseUrl
+  const certificateAuthorityPath =
+    injectedCertificatePath || ownerEnvironment.DIRECT_DATABASE_CA_CERT_PATH?.trim()
+  return {
+    databaseUrl: ownerDatabaseUrl,
+    ...(certificateAuthorityPath ? { certificateAuthorityPath } : {}),
+  }
+}
+
+export async function loadOwnerDatabaseUrl(
+  directory = backendDir,
+  inheritedEnvironment: OwnerEnvironment = process.env,
+) {
+  return (await loadOwnerConfig(directory, inheritedEnvironment)).databaseUrl
 }
 
 export function buildOwnerJobEnvironment(
   inheritedEnvironment: OwnerEnvironment,
   ownerDatabaseUrl: string,
+  certificateAuthorityPath?: string,
+  tool: OwnerTool = 'tsx',
 ): OwnerEnvironment {
+  const { DIRECT_DATABASE_CA_CERT_PATH: ignoredCertificatePath, ...childEnvironment } =
+    inheritedEnvironment
+  const connectionUrl = buildOwnerConnectionUrl(
+    ownerDatabaseUrl,
+    certificateAuthorityPath,
+    tool,
+  )
   return {
-    ...inheritedEnvironment,
-    DATABASE_URL: ownerDatabaseUrl,
-    DIRECT_URL: ownerDatabaseUrl,
+    ...childEnvironment,
+    DATABASE_URL: connectionUrl,
+    DIRECT_URL: connectionUrl,
   }
+}
+
+export function buildOwnerConnectionUrl(
+  ownerDatabaseUrl: string,
+  certificateAuthorityPath: string | undefined,
+  tool: OwnerTool,
+): string {
+  if (isLoopbackDatabaseUrl(ownerDatabaseUrl)) return ownerDatabaseUrl
+
+  const url = new URL(ownerDatabaseUrl)
+  assertUnconfiguredRemoteSsl(url)
+  if (!certificateAuthorityPath) {
+    throw new Error(
+      'Remote owner jobs require DIRECT_DATABASE_CA_CERT_PATH for authenticated TLS.',
+    )
+  }
+
+  if (tool === 'prisma') {
+    // Prisma requires its strict flag in addition to requiring TLS and the root CA.
+    url.searchParams.set('sslcert', resolve(certificateAuthorityPath))
+    url.searchParams.set('sslmode', 'require')
+    url.searchParams.set('sslaccept', 'strict')
+  } else {
+    // node-postgres explicitly preserves CA and hostname verification in verify-full.
+    url.searchParams.set('sslrootcert', resolve(certificateAuthorityPath))
+    url.searchParams.set('sslmode', 'verify-full')
+  }
+  return url.toString()
 }
 
 function resolveToolEntrypoint(tool: string) {
@@ -73,8 +144,13 @@ function resolveToolEntrypoint(tool: string) {
 
 export async function runOwnerJob(args = process.argv.slice(2)) {
   const [tool, ...toolArgs] = args
-  const ownerDatabaseUrl = await loadOwnerDatabaseUrl()
-  const childEnvironment = buildOwnerJobEnvironment(process.env, ownerDatabaseUrl)
+  const ownerConfig = await loadOwnerConfig()
+  const childEnvironment = buildOwnerJobEnvironment(
+    process.env,
+    ownerConfig.databaseUrl,
+    ownerConfig.certificateAuthorityPath,
+    tool as OwnerTool,
+  )
   const entrypoint = resolveToolEntrypoint(tool ?? '')
 
   return await new Promise<number>((resolveExit, reject) => {

@@ -1,0 +1,5 @@
+# File: .gitattributes
+# Purpose: Keep applied migration bytes stable across developer platforms.
+# Why: Prisma records migration checksums, so checkout line endings must be deterministic.
+
+backend/src/prisma/migrations/**/migration.sql text eol=lf

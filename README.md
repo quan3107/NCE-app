@@ -67,8 +67,8 @@ cp backend/.env.example backend/.env
 cp backend/.env.local.example backend/.env.local
 ```
 
-Use dedicated runtime-role values in `backend/.env` and keep the owner URL only
-in the gitignored `backend/.env.local`. For the current Vite setup, make sure
+Use dedicated runtime-role values in `backend/.env` and keep the owner settings
+only in the gitignored `backend/.env.local`. For the current Vite setup, make sure
 CORS points at port `3000`:
 
 ```dotenv
@@ -78,11 +78,13 @@ GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
-`backend/.env.local` contains only the owner connection used by short-lived
-database jobs:
+`backend/.env.local` contains the approved owner settings used by short-lived
+database jobs. Localhost needs only the URL; hosted commands also require an
+absolute path to the project Server root certificate:
 
 ```dotenv
 DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
+# DIRECT_DATABASE_CA_CERT_PATH=/absolute/path/to/prod-ca-2021.crt
 ```
 
 `backend/.env.example` already uses the project's frontend port, `3000`.
@@ -106,8 +108,9 @@ the [local database role bootstrap](backend/README.md#local-database-role-bootst
 The boundary migrations then create and normalize the non-login `nce_app_*`
 request roles.
 
-The owner-only scripts below read `.env.local`, pass its URL only to their child
-process, and leave the long-running backend on `.env`. Raw Prisma migration
+The owner-only scripts below read `.env.local`, derive a consumer-specific
+authenticated TLS URL for every hosted child, and leave the long-running backend
+on `.env`. Raw Prisma migration
 commands fail clearly when `DIRECT_URL` is not explicitly scoped. Install
 pg-boss before Prisma checks its worker grants, then migrate and seed. The final
 `verify:ielts-config` reads the runtime `DATABASE_URL` and does not require `DIRECT_URL`:
@@ -118,6 +121,10 @@ npm run prisma:generate
 npm run pgboss:install
 npm run prisma:migrate
 npm run prisma:status
+npm run prisma:checksums:database
+npm run prisma:checksums:database:exact
+npm run prisma:diff
+npm run prisma:diff:reverse
 npm run seed:ielts-config
 npm run seed:cms
 npm run seed:navigation
@@ -200,9 +207,12 @@ The Prisma client applies request-scoped database context. Public requests run a
 Supabase Data API authenticator cannot assume. The production rollout uses the
 dedicated `nce_runtime` login for `DATABASE_URL` and the pgboss-only
 `nce_job_runner` login for `JOB_DATABASE_URL`. Provide the `postgres` owner URL
-as `DIRECT_URL` only to short-lived migration, pg-boss installation, and seed
-processes. The grantor-aware preflight and coordinated outage are documented in
+as `DIRECT_URL` and the hosted project CA path only to short-lived migration,
+pg-boss installation, and seed processes. The grantor-aware preflight and coordinated outage are documented in
 `docs/supabase-data-api-runtime-boundary.md`.
+Prisma owns application-schema migrations; checksum, replay, drift, backup, and
+recovery rules are documented in
+`docs/prisma-supabase-migration-governance.md`.
 
 ## Useful Commands
 
@@ -219,24 +229,28 @@ Frontend commands, from `frontend/`:
 
 Backend commands, from `backend/`:
 
-| Command                       | Purpose                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `npm run dev`                 | Start the Express API with `tsx watch`.                                  |
-| `npm run build`               | Generate Prisma and compile TypeScript.                                  |
-| `npm start`                   | Run `dist/server.js`.                                                    |
-| `npm run lint`                | Run ESLint.                                                              |
-| `npm test`                    | Generate Prisma and run Vitest with `NODE_ENV=test`.                     |
-| `npm run test:coverage`       | Run backend tests with coverage.                                         |
-| `npm run pgboss:install`      | Install or upgrade pg-boss through the owner-only `.env.local` launcher. |
-| `npm run prisma:migrate`      | Apply local development migrations through the owner-only launcher.      |
-| `npm run prisma:status`       | Check migration status through the owner-only launcher.                  |
-| `npm run prisma:deploy`       | Deploy pending migrations through the owner-only launcher.               |
-| `npm run prisma:diff`         | Compare Prisma schema and database through the owner-only launcher.      |
-| `npm run seed:ielts-config`   | Seed IELTS reference data required at startup.                           |
-| `npm run seed:cms`            | Seed Homepage, About, and Contact CMS content.                           |
-| `npm run seed:navigation`     | Seed permissions, navigation, and feature flags.                         |
-| `npm run seed`                | Reset and seed representative local app data.                            |
-| `npm run verify:ielts-config` | Check the active IELTS config through the runtime `DATABASE_URL`.        |
+| Command                                   | Purpose                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| `npm run dev`                             | Start the Express API with `tsx watch`.                                  |
+| `npm run build`                           | Generate Prisma and compile TypeScript.                                  |
+| `npm start`                               | Run `dist/server.js`.                                                    |
+| `npm run lint`                            | Run ESLint.                                                              |
+| `npm test`                                | Generate Prisma and run Vitest with `NODE_ENV=test`.                     |
+| `npm run test:coverage`                   | Run backend tests with coverage.                                         |
+| `npm run pgboss:install`                  | Install or upgrade pg-boss through the owner-only `.env.local` launcher. |
+| `npm run prisma:migrate`                  | Apply local development migrations through the owner-only launcher.      |
+| `npm run prisma:status`                   | Check migration status through the owner-only launcher.                  |
+| `npm run prisma:deploy`                   | Deploy pending migrations through the owner-only launcher.               |
+| `npm run prisma:diff`                     | Compare Prisma schema and database through the owner-only launcher.      |
+| `npm run prisma:diff:reverse`             | Compare the database back to Prisma through the owner-only launcher.     |
+| `npm run prisma:checksums`                | Verify LF-normalized migration history against the committed manifest.   |
+| `npm run prisma:checksums:database`       | Verify deployed checksums while allowing trailing pending migrations.    |
+| `npm run prisma:checksums:database:exact` | Require deployed and repository migration history to converge exactly.   |
+| `npm run seed:ielts-config`               | Seed IELTS reference data required at startup.                           |
+| `npm run seed:cms`                        | Seed Homepage, About, and Contact CMS content.                           |
+| `npm run seed:navigation`                 | Seed permissions, navigation, and feature flags.                         |
+| `npm run seed`                            | Reset and seed representative local app data.                            |
+| `npm run verify:ielts-config`             | Check the active IELTS config through the runtime `DATABASE_URL`.        |
 
 ## Testing
 
@@ -244,7 +258,9 @@ The GitHub Actions workflow runs:
 
 - root install and high-severity npm audit;
 - frontend install, audit, lint, typecheck, tests, coverage, and build;
-- backend install, audit, Prisma generation, Postgres role bootstrap, migration deploy, CMS seed, lint, build, and tests.
+- backend install, audit, Prisma generation, empty PostgreSQL replay, checksum
+  verification, two-way schema diff, database probes, CMS seed, lint, build,
+  and tests.
 
 The local pre-PR pass I usually want is:
 
@@ -272,6 +288,7 @@ Production needs:
 - the committed forward migrations provision missing Contact CMS content, CMS admin permission/navigation, baseline revisions, and ancestor-aware CMS RLS without running production seed scripts or replacing managed rows;
 - Supabase roles `anon`, `authenticated`, and `service_role`, dedicated logins `nce_runtime` and `nce_job_runner`, plus non-login backend roles `nce_app_anon` and `nce_app_authenticated`;
 - the PR-48A rollout and rolled-back role probes in `docs/supabase-data-api-runtime-boundary.md`;
+- the Prisma-owned migration, backup, two-way diff, and recovery workflow in `docs/prisma-supabase-migration-governance.md`;
 - active IELTS reference data verified by `npm run verify:ielts-config`;
 - explicit `CORS_ALLOWED_ORIGINS` because production refuses an empty allowlist;
 - a real `TRUST_PROXY` list, not a boolean;
