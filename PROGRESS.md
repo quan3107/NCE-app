@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-14:** Removed the test default that promoted `DATABASE_URL` into `DIRECT_URL`, made administrative database fixtures resolve an explicitly configured owner URL only when they execute, and refreshed deployment documentation to reflect the completed Data API boundary and owner-scoped deploy command.
+
 - **2026-07-14:** Corrected the runtime-role rollout probe so every required `service_role` job privilege is checked independently instead of relying on PostgreSQL's any-match comma-list form, and added a regression that rejects combined positive privilege assertions.
 
 - **2026-07-14:** Restored the IELTS readiness verifier to the least-privilege runtime `DATABASE_URL`, kept owner credentials scoped to migrations, pg-boss installation, and seeds, and moved detailed local role bootstrap instructions from the root README into the backend database guide.
@@ -120,6 +122,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-14:** No frontend files changed for the test-owner credential separation and deployment documentation correction; frontend CI remains part of the regression gate.
 
 - **2026-07-14:** No frontend behavior changed for the runtime privilege-probe correction; the existing frontend CI gate remains unchanged.
 
