@@ -9,10 +9,6 @@ import {
   type AuditLogWriteInput,
 } from '../audit-logs/audit-logs.service.js'
 
-export async function writeAuthAuditLogSafely(
-  input: AuditLogWriteInput,
-): Promise<void> {
-  await withRoleContext({ role: 'service_role' }, () =>
-    writeAuditLogSafely(input),
-  )
+export async function writeAuthAuditLogSafely(input: AuditLogWriteInput): Promise<void> {
+  await withRoleContext({ role: 'service_role' }, () => writeAuditLogSafely(input))
 }
