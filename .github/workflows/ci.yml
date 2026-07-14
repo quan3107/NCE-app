@@ -21,8 +21,8 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '24'
-  CI: 'true'
+  NODE_VERSION: "24"
+  CI: "true"
 
 jobs:
   root:
@@ -125,7 +125,7 @@ jobs:
       BREVO_SENDER_NAME: NCE Tests
       BREVO_SENDER_EMAIL: tests@example.com
       LOG_LEVEL: silent
-      LOG_PRETTY: 'false'
+      LOG_PRETTY: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
