@@ -123,7 +123,9 @@ revokes, while the new application requires roles the preparation migration adds
    only for the seed process. Do not provide `DIRECT_URL` to the running backend,
    and never place the `postgres` credentials in either runtime URL. The
    long-running backend must use `nce_runtime` for `DATABASE_URL` and
-   `nce_job_runner` for `JOB_DATABASE_URL`.
+   `nce_job_runner` for `JOB_DATABASE_URL`. Local development keeps the owner URL
+   in gitignored `.env.local`; the owner-only npm scripts scope it to their child
+   commands. CI and deployment jobs may inject the same variable directly.
 6. Enter maintenance mode, stop accepting requests, and drain or stop every
    backend instance. Confirm no old application sessions remain.
 7. Back up the hosted database before changing extension or application state.
@@ -140,14 +142,16 @@ revokes, while the new application requires roles the preparation migration adds
    ) as pg_graphql_disabled;
    ```
 
-9. Run `npm run pgboss:install` with `DIRECT_URL`, then apply both
+9. Run `npm run pgboss:install`, then `npm run prisma:deploy` to apply
    `20260712220000_harden_data_api_runtime_roles` and
-   `20260712221000_enforce_data_api_boundary` through Prisma. Run any required
-   deployment seed in the same privileged job, then destroy its environment and
+   `20260712221000_enforce_data_api_boundary`, followed by
+   `20260714100000_normalize_backend_request_roles`. These scripts read the
+   owner-only input only for their short-lived child process. Run any required
+   deployment seed through the same launcher, then destroy its environment and
    credentials.
 10. While maintenance remains enabled, confirm `DIRECT_URL` is absent, start only
-   the new backend release with both dedicated runtime URLs, and require its
-   `/health` check to succeed.
+    the new backend release with both dedicated runtime URLs, and require its
+    `/health` check to succeed.
 11. Run the probes below inside transactions and roll them back.
 12. Run the Supabase security advisor. The `courses_public` view warning is the
     documented exception; exposed-table RLS errors must be zero.
@@ -188,7 +192,7 @@ begin
   exception when insufficient_privilege then null;
   end;
   begin
-    update public.grades set score = score where false;
+    update public.grades set final_score = final_score where false;
     raise exception 'authenticated updated grades';
   exception when insufficient_privilege then null;
   end;
