@@ -78,8 +78,22 @@ describe('Data API runtime boundary migrations', () => {
     expect(roleMigration).toContain(
       'GRANT SELECT, INSERT, UPDATE ON public.auth_sessions TO service_role;',
     )
-    expect(runtimeRoleProbe).toMatch(
-      /has_table_privilege\(\s*current_user, 'public\.ai_feedback_drafts', 'SELECT,UPDATE'/,
+    for (const privilegeCheck of [
+      "has_table_privilege(current_user, 'public.ai_feedback_drafts', 'SELECT')",
+      "has_table_privilege(current_user, 'public.ai_feedback_drafts', 'UPDATE')",
+      "has_table_privilege(current_user, 'public.ai_objective_explanations', 'SELECT')",
+      "has_table_privilege(current_user, 'public.ai_objective_explanations', 'UPDATE')",
+      "has_table_privilege(current_user, 'public.notifications', 'SELECT')",
+      "has_table_privilege(current_user, 'public.notifications', 'INSERT')",
+      "has_table_privilege(current_user, 'public.notifications', 'UPDATE')",
+      "has_table_privilege(current_user, 'public.auth_sessions', 'SELECT')",
+      "has_table_privilege(current_user, 'public.auth_sessions', 'INSERT')",
+      "has_table_privilege(current_user, 'public.auth_sessions', 'UPDATE')",
+    ]) {
+      expect(runtimeRoleProbe).toContain(privilegeCheck)
+    }
+    expect(runtimeRoleProbe).not.toMatch(
+      /current_user, 'public\.(?:ai_feedback_drafts|ai_objective_explanations|notifications|auth_sessions)', '[^']*,[^']*'/,
     )
   })
 

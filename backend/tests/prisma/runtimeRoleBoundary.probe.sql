@@ -154,11 +154,11 @@ BEGIN
      has_table_privilege(current_user, 'public.grades', 'DELETE') THEN
     RAISE EXCEPTION 'service_role retained an unreviewed table privilege';
   END IF;
-  IF NOT has_table_privilege(
-    current_user, 'public.ai_feedback_drafts', 'SELECT,UPDATE'
-  ) OR NOT has_table_privilege(
-    current_user, 'public.ai_objective_explanations', 'SELECT,UPDATE'
-  ) OR NOT has_table_privilege(
+  IF NOT has_table_privilege(current_user, 'public.ai_feedback_drafts', 'SELECT') OR
+     NOT has_table_privilege(current_user, 'public.ai_feedback_drafts', 'UPDATE') OR
+     NOT has_table_privilege(current_user, 'public.ai_objective_explanations', 'SELECT') OR
+     NOT has_table_privilege(current_user, 'public.ai_objective_explanations', 'UPDATE') OR
+     NOT has_table_privilege(
     current_user, 'public.audit_logs', 'INSERT'
   ) OR NOT has_column_privilege(
     current_user, 'public.audit_logs', 'id', 'SELECT'
@@ -176,11 +176,12 @@ BEGIN
     current_user, 'public.notification_type_configs', 'SELECT'
   ) OR NOT has_table_privilege(
     current_user, 'public.user_notification_preferences', 'SELECT'
-  ) OR NOT has_table_privilege(
-    current_user, 'public.notifications', 'SELECT,INSERT,UPDATE'
-  ) OR NOT has_table_privilege(
-    current_user, 'public.auth_sessions', 'SELECT,UPDATE'
-  ) THEN
+  ) OR NOT has_table_privilege(current_user, 'public.notifications', 'SELECT') OR
+     NOT has_table_privilege(current_user, 'public.notifications', 'INSERT') OR
+     NOT has_table_privilege(current_user, 'public.notifications', 'UPDATE') OR
+     NOT has_table_privilege(current_user, 'public.auth_sessions', 'SELECT') OR
+     NOT has_table_privilege(current_user, 'public.auth_sessions', 'INSERT') OR
+     NOT has_table_privilege(current_user, 'public.auth_sessions', 'UPDATE') THEN
     RAISE EXCEPTION 'service_role lacks an application job privilege';
   END IF;
   BEGIN
