@@ -24,17 +24,19 @@ const normalizationMigration = readBackend(
 )
 const ciWorkflow = readRepo('.github/workflows/ci.yml')
 const rootReadme = readRepo('README.md')
+const backendReadme = readBackend('README.md')
 
 describe('owner-only database workflow', () => {
   it('documents every fresh local bootstrap prerequisite in execution order', () => {
     const pgbossInstall = rootReadme.indexOf('npm run pgboss:install')
     const prismaMigrate = rootReadme.indexOf('npm run prisma:migrate')
 
-    expect(rootReadme).toContain('CREATE ROLE nce_runtime LOGIN')
-    expect(rootReadme).toContain('CREATE ROLE nce_job_runner LOGIN')
-    expect(rootReadme).toContain('CREATE ROLE authenticator NOLOGIN')
-    expect(rootReadme).toContain('GRANT service_role TO nce_runtime')
-    expect(rootReadme).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
+    expect(rootReadme).toContain('backend/README.md#local-database-role-bootstrap')
+    expect(backendReadme).toContain('CREATE ROLE nce_runtime LOGIN')
+    expect(backendReadme).toContain('CREATE ROLE nce_job_runner LOGIN')
+    expect(backendReadme).toContain('CREATE ROLE authenticator NOLOGIN')
+    expect(backendReadme).toContain('GRANT service_role TO nce_runtime')
+    expect(backendReadme).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
     expect(rootReadme).toContain('cp backend/.env.local.example backend/.env.local')
     expect(rootReadme).toContain(
       'DATABASE_URL=postgres://nce_runtime:nce_runtime@localhost:5432/nce_app',

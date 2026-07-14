@@ -42,6 +42,45 @@ CI and deployment jobs may inject `DIRECT_URL` directly instead of creating
 and seed processes. The running backend loads only `.env`, using the
 least-privilege `DATABASE_URL` plus a pgboss-only `JOB_DATABASE_URL`.
 
+### Local database role bootstrap
+
+After creating the local `nce_app` database, create every migration-prerequisite
+role as the same `postgres` owner used by `DIRECT_URL`. The boundary migrations
+create and normalize the two non-login `nce_app_*` request roles.
+
+```bash
+psql postgresql://postgres:postgres@localhost:5432/postgres <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
+    CREATE ROLE anon;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role NOLOGIN BYPASSRLS;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator') THEN
+    CREATE ROLE authenticator NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_runtime') THEN
+    CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime'
+      NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_job_runner') THEN
+    CREATE ROLE nce_job_runner LOGIN PASSWORD 'nce_job_runner'
+      NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS;
+  END IF;
+END
+$$;
+GRANT service_role TO nce_runtime
+  WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
+SQL
+```
+
 Use `../docs/architecture-db.md` for the migration status/deploy/diff sequence,
 the notification retry column and index check, the guarded
 `assignments_backup_20260204` cleanup check, and the expected Prisma diff exit

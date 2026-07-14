@@ -101,42 +101,10 @@ Create the local database:
 createdb --host localhost --username postgres nce_app
 ```
 
-Create every migration-prerequisite role as the same `postgres` owner used by
-`DIRECT_URL`. The migration itself creates and normalizes the two non-login
-`nce_app_*` request roles.
-
-```bash
-psql postgresql://postgres:postgres@localhost:5432/postgres <<'SQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator') THEN
-    CREATE ROLE authenticator NOLOGIN;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_runtime') THEN
-    CREATE ROLE nce_runtime LOGIN PASSWORD 'nce_runtime'
-      NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-      NOREPLICATION NOBYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'nce_job_runner') THEN
-    CREATE ROLE nce_job_runner LOGIN PASSWORD 'nce_job_runner'
-      NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-      NOREPLICATION NOBYPASSRLS;
-  END IF;
-END
-$$;
-GRANT service_role TO nce_runtime
-  WITH ADMIN FALSE, SET TRUE, INHERIT FALSE;
-SQL
-```
+Create the prerequisite browser, service, runtime, and worker roles by following
+the [local database role bootstrap](backend/README.md#local-database-role-bootstrap).
+The boundary migrations then create and normalize the non-login `nce_app_*`
+request roles.
 
 The owner-only scripts below read `.env.local`, pass its URL only to their child
 process, and leave the long-running backend on `.env`. Raw Prisma migration
