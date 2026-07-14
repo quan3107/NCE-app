@@ -9,6 +9,7 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { config } from '../../src/config/env.js'
+import { requireDatabaseTestOwnerUrl } from '../prisma/databaseTestClient.js'
 import { applyBackendTestEnvDefaults } from '../setup/testEnvDefaults.js'
 
 const defaultedEnvKeys = [
@@ -73,7 +74,10 @@ describe('test environment defaults', () => {
         'postgres://test_user:test_password@localhost:5432/nce_test',
       )
       expect(process.env.JOB_DATABASE_URL).toBe(process.env.DATABASE_URL)
-      expect(process.env.DIRECT_URL).toBe(process.env.DATABASE_URL)
+      expect(process.env.DIRECT_URL).toBeUndefined()
+      expect(() => requireDatabaseTestOwnerUrl()).toThrow(
+        'DIRECT_URL is required for administrative database tests.',
+      )
       expect(process.env.JWT_PRIVATE_KEY_PATH).toBe(
         'tests/runtime/generated-jwt-private.pem',
       )

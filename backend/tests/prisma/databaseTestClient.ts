@@ -8,14 +8,19 @@ import { Pool } from 'pg'
 
 import { Prisma, PrismaClient } from '../../src/prisma/generated.js'
 
-const databaseUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL
-if (!databaseUrl) {
-  throw new Error('DIRECT_URL or DATABASE_URL must be set for database tests.')
+export function requireDatabaseTestOwnerUrl(): string {
+  const directUrl = process.env.DIRECT_URL
+  if (!directUrl) {
+    throw new Error('DIRECT_URL is required for administrative database tests.')
+  }
+
+  return directUrl
 }
 
 export async function runDatabaseTestTransaction<T>(
   operation: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
+  const databaseUrl = requireDatabaseTestOwnerUrl()
   const pool = new Pool({ connectionString: databaseUrl })
   const client = new PrismaClient({ adapter: new PrismaPg(pool) })
 

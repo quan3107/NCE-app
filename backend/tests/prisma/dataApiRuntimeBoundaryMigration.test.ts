@@ -160,9 +160,15 @@ describe('Data API runtime boundary migrations', () => {
   })
 
   it('runs administrative database fixtures through the direct login', () => {
+    expect(databaseTestClient).toContain('const directUrl = process.env.DIRECT_URL')
     expect(databaseTestClient).toContain(
-      'process.env.DIRECT_URL ?? process.env.DATABASE_URL',
+      'DIRECT_URL is required for administrative database tests.',
     )
+    for (const ownerTestSource of [databaseTestClient, runtimeRoleServerTest]) {
+      expect(ownerTestSource).not.toContain(
+        'process.env.DIRECT_URL ?? process.env.DATABASE_URL',
+      )
+    }
     for (const databaseUpgradeTest of databaseUpgradeTests) {
       expect(databaseUpgradeTest).toContain("from './databaseTestClient.js'")
       expect(databaseUpgradeTest).not.toContain("from '../../src/prisma/client.js'")
