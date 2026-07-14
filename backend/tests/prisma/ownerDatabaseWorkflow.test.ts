@@ -72,7 +72,6 @@ describe('owner-only database workflow', () => {
       'pgboss:install',
       'seed',
       'seed:ielts-config',
-      'verify:ielts-config',
       'seed:ielts',
       'seed:ielts-sandbox',
       'seed:cms',
@@ -81,6 +80,13 @@ describe('owner-only database workflow', () => {
     ]) {
       expect(packageJson.scripts[script]).toContain('scripts/runOwnerJob.ts')
     }
+    expect(packageJson.scripts['verify:ielts-config']).toBe(
+      'tsx src/prisma/verifyIeltsConfig.ts',
+    )
+    expect(rootReadme).toContain(
+      '`verify:ielts-config` reads the runtime `DATABASE_URL`',
+    )
+    expect(rootReadme).toContain('does not require `DIRECT_URL`')
     expect(ciWorkflow).toContain('- name: Seed backend CMS test content')
     expect(ciWorkflow).toContain('CREATE ROLE authenticator NOLOGIN')
     expect(ciWorkflow).not.toMatch(

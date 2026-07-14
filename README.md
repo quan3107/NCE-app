@@ -109,7 +109,8 @@ request roles.
 The owner-only scripts below read `.env.local`, pass its URL only to their child
 process, and leave the long-running backend on `.env`. Raw Prisma migration
 commands fail clearly when `DIRECT_URL` is not explicitly scoped. Install
-pg-boss before Prisma checks its worker grants, then migrate and seed:
+pg-boss before Prisma checks its worker grants, then migrate and seed. The final
+`verify:ielts-config` reads the runtime `DATABASE_URL` and does not require `DIRECT_URL`:
 
 ```bash
 cd backend
@@ -235,7 +236,7 @@ Backend commands, from `backend/`:
 | `npm run seed:cms`            | Seed Homepage, About, and Contact CMS content.                           |
 | `npm run seed:navigation`     | Seed permissions, navigation, and feature flags.                         |
 | `npm run seed`                | Reset and seed representative local app data.                            |
-| `npm run verify:ielts-config` | Check that the active IELTS config is complete.                          |
+| `npm run verify:ielts-config` | Check the active IELTS config through the runtime `DATABASE_URL`.        |
 
 ## Testing
 

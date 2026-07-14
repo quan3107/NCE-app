@@ -42,6 +42,9 @@ CI and deployment jobs may inject `DIRECT_URL` directly instead of creating
 and seed processes. The running backend loads only `.env`, using the
 least-privilege `DATABASE_URL` plus a pgboss-only `JOB_DATABASE_URL`.
 
+The `verify:ielts-config` command is different: it is a runtime-readiness check,
+so it reads `DATABASE_URL` directly and does not require `DIRECT_URL`.
+
 ### Local database role bootstrap
 
 After creating the local `nce_app` database, create every migration-prerequisite

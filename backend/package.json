@@ -33,7 +33,7 @@
     "pgboss:install": "tsx scripts/runOwnerJob.ts tsx src/jobs/installPgBoss.ts",
     "seed": "tsx scripts/runOwnerJob.ts tsx src/prisma/seed.ts",
     "seed:ielts-config": "tsx scripts/runOwnerJob.ts tsx src/prisma/seedIeltsConfig.ts",
-    "verify:ielts-config": "tsx scripts/runOwnerJob.ts tsx src/prisma/verifyIeltsConfig.ts",
+    "verify:ielts-config": "tsx src/prisma/verifyIeltsConfig.ts",
     "seed:ielts": "tsx scripts/runOwnerJob.ts tsx src/prisma/seedIeltsAssignments.ts",
     "seed:ielts-sandbox": "tsx scripts/runOwnerJob.ts tsx src/prisma/seedIeltsSandbox.ts",
     "seed:cms": "tsx scripts/runOwnerJob.ts tsx src/prisma/seeds/cmsContent.seed.ts",
