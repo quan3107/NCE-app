@@ -31,17 +31,16 @@ npm start
 
 ## Database Verification
 
-`prisma.config.ts` loads this package's `.env` and uses `DIRECT_URL` for Prisma
-CLI commands, falling back to `DATABASE_URL` only when `DIRECT_URL` is unset.
-Check the active host before running migration commands: this checkout's
-`backend/.env` may point at hosted Supabase, while `.env.example` documents a
-localhost PostgreSQL database for local development.
+Copy `.env.local.example` to the gitignored `.env.local` and set its owner-only
+`DIRECT_URL`. The `prisma:status`, `prisma:migrate`, `prisma:deploy`,
+`prisma:diff`, `pgboss:install`, and seed scripts load that file only inside a
+short-lived child process. Raw Prisma migration commands fail when `DIRECT_URL`
+is absent instead of silently using the `nce_runtime` URL from `.env`.
 
-In production, inject `DIRECT_URL` only into short-lived Prisma migration,
-`npm run pgboss:install`, and seed processes. The running backend uses the
-least-privilege `DATABASE_URL` plus a pgboss-only `JOB_DATABASE_URL`; seed
-processes that use the application Prisma client may receive an owner URL as
-their job-local `DATABASE_URL`, which must be discarded before startup.
+CI and deployment jobs may inject `DIRECT_URL` directly instead of creating
+`.env.local`. The launcher scopes it to owner-only Prisma, pg-boss installation,
+and seed processes. The running backend loads only `.env`, using the
+least-privilege `DATABASE_URL` plus a pgboss-only `JOB_DATABASE_URL`.
 
 Use `../docs/architecture-db.md` for the migration status/deploy/diff sequence,
 the notification retry column and index check, the guarded
