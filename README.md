@@ -36,17 +36,17 @@ Current flow:
 
 ## Stack
 
-| Layer | Choices |
-| --- | --- |
-| Frontend | React 18, Vite 6, TypeScript, React Router, TanStack Query |
-| UI | Tailwind CSS 4, Radix UI primitives, lucide-react, Tiptap, Recharts |
-| Backend | Node.js 20+, Express 5, TypeScript, Zod, Pino |
-| Data | PostgreSQL, Prisma 7, Prisma pg adapter, row-level security context |
-| Auth | Password login, Google OAuth, RSA JWT access tokens, HTTP-only refresh cookies |
-| AI | Hosted OpenAI-compatible provider routes, teacher-reviewed writing drafts, objective explanations, provider-free harness |
-| Jobs | pg-boss workers for notification scheduling and delivery |
-| Email | Brevo transactional email |
-| Tests | Node test runner and c8 on the frontend; Vitest and Supertest on the backend |
+| Layer    | Choices                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Frontend | React 18, Vite 6, TypeScript, React Router, TanStack Query                                                               |
+| UI       | Tailwind CSS 4, Radix UI primitives, lucide-react, Tiptap, Recharts                                                      |
+| Backend  | Node.js 20+, Express 5, TypeScript, Zod, Pino                                                                            |
+| Data     | PostgreSQL, Prisma 7, Prisma pg adapter, row-level security context                                                      |
+| Auth     | Password login, Google OAuth, RSA JWT access tokens, HTTP-only refresh cookies                                           |
+| AI       | Hosted OpenAI-compatible provider routes, teacher-reviewed writing drafts, objective explanations, provider-free harness |
+| Jobs     | pg-boss workers for notification scheduling and delivery                                                                 |
+| Email    | Brevo transactional email                                                                                                |
+| Tests    | Node test runner and c8 on the frontend; Vitest and Supertest on the backend                                             |
 
 ## Run It Locally
 
@@ -64,15 +64,25 @@ Create the backend environment file:
 
 ```bash
 cp backend/.env.example backend/.env
+cp backend/.env.local.example backend/.env.local
 ```
 
-Use your local database values in `backend/.env`. For the current Vite setup, make sure CORS points at port `3000`:
+Use dedicated runtime-role values in `backend/.env` and keep the owner URL only
+in the gitignored `backend/.env.local`. For the current Vite setup, make sure
+CORS points at port `3000`:
 
 ```dotenv
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/nce_app
-JOB_DATABASE_URL=postgres://postgres:postgres@localhost:5432/nce_app
+DATABASE_URL=postgres://nce_runtime:nce_runtime@localhost:5432/nce_app
+JOB_DATABASE_URL=postgres://nce_job_runner:nce_job_runner@localhost:5432/nce_app
 GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
+
+`backend/.env.local` contains only the owner connection used by short-lived
+database jobs:
+
+```dotenv
+DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
 ```
 
 `backend/.env.example` already uses the project's frontend port, `3000`.
@@ -92,8 +102,8 @@ createdb --host localhost --username postgres nce_app
 ```
 
 Create every migration-prerequisite role as the same `postgres` owner used by
-`DATABASE_URL`. The migration itself creates the two non-login `nce_app_*`
-request roles.
+`DIRECT_URL`. The migration itself creates and normalizes the two non-login
+`nce_app_*` request roles.
 
 ```bash
 psql postgresql://postgres:postgres@localhost:5432/postgres <<'SQL'
@@ -125,16 +135,17 @@ GRANT service_role TO nce_runtime
 SQL
 ```
 
-Install pg-boss with the database owner before Prisma checks its worker grants.
-`installPgBoss.ts` intentionally accepts `DIRECT_URL` only from the invoking
-shell, so the owner credential never enters the long-running backend environment.
-Then run migrations and seed the local app:
+The owner-only scripts below read `.env.local`, pass its URL only to their child
+process, and leave the long-running backend on `.env`. Raw Prisma migration
+commands fail clearly when `DIRECT_URL` is not explicitly scoped. Install
+pg-boss before Prisma checks its worker grants, then migrate and seed:
 
 ```bash
 cd backend
 npm run prisma:generate
-DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app npm run pgboss:install
+npm run pgboss:install
 npm run prisma:migrate
+npm run prisma:status
 npm run seed:ielts-config
 npm run seed:cms
 npm run seed:navigation
@@ -180,9 +191,9 @@ The Playwright workflow starts the Vite dev server on `http://127.0.0.1:3000`, u
 
 The main seed creates these accounts:
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `rosa.admin@ielts.local` | `Passw0rd!` |
+| Role    | Email                     | Password    |
+| ------- | ------------------------- | ----------- |
+| Admin   | `rosa.admin@ielts.local`  | `Passw0rd!` |
 | Teacher | `sarah.tutor@ielts.local` | `Passw0rd!` |
 | Student | `amelia.chan@ielts.local` | `Passw0rd!` |
 
@@ -225,32 +236,35 @@ processes. The grantor-aware preflight and coordinated outage are documented in
 
 Frontend commands, from `frontend/`:
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start Vite on port `3000`. |
-| `npm run build` | Build into `frontend/build`. |
-| `npm run lint` | Run ESLint with zero warnings allowed. |
-| `npm run typecheck` | Run `tsc --noEmit`. |
-| `npm test` | Run frontend tests. |
-| `npm run test:coverage` | Run frontend tests with c8 coverage. |
+| Command                 | Purpose                                |
+| ----------------------- | -------------------------------------- |
+| `npm run dev`           | Start Vite on port `3000`.             |
+| `npm run build`         | Build into `frontend/build`.           |
+| `npm run lint`          | Run ESLint with zero warnings allowed. |
+| `npm run typecheck`     | Run `tsc --noEmit`.                    |
+| `npm test`              | Run frontend tests.                    |
+| `npm run test:coverage` | Run frontend tests with c8 coverage.   |
 
 Backend commands, from `backend/`:
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the Express API with `tsx watch`. |
-| `npm run build` | Generate Prisma and compile TypeScript. |
-| `npm start` | Run `dist/server.js`. |
-| `npm run lint` | Run ESLint. |
-| `npm test` | Generate Prisma and run Vitest with `NODE_ENV=test`. |
-| `npm run test:coverage` | Run backend tests with coverage. |
-| `npm run pgboss:install` | Install or upgrade pg-boss with a shell-provided owner `DIRECT_URL`. |
-| `npm run prisma:migrate` | Apply local development migrations. |
-| `npm run seed:ielts-config` | Seed IELTS reference data required at startup. |
-| `npm run seed:cms` | Seed Homepage, About, and Contact CMS content. |
-| `npm run seed:navigation` | Seed permissions, navigation, and feature flags. |
-| `npm run seed` | Reset and seed representative local app data. |
-| `npm run verify:ielts-config` | Check that the active IELTS config is complete. |
+| Command                       | Purpose                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `npm run dev`                 | Start the Express API with `tsx watch`.                                  |
+| `npm run build`               | Generate Prisma and compile TypeScript.                                  |
+| `npm start`                   | Run `dist/server.js`.                                                    |
+| `npm run lint`                | Run ESLint.                                                              |
+| `npm test`                    | Generate Prisma and run Vitest with `NODE_ENV=test`.                     |
+| `npm run test:coverage`       | Run backend tests with coverage.                                         |
+| `npm run pgboss:install`      | Install or upgrade pg-boss through the owner-only `.env.local` launcher. |
+| `npm run prisma:migrate`      | Apply local development migrations through the owner-only launcher.      |
+| `npm run prisma:status`       | Check migration status through the owner-only launcher.                  |
+| `npm run prisma:deploy`       | Deploy pending migrations through the owner-only launcher.               |
+| `npm run prisma:diff`         | Compare Prisma schema and database through the owner-only launcher.      |
+| `npm run seed:ielts-config`   | Seed IELTS reference data required at startup.                           |
+| `npm run seed:cms`            | Seed Homepage, About, and Contact CMS content.                           |
+| `npm run seed:navigation`     | Seed permissions, navigation, and feature flags.                         |
+| `npm run seed`                | Reset and seed representative local app data.                            |
+| `npm run verify:ielts-config` | Check that the active IELTS config is complete.                          |
 
 ## Testing
 
