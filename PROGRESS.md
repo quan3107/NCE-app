@@ -117,6 +117,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
+- **2026-07-14:** Updated the frontend CI workflow contract test to accept formatter-normalized YAML quote styles; runtime frontend behavior is unchanged.
+
 - **2026-07-14:** No frontend files changed for the owner-job workflow or backend request-role normalization follow-up.
 
 - **2026-07-14:** No frontend files changed for the hosted local-development runtime-role rollout; frontend behavior remains unchanged.
