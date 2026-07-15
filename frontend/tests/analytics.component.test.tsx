@@ -15,6 +15,20 @@ import { TeacherAnalyticsPage } from "../src/features/analytics/components/Teach
 const analyticsQuery = vi.hoisted(() => vi.fn());
 const exportCsv = vi.hoisted(() => vi.fn(async () => new Blob(["analytics"])));
 const courseId = "22222222-2222-4222-8222-222222222222";
+const unavailableCourseId = "44444444-4444-4444-8444-444444444444";
+const courseQueryState = vi.hoisted(() => ({
+  current: {
+    data: [
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        title: "Advanced Writing",
+      },
+      { id: "33333333-3333-4333-8333-333333333333", title: "IELTS Speaking" },
+    ],
+    isLoading: false,
+    error: null as Error | null,
+  },
+}));
 
 vi.mock("@features/analytics/api", () => ({
   fetchTeacherAnalyticsCsv: exportCsv,
@@ -22,14 +36,7 @@ vi.mock("@features/analytics/api", () => ({
 }));
 
 vi.mock("@features/courses/api", () => ({
-  useCoursesQuery: () => ({
-    data: [
-      { id: courseId, title: "Advanced Writing" },
-      { id: "33333333-3333-4333-8333-333333333333", title: "IELTS Speaking" },
-    ],
-    isLoading: false,
-    error: null,
-  }),
+  useCoursesQuery: () => courseQueryState.current,
 }));
 
 vi.mock("../src/features/analytics/components/AnalyticsCharts", () => ({
@@ -46,6 +53,14 @@ afterEach(() => {
   vi.restoreAllMocks();
   analyticsQuery.mockReset();
   exportCsv.mockClear();
+  courseQueryState.current = {
+    data: [
+      { id: courseId, title: "Advanced Writing" },
+      { id: "33333333-3333-4333-8333-333333333333", title: "IELTS Speaking" },
+    ],
+    isLoading: false,
+    error: null,
+  };
 });
 
 test("selecting an accessible course updates analytics and its CSV export", async () => {
@@ -119,4 +134,105 @@ test("an invalid course search parameter never reaches analytics requests", () =
     (screen.getByLabelText("Course") as HTMLSelectElement).value,
     "",
   );
+});
+
+test("an unavailable deep-linked course converges to all accessible courses", async () => {
+  analyticsQuery.mockReturnValue({ data: null, isLoading: false, error: null });
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:analytics");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  const user = userEvent.setup();
+
+  render(
+    <MemoryRouter
+      initialEntries={[
+        `/teacher/analytics?courseId=${unavailableCourseId}`,
+      ]}
+    >
+      <TeacherAnalyticsPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+
+  await waitFor(() => {
+    assert.equal(screen.getByTestId("location").textContent, "");
+    assert.equal(
+      (screen.getByLabelText("Course") as HTMLSelectElement).value,
+      "",
+    );
+    assert.equal(analyticsQuery.mock.lastCall?.[0].courseId, undefined);
+  });
+
+  await user.click(screen.getByRole("button", { name: /export csv/i }));
+  await waitFor(() =>
+    assert.equal(exportCsv.mock.lastCall?.[0].courseId, undefined),
+  );
+});
+
+test("an accessible deep-linked course remains selected", () => {
+  analyticsQuery.mockReturnValue({ data: null, isLoading: false, error: null });
+
+  render(
+    <MemoryRouter initialEntries={[`/teacher/analytics?courseId=${courseId}`]}>
+      <TeacherAnalyticsPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+
+  assert.equal(
+    screen.getByTestId("location").textContent,
+    `?courseId=${courseId}`,
+  );
+  assert.equal(
+    (screen.getByLabelText("Course") as HTMLSelectElement).value,
+    courseId,
+  );
+  assert.equal(analyticsQuery.mock.lastCall?.[0].courseId, courseId);
+});
+
+test("course loading preserves a valid deep-linked filter", () => {
+  courseQueryState.current = { data: [], isLoading: true, error: null };
+  analyticsQuery.mockReturnValue({ data: null, isLoading: false, error: null });
+
+  render(
+    <MemoryRouter initialEntries={[`/teacher/analytics?courseId=${courseId}`]}>
+      <TeacherAnalyticsPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+
+  assert.equal(
+    screen.getByTestId("location").textContent,
+    `?courseId=${courseId}`,
+  );
+  assert.equal(analyticsQuery.mock.lastCall?.[0].courseId, courseId);
+});
+
+test("a course-options error clears rather than traps a hidden filter", async () => {
+  courseQueryState.current = {
+    data: [],
+    isLoading: false,
+    error: new Error("Courses unavailable"),
+  };
+  analyticsQuery.mockReturnValue({ data: null, isLoading: false, error: null });
+
+  render(
+    <MemoryRouter
+      initialEntries={[
+        `/teacher/analytics?courseId=${unavailableCourseId}`,
+      ]}
+    >
+      <TeacherAnalyticsPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+
+  await waitFor(() => {
+    assert.equal(screen.getByTestId("location").textContent, "");
+    assert.equal(analyticsQuery.mock.lastCall?.[0].courseId, undefined);
+    assert.equal(
+      (screen.getByLabelText("Course") as HTMLSelectElement).disabled,
+      false,
+    );
+  });
 });
