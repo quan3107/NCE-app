@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-15:** Added validated UTC date, course UUID, schedule-label cohort, and owner/co-teacher relationship filters to teacher analytics while preserving owner/co-teacher authorization. Added filtered CSV parity with stable overall/course/rubric columns, standard escaping, empty fields for null metrics, download headers, focused scope/export tests, and OpenAPI coverage.
+
 - **2026-07-15:** Removed the committed migration checksum manifest and replaced it with trusted-Git-base blob verification plus Prisma-native deployed-history checks. Renamed package/CI callers, preserved authenticated owner TLS and PostgreSQL 17 replay/diff/probe gates, and added behavioral coverage for immutable base migrations, forward-only additions, ordered pending/exact contracts, and content changes across line endings.
 
 - **2026-07-14:** Reconciled hosted Supabase application-schema drift through one forward Prisma migration: preserved intentional database defaults, composite IELTS keys, foreign-key actions, runtime-role/RLS boundaries, and database-only objects; enforced preflighted CMS/IELTS nullability; restored query and foreign-key indexes; removed only strict-prefix duplicates; and added normalized checksum, empty replay, two-way diff, integrity-probe, and recovery governance.
@@ -128,6 +130,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-15:** Added URL-backed analytics controls for inclusive UTC dates, course UUID, schedule-label cohort, and owner/co-teacher relationship; included filters in query keys and JSON/CSV requests; added an authenticated CSV download action with visible progress/errors; and split filter/chart presentation into focused modules below 300 lines.
 
 - **2026-07-15:** No frontend files or behavior changed for the manifest-free backend migration-history verification; the existing frontend CI suite remains unchanged.
 
