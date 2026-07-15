@@ -27,10 +27,7 @@ export const buildAnalyticsCourseWhere = (
   const clauses: Prisma.CourseWhereInput[] = [
     { deletedAt: null },
     {
-      OR: [
-        { ownerId: actor.id },
-        { enrollments: coTeacherEnrollment(actor.id) },
-      ],
+      OR: [{ ownerId: actor.id }, { enrollments: coTeacherEnrollment(actor.id) }],
     },
   ]
 
