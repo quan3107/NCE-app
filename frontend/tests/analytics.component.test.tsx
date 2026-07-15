@@ -145,9 +145,7 @@ test("an unavailable deep-linked course converges to all accessible courses", as
 
   render(
     <MemoryRouter
-      initialEntries={[
-        `/teacher/analytics?courseId=${unavailableCourseId}`,
-      ]}
+      initialEntries={[`/teacher/analytics?courseId=${unavailableCourseId}`]}
     >
       <TeacherAnalyticsPage />
       <LocationProbe />
@@ -218,9 +216,7 @@ test("a course-options error clears rather than traps a hidden filter", async ()
 
   render(
     <MemoryRouter
-      initialEntries={[
-        `/teacher/analytics?courseId=${unavailableCourseId}`,
-      ]}
+      initialEntries={[`/teacher/analytics?courseId=${unavailableCourseId}`]}
     >
       <TeacherAnalyticsPage />
       <LocationProbe />
