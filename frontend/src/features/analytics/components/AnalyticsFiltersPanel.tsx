@@ -14,6 +14,9 @@ type FilterKey = keyof AnalyticsFilters;
 
 type AnalyticsFiltersPanelProps = {
   filters: AnalyticsFilters;
+  courseOptions: Array<{ id: string; title: string }>;
+  courseOptionsError: string | null;
+  courseOptionsLoading: boolean;
   exportError: string | null;
   isExporting: boolean;
   onChange: (key: FilterKey, value: string) => void;
@@ -22,6 +25,9 @@ type AnalyticsFiltersPanelProps = {
 
 export function AnalyticsFiltersPanel({
   filters,
+  courseOptions,
+  courseOptionsError,
+  courseOptionsLoading,
   exportError,
   isExporting,
   onChange,
@@ -52,13 +58,35 @@ export function AnalyticsFiltersPanel({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="analytics-course">Course ID</Label>
-          <Input
+          <Label htmlFor="analytics-course">Course</Label>
+          <select
             id="analytics-course"
-            placeholder="Course UUID"
+            className="border-input bg-input-background h-10 w-full rounded-lg border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             value={filters.courseId ?? ""}
             onChange={(event) => onChange("courseId", event.target.value)}
-          />
+            disabled={courseOptionsLoading || Boolean(courseOptionsError)}
+            aria-describedby={
+              courseOptionsLoading || courseOptionsError
+                ? "analytics-course-status"
+                : undefined
+            }
+          >
+            <option value="">All accessible courses</option>
+            {courseOptions.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.title}
+              </option>
+            ))}
+          </select>
+          {courseOptionsLoading ? (
+            <p id="analytics-course-status" className="text-xs text-muted-foreground">
+              Loading accessible courses…
+            </p>
+          ) : courseOptionsError ? (
+            <p id="analytics-course-status" className="text-xs text-destructive">
+              {courseOptionsError}
+            </p>
+          ) : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="analytics-cohort">Cohort</Label>
