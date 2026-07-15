@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   databaseSsl,
+  deployedMigrationsQuery,
   verifyBaseMigrationHistory,
   verifyDeployedMigrationHistory,
 } from '../../scripts/verifyMigrationHistory.js'
@@ -185,6 +186,24 @@ describe('deployed Prisma migration history', () => {
         false,
       ),
     ).toThrow(/checksum differs/)
+  })
+
+  it('rejects duplicate active migration names in pending and exact modes', () => {
+    const duplicated = [...firstDeployed, ...firstDeployed]
+
+    expect(() => verifyDeployedMigrationHistory(duplicated, migrations, false)).toThrow(
+      /complete prefix/,
+    )
+    expect(() => verifyDeployedMigrationHistory(duplicated, migrations, true)).toThrow(
+      /complete prefix/,
+    )
+  })
+
+  it('queries every active successful ledger row in execution order', () => {
+    expect(deployedMigrationsQuery).not.toContain('DISTINCT')
+    expect(deployedMigrationsQuery).toContain('finished_at IS NOT NULL')
+    expect(deployedMigrationsQuery).toContain('rolled_back_at IS NULL')
+    expect(deployedMigrationsQuery).toContain('ORDER BY finished_at, migration_name')
   })
 })
 
