@@ -64,7 +64,7 @@ export function AnalyticsFiltersPanel({
             className="border-input bg-input-background h-10 w-full rounded-lg border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             value={filters.courseId ?? ""}
             onChange={(event) => onChange("courseId", event.target.value)}
-            disabled={courseOptionsLoading || Boolean(courseOptionsError)}
+            disabled={courseOptionsLoading}
             aria-describedby={
               courseOptionsLoading || courseOptionsError
                 ? "analytics-course-status"
