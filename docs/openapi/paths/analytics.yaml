@@ -6,13 +6,64 @@ TeacherAnalytics:
   get:
     tags: [analytics]
     summary: Get teacher analytics aggregates
+    description: >-
+      Returns analytics only for courses the caller owns or actively co-teaches. Filters
+      narrow that authorized set and never grant course access. Use format=csv to export
+      the same filtered aggregate as overall, course, and rubric rows.
+    parameters:
+      - name: from
+        in: query
+        description: Inclusive UTC submission date in YYYY-MM-DD format.
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        description: Inclusive UTC submission date in YYYY-MM-DD format.
+        schema:
+          type: string
+          format: date
+      - name: courseId
+        in: query
+        description: Course UUID, applied after owner/co-teacher authorization.
+        schema:
+          type: string
+          format: uuid
+      - name: cohort
+        in: query
+        description: Exact match for the course schedule label (maximum 100 characters).
+        schema:
+          type: string
+          maxLength: 100
+      - name: role
+        in: query
+        description: Filter by the caller's relationship to each accessible course.
+        schema:
+          type: string
+          enum: [owner, coTeacher]
+      - name: format
+        in: query
+        description: Response representation. CSV uses stable documented columns.
+        schema:
+          type: string
+          enum: [json, csv]
+          default: json
     responses:
       '200':
-        description: Teacher analytics aggregates
+        description: Filtered teacher analytics in the requested representation.
         content:
           application/json:
             schema:
               $ref: '../schemas/analytics.yaml#/TeacherAnalyticsResponse'
+          text/csv:
+            schema:
+              $ref: '../schemas/analytics.yaml#/TeacherAnalyticsCsv'
+      '400':
+        description: Invalid filter or date range
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
         content:
