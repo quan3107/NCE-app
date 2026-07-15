@@ -62,6 +62,11 @@ describe('analytics filters', () => {
     expect(() => analyticsQuerySchema.parse({ format: 'xlsx' })).toThrow()
   })
 
+  it('rejects analytics access without an authenticated actor', async () => {
+    await expect(getTeacherAnalytics()).rejects.toMatchObject({ statusCode: 401 })
+    expect(prisma.course.findMany).not.toHaveBeenCalled()
+  })
+
   it('ANDs course, cohort, and relationship filters with teacher scope', async () => {
     const filters = analyticsQuerySchema.parse({
       courseId,
@@ -84,6 +89,8 @@ describe('analytics filters', () => {
         },
       }),
     )
+    expect(prisma.assignment.findMany).not.toHaveBeenCalled()
+    expect(prisma.submission.findMany).not.toHaveBeenCalled()
   })
 
   it('applies inclusive UTC dates to submittedAt with createdAt fallback', async () => {
