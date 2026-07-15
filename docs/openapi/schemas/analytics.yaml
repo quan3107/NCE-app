@@ -18,15 +18,18 @@ AnalyticsCourseSummary:
       format: int32
     onTimeRate:
       type: number
-      description: Percentage of on-time submissions (0-100).
+      description: Percentage of on-time submissions (0-100), or null when there are no submissions.
       nullable: true
     averageScore:
       type: number
+      description: Mean final score, or null when no filtered grade has a final score.
       nullable: true
     averageTurnaroundDays:
       type: number
+      description: Mean non-negative grading turnaround in days, or null when unavailable.
       nullable: true
-  required: [courseId, courseTitle, submissionCount, gradedCount]
+  required:
+    [courseId, courseTitle, submissionCount, gradedCount, onTimeRate, averageScore, averageTurnaroundDays]
 
 AnalyticsRubricAverage:
   type: object
@@ -52,13 +55,15 @@ TeacherAnalyticsResponse:
     onTimeRate:
       type: number
       nullable: true
-      description: Overall on-time submission rate (0-100).
+      description: Overall on-time submission rate (0-100), or null when there are no submissions.
     averageScore:
       type: number
       nullable: true
+      description: Mean final score, or null when no filtered grade has a final score.
     averageTurnaroundDays:
       type: number
       nullable: true
+      description: Mean non-negative grading turnaround in days, or null when unavailable.
     courses:
       type: array
       items:
@@ -70,4 +75,18 @@ TeacherAnalyticsResponse:
     generatedAt:
       type: string
       format: date-time
-  required: [teacherId, courseCount, courses, rubricAverages, generatedAt]
+  required:
+    [teacherId, courseCount, onTimeRate, averageScore, averageTurnaroundDays, courses, rubricAverages, generatedAt]
+
+TeacherAnalyticsCsv:
+  type: string
+  description: >-
+    UTF-8 CSV with CRLF line endings and stable columns: row_type, teacher_id,
+    course_id, course_title, criterion, course_count, submission_count,
+    graded_count, on_time_rate, average_score, average_turnaround_days,
+    sample_size, generated_at. It contains one overall row followed by filtered
+    course rows and rubric rows. Null or inapplicable metrics are empty fields;
+    commas, quotes, and line breaks are escaped using standard double-quote CSV rules.
+  example: |-
+    row_type,teacher_id,course_id,course_title,criterion,course_count,submission_count,graded_count,on_time_rate,average_score,average_turnaround_days,sample_size,generated_at
+    overall,11111111-1111-4111-8111-111111111111,,,,1,,,95.5,82.25,1.5,,2026-07-15T00:00:00.000Z
