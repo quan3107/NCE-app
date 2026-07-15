@@ -232,3 +232,29 @@ test("a course-options error clears rather than traps a hidden filter", async ()
     );
   });
 });
+
+test("cached accessible options survive a background refresh error", () => {
+  courseQueryState.current = {
+    data: [{ id: courseId, title: "Advanced Writing" }],
+    isLoading: false,
+    error: new Error("Refresh failed"),
+  };
+  analyticsQuery.mockReturnValue({ data: null, isLoading: false, error: null });
+
+  render(
+    <MemoryRouter initialEntries={[`/teacher/analytics?courseId=${courseId}`]}>
+      <TeacherAnalyticsPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+
+  assert.equal(
+    screen.getByTestId("location").textContent,
+    `?courseId=${courseId}`,
+  );
+  assert.equal(
+    (screen.getByLabelText("Course") as HTMLSelectElement).value,
+    courseId,
+  );
+  assert.equal(analyticsQuery.mock.lastCall?.[0].courseId, courseId);
+});
