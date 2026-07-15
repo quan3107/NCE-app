@@ -29,7 +29,15 @@ AnalyticsCourseSummary:
       description: Mean non-negative grading turnaround in days, or null when unavailable.
       nullable: true
   required:
-    [courseId, courseTitle, submissionCount, gradedCount, onTimeRate, averageScore, averageTurnaroundDays]
+    [
+      courseId,
+      courseTitle,
+      submissionCount,
+      gradedCount,
+      onTimeRate,
+      averageScore,
+      averageTurnaroundDays,
+    ]
 
 AnalyticsRubricAverage:
   type: object
@@ -67,16 +75,25 @@ TeacherAnalyticsResponse:
     courses:
       type: array
       items:
-        $ref: './analytics.yaml#/AnalyticsCourseSummary'
+        $ref: "./analytics.yaml#/AnalyticsCourseSummary"
     rubricAverages:
       type: array
       items:
-        $ref: './analytics.yaml#/AnalyticsRubricAverage'
+        $ref: "./analytics.yaml#/AnalyticsRubricAverage"
     generatedAt:
       type: string
       format: date-time
   required:
-    [teacherId, courseCount, onTimeRate, averageScore, averageTurnaroundDays, courses, rubricAverages, generatedAt]
+    [
+      teacherId,
+      courseCount,
+      onTimeRate,
+      averageScore,
+      averageTurnaroundDays,
+      courses,
+      rubricAverages,
+      generatedAt,
+    ]
 
 TeacherAnalyticsCsv:
   type: string
