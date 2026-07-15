@@ -14,17 +14,23 @@ import {
   fetchTeacherAnalyticsCsv,
   useTeacherAnalyticsQuery,
 } from "@features/analytics/api";
+import { useCoursesQuery } from "@features/courses/api";
 import { formatDistanceToNow } from "@lib/utils";
 
 import { AnalyticsCharts } from "./AnalyticsCharts";
 import { AnalyticsFiltersPanel } from "./AnalyticsFiltersPanel";
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const readFilters = (searchParams: URLSearchParams): AnalyticsFilters => {
   const role = searchParams.get("role");
+  const courseId = searchParams.get("courseId");
   return {
     from: searchParams.get("from") ?? undefined,
     to: searchParams.get("to") ?? undefined,
-    courseId: searchParams.get("courseId") ?? undefined,
+    courseId:
+      courseId && UUID_PATTERN.test(courseId) ? courseId : undefined,
     cohort: searchParams.get("cohort") ?? undefined,
     role: role === "owner" || role === "coTeacher" ? role : undefined,
   };
@@ -35,6 +41,7 @@ export function TeacherAnalyticsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const filters = useMemo(() => readFilters(searchParams), [searchParams]);
+  const coursesQuery = useCoursesQuery();
   const analyticsQuery = useTeacherAnalyticsQuery(filters);
 
   const handleFilterChange = (key: keyof AnalyticsFilters, value: string) => {
@@ -110,6 +117,11 @@ export function TeacherAnalyticsPage() {
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         <AnalyticsFiltersPanel
           filters={filters}
+          courseOptions={coursesQuery.data ?? []}
+          courseOptionsError={
+            coursesQuery.error ? "Unable to load accessible courses." : null
+          }
+          courseOptionsLoading={coursesQuery.isLoading}
           exportError={exportError}
           isExporting={isExporting}
           onChange={handleFilterChange}
