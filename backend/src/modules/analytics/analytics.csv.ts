@@ -23,12 +23,15 @@ const COLUMNS = [
 
 type CsvValue = string | number | null
 
+const FORMULA_PREFIX = /^[\s\u0000-\u001f\u007f-\u009f]*[=+\-@]/u
+
 const escapeCsvValue = (value: CsvValue): string => {
   if (value === null) {
     return ''
   }
 
-  const text = String(value)
+  const text =
+    typeof value === 'string' && FORMULA_PREFIX.test(value) ? `'${value}` : String(value)
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
