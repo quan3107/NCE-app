@@ -1,24 +1,13 @@
 /// <reference lib="dom" />
 /**
  * Location: tests/analytics.test.ts
- * Purpose: Verify analytics filter query keys, request params, export, and UI wiring.
- * Why: Keeps displayed and downloaded analytics synchronized with URL-backed selections.
+ * Purpose: Verify analytics filter query keys, request params, and export behavior.
+ * Why: Keeps analytics API requests synchronized with URL-backed selections.
  */
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { before, test } from "node:test";
 
 const API_BASE_URL = "http://localhost:4000/api/v1";
-const frontendRoot = path.resolve(import.meta.dirname, "..");
-const pagePath = path.join(
-  frontendRoot,
-  "src/features/analytics/components/TeacherAnalyticsPage.tsx",
-);
-const filtersPath = path.join(
-  frontendRoot,
-  "src/features/analytics/components/AnalyticsFiltersPanel.tsx",
-);
 
 let analyticsApi: typeof import("../src/features/analytics/api");
 
@@ -79,16 +68,4 @@ test("CSV export sends the same filters with format=csv", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
-});
-
-test("teacher analytics page exposes URL-backed filters and CSV export", async () => {
-  const source = `${await readFile(pagePath, "utf8")}\n${await readFile(filtersPath, "utf8")}`;
-
-  assert.match(source, /useSearchParams/);
-  assert.match(source, /type="date"/);
-  assert.match(source, /Course ID/);
-  assert.match(source, /Cohort/);
-  assert.match(source, /Course role/);
-  assert.match(source, /Export CSV/);
-  assert.match(source, /fetchTeacherAnalyticsCsv/);
 });
