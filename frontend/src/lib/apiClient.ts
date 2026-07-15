@@ -18,6 +18,7 @@ export type ApiClientOptions<TBody = unknown> = {
   signal?: AbortSignal;
   withAuth?: boolean;
   parseJson?: boolean;
+  responseType?: 'blob' | 'json' | 'text';
   credentials?: RequestCredentials;
 };
 
@@ -167,6 +168,7 @@ async function apiClientInternal<TResponse, TBody>(
     signal,
     withAuth = true,
     parseJson = true,
+    responseType = parseJson ? 'json' : undefined,
     credentials,
   } = options;
 
@@ -225,8 +227,15 @@ async function apiClientInternal<TResponse, TBody>(
     throw new ApiError(message, response.status, errorPayload);
   }
 
-  if (!parseJson || response.status === 204) {
+  if (response.status === 204 || responseType === undefined) {
     return undefined as TResponse;
+  }
+
+  if (responseType === 'blob') {
+    return (await response.blob()) as TResponse;
+  }
+  if (responseType === 'text') {
+    return (await response.text()) as TResponse;
   }
 
   return (await response.json()) as TResponse;
