@@ -4,8 +4,10 @@ This project uses Prisma migrations against PostgreSQL. Runtime code loads only
 `backend/.env`. Owner-only npm commands load `DIRECT_URL` from the gitignored
 `backend/.env.local` and scope it to one child process; raw migration commands
 fail instead of falling back to the runtime `DATABASE_URL`.
-Prisma migrations are authoritative for application-owned `public` objects.
-The full ownership, checksum, backup, and recovery policy is in
+Git is the immutable repository-history boundary, Prisma migrations are
+authoritative for application-owned `public` objects, and Prisma's native
+`_prisma_migrations` ledger is deployed execution evidence. The full ownership,
+verification, backup, and recovery policy is in
 `prisma-supabase-migration-governance.md`.
 
 ## Environment Check
@@ -29,17 +31,19 @@ Run these commands from the repository root:
 
 ```powershell
 npm --prefix backend run prisma:generate
-npm --prefix backend run prisma:checksums:database
+npm --prefix backend run prisma:migrations:verify -- --git-base origin/main
+npm --prefix backend run prisma:migrations:verify:pending
 npm --prefix backend run prisma:status
 npm --prefix backend run prisma:deploy
-npm --prefix backend run prisma:checksums:database:exact
+npm --prefix backend run prisma:migrations:verify:exact
 npm --prefix backend run prisma:diff
 npm --prefix backend run prisma:diff:reverse
 ```
 
-The first database checksum command is the pre-deploy mode: it permits only
-trailing repository migrations that are not deployed yet. The `:exact` command
-is the post-deploy/CI mode and requires both histories to converge.
+The trusted-base command rejects any byte change, deletion, or rename of a base
+migration while allowing only new forward directories. The `:pending` database
+mode permits a gap-free deployed prefix; `:exact` is the post-deploy/CI mode and
+requires both histories to converge in name, order, count, and native checksum.
 
 For `prisma migrate diff --exit-code`, exit code `0` means Prisma found no
 schema diff. Exit code `2` means drift exists. Review drift before applying more

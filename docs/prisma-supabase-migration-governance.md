@@ -14,6 +14,12 @@ it with `npm run prisma:deploy`, and never edit a migration after it has been
 applied. `backend/src/prisma/schema.prisma` is the client-facing structural
 contract and must converge with a clean migration replay.
 
+The trusted Git base is the immutable repository-history boundary. Every
+`migration.sql` blob already present there must remain byte-for-byte identical;
+only a new directory ordered after the base history may add a migration.
+Prisma's `_prisma_migrations` table is read-only deployed execution evidence,
+including the native checksum Prisma recorded when it applied each migration.
+
 `supabase_migrations.schema_migrations` is retained as historical metadata for
 the four Supabase CLI migrations that predate this policy. Do not repair,
 rewrite, append application DDL to, or deploy from that ledger. Supabase
@@ -37,21 +43,24 @@ Generated diff SQL is review evidence, not a deployment artifact. Never apply
 it wholesale because it cannot express the PR-48A runtime-role and policy
 boundary and may replace valid constraints only to change representation.
 
-## Checksums and line endings
+## Migration history and line endings
 
-`.gitattributes` checks out migration SQL with LF endings. The committed
-`applied-migration-checksums.json` records SHA-256 after LF normalization.
-`npm run prisma:checksums` compares repository files with that manifest.
-`npm run prisma:checksums:database` validates every deployed migration and
-allows only trailing repository migrations that are pending deployment.
-`npm run prisma:checksums:database:exact` additionally requires both histories
-to contain the same migrations. Both accept exact deployed bytes plus LF/CRLF
-variants, which accounts for historical Windows checkouts without allowing SQL
-content changes.
+`.gitattributes` checks out migration SQL with LF endings so Git blob identity
+and Prisma's native checksums remain deterministic across platforms.
+`npm run prisma:migrations:verify -- --git-base <ref>` compares every base
+migration with its exact Git blob and accepts only new forward directories.
+`npm run prisma:migrations:verify:pending` validates every deployed migration
+and allows only a gap-free prefix of repository history.
+`npm run prisma:migrations:verify:exact` additionally requires identical names,
+order, count, and native Prisma checksums. Database verification accepts exact
+deployed bytes plus LF/CRLF variants to account for historical Windows
+checkouts; Git blob verification still rejects any repository content change.
 
 When a deployed checksum does not match those variants, stop. Restore the file
 from the deployed source or repository history. Put every correction in a new
-forward migration. Never update `_prisma_migrations.checksum` to conceal drift.
+forward migration. All hosted verification is read-only: never update, repair,
+resolve, insert into, or delete from `_prisma_migrations` or
+`supabase_migrations.schema_migrations` to conceal drift.
 
 ## Connection boundaries
 
@@ -80,7 +89,7 @@ forward migration. Never update `_prisma_migrations.checksum` to conceal drift.
 1. Take a Supabase PITR/manual backup or a tested logical backup before DDL.
    Record its time and restore target outside the repository; do not commit data.
 2. Confirm no migration is failed or pending unexpectedly with
-   `npm run prisma:status`. Run `npm run prisma:checksums:database` to verify
+   `npm run prisma:status`. Run `npm run prisma:migrations:verify:pending` to verify
    every deployed migration while allowing only trailing repository migrations
    that are awaiting deployment.
 3. Run the null, orphan, duplicate, invalid-index, unvalidated-constraint, CMS
@@ -140,11 +149,12 @@ From the repository root:
 ```powershell
 npm --prefix backend run prisma:generate
 npm --prefix backend run prisma:validate
-npm --prefix backend run prisma:checksums:database
+npm --prefix backend run prisma:migrations:verify -- --git-base origin/main
+npm --prefix backend run prisma:migrations:verify:pending
 npm --prefix backend run prisma:status
 npm --prefix backend run prisma:deploy
 npm --prefix backend run prisma:status
-npm --prefix backend run prisma:checksums:database:exact
+npm --prefix backend run prisma:migrations:verify:exact
 npm --prefix backend run prisma:diff
 npm --prefix backend run prisma:diff:reverse
 ```
@@ -156,9 +166,9 @@ indexes; do not remove an index solely because a low-traffic advisor marks it
 unused.
 
 CI starts PostgreSQL 17 from empty, creates required roles, replays all Prisma
-migrations, requires exact normalized/deployed checksum convergence, checks both diff
-directions, rejects any modification/deletion/rename of migration SQL already in
-the Git base, and runs the database-only/integrity probe. Only a newly added
+migrations, requires exact deployed-ledger convergence, checks both diff
+directions, rejects any modification/deletion/rename of migration SQL already
+in the Git base, and runs the database-only/integrity probe. Only a newly added
 forward migration is accepted.
 
 ## Advisor baseline
@@ -201,4 +211,5 @@ Do not roll an applied migration backward in place.
   backup to a new recovery target. Compare it before redirecting traffic.
 
 Roll forward is the normal recovery path. Every corrective migration receives
-the same replay, two-way diff, checksum, hosted integrity, and advisor checks.
+the same replay, two-way diff, migration-history, hosted integrity, and advisor
+checks.

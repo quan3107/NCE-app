@@ -1,6 +1,6 @@
 /**
  * File: backend/tests/prisma/schemaMigrationGovernance.test.ts
- * Purpose: Lock the schema-reconciliation migration, checksum gate, and CI replay contract.
+ * Purpose: Lock schema reconciliation, migration-history gates, and CI replay.
  * Why: Applied migrations and hosted schema drift must fail deterministically before deployment.
  */
 
@@ -16,31 +16,29 @@ async function readRepositoryFile(relativePath: string): Promise<string> {
 }
 
 describe('schema and migration governance', () => {
-  it('pins migration line endings and normalized applied checksums', async () => {
+  it('pins migration line endings and uses Git as the history boundary', async () => {
     const attributes = await readRepositoryFile('.gitattributes')
-    const manifest = JSON.parse(
-      await readRepositoryFile('backend/src/prisma/applied-migration-checksums.json'),
-    ) as { algorithm: string; lineEndings: string; migrations: Record<string, string> }
+    const verifier = await readRepositoryFile('backend/scripts/verifyMigrationHistory.ts')
 
     expect(attributes).toContain(
       'backend/src/prisma/migrations/**/migration.sql text eol=lf',
     )
-    expect(manifest.algorithm).toBe('sha256')
-    expect(manifest.lineEndings).toBe('lf')
-    expect(Object.keys(manifest.migrations)).toContain('20251008120500_init')
-    expect(Object.keys(manifest.migrations)).toContain(
-      '20260714153000_reconcile_application_schema',
-    )
+    expect(verifier).toContain("'hash-object'")
+    expect(verifier).toContain("'--no-filters'")
   })
 
-  it('exposes checksum and two-way schema checks as package commands', async () => {
+  it('exposes migration-history and two-way schema checks as package commands', async () => {
     const packageJson = JSON.parse(await readRepositoryFile('backend/package.json')) as {
       scripts: Record<string, string>
     }
 
-    expect(packageJson.scripts['prisma:checksums']).toContain('verifyMigrationChecksums')
-    expect(packageJson.scripts['prisma:checksums:database']).toContain('--database')
-    expect(packageJson.scripts['prisma:checksums:database:exact']).toContain(
+    expect(packageJson.scripts['prisma:migrations:verify']).toContain(
+      'verifyMigrationHistory',
+    )
+    expect(packageJson.scripts['prisma:migrations:verify:pending']).toContain(
+      '--database-pending',
+    )
+    expect(packageJson.scripts['prisma:migrations:verify:exact']).toContain(
       '--database-exact',
     )
     expect(packageJson.scripts['prisma:diff']).toContain('--from-schema')
@@ -85,15 +83,14 @@ describe('schema and migration governance', () => {
     )
   })
 
-  it('runs disposable replay, checksums, probes, and both schema diff directions in CI', async () => {
+  it('runs replay, history checks, probes, and both schema diff directions in CI', async () => {
     const workflow = await readRepositoryFile('.github/workflows/ci.yml')
 
-    expect(workflow).toContain('npm run prisma:checksums:database')
+    expect(workflow).toContain('npm run prisma:migrations:verify:exact')
     expect(workflow).toContain('fetch-depth: 0')
-    expect(workflow).toContain('npm run prisma:checksums -- --git-base')
+    expect(workflow).toContain('npm run prisma:migrations:verify -- --git-base')
     expect(workflow).toContain('github.event.repository.default_branch')
     expect(workflow).not.toContain("if: github.event_name != 'workflow_dispatch'")
-    expect(workflow).toContain('npm run prisma:checksums:database:exact')
     expect(workflow).toContain('npm run prisma:diff:reverse')
     expect(workflow).toContain('schemaGovernance.probe.sql')
   })
