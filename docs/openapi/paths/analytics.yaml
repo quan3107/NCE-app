@@ -51,6 +51,12 @@ TeacherAnalytics:
     responses:
       "200":
         description: Filtered teacher analytics in the requested representation.
+        headers:
+          Content-Disposition:
+            description: Present for CSV responses as an attachment with the stable export filename.
+            schema:
+              type: string
+              example: attachment; filename="teacher-analytics.csv"
         content:
           application/json:
             schema:
