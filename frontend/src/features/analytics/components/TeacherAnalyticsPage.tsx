@@ -29,8 +29,7 @@ const readFilters = (searchParams: URLSearchParams): AnalyticsFilters => {
   return {
     from: searchParams.get("from") ?? undefined,
     to: searchParams.get("to") ?? undefined,
-    courseId:
-      courseId && UUID_PATTERN.test(courseId) ? courseId : undefined,
+    courseId: courseId && UUID_PATTERN.test(courseId) ? courseId : undefined,
     cohort: searchParams.get("cohort") ?? undefined,
     role: role === "owner" || role === "coTeacher" ? role : undefined,
   };
