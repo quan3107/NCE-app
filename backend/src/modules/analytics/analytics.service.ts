@@ -44,7 +44,11 @@ type SubmissionGrade = {
 
 export async function getTeacherAnalytics(
   user?: AuthenticatedUser,
-  filters: AnalyticsFilters = { format: 'json' },
+  filters: AnalyticsFilters = {
+    format: 'json',
+    from: undefined,
+    toExclusive: undefined,
+  },
 ): Promise<TeacherAnalyticsResponse> {
   if (!user) {
     throw createHttpError(401, 'Unauthorized')
