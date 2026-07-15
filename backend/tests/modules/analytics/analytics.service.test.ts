@@ -160,7 +160,9 @@ describe('analytics filters', () => {
     const set = vi.fn()
     const send = vi.fn()
     const json = vi.fn()
-    const status = vi.fn().mockReturnValue({ set, send, json })
+    const response = { set, send, json }
+    const status = vi.fn().mockReturnValue(response)
+    set.mockReturnValue(response)
 
     await getTeacherAnalyticsHandler(
       { user: teacher, query: { courseId, format: 'csv' } } as never,
