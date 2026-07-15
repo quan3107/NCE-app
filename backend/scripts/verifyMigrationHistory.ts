@@ -20,6 +20,13 @@ type DeployedMigration = {
   checksum: string
 }
 
+export const deployedMigrationsQuery = `
+  SELECT migration_name, checksum
+  FROM public._prisma_migrations
+  WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
+  ORDER BY finished_at, migration_name
+`
+
 const backendRoot = path.resolve(import.meta.dirname, '..')
 const repositoryRoot = path.resolve(backendRoot, '..')
 const migrationRelativeRoot = 'backend/src/prisma/migrations'
@@ -197,17 +204,7 @@ async function queryDeployedMigrations(
   const client = new Client({ connectionString, ...(ssl === undefined ? {} : { ssl }) })
   await client.connect()
   try {
-    const result = await client.query<DeployedMigration>(`
-      SELECT migration_name, checksum
-      FROM (
-        SELECT DISTINCT ON (migration_name)
-          migration_name, checksum, finished_at
-        FROM public._prisma_migrations
-        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
-        ORDER BY migration_name, finished_at DESC
-      ) AS latest
-      ORDER BY finished_at, migration_name
-    `)
+    const result = await client.query<DeployedMigration>(deployedMigrationsQuery)
     return result.rows
   } finally {
     await client.end()
