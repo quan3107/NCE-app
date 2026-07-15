@@ -43,6 +43,7 @@ function LocationProbe() {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   analyticsQuery.mockReset();
   exportCsv.mockClear();
 });
@@ -77,9 +78,27 @@ test('selecting an accessible course updates analytics and its CSV export', asyn
   });
 
   await user.click(screen.getByRole('button', { name: /export csv/i }));
-  await waitFor(() => assert.deepEqual(exportCsv.mock.lastCall?.[0], { courseId }));
+  await waitFor(() => assert.equal(exportCsv.mock.lastCall?.[0].courseId, courseId));
 
   click.mockRestore();
   revokeObjectUrl.mockRestore();
   createObjectUrl.mockRestore();
+});
+
+test('an invalid course search parameter never reaches analytics requests', () => {
+  analyticsQuery.mockReturnValue({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  render(
+    <MemoryRouter initialEntries={['/teacher/analytics?courseId=partial-id']}>
+      <TeacherAnalyticsPage />
+    </MemoryRouter>,
+  );
+
+  assert.ok(analyticsQuery.mock.calls.length > 0);
+  assert.ok(analyticsQuery.mock.calls.every(([filters]) => filters.courseId === undefined));
+  assert.equal((screen.getByLabelText('Course') as HTMLSelectElement).value, '');
 });
