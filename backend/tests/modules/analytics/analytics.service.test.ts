@@ -163,6 +163,58 @@ describe('analytics filters', () => {
     expect(lines[3]).toContain('Task response')
   })
 
+  it('neutralizes formula-leading text while preserving CSV escaping and numbers', () => {
+    const dangerousTitles = [
+      '=SUM(1,1)',
+      '+CMD',
+      '-2+3',
+      '@HYPERLINK("https://example.com")',
+      '  =SPACED',
+      '\t+TABBED',
+      '\u0000-CONTROL',
+    ]
+    const payload = {
+      teacherId: teacher.id,
+      courseCount: dangerousTitles.length + 1,
+      onTimeRate: null,
+      averageScore: -5,
+      averageTurnaroundDays: null,
+      courses: [
+        ...dangerousTitles.map((courseTitle) => ({
+          courseId,
+          courseTitle,
+          submissionCount: 1,
+          gradedCount: 1,
+          onTimeRate: 100,
+          averageScore: -5,
+          averageTurnaroundDays: null,
+        })),
+        {
+          courseId,
+          courseTitle: 'Line 1\nLine "2", value',
+          submissionCount: 1,
+          gradedCount: 1,
+          onTimeRate: 100,
+          averageScore: -5,
+          averageTurnaroundDays: null,
+        },
+      ],
+      rubricAverages: [{ criterion: ' \r@RUBRIC', averageScore: 6.5, sampleSize: 1 }],
+      generatedAt: '2026-07-15T00:00:00.000Z',
+    }
+
+    const csv = serializeTeacherAnalyticsCsv(payload)
+
+    for (const title of dangerousTitles) {
+      const escaped = `'${title}`.replaceAll('"', '""')
+      expect(csv).toContain(escaped)
+    }
+    expect(csv).toContain("' \r@RUBRIC")
+    expect(csv).toContain('"Line 1\nLine ""2"", value"')
+    expect(csv).toContain(',-5,')
+    expect(csv).not.toContain(",'-5,")
+  })
+
   it('returns filtered CSV with download headers', async () => {
     const set = vi.fn()
     const send = vi.fn()
