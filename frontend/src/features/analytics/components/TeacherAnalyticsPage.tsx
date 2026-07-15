@@ -3,7 +3,7 @@
  * Purpose: Coordinate filtered teacher analytics data and presentation.
  * Why: Keeps URL state and export behavior at the analytics route boundary.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Award, BookOpen, Clock, Gauge } from "lucide-react";
 
@@ -39,9 +39,37 @@ export function TeacherAnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const filters = useMemo(() => readFilters(searchParams), [searchParams]);
+  const requestedFilters = useMemo(
+    () => readFilters(searchParams),
+    [searchParams],
+  );
   const coursesQuery = useCoursesQuery();
+  const selectedCourseUnavailable = Boolean(
+    requestedFilters.courseId &&
+    !coursesQuery.isLoading &&
+    (coursesQuery.error ||
+      !coursesQuery.data?.some(
+        (course) => course.id === requestedFilters.courseId,
+      )),
+  );
+  const filters = useMemo(
+    () =>
+      selectedCourseUnavailable
+        ? { ...requestedFilters, courseId: undefined }
+        : requestedFilters,
+    [requestedFilters, selectedCourseUnavailable],
+  );
   const analyticsQuery = useTeacherAnalyticsQuery(filters);
+
+  useEffect(() => {
+    if (!selectedCourseUnavailable) {
+      return;
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("courseId");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, selectedCourseUnavailable, setSearchParams]);
 
   const handleFilterChange = (key: keyof AnalyticsFilters, value: string) => {
     const next = new URLSearchParams(searchParams);
