@@ -21,6 +21,8 @@ const { getTeacherAnalytics } =
   await import('../../../src/modules/analytics/analytics.service.js')
 const { serializeTeacherAnalyticsCsv } =
   await import('../../../src/modules/analytics/analytics.csv.js')
+const { getTeacherAnalyticsHandler } =
+  await import('../../../src/modules/analytics/analytics.controller.js')
 
 const teacher = { id: '11111111-1111-4111-8111-111111111111', role: 'teacher' }
 const courseId = '22222222-2222-4222-8222-222222222222'
@@ -152,5 +154,25 @@ describe('analytics filters', () => {
     expect(lines[1]).toContain(',,,,1,,,50,,1.25,,2026-07-15T00:00:00.000Z')
     expect(lines[2]).toContain('"Writing, ""Advanced"""')
     expect(lines[3]).toContain('Task response')
+  })
+
+  it('returns filtered CSV with download headers', async () => {
+    const set = vi.fn()
+    const send = vi.fn()
+    const json = vi.fn()
+    const status = vi.fn().mockReturnValue({ set, send, json })
+
+    await getTeacherAnalyticsHandler(
+      { user: teacher, query: { courseId, format: 'csv' } } as never,
+      { status } as never,
+    )
+
+    expect(status).toHaveBeenCalledWith(200)
+    expect(set).toHaveBeenCalledWith({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="teacher-analytics.csv"',
+    })
+    expect(send).toHaveBeenCalledWith(expect.stringContaining('row_type,teacher_id'))
+    expect(json).not.toHaveBeenCalled()
   })
 })
