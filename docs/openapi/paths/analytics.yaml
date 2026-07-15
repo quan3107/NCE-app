@@ -49,32 +49,32 @@ TeacherAnalytics:
           enum: [json, csv]
           default: json
     responses:
-      '200':
+      "200":
         description: Filtered teacher analytics in the requested representation.
         content:
           application/json:
             schema:
-              $ref: '../schemas/analytics.yaml#/TeacherAnalyticsResponse'
+              $ref: "../schemas/analytics.yaml#/TeacherAnalyticsResponse"
           text/csv:
             schema:
-              $ref: '../schemas/analytics.yaml#/TeacherAnalyticsCsv'
-      '400':
+              $ref: "../schemas/analytics.yaml#/TeacherAnalyticsCsv"
+      "400":
         description: Invalid filter or date range
         content:
           application/json:
             schema:
-              $ref: '../schemas/common.yaml#/ErrorResponse'
-      '401':
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "401":
         description: Unauthorized
         content:
           application/json:
             schema:
-              $ref: '../schemas/common.yaml#/ErrorResponse'
-      '403':
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
         description: Forbidden
         content:
           application/json:
             schema:
-              $ref: '../schemas/common.yaml#/ErrorResponse'
+              $ref: "../schemas/common.yaml#/ErrorResponse"
     security:
       - BearerAuth: []
