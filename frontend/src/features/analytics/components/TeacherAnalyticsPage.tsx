@@ -44,13 +44,14 @@ export function TeacherAnalyticsPage() {
     [searchParams],
   );
   const coursesQuery = useCoursesQuery();
+  const selectedCourseConfirmed = coursesQuery.data?.some(
+    (course) => course.id === requestedFilters.courseId,
+  );
   const selectedCourseUnavailable = Boolean(
     requestedFilters.courseId &&
     !coursesQuery.isLoading &&
-    (coursesQuery.error ||
-      !coursesQuery.data?.some(
-        (course) => course.id === requestedFilters.courseId,
-      )),
+    !selectedCourseConfirmed &&
+    (coursesQuery.data || coursesQuery.error),
   );
   const filters = useMemo(
     () =>
