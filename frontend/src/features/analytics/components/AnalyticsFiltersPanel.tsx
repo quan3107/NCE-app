@@ -79,11 +79,17 @@ export function AnalyticsFiltersPanel({
             ))}
           </select>
           {courseOptionsLoading ? (
-            <p id="analytics-course-status" className="text-xs text-muted-foreground">
+            <p
+              id="analytics-course-status"
+              className="text-xs text-muted-foreground"
+            >
               Loading accessible courses…
             </p>
           ) : courseOptionsError ? (
-            <p id="analytics-course-status" className="text-xs text-destructive">
+            <p
+              id="analytics-course-status"
+              className="text-xs text-destructive"
+            >
               {courseOptionsError}
             </p>
           ) : null}
