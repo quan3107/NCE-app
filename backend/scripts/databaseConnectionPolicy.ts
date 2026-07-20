@@ -18,7 +18,10 @@ export const databaseSslOptions = [
 ] as const
 
 export function isLoopbackDatabaseUrl(connectionString: string): boolean {
-  return loopbackHosts.has(new URL(connectionString).hostname.toLowerCase())
+  const url = new URL(connectionString)
+  if (url.searchParams.has('host')) return false
+
+  return loopbackHosts.has(url.hostname.toLowerCase())
 }
 
 export function assertUnconfiguredRemoteSsl(url: URL): void {
