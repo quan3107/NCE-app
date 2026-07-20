@@ -36,7 +36,7 @@
     "prisma:migrations:verify:pending": "tsx scripts/runOwnerJob.ts tsx scripts/verifyMigrationHistory.ts --database-pending",
     "prisma:migrations:verify:exact": "tsx scripts/runOwnerJob.ts tsx scripts/verifyMigrationHistory.ts --database-exact",
     "pgboss:install": "tsx scripts/runOwnerJob.ts tsx src/jobs/installPgBoss.ts",
-    "seed:demo": "tsx scripts/runOwnerJob.ts tsx src/prisma/seed.ts",
+    "seed:demo": "tsx scripts/runOwnerJob.ts tsx scripts/runDemoSeed.ts",
     "seed:reference": "tsx scripts/runOwnerJob.ts tsx src/prisma/seedReference.ts",
     "seed:ielts-config": "tsx scripts/runOwnerJob.ts tsx src/prisma/seedIeltsConfig.ts",
     "verify:ielts-config": "tsx src/prisma/verifyIeltsConfig.ts",
