@@ -42,6 +42,7 @@ databaseDescribe('production reference bootstrap', () => {
             value: 'true',
           },
         })
+        await tx.permission.deleteMany({ where: { key: 'courses:read' } })
         await tx.navigationItem.deleteMany({
           where: { role: 'student', path: '/student/dashboard' },
         })
@@ -55,6 +56,7 @@ databaseDescribe('production reference bootstrap', () => {
         await bootstrapReferenceData(tx)
         const countsAfterFirst = await Promise.all([
           tx.permission.count(),
+          tx.rolePermission.count(),
           tx.navigationItem.count(),
           tx.notificationTypeConfig.count(),
           tx.dashboardWidgetDefinition.count(),
@@ -68,6 +70,7 @@ databaseDescribe('production reference bootstrap', () => {
         await bootstrapReferenceData(tx)
         const countsAfterSecond = await Promise.all([
           tx.permission.count(),
+          tx.rolePermission.count(),
           tx.navigationItem.count(),
           tx.notificationTypeConfig.count(),
           tx.dashboardWidgetDefinition.count(),
@@ -101,6 +104,29 @@ databaseDescribe('production reference bootstrap', () => {
             where: { policyId: studentPolicy.id, acceptToken: '.pdf' },
           }),
         ).toBe(1)
+        expect(
+          await tx.ieltsQuestionOption.count({
+            where: {
+              configVersion: 1,
+              optionType: 'true_false',
+              value: 'true',
+            },
+          }),
+        ).toBe(1)
+        const permission = await tx.permission.findUniqueOrThrow({
+          where: { key: 'courses:read' },
+          select: { id: true },
+        })
+        expect(
+          (
+            await tx.rolePermission.findMany({
+              where: { permissionId: permission.id },
+              select: { role: true },
+            })
+          )
+            .map(({ role }) => role)
+            .sort(),
+        ).toEqual(['admin', 'student', 'teacher'])
         expect(
           await tx.navigationItem.count({
             where: { role: 'student', path: '/student/dashboard' },
