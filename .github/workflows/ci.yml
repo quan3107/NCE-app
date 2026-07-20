@@ -227,7 +227,13 @@ jobs:
         working-directory: backend
 
       - name: Apply backend migrations
-        run: npm run prisma:deploy
+        run: npm run prisma:migrate:deploy
+        working-directory: backend
+
+      - name: Bootstrap required reference data twice
+        run: |
+          npm run seed:reference
+          npm run seed:reference
         working-directory: backend
 
       - name: Verify exact deployed migration history
