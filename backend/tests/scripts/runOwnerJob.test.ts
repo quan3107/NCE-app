@@ -184,6 +184,15 @@ describe('owner job environment', () => {
     ).toThrow(/must not set SSL options/)
   })
 
+  it('treats a remote driver host override as remote', () => {
+    expect(() =>
+      buildOwnerJobEnvironment(
+        {},
+        'postgresql://owner:owner@localhost:5432/nce?host=db.example.com',
+      ),
+    ).toThrow(/require DIRECT_DATABASE_CA_CERT_PATH/)
+  })
+
   it('keeps bracketed IPv6 loopback CA-free', () => {
     const ownerDatabaseUrl = 'postgresql://owner:owner@[::1]:5432/nce'
     const childEnvironment = buildOwnerJobEnvironment(
