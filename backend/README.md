@@ -28,9 +28,9 @@ npm start
 ## Database Seeding
 
 1. Confirm `NODE_ENV` is not set to `production` and the database URL points to a disposable environment.
-2. Run `npm run seed` to reset the schema and load representative users, courses, and assignment fixtures.
+2. Run `npm run seed:demo` to reset and load representative users, courses, and assignments.
 3. Review the per-table summary log to verify the seed executed successfully.
-   > Note: The seed script skips .env loading if the optional "dotenv" dependency is absent, so CI environments must export the required variables upfront.
+   > Warning: `seed:demo` is destructive and only permits non-production, disposable databases.
 
 ## Database Verification
 
