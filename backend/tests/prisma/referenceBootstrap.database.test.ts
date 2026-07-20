@@ -48,11 +48,12 @@ databaseDescribe('production reference bootstrap', () => {
           }),
         ).resolves.toBe(1)
         console.info('Concurrent bootstrap assertion complete.')
+      } catch (error) {
+        console.error('Concurrent bootstrap entrypoint failed:', error)
+        throw error
       } finally {
         await Promise.all(clients.map((client) => client.$disconnect()))
         console.info('Concurrent bootstrap clients disconnected.')
-        await Promise.all(pools.map((pool) => pool.end()))
-        console.info('Concurrent bootstrap pools closed.')
       }
     },
     20_000,
