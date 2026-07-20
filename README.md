@@ -113,7 +113,7 @@ npm run prisma:generate
 npm run pgboss:install
 npm run prisma:migrate
 npm run seed:reference
-npm run seed:demo # destructive; disposable local databases only
+DEMO_SEED_CONFIRM_DATABASE=nce_app npm run seed:demo # destructive; local only
 npm run verify:ielts-config
 ```
 
@@ -237,7 +237,7 @@ Backend commands, from `backend/`:
 | `npm run seed:cms`                         | Seed Homepage, About, and Contact CMS content.                           |
 | `npm run seed:navigation`                  | Seed permissions, navigation, and feature flags.                         |
 | `npm run seed:reference`                   | Create missing production reference data without overwriting values.     |
-| `npm run seed:demo`                        | Destructively reset and seed fixtures; disposable databases only.        |
+| `npm run seed:demo`                        | Reset local fixtures after exact `DEMO_SEED_CONFIRM_DATABASE` approval.  |
 | `npm run verify:ielts-config`              | Check the active IELTS config through the runtime `DATABASE_URL`.        |
 
 ## Testing
