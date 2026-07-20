@@ -133,7 +133,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
-- **2026-07-20:** No frontend code changed for the production migration and reference bootstrap path; the work is limited to backend scripts, reference seed behavior, database tests, and deployment documentation.
+- **2026-07-20:** No frontend application behavior changed for the production migration and reference bootstrap path. Test-only maintenance now follows the extracted reference-navigation source, and the classroom Playwright fixture uses a rolling future due date so assignment eligibility does not expire.
 
 - **2026-07-15:** Added URL-backed analytics controls for inclusive UTC dates, course UUID, schedule-label cohort, and owner/co-teacher relationship; included filters in query keys and JSON/CSV requests; added an authenticated CSV download action with visible progress/errors; and split filter/chart presentation into focused modules below 300 lines.
 
