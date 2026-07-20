@@ -45,6 +45,9 @@ npm --prefix backend run seed:reference
 npm --prefix backend run prisma:status
 ```
 
+`prisma:migrate:deploy` and the existing `prisma:deploy` CI command are identical
+owner-scoped aliases for `prisma migrate deploy --config prisma.config.ts`.
+
 Expected success signals:
 
 - Prisma reports every migration applied and `Database schema is up to date`.
@@ -56,8 +59,13 @@ Expected success signals:
 `seed:reference` only creates missing rows for permissions/role grants, navigation,
 notification types, dashboard widgets, upload policies/types, IELTS configuration,
 and CMS baseline pages. It never resets or truncates tables and does not update
-existing mutable configuration. Demo users, courses, and assignments are only
-available through `npm --prefix backend run seed:demo`, which refuses production.
+existing mutable configuration. A transaction-scoped advisory lock serializes
+overlapping runs. If IELTS v1 is missing while another version is active, v1 is
+restored inactive; the existing active version remains authoritative. The standalone
+`seed:ielts-config` command uses the same outer-transaction boundary. Demo content is
+available through `seed:demo`. That command always rejects remote database hosts,
+rejects `NODE_ENV=production`, and requires `DEMO_SEED_CONFIRM_DATABASE` to exactly
+match the database name in the loopback owner URL before loading destructive code.
 
 ## Production-like rehearsal checklist
 
