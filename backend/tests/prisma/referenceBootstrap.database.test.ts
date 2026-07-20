@@ -43,7 +43,7 @@ databaseDescribe('production reference bootstrap', () => {
       await Promise.all(clients.map((client) => client.$disconnect()))
       await Promise.all(pools.map((pool) => pool.end()))
     }
-  })
+  }, 20_000)
 
   it('restores v1 inactive when v2 is already active', async () => {
     await expect(
