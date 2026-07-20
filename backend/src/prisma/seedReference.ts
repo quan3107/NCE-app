@@ -13,6 +13,8 @@ import { CMS_PAGES } from './seeds/cmsContent.data.js'
 import { createPageIfMissing } from './seeds/cmsContent.seed.js'
 import { seedCoreReferenceData } from './seeds/referenceBootstrap.seed.js'
 
+const REFERENCE_BOOTSTRAP_LOCK_ID = 2_026_072_001
+
 export async function bootstrapReferenceData(
   prisma: Prisma.TransactionClient,
 ): Promise<void> {
@@ -21,9 +23,23 @@ export async function bootstrapReferenceData(
   for (const page of CMS_PAGES) await createPageIfMissing(prisma, page)
 }
 
+export async function runReferenceBootstrap(
+  prisma: typeof basePrisma = basePrisma,
+): Promise<void> {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.$queryRawUnsafe(
+        `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})`,
+      )
+      await bootstrapReferenceData(tx)
+    },
+    { maxWait: 60_000, timeout: 60_000 },
+  )
+}
+
 async function main(): Promise<void> {
   console.info('Bootstrapping required production reference data...')
-  await basePrisma.$transaction(bootstrapReferenceData, { timeout: 60_000 })
+  await runReferenceBootstrap()
   console.info('Production reference bootstrap complete.')
 }
 
