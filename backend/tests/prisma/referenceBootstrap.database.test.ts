@@ -4,9 +4,18 @@
  * Why: Production initialization must restore required defaults without changing owned data.
  */
 import { describe, expect, it } from 'vitest'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 
-import { bootstrapReferenceData } from '../../src/prisma/seedReference.js'
-import { runDatabaseTestTransaction } from './databaseTestClient.js'
+import { PrismaClient } from '../../src/prisma/generated.js'
+import {
+  bootstrapReferenceData,
+  runReferenceBootstrap,
+} from '../../src/prisma/seedReference.js'
+import {
+  requireDatabaseTestOwnerUrl,
+  runDatabaseTestTransaction,
+} from './databaseTestClient.js'
 
 const databaseDescribe =
   process.env.CI === 'true' || process.env.RUN_DATABASE_TESTS === 'true'
@@ -14,6 +23,57 @@ const databaseDescribe =
     : describe.skip
 
 databaseDescribe('production reference bootstrap', () => {
+  it('serializes overlapping production entrypoint runs', async () => {
+    const pools = [new Pool({ connectionString: requireDatabaseTestOwnerUrl() })]
+    pools.push(new Pool({ connectionString: requireDatabaseTestOwnerUrl() }))
+    const clients = pools.map((pool) => new PrismaClient({ adapter: new PrismaPg(pool) }))
+
+    try {
+      await clients[0].navigationItem.deleteMany({
+        where: { role: 'student', path: '/student/dashboard', parentId: null },
+      })
+      await Promise.all(clients.map((client) => runReferenceBootstrap(client)))
+
+      await expect(
+        clients[0].navigationItem.count({
+          where: { role: 'student', path: '/student/dashboard', parentId: null },
+        }),
+      ).resolves.toBe(1)
+    } finally {
+      await Promise.all(clients.map((client) => client.$disconnect()))
+      await Promise.all(pools.map((pool) => pool.end()))
+    }
+  })
+
+  it('restores v1 inactive when v2 is already active', async () => {
+    await expect(
+      runDatabaseTestTransaction(async (tx) => {
+        await tx.ieltsConfigVersion.deleteMany({ where: { version: 2 } })
+        await tx.ieltsConfigVersion.create({
+          data: { version: 2, name: 'Production v2', isActive: true },
+        })
+        await tx.ieltsConfigVersion.deleteMany({ where: { version: 1 } })
+
+        await bootstrapReferenceData(tx)
+
+        await expect(
+          tx.ieltsConfigVersion.findUniqueOrThrow({ where: { version: 1 } }),
+        ).resolves.toMatchObject({ isActive: false, activatedAt: null })
+        await expect(
+          tx.ieltsConfigVersion.findMany({
+            where: { isActive: true },
+            select: { version: true },
+          }),
+        ).resolves.toEqual([{ version: 2 }])
+        await expect(
+          tx.ieltsQuestionOption.count({ where: { configVersion: 1 } }),
+        ).resolves.toBeGreaterThan(0)
+
+        throw new Error('ROLLBACK_ACTIVE_IELTS_TEST')
+      }),
+    ).rejects.toThrow('ROLLBACK_ACTIVE_IELTS_TEST')
+  })
+
   it('restores missing references once without demo or mutable-data changes', async () => {
     await expect(
       runDatabaseTestTransaction(async (tx) => {
