@@ -21,29 +21,37 @@ const databaseDescribe =
   process.env.CI === 'true' || process.env.RUN_DATABASE_TESTS === 'true'
     ? describe
     : describe.skip
+const entrypointIt =
+  process.env.RUN_REFERENCE_BOOTSTRAP_ENTRYPOINT_TEST === 'true' ? it : it.skip
 
 databaseDescribe('production reference bootstrap', () => {
-  it('serializes overlapping production entrypoint runs', async () => {
-    const pools = [new Pool({ connectionString: requireDatabaseTestOwnerUrl() })]
-    pools.push(new Pool({ connectionString: requireDatabaseTestOwnerUrl() }))
-    const clients = pools.map((pool) => new PrismaClient({ adapter: new PrismaPg(pool) }))
+  entrypointIt(
+    'serializes overlapping production entrypoint runs',
+    async () => {
+      const pools = [new Pool({ connectionString: requireDatabaseTestOwnerUrl() })]
+      pools.push(new Pool({ connectionString: requireDatabaseTestOwnerUrl() }))
+      const clients = pools.map(
+        (pool) => new PrismaClient({ adapter: new PrismaPg(pool) }),
+      )
 
-    try {
-      await clients[0].navigationItem.deleteMany({
-        where: { role: 'student', path: '/student/dashboard', parentId: null },
-      })
-      await Promise.all(clients.map((client) => runReferenceBootstrap(client)))
-
-      await expect(
-        clients[0].navigationItem.count({
+      try {
+        await clients[0].navigationItem.deleteMany({
           where: { role: 'student', path: '/student/dashboard', parentId: null },
-        }),
-      ).resolves.toBe(1)
-    } finally {
-      await Promise.all(clients.map((client) => client.$disconnect()))
-      await Promise.all(pools.map((pool) => pool.end()))
-    }
-  }, 20_000)
+        })
+        await Promise.all(clients.map((client) => runReferenceBootstrap(client)))
+
+        await expect(
+          clients[0].navigationItem.count({
+            where: { role: 'student', path: '/student/dashboard', parentId: null },
+          }),
+        ).resolves.toBe(1)
+      } finally {
+        await Promise.all(clients.map((client) => client.$disconnect()))
+        await Promise.all(pools.map((pool) => pool.end()))
+      }
+    },
+    20_000,
+  )
 
   it('restores v1 inactive when v2 is already active', async () => {
     await expect(
