@@ -29,6 +29,17 @@ describe('demo seed target policy', () => {
     ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=nce_demo/)
   })
 
+  it('rejects a remote driver host override on a local authority', () => {
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL:
+          'postgresql://owner:secret@localhost:5432/nce_demo?host=db.example.com',
+        DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/loopback database/)
+  })
+
   it('accepts an exactly confirmed local disposable database', () => {
     expect(() =>
       assertDemoSeedTarget({
