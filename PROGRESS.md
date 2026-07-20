@@ -8,7 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
-- **2026-07-20:** Added an owner-scoped production migration alias and transactional, idempotent reference bootstrap for permissions, navigation, notification types, dashboard widgets, file uploads, IELTS configuration, and CMS baseline pages. Separated the destructive local fixtures behind `seed:demo`, added rolled-back database assertions for second-run stability, mutable-value preservation, and no demo inserts, and documented production prerequisites, commands, rehearsal signals, and recovery expectations.
+- **2026-07-20:** Added an owner-scoped production migration alias and serialized, transactional reference bootstrap for permissions, navigation, notification types, dashboard widgets, file uploads, IELTS configuration, and CMS baseline pages. The destructive `seed:demo` now requires an exact confirmed loopback database, IELTS restoration preserves the sole active version, and database coverage exercises overlapping real entrypoint runs, second-run stability, mutable-value preservation, and no demo inserts. Documented production prerequisites, commands, rehearsal signals, and recovery expectations.
 
 - **2026-07-15:** Added validated UTC date, course UUID, schedule-label cohort, and owner/co-teacher relationship filters to teacher analytics while preserving owner/co-teacher authorization. Added filtered CSV parity with stable overall/course/rubric columns, standard escaping, empty fields for null metrics, download headers, focused scope/export tests, and OpenAPI coverage.
 
