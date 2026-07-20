@@ -38,16 +38,21 @@ databaseDescribe('production reference bootstrap', () => {
         await clients[0].navigationItem.deleteMany({
           where: { role: 'student', path: '/student/dashboard', parentId: null },
         })
+        console.info('Concurrent bootstrap setup complete.')
         await Promise.all(clients.map((client) => runReferenceBootstrap(client)))
+        console.info('Concurrent bootstrap entrypoints complete.')
 
         await expect(
           clients[0].navigationItem.count({
             where: { role: 'student', path: '/student/dashboard', parentId: null },
           }),
         ).resolves.toBe(1)
+        console.info('Concurrent bootstrap assertion complete.')
       } finally {
         await Promise.all(clients.map((client) => client.$disconnect()))
+        console.info('Concurrent bootstrap clients disconnected.')
         await Promise.all(pools.map((pool) => pool.end()))
+        console.info('Concurrent bootstrap pools closed.')
       }
     },
     20_000,
