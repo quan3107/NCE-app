@@ -2,6 +2,9 @@
 
 Node.js 20 + Express 5 + TypeScript scaffold providing REST APIs for the English education platform.
 
+Production database deployment and safe reference initialization are documented in
+[`docs/production-database-bootstrap.md`](../docs/production-database-bootstrap.md).
+
 ## Setup
 
 ```bash
