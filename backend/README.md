@@ -28,9 +28,9 @@ npm start
 ## Database Seeding
 
 1. Confirm `NODE_ENV` is not set to `production` and the database URL points to a disposable environment.
-2. Run `npm run seed:demo` to reset and load representative users, courses, and assignments.
+2. Set `DEMO_SEED_CONFIRM_DATABASE` to the exact loopback database name, then run `npm run seed:demo` to reset and load representative users, courses, and assignments.
 3. Review the per-table summary log to verify the seed executed successfully.
-   > Warning: `seed:demo` is destructive and only permits non-production, disposable databases.
+   > Warning: `seed:demo` is destructive. It rejects remote hosts and production mode, and the exact-name confirmation only permits the intended disposable local database.
 
 ## Database Verification
 
