@@ -29,7 +29,7 @@ export async function runReferenceBootstrap(
   await prisma.$transaction(
     async (tx) => {
       await tx.$queryRawUnsafe(
-        `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})`,
+        `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text AS lock_status`,
       )
       await bootstrapReferenceData(tx)
     },
