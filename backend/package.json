@@ -19,7 +19,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "lint": "eslint .",
-    "test": "cross-env NODE_ENV=test npm run prisma:generate && cross-env NODE_ENV=test vitest",
+    "test": "cross-env NODE_ENV=test npm run prisma:generate && cross-env NODE_ENV=test vitest && cross-env NODE_ENV=test RUN_REFERENCE_BOOTSTRAP_ENTRYPOINT_TEST=true vitest run tests/prisma/referenceBootstrap.database.test.ts",
     "test:watch": "vitest watch",
     "test:coverage": "cross-env NODE_ENV=test npm run prisma:generate && cross-env NODE_ENV=test vitest run --coverage",
     "format": "prettier --check .",
