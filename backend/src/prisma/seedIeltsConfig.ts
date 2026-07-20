@@ -205,13 +205,17 @@ async function ensureConfigVersion(prisma: Prisma.TransactionClient): Promise<vo
   })
 
   if (!existing) {
+    const activeConfig = await prisma.ieltsConfigVersion.findFirst({
+      where: { isActive: true },
+      select: { version: true },
+    })
     await prisma.ieltsConfigVersion.create({
       data: {
         version: CONFIG_VERSION,
         name: 'Initial',
         description: 'First IELTS configuration version',
-        isActive: true,
-        activatedAt: new Date(),
+        isActive: !activeConfig,
+        activatedAt: activeConfig ? null : new Date(),
       },
     })
   }
@@ -251,17 +255,21 @@ async function seedConfigTables(prisma: Prisma.TransactionClient): Promise<void>
   ])
 }
 
-export async function seedIeltsConfig(
-  prisma: Prisma.TransactionClient = basePrisma as unknown as Prisma.TransactionClient,
-): Promise<void> {
+export async function seedIeltsConfig(prisma: Prisma.TransactionClient): Promise<void> {
   console.info('Seeding IELTS configuration...')
   await ensureConfigVersion(prisma)
   await seedConfigTables(prisma)
   console.info('IELTS configuration seed complete.')
 }
 
+export async function runIeltsConfigSeed(
+  prisma: typeof basePrisma = basePrisma,
+): Promise<void> {
+  await prisma.$transaction(seedIeltsConfig, { timeout: 60_000 })
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  seedIeltsConfig()
+  runIeltsConfigSeed()
     .catch((error) => {
       console.error('IELTS config seed failed:', error)
       process.exitCode = 1
