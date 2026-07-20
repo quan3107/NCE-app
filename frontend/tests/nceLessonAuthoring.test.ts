@@ -3,40 +3,40 @@
  * Purpose: Verify teacher NCE lesson authoring UI source wiring.
  * Why: Keeps routes and mutation states present under the Node-based frontend test runner.
  */
-import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { test } from 'node:test';
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { test } from "node:test";
 
-const frontendRoot = path.resolve(import.meta.dirname, '..');
-const routesPath = path.join(frontendRoot, 'src/routes/AppRoutes.tsx');
+const frontendRoot = path.resolve(import.meta.dirname, "..");
+const routesPath = path.join(frontendRoot, "src/routes/AppRoutes.tsx");
 const listPagePath = path.join(
   frontendRoot,
-  'src/features/nce-content/components/TeacherNceLessonsPage.tsx',
+  "src/features/nce-content/components/TeacherNceLessonsPage.tsx",
 );
 const editorPath = path.join(
   frontendRoot,
-  'src/features/nce-content/components/TeacherNceLessonEditorPage.tsx',
+  "src/features/nce-content/components/TeacherNceLessonEditorPage.tsx",
 );
 const editorLogicPath = path.join(
   frontendRoot,
-  'src/features/nce-content/components/nceLessonEditor.logic.ts',
+  "src/features/nce-content/components/nceLessonEditor.logic.ts",
 );
 const exerciseEditorPath = path.join(
   frontendRoot,
-  'src/features/nce-content/components/NceExerciseEditor.tsx',
+  "src/features/nce-content/components/NceExerciseEditor.tsx",
 );
 const objectiveEditorPath = path.join(
   frontendRoot,
-  'src/features/nce-content/components/NceObjectiveEditor.tsx',
+  "src/features/nce-content/components/NceObjectiveEditor.tsx",
 );
-const navigationSeedPath = path.resolve(
+const referenceDefaultsPath = path.resolve(
   frontendRoot,
-  '../backend/src/prisma/seeds/navigation.seed.ts',
+  "../backend/src/prisma/seeds/referenceBootstrap.data.ts",
 );
 
-test('AppRoutes exposes teacher NCE lesson authoring routes', async () => {
-  const source = await readFile(routesPath, 'utf8');
+test("AppRoutes exposes teacher NCE lesson authoring routes", async () => {
+  const source = await readFile(routesPath, "utf8");
 
   assert.match(source, /TeacherNceLessonsPage/);
   assert.match(source, /TeacherNceLessonEditorPage/);
@@ -45,8 +45,8 @@ test('AppRoutes exposes teacher NCE lesson authoring routes', async () => {
   assert.match(source, /path="teacher\/nce-lessons\/:lessonId\/edit"/);
 });
 
-test('TeacherNceLessonsPage supports draft refresh and publish state', async () => {
-  const source = await readFile(listPagePath, 'utf8');
+test("TeacherNceLessonsPage supports draft refresh and publish state", async () => {
+  const source = await readFile(listPagePath, "utf8");
 
   assert.match(source, /useCourseNceLessonsQuery/);
   assert.match(source, /includeDrafts:\s*true/);
@@ -67,31 +67,34 @@ test('TeacherNceLessonsPage supports draft refresh and publish state', async () 
   assert.match(source, /Unpublishing/);
 });
 
-test('teacher navigation exposes NCE lesson authoring entry points', async () => {
-  const seedSource = await readFile(navigationSeedPath, 'utf8');
+test("teacher navigation exposes NCE lesson authoring entry points", async () => {
+  const seedSource = await readFile(referenceDefaultsPath, "utf8");
 
   assert.match(seedSource, /NCE Lessons/);
   assert.match(seedSource, /\/teacher\/nce-lessons/);
 });
 
-test('student navigation exposes NCE learning path entry points', async () => {
-  const seedSource = await readFile(navigationSeedPath, 'utf8');
+test("student navigation exposes NCE learning path entry points", async () => {
+  const seedSource = await readFile(referenceDefaultsPath, "utf8");
 
   assert.match(
     seedSource,
-    /label: "NCE Path"[\s\S]*path: "\/student\/nce"[\s\S]*permission: "courses:read"/,
+    /\[UserRole\.student, 'NCE Path', '\/student\/nce', 'book-open', 'courses:read'/,
   );
   assert.match(
     seedSource,
-    /key: "courses:read"[\s\S]*roles: \[UserRole\.student, UserRole\.teacher, UserRole\.admin\]/,
+    /\['courses:read', 'Read Courses', \[UserRole\.student, UserRole\.teacher, UserRole\.admin\]\]/,
   );
 });
 
-test('TeacherNceLessonEditorPage surfaces validation errors and mutation progress', async () => {
-  const source = await readFile(editorPath, 'utf8');
+test("TeacherNceLessonEditorPage surfaces validation errors and mutation progress", async () => {
+  const source = await readFile(editorPath, "utf8");
 
   assert.match(source, /createNceLesson/);
-  assert.match(source, /createNceLesson\(payload as NceLessonWritePayload,\s*courseId\)/);
+  assert.match(
+    source,
+    /createNceLesson\(payload as NceLessonWritePayload,\s*courseId\)/,
+  );
   assert.doesNotMatch(source, /assignCreatedLessonToCourse/);
   assert.match(source, /patchNceLesson/);
   assert.match(source, /patchNceLesson\(lessonId,\s*payload,\s*courseId\)/);
@@ -105,7 +108,10 @@ test('TeacherNceLessonEditorPage surfaces validation errors and mutation progres
   assert.match(source, /setIsDirty\(true\)/);
   assert.match(source, /useState<ObjectiveDraft\[\]>\(\[\]\)/);
   assert.match(source, /useState<ExerciseDraft\[\]>\(\[\]\)/);
-  assert.match(source, /scoringConfigText:\s*stringifyNullableJson\(exercise\.scoringConfig\)/);
+  assert.match(
+    source,
+    /scoringConfigText:\s*stringifyNullableJson\(exercise\.scoringConfig\)/,
+  );
   assert.match(source, /key=\{objective\.clientId\}/);
   assert.match(source, /nextObjectiveSortOrder/);
   assert.match(source, /nextExerciseSortOrder/);
@@ -114,9 +120,9 @@ test('TeacherNceLessonEditorPage surfaces validation errors and mutation progres
   assert.doesNotMatch(source, /emptyExercise\(items\.length\)/);
 });
 
-test('NCE objective and exercise editors expose required lesson fields', async () => {
-  const objectiveSource = await readFile(objectiveEditorPath, 'utf8');
-  const exerciseSource = await readFile(exerciseEditorPath, 'utf8');
+test("NCE objective and exercise editors expose required lesson fields", async () => {
+  const objectiveSource = await readFile(objectiveEditorPath, "utf8");
+  const exerciseSource = await readFile(exerciseEditorPath, "utf8");
 
   assert.match(objectiveSource, /masteryThreshold/);
   assert.match(objectiveSource, /sortOrder/);
@@ -126,8 +132,8 @@ test('NCE objective and exercise editors expose required lesson fields', async (
   assert.match(exerciseSource, /scoringConfigText/);
 });
 
-test('empty NCE exercises do not default to a blank answer string', async () => {
-  const logicSource = await readFile(editorLogicPath, 'utf8');
+test("empty NCE exercises do not default to a blank answer string", async () => {
+  const logicSource = await readFile(editorLogicPath, "utf8");
 
   assert.doesNotMatch(logicSource, /answers:\s*\[''\]/);
   assert.match(logicSource, /answers:\s*\[\]/);
