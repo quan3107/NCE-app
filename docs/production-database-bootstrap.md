@@ -16,9 +16,11 @@ create a managed database, or configure backups/PITR.
 - The `citext` extension available to the migration owner. The first migration runs
   `CREATE EXTENSION IF NOT EXISTS citext`; provider-enable it first if the owner
   cannot create extensions.
-- Browser roles `anon` and `authenticated`, plus `service_role NOLOGIN BYPASSRLS`
-  and `authenticator NOLOGIN`, must already exist. `authenticator` must not be a
-  member of either backend request role.
+- Browser roles `anon` and `authenticated`, plus `service_role NOLOGIN BYPASSRLS`,
+  must already exist.
+- The provider-managed `authenticator` role must exist. Leave its provider-managed
+  login attributes and password unchanged; it must not be a member of either NCE
+  backend request role.
 - `nce_runtime` must be a login with `NOINHERIT`, `NOSUPERUSER`, `NOCREATEDB`,
   `NOCREATEROLE`, `NOREPLICATION`, and `NOBYPASSRLS`. The migration owner must
   grant `service_role` to it using `WITH ADMIN FALSE, SET TRUE, INHERIT FALSE`;
@@ -31,6 +33,8 @@ create a managed database, or configure backups/PITR.
   in [the runtime boundary runbook](supabase-data-api-runtime-boundary.md), or the
   executable [local role bootstrap](../backend/README.md#local-database-role-bootstrap)
   for an empty rehearsal database. Prisma creates the `nce_app_*` request roles.
+- The linked plain-PostgreSQL rehearsal stub uses `authenticator NOLOGIN` only because
+  it does not run PostgREST. It is not a production or Supabase role template.
 - Node.js 20 or newer and backend dependencies installed with
   `npm --prefix backend ci`.
 
