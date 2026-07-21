@@ -5,7 +5,7 @@
  */
 import bcrypt from 'bcrypt'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { assertDemoSeedTarget } from '../../scripts/runDemoSeed.js'
+import { assertDemoSeedTarget } from './demoSeedPolicy.js'
 import {
   AssignmentType,
   EnrollmentRole,
