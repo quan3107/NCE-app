@@ -138,6 +138,11 @@ describe('owner-only database workflow', () => {
     expect(bootstrapRunbook).toContain('Grant `CONNECT`')
     expect(bootstrapRunbook).toContain('backend/README.md#local-database-role-bootstrap')
     expect(bootstrapRunbook).toMatch(/must\s+not have any role memberships/)
+    expect(bootstrapRunbook).toMatch(
+      /Leave its provider-managed\s+login attributes and password unchanged/,
+    )
+    expect(bootstrapRunbook).not.toMatch(/provider-managed `authenticator`[^.]*NOLOGIN/)
+    expect(bootstrapRunbook).toContain('plain-PostgreSQL rehearsal stub')
     expect(pgbossInstall).toBeGreaterThan(-1)
     expect(pgbossInstall).toBeLessThan(prismaDeploy)
   })
