@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-21:** Pinned the serialized production reference bootstrap transaction to `READ COMMITTED`, ensuring a waiter sees the preceding lock holder's committed reference rows even when the database or role default uses a stricter isolation level. Added a focused owner-workflow contract for the explicit transaction option.
+
 - **2026-07-21:** Hardened the production bootstrap follow-up by matching demo confirmation to node-postgres database-name parsing, documenting every migration role and pg-boss prerequisite in execution order without altering the provider-managed Supabase authenticator login, making overlapping entrypoint coverage non-mutating, and closing external PostgreSQL pools in direct seed commands and tests. Refreshed the backend lockfile for newly disclosed audit fixes.
 
 - **2026-07-20:** Added an owner-scoped production migration alias and serialized, transactional reference bootstrap for permissions, navigation, notification types, dashboard widgets, file uploads, IELTS configuration, and CMS baseline pages. The destructive `seed:demo` now requires an exact confirmed loopback database and rejects driver host overrides, IELTS restoration preserves the sole active version, and database coverage exercises overlapping real entrypoint runs, second-run stability, mutable-value preservation, and no demo inserts. Documented production prerequisites, commands, rehearsal signals, and recovery expectations.
@@ -134,6 +136,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-21:** No frontend files changed for the reference-bootstrap transaction-isolation correction; the follow-up is limited to backend bootstrap code, its focused contract, and this progress record.
 
 - **2026-07-21:** No frontend application behavior changed for the database-target identity, deployment prerequisite, concurrency-test isolation, and PostgreSQL pool-shutdown follow-up. Refreshed the frontend lockfile only for a newly disclosed audit fix.
 
