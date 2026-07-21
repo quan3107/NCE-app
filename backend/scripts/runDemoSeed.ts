@@ -11,7 +11,7 @@ import { isLoopbackDatabaseUrl } from './databaseConnectionPolicy.js'
 type DemoSeedEnvironment = NodeJS.ProcessEnv
 
 function databaseName(connectionString: string): string {
-  return decodeURIComponent(new URL(connectionString).pathname.replace(/^\/+/, ''))
+  return decodeURI(new URL(connectionString).pathname.slice(1))
 }
 
 export function assertDemoSeedTarget(
