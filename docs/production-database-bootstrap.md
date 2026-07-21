@@ -82,7 +82,9 @@ restored inactive; the existing active version remains authoritative. The standa
 available through `seed:demo`. That command always rejects remote database hosts,
 rejects `NODE_ENV=production`, and requires `DEMO_SEED_CONFIRM_DATABASE` to exactly
 match the node-postgres driver database name in the loopback owner URL before loading
-destructive code. Reserved escapes and extra leading slashes remain part of that name.
+destructive code. The underlying `src/prisma/seed.ts` program enforces the same gate,
+so direct execution cannot bypass it; `seed:demo` remains the supported entrypoint.
+Reserved escapes and extra leading slashes remain part of that name.
 
 ## Production-like rehearsal checklist
 
