@@ -154,6 +154,12 @@ describe('owner-only database workflow', () => {
     }
   })
 
+  it('pins the locked reference bootstrap to read committed', () => {
+    expect(referenceSeed).toContain(
+      'isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted',
+    )
+  })
+
   it('normalizes request roles without disturbing owner admin rows', () => {
     const executableSql = normalizationMigration.replace(/^--.*$/gm, '').trim()
 
