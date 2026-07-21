@@ -110,11 +110,7 @@ describe('demo seed target policy', () => {
   })
 
   it.each([
-    [
-      'remote',
-      'postgresql://owner:secret@127.0.0.2:1/nce_demo',
-      /loopback database/,
-    ],
+    ['remote', 'postgresql://owner:secret@127.0.0.2:1/nce_demo', /loopback database/],
     [
       'unconfirmed loopback',
       'postgresql://owner:secret@127.0.0.1:1/nce_demo',
@@ -127,6 +123,6 @@ describe('demo seed target policy', () => {
     expect(result.status).not.toBe(0)
     expect(output).toMatch(error)
     expect(output).not.toContain('Resetting existing data...')
-    expect(output).not.toContain('Can\'t reach database server')
+    expect(output).not.toContain("Can't reach database server")
   })
 })
