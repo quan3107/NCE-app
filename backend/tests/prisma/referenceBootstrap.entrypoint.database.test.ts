@@ -20,9 +20,9 @@ import { requireDatabaseTestOwnerUrl } from './databaseTestClient.js'
 
 const execFileAsync = promisify(execFile)
 const databaseDescribe =
-  (process.env.CI === 'true' || process.env.RUN_DATABASE_TESTS === 'true') &&
+  process.env.CI === 'true' &&
   process.env.RUN_REFERENCE_BOOTSTRAP_ENTRYPOINT_TEST === 'true'
-    ? describe
+    ? describe.sequential
     : describe.skip
 
 async function waitingLockCount(client: PrismaClient): Promise<number> {
@@ -63,6 +63,20 @@ async function assertBootstrapIsStable(client: PrismaClient): Promise<void> {
 }
 
 databaseDescribe('production reference bootstrap entrypoint', () => {
+  it('runs the exact reference seed command and exits promptly', async () => {
+    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+    const result = await execFileAsync(npm, ['run', 'seed:reference'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        DIRECT_URL: requireDatabaseTestOwnerUrl(),
+      },
+      timeout: 8_000,
+    })
+
+    expect(result.stdout).toContain('Production reference bootstrap complete.')
+  }, 10_000)
+
   it('serializes two independent clients without mutating reference data', async () => {
     const pools = Array.from(
       { length: 3 },
@@ -104,18 +118,4 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
       await Promise.all(pools.map((pool) => pool.end()))
     }
   }, 20_000)
-
-  it('runs the exact reference seed command and exits promptly', async () => {
-    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-    const result = await execFileAsync(npm, ['run', 'seed:reference'], {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        DIRECT_URL: requireDatabaseTestOwnerUrl(),
-      },
-      timeout: 8_000,
-    })
-
-    expect(result.stdout).toContain('Production reference bootstrap complete.')
-  }, 10_000)
 })
