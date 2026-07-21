@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
 import { basePrisma, shutdownPrisma } from './client.js'
-import type { Prisma } from './generated.js'
+import { Prisma } from './generated.js'
 import { seedIeltsConfig } from './seedIeltsConfig.js'
 import { CMS_PAGES } from './seeds/cmsContent.data.js'
 import { createPageIfMissing } from './seeds/cmsContent.seed.js'
@@ -33,7 +33,11 @@ export async function runReferenceBootstrap(
       )
       await bootstrapReferenceData(tx)
     },
-    { maxWait: 60_000, timeout: 60_000 },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      maxWait: 60_000,
+      timeout: 60_000,
+    },
   )
 }
 
