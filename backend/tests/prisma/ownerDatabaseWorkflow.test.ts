@@ -24,8 +24,12 @@ const normalizationMigration = readBackend(
 )
 const ciWorkflow = readRepo('.github/workflows/ci.yml')
 const rolloutRunbook = readRepo('docs/supabase-data-api-runtime-boundary.md')
+const bootstrapRunbook = readRepo('docs/production-database-bootstrap.md')
 const rootReadme = readRepo('README.md')
 const backendReadme = readBackend('README.md')
+const referenceSeed = readBackend('src/prisma/seedReference.ts')
+const ieltsSeed = readBackend('src/prisma/seedIeltsConfig.ts')
+const navigationSeed = readBackend('src/prisma/seeds/navigation.seed.ts')
 
 describe('owner-only database workflow', () => {
   it('documents every fresh local bootstrap prerequisite in execution order', () => {
@@ -100,6 +104,49 @@ describe('owner-only database workflow', () => {
     expect(ciWorkflow).not.toMatch(
       /- name: Seed backend CMS test content[\s\S]{0,160}DATABASE_URL:/,
     )
+  })
+
+  it('documents production prerequisites before migration execution', () => {
+    const pgbossInstall = bootstrapRunbook.indexOf(
+      'npm --prefix backend run pgboss:install',
+    )
+    const prismaDeploy = bootstrapRunbook.indexOf(
+      'npm --prefix backend run prisma:migrate:deploy',
+    )
+
+    for (const role of [
+      'anon',
+      'authenticated',
+      'service_role',
+      'authenticator',
+      'nce_runtime',
+      'nce_job_runner',
+    ]) {
+      expect(bootstrapRunbook).toContain(role)
+    }
+    for (const attribute of [
+      'NOINHERIT',
+      'NOSUPERUSER',
+      'NOCREATEDB',
+      'NOCREATEROLE',
+      'NOREPLICATION',
+      'NOBYPASSRLS',
+    ]) {
+      expect(bootstrapRunbook).toContain(attribute)
+    }
+    expect(bootstrapRunbook).toContain('WITH ADMIN FALSE, SET TRUE, INHERIT FALSE')
+    expect(bootstrapRunbook).toContain('Grant `CONNECT`')
+    expect(bootstrapRunbook).toContain('backend/README.md#local-database-role-bootstrap')
+    expect(bootstrapRunbook).toMatch(/must\s+not have any role memberships/)
+    expect(pgbossInstall).toBeGreaterThan(-1)
+    expect(pgbossInstall).toBeLessThan(prismaDeploy)
+  })
+
+  it('closes the external pool in direct reference seed commands', () => {
+    for (const commandSource of [referenceSeed, ieltsSeed, navigationSeed]) {
+      expect(commandSource).toContain('shutdownPrisma()')
+      expect(commandSource).not.toContain('await basePrisma.$disconnect()')
+    }
   })
 
   it('normalizes request roles without disturbing owner admin rows', () => {
