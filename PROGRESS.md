@@ -8,7 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
-- **2026-07-21:** Hardened the production bootstrap follow-up by matching demo confirmation to node-postgres database-name parsing, documenting every migration role and pg-boss prerequisite in execution order, making overlapping entrypoint coverage non-mutating, and closing external PostgreSQL pools in direct seed commands and tests. Refreshed the backend lockfile for newly disclosed audit fixes.
+- **2026-07-21:** Hardened the production bootstrap follow-up by matching demo confirmation to node-postgres database-name parsing, documenting every migration role and pg-boss prerequisite in execution order without altering the provider-managed Supabase authenticator login, making overlapping entrypoint coverage non-mutating, and closing external PostgreSQL pools in direct seed commands and tests. Refreshed the backend lockfile for newly disclosed audit fixes.
 
 - **2026-07-20:** Added an owner-scoped production migration alias and serialized, transactional reference bootstrap for permissions, navigation, notification types, dashboard widgets, file uploads, IELTS configuration, and CMS baseline pages. The destructive `seed:demo` now requires an exact confirmed loopback database and rejects driver host overrides, IELTS restoration preserves the sole active version, and database coverage exercises overlapping real entrypoint runs, second-run stability, mutable-value preservation, and no demo inserts. Documented production prerequisites, commands, rehearsal signals, and recovery expectations.
 
