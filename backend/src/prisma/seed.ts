@@ -5,6 +5,7 @@
  */
 import bcrypt from 'bcrypt'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { assertDemoSeedTarget } from '../../scripts/runDemoSeed.js'
 import {
   AssignmentType,
   EnrollmentRole,
@@ -44,9 +45,7 @@ async function resetData(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Refusing to seed in production mode.')
-  }
+  assertDemoSeedTarget()
 
   console.info('Resetting existing data...')
   await resetData()
