@@ -100,6 +100,10 @@ describe('owner-only database workflow', () => {
       'npx prisma migrate deploy --config prisma.config.ts',
     )
     expect(ciWorkflow).toContain('- name: Seed backend CMS test content')
+    expect(ciWorkflow).toContain('- name: Bootstrap backend reference data')
+    expect(ciWorkflow.indexOf('npm run seed:reference')).toBeLessThan(
+      ciWorkflow.indexOf('- name: Test backend'),
+    )
     expect(ciWorkflow).toContain('CREATE ROLE authenticator NOLOGIN')
     expect(ciWorkflow).not.toMatch(
       /- name: Seed backend CMS test content[\s\S]{0,160}DATABASE_URL:/,
