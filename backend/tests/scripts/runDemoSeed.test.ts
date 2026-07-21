@@ -3,10 +3,28 @@
  * Purpose: Lock the destructive demo seed to an explicitly confirmed local database.
  * Why: Demo fixtures must fail closed before any production-owned data can be deleted.
  */
+import { spawnSync } from 'node:child_process'
+import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 import { Client } from 'pg'
 
 import { assertDemoSeedTarget } from '../../scripts/runDemoSeed.js'
+
+const tsxCli = resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs')
+
+function runDirectSeed(databaseUrl: string) {
+  const environment = { ...process.env, DATABASE_URL: databaseUrl }
+  delete environment.DEMO_SEED_CONFIRM_DATABASE
+  delete environment.NODE_ENV
+
+  return spawnSync(process.execPath, [tsxCli, 'src/prisma/seed.ts'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: environment,
+    timeout: 5_000,
+  })
+}
 
 describe('demo seed target policy', () => {
   it.each([undefined, 'development'])(
@@ -89,5 +107,26 @@ describe('demo seed target policy', () => {
         NODE_ENV: 'development',
       }),
     ).not.toThrow()
+  })
+
+  it.each([
+    [
+      'remote',
+      'postgresql://owner:secret@127.0.0.2:1/nce_demo',
+      /loopback database/,
+    ],
+    [
+      'unconfirmed loopback',
+      'postgresql://owner:secret@127.0.0.1:1/nce_demo',
+      /DEMO_SEED_CONFIRM_DATABASE=nce_demo/,
+    ],
+  ])('fails the direct seed closed for a %s target', (_, databaseUrl, error) => {
+    const result = runDirectSeed(databaseUrl)
+    const output = `${result.stdout}${result.stderr}`
+
+    expect(result.status).not.toBe(0)
+    expect(output).toMatch(error)
+    expect(output).not.toContain('Resetting existing data...')
+    expect(output).not.toContain('Can\'t reach database server')
   })
 })
