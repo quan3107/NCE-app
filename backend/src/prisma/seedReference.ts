@@ -6,14 +6,14 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-import { basePrisma } from './client.js'
+import { basePrisma, shutdownPrisma } from './client.js'
 import type { Prisma } from './generated.js'
 import { seedIeltsConfig } from './seedIeltsConfig.js'
 import { CMS_PAGES } from './seeds/cmsContent.data.js'
 import { createPageIfMissing } from './seeds/cmsContent.seed.js'
 import { seedCoreReferenceData } from './seeds/referenceBootstrap.seed.js'
 
-const REFERENCE_BOOTSTRAP_LOCK_ID = 2_026_072_001
+export const REFERENCE_BOOTSTRAP_LOCK_ID = 2_026_072_001
 
 export async function bootstrapReferenceData(
   prisma: Prisma.TransactionClient,
@@ -50,6 +50,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       process.exitCode = 1
     })
     .finally(async () => {
-      await basePrisma.$disconnect()
+      await shutdownPrisma()
     })
 }
