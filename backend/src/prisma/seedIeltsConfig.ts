@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
 import { Prisma } from './generated.js'
-import { basePrisma } from './client.js'
+import { basePrisma, shutdownPrisma } from './client.js'
 import { ieltsAssignmentTypeRows } from './seeds/ieltsAssignmentTypes.data.js'
 
 const CONFIG_VERSION = 1
@@ -275,6 +275,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       process.exitCode = 1
     })
     .finally(async () => {
-      await basePrisma.$disconnect()
+      await shutdownPrisma()
     })
 }
