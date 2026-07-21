@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-21:** Hardened the production bootstrap follow-up by matching demo confirmation to node-postgres database-name parsing, documenting every migration role and pg-boss prerequisite in execution order, making overlapping entrypoint coverage non-mutating, and closing external PostgreSQL pools in direct seed commands and tests.
+
 - **2026-07-20:** Added an owner-scoped production migration alias and serialized, transactional reference bootstrap for permissions, navigation, notification types, dashboard widgets, file uploads, IELTS configuration, and CMS baseline pages. The destructive `seed:demo` now requires an exact confirmed loopback database and rejects driver host overrides, IELTS restoration preserves the sole active version, and database coverage exercises overlapping real entrypoint runs, second-run stability, mutable-value preservation, and no demo inserts. Documented production prerequisites, commands, rehearsal signals, and recovery expectations.
 
 - **2026-07-15:** Added validated UTC date, course UUID, schedule-label cohort, and owner/co-teacher relationship filters to teacher analytics while preserving owner/co-teacher authorization. Added filtered CSV parity with stable overall/course/rubric columns, standard escaping, empty fields for null metrics, download headers, focused scope/export tests, and OpenAPI coverage.
@@ -132,6 +134,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-21:** No frontend files or application behavior changed for the database-target identity, deployment prerequisite, concurrency-test isolation, and PostgreSQL pool-shutdown follow-up.
 
 - **2026-07-20:** No frontend application behavior changed for the production migration and reference bootstrap path. Test-only maintenance now follows the extracted reference-navigation source, and the classroom Playwright fixture uses a rolling future due date so assignment eligibility does not expire.
 
