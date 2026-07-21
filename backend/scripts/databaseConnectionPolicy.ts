@@ -1,36 +1,7 @@
 /**
  * File: scripts/databaseConnectionPolicy.ts
- * Purpose: Classify owner database URLs and reject ambiguous remote TLS settings.
- * Why: Every privileged database child must share one authenticated transport boundary.
+ * Purpose: Re-export the shared owner database connection policy for scripts.
+ * Why: Script entrypoints and source commands must enforce one transport boundary.
  */
 
-const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
-
-export const databaseSslOptions = [
-  'ssl',
-  'sslmode',
-  'sslcert',
-  'sslkey',
-  'sslrootcert',
-  'sslidentity',
-  'sslpassword',
-  'sslaccept',
-] as const
-
-export function isLoopbackDatabaseUrl(connectionString: string): boolean {
-  const url = new URL(connectionString)
-  if (url.searchParams.has('host')) return false
-
-  return loopbackHosts.has(url.hostname.toLowerCase())
-}
-
-export function assertUnconfiguredRemoteSsl(url: URL): void {
-  const configuredOptions = databaseSslOptions.filter((option) =>
-    url.searchParams.has(option),
-  )
-  if (configuredOptions.length > 0) {
-    throw new Error(
-      `Remote DIRECT_URL must not set SSL options; configure DIRECT_DATABASE_CA_CERT_PATH instead: ${configuredOptions.join(', ')}.`,
-    )
-  }
-}
+export * from '../src/databaseConnectionPolicy.js'
