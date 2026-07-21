@@ -6,7 +6,7 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-import { basePrisma } from '../client.js'
+import { basePrisma, shutdownPrisma } from '../client.js'
 import { seedPermissionsAndNavigation } from './referenceBootstrap.seed.js'
 
 export async function seedNavigation(): Promise<void> {
@@ -21,6 +21,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       process.exitCode = 1
     })
     .finally(async () => {
-      await basePrisma.$disconnect()
+      await shutdownPrisma()
     })
 }
