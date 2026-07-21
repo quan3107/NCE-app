@@ -16,10 +16,21 @@ create a managed database, or configure backups/PITR.
 - The `citext` extension available to the migration owner. The first migration runs
   `CREATE EXTENSION IF NOT EXISTS citext`; provider-enable it first if the owner
   cannot create extensions.
-- Supabase-compatible browser roles `anon`, `authenticated`, and `service_role`.
-  They are non-application-login roles used by grants and RLS policies. Follow
-  [the runtime boundary runbook](supabase-data-api-runtime-boundary.md) for the
-  separate `nce_runtime`, `nce_app_anon`, and `nce_app_authenticated` role chain.
+- Browser roles `anon` and `authenticated`, plus `service_role NOLOGIN BYPASSRLS`
+  and `authenticator NOLOGIN`, must already exist. `authenticator` must not be a
+  member of either backend request role.
+- `nce_runtime` must be a login with `NOINHERIT`, `NOSUPERUSER`, `NOCREATEDB`,
+  `NOCREATEROLE`, `NOREPLICATION`, and `NOBYPASSRLS`. The migration owner must
+  grant `service_role` to it using `WITH ADMIN FALSE, SET TRUE, INHERIT FALSE`;
+  no other `service_role -> nce_runtime` membership row is permitted.
+- `nce_job_runner` must have the same least-privilege login attributes and must
+  not have any role memberships. The dedicated runtime URLs use these two logins.
+- Grant `CONNECT` on the target database to `nce_runtime` and `nce_job_runner`.
+- The migration owner must install pg-boss before Prisma migrations so the
+  owner-controlled `pgboss` schema already exists. Follow the exact hosted steps
+  in [the runtime boundary runbook](supabase-data-api-runtime-boundary.md), or the
+  executable [local role bootstrap](../backend/README.md#local-database-role-bootstrap)
+  for an empty rehearsal database. Prisma creates the `nce_app_*` request roles.
 - Node.js 20 or newer and backend dependencies installed with
   `npm --prefix backend ci`.
 
@@ -40,6 +51,7 @@ credentials to the running API:
 From the repository root:
 
 ```sh
+npm --prefix backend run pgboss:install
 npm --prefix backend run prisma:migrate:deploy
 npm --prefix backend run seed:reference
 npm --prefix backend run prisma:status
@@ -65,7 +77,8 @@ restored inactive; the existing active version remains authoritative. The standa
 `seed:ielts-config` command uses the same outer-transaction boundary. Demo content is
 available through `seed:demo`. That command always rejects remote database hosts,
 rejects `NODE_ENV=production`, and requires `DEMO_SEED_CONFIRM_DATABASE` to exactly
-match the database name in the loopback owner URL before loading destructive code.
+match the node-postgres driver database name in the loopback owner URL before loading
+destructive code. Reserved escapes and extra leading slashes remain part of that name.
 
 ## Production-like rehearsal checklist
 
@@ -73,19 +86,23 @@ Use a disposable PostgreSQL database restored from a recent production snapshot 
 created empty for clean replay. Never rehearse destructive setup against production.
 
 1. Record database identity and counts for `users`, `courses`, and `assignments`.
-2. Configure rehearsal-only `DIRECT_URL` and, for remote TLS, the CA path.
-3. Run `npm --prefix backend run prisma:migrate:deploy`.
-4. Run `npm --prefix backend run seed:reference` twice.
-5. Run `npm --prefix backend test -- prisma` with `RUN_DATABASE_TESTS=true`,
+2. On an empty database, execute the linked local role bootstrap; on a restored
+   snapshot, verify every role, attribute, membership, and grant listed above.
+3. Configure rehearsal-only `DIRECT_URL` and, for remote TLS, the CA path.
+4. Run `npm --prefix backend run pgboss:install` as the migration owner.
+5. Run `npm --prefix backend run prisma:migrate:deploy`.
+6. Run `npm --prefix backend run seed:reference` twice.
+7. Run `npm --prefix backend test -- prisma` with `RUN_DATABASE_TESTS=true`,
    `DIRECT_URL` pointing at the disposable owner database, and `DATABASE_URL`
    pointing at its least-privilege runtime login.
-6. Run `npm --prefix backend run prisma:status` and confirm no pending migration.
-7. Recheck the three demo-table counts and confirm they match step 1.
-8. Verify application readiness and representative anonymous/authenticated reads.
+8. Run `npm --prefix backend run prisma:status` and confirm no pending migration.
+9. Recheck the three demo-table counts and confirm they match step 1.
+10. Verify application readiness and representative anonymous/authenticated reads.
 
-The bootstrap database test deletes representative reference rows only inside a
-transaction that always rolls back, runs bootstrap twice, checks stable counts,
-preserves a modified configuration label, and asserts demo-table counts do not move.
+The restoration database tests delete representative rows only inside transactions
+that always roll back. The separate overlap test makes no reference-data changes: it
+holds the advisory lock, proves two independent entrypoints wait, then releases them.
+It also runs the exact `seed:reference` command and verifies prompt pool shutdown.
 
 ## Failure and rollback expectations
 
