@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { PrismaClient } from '../../src/prisma/generated.js'
 import {
   REFERENCE_BOOTSTRAP_LOCK_ID,
+  bootstrapReferenceData,
   runReferenceBootstrap,
 } from '../../src/prisma/seedReference.js'
 import { requireDatabaseTestOwnerUrl } from './databaseTestClient.js'
@@ -45,6 +46,22 @@ async function waitForWaitingLocks(client: PrismaClient): Promise<void> {
   throw new Error('Bootstrap entrypoints did not wait for the advisory lock.')
 }
 
+async function assertBootstrapIsStable(client: PrismaClient): Promise<void> {
+  let mutations = -1
+  await expect(
+    client.$transaction(async (tx) => {
+      await bootstrapReferenceData(tx)
+      const [result] = await tx.$queryRawUnsafe<Array<{ mutations: number }>>(`
+        SELECT coalesce(sum(n_tup_ins + n_tup_upd + n_tup_del), 0)::int AS mutations
+        FROM pg_stat_xact_user_tables
+      `)
+      mutations = result.mutations
+      throw new Error('ROLLBACK_BOOTSTRAP_STABILITY_PROBE')
+    }),
+  ).rejects.toThrow('ROLLBACK_BOOTSTRAP_STABILITY_PROBE')
+  expect(mutations, 'entrypoint target must be reference-bootstrapped').toBe(0)
+}
+
 databaseDescribe('production reference bootstrap entrypoint', () => {
   it('serializes two independent clients without mutating reference data', async () => {
     const pools = Array.from(
@@ -64,6 +81,7 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
     let runners: Promise<void>[] = []
 
     try {
+      await assertBootstrapIsStable(clients[0])
       const navigationCount = await clients[0].navigationItem.count()
       blocker = clients[2].$transaction(async (tx) => {
         await tx.$queryRawUnsafe(
