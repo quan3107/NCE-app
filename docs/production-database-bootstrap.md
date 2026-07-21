@@ -102,7 +102,9 @@ created empty for clean replay. Never rehearse destructive setup against product
 The restoration database tests delete representative rows only inside transactions
 that always roll back. The separate overlap test makes no reference-data changes: it
 holds the advisory lock, proves two independent entrypoints wait, then releases them.
-It also runs the exact `seed:reference` command and verifies prompt pool shutdown.
+Its fail-closed CI-only suite first prepares the disposable target through the exact
+`seed:reference` command and verifies prompt pool shutdown. Ordinary database rehearsal
+does not enable this entrypoint suite.
 
 ## Failure and rollback expectations
 
