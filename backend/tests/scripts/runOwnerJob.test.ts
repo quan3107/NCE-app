@@ -194,13 +194,24 @@ describe('owner job environment', () => {
     ).toThrow(/direct Supabase database endpoint.*port 5432/i)
   })
 
-  it('treats a remote driver host override as remote', () => {
+  it('rejects a pooled Supabase endpoint hidden by host and port overrides', () => {
+    expect(() =>
+      buildOwnerJobEnvironment(
+        {},
+        'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres?host=aws-0-ap-southeast-1.pooler.supabase.com&port=6543',
+        '/trusted/project-ca.crt',
+        'tsx',
+      ),
+    ).toThrow(/must not set host or port query overrides/i)
+  })
+
+  it('rejects ambiguous driver host overrides', () => {
     expect(() =>
       buildOwnerJobEnvironment(
         {},
         'postgresql://owner:owner@localhost:5432/nce?host=db.example.com',
       ),
-    ).toThrow(/require DIRECT_DATABASE_CA_CERT_PATH/)
+    ).toThrow(/must not set host or port query overrides/i)
   })
 
   it('keeps bracketed IPv6 loopback CA-free', () => {
