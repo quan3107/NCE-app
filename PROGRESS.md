@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-22:** Moved every supplemental user/course/assignment/mapping fixture writer under the explicit `seed:demo:*` namespace, applied the shared confirmed-loopback gate to both npm and direct executable paths before database access, closed their external PostgreSQL pools, and added process/source contracts for remote and unconfirmed targets.
+
 - **2026-07-22:** Corrected the root README's stale generic seed wording so local demo accounts are attributed only to the explicit destructive `seed:demo` command, with a source contract preventing the removed “main seed” concept from returning.
 
 - **2026-07-22:** Routed administrative database-test pools through the owner launcher's CA-backed `verify-full` URL policy for remote rehearsals while preserving raw `DIRECT_URL` for the exact `seed:reference` subprocess. Added behavioral and source-contract coverage for loopback, remote CA, fail-closed, and consumer boundaries.
@@ -152,6 +154,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-22:** No frontend files or application behavior changed for the supplemental demo-fixture safety correction; the follow-up is limited to backend commands, seed programs, process/source tests, documentation, and this progress record.
 
 - **2026-07-22:** No frontend files or behavior changed for the explicit demo-seed README correction; the follow-up is limited to root documentation, its backend source contract, and this progress record.
 
