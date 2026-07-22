@@ -40,12 +40,14 @@ function assertDirectOwnerEndpoint(url: URL): void {
     )
   }
 
-  const hostname = url.hostname.toLowerCase()
+  const hostname = url.hostname.toLowerCase().replace(/\.+$/, '')
   const isSupabasePooler = hostname.endsWith('.pooler.supabase.com')
   const isSupabaseDirectHost =
     hostname.startsWith('db.') && hostname.endsWith('.supabase.co')
+  const usesUnsupportedDirectPort =
+    isSupabaseDirectHost && url.port !== '' && url.port !== '5432'
 
-  if (isSupabasePooler || (isSupabaseDirectHost && url.port === '6543')) {
+  if (isSupabasePooler || usesUnsupportedDirectPort) {
     throw new Error(
       'Owner jobs require the direct Supabase database endpoint on port 5432; pooler endpoints are not allowed.',
     )
