@@ -154,7 +154,10 @@ describe('owner-only database workflow', () => {
       expect(guide).toContain('IPv6')
       expect(guide).toContain('IPv4 add-on')
       expect(guide).not.toMatch(/direct\/session pooler/i)
-      expect(guide).toMatch(/do not use[^.]*Supavisor[^.]*pooler/i)
+      expect(guide).toMatch(/do not use either Supavisor pooler/i)
+      expect(guide).toContain('session-pooling endpoint')
+      expect(guide).toContain('transaction-pooling endpoint')
+      expect(guide).toMatch(/transaction-pooling endpoint[^.]*port `6543`/i)
     }
     expect(bootstrapRunbook).toMatch(
       /`DATABASE_URL` and `JOB_DATABASE_URL`[^.]*pooling choices[^.]*separate/i,
