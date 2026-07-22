@@ -125,4 +125,18 @@ describe('demo seed target policy', () => {
     expect(output).not.toContain('Resetting existing data...')
     expect(output).not.toContain("Can't reach database server")
   })
+
+  it('redacts malformed direct-seed database credentials', () => {
+    const sentinel = 'REVIEW_SECRET_7f3a'
+    const databaseUrl = `postgresql://owner:${sentinel}@bad host/nce`
+    const result = runDirectSeed(databaseUrl)
+    const output = `${result.stdout}${result.stderr}`
+
+    expect(result.status).not.toBe(0)
+    expect(output).toContain('DATABASE_URL is invalid for the demo seed.')
+    expect(output).not.toContain(sentinel)
+    expect(output).not.toContain(databaseUrl)
+    expect(output).not.toContain('Resetting existing data...')
+    expect(output).not.toContain("Can't reach database server")
+  })
 })
