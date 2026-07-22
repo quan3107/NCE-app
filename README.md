@@ -153,7 +153,7 @@ The Playwright workflow starts the Vite dev server on `http://127.0.0.1:3000`, u
 
 ## Local Accounts
 
-The main seed creates these accounts:
+The explicit `seed:demo` command creates these local accounts:
 
 | Role    | Email                     | Password    |
 | ------- | ------------------------- | ----------- |
