@@ -114,6 +114,11 @@ created empty for clean replay. Never rehearse destructive setup against product
 9. Recheck the three demo-table counts and confirm they match step 1.
 10. Verify application readiness and representative anonymous/authenticated reads.
 
+Remote database-test clients derive their administrative pool URL from the raw
+`DIRECT_URL` and `DIRECT_DATABASE_CA_CERT_PATH` through the same CA-backed
+`verify-full` policy as owner jobs. The exact `seed:reference` subprocess instead
+receives the raw URL and CA variable so its owner launcher applies that policy once.
+
 The restoration database tests delete representative rows only inside transactions
 that always roll back. The separate overlap test makes no reference-data changes: it
 holds the advisory lock, proves two independent entrypoints wait, then releases them.
