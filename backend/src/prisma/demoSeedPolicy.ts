@@ -21,6 +21,11 @@ export function assertDemoSeedTarget(
   if (environment.NODE_ENV === 'production') {
     throw new Error('Refusing to run the demo seed in production mode.')
   }
+  try {
+    new URL(connectionString)
+  } catch {
+    throw new Error('DATABASE_URL is invalid for the demo seed.')
+  }
   if (!isLoopbackDatabaseUrl(connectionString)) {
     throw new Error('Demo seed is restricted to a loopback database.')
   }
