@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-22:** Routed demo-seed success and failure cleanup through `shutdownPrisma()` so the externally supplied PostgreSQL pool closes promptly, and extended the owner-workflow contract to prevent `$disconnect()`-only cleanup from returning.
+
 - **2026-07-21:** Made the destructive demo fixture program enforce the same fail-closed target gate as its supported npm wrapper, with direct-process regressions proving remote and unconfirmed loopback invocations stop before reset logging or database access. The safety-only two-line edit leaves the inherited 1,421-line legacy fixture as an explicit size exception; splitting it is unrelated to this production-safety correction.
 
 - **2026-07-21:** Pinned the serialized production reference bootstrap transaction to `READ COMMITTED`, ensuring a waiter sees the preceding lock holder's committed reference rows even when the database or role default uses a stricter isolation level. Added a focused owner-workflow contract for the explicit transaction option.
@@ -138,6 +140,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-22:** No frontend files changed for the demo-seed external-pool shutdown correction; the follow-up is limited to backend lifecycle cleanup, its focused contract, and this progress record.
 
 - **2026-07-21:** No frontend files changed for the direct demo-seed gate correction; the follow-up is limited to the backend destructive entrypoint, its process regressions, database safety documentation, and this progress record.
 
