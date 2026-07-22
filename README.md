@@ -161,11 +161,7 @@ The explicit `seed:demo` command creates these local accounts:
 | Teacher | `sarah.tutor@ielts.local` | `Passw0rd!` |
 | Student | `amelia.chan@ielts.local` | `Passw0rd!` |
 
-It also creates extra teachers and students so course rosters, submissions, notifications, files, grades, and audit logs have realistic local data.
-Optional IELTS assignment, IELTS sandbox, and NCE course fixtures are exposed only as
-`seed:demo:ielts-assignments`, `seed:demo:ielts-sandbox`, and
-`seed:demo:nce-content`. Each command requires the same exact confirmed loopback
-database as `seed:demo` and must never be used against production.
+It also creates extra teachers and students so course rosters, submissions, notifications, files, grades, and audit logs have realistic local data; supplemental fixtures use the explicit `seed:demo:ielts-assignments`, `seed:demo:ielts-sandbox`, and `seed:demo:nce-content` commands documented in the backend guide and require the same local approval.
 
 ## Project Shape
 
@@ -242,9 +238,6 @@ Backend commands, from `backend/`:
 | `npm run seed:navigation`                  | Seed permissions, navigation, and feature flags.                         |
 | `npm run seed:reference`                   | Create missing production reference data without overwriting values.     |
 | `npm run seed:demo`                        | Reset local fixtures after exact `DEMO_SEED_CONFIRM_DATABASE` approval.  |
-| `npm run seed:demo:ielts-assignments`      | Add or refresh local IELTS assignment fixtures after the same approval.   |
-| `npm run seed:demo:ielts-sandbox`          | Add or refresh the local IELTS sandbox after the same approval.           |
-| `npm run seed:demo:nce-content`            | Add or refresh local NCE course fixtures after the same approval.         |
 | `npm run verify:ielts-config`              | Check the active IELTS config through the runtime `DATABASE_URL`.        |
 
 ## Testing
