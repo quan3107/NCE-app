@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-22:** Reconciled the Prisma/Supabase migration governance guide with the production bootstrap runbook so both require the actual direct database endpoint, reject both Supavisor poolers, and document direct-endpoint IPv6 or IPv4 add-on reachability. Extended the owner-workflow contract across both authoritative guides.
+
 - **2026-07-22:** Narrowly refreshed the backend lockfile from `fast-uri` 3.1.2 to 3.1.4 after new high-severity advisories while keeping Prisma CLI/client/adapter packages aligned at 7.8. A clean install passes the high-severity audit gate; four moderate findings remain confined to Prisma's development-only Hono tooling.
 
 - **2026-07-22:** Sanitized malformed direct demo-seed URL failures so owner credentials are never logged, added a sentinel-based process regression and message-only error logging, and documented that production migrations require the direct non-transaction-pooled endpoint with Supabase IPv6/IPv4 reachability guidance.
@@ -144,6 +146,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-22:** No frontend files or behavior changed for the migration-governance endpoint correction; the follow-up is limited to database documentation, its backend workflow contract, and this progress record.
 
 - **2026-07-22:** Refreshed the frontend lockfile to patched `linkify-it` and DOMPurify resolutions after new npm advisories; a clean install now reports zero vulnerabilities, with no frontend application-code change.
 
