@@ -204,6 +204,18 @@ describe('owner-only database workflow', () => {
     ]) {
       expect(commandSource).toContain('assertDemoSeedTarget()')
     }
+    for (const script of [
+      'seed:demo:ielts-assignments',
+      'seed:demo:ielts-sandbox',
+      'seed:demo:nce-content',
+    ]) {
+      expect(rootReadme).toContain(script)
+      expect(backendReadme).toContain(script)
+      expect(bootstrapRunbook).toContain(script)
+    }
+    expect(bootstrapRunbook).toMatch(
+      /Never run any\s+`seed:demo\*` command in a production migration or bootstrap sequence\./,
+    )
   })
 
   it('pins the locked reference bootstrap to read committed', () => {
