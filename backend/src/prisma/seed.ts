@@ -1411,7 +1411,10 @@ async function main(): Promise<void> {
 
 main()
   .catch((error: unknown) => {
-    console.error('Seeding failed:', error)
+    console.error(
+      'Seeding failed:',
+      error instanceof Error ? error.message : String(error),
+    )
     process.exitCode = 1
   })
   .finally(async () => {
