@@ -21,7 +21,9 @@ const runtimeRoleTest = readFileSync(
   resolve(process.cwd(), 'tests/server.runtimeRoles.database.test.ts'),
   'utf8',
 )
-const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as {
+const packageJson = JSON.parse(
+  readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'),
+) as {
   scripts: Record<string, string>
 }
 
