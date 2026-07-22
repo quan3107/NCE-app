@@ -83,7 +83,7 @@ resolve, insert into, or delete from `_prisma_migrations` or
   plus `sslrootcert`. Keep all
   URL-level SSL parameters out of `DIRECT_URL`; conflicting or weakening modes
   are rejected. See the
-  [Prisma PostgreSQL TLS parameters](https://www.prisma.io/docs/orm/overview/databases/postgresql)
+  [Prisma PostgreSQL TLS parameters](https://docs.prisma.io/docs/orm/core-concepts/supported-databases/postgresql)
   and Supabase's recommendation to use
   [`verify-full` with the project CA](https://supabase.com/docs/guides/platform/ssl-enforcement).
 - Never provide `DIRECT_URL` to the long-running backend or print any URL.
