@@ -64,6 +64,7 @@ the direct migration endpoint requirement above.
 From the repository root:
 
 ```sh
+npm --prefix backend run prisma:generate
 npm --prefix backend run pgboss:install
 npm --prefix backend run prisma:migrate:deploy
 npm --prefix backend run seed:reference
@@ -107,15 +108,17 @@ created empty for clean replay. Never rehearse destructive setup against product
 2. On an empty database, execute the linked local role bootstrap; on a restored
    snapshot, verify every role, attribute, membership, and grant listed above.
 3. Configure rehearsal-only `DIRECT_URL` and, for remote TLS, the CA path.
-4. Run `npm --prefix backend run pgboss:install` as the migration owner.
-5. Run `npm --prefix backend run prisma:migrate:deploy`.
-6. Run `npm --prefix backend run seed:reference` twice.
-7. Run `npm --prefix backend test -- prisma` with `RUN_DATABASE_TESTS=true`,
+4. Run `npm --prefix backend run prisma:generate` before any command that imports
+   the ignored generated client.
+5. Run `npm --prefix backend run pgboss:install` as the migration owner.
+6. Run `npm --prefix backend run prisma:migrate:deploy`.
+7. Run `npm --prefix backend run seed:reference` twice.
+8. Run `npm --prefix backend test -- prisma` with `RUN_DATABASE_TESTS=true`,
    `DIRECT_URL` pointing at the disposable owner database, and `DATABASE_URL`
    pointing at its least-privilege runtime login.
-8. Run `npm --prefix backend run prisma:status` and confirm no pending migration.
-9. Recheck the three demo-table counts and confirm they match step 1.
-10. Verify application readiness and representative anonymous/authenticated reads.
+9. Run `npm --prefix backend run prisma:status` and confirm no pending migration.
+10. Recheck the three demo-table counts and confirm they match step 1.
+11. Verify application readiness and representative anonymous/authenticated reads.
 
 Remote database-test clients derive their administrative pool URL from the raw
 `DIRECT_URL` and `DIRECT_DATABASE_CA_CERT_PATH` through the same CA-backed
