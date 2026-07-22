@@ -12,7 +12,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 - **2026-07-22:** Routed demo-seed success and failure cleanup through `shutdownPrisma()` so the externally supplied PostgreSQL pool closes promptly, and extended the owner-workflow contract to prevent `$disconnect()`-only cleanup from returning.
 
-- **2026-07-21:** Made the destructive demo fixture program enforce the same fail-closed target gate as its supported npm wrapper, with direct-process regressions proving remote and unconfirmed loopback invocations stop before reset logging or database access. The safety-only two-line edit leaves the inherited 1,421-line legacy fixture as an explicit size exception; splitting it is unrelated to this production-safety correction.
+- **2026-07-21:** Made the destructive demo fixture program enforce the same fail-closed target gate as its supported npm wrapper, with direct-process regressions proving remote and unconfirmed loopback invocations stop before reset logging or database access. The inherited 1,422-line legacy fixture remains an explicit size exception after the minimal safety and lifecycle edits; splitting it is unrelated to this production-safety correction.
 
 - **2026-07-21:** Pinned the serialized production reference bootstrap transaction to `READ COMMITTED`, ensuring a waiter sees the preceding lock holder's committed reference rows even when the database or role default uses a stricter isolation level. Added a focused owner-workflow contract for the explicit transaction option.
 
