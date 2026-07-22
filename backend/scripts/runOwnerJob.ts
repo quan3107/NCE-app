@@ -30,6 +30,19 @@ type OwnerConfig = {
 
 type OwnerTool = 'prisma' | 'tsx'
 
+function assertDirectOwnerEndpoint(url: URL): void {
+  const hostname = url.hostname.toLowerCase()
+  const isSupabasePooler = hostname.endsWith('.pooler.supabase.com')
+  const isSupabaseDirectHost =
+    hostname.startsWith('db.') && hostname.endsWith('.supabase.co')
+
+  if (isSupabasePooler || (isSupabaseDirectHost && url.port === '6543')) {
+    throw new Error(
+      'Owner jobs require the direct Supabase database endpoint on port 5432; pooler endpoints are not allowed.',
+    )
+  }
+}
+
 export async function loadOwnerConfig(
   directory = backendDir,
   inheritedEnvironment: OwnerEnvironment = process.env,
@@ -107,6 +120,7 @@ export function buildOwnerConnectionUrl(
   if (isLoopbackDatabaseUrl(ownerDatabaseUrl)) return ownerDatabaseUrl
 
   const url = new URL(ownerDatabaseUrl)
+  assertDirectOwnerEndpoint(url)
   assertUnconfiguredRemoteSsl(url)
   if (!certificateAuthorityPath) {
     throw new Error(
