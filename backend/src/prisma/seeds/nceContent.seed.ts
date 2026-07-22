@@ -1,7 +1,7 @@
 /**
  * File: src/prisma/seeds/nceContent.seed.ts
- * Purpose: Seed first-release NCE content in an idempotent way.
- * Why: Fresh environments need representative NCE books, lessons, exercises, and course mapping.
+ * Purpose: Seed representative NCE content for local demo environments.
+ * Why: Mutable users, courses, enrollments, and mappings must remain explicit fixtures.
  */
 import {
   EnrollmentRole,
