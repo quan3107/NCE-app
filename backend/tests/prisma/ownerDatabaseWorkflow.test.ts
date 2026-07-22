@@ -98,7 +98,9 @@ describe('owner-only database workflow', () => {
     expect(rootReadme).toContain('`verify:ielts-config` reads the runtime `DATABASE_URL`')
     expect(rootReadme).toContain('does not require `DIRECT_URL`')
     expect(rootReadme).toContain('npm --prefix backend run prisma:deploy')
-    expect(rootReadme).toContain('The explicit `seed:demo` command creates these local accounts:')
+    expect(rootReadme).toContain(
+      'The explicit `seed:demo` command creates these local accounts:',
+    )
     expect(rootReadme).not.toContain('The main seed')
     expect(rootReadme).not.toContain(
       'npx prisma migrate deploy --config prisma.config.ts',
