@@ -43,12 +43,20 @@ create a managed database, or configure backups/PITR.
 Set these only in the deployment job or `backend/.env.local`; do not expose owner
 credentials to the running API:
 
-- `DIRECT_URL`: PostgreSQL owner/migration URL. Required by migration and bootstrap.
+- `DIRECT_URL`: PostgreSQL owner URL for the actual direct database endpoint. Required
+  by migration and bootstrap; do not use a PgBouncer/Supavisor transaction pooler.
+  For Supabase, use `db.<project-ref>.supabase.co:5432`; the transaction pooler on
+  port `6543` must not be used for migrations. The direct endpoint is IPv6 by default,
+  so the deployment runner needs IPv6 reachability or the project needs the Supabase
+  IPv4 add-on.
 - `DIRECT_DATABASE_CA_CERT_PATH`: trusted CA certificate path, required for remote
   owner jobs. Loopback rehearsal databases do not require it.
 - `DATABASE_URL`: least-privilege `nce_runtime` URL for the deployed API. The owner
   job temporarily supplies its scoped connection to Prisma/seed child processes.
 - `JOB_DATABASE_URL`: dedicated pg-boss runtime URL when background jobs are enabled.
+
+`DATABASE_URL` and `JOB_DATABASE_URL` runtime pooling choices remain separate from
+the direct migration endpoint requirement above.
 
 ## Production sequence
 
