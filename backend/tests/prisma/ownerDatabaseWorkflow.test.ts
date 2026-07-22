@@ -27,6 +27,7 @@ const rolloutRunbook = readRepo('docs/supabase-data-api-runtime-boundary.md')
 const bootstrapRunbook = readRepo('docs/production-database-bootstrap.md')
 const rootReadme = readRepo('README.md')
 const backendReadme = readBackend('README.md')
+const demoSeed = readBackend('src/prisma/seed.ts')
 const referenceSeed = readBackend('src/prisma/seedReference.ts')
 const ieltsSeed = readBackend('src/prisma/seedIeltsConfig.ts')
 const navigationSeed = readBackend('src/prisma/seeds/navigation.seed.ts')
@@ -147,10 +148,11 @@ describe('owner-only database workflow', () => {
     expect(pgbossInstall).toBeLessThan(prismaDeploy)
   })
 
-  it('closes the external pool in direct reference seed commands', () => {
-    for (const commandSource of [referenceSeed, ieltsSeed, navigationSeed]) {
+  it('closes the external pool in direct seed commands', () => {
+    for (const commandSource of [demoSeed, referenceSeed, ieltsSeed, navigationSeed]) {
       expect(commandSource).toContain('shutdownPrisma()')
       expect(commandSource).not.toContain('await basePrisma.$disconnect()')
+      expect(commandSource).not.toContain('await prisma.$disconnect()')
     }
   })
 
