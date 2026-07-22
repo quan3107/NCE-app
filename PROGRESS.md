@@ -8,7 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
-- **2026-07-22:** Refreshed compatible backend lockfile resolutions after new npm advisories, moving the Prisma CLI toolchain within its existing range and resolving `fast-uri`/Hono findings; a clean install now reports zero vulnerabilities.
+- **2026-07-22:** Narrowly refreshed the backend lockfile from `fast-uri` 3.1.2 to 3.1.4 after new high-severity advisories while keeping Prisma CLI/client/adapter packages aligned at 7.8. A clean install passes the high-severity audit gate; four moderate findings remain confined to Prisma's development-only Hono tooling.
 
 - **2026-07-22:** Sanitized malformed direct demo-seed URL failures so owner credentials are never logged, added a sentinel-based process regression and message-only error logging, and documented that production migrations require the direct non-transaction-pooled endpoint with Supabase IPv6/IPv4 reachability guidance.
 
