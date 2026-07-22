@@ -81,6 +81,16 @@ describe('database test owner connection', () => {
     ).toThrow(/direct Supabase database endpoint.*port 5432/i)
   })
 
+  it('rejects a pooled database-test endpoint hidden by query overrides', () => {
+    expect(() =>
+      requireDatabaseTestOwnerUrl({
+        DIRECT_URL:
+          'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres?host=aws-0-ap-southeast-1.pooler.supabase.com&port=6543',
+        DIRECT_DATABASE_CA_CERT_PATH: '/trusted/project-ca.crt',
+      }),
+    ).toThrow(/must not set host or port query overrides/i)
+  })
+
   it('keeps the exact seed command on the raw URL and owner launcher', () => {
     const rawUrl = 'postgresql://owner:secret@db.example.com:5432/nce_test'
 
