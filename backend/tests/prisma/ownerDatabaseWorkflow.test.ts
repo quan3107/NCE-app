@@ -25,6 +25,7 @@ const normalizationMigration = readBackend(
 const ciWorkflow = readRepo('.github/workflows/ci.yml')
 const rolloutRunbook = readRepo('docs/supabase-data-api-runtime-boundary.md')
 const bootstrapRunbook = readRepo('docs/production-database-bootstrap.md')
+const migrationGovernance = readRepo('docs/prisma-supabase-migration-governance.md')
 const rootReadme = readRepo('README.md')
 const backendReadme = readBackend('README.md')
 const demoSeed = readBackend('src/prisma/seed.ts')
@@ -148,6 +149,13 @@ describe('owner-only database workflow', () => {
     expect(bootstrapRunbook).toMatch(/transaction pooler[^.]*port `6543`[^.]*must not/i)
     expect(bootstrapRunbook).toContain('IPv6')
     expect(bootstrapRunbook).toContain('IPv4 add-on')
+    for (const guide of [bootstrapRunbook, migrationGovernance]) {
+      expect(guide).toContain('db.<project-ref>.supabase.co:5432')
+      expect(guide).toContain('IPv6')
+      expect(guide).toContain('IPv4 add-on')
+      expect(guide).not.toMatch(/direct\/session pooler/i)
+      expect(guide).toMatch(/do not use[^.]*Supavisor[^.]*pooler/i)
+    }
     expect(bootstrapRunbook).toMatch(
       /`DATABASE_URL` and `JOB_DATABASE_URL`[^.]*pooling choices[^.]*separate/i,
     )
