@@ -87,13 +87,16 @@ and CMS baseline pages. It never resets or truncates tables and does not update
 existing mutable configuration. A transaction-scoped advisory lock serializes
 overlapping runs. If IELTS v1 is missing while another version is active, v1 is
 restored inactive; the existing active version remains authoritative. The standalone
-`seed:ielts-config` command uses the same outer-transaction boundary. Demo content is
-available through `seed:demo`. That command always rejects remote database hosts,
-rejects `NODE_ENV=production`, and requires `DEMO_SEED_CONFIRM_DATABASE` to exactly
-match the node-postgres driver database name in the loopback owner URL before loading
-destructive code. The underlying `src/prisma/seed.ts` program enforces the same gate,
-so direct execution cannot bypass it; `seed:demo` remains the supported entrypoint.
-Reserved escapes and extra leading slashes remain part of that name.
+`seed:ielts-config` command uses the same outer-transaction boundary. Demo users,
+courses, assignments, enrollments, and seeded course mappings are available only
+through `seed:demo` and its explicit `seed:demo:ielts-assignments`,
+`seed:demo:ielts-sandbox`, and `seed:demo:nce-content` fixture commands. Every one of
+these commands rejects remote database hosts and `NODE_ENV=production`, and requires
+`DEMO_SEED_CONFIRM_DATABASE` to exactly match the node-postgres driver database name
+in the loopback owner URL before database access. Each underlying executable program
+enforces the same gate, so direct execution cannot bypass it. Reserved escapes and
+extra leading slashes remain part of the confirmed database name. Never run any
+`seed:demo*` command in a production migration or bootstrap sequence.
 
 ## Production-like rehearsal checklist
 
