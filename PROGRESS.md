@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-22:** Refreshed compatible backend lockfile resolutions after new npm advisories, moving the Prisma CLI toolchain within its existing range and resolving `fast-uri`/Hono findings; a clean install now reports zero vulnerabilities.
+
 - **2026-07-22:** Sanitized malformed direct demo-seed URL failures so owner credentials are never logged, added a sentinel-based process regression and message-only error logging, and documented that production migrations require the direct non-transaction-pooled endpoint with Supabase IPv6/IPv4 reachability guidance.
 
 - **2026-07-22:** Routed demo-seed success and failure cleanup through `shutdownPrisma()` so the externally supplied PostgreSQL pool closes promptly, and extended the owner-workflow contract to prevent `$disconnect()`-only cleanup from returning.
@@ -142,6 +144,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-22:** Refreshed the frontend lockfile to patched `linkify-it` and DOMPurify resolutions after new npm advisories; a clean install now reports zero vulnerabilities, with no frontend application-code change.
 
 - **2026-07-22:** No frontend files changed for the demo credential-redaction or direct migration-endpoint documentation corrections; the follow-up is limited to backend safety policy, process/workflow contracts, deployment documentation, and this progress record.
 
