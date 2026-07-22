@@ -72,6 +72,9 @@ describe('database test owner connection', () => {
     'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres',
     'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres',
     'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:6543/postgres',
+    'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co.:6543/postgres',
+    'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com.:6543/postgres',
+    'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:9999/postgres',
   ])('rejects pooled Supabase database-test endpoints: %s', (directUrl) => {
     expect(() =>
       requireDatabaseTestOwnerUrl({
