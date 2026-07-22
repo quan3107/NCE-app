@@ -44,11 +44,12 @@ Set these only in the deployment job or `backend/.env.local`; do not expose owne
 credentials to the running API:
 
 - `DIRECT_URL`: PostgreSQL owner URL for the actual direct database endpoint. Required
-  by migration and bootstrap; do not use a PgBouncer/Supavisor transaction pooler.
-  For Supabase, use `db.<project-ref>.supabase.co:5432`; the transaction pooler on
-  port `6543` must not be used for migrations. The direct endpoint is IPv6 by default,
-  so the deployment runner needs IPv6 reachability or the project needs the Supabase
-  IPv4 add-on.
+  by migration and bootstrap. For Supabase, use
+  `db.<project-ref>.supabase.co:5432`. Do not use either Supavisor pooler for owner
+  migration or bootstrap jobs: this excludes the transaction-pooling endpoint on
+  port `6543` and the session-pooling endpoint. The direct endpoint is IPv6 by
+  default, so the deployment runner needs IPv6 reachability or the project needs the
+  Supabase IPv4 add-on.
 - `DIRECT_DATABASE_CA_CERT_PATH`: trusted CA certificate path, required for remote
   owner jobs. Loopback rehearsal databases do not require it.
 - `DATABASE_URL`: least-privilege `nce_runtime` URL for the deployed API. The owner
