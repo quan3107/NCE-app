@@ -1,7 +1,7 @@
 /**
  * File: src/prisma/seedIeltsAssignments.ts
- * Purpose: Seed IELTS assignments without wiping existing data.
- * Why: Allows adding/updating IELTS assignment configs while preserving other records.
+ * Purpose: Add or refresh local IELTS assignment fixtures.
+ * Why: Keeps assignment mutations behind the confirmed demo-only boundary.
  */
 import { AssignmentType, Prisma } from './generated.js';
 import { basePrisma, shutdownPrisma } from './client.js';
