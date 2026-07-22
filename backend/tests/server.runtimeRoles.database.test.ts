@@ -12,10 +12,10 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 import { PrismaPg } from '@prisma/adapter-pg'
 import PgBoss from 'pg-boss'
-import { Pool } from 'pg'
 import { describe, expect, it } from 'vitest'
 
 import { PrismaClient } from '../src/prisma/generated.js'
+import { createDatabaseTestOwnerPool } from './prisma/databaseTestClient.js'
 
 const databaseDescribe =
   process.env.CI === 'true' || process.env.RUN_DATABASE_TESTS === 'true'
@@ -24,12 +24,7 @@ const databaseDescribe =
 const DUE_SOON_JOB_NAME = 'notifications.due-soon'
 
 function createOwnerDatabase() {
-  const directUrl = process.env.DIRECT_URL
-  if (!directUrl) {
-    throw new Error('DIRECT_URL is required for the runtime-role database test.')
-  }
-
-  const pool = new Pool({ connectionString: directUrl })
+  const pool = createDatabaseTestOwnerPool()
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) })
 
   return {
