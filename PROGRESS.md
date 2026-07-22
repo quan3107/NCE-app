@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-22:** Closed the owner-endpoint query-override bypass by rejecting supported PostgreSQL `host` and `port` URL parameters before loopback classification or TLS decoration. Added launcher and database-test-client regressions for a direct Supabase authority redirected to a transaction pooler.
+
 - **2026-07-22:** Made clean deployment and rehearsal ordering generate the ignored Prisma client before owner jobs, rejected Supabase pooler hosts and direct-host port `6543` in the shared owner launcher/database-test boundary, and refreshed the Prisma PostgreSQL TLS reference. Added focused ordering and endpoint regressions.
 
 - **2026-07-22:** Moved every supplemental user/course/assignment/mapping fixture writer under the explicit `seed:demo:*` namespace, applied the shared confirmed-loopback gate to both npm and direct executable paths before database access, closed their external PostgreSQL pools, and added process/source contracts for remote and unconfirmed targets.
@@ -156,6 +158,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-22:** No frontend files or behavior changed for the owner database endpoint query-override correction.
 
 - **2026-07-22:** No frontend files or behavior changed for the deployment ordering, direct migration-endpoint enforcement, or Prisma TLS documentation corrections.
 
