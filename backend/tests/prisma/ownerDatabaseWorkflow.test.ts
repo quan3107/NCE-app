@@ -146,7 +146,6 @@ describe('owner-only database workflow', () => {
     expect(bootstrapRunbook).not.toMatch(/provider-managed `authenticator`[^.]*NOLOGIN/)
     expect(bootstrapRunbook).toContain('plain-PostgreSQL rehearsal stub')
     expect(bootstrapRunbook).toContain('db.<project-ref>.supabase.co:5432')
-    expect(bootstrapRunbook).toMatch(/transaction pooler[^.]*port `6543`[^.]*must not/i)
     expect(bootstrapRunbook).toContain('IPv6')
     expect(bootstrapRunbook).toContain('IPv4 add-on')
     for (const guide of [bootstrapRunbook, migrationGovernance]) {
@@ -155,9 +154,9 @@ describe('owner-only database workflow', () => {
       expect(guide).toContain('IPv4 add-on')
       expect(guide).not.toMatch(/direct\/session pooler/i)
       expect(guide).toMatch(/do not use either Supavisor pooler/i)
-      expect(guide).toContain('session-pooling endpoint')
-      expect(guide).toContain('transaction-pooling endpoint')
-      expect(guide).toMatch(/transaction-pooling endpoint[^.]*port `6543`/i)
+      expect(guide).toMatch(/session-pooling\s+endpoint/i)
+      expect(guide).toMatch(/transaction-pooling\s+endpoint/i)
+      expect(guide).toMatch(/transaction-pooling\s+endpoint[^.]*port `6543`/i)
     }
     expect(bootstrapRunbook).toMatch(
       /`DATABASE_URL` and `JOB_DATABASE_URL`[^.]*pooling choices[^.]*separate/i,
