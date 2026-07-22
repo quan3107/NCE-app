@@ -29,6 +29,9 @@ const migrationGovernance = readRepo('docs/prisma-supabase-migration-governance.
 const rootReadme = readRepo('README.md')
 const backendReadme = readBackend('README.md')
 const demoSeed = readBackend('src/prisma/seed.ts')
+const ieltsAssignmentSeed = readBackend('src/prisma/seedIeltsAssignments.ts')
+const ieltsSandboxSeed = readBackend('src/prisma/seedIeltsSandbox.ts')
+const nceContentSeed = readBackend('src/prisma/seedNceContent.ts')
 const referenceSeed = readBackend('src/prisma/seedReference.ts')
 const ieltsSeed = readBackend('src/prisma/seedIeltsConfig.ts')
 const navigationSeed = readBackend('src/prisma/seeds/navigation.seed.ts')
@@ -84,10 +87,10 @@ describe('owner-only database workflow', () => {
       'seed:demo',
       'seed:reference',
       'seed:ielts-config',
-      'seed:ielts',
-      'seed:ielts-sandbox',
+      'seed:demo:ielts-assignments',
+      'seed:demo:ielts-sandbox',
       'seed:cms',
-      'seed:nce-content',
+      'seed:demo:nce-content',
       'seed:navigation',
     ]) {
       expect(packageJson.scripts[script]).toContain('scripts/runOwnerJob.ts')
@@ -95,6 +98,13 @@ describe('owner-only database workflow', () => {
     expect(packageJson.scripts['verify:ielts-config']).toBe(
       'tsx src/prisma/verifyIeltsConfig.ts',
     )
+    for (const removedScript of [
+      'seed:ielts',
+      'seed:ielts-sandbox',
+      'seed:nce-content',
+    ]) {
+      expect(packageJson.scripts[removedScript]).toBeUndefined()
+    }
     expect(rootReadme).toContain('`verify:ielts-config` reads the runtime `DATABASE_URL`')
     expect(rootReadme).toContain('does not require `DIRECT_URL`')
     expect(rootReadme).toContain('npm --prefix backend run prisma:deploy')
@@ -170,10 +180,29 @@ describe('owner-only database workflow', () => {
   })
 
   it('closes the external pool in direct seed commands', () => {
-    for (const commandSource of [demoSeed, referenceSeed, ieltsSeed, navigationSeed]) {
-      expect(commandSource).toContain('shutdownPrisma()')
+    for (const commandSource of [
+      demoSeed,
+      ieltsAssignmentSeed,
+      ieltsSandboxSeed,
+      nceContentSeed,
+      referenceSeed,
+      ieltsSeed,
+      navigationSeed,
+    ]) {
+      expect(commandSource).toMatch(/shutdownPrisma\(\)|\.finally\(shutdownPrisma\)/)
       expect(commandSource).not.toContain('await basePrisma.$disconnect()')
       expect(commandSource).not.toContain('await prisma.$disconnect()')
+    }
+  })
+
+  it('gates every executable demo fixture before database access', () => {
+    for (const commandSource of [
+      demoSeed,
+      ieltsAssignmentSeed,
+      ieltsSandboxSeed,
+      nceContentSeed,
+    ]) {
+      expect(commandSource).toContain('assertDemoSeedTarget()')
     }
   })
 
