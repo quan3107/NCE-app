@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-22:** Corrected the root README's stale generic seed wording so local demo accounts are attributed only to the explicit destructive `seed:demo` command, with a source contract preventing the removed “main seed” concept from returning.
+
 - **2026-07-22:** Routed administrative database-test pools through the owner launcher's CA-backed `verify-full` URL policy for remote rehearsals while preserving raw `DIRECT_URL` for the exact `seed:reference` subprocess. Added behavioral and source-contract coverage for loopback, remote CA, fail-closed, and consumer boundaries.
 
 - **2026-07-22:** Strengthened the cross-guide migration-endpoint contract so each authoritative guide must explicitly reject both Supavisor session and transaction pooling, then corrected the production bootstrap runbook to match the exact direct-endpoint policy.
@@ -150,6 +152,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-22:** No frontend files or behavior changed for the explicit demo-seed README correction; the follow-up is limited to root documentation, its backend source contract, and this progress record.
 
 - **2026-07-22:** No frontend files or behavior changed for the remote rehearsal TLS correction; the follow-up is limited to backend administrative test connections, their contracts, database documentation, and this progress record.
 
