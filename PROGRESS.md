@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-22:** Canonicalized trailing DNS dots before Supabase owner-endpoint classification and restricted direct Supabase hosts to the default/`5432` port. Added launcher and database-test-client regressions for dotted direct and pooler hosts plus an arbitrary direct-host port.
+
 - **2026-07-22:** Closed the owner-endpoint query-override bypass by rejecting supported PostgreSQL `host` and `port` URL parameters before loopback classification or TLS decoration. Added launcher and database-test-client regressions for a direct Supabase authority redirected to a transaction pooler.
 
 - **2026-07-22:** Made clean deployment and rehearsal ordering generate the ignored Prisma client before owner jobs, rejected Supabase pooler hosts and direct-host port `6543` in the shared owner launcher/database-test boundary, and refreshed the Prisma PostgreSQL TLS reference. Added focused ordering and endpoint regressions.
@@ -158,6 +160,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-22:** No frontend files or behavior changed for the Supabase hostname canonicalization and direct-port allowlist correction.
 
 - **2026-07-22:** No frontend files or behavior changed for the owner database endpoint query-override correction.
 
