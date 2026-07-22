@@ -123,6 +123,15 @@ describe('owner-only database workflow', () => {
   })
 
   it('documents production prerequisites before migration execution', () => {
+    const productionSequence = bootstrapRunbook
+      .split('## Production sequence')[1]
+      ?.split('## Production-like rehearsal checklist')[0]
+    const rehearsalChecklist = bootstrapRunbook.split(
+      '## Production-like rehearsal checklist',
+    )[1]
+    const productionGenerate = productionSequence?.indexOf(
+      'npm --prefix backend run prisma:generate',
+    )
     const pgbossInstall = bootstrapRunbook.indexOf(
       'npm --prefix backend run pgboss:install',
     )
@@ -175,8 +184,24 @@ describe('owner-only database workflow', () => {
     expect(bootstrapRunbook).toMatch(
       /`DATABASE_URL` and `JOB_DATABASE_URL`[^.]*pooling choices[^.]*separate/i,
     )
+    expect(productionGenerate).toBeGreaterThan(-1)
+    expect(productionGenerate).toBeLessThan(
+      productionSequence?.indexOf('npm --prefix backend run pgboss:install'),
+    )
+    expect(
+      rehearsalChecklist?.indexOf('npm --prefix backend run prisma:generate'),
+    ).toBeGreaterThan(-1)
+    expect(
+      rehearsalChecklist?.indexOf('npm --prefix backend run prisma:generate'),
+    ).toBeLessThan(rehearsalChecklist?.indexOf('npm --prefix backend run pgboss:install'))
     expect(pgbossInstall).toBeGreaterThan(-1)
     expect(pgbossInstall).toBeLessThan(prismaDeploy)
+    expect(migrationGovernance).toContain(
+      'https://docs.prisma.io/docs/orm/core-concepts/supported-databases/postgresql',
+    )
+    expect(migrationGovernance).not.toContain(
+      'https://www.prisma.io/docs/orm/overview/databases/postgresql',
+    )
   })
 
   it('closes the external pool in direct seed commands', () => {
