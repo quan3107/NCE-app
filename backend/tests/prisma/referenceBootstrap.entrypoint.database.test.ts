@@ -7,7 +7,6 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 import { PrismaPg } from '@prisma/adapter-pg'
-import { Pool } from 'pg'
 import { describe, expect, it } from 'vitest'
 
 import { PrismaClient } from '../../src/prisma/generated.js'
@@ -16,7 +15,10 @@ import {
   bootstrapReferenceData,
   runReferenceBootstrap,
 } from '../../src/prisma/seedReference.js'
-import { requireDatabaseTestOwnerUrl } from './databaseTestClient.js'
+import {
+  createDatabaseTestOwnerPool,
+  requireRawDatabaseTestOwnerUrl,
+} from './databaseTestClient.js'
 
 const execFileAsync = promisify(execFile)
 const databaseDescribe =
@@ -69,7 +71,7 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
       cwd: process.cwd(),
       env: {
         ...process.env,
-        DIRECT_URL: requireDatabaseTestOwnerUrl(),
+        DIRECT_URL: requireRawDatabaseTestOwnerUrl(),
       },
       timeout: 8_000,
     })
@@ -78,10 +80,7 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
   }, 10_000)
 
   it('serializes two independent clients without mutating reference data', async () => {
-    const pools = Array.from(
-      { length: 3 },
-      () => new Pool({ connectionString: requireDatabaseTestOwnerUrl() }),
-    )
+    const pools = Array.from({ length: 3 }, () => createDatabaseTestOwnerPool())
     const clients = pools.map((pool) => new PrismaClient({ adapter: new PrismaPg(pool) }))
     let releaseLock = () => undefined
     const releasePromise = new Promise<void>((resolve) => {
