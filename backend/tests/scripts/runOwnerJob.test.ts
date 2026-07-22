@@ -184,6 +184,16 @@ describe('owner job environment', () => {
     ).toThrow(/must not set SSL options/)
   })
 
+  it.each([
+    'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres',
+    'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres',
+    'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:6543/postgres',
+  ])('rejects pooled Supabase owner endpoints: %s', (ownerDatabaseUrl) => {
+    expect(() =>
+      buildOwnerJobEnvironment({}, ownerDatabaseUrl, '/trusted/project-ca.crt', 'prisma'),
+    ).toThrow(/direct Supabase database endpoint.*port 5432/i)
+  })
+
   it('treats a remote driver host override as remote', () => {
     expect(() =>
       buildOwnerJobEnvironment(
