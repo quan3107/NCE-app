@@ -144,6 +144,13 @@ describe('owner-only database workflow', () => {
     )
     expect(bootstrapRunbook).not.toMatch(/provider-managed `authenticator`[^.]*NOLOGIN/)
     expect(bootstrapRunbook).toContain('plain-PostgreSQL rehearsal stub')
+    expect(bootstrapRunbook).toContain('db.<project-ref>.supabase.co:5432')
+    expect(bootstrapRunbook).toMatch(/transaction pooler[^.]*port `6543`[^.]*must not/i)
+    expect(bootstrapRunbook).toContain('IPv6')
+    expect(bootstrapRunbook).toContain('IPv4 add-on')
+    expect(bootstrapRunbook).toMatch(
+      /`DATABASE_URL` and `JOB_DATABASE_URL`[^.]*pooling choices[^.]*separate/i,
+    )
     expect(pgbossInstall).toBeGreaterThan(-1)
     expect(pgbossInstall).toBeLessThan(prismaDeploy)
   })
