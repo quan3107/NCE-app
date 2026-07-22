@@ -68,6 +68,19 @@ describe('database test owner connection', () => {
     ).toThrow(/must not set SSL options/)
   })
 
+  it.each([
+    'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres',
+    'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres',
+    'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:6543/postgres',
+  ])('rejects pooled Supabase database-test endpoints: %s', (directUrl) => {
+    expect(() =>
+      requireDatabaseTestOwnerUrl({
+        DIRECT_URL: directUrl,
+        DIRECT_DATABASE_CA_CERT_PATH: '/trusted/project-ca.crt',
+      }),
+    ).toThrow(/direct Supabase database endpoint.*port 5432/i)
+  })
+
   it('keeps the exact seed command on the raw URL and owner launcher', () => {
     const rawUrl = 'postgresql://owner:secret@db.example.com:5432/nce_test'
 
