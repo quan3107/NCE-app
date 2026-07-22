@@ -4,7 +4,8 @@
  * Why: Allows adding/updating IELTS assignment configs while preserving other records.
  */
 import { AssignmentType, Prisma } from './generated.js';
-import { basePrisma } from './client.js';
+import { basePrisma, shutdownPrisma } from './client.js';
+import { assertDemoSeedTarget } from './demoSeedPolicy.js';
 import { buildPrimaryIeltsAssignmentConfig } from './seeds/ieltsOfficialFixtures.js';
 
 const prisma = basePrisma;
@@ -154,9 +155,7 @@ const assignmentSeeds: Array<{
 ];
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Refusing to seed in production mode.');
-  }
+  assertDemoSeedTarget();
 
   const courseTitles = Array.from(
     new Set(assignmentSeeds.map((seed) => seed.courseTitle)),
@@ -214,11 +213,11 @@ async function main(): Promise<void> {
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
+  .catch((error) => {
+    console.error(
+      'IELTS assignment seed failed:',
+      error instanceof Error ? error.message : String(error),
+    );
+    process.exitCode = 1;
   })
-  .catch(async (error) => {
-    console.error('IELTS assignment seed failed:', error);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+  .finally(shutdownPrisma);
