@@ -6,10 +6,13 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
 
+import { buildOwnerConnectionUrl } from '../../scripts/runOwnerJob.js'
 import { Prisma, PrismaClient } from '../../src/prisma/generated.js'
 
-export function requireDatabaseTestOwnerUrl(): string {
-  const directUrl = process.env.DIRECT_URL
+export function requireRawDatabaseTestOwnerUrl(
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
+  const directUrl = environment.DIRECT_URL?.trim()
   if (!directUrl) {
     throw new Error('DIRECT_URL is required for administrative database tests.')
   }
@@ -17,11 +20,26 @@ export function requireDatabaseTestOwnerUrl(): string {
   return directUrl
 }
 
+export function requireDatabaseTestOwnerUrl(
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
+  return buildOwnerConnectionUrl(
+    requireRawDatabaseTestOwnerUrl(environment),
+    environment.DIRECT_DATABASE_CA_CERT_PATH?.trim(),
+    'tsx',
+  )
+}
+
+export function createDatabaseTestOwnerPool(
+  environment: NodeJS.ProcessEnv = process.env,
+): Pool {
+  return new Pool({ connectionString: requireDatabaseTestOwnerUrl(environment) })
+}
+
 export async function runDatabaseTestTransaction<T>(
   operation: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  const databaseUrl = requireDatabaseTestOwnerUrl()
-  const pool = new Pool({ connectionString: databaseUrl })
+  const pool = createDatabaseTestOwnerPool()
   const client = new PrismaClient({ adapter: new PrismaPg(pool) })
 
   try {
