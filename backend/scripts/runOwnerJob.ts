@@ -31,6 +31,15 @@ type OwnerConfig = {
 type OwnerTool = 'prisma' | 'tsx'
 
 function assertDirectOwnerEndpoint(url: URL): void {
+  const configuredOverrides = ['host', 'port'].filter((parameter) =>
+    url.searchParams.has(parameter),
+  )
+  if (configuredOverrides.length > 0) {
+    throw new Error(
+      `Owner DIRECT_URL must not set host or port query overrides: ${configuredOverrides.join(', ')}.`,
+    )
+  }
+
   const hostname = url.hostname.toLowerCase()
   const isSupabasePooler = hostname.endsWith('.pooler.supabase.com')
   const isSupabaseDirectHost =
@@ -117,10 +126,10 @@ export function buildOwnerConnectionUrl(
   certificateAuthorityPath: string | undefined,
   tool: OwnerTool,
 ): string {
-  if (isLoopbackDatabaseUrl(ownerDatabaseUrl)) return ownerDatabaseUrl
-
   const url = new URL(ownerDatabaseUrl)
   assertDirectOwnerEndpoint(url)
+  if (isLoopbackDatabaseUrl(ownerDatabaseUrl)) return ownerDatabaseUrl
+
   assertUnconfiguredRemoteSsl(url)
   if (!certificateAuthorityPath) {
     throw new Error(
