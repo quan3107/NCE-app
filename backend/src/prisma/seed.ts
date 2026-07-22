@@ -18,7 +18,7 @@ import {
   UserRole,
   UserStatus,
 } from './generated.js'
-import { basePrisma } from './client.js'
+import { basePrisma, shutdownPrisma } from './client.js'
 import { buildPrimaryIeltsAssignmentConfig } from './seeds/ieltsOfficialFixtures.js'
 import { buildIeltsWritingSubmissionPayload } from './seeds/ieltsOfficialSubmissions.js'
 
@@ -1410,11 +1410,10 @@ async function main(): Promise<void> {
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect()
-  })
-  .catch(async (error: unknown) => {
+  .catch((error: unknown) => {
     console.error('Seeding failed:', error)
-    await prisma.$disconnect()
-    process.exit(1)
+    process.exitCode = 1
+  })
+  .finally(async () => {
+    await shutdownPrisma()
   })
