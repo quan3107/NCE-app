@@ -33,8 +33,12 @@ const ieltsAssignmentSeed = readBackend('src/prisma/seedIeltsAssignments.ts')
 const ieltsSandboxSeed = readBackend('src/prisma/seedIeltsSandbox.ts')
 const nceContentSeed = readBackend('src/prisma/seedNceContent.ts')
 const referenceSeed = readBackend('src/prisma/seedReference.ts')
+const referenceLock = readBackend('src/prisma/referenceBootstrapLock.ts')
 const ieltsSeed = readBackend('src/prisma/seedIeltsConfig.ts')
 const navigationSeed = readBackend('src/prisma/seeds/navigation.seed.ts')
+const referenceDatabaseTest = readBackend(
+  'tests/prisma/referenceBootstrap.database.test.ts',
+)
 
 describe('owner-only database workflow', () => {
   it('documents every fresh local bootstrap prerequisite in execution order', () => {
@@ -188,6 +192,18 @@ describe('owner-only database workflow', () => {
     expect(productionGenerate).toBeLessThan(
       productionSequence?.indexOf('npm --prefix backend run pgboss:install'),
     )
+    for (const gate of [
+      'npm --prefix backend run prisma:status',
+      'npm --prefix backend run prisma:migrations:verify:pending',
+      'npm --prefix backend run prisma:diff',
+      'Enter maintenance mode',
+      'hosted preflight',
+    ]) {
+      expect(productionSequence?.indexOf(gate)).toBeGreaterThan(-1)
+      expect(productionSequence?.indexOf(gate)).toBeLessThan(
+        productionSequence?.indexOf('npm --prefix backend run pgboss:install'),
+      )
+    }
     expect(
       rehearsalChecklist?.indexOf('npm --prefix backend run prisma:generate'),
     ).toBeGreaterThan(-1)
@@ -244,14 +260,16 @@ describe('owner-only database workflow', () => {
   })
 
   it('pins the locked reference bootstrap to read committed', () => {
-    expect(referenceSeed).toContain(
+    expect(referenceLock).toContain('REFERENCE_BOOTSTRAP_LOCK_ID')
+    expect(referenceLock).toContain('pg_advisory_xact_lock')
+    expect(referenceLock).toContain(
       'isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted',
     )
-    expect(navigationSeed).toContain('REFERENCE_BOOTSTRAP_LOCK_ID')
-    expect(navigationSeed).toContain('pg_advisory_xact_lock')
-    expect(navigationSeed).toContain(
-      'isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted',
-    )
+    expect(referenceSeed).toContain('runWithReferenceBootstrapLock')
+    expect(navigationSeed).toContain('runWithReferenceBootstrapLock')
+    expect(ieltsSeed).toContain('runWithReferenceBootstrapLock')
+    expect(referenceDatabaseTest).toContain('REFERENCE_BOOTSTRAP_LOCK_ID')
+    expect(referenceDatabaseTest).toContain('pg_advisory_xact_lock')
   })
 
   it('keeps the database entrypoint suite inside the requested test scope', () => {
