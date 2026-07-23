@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-23:** Closed production bootstrap review findings by stripping TLS-disable and ambient PostgreSQL fallbacks from owner jobs, requiring explicit owner URL identity, allowlisting demo seed modes, restoring an active IELTS v1 only when no version is active, serializing all overlapping reference entrypoints, requiring NCE seed client injection, locking shared rollback fixtures, and moving documented safety gates ahead of owner DDL. Added focused launcher, seed, database, ordering, and non-watch command regressions.
+
 - **2026-07-23:** Pinned omitted administrative database-test URL ports to PostgreSQL's `5432` default inside the pool connection string, preventing node-postgres from inheriting ambient `PGPORT`. Added a behavioral regression proving `PGPORT=6543` cannot change the effective client port.
 
 - **2026-07-23:** Serialized the standalone navigation bootstrap with the shared reference advisory lock, removed inherited `PGPORT` from owner-job child environments, and kept the database entrypoint regression inside Vitest's requested test scope instead of an unconditional `posttest`. Added focused lock, environment, and package-script regressions.
@@ -166,6 +168,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-23:** No frontend files changed for the production database bootstrap safety corrections; the work is limited to backend owner/seed boundaries, database tests, runbook ordering, and this progress record.
 
 - **2026-07-23:** No frontend files changed for the administrative database-test `PGPORT` isolation correction.
 
