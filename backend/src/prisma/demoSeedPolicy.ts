@@ -23,8 +23,8 @@ export function assertDemoSeedTarget(
   if (connectionString !== connectionString.trim()) {
     throw new Error('DATABASE_URL must not contain surrounding whitespace.')
   }
-  if (environment.NODE_ENV === 'production') {
-    throw new Error('Refusing to run the demo seed in production mode.')
+  if (environment.NODE_ENV !== 'development' && environment.NODE_ENV !== 'test') {
+    throw new Error('Demo seed requires explicit development or test mode.')
   }
   let databaseUrl: URL
   try {
