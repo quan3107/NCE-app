@@ -4,7 +4,10 @@
  * Why: Production initialization must restore required defaults without changing owned data.
  */
 import { describe, expect, it } from 'vitest'
-import { bootstrapReferenceData } from '../../src/prisma/seedReference.js'
+import {
+  REFERENCE_BOOTSTRAP_LOCK_ID,
+  bootstrapReferenceData,
+} from '../../src/prisma/seedReference.js'
 import { runDatabaseTestTransaction } from './databaseTestClient.js'
 
 const databaseDescribe =
@@ -12,9 +15,31 @@ const databaseDescribe =
     ? describe
     : describe.skip
 databaseDescribe('production reference bootstrap', () => {
+  it('reactivates existing v1 when no IELTS configuration is active', async () => {
+    await expect(
+      runDatabaseTestTransaction(async (tx) => {
+        await tx.$queryRawUnsafe(
+          `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text`,
+        )
+        await tx.ieltsConfigVersion.updateMany({ data: { isActive: false } })
+
+        await bootstrapReferenceData(tx)
+
+        await expect(
+          tx.ieltsConfigVersion.findUniqueOrThrow({ where: { version: 1 } }),
+        ).resolves.toMatchObject({ isActive: true })
+
+        throw new Error('ROLLBACK_INACTIVE_IELTS_TEST')
+      }),
+    ).rejects.toThrow('ROLLBACK_INACTIVE_IELTS_TEST')
+  })
+
   it('restores v1 inactive when v2 is already active', async () => {
     await expect(
       runDatabaseTestTransaction(async (tx) => {
+        await tx.$queryRawUnsafe(
+          `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text`,
+        )
         await tx.ieltsConfigVersion.deleteMany({ where: { version: 2 } })
         await tx.ieltsConfigVersion.create({
           data: { version: 2, name: 'Production v2', isActive: true },
@@ -44,6 +69,9 @@ databaseDescribe('production reference bootstrap', () => {
   it('restores missing references once without demo or mutable-data changes', async () => {
     await expect(
       runDatabaseTestTransaction(async (tx) => {
+        await tx.$queryRawUnsafe(
+          `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text`,
+        )
         const demoCountsBefore = await Promise.all([
           tx.user.count(),
           tx.course.count(),
