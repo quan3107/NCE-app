@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-23:** Isolated the reference-entrypoint advisory-lock waiter count with a per-process PostgreSQL application name, replaced the production sequence's broken nested list with stable numbered headings, and aligned demo-seed documentation with the exact development/test mode allowlist. Added focused lock-query, rendering-structure, and documentation regressions.
+
 - **2026-07-23:** Corrected the supplemental demo-fixture process regressions to run in explicit development mode, allowing CI to exercise remote-target and confirmation failures after the demo policy became fail-closed on environment mode.
 
 - **2026-07-23:** Closed production bootstrap review findings by stripping TLS-disable and ambient PostgreSQL fallbacks from owner jobs, requiring explicit owner URL identity, allowlisting demo seed modes, restoring an active IELTS v1 only when no version is active, serializing all overlapping reference entrypoints, requiring NCE seed client injection, locking shared rollback fixtures, and moving documented safety gates ahead of owner DDL. Added focused launcher, seed, database, ordering, and non-watch command regressions.
@@ -170,6 +172,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-23:** No frontend files changed for the advisory-lock test isolation and database documentation corrections; the update is limited to backend tests, backend documentation, the production runbook, and this progress record.
 
 - **2026-07-23:** No frontend files changed for the supplemental demo-fixture CI correction; the update is limited to backend process regressions and this progress record.
 
