@@ -10,7 +10,6 @@ import {
   UserRole,
   UserStatus,
 } from '../generated.js'
-import { basePrisma } from '../client.js'
 import { NCE_BOOK_SEEDS, type NceLessonSeed } from './nceContent.data.js'
 
 const NCE_TEACHER_EMAIL = 'nce.content@system.local'
@@ -128,13 +127,12 @@ async function upsertLessonContent(
 }
 
 export async function seedNceContent(
-  prismaClient: PrismaClient = basePrisma,
+  prismaClient: PrismaClient,
 ): Promise<{ books: number; lessons: number; courseAssignments: number }> {
   return prismaClient.$transaction(async (prisma) => {
     const course = await ensureSeedCourse(prisma)
     let lessonCount = 0
-    const courseLessonAssignments: Array<{ lessonId: string; sequence: number }> =
-      []
+    const courseLessonAssignments: Array<{ lessonId: string; sequence: number }> = []
 
     for (const bookSeed of NCE_BOOK_SEEDS) {
       const book = await prisma.nceBook.upsert({
