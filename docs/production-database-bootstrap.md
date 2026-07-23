@@ -63,10 +63,12 @@ the direct migration endpoint requirement above.
 
 From the repository root:
 
-1. Generate and validate the Prisma client/schema, then perform all read-only
-   migration-history and drift gates:
+### 1. Run read-only gates
 
-```sh
+Generate and validate the Prisma client/schema, then perform all read-only
+migration-history and drift gates:
+
+```shell
 npm --prefix backend run prisma:generate
 npm --prefix backend run prisma:validate
 npm --prefix backend run prisma:status
@@ -76,26 +78,37 @@ npm --prefix backend run prisma:diff
 npm --prefix backend run prisma:diff:reverse
 ```
 
-   Before deployment, diff exit code `2` is acceptable only when the reviewed
-   output is fully explained by trailing pending migrations. Any unrelated drift,
-   failed migration, or unexpected history is a stop condition.
-2. Complete the hosted preflight queries and integrity probe from
-   [migration governance](prisma-supabase-migration-governance.md#hosted-preflight).
-   Review affected table sizes, active sessions, lock risk, and the exact pending
-   migration SQL.
-3. Enter maintenance mode, stop accepting requests, drain old backend sessions,
-   and create or confirm the current restorable backup/recovery point.
-4. Only after every preceding gate passes, run owner DDL and reference bootstrap:
+Before deployment, diff exit code `2` is acceptable only when the reviewed output
+is fully explained by trailing pending migrations. Any unrelated drift, failed
+migration, or unexpected history is a stop condition.
 
-```sh
+### 2. Complete hosted preflight
+
+Run the hosted preflight queries and integrity probe from
+[migration governance](prisma-supabase-migration-governance.md#hosted-preflight).
+Review affected table sizes, active sessions, lock risk, and the exact pending
+migration SQL.
+
+### 3. Enter maintenance mode
+
+Stop accepting requests, drain old backend sessions, and create or confirm the
+current restorable backup/recovery point.
+
+### 4. Run owner DDL and bootstrap
+
+Only after every preceding gate passes, run:
+
+```shell
 npm --prefix backend run pgboss:install
 npm --prefix backend run prisma:migrate:deploy
 npm --prefix backend run seed:reference
 ```
 
-5. Keep maintenance enabled while verifying the deployed state:
+### 5. Verify before restoring service
 
-```sh
+Keep maintenance enabled while verifying the deployed state:
+
+```shell
 npm --prefix backend run prisma:status
 npm --prefix backend run prisma:migrations:verify:exact
 npm --prefix backend run prisma:diff
@@ -126,12 +139,13 @@ restored inactive; the existing active version remains authoritative. The standa
 courses, assignments, enrollments, and seeded course mappings are available only
 through `seed:demo` and its explicit `seed:demo:ielts-assignments`,
 `seed:demo:ielts-sandbox`, and `seed:demo:nce-content` fixture commands. Every one of
-these commands rejects remote database hosts and `NODE_ENV=production`, and requires
-`DEMO_SEED_CONFIRM_DATABASE` to exactly match the node-postgres driver database name
-in the loopback owner URL before database access. Each underlying executable program
-enforces the same gate, so direct execution cannot bypass it. Reserved escapes and
-extra leading slashes remain part of the confirmed database name. Never run any
-`seed:demo*` command in a production migration or bootstrap sequence.
+these commands requires exact `NODE_ENV=development` or `NODE_ENV=test`, rejects
+every other mode and remote database hosts, and requires
+`DEMO_SEED_CONFIRM_DATABASE` to exactly match the node-postgres driver database
+name in the loopback owner URL before database access. Each underlying executable
+program enforces the same gate, so direct execution cannot bypass it. Reserved
+escapes and extra leading slashes remain part of the confirmed database name.
+Never run any `seed:demo*` command in a production migration or bootstrap sequence.
 
 ## Production-like rehearsal checklist
 
