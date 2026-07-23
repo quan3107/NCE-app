@@ -33,7 +33,11 @@ export function requireDatabaseTestOwnerUrl(
 export function createDatabaseTestOwnerPool(
   environment: NodeJS.ProcessEnv = process.env,
 ): Pool {
-  return new Pool({ connectionString: requireDatabaseTestOwnerUrl(environment) })
+  const connectionUrl = new URL(requireDatabaseTestOwnerUrl(environment))
+
+  // Pin PostgreSQL's default in the URL so its parser cannot inherit PGPORT.
+  if (!connectionUrl.port) connectionUrl.port = '5432'
+  return new Pool({ connectionString: connectionUrl.toString() })
 }
 
 export async function runDatabaseTestTransaction<T>(
