@@ -247,6 +247,18 @@ describe('owner-only database workflow', () => {
     expect(referenceSeed).toContain(
       'isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted',
     )
+    expect(navigationSeed).toContain('REFERENCE_BOOTSTRAP_LOCK_ID')
+    expect(navigationSeed).toContain('pg_advisory_xact_lock')
+    expect(navigationSeed).toContain(
+      'isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted',
+    )
+  })
+
+  it('keeps the database entrypoint suite inside the requested test scope', () => {
+    expect(packageJson.scripts.posttest).toBeUndefined()
+    expect(packageJson.scripts.test).toContain(
+      'RUN_REFERENCE_BOOTSTRAP_ENTRYPOINT_TEST=true',
+    )
   })
 
   it('normalizes request roles without disturbing owner admin rows', () => {
