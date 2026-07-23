@@ -63,16 +63,50 @@ the direct migration endpoint requirement above.
 
 From the repository root:
 
+1. Generate and validate the Prisma client/schema, then perform all read-only
+   migration-history and drift gates:
+
 ```sh
 npm --prefix backend run prisma:generate
+npm --prefix backend run prisma:validate
+npm --prefix backend run prisma:status
+npm --prefix backend run prisma:migrations:verify -- --git-base origin/main
+npm --prefix backend run prisma:migrations:verify:pending
+npm --prefix backend run prisma:diff
+npm --prefix backend run prisma:diff:reverse
+```
+
+   Before deployment, diff exit code `2` is acceptable only when the reviewed
+   output is fully explained by trailing pending migrations. Any unrelated drift,
+   failed migration, or unexpected history is a stop condition.
+2. Complete the hosted preflight queries and integrity probe from
+   [migration governance](prisma-supabase-migration-governance.md#hosted-preflight).
+   Review affected table sizes, active sessions, lock risk, and the exact pending
+   migration SQL.
+3. Enter maintenance mode, stop accepting requests, drain old backend sessions,
+   and create or confirm the current restorable backup/recovery point.
+4. Only after every preceding gate passes, run owner DDL and reference bootstrap:
+
+```sh
 npm --prefix backend run pgboss:install
 npm --prefix backend run prisma:migrate:deploy
 npm --prefix backend run seed:reference
+```
+
+5. Keep maintenance enabled while verifying the deployed state:
+
+```sh
 npm --prefix backend run prisma:status
+npm --prefix backend run prisma:migrations:verify:exact
+npm --prefix backend run prisma:diff
+npm --prefix backend run prisma:diff:reverse
 ```
 
 `prisma:migrate:deploy` and the existing `prisma:deploy` CI command are identical
 owner-scoped aliases for `prisma migrate deploy --config prisma.config.ts`.
+Exit code `0` is required for both post-deploy diff directions. Run the rolled-back
+role and integrity probes, application health/readiness checks, and provider
+security advisor before leaving maintenance mode.
 
 Expected success signals:
 
@@ -113,7 +147,7 @@ created empty for clean replay. Never rehearse destructive setup against product
 5. Run `npm --prefix backend run pgboss:install` as the migration owner.
 6. Run `npm --prefix backend run prisma:migrate:deploy`.
 7. Run `npm --prefix backend run seed:reference` twice.
-8. Run `npm --prefix backend test -- prisma` with `RUN_DATABASE_TESTS=true`,
+8. Run `npm --prefix backend test -- --run prisma` with `RUN_DATABASE_TESTS=true`,
    `DIRECT_URL` pointing at the disposable owner database, and `DATABASE_URL`
    pointing at its least-privilege runtime login.
 9. Run `npm --prefix backend run prisma:status` and confirm no pending migration.
