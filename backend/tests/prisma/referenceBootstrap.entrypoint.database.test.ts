@@ -15,6 +15,7 @@ import {
   bootstrapReferenceData,
   runReferenceBootstrap,
 } from '../../src/prisma/seedReference.js'
+import { seedNavigation } from '../../src/prisma/seeds/navigation.seed.js'
 import {
   createDatabaseTestOwnerPool,
   requireRawDatabaseTestOwnerUrl,
@@ -79,7 +80,7 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
     expect(result.stdout).toContain('Production reference bootstrap complete.')
   }, 10_000)
 
-  it('serializes two independent clients without mutating reference data', async () => {
+  it('serializes reference and navigation entrypoints without duplicates', async () => {
     const pools = Array.from({ length: 3 }, () => createDatabaseTestOwnerPool())
     const clients = pools.map((pool) => new PrismaClient({ adapter: new PrismaPg(pool) }))
     let releaseLock = () => undefined
@@ -104,7 +105,7 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
         await releasePromise
       })
       await lockAcquired
-      runners = clients.slice(0, 2).map((client) => runReferenceBootstrap(client))
+      runners = [runReferenceBootstrap(clients[0]), seedNavigation(clients[1])]
       await waitForWaitingLocks(clients[2])
       releaseLock()
       await Promise.all([blocker, ...runners])
