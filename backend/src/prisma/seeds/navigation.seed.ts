@@ -7,26 +7,13 @@ import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
 import { basePrisma, shutdownPrisma } from '../client.js'
-import { Prisma } from '../generated.js'
-import { REFERENCE_BOOTSTRAP_LOCK_ID } from '../seedReference.js'
+import { runWithReferenceBootstrapLock } from '../referenceBootstrapLock.js'
 import { seedPermissionsAndNavigation } from './referenceBootstrap.seed.js'
 
 export async function seedNavigation(
   prisma: typeof basePrisma = basePrisma,
 ): Promise<void> {
-  await prisma.$transaction(
-    async (tx) => {
-      await tx.$queryRawUnsafe(
-        `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text AS lock_status`,
-      )
-      await seedPermissionsAndNavigation(tx)
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
-      maxWait: 60_000,
-      timeout: 60_000,
-    },
-  )
+  await runWithReferenceBootstrapLock(prisma, seedPermissionsAndNavigation)
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
