@@ -7,30 +7,39 @@ import { isLoopbackDatabaseUrl } from '../databaseConnectionPolicy.js'
 
 type DemoSeedEnvironment = NodeJS.ProcessEnv
 
-function databaseName(connectionString: string): string {
-  return decodeURI(new URL(connectionString).pathname.slice(1))
+function databaseName(databaseUrl: URL): string {
+  return decodeURI(databaseUrl.pathname.slice(1))
 }
 
 export function assertDemoSeedTarget(
   environment: DemoSeedEnvironment = process.env,
 ): void {
-  const connectionString = environment.DATABASE_URL?.trim()
+  const connectionString = environment.DATABASE_URL
   if (!connectionString) {
     throw new Error('DATABASE_URL is required for the demo seed.')
+  }
+  // Validate the exact string passed to node-postgres so confirmation cannot
+  // describe a normalized target while the driver consumes a different one.
+  if (connectionString !== connectionString.trim()) {
+    throw new Error('DATABASE_URL must not contain surrounding whitespace.')
   }
   if (environment.NODE_ENV === 'production') {
     throw new Error('Refusing to run the demo seed in production mode.')
   }
+  let databaseUrl: URL
   try {
-    new URL(connectionString)
+    databaseUrl = new URL(connectionString)
   } catch {
     throw new Error('DATABASE_URL is invalid for the demo seed.')
+  }
+  if (databaseUrl.protocol !== 'postgres:' && databaseUrl.protocol !== 'postgresql:') {
+    throw new Error('DATABASE_URL must use a postgres: or postgresql: URL.')
   }
   if (!isLoopbackDatabaseUrl(connectionString)) {
     throw new Error('Demo seed is restricted to a loopback database.')
   }
 
-  const targetDatabase = databaseName(connectionString)
+  const targetDatabase = databaseName(databaseUrl)
   const confirmation = environment.DEMO_SEED_CONFIRM_DATABASE?.trim()
   if (!targetDatabase || confirmation !== targetDatabase) {
     throw new Error(
