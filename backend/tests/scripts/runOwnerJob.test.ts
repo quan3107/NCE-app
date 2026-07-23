@@ -117,7 +117,12 @@ describe('owner job environment', () => {
     const parentEnvironment = {
       DATABASE_URL: 'postgresql://runtime:runtime@localhost:5432/nce',
       JOB_DATABASE_URL: 'postgresql://worker:worker@localhost:5432/nce',
+      NODE_TLS_REJECT_UNAUTHORIZED: '0',
+      PGDATABASE: 'ambient_database',
+      PGHOST: 'ambient.example.com',
+      PGPASSWORD: 'ambient_password',
       PGPORT: '6543',
+      PGUSER: 'ambient_user',
     }
     const ownerDatabaseUrl = 'postgresql://owner:owner@localhost/nce'
 
@@ -128,6 +133,15 @@ describe('owner job environment', () => {
     })
     expect(parentEnvironment).not.toHaveProperty('DIRECT_URL')
   })
+
+  it.each(['postgresql://localhost:5432/nce', 'postgresql://owner:owner@localhost:5432'])(
+    'rejects an owner URL without an explicit user and database: %s',
+    (url) => {
+      expect(() => buildOwnerJobEnvironment({}, url)).toThrow(
+        /explicit user and database/,
+      )
+    },
+  )
 
   it('gives Prisma owner commands a strict CA-backed TLS URL', () => {
     const childEnvironment = buildOwnerJobEnvironment(
