@@ -14,9 +14,12 @@ import { assertDemoSeedTarget } from '../../scripts/runDemoSeed.js'
 const tsxCli = resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs')
 
 function runDirectSeed(databaseUrl: string) {
-  const environment = { ...process.env, DATABASE_URL: databaseUrl }
+  const environment = {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+    NODE_ENV: 'development',
+  }
   delete environment.DEMO_SEED_CONFIRM_DATABASE
-  delete environment.NODE_ENV
 
   return spawnSync(process.execPath, [tsxCli, 'src/prisma/seed.ts'], {
     cwd: process.cwd(),
@@ -27,7 +30,7 @@ function runDirectSeed(databaseUrl: string) {
 }
 
 describe('demo seed target policy', () => {
-  it.each([undefined, 'development'])(
+  it.each(['development', 'test'])(
     'rejects a remote database when NODE_ENV is %s',
     (nodeEnv) => {
       expect(() =>
@@ -40,10 +43,24 @@ describe('demo seed target policy', () => {
     },
   )
 
+  it.each([undefined, '', 'prodution', 'staging', 'production'])(
+    'rejects a confirmed local database when NODE_ENV is %s',
+    (nodeEnv) => {
+      expect(() =>
+        assertDemoSeedTarget({
+          DATABASE_URL: 'postgresql://owner:secret@localhost:5432/nce_demo',
+          DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+          ...(nodeEnv === undefined ? {} : { NODE_ENV: nodeEnv }),
+        }),
+      ).toThrow(/development or test mode/)
+    },
+  )
+
   it('rejects a local database without exact name confirmation', () => {
     expect(() =>
       assertDemoSeedTarget({
         DATABASE_URL: 'postgresql://owner:secret@localhost:5432/nce_demo',
+        NODE_ENV: 'development',
       }),
     ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=nce_demo/)
   })
@@ -127,15 +144,18 @@ describe('demo seed target policy', () => {
     ).not.toThrow()
   })
 
-  it('accepts an exactly confirmed local disposable database', () => {
-    expect(() =>
-      assertDemoSeedTarget({
-        DATABASE_URL: 'postgresql://owner:secret@127.0.0.1:5432/nce_demo',
-        DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
-        NODE_ENV: 'development',
-      }),
-    ).not.toThrow()
-  })
+  it.each(['development', 'test'])(
+    'accepts an exactly confirmed local disposable database in %s',
+    (nodeEnv) => {
+      expect(() =>
+        assertDemoSeedTarget({
+          DATABASE_URL: 'postgresql://owner:secret@127.0.0.1:5432/nce_demo',
+          DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+          NODE_ENV: nodeEnv,
+        }),
+      ).not.toThrow()
+    },
+  )
 
   it.each([
     ['remote', 'postgresql://owner:secret@127.0.0.2:1/nce_demo', /loopback database/],
