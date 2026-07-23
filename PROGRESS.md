@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-23:** Serialized the standalone navigation bootstrap with the shared reference advisory lock, removed inherited `PGPORT` from owner-job child environments, and kept the database entrypoint regression inside Vitest's requested test scope instead of an unconditional `posttest`. Added focused lock, environment, and package-script regressions.
+
 - **2026-07-23:** Hardened the destructive demo-seed gate by rejecting non-PostgreSQL URL schemes and surrounding `DATABASE_URL` whitespace before target confirmation. Added node-postgres-backed regressions for socket-scheme target reinterpretation and leading/trailing whitespace.
 
 - **2026-07-22:** Canonicalized trailing DNS dots before Supabase owner-endpoint classification and restricted direct Supabase hosts to the default/`5432` port. Added launcher and database-test-client regressions for dotted direct and pooler hosts plus an arbitrary direct-host port.
@@ -162,6 +164,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-23:** No frontend files changed for the navigation serialization, owner-job port isolation, and focused backend test-scope corrections.
 
 - **2026-07-23:** No frontend files changed for the demo-seed URL validation hardening; the fix is isolated to the backend seed policy, regression coverage, and this progress record.
 
