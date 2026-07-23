@@ -109,8 +109,11 @@ export function buildOwnerJobEnvironment(
   certificateAuthorityPath?: string,
   tool: OwnerTool = 'tsx',
 ): OwnerEnvironment {
-  const { DIRECT_DATABASE_CA_CERT_PATH: ignoredCertificatePath, ...childEnvironment } =
-    inheritedEnvironment
+  const {
+    DIRECT_DATABASE_CA_CERT_PATH: ignoredCertificatePath,
+    PGPORT: ignoredPgPort,
+    ...childEnvironment
+  } = inheritedEnvironment
   const connectionUrl = buildOwnerConnectionUrl(
     ownerDatabaseUrl,
     certificateAuthorityPath,
