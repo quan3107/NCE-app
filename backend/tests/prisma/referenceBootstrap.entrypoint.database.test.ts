@@ -15,6 +15,7 @@ import {
   bootstrapReferenceData,
   runReferenceBootstrap,
 } from '../../src/prisma/seedReference.js'
+import { runIeltsConfigSeed } from '../../src/prisma/seedIeltsConfig.js'
 import { seedNavigation } from '../../src/prisma/seeds/navigation.seed.js'
 import {
   createDatabaseTestOwnerPool,
@@ -40,10 +41,13 @@ async function waitingLockCount(client: PrismaClient): Promise<number> {
   return result.waiting
 }
 
-async function waitForWaitingLocks(client: PrismaClient): Promise<void> {
+async function waitForWaitingLocks(
+  client: PrismaClient,
+  expectedCount: number,
+): Promise<void> {
   const deadline = Date.now() + 5_000
   while (Date.now() < deadline) {
-    if ((await waitingLockCount(client)) === 2) return
+    if ((await waitingLockCount(client)) === expectedCount) return
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
   throw new Error('Bootstrap entrypoints did not wait for the advisory lock.')
@@ -80,8 +84,8 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
     expect(result.stdout).toContain('Production reference bootstrap complete.')
   }, 10_000)
 
-  it('serializes reference and navigation entrypoints without duplicates', async () => {
-    const pools = Array.from({ length: 3 }, () => createDatabaseTestOwnerPool())
+  it('serializes reference, navigation, and IELTS entrypoints', async () => {
+    const pools = Array.from({ length: 4 }, () => createDatabaseTestOwnerPool())
     const clients = pools.map((pool) => new PrismaClient({ adapter: new PrismaPg(pool) }))
     let releaseLock = () => undefined
     const releasePromise = new Promise<void>((resolve) => {
@@ -97,7 +101,7 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
     try {
       await assertBootstrapIsStable(clients[0])
       const navigationCount = await clients[0].navigationItem.count()
-      blocker = clients[2].$transaction(async (tx) => {
+      blocker = clients[3].$transaction(async (tx) => {
         await tx.$queryRawUnsafe(
           `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text`,
         )
@@ -105,8 +109,12 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
         await releasePromise
       })
       await lockAcquired
-      runners = [runReferenceBootstrap(clients[0]), seedNavigation(clients[1])]
-      await waitForWaitingLocks(clients[2])
+      runners = [
+        runReferenceBootstrap(clients[0]),
+        seedNavigation(clients[1]),
+        runIeltsConfigSeed(clients[2]),
+      ]
+      await waitForWaitingLocks(clients[3], runners.length)
       releaseLock()
       await Promise.all([blocker, ...runners])
 
