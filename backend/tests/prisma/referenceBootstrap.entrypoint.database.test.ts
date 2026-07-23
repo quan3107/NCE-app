@@ -23,6 +23,7 @@ import {
 } from './databaseTestClient.js'
 
 const execFileAsync = promisify(execFile)
+const ENTRYPOINT_APPLICATION_NAME = `nce-reference-entrypoint-${process.pid}`
 const databaseDescribe =
   process.env.CI === 'true' &&
   process.env.RUN_REFERENCE_BOOTSTRAP_ENTRYPOINT_TEST === 'true'
@@ -30,15 +31,23 @@ const databaseDescribe =
     : describe.skip
 
 async function waitingLockCount(client: PrismaClient): Promise<number> {
-  const [result] = await client.$queryRawUnsafe<Array<{ waiting: number }>>(`
+  const [result] = await client.$queryRaw<Array<{ waiting: number }>>`
     SELECT count(*)::int AS waiting
-    FROM pg_locks
-    WHERE locktype = 'advisory'
-      AND classid = 0
-      AND objid = ${REFERENCE_BOOTSTRAP_LOCK_ID}
-      AND NOT granted
-  `)
+    FROM pg_locks locks
+    JOIN pg_stat_activity activity ON activity.pid = locks.pid
+    WHERE locks.locktype = 'advisory'
+      AND locks.classid = 0
+      AND locks.objid = ${REFERENCE_BOOTSTRAP_LOCK_ID}
+      AND NOT locks.granted
+      AND activity.application_name = ${ENTRYPOINT_APPLICATION_NAME}
+  `
   return result.waiting
+}
+
+function createEntrypointPool() {
+  const pool = createDatabaseTestOwnerPool()
+  pool.options.application_name = ENTRYPOINT_APPLICATION_NAME
+  return pool
 }
 
 async function waitForWaitingLocks(
@@ -85,7 +94,7 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
   }, 10_000)
 
   it('serializes reference, navigation, and IELTS entrypoints', async () => {
-    const pools = Array.from({ length: 4 }, () => createDatabaseTestOwnerPool())
+    const pools = Array.from({ length: 4 }, createEntrypointPool)
     const clients = pools.map((pool) => new PrismaClient({ adapter: new PrismaPg(pool) }))
     let releaseLock = () => undefined
     const releasePromise = new Promise<void>((resolve) => {
