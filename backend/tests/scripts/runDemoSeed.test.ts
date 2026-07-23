@@ -59,6 +59,34 @@ describe('demo seed target policy', () => {
     ).toThrow(/loopback database/)
   })
 
+  it('rejects non-Postgres URL schemes before target confirmation', () => {
+    const databaseUrl = 'socket://localhost/var/run/postgresql?db=production'
+    const client = new Client({ connectionString: databaseUrl })
+    expect(client.host).toBe('/var/run/postgresql')
+    expect(client.database).toBe('production')
+
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'var/run/postgresql',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/postgres(?:ql)?: URL/)
+  })
+
+  it.each([
+    ' postgresql://owner:secret@localhost:5432/nce_demo',
+    'postgresql://owner:secret@localhost:5432/nce_demo ',
+  ])('rejects surrounding DATABASE_URL whitespace: %j', (databaseUrl) => {
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/surrounding whitespace/)
+  })
+
   it('confirms the driver-preserved reserved escape exactly', () => {
     const databaseUrl = 'postgresql://owner:secret@localhost:5432/nce%2Fprod'
     expect(new Client({ connectionString: databaseUrl }).database).toBe('nce%2Fprod')
