@@ -45,7 +45,7 @@ function environment(databaseUrl: string, npmEntrypoint: boolean) {
   const childEnvironment = { ...process.env }
   delete childEnvironment.DATABASE_URL
   delete childEnvironment.DEMO_SEED_CONFIRM_DATABASE
-  delete childEnvironment.NODE_ENV
+  childEnvironment.NODE_ENV = 'development'
   childEnvironment.DIRECT_DATABASE_CA_CERT_PATH = resolve('tests/fixtures/demo-ca.pem')
   childEnvironment[npmEntrypoint ? 'DIRECT_URL' : 'DATABASE_URL'] = databaseUrl
   if (!npmEntrypoint) delete childEnvironment.DIRECT_URL
