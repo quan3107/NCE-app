@@ -31,6 +31,10 @@ type OwnerConfig = {
 type OwnerTool = 'prisma' | 'tsx'
 
 function assertDirectOwnerEndpoint(url: URL): void {
+  if (!url.username || url.pathname.length <= 1) {
+    throw new Error('Owner DIRECT_URL must include an explicit user and database.')
+  }
+
   const configuredOverrides = ['host', 'port'].filter((parameter) =>
     url.searchParams.has(parameter),
   )
@@ -111,7 +115,12 @@ export function buildOwnerJobEnvironment(
 ): OwnerEnvironment {
   const {
     DIRECT_DATABASE_CA_CERT_PATH: ignoredCertificatePath,
+    NODE_TLS_REJECT_UNAUTHORIZED: ignoredTlsValidationOverride,
+    PGDATABASE: ignoredPgDatabase,
+    PGHOST: ignoredPgHost,
+    PGPASSWORD: ignoredPgPassword,
     PGPORT: ignoredPgPort,
+    PGUSER: ignoredPgUser,
     ...childEnvironment
   } = inheritedEnvironment
   const connectionUrl = buildOwnerConnectionUrl(
