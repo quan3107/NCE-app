@@ -27,11 +27,11 @@ npm start
 
 ## Database Seeding
 
-1. Confirm `NODE_ENV` is not set to `production` and the database URL points to a disposable environment.
+1. Set `NODE_ENV=development` or `NODE_ENV=test`; every other value is rejected. Confirm the database URL points to a disposable environment.
 2. Set `DEMO_SEED_CONFIRM_DATABASE` to the exact node-postgres database name from the loopback URL, then run `npm run seed:demo` to reset and load representative users, courses, and assignments. Reserved escapes and extra leading slashes remain part of that name.
 3. Optionally run `seed:demo:ielts-assignments`, `seed:demo:ielts-sandbox`, or `seed:demo:nce-content` to add the corresponding local fixtures.
 4. Review the per-table summary log to verify the seed executed successfully.
-   > Warning: every `seed:demo*` command is destructive or overwrites disposable fixture values. Each rejects remote hosts and production mode, and the exact-name confirmation only permits the intended disposable local database.
+   > Warning: every `seed:demo*` command is destructive or overwrites disposable fixture values. Each requires exact `NODE_ENV=development` or `NODE_ENV=test`, rejects remote hosts, and uses exact-name confirmation to permit only the intended disposable local database.
 
 ## Database Verification
 
