@@ -8,12 +8,16 @@ import { resolve } from 'node:path'
 
 import { basePrisma, shutdownPrisma } from './client.js'
 import { Prisma } from './generated.js'
+import {
+  REFERENCE_BOOTSTRAP_LOCK_ID,
+  runWithReferenceBootstrapLock,
+} from './referenceBootstrapLock.js'
 import { seedIeltsConfig } from './seedIeltsConfig.js'
 import { CMS_PAGES } from './seeds/cmsContent.data.js'
 import { createPageIfMissing } from './seeds/cmsContent.seed.js'
 import { seedCoreReferenceData } from './seeds/referenceBootstrap.seed.js'
 
-export const REFERENCE_BOOTSTRAP_LOCK_ID = 2_026_072_001
+export { REFERENCE_BOOTSTRAP_LOCK_ID }
 
 export async function bootstrapReferenceData(
   prisma: Prisma.TransactionClient,
@@ -26,19 +30,7 @@ export async function bootstrapReferenceData(
 export async function runReferenceBootstrap(
   prisma: typeof basePrisma = basePrisma,
 ): Promise<void> {
-  await prisma.$transaction(
-    async (tx) => {
-      await tx.$queryRawUnsafe(
-        `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text AS lock_status`,
-      )
-      await bootstrapReferenceData(tx)
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
-      maxWait: 60_000,
-      timeout: 60_000,
-    },
-  )
+  await runWithReferenceBootstrapLock(prisma, bootstrapReferenceData)
 }
 
 async function main(): Promise<void> {
