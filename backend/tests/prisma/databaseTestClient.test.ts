@@ -6,9 +6,11 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { Client } from 'pg'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  createDatabaseTestOwnerPool,
   requireDatabaseTestOwnerUrl,
   requireRawDatabaseTestOwnerUrl,
 } from './databaseTestClient.js'
@@ -26,6 +28,10 @@ const packageJson = JSON.parse(
 ) as {
   scripts: Record<string, string>
 }
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 describe('database test owner connection', () => {
   it.each([
@@ -51,6 +57,25 @@ describe('database test owner connection', () => {
 
     expect(url.searchParams.get('sslmode')).toBe('verify-full')
     expect(url.searchParams.get('sslrootcert')).toBe(certificatePath)
+  })
+
+  it('uses PostgreSQL port 5432 when the validated URL omits its port', async () => {
+    vi.stubEnv('PGPORT', '6543')
+    const pool = createDatabaseTestOwnerPool({
+      DIRECT_URL: 'postgresql://owner:secret@localhost/nce_test',
+      PGPORT: '6543',
+    })
+
+    try {
+      const client = new Client(pool.options)
+      const effectivePort = (
+        client as unknown as { connectionParameters: { port: number } }
+      ).connectionParameters.port
+
+      expect(effectivePort).toBe(5432)
+    } finally {
+      await pool.end()
+    }
   })
 
   it('rejects remote URLs without a CA or with conflicting SSL options', () => {
