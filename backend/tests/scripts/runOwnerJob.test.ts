@@ -117,11 +117,12 @@ describe('owner job environment', () => {
     const parentEnvironment = {
       DATABASE_URL: 'postgresql://runtime:runtime@localhost:5432/nce',
       JOB_DATABASE_URL: 'postgresql://worker:worker@localhost:5432/nce',
+      PGPORT: '6543',
     }
-    const ownerDatabaseUrl = 'postgresql://owner:owner@localhost:5432/nce'
+    const ownerDatabaseUrl = 'postgresql://owner:owner@localhost/nce'
 
     expect(buildOwnerJobEnvironment(parentEnvironment, ownerDatabaseUrl)).toEqual({
-      ...parentEnvironment,
+      JOB_DATABASE_URL: parentEnvironment.JOB_DATABASE_URL,
       DATABASE_URL: ownerDatabaseUrl,
       DIRECT_URL: ownerDatabaseUrl,
     })
