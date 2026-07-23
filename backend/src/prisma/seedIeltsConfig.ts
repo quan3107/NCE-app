@@ -8,6 +8,7 @@ import { resolve } from 'node:path'
 
 import { Prisma } from './generated.js'
 import { basePrisma, shutdownPrisma } from './client.js'
+import { runWithReferenceBootstrapLock } from './referenceBootstrapLock.js'
 import { ieltsAssignmentTypeRows } from './seeds/ieltsAssignmentTypes.data.js'
 
 const CONFIG_VERSION = 1
@@ -203,12 +204,12 @@ async function ensureConfigVersion(prisma: Prisma.TransactionClient): Promise<vo
   const existing = await prisma.ieltsConfigVersion.findUnique({
     where: { version: CONFIG_VERSION },
   })
+  const activeConfig = await prisma.ieltsConfigVersion.findFirst({
+    where: { isActive: true },
+    select: { version: true },
+  })
 
   if (!existing) {
-    const activeConfig = await prisma.ieltsConfigVersion.findFirst({
-      where: { isActive: true },
-      select: { version: true },
-    })
     await prisma.ieltsConfigVersion.create({
       data: {
         version: CONFIG_VERSION,
@@ -217,6 +218,11 @@ async function ensureConfigVersion(prisma: Prisma.TransactionClient): Promise<vo
         isActive: !activeConfig,
         activatedAt: activeConfig ? null : new Date(),
       },
+    })
+  } else if (!activeConfig) {
+    await prisma.ieltsConfigVersion.update({
+      where: { version: CONFIG_VERSION },
+      data: { isActive: true, activatedAt: new Date() },
     })
   }
 }
@@ -265,7 +271,7 @@ export async function seedIeltsConfig(prisma: Prisma.TransactionClient): Promise
 export async function runIeltsConfigSeed(
   prisma: typeof basePrisma = basePrisma,
 ): Promise<void> {
-  await prisma.$transaction(seedIeltsConfig, { timeout: 60_000 })
+  await runWithReferenceBootstrapLock(prisma, seedIeltsConfig)
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
