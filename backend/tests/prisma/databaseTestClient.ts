@@ -82,9 +82,24 @@ export async function acquireDatabaseTestAdvisoryLock(
     released = true
     try {
       await client.query('SELECT pg_advisory_unlock($1::bigint)', [lockId])
-    } finally {
       client.release()
+    } catch (error) {
+      // A failed unlock leaves the session's lock state unknown, so the
+      // connection must not return to the reusable pool.
+      client.release(true)
+      throw error
     }
+  }
+}
+
+export async function shutdownDatabaseTestClient(
+  client: Pick<PrismaClient, '$disconnect'>,
+  pool: Pick<Pool, 'end'>,
+): Promise<void> {
+  try {
+    await client.$disconnect()
+  } finally {
+    await pool.end()
   }
 }
 
@@ -97,7 +112,6 @@ export async function runDatabaseTestTransaction<T>(
   try {
     return await client.$transaction(operation, { timeout: 15_000 })
   } finally {
-    await client.$disconnect()
-    await pool.end()
+    await shutdownDatabaseTestClient(client, pool)
   }
 }
