@@ -196,4 +196,43 @@ databaseDescribe('production reference bootstrap', () => {
       }),
     ).rejects.toThrow('ROLLBACK_REFERENCE_BOOTSTRAP_TEST')
   })
+
+  it('preserves a managed navigation item after it is reparented', async () => {
+    await expect(
+      runDatabaseTestTransaction(async (tx) => {
+        await tx.$queryRawUnsafe(
+          `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text`,
+        )
+        const managedItem = await tx.navigationItem.findFirstOrThrow({
+          where: { role: 'student', path: '/student/dashboard' },
+          select: { id: true },
+        })
+        const parent = await tx.navigationItem.create({
+          data: {
+            role: 'student',
+            label: 'Custom parent',
+            path: '/student/custom-parent',
+            iconName: 'folder',
+            orderIndex: 99,
+          },
+          select: { id: true },
+        })
+        await tx.navigationItem.update({
+          where: { id: managedItem.id },
+          data: { parentId: parent.id },
+        })
+
+        await bootstrapReferenceData(tx)
+
+        await expect(
+          tx.navigationItem.findMany({
+            where: { role: 'student', path: '/student/dashboard' },
+            select: { id: true, parentId: true },
+          }),
+        ).resolves.toEqual([{ id: managedItem.id, parentId: parent.id }])
+
+        throw new Error('ROLLBACK_REPARENTED_NAVIGATION_TEST')
+      }),
+    ).rejects.toThrow('ROLLBACK_REPARENTED_NAVIGATION_TEST')
+  })
 })
