@@ -3,12 +3,14 @@
  * Purpose: Gate destructive demo fixtures behind exact local confirmation.
  * Why: Every executable seed path must fail closed before resetting data.
  */
+import { Client } from 'pg'
+
 import { isLoopbackDatabaseUrl } from '../databaseConnectionPolicy.js'
 
 type DemoSeedEnvironment = NodeJS.ProcessEnv
 
-function databaseName(databaseUrl: URL): string {
-  return decodeURI(databaseUrl.pathname.slice(1))
+function databaseName(connectionString: string): string {
+  return new Client({ connectionString }).database ?? ''
 }
 
 export function assertDemoSeedTarget(
@@ -39,7 +41,7 @@ export function assertDemoSeedTarget(
     throw new Error('Demo seed is restricted to a loopback database.')
   }
 
-  const targetDatabase = databaseName(databaseUrl)
+  const targetDatabase = databaseName(connectionString)
   const confirmation = environment.DEMO_SEED_CONFIRM_DATABASE?.trim()
   if (!targetDatabase || confirmation !== targetDatabase) {
     throw new Error(
