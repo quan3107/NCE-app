@@ -113,17 +113,19 @@ export function buildOwnerJobEnvironment(
   certificateAuthorityPath?: string,
   tool: OwnerTool = 'tsx',
 ): OwnerEnvironment {
-  const {
-    DIRECT_DATABASE_CA_CERT_PATH: ignoredCertificatePath,
-    NODE_TLS_REJECT_UNAUTHORIZED: ignoredTlsValidationOverride,
-    ...unfilteredEnvironment
-  } = inheritedEnvironment
   // Owner jobs receive a complete connection URL, so no ambient libpq/node-postgres
-  // setting may alter their target, session behavior, or TLS policy.
+  // setting or Node TLS override may alter their target or verification policy.
+  const sensitiveEnvironmentNames = new Set([
+    'DIRECT_DATABASE_CA_CERT_PATH',
+    'NODE_TLS_REJECT_UNAUTHORIZED',
+  ])
   const childEnvironment = Object.fromEntries(
-    Object.entries(unfilteredEnvironment).filter(
-      ([name]) => !name.toUpperCase().startsWith('PG'),
-    ),
+    Object.entries(inheritedEnvironment).filter(([name]) => {
+      const normalizedName = name.toUpperCase()
+      return (
+        !normalizedName.startsWith('PG') && !sensitiveEnvironmentNames.has(normalizedName)
+      )
+    }),
   )
   const connectionUrl = buildOwnerConnectionUrl(
     ownerDatabaseUrl,
