@@ -42,6 +42,9 @@ export function createDatabaseTestOwnerPool(
   // Pin PostgreSQL's default in the URL so its parser cannot inherit PGPORT.
   if (!connectionUrl.port) connectionUrl.port = '5432'
   const certificatePath = connectionUrl.searchParams.get('sslrootcert')
+  // Test fixtures must not inherit or retain arbitrary startup GUCs such as a
+  // read-only transaction mode, role override, or altered search path.
+  connectionUrl.searchParams.delete('options')
   if (certificatePath) {
     // node-postgres lets connection-string SSL fields replace an explicit SSL
     // object, so remove them after reading the authenticated policy result.
@@ -50,6 +53,9 @@ export function createDatabaseTestOwnerPool(
   }
   return new Pool({
     connectionString: connectionUrl.toString(),
+    // A known-safe explicit startup option prevents node-postgres from reading
+    // PGOPTIONS while guaranteeing administrative fixtures remain writable.
+    options: '-c default_transaction_read_only=off',
     ...(certificatePath
       ? {
           // Explicitly override any ambient Node TLS disable switch while retaining
