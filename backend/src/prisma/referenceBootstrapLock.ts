@@ -14,15 +14,19 @@ export async function runWithReferenceBootstrapLock<T>(
 ): Promise<T> {
   return prisma.$transaction(
     async (tx) => {
+      // Bound advisory-lock waiting independently so a queued bootstrap retains
+      // a full operation budget after it acquires the transaction-scoped lock.
+      await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '60s'")
       await tx.$queryRawUnsafe(
         `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text AS lock_status`,
       )
+      await tx.$executeRawUnsafe('SET LOCAL lock_timeout = DEFAULT')
       return operation(tx)
     },
     {
       isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
       maxWait: 60_000,
-      timeout: 60_000,
+      timeout: 120_000,
     },
   )
 }
