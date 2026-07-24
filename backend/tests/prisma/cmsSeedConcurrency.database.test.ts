@@ -4,13 +4,17 @@
  * Why: Production seed entrypoints must converge when the same managed page is missing.
  */
 import { PrismaPg } from '@prisma/adapter-pg'
-import type { PoolClient } from 'pg'
-import { describe, expect, it } from 'vitest'
+import type { Pool, PoolClient } from 'pg'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { PrismaClient } from '../../src/prisma/generated.js'
 import { runReferenceBootstrap } from '../../src/prisma/seedReference.js'
 import { seedCmsContent } from '../../src/prisma/seeds/cmsContent.seed.js'
-import { createDatabaseTestOwnerPool } from './databaseTestClient.js'
+import {
+  acquireDatabaseTestAdvisoryLock,
+  createDatabaseTestOwnerPool,
+  DATABASE_TEST_BOOTSTRAP_FIXTURE_LOCK_ID,
+} from './databaseTestClient.js'
 
 const CMS_SEED_TEST_LOCK_ID = 2_026_072_402
 const TRIGGER_NAME = 'nce_test_wait_for_cms_seed'
@@ -44,6 +48,22 @@ async function waitForBlockedCmsSeeds(observer: PoolClient): Promise<void> {
 }
 
 databaseDescribe('CMS seed entrypoint concurrency', () => {
+  let fixtureLockPool: Pool
+  let releaseFixtureLock: () => Promise<void>
+
+  beforeAll(async () => {
+    fixtureLockPool = createDatabaseTestOwnerPool()
+    releaseFixtureLock = await acquireDatabaseTestAdvisoryLock(
+      fixtureLockPool,
+      DATABASE_TEST_BOOTSTRAP_FIXTURE_LOCK_ID,
+    )
+  }, 45_000)
+
+  afterAll(async () => {
+    await releaseFixtureLock?.()
+    await fixtureLockPool?.end()
+  })
+
   it('converges reference and standalone CMS entrypoints on one missing page', async () => {
     const observerPool = createDatabaseTestOwnerPool()
     const observer = await observerPool.connect()
