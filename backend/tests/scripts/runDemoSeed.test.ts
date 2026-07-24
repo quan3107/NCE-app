@@ -65,6 +65,19 @@ describe('demo seed target policy', () => {
     ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=nce_demo/)
   })
 
+  it.each([' nce_demo', 'nce_demo ', '\tnce_demo\n'])(
+    'rejects confirmation with surrounding whitespace: %j',
+    (confirmation) => {
+      expect(() =>
+        assertDemoSeedTarget({
+          DATABASE_URL: 'postgresql://owner:secret@localhost:5432/nce_demo',
+          DEMO_SEED_CONFIRM_DATABASE: confirmation,
+          NODE_ENV: 'development',
+        }),
+      ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=nce_demo/)
+    },
+  )
+
   it('rejects a remote driver host override on a local authority', () => {
     expect(() =>
       assertDemoSeedTarget({
