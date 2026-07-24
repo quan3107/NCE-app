@@ -8,7 +8,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
-- **2026-07-24:** Replaced the single-session CMS concurrency probe with a deterministic PostgreSQL regression that runs two independently injected `seed:cms` entrypoints behind an insert barrier, verifies they converge on one complete Contact page, and restores the fixture during cleanup.
+- **2026-07-24:** Replaced the single-session CMS concurrency probe with a deterministic PostgreSQL regression that overlaps `seed:reference` with an independently injected `seed:cms` entrypoint behind an insert barrier, verifies they converge on one complete Contact page, and restores the fixture during cleanup.
 
 - **2026-07-24:** Stabilized the reference-bootstrap database regression after CI exposed cross-file fixture races: mutable-data preservation now follows transaction-local sentinel rows instead of global counts, and the reparenting case establishes its managed default inside the rolled-back transaction. No production seed behavior changed.
 
@@ -179,7 +179,7 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Frontend
 
-- **2026-07-24:** No frontend files changed for the independent CMS seed-entrypoint concurrency regression.
+- **2026-07-24:** No frontend files changed for the cross-entrypoint CMS seed concurrency regression.
 
 - **2026-07-24:** No frontend files changed for the reference-bootstrap CI fixture stabilization.
 
