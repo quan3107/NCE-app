@@ -47,6 +47,20 @@ describe('production bootstrap documentation', () => {
     expect(productionSequence).toContain('exit "$reverse_diff_code"')
   })
 
+  it('matches Prisma pending-status output in singular and plural forms', () => {
+    const pendingPattern = productionSequence?.match(/grep -Eq '([^']+)'/)?.[1]
+    expect(pendingPattern).toBeDefined()
+
+    const pendingStatus = new RegExp(pendingPattern ?? '')
+    expect(pendingStatus.test('Following migration have not yet been applied:')).toBe(
+      true,
+    )
+    expect(pendingStatus.test('Following migrations have not yet been applied:')).toBe(
+      true,
+    )
+    expect(pendingStatus.test('The migration history is divergent.')).toBe(false)
+  })
+
   it('preflights migration-owner role-management authority', () => {
     expect(bootstrapRunbook).toContain('rolcreaterole')
     expect(bootstrapRunbook).toContain("target_role.rolname = 'anon'")
