@@ -12,6 +12,39 @@ create a managed database, or configure backups/PITR.
 ## Prerequisites
 
 - PostgreSQL 17-compatible service reachable by an owner-scoped connection.
+- The migration owner must be a superuser or have `CREATEROLE`, and must hold
+  `ADMIN OPTION` on the existing `anon` and `authenticated` roles. The migration
+  creates the `nce_app_*` roles and grants the existing browser roles to them.
+  Run this privilege preflight through the direct owner connection; all three
+  result columns must be `true`:
+
+  ```sql
+  SELECT
+    owner_role.rolsuper OR owner_role.rolcreaterole AS can_create_roles,
+    owner_role.rolsuper OR EXISTS (
+      SELECT 1
+      FROM pg_auth_members AS membership
+      JOIN pg_roles AS target_role ON target_role.oid = membership.roleid
+      WHERE membership.member = owner_role.oid
+        AND target_role.rolname = 'anon'
+        AND membership.admin_option
+    ) AS can_grant_anon,
+    owner_role.rolsuper OR EXISTS (
+      SELECT 1
+      FROM pg_auth_members AS membership
+      JOIN pg_roles AS target_role ON target_role.oid = membership.roleid
+      WHERE membership.member = owner_role.oid
+        AND target_role.rolname = 'authenticated'
+        AND membership.admin_option
+    ) AS can_grant_authenticated
+  FROM pg_roles AS owner_role
+  WHERE owner_role.rolname = current_user;
+  ```
+
+  If any result is false, have the provider or a superuser grant the required
+  authority or designate a migration executor that passes this preflight before
+  entering maintenance mode.
+
 - A current, restorable backup or provider recovery point created before migration.
 - The `citext` extension available to the migration owner. The first migration runs
   `CREATE EXTENSION IF NOT EXISTS citext`; provider-enable it first if the owner
@@ -68,19 +101,60 @@ From the repository root:
 Generate and validate the Prisma client/schema, then perform all read-only
 migration-history and drift gates:
 
-```shell
+```sh
 npm --prefix backend run prisma:generate
 npm --prefix backend run prisma:validate
-npm --prefix backend run prisma:status
+
+if status_output=$(npm --prefix backend run prisma:status 2>&1); then
+  status_code=0
+else
+  status_code=$?
+fi
+printf '%s\n' "$status_output"
+if [ "$status_code" -eq 1 ]; then
+  if ! printf '%s\n' "$status_output" |
+    grep -q 'Following migration(s) have not yet been applied' ||
+    printf '%s\n' "$status_output" |
+      grep -Eqi 'failed|diverg|missing from the local migrations directory'; then
+    exit "$status_code"
+  fi
+elif [ "$status_code" -ne 0 ]; then
+  exit "$status_code"
+fi
+
 npm --prefix backend run prisma:migrations:verify -- --git-base origin/main
 npm --prefix backend run prisma:migrations:verify:pending
-npm --prefix backend run prisma:diff
-npm --prefix backend run prisma:diff:reverse
+
+if diff_output=$(npm --prefix backend run prisma:diff 2>&1); then
+  diff_code=0
+else
+  diff_code=$?
+fi
+printf '%s\n' "$diff_output"
+if [ "$diff_code" -eq 2 ]; then
+  : # Expected only for a reviewed pending-migration diff.
+elif [ "$diff_code" -ne 0 ]; then
+  exit "$diff_code"
+fi
+
+if reverse_diff_output=$(npm --prefix backend run prisma:diff:reverse 2>&1); then
+  reverse_diff_code=0
+else
+  reverse_diff_code=$?
+fi
+printf '%s\n' "$reverse_diff_output"
+if [ "$reverse_diff_code" -eq 2 ]; then
+  : # Expected only for a reviewed pending-migration diff.
+elif [ "$reverse_diff_code" -ne 0 ]; then
+  exit "$reverse_diff_code"
+fi
 ```
 
-Before deployment, diff exit code `2` is acceptable only when the reviewed output
-is fully explained by trailing pending migrations. Any unrelated drift, failed
-migration, or unexpected history is a stop condition.
+The status gate continues past exit code `1` only when Prisma emitted its pending
+migration marker; connection errors, failed migrations, and divergent history remain
+fatal. Before deployment, diff exit code `2` is acceptable only when both captured,
+printed outputs are reviewed and fully explained by trailing pending migrations.
+Any unrelated drift, failed migration, or unexpected history is a stop condition.
 
 ### 2. Complete hosted preflight
 
