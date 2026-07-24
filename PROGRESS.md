@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-24:** Made owner-job PostgreSQL environment stripping case-insensitive for Windows and corrected the pre-deploy status gate to executable-match Prisma's singular and plural pending-migration messages. Added focused regressions for both review findings.
+
 - **2026-07-24:** Closed production-bootstrap review findings by deriving destructive demo confirmation from node-postgres, stripping ambient `PG*` variables from owner jobs, documenting exit-code-aware pending migration gates, and adding a migration-owner role-authority preflight. Added focused normalization, environment, and runbook regressions.
 
 - **2026-07-24:** Replaced the single-session CMS concurrency probe with a deterministic PostgreSQL regression that overlaps `seed:reference` with an independently injected `seed:cms` entrypoint behind an insert barrier, verifies they converge on one complete Contact page, and restores the fixture during cleanup.
@@ -180,6 +182,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-24:** No frontend files changed for the Windows owner-environment and Prisma pending-status corrections.
 
 - **2026-07-24:** No frontend files changed for the production-bootstrap safety review fixes; the changes are limited to backend owner/demo database controls, focused regressions, and the production runbook.
 
