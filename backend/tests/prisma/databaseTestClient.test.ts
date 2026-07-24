@@ -15,6 +15,7 @@ import {
   createDatabaseTestOwnerPool,
   requireDatabaseTestOwnerUrl,
   requireRawDatabaseTestOwnerUrl,
+  shutdownDatabaseTestClient,
 } from './databaseTestClient.js'
 
 const entrypointTest = readFileSync(
@@ -142,6 +143,38 @@ describe('database test owner connection', () => {
       [2_026_072_404],
     )
     expect(releaseClient).toHaveBeenCalledOnce()
+  })
+
+  it('destroys a lock client when advisory unlock fails', async () => {
+    const unlockError = new Error('unlock failed')
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ pg_advisory_lock: '' }] })
+      .mockRejectedValueOnce(unlockError)
+    const releaseClient = vi.fn()
+    const pool = {
+      connect: vi.fn().mockResolvedValue({ query, release: releaseClient }),
+    }
+    const releaseLock = await acquireDatabaseTestAdvisoryLock(
+      pool as never,
+      2_026_072_404,
+    )
+
+    await expect(releaseLock()).rejects.toThrow(unlockError)
+    expect(releaseClient).toHaveBeenCalledWith(true)
+  })
+
+  it('ends the pool even when Prisma disconnect fails', async () => {
+    const disconnectError = new Error('disconnect failed')
+    const prismaClient = {
+      $disconnect: vi.fn().mockRejectedValue(disconnectError),
+    }
+    const pool = { end: vi.fn().mockResolvedValue(undefined) }
+
+    await expect(
+      shutdownDatabaseTestClient(prismaClient as never, pool as never),
+    ).rejects.toThrow(disconnectError)
+    expect(pool.end).toHaveBeenCalledOnce()
   })
 
   it('rejects remote URLs without a CA or with conflicting SSL options', () => {
