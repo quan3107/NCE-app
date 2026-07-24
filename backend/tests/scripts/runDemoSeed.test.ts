@@ -89,6 +89,19 @@ describe('demo seed target policy', () => {
     ).toThrow(/loopback database/)
   })
 
+  it('rejects a nonstandard driver port override on a local authority', () => {
+    const databaseUrl = 'postgresql://owner:secret@localhost:5432/nce_demo?port=6543'
+    expect(new Client({ connectionString: databaseUrl }).port).toBe(6543)
+
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/authority port/)
+  })
+
   it('rejects non-Postgres URL schemes before target confirmation', () => {
     const databaseUrl = 'socket://localhost/var/run/postgresql?db=production'
     const client = new Client({ connectionString: databaseUrl })
@@ -190,6 +203,16 @@ describe('demo seed target policy', () => {
       ).not.toThrow()
     },
   )
+
+  it('accepts an explicitly named nonstandard local authority port', () => {
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: 'postgresql://owner:secret@localhost:6543/nce_demo',
+        DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+        NODE_ENV: 'development',
+      }),
+    ).not.toThrow()
+  })
 
   it.each([
     ['remote', 'postgresql://owner:secret@127.0.0.2:1/nce_demo', /loopback database/],
