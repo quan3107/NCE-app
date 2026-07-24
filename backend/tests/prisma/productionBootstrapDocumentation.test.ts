@@ -37,4 +37,20 @@ describe('production bootstrap documentation', () => {
       expect(guide).not.toContain('rejects remote hosts and production mode')
     }
   })
+
+  it('classifies expected pre-deploy exit codes without disabling fatal gates', () => {
+    expect(productionSequence).toContain('if [ "$status_code" -eq 1 ]')
+    expect(productionSequence).toContain('if [ "$diff_code" -eq 2 ]')
+    expect(productionSequence).toContain('if [ "$reverse_diff_code" -eq 2 ]')
+    expect(productionSequence).toContain('exit "$status_code"')
+    expect(productionSequence).toContain('exit "$diff_code"')
+    expect(productionSequence).toContain('exit "$reverse_diff_code"')
+  })
+
+  it('preflights migration-owner role-management authority', () => {
+    expect(bootstrapRunbook).toContain('rolcreaterole')
+    expect(bootstrapRunbook).toContain("target_role.rolname = 'anon'")
+    expect(bootstrapRunbook).toContain("target_role.rolname = 'authenticated'")
+    expect(bootstrapRunbook).toContain('membership.admin_option')
+  })
 })
