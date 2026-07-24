@@ -94,7 +94,8 @@ export async function seedPermissionsAndNavigation(
     orderIndex,
   ] of navigationDefaults) {
     const existing = await prisma.navigationItem.findFirst({
-      where: { role, path, parentId: null },
+      // A managed default remains the same row if an administrator reparents it.
+      where: { role, path },
       select: { id: true },
     })
     if (!existing) {
