@@ -19,12 +19,6 @@ export async function createPageIfMissing(
   tx: Prisma.TransactionClient,
   page: CmsSeedPage,
 ) {
-  const existing = await tx.cmsPageContent.findUnique({
-    where: { pageKey: page.pageKey },
-    select: { id: true },
-  })
-  if (existing) return existing.id
-
   const pageKey = CmsPageKeySchema.parse(page.pageKey)
   const content = parseCmsPageContent(pageKey, {
     sections: page.sections.map((section) => ({
@@ -36,13 +30,31 @@ export async function createPageIfMissing(
       })),
     })),
   })
-  const created = await tx.cmsPageContent.create({
+  const [created] = await tx.cmsPageContent.createManyAndReturn({
+    data: [
+      {
+        pageKey,
+        label: page.label,
+        isActive: true,
+        publishedRevision: 1,
+        publishedAt: new Date(),
+      },
+    ],
+    skipDuplicates: true,
+    select: { id: true },
+  })
+  if (!created) {
+    return (
+      await tx.cmsPageContent.findUniqueOrThrow({
+        where: { pageKey },
+        select: { id: true },
+      })
+    ).id
+  }
+
+  await tx.cmsPageContent.update({
+    where: { id: created.id },
     data: {
-      pageKey,
-      label: page.label,
-      isActive: true,
-      publishedRevision: 1,
-      publishedAt: new Date(),
       sections: {
         create: page.sections.map((section) => ({
           sectionKey: section.sectionKey,
