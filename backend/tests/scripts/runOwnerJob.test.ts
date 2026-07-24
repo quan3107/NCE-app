@@ -135,6 +135,16 @@ describe('owner job environment', () => {
     expect(parentEnvironment).not.toHaveProperty('DIRECT_URL')
   })
 
+  it('strips lowercase PostgreSQL variables before Windows normalizes them', () => {
+    const childEnvironment = buildOwnerJobEnvironment(
+      { pgoptions: '-c default_transaction_read_only=on' },
+      'postgresql://owner:owner@localhost/nce',
+    )
+
+    expect(childEnvironment).not.toHaveProperty('pgoptions')
+    expect(childEnvironment).not.toHaveProperty('PGOPTIONS')
+  })
+
   it.each(['postgresql://localhost:5432/nce', 'postgresql://owner:owner@localhost:5432'])(
     'rejects an owner URL without an explicit user and database: %s',
     (url) => {
