@@ -65,6 +65,8 @@ describe('production bootstrap documentation', () => {
     expect(bootstrapRunbook).toContain('rolcreaterole')
     expect(bootstrapRunbook).toContain("target_role.rolname = 'anon'")
     expect(bootstrapRunbook).toContain("target_role.rolname = 'authenticated'")
+    expect(bootstrapRunbook).toContain("target_role.rolname = 'service_role'")
+    expect(bootstrapRunbook).toContain('AS can_grant_service_role')
     expect(bootstrapRunbook).toContain('membership.admin_option')
   })
 })
