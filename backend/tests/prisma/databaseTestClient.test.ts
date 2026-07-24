@@ -11,6 +11,7 @@ import { Client } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  acquireDatabaseTestAdvisoryLock,
   createDatabaseTestOwnerPool,
   requireDatabaseTestOwnerUrl,
   requireRawDatabaseTestOwnerUrl,
@@ -18,6 +19,10 @@ import {
 
 const entrypointTest = readFileSync(
   resolve(process.cwd(), 'tests/prisma/referenceBootstrap.entrypoint.database.test.ts'),
+  'utf8',
+)
+const cmsConcurrencyTest = readFileSync(
+  resolve(process.cwd(), 'tests/prisma/cmsSeedConcurrency.database.test.ts'),
   'utf8',
 )
 const runtimeRoleTest = readFileSync(
@@ -110,6 +115,35 @@ describe('database test owner connection', () => {
     }
   })
 
+  it('holds a session advisory lock until the database fixture releases it', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ pg_advisory_lock: '' }] })
+      .mockResolvedValueOnce({ rows: [{ pg_advisory_unlock: true }] })
+    const releaseClient = vi.fn()
+    const pool = {
+      connect: vi.fn().mockResolvedValue({ query, release: releaseClient }),
+    }
+
+    const releaseLock = await acquireDatabaseTestAdvisoryLock(
+      pool as never,
+      2_026_072_404,
+    )
+    expect(query).toHaveBeenCalledWith(
+      'SELECT pg_advisory_lock($1::bigint)',
+      [2_026_072_404],
+    )
+    expect(releaseClient).not.toHaveBeenCalled()
+
+    await releaseLock()
+    await releaseLock()
+    expect(query).toHaveBeenLastCalledWith(
+      'SELECT pg_advisory_unlock($1::bigint)',
+      [2_026_072_404],
+    )
+    expect(releaseClient).toHaveBeenCalledOnce()
+  })
+
   it('rejects remote URLs without a CA or with conflicting SSL options', () => {
     expect(() =>
       requireDatabaseTestOwnerUrl({
@@ -162,5 +196,13 @@ describe('database test owner connection', () => {
     expect(entrypointTest).toContain('pg_stat_activity')
     expect(entrypointTest).toContain('activity.application_name')
     expect(runtimeRoleTest).toContain('createDatabaseTestOwnerPool()')
+  })
+
+  it('serializes bootstrap fixture suites across Vitest workers', () => {
+    for (const databaseTest of [entrypointTest, cmsConcurrencyTest]) {
+      expect(databaseTest).toContain('acquireDatabaseTestAdvisoryLock(')
+      expect(databaseTest).toContain('DATABASE_TEST_BOOTSTRAP_FIXTURE_LOCK_ID')
+      expect(databaseTest).toContain('releaseFixtureLock')
+    }
   })
 })
