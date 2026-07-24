@@ -9,8 +9,15 @@ import { isLoopbackDatabaseUrl } from '../databaseConnectionPolicy.js'
 
 type DemoSeedEnvironment = NodeJS.ProcessEnv
 
-function databaseName(connectionString: string): string {
-  return new Client({ connectionString }).database ?? ''
+function databaseTarget(connectionString: string): {
+  database: string
+  port: number
+} {
+  const client = new Client({ connectionString })
+  return {
+    database: client.database ?? '',
+    port: client.port,
+  }
 }
 
 export function assertDemoSeedTarget(
@@ -41,11 +48,18 @@ export function assertDemoSeedTarget(
     throw new Error('Demo seed is restricted to a loopback database.')
   }
 
-  const targetDatabase = databaseName(connectionString)
+  const target = databaseTarget(connectionString)
+  const targetDatabase = target.database
   const confirmation = environment.DEMO_SEED_CONFIRM_DATABASE
   if (!targetDatabase || confirmation !== targetDatabase) {
     throw new Error(
       `Set DEMO_SEED_CONFIRM_DATABASE=${targetDatabase || '<database-name>'} to confirm the exact disposable local target.`,
     )
+  }
+  const authorityPort = databaseUrl.port ? Number.parseInt(databaseUrl.port, 10) : 5432
+  // Match the server named by the URL authority; query parameters and ambient
+  // node-postgres settings must not redirect a direct seed to another server.
+  if (target.port !== authorityPort) {
+    throw new Error('DATABASE_URL must not override its authority port.')
   }
 }
