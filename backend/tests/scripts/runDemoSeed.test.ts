@@ -144,6 +144,27 @@ describe('demo seed target policy', () => {
     ).not.toThrow()
   })
 
+  it('confirms the database name after node-postgres normalizes the whole URL', () => {
+    const databaseUrl =
+      'postgresql://owner:secret@localhost:5432/nce%4A?application_name=demo seed'
+    expect(new Client({ connectionString: databaseUrl }).database).toBe('nce%4A')
+
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nceJ',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=nce%4A/)
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nce%4A',
+        NODE_ENV: 'development',
+      }),
+    ).not.toThrow()
+  })
+
   it.each(['development', 'test'])(
     'accepts an exactly confirmed local disposable database in %s',
     (nodeEnv) => {
