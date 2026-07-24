@@ -160,10 +160,10 @@ describe('Data API runtime boundary migrations', () => {
   })
 
   it('runs administrative database fixtures through the direct login', () => {
-    expect(databaseTestClient).toContain('const directUrl = process.env.DIRECT_URL')
-    expect(databaseTestClient).toContain(
-      'DIRECT_URL is required for administrative database tests.',
-    )
+    expect(databaseTestClient).toContain('buildOwnerConnectionUrl(')
+    expect(databaseTestClient).toContain('createDatabaseTestOwnerPool()')
+    expect(runtimeRoleServerTest).toContain('createDatabaseTestOwnerPool()')
+    expect(databaseTestClient).toContain('DIRECT_URL is required for administrative')
     for (const ownerTestSource of [databaseTestClient, runtimeRoleServerTest]) {
       expect(ownerTestSource).not.toContain(
         'process.env.DIRECT_URL ?? process.env.DATABASE_URL',

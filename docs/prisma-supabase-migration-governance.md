@@ -68,8 +68,12 @@ resolve, insert into, or delete from `_prisma_migrations` or
   pooler on port `5432`.
 - `JOB_DATABASE_URL` uses only `nce_job_runner` through port `5432`.
 - `DIRECT_URL` is deployment-only and authenticates as the `postgres` owner.
-  Use the direct/session pooler on port `5432` for Prisma migrations. Do not use
-  transaction-pooling port `6543` for migrations, advisory locks, or DDL.
+  For Supabase, use the actual direct database endpoint at
+  `db.<project-ref>.supabase.co:5432`. Do not use either Supavisor pooler for
+  migrations, advisory locks, or DDL; this excludes the transaction-pooling
+  endpoint on port `6543` and the session-pooling endpoint. The direct endpoint
+  is IPv6 by default, so the deployment runner needs IPv6 reachability or the
+  project needs the Supabase IPv4 add-on.
 - `DIRECT_DATABASE_CA_CERT_PATH` points to the project Server root certificate
   downloaded from the dashboard's SSL Configuration panel, using an absolute
   path. Every remote owner command requires it. The launcher consumes the CA
@@ -79,7 +83,7 @@ resolve, insert into, or delete from `_prisma_migrations` or
   plus `sslrootcert`. Keep all
   URL-level SSL parameters out of `DIRECT_URL`; conflicting or weakening modes
   are rejected. See the
-  [Prisma PostgreSQL TLS parameters](https://www.prisma.io/docs/orm/overview/databases/postgresql)
+  [Prisma PostgreSQL TLS parameters](https://docs.prisma.io/docs/orm/core-concepts/supported-databases/postgresql)
   and Supabase's recommendation to use
   [`verify-full` with the project CA](https://supabase.com/docs/guides/platform/ssl-enforcement).
 - Never provide `DIRECT_URL` to the long-running backend or print any URL.

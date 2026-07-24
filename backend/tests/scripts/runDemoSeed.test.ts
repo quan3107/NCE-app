@@ -1,0 +1,211 @@
+/**
+ * File: tests/scripts/runDemoSeed.test.ts
+ * Purpose: Lock the destructive demo seed to an explicitly confirmed local database.
+ * Why: Demo fixtures must fail closed before any production-owned data can be deleted.
+ */
+import { spawnSync } from 'node:child_process'
+import { resolve } from 'node:path'
+
+import { describe, expect, it } from 'vitest'
+import { Client } from 'pg'
+
+import { assertDemoSeedTarget } from '../../scripts/runDemoSeed.js'
+
+const tsxCli = resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs')
+
+function runDirectSeed(databaseUrl: string) {
+  const environment = {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+    NODE_ENV: 'development',
+  }
+  delete environment.DEMO_SEED_CONFIRM_DATABASE
+
+  return spawnSync(process.execPath, [tsxCli, 'src/prisma/seed.ts'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: environment,
+    timeout: 5_000,
+  })
+}
+
+describe('demo seed target policy', () => {
+  it.each(['development', 'test'])(
+    'rejects a remote database when NODE_ENV is %s',
+    (nodeEnv) => {
+      expect(() =>
+        assertDemoSeedTarget({
+          DATABASE_URL: 'postgresql://owner:secret@db.example.com:5432/nce',
+          DEMO_SEED_CONFIRM_DATABASE: 'nce',
+          ...(nodeEnv ? { NODE_ENV: nodeEnv } : {}),
+        }),
+      ).toThrow(/loopback database/)
+    },
+  )
+
+  it.each([undefined, '', 'prodution', 'staging', 'production'])(
+    'rejects a confirmed local database when NODE_ENV is %s',
+    (nodeEnv) => {
+      expect(() =>
+        assertDemoSeedTarget({
+          DATABASE_URL: 'postgresql://owner:secret@localhost:5432/nce_demo',
+          DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+          ...(nodeEnv === undefined ? {} : { NODE_ENV: nodeEnv }),
+        }),
+      ).toThrow(/development or test mode/)
+    },
+  )
+
+  it('rejects a local database without exact name confirmation', () => {
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: 'postgresql://owner:secret@localhost:5432/nce_demo',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=nce_demo/)
+  })
+
+  it('rejects a remote driver host override on a local authority', () => {
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL:
+          'postgresql://owner:secret@localhost:5432/nce_demo?host=db.example.com',
+        DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/loopback database/)
+  })
+
+  it('rejects non-Postgres URL schemes before target confirmation', () => {
+    const databaseUrl = 'socket://localhost/var/run/postgresql?db=production'
+    const client = new Client({ connectionString: databaseUrl })
+    expect(client.host).toBe('/var/run/postgresql')
+    expect(client.database).toBe('production')
+
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'var/run/postgresql',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/postgres(?:ql)?: URL/)
+  })
+
+  it.each([
+    ' postgresql://owner:secret@localhost:5432/nce_demo',
+    'postgresql://owner:secret@localhost:5432/nce_demo ',
+  ])('rejects surrounding DATABASE_URL whitespace: %j', (databaseUrl) => {
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/surrounding whitespace/)
+  })
+
+  it('confirms the driver-preserved reserved escape exactly', () => {
+    const databaseUrl = 'postgresql://owner:secret@localhost:5432/nce%2Fprod'
+    expect(new Client({ connectionString: databaseUrl }).database).toBe('nce%2Fprod')
+
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nce/prod',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=nce%2Fprod/)
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nce%2Fprod',
+        NODE_ENV: 'development',
+      }),
+    ).not.toThrow()
+  })
+
+  it('confirms a driver-preserved extra leading slash exactly', () => {
+    const databaseUrl = 'postgresql://owner:secret@localhost:5432//prod'
+    expect(new Client({ connectionString: databaseUrl }).database).toBe('/prod')
+
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'prod',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=\/prod/)
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: '/prod',
+        NODE_ENV: 'development',
+      }),
+    ).not.toThrow()
+  })
+
+  it('confirms the database name after node-postgres normalizes the whole URL', () => {
+    const databaseUrl =
+      'postgresql://owner:secret@localhost:5432/nce%4A?application_name=demo seed'
+    expect(new Client({ connectionString: databaseUrl }).database).toBe('nce%4A')
+
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nceJ',
+        NODE_ENV: 'development',
+      }),
+    ).toThrow(/DEMO_SEED_CONFIRM_DATABASE=nce%4A/)
+    expect(() =>
+      assertDemoSeedTarget({
+        DATABASE_URL: databaseUrl,
+        DEMO_SEED_CONFIRM_DATABASE: 'nce%4A',
+        NODE_ENV: 'development',
+      }),
+    ).not.toThrow()
+  })
+
+  it.each(['development', 'test'])(
+    'accepts an exactly confirmed local disposable database in %s',
+    (nodeEnv) => {
+      expect(() =>
+        assertDemoSeedTarget({
+          DATABASE_URL: 'postgresql://owner:secret@127.0.0.1:5432/nce_demo',
+          DEMO_SEED_CONFIRM_DATABASE: 'nce_demo',
+          NODE_ENV: nodeEnv,
+        }),
+      ).not.toThrow()
+    },
+  )
+
+  it.each([
+    ['remote', 'postgresql://owner:secret@127.0.0.2:1/nce_demo', /loopback database/],
+    [
+      'unconfirmed loopback',
+      'postgresql://owner:secret@127.0.0.1:1/nce_demo',
+      /DEMO_SEED_CONFIRM_DATABASE=nce_demo/,
+    ],
+  ])('fails the direct seed closed for a %s target', (_, databaseUrl, error) => {
+    const result = runDirectSeed(databaseUrl)
+    const output = `${result.stdout}${result.stderr}`
+
+    expect(result.status).not.toBe(0)
+    expect(output).toMatch(error)
+    expect(output).not.toContain('Resetting existing data...')
+    expect(output).not.toContain("Can't reach database server")
+  })
+
+  it('redacts malformed direct-seed database credentials', () => {
+    const sentinel = 'REVIEW_SECRET_7f3a'
+    const databaseUrl = `postgresql://owner:${sentinel}@bad host/nce`
+    const result = runDirectSeed(databaseUrl)
+    const output = `${result.stdout}${result.stderr}`
+
+    expect(result.status).not.toBe(0)
+    expect(output).toContain('DATABASE_URL is invalid for the demo seed.')
+    expect(output).not.toContain(sentinel)
+    expect(output).not.toContain(databaseUrl)
+    expect(output).not.toContain('Resetting existing data...')
+    expect(output).not.toContain("Can't reach database server")
+  })
+})

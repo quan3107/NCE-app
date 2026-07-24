@@ -8,6 +8,60 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-24:** Serialized the exact reference-entrypoint and CMS insert-barrier database suites with a shared session advisory lock, preventing Vitest workers from deadlocking each other's bootstrap locks and subprocess timeout. Added unit and source-contract coverage; local database reproduction remained unavailable without `DIRECT_URL`.
+
+- **2026-07-24:** Made owner-job PostgreSQL environment stripping case-insensitive for Windows and corrected the pre-deploy status gate to executable-match Prisma's singular and plural pending-migration messages. Added focused regressions for both review findings.
+
+- **2026-07-24:** Closed production-bootstrap review findings by deriving destructive demo confirmation from node-postgres, stripping ambient `PG*` variables from owner jobs, documenting exit-code-aware pending migration gates, and adding a migration-owner role-authority preflight. Added focused normalization, environment, and runbook regressions.
+
+- **2026-07-24:** Replaced the single-session CMS concurrency probe with a deterministic PostgreSQL regression that overlaps `seed:reference` with an independently injected `seed:cms` entrypoint behind an insert barrier, verifies they converge on one complete Contact page, and restores the fixture during cleanup.
+
+- **2026-07-24:** Stabilized the reference-bootstrap database regression after CI exposed cross-file fixture races: mutable-data preservation now follows transaction-local sentinel rows instead of global counts, and the reparenting case establishes its managed default inside the rolled-back transaction. No production seed behavior changed.
+
+- **2026-07-24:** Closed four production-bootstrap review findings by forcing CA-backed verification on remote owner test pools, documenting the required demo-seed development mode, making missing CMS page creation atomic across overlapping seed commands, and preserving reparented managed navigation defaults. Added focused TLS, documentation, CMS concurrency, and navigation hierarchy regressions.
+
+- **2026-07-23:** Isolated the reference-entrypoint advisory-lock waiter count with a per-process PostgreSQL application name, replaced the production sequence's broken nested list with stable numbered headings, and aligned demo-seed documentation with the exact development/test mode allowlist. Added focused lock-query, rendering-structure, and documentation regressions.
+
+- **2026-07-23:** Corrected the supplemental demo-fixture process regressions to run in explicit development mode, allowing CI to exercise remote-target and confirmation failures after the demo policy became fail-closed on environment mode.
+
+- **2026-07-23:** Closed production bootstrap review findings by stripping TLS-disable and ambient PostgreSQL fallbacks from owner jobs, requiring explicit owner URL identity, allowlisting demo seed modes, restoring an active IELTS v1 only when no version is active, serializing all overlapping reference entrypoints, requiring NCE seed client injection, locking shared rollback fixtures, and moving documented safety gates ahead of owner DDL. Added focused launcher, seed, database, ordering, and non-watch command regressions.
+
+- **2026-07-23:** Pinned omitted administrative database-test URL ports to PostgreSQL's `5432` default inside the pool connection string, preventing node-postgres from inheriting ambient `PGPORT`. Added a behavioral regression proving `PGPORT=6543` cannot change the effective client port.
+
+- **2026-07-23:** Serialized the standalone navigation bootstrap with the shared reference advisory lock, removed inherited `PGPORT` from owner-job child environments, and kept the database entrypoint regression inside Vitest's requested test scope instead of an unconditional `posttest`. Added focused lock, environment, and package-script regressions.
+
+- **2026-07-23:** Hardened the destructive demo-seed gate by rejecting non-PostgreSQL URL schemes and surrounding `DATABASE_URL` whitespace before target confirmation. Added node-postgres-backed regressions for socket-scheme target reinterpretation and leading/trailing whitespace.
+
+- **2026-07-22:** Canonicalized trailing DNS dots before Supabase owner-endpoint classification and restricted direct Supabase hosts to the default/`5432` port. Added launcher and database-test-client regressions for dotted direct and pooler hosts plus an arbitrary direct-host port.
+
+- **2026-07-22:** Closed the owner-endpoint query-override bypass by rejecting supported PostgreSQL `host` and `port` URL parameters before loopback classification or TLS decoration. Added launcher and database-test-client regressions for a direct Supabase authority redirected to a transaction pooler.
+
+- **2026-07-22:** Made clean deployment and rehearsal ordering generate the ignored Prisma client before owner jobs, rejected Supabase pooler hosts and direct-host port `6543` in the shared owner launcher/database-test boundary, and refreshed the Prisma PostgreSQL TLS reference. Added focused ordering and endpoint regressions.
+
+- **2026-07-22:** Moved every supplemental user/course/assignment/mapping fixture writer under the explicit `seed:demo:*` namespace, applied the shared confirmed-loopback gate to both npm and direct executable paths before database access, closed their external PostgreSQL pools, and added process/source contracts for remote and unconfirmed targets.
+
+- **2026-07-22:** Corrected the root README's stale generic seed wording so local demo accounts are attributed only to the explicit destructive `seed:demo` command, with a source contract preventing the removed “main seed” concept from returning.
+
+- **2026-07-22:** Routed administrative database-test pools through the owner launcher's CA-backed `verify-full` URL policy for remote rehearsals while preserving raw `DIRECT_URL` for the exact `seed:reference` subprocess. Added behavioral and source-contract coverage for loopback, remote CA, fail-closed, and consumer boundaries.
+
+- **2026-07-22:** Strengthened the cross-guide migration-endpoint contract so each authoritative guide must explicitly reject both Supavisor session and transaction pooling, then corrected the production bootstrap runbook to match the exact direct-endpoint policy.
+
+- **2026-07-22:** Reconciled the Prisma/Supabase migration governance guide with the production bootstrap runbook so both require the actual direct database endpoint, reject both Supavisor poolers, and document direct-endpoint IPv6 or IPv4 add-on reachability. Extended the owner-workflow contract across both authoritative guides.
+
+- **2026-07-22:** Narrowly refreshed the backend lockfile from `fast-uri` 3.1.2 to 3.1.4 after new high-severity advisories while keeping Prisma CLI/client/adapter packages aligned at 7.8. A clean install passes the high-severity audit gate; four moderate findings remain confined to Prisma's development-only Hono tooling.
+
+- **2026-07-22:** Sanitized malformed direct demo-seed URL failures so owner credentials are never logged, added a sentinel-based process regression and message-only error logging, and documented that production migrations require the direct non-transaction-pooled endpoint with Supabase IPv6/IPv4 reachability guidance.
+
+- **2026-07-22:** Routed demo-seed success and failure cleanup through `shutdownPrisma()` so the externally supplied PostgreSQL pool closes promptly, and extended the owner-workflow contract to prevent `$disconnect()`-only cleanup from returning.
+
+- **2026-07-21:** Made the destructive demo fixture program enforce the same fail-closed target gate as its supported npm wrapper, with direct-process regressions proving remote and unconfirmed loopback invocations stop before reset logging or database access. The inherited 1,422-line legacy fixture remains an explicit size exception after the minimal safety and lifecycle edits; splitting it is unrelated to this production-safety correction.
+
+- **2026-07-21:** Pinned the serialized production reference bootstrap transaction to `READ COMMITTED`, ensuring a waiter sees the preceding lock holder's committed reference rows even when the database or role default uses a stricter isolation level. Added a focused owner-workflow contract for the explicit transaction option.
+
+- **2026-07-21:** Hardened the production bootstrap follow-up by matching demo confirmation to node-postgres database-name parsing, documenting every migration role and pg-boss prerequisite in execution order without altering the provider-managed Supabase authenticator login, making overlapping entrypoint coverage non-mutating, and closing external PostgreSQL pools in direct seed commands and tests. Refreshed the backend lockfile for newly disclosed audit fixes.
+
+- **2026-07-20:** Added an owner-scoped production migration alias and serialized, transactional reference bootstrap for permissions, navigation, notification types, dashboard widgets, file uploads, IELTS configuration, and CMS baseline pages. The destructive `seed:demo` now requires an exact confirmed loopback database and rejects driver host overrides, IELTS restoration preserves the sole active version, and database coverage exercises overlapping real entrypoint runs, second-run stability, mutable-value preservation, and no demo inserts. Documented production prerequisites, commands, rehearsal signals, and recovery expectations.
+
 - **2026-07-15:** Added validated UTC date, course UUID, schedule-label cohort, and owner/co-teacher relationship filters to teacher analytics while preserving owner/co-teacher authorization. Added filtered CSV parity with stable overall/course/rubric columns, standard escaping, empty fields for null metrics, download headers, focused scope/export tests, and OpenAPI coverage.
 
 - **2026-07-15:** Removed the committed migration checksum manifest and replaced it with trusted-Git-base blob verification plus Prisma-native deployed-history checks. Renamed package/CI callers, preserved authenticated owner TLS and PostgreSQL 17 replay/diff/probe gates, and added behavioral coverage for immutable base migrations, forward-only additions, ordered pending/exact contracts, and content changes across line endings.
@@ -130,6 +184,60 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-24:** No frontend files changed for the backend database-test cross-worker serialization fix.
+
+- **2026-07-24:** No frontend files changed for the Windows owner-environment and Prisma pending-status corrections.
+
+- **2026-07-24:** No frontend files changed for the production-bootstrap safety review fixes; the changes are limited to backend owner/demo database controls, focused regressions, and the production runbook.
+
+- **2026-07-24:** No frontend files changed for the cross-entrypoint CMS seed concurrency regression.
+
+- **2026-07-24:** No frontend files changed for the reference-bootstrap CI fixture stabilization.
+
+- **2026-07-24:** No frontend files changed for the production-bootstrap review fixes; the update is limited to backend seed/test behavior, local setup documentation, and this progress record.
+
+- **2026-07-23:** No frontend files changed for the advisory-lock test isolation and database documentation corrections; the update is limited to backend tests, backend documentation, the production runbook, and this progress record.
+
+- **2026-07-23:** No frontend files changed for the supplemental demo-fixture CI correction; the update is limited to backend process regressions and this progress record.
+
+- **2026-07-23:** No frontend files changed for the production database bootstrap safety corrections; the work is limited to backend owner/seed boundaries, database tests, runbook ordering, and this progress record.
+
+- **2026-07-23:** No frontend files changed for the administrative database-test `PGPORT` isolation correction.
+
+- **2026-07-23:** No frontend files changed for the navigation serialization, owner-job port isolation, and focused backend test-scope corrections.
+
+- **2026-07-23:** No frontend files changed for the demo-seed URL validation hardening; the fix is isolated to the backend seed policy, regression coverage, and this progress record.
+
+- **2026-07-22:** No frontend files or behavior changed for the Supabase hostname canonicalization and direct-port allowlist correction.
+
+- **2026-07-22:** No frontend files or behavior changed for the owner database endpoint query-override correction.
+
+- **2026-07-22:** No frontend files or behavior changed for the deployment ordering, direct migration-endpoint enforcement, or Prisma TLS documentation corrections.
+
+- **2026-07-22:** No frontend files or application behavior changed for the supplemental demo-fixture safety correction; the follow-up is limited to backend commands, seed programs, process/source tests, documentation, and this progress record.
+
+- **2026-07-22:** No frontend files or behavior changed for the explicit demo-seed README correction; the follow-up is limited to root documentation, its backend source contract, and this progress record.
+
+- **2026-07-22:** No frontend files or behavior changed for the remote rehearsal TLS correction; the follow-up is limited to backend administrative test connections, their contracts, database documentation, and this progress record.
+
+- **2026-07-22:** No frontend files or behavior changed for the explicit session- and transaction-pooler runbook correction; the follow-up remains limited to database documentation, its backend contract, and this progress record.
+
+- **2026-07-22:** No frontend files or behavior changed for the migration-governance endpoint correction; the follow-up is limited to database documentation, its backend workflow contract, and this progress record.
+
+- **2026-07-22:** Refreshed the frontend lockfile to patched `linkify-it` and DOMPurify resolutions after new npm advisories; a clean install now reports zero vulnerabilities, with no frontend application-code change.
+
+- **2026-07-22:** No frontend files changed for the demo credential-redaction or direct migration-endpoint documentation corrections; the follow-up is limited to backend safety policy, process/workflow contracts, deployment documentation, and this progress record.
+
+- **2026-07-22:** No frontend files changed for the demo-seed external-pool shutdown correction; the follow-up is limited to backend lifecycle cleanup, its focused contract, and this progress record.
+
+- **2026-07-21:** No frontend files changed for the direct demo-seed gate correction; the follow-up is limited to the backend destructive entrypoint, its process regressions, database safety documentation, and this progress record.
+
+- **2026-07-21:** No frontend files changed for the reference-bootstrap transaction-isolation correction; the follow-up is limited to backend bootstrap code, its focused contract, and this progress record.
+
+- **2026-07-21:** No frontend application behavior changed for the database-target identity, deployment prerequisite, concurrency-test isolation, and PostgreSQL pool-shutdown follow-up. Refreshed the frontend lockfile only for a newly disclosed audit fix.
+
+- **2026-07-20:** No frontend application behavior changed for the production migration and reference bootstrap path. Test-only maintenance now follows the extracted reference-navigation source, and the classroom Playwright fixture uses a rolling future due date so assignment eligibility does not expire.
 
 - **2026-07-15:** Added URL-backed analytics controls for inclusive UTC dates, course UUID, schedule-label cohort, and owner/co-teacher relationship; included filters in query keys and JSON/CSV requests; added an authenticated CSV download action with visible progress/errors; and split filter/chart presentation into focused modules below 300 lines.
 
