@@ -3,8 +3,9 @@
  * Purpose: Verify authenticated TLS policy for administrative database tests.
  * Why: Remote rehearsal clients must share the owner launcher connection boundary.
  */
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 import { Client } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -57,6 +58,37 @@ describe('database test owner connection', () => {
 
     expect(url.searchParams.get('sslmode')).toBe('verify-full')
     expect(url.searchParams.get('sslrootcert')).toBe(certificatePath)
+  })
+
+  it('keeps remote certificate verification enabled despite an ambient override', async () => {
+    vi.stubEnv('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'nce-owner-ca-'))
+    const certificatePath = join(temporaryDirectory, 'project-ca.pem')
+    writeFileSync(certificatePath, 'test project CA')
+    const pool = createDatabaseTestOwnerPool({
+      DIRECT_URL: 'postgresql://owner:secret@db.example.com:5432/nce_test',
+      DIRECT_DATABASE_CA_CERT_PATH: certificatePath,
+      NODE_TLS_REJECT_UNAUTHORIZED: '0',
+    })
+
+    try {
+      const client = new Client(pool.options)
+      const ssl = (
+        client as unknown as {
+          connectionParameters: {
+            ssl: { ca: string; rejectUnauthorized: boolean }
+          }
+        }
+      ).connectionParameters.ssl
+
+      expect(ssl).toEqual({
+        ca: readFileSync(certificatePath, 'utf8'),
+        rejectUnauthorized: true,
+      })
+    } finally {
+      await pool.end()
+      rmSync(temporaryDirectory, { recursive: true })
+    }
   })
 
   it('uses PostgreSQL port 5432 when the validated URL omits its port', async () => {
