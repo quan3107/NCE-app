@@ -121,7 +121,9 @@ export function buildOwnerJobEnvironment(
   // Owner jobs receive a complete connection URL, so no ambient libpq/node-postgres
   // setting may alter their target, session behavior, or TLS policy.
   const childEnvironment = Object.fromEntries(
-    Object.entries(unfilteredEnvironment).filter(([name]) => !name.startsWith('PG')),
+    Object.entries(unfilteredEnvironment).filter(
+      ([name]) => !name.toUpperCase().startsWith('PG'),
+    ),
   )
   const connectionUrl = buildOwnerConnectionUrl(
     ownerDatabaseUrl,
