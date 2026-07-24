@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-24:** Closed four production-bootstrap review findings by forcing CA-backed verification on remote owner test pools, documenting the required demo-seed development mode, making missing CMS page creation atomic across overlapping seed commands, and preserving reparented managed navigation defaults. Added focused TLS, documentation, CMS concurrency, and navigation hierarchy regressions.
+
 - **2026-07-23:** Isolated the reference-entrypoint advisory-lock waiter count with a per-process PostgreSQL application name, replaced the production sequence's broken nested list with stable numbered headings, and aligned demo-seed documentation with the exact development/test mode allowlist. Added focused lock-query, rendering-structure, and documentation regressions.
 
 - **2026-07-23:** Corrected the supplemental demo-fixture process regressions to run in explicit development mode, allowing CI to exercise remote-target and confirmation failures after the demo policy became fail-closed on environment mode.
@@ -172,6 +174,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-24:** No frontend files changed for the production-bootstrap review fixes; the update is limited to backend seed/test behavior, local setup documentation, and this progress record.
 
 - **2026-07-23:** No frontend files changed for the advisory-lock test isolation and database documentation corrections; the update is limited to backend tests, backend documentation, the production runbook, and this progress record.
 
