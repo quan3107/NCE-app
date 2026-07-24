@@ -3,9 +3,10 @@
  * Purpose: Lock owner-only command environment scoping.
  * Why: Local migrations and seeds must read .env.local without exposing it to runtime.
  */
+import { spawnSync } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { Client } from 'pg'
@@ -17,6 +18,7 @@ import {
 } from '../../scripts/runOwnerJob.js'
 
 const temporaryDirectories: string[] = []
+const tsxCli = resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs')
 
 async function createBackendDirectory() {
   const directory = await mkdtemp(join(tmpdir(), 'nce-owner-job-'))
@@ -143,6 +145,34 @@ describe('owner job environment', () => {
 
     expect(childEnvironment).not.toHaveProperty('pgoptions')
     expect(childEnvironment).not.toHaveProperty('PGOPTIONS')
+  })
+
+  it('strips a lowercase TLS override from the spawned owner child', () => {
+    const environment = {
+      ...process.env,
+      DIRECT_URL: 'postgresql://owner:owner@localhost:5432/nce',
+      node_tls_reject_unauthorized: '0',
+    }
+    delete environment.NODE_TLS_REJECT_UNAUTHORIZED
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        tsxCli,
+        'scripts/runOwnerJob.ts',
+        'tsx',
+        '-e',
+        "process.stdout.write(process.env.NODE_TLS_REJECT_UNAUTHORIZED ?? 'unset')",
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        env: environment,
+      },
+    )
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toBe('unset')
   })
 
   it.each(['postgresql://localhost:5432/nce', 'postgresql://owner:owner@localhost:5432'])(
