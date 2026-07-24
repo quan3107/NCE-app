@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-24:** Serialized the exact reference-entrypoint and CMS insert-barrier database suites with a shared session advisory lock, preventing Vitest workers from deadlocking each other's bootstrap locks and subprocess timeout. Added unit and source-contract coverage; local database reproduction remained unavailable without `DIRECT_URL`.
+
 - **2026-07-24:** Made owner-job PostgreSQL environment stripping case-insensitive for Windows and corrected the pre-deploy status gate to executable-match Prisma's singular and plural pending-migration messages. Added focused regressions for both review findings.
 
 - **2026-07-24:** Closed production-bootstrap review findings by deriving destructive demo confirmation from node-postgres, stripping ambient `PG*` variables from owner jobs, documenting exit-code-aware pending migration gates, and adding a migration-owner role-authority preflight. Added focused normalization, environment, and runbook regressions.
@@ -182,6 +184,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-24:** No frontend files changed for the backend database-test cross-worker serialization fix.
 
 - **2026-07-24:** No frontend files changed for the Windows owner-environment and Prisma pending-status corrections.
 
