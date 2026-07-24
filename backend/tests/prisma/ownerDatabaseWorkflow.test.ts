@@ -115,6 +115,9 @@ describe('owner-only database workflow', () => {
     expect(rootReadme).toContain(
       'The explicit `seed:demo` command creates these local accounts:',
     )
+    expect(rootReadme).toContain(
+      'NODE_ENV=development DEMO_SEED_CONFIRM_DATABASE=nce_app npm run seed:demo',
+    )
     expect(rootReadme).not.toContain('The main seed')
     expect(rootReadme).not.toContain(
       'npx prisma migrate deploy --config prisma.config.ts',
