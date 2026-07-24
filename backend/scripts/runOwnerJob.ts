@@ -116,13 +116,13 @@ export function buildOwnerJobEnvironment(
   const {
     DIRECT_DATABASE_CA_CERT_PATH: ignoredCertificatePath,
     NODE_TLS_REJECT_UNAUTHORIZED: ignoredTlsValidationOverride,
-    PGDATABASE: ignoredPgDatabase,
-    PGHOST: ignoredPgHost,
-    PGPASSWORD: ignoredPgPassword,
-    PGPORT: ignoredPgPort,
-    PGUSER: ignoredPgUser,
-    ...childEnvironment
+    ...unfilteredEnvironment
   } = inheritedEnvironment
+  // Owner jobs receive a complete connection URL, so no ambient libpq/node-postgres
+  // setting may alter their target, session behavior, or TLS policy.
+  const childEnvironment = Object.fromEntries(
+    Object.entries(unfilteredEnvironment).filter(([name]) => !name.startsWith('PG')),
+  )
   const connectionUrl = buildOwnerConnectionUrl(
     ownerDatabaseUrl,
     certificateAuthorityPath,
