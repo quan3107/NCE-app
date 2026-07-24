@@ -42,7 +42,7 @@ export function assertDemoSeedTarget(
   }
 
   const targetDatabase = databaseName(connectionString)
-  const confirmation = environment.DEMO_SEED_CONFIRM_DATABASE?.trim()
+  const confirmation = environment.DEMO_SEED_CONFIRM_DATABASE
   if (!targetDatabase || confirmation !== targetDatabase) {
     throw new Error(
       `Set DEMO_SEED_CONFIRM_DATABASE=${targetDatabase || '<database-name>'} to confirm the exact disposable local target.`,
