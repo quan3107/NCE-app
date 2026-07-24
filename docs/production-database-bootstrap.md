@@ -113,7 +113,7 @@ fi
 printf '%s\n' "$status_output"
 if [ "$status_code" -eq 1 ]; then
   if ! printf '%s\n' "$status_output" |
-    grep -q 'Following migration(s) have not yet been applied' ||
+    grep -Eq 'Following migrations? have not yet been applied' ||
     printf '%s\n' "$status_output" |
       grep -Eqi 'failed|diverg|missing from the local migrations directory'; then
     exit "$status_code"
