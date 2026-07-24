@@ -72,11 +72,29 @@ databaseDescribe('production reference bootstrap', () => {
         await tx.$queryRawUnsafe(
           `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text`,
         )
-        const demoCountsBefore = await Promise.all([
-          tx.user.count(),
-          tx.course.count(),
-          tx.assignment.count(),
-        ])
+        // Transaction-local sentinels isolate this assertion from fixtures that
+        // other database test files create concurrently.
+        const sentinelUser = await tx.user.create({
+          data: {
+            email: 'reference-bootstrap-sentinel@example.test',
+            fullName: 'Reference bootstrap sentinel',
+            role: 'teacher',
+            status: 'active',
+          },
+        })
+        const sentinelCourse = await tx.course.create({
+          data: {
+            title: 'Reference bootstrap sentinel course',
+            ownerId: sentinelUser.id,
+          },
+        })
+        const sentinelAssignment = await tx.assignment.create({
+          data: {
+            title: 'Reference bootstrap sentinel assignment',
+            type: 'reading',
+            courseId: sentinelCourse.id,
+          },
+        })
 
         await tx.notificationTypeConfig.deleteMany({
           where: { role: 'student', type: 'due_soon' },
@@ -188,9 +206,17 @@ databaseDescribe('production reference bootstrap', () => {
           }),
         ).toBe(1)
         expect(await tx.cmsPageContent.count({ where: { pageKey: 'contact' } })).toBe(1)
-        expect(
-          await Promise.all([tx.user.count(), tx.course.count(), tx.assignment.count()]),
-        ).toEqual(demoCountsBefore)
+        await expect(
+          Promise.all([
+            tx.user.findUniqueOrThrow({ where: { id: sentinelUser.id } }),
+            tx.course.findUniqueOrThrow({ where: { id: sentinelCourse.id } }),
+            tx.assignment.findUniqueOrThrow({ where: { id: sentinelAssignment.id } }),
+          ]),
+        ).resolves.toMatchObject([
+          { email: sentinelUser.email, fullName: sentinelUser.fullName },
+          { title: sentinelCourse.title, ownerId: sentinelUser.id },
+          { title: sentinelAssignment.title, courseId: sentinelCourse.id },
+        ])
 
         throw new Error('ROLLBACK_REFERENCE_BOOTSTRAP_TEST')
       }),
@@ -203,6 +229,7 @@ databaseDescribe('production reference bootstrap', () => {
         await tx.$queryRawUnsafe(
           `SELECT pg_advisory_xact_lock(${REFERENCE_BOOTSTRAP_LOCK_ID})::text`,
         )
+        await bootstrapReferenceData(tx)
         const managedItem = await tx.navigationItem.findFirstOrThrow({
           where: { role: 'student', path: '/student/dashboard' },
           select: { id: true },
