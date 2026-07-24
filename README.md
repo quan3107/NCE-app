@@ -113,7 +113,7 @@ npm run prisma:generate
 npm run pgboss:install
 npm run prisma:migrate
 npm run seed:reference
-DEMO_SEED_CONFIRM_DATABASE=nce_app npm run seed:demo # destructive; local only
+NODE_ENV=development DEMO_SEED_CONFIRM_DATABASE=nce_app npm run seed:demo # destructive; local only
 npm run verify:ielts-config
 ```
 
