@@ -107,6 +107,9 @@ databaseDescribe('CMS seed entrypoint concurrency', () => {
 
       runners = [runReferenceBootstrap(seedClients[0]), seedCmsContent(seedClients[1])]
       await waitForBlockedCmsSeeds(observer)
+      // Cross Prisma's five-second interactive-transaction default before
+      // allowing the competing inserts to converge.
+      await new Promise((resolve) => setTimeout(resolve, 5_500))
       await observer.query('SELECT pg_advisory_unlock($1::bigint)', [
         CMS_SEED_TEST_LOCK_ID,
       ])
@@ -139,5 +142,5 @@ databaseDescribe('CMS seed entrypoint concurrency', () => {
         await observerPool.end()
       }
     }
-  }, 30_000)
+  }, 40_000)
 })
