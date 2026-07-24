@@ -116,6 +116,24 @@ describe('database test owner connection', () => {
     }
   })
 
+  it('does not inherit ambient PostgreSQL startup options', async () => {
+    vi.stubEnv('PGOPTIONS', '-c default_transaction_read_only=on -c role=readonly')
+    const pool = createDatabaseTestOwnerPool({
+      DIRECT_URL: 'postgresql://owner:secret@localhost:5432/nce_test',
+      PGOPTIONS: '-c default_transaction_read_only=on -c role=readonly',
+    })
+
+    try {
+      const client = new Client(pool.options)
+      const options = (client as unknown as { connectionParameters: { options: string } })
+        .connectionParameters.options
+
+      expect(options).toBe('-c default_transaction_read_only=off')
+    } finally {
+      await pool.end()
+    }
+  })
+
   it('holds a session advisory lock until the database fixture releases it', async () => {
     const query = vi
       .fn()
