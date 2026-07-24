@@ -15,8 +15,9 @@ create a managed database, or configure backups/PITR.
 - The migration owner must be a superuser or have `CREATEROLE`, and must hold
   `ADMIN OPTION` on the existing `anon`, `authenticated`, and `service_role`
   roles. The migration creates the `nce_app_*` roles, grants the existing browser
-  roles to them, and grants `service_role` to `nce_runtime`. Run this privilege
-  preflight through the direct owner connection; all four
+  roles to them, and validates the pre-provisioned SET-only `service_role` grant
+  to `nce_runtime`. Run this privilege preflight through the direct owner
+  connection; all four
   result columns must be `true`:
 
   ```sql
