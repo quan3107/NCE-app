@@ -231,4 +231,19 @@ databaseDescribe('CMS bootstrap database upgrades', () => {
       expect(parseCmsPageContent('about', reloaded)).toEqual(revisionContent)
     })
   })
+
+  it('converges concurrent attempts to restore the same missing page', async () => {
+    await withRolledBackDatabase(async (tx) => {
+      const contactSeed = CMS_PAGES.find((page) => page.pageKey === 'contact')!
+      await tx.cmsPageContent.deleteMany({ where: { pageKey: 'contact' } })
+
+      const pageIds = await Promise.all([
+        createPageIfMissing(tx, contactSeed),
+        createPageIfMissing(tx, contactSeed),
+      ])
+
+      expect(new Set(pageIds)).toHaveLength(1)
+      expect(await tx.cmsPageContent.count({ where: { pageKey: 'contact' } })).toBe(1)
+    })
+  })
 })
