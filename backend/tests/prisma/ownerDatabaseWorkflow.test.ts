@@ -172,14 +172,23 @@ describe('owner-only database workflow', () => {
   it('pins the locked reference bootstrap to read committed', () => {
     expect(referenceLock).toContain('REFERENCE_BOOTSTRAP_LOCK_ID')
     expect(referenceLock).toContain('pg_advisory_xact_lock')
+    expect(referenceLock).toContain("SET LOCAL lock_timeout = '60s'")
+    expect(referenceLock).toContain('SET LOCAL lock_timeout = DEFAULT')
     expect(referenceLock).toContain(
       'isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted',
     )
+    expect(referenceLock).toContain('timeout: 120_000')
     expect(referenceSeed).toContain('runWithReferenceBootstrapLock')
     expect(navigationSeed).toContain('runWithReferenceBootstrapLock')
     expect(ieltsSeed).toContain('runWithReferenceBootstrapLock')
     expect(referenceDatabaseTest).toContain('REFERENCE_BOOTSTRAP_LOCK_ID')
     expect(referenceDatabaseTest).toContain('pg_advisory_xact_lock')
+  })
+
+  it('gives each standalone CMS transaction an explicit seed timeout', () => {
+    expect(cmsSeed).toMatch(
+      /\$transaction\(\(tx\) => createPageIfMissing\(tx, page\), \{\s+timeout: 60_000,/,
+    )
   })
 
   it('keeps the database entrypoint suite inside the requested test scope', () => {
