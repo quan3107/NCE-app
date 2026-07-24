@@ -11,6 +11,8 @@ import { Pool } from 'pg'
 import { buildOwnerConnectionUrl } from '../../scripts/runOwnerJob.js'
 import { Prisma, PrismaClient } from '../../src/prisma/generated.js'
 
+export const DATABASE_TEST_BOOTSTRAP_FIXTURE_LOCK_ID = 2_026_072_404
+
 export function requireRawDatabaseTestOwnerUrl(
   environment: NodeJS.ProcessEnv = process.env,
 ): string {
@@ -59,6 +61,31 @@ export function createDatabaseTestOwnerPool(
         }
       : {}),
   })
+}
+
+export async function acquireDatabaseTestAdvisoryLock(
+  pool: Pool,
+  lockId: number,
+): Promise<() => Promise<void>> {
+  const client = await pool.connect()
+  let released = false
+
+  try {
+    await client.query('SELECT pg_advisory_lock($1::bigint)', [lockId])
+  } catch (error) {
+    client.release()
+    throw error
+  }
+
+  return async () => {
+    if (released) return
+    released = true
+    try {
+      await client.query('SELECT pg_advisory_unlock($1::bigint)', [lockId])
+    } finally {
+      client.release()
+    }
+  }
 }
 
 export async function runDatabaseTestTransaction<T>(
