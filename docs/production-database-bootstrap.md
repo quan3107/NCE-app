@@ -13,9 +13,10 @@ create a managed database, or configure backups/PITR.
 
 - PostgreSQL 17-compatible service reachable by an owner-scoped connection.
 - The migration owner must be a superuser or have `CREATEROLE`, and must hold
-  `ADMIN OPTION` on the existing `anon` and `authenticated` roles. The migration
-  creates the `nce_app_*` roles and grants the existing browser roles to them.
-  Run this privilege preflight through the direct owner connection; all three
+  `ADMIN OPTION` on the existing `anon`, `authenticated`, and `service_role`
+  roles. The migration creates the `nce_app_*` roles, grants the existing browser
+  roles to them, and grants `service_role` to `nce_runtime`. Run this privilege
+  preflight through the direct owner connection; all four
   result columns must be `true`:
 
   ```sql
@@ -36,7 +37,15 @@ create a managed database, or configure backups/PITR.
       WHERE membership.member = owner_role.oid
         AND target_role.rolname = 'authenticated'
         AND membership.admin_option
-    ) AS can_grant_authenticated
+    ) AS can_grant_authenticated,
+    owner_role.rolsuper OR EXISTS (
+      SELECT 1
+      FROM pg_auth_members AS membership
+      JOIN pg_roles AS target_role ON target_role.oid = membership.roleid
+      WHERE membership.member = owner_role.oid
+        AND target_role.rolname = 'service_role'
+        AND membership.admin_option
+    ) AS can_grant_service_role
   FROM pg_roles AS owner_role
   WHERE owner_role.rolname = current_user;
   ```
