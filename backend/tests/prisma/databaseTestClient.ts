@@ -3,6 +3,8 @@
  * Purpose: Run administrative database fixtures through the migration login.
  * Why: Upgrade tests must mutate schema-owned tables without broadening the runtime role.
  */
+import { readFileSync } from 'node:fs'
+
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
 
@@ -37,7 +39,26 @@ export function createDatabaseTestOwnerPool(
 
   // Pin PostgreSQL's default in the URL so its parser cannot inherit PGPORT.
   if (!connectionUrl.port) connectionUrl.port = '5432'
-  return new Pool({ connectionString: connectionUrl.toString() })
+  const certificatePath = connectionUrl.searchParams.get('sslrootcert')
+  if (certificatePath) {
+    // node-postgres lets connection-string SSL fields replace an explicit SSL
+    // object, so remove them after reading the authenticated policy result.
+    connectionUrl.searchParams.delete('sslrootcert')
+    connectionUrl.searchParams.delete('sslmode')
+  }
+  return new Pool({
+    connectionString: connectionUrl.toString(),
+    ...(certificatePath
+      ? {
+          // Explicitly override any ambient Node TLS disable switch while retaining
+          // the CA selected by the authenticated owner-connection policy.
+          ssl: {
+            ca: readFileSync(certificatePath, 'utf8'),
+            rejectUnauthorized: true,
+          },
+        }
+      : {}),
+  })
 }
 
 export async function runDatabaseTestTransaction<T>(
