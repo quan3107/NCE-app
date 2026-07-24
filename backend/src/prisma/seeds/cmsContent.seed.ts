@@ -88,7 +88,11 @@ export async function seedCmsContent(prismaClient: typeof basePrisma = basePrism
 
   const ids: string[] = []
   for (const page of CMS_PAGES) {
-    ids.push(await prismaClient.$transaction((tx) => createPageIfMissing(tx, page)))
+    ids.push(
+      await prismaClient.$transaction((tx) => createPageIfMissing(tx, page), {
+        timeout: 60_000,
+      }),
+    )
   }
   const [homepageId, aboutPageId, contactPageId] = ids
 
