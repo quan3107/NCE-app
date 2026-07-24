@@ -1,50 +1,56 @@
 /**
  * File: tests/prisma/cmsSeedConcurrency.database.test.ts
- * Purpose: Reproduce overlapping standalone CMS seed entrypoints on PostgreSQL.
- * Why: Separate seed processes must converge when the same managed page is missing.
+ * Purpose: Reproduce overlapping reference and standalone CMS seeds on PostgreSQL.
+ * Why: Production seed entrypoints must converge when the same managed page is missing.
  */
 import { PrismaPg } from '@prisma/adapter-pg'
 import type { PoolClient } from 'pg'
 import { describe, expect, it } from 'vitest'
 
 import { PrismaClient } from '../../src/prisma/generated.js'
-import { REFERENCE_BOOTSTRAP_LOCK_ID } from '../../src/prisma/referenceBootstrapLock.js'
+import { runReferenceBootstrap } from '../../src/prisma/seedReference.js'
 import { seedCmsContent } from '../../src/prisma/seeds/cmsContent.seed.js'
 import { createDatabaseTestOwnerPool } from './databaseTestClient.js'
 
 const CMS_SEED_TEST_LOCK_ID = 2_026_072_402
 const TRIGGER_NAME = 'nce_test_wait_for_cms_seed'
 const FUNCTION_NAME = 'nce_test_wait_for_cms_seed'
+const ENTRYPOINT_APPLICATION_NAMES = [
+  `nce-cms-reference-${process.pid}`,
+  `nce-cms-standalone-${process.pid}`,
+]
 const databaseDescribe =
   process.env.CI === 'true' || process.env.RUN_DATABASE_TESTS === 'true'
     ? describe.sequential
     : describe.skip
 
-async function waitForBlockedCmsSeeds(
-  observer: PoolClient,
-  expectedCount: number,
-): Promise<void> {
-  const deadline = Date.now() + 5_000
+async function waitForBlockedCmsSeeds(observer: PoolClient): Promise<void> {
+  const deadline = Date.now() + 10_000
   while (Date.now() < deadline) {
     const result = await observer.query<{ waiting: number }>(
       `SELECT count(*)::int AS waiting
-       FROM pg_locks
-       WHERE locktype = 'advisory'
-         AND objid = $1::oid
-         AND NOT granted`,
-      [CMS_SEED_TEST_LOCK_ID],
+       FROM pg_locks locks
+       JOIN pg_stat_activity activity ON activity.pid = locks.pid
+       WHERE locks.locktype = 'advisory'
+         AND locks.objid = $1::oid
+         AND NOT locks.granted
+         AND activity.application_name = ANY($2::text[])`,
+      [CMS_SEED_TEST_LOCK_ID, ENTRYPOINT_APPLICATION_NAMES],
     )
-    if (result.rows[0]?.waiting === expectedCount) return
+    if (result.rows[0]?.waiting === ENTRYPOINT_APPLICATION_NAMES.length) return
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
   throw new Error('CMS seed entrypoints did not overlap at the insert barrier.')
 }
 
 databaseDescribe('CMS seed entrypoint concurrency', () => {
-  it('converges two independent entrypoints on one missing page', async () => {
+  it('converges reference and standalone CMS entrypoints on one missing page', async () => {
     const observerPool = createDatabaseTestOwnerPool()
     const observer = await observerPool.connect()
     const seedPools = [createDatabaseTestOwnerPool(), createDatabaseTestOwnerPool()]
+    seedPools.forEach((pool, index) => {
+      pool.options.application_name = ENTRYPOINT_APPLICATION_NAMES[index]
+    })
     const seedClients = seedPools.map(
       (pool) => new PrismaClient({ adapter: new PrismaPg(pool) }),
     )
@@ -52,10 +58,7 @@ databaseDescribe('CMS seed entrypoint concurrency', () => {
     let runners: Promise<void>[] = []
 
     try {
-      await observer.query(
-        'SELECT pg_advisory_lock($1::bigint), pg_advisory_lock($2::bigint)',
-        [CMS_SEED_TEST_LOCK_ID, REFERENCE_BOOTSTRAP_LOCK_ID],
-      )
+      await observer.query('SELECT pg_advisory_lock($1::bigint)', [CMS_SEED_TEST_LOCK_ID])
       lockHeld = true
       await observer.query(
         `DROP TRIGGER IF EXISTS ${TRIGGER_NAME} ON public.cms_page_contents`,
@@ -82,12 +85,11 @@ databaseDescribe('CMS seed entrypoint concurrency', () => {
         where: { pageKey: 'contact' },
       })
 
-      runners = seedClients.map((client) => seedCmsContent(client))
-      await waitForBlockedCmsSeeds(observer, runners.length)
-      await observer.query(
-        'SELECT pg_advisory_unlock($1::bigint), pg_advisory_unlock($2::bigint)',
-        [CMS_SEED_TEST_LOCK_ID, REFERENCE_BOOTSTRAP_LOCK_ID],
-      )
+      runners = [runReferenceBootstrap(seedClients[0]), seedCmsContent(seedClients[1])]
+      await waitForBlockedCmsSeeds(observer)
+      await observer.query('SELECT pg_advisory_unlock($1::bigint)', [
+        CMS_SEED_TEST_LOCK_ID,
+      ])
       lockHeld = false
       await Promise.all(runners)
 
@@ -100,10 +102,9 @@ databaseDescribe('CMS seed entrypoint concurrency', () => {
     } finally {
       try {
         if (lockHeld) {
-          await observer.query(
-            'SELECT pg_advisory_unlock($1::bigint), pg_advisory_unlock($2::bigint)',
-            [CMS_SEED_TEST_LOCK_ID, REFERENCE_BOOTSTRAP_LOCK_ID],
-          )
+          await observer.query('SELECT pg_advisory_unlock($1::bigint)', [
+            CMS_SEED_TEST_LOCK_ID,
+          ])
         }
         await Promise.allSettled(runners)
         await observer.query(
@@ -118,5 +119,5 @@ databaseDescribe('CMS seed entrypoint concurrency', () => {
         await observerPool.end()
       }
     }
-  }, 20_000)
+  }, 30_000)
 })
