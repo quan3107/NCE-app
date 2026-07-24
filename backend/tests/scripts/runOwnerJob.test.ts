@@ -122,6 +122,7 @@ describe('owner job environment', () => {
       PGHOST: 'ambient.example.com',
       PGPASSWORD: 'ambient_password',
       PGPORT: '6543',
+      PGOPTIONS: '-c default_transaction_read_only=on',
       PGUSER: 'ambient_user',
     }
     const ownerDatabaseUrl = 'postgresql://owner:owner@localhost/nce'
