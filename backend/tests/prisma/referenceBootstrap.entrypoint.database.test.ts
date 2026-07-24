@@ -7,7 +7,8 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 import { PrismaPg } from '@prisma/adapter-pg'
-import { describe, expect, it } from 'vitest'
+import type { Pool } from 'pg'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { PrismaClient } from '../../src/prisma/generated.js'
 import {
@@ -18,7 +19,9 @@ import {
 import { runIeltsConfigSeed } from '../../src/prisma/seedIeltsConfig.js'
 import { seedNavigation } from '../../src/prisma/seeds/navigation.seed.js'
 import {
+  acquireDatabaseTestAdvisoryLock,
   createDatabaseTestOwnerPool,
+  DATABASE_TEST_BOOTSTRAP_FIXTURE_LOCK_ID,
   requireRawDatabaseTestOwnerUrl,
 } from './databaseTestClient.js'
 
@@ -79,6 +82,22 @@ async function assertBootstrapIsStable(client: PrismaClient): Promise<void> {
 }
 
 databaseDescribe('production reference bootstrap entrypoint', () => {
+  let fixtureLockPool: Pool
+  let releaseFixtureLock: () => Promise<void>
+
+  beforeAll(async () => {
+    fixtureLockPool = createDatabaseTestOwnerPool()
+    releaseFixtureLock = await acquireDatabaseTestAdvisoryLock(
+      fixtureLockPool,
+      DATABASE_TEST_BOOTSTRAP_FIXTURE_LOCK_ID,
+    )
+  }, 45_000)
+
+  afterAll(async () => {
+    await releaseFixtureLock?.()
+    await fixtureLockPool?.end()
+  })
+
   it('runs the exact reference seed command and exits promptly', async () => {
     const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
     const result = await execFileAsync(npm, ['run', 'seed:reference'], {
