@@ -8,6 +8,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 
 ## Backend
 
+- **2026-07-24:** Stabilized the reference-bootstrap database regression after CI exposed cross-file fixture races: mutable-data preservation now follows transaction-local sentinel rows instead of global counts, and the reparenting case establishes its managed default inside the rolled-back transaction. No production seed behavior changed.
+
 - **2026-07-24:** Closed four production-bootstrap review findings by forcing CA-backed verification on remote owner test pools, documenting the required demo-seed development mode, making missing CMS page creation atomic across overlapping seed commands, and preserving reparented managed navigation defaults. Added focused TLS, documentation, CMS concurrency, and navigation hierarchy regressions.
 
 - **2026-07-23:** Isolated the reference-entrypoint advisory-lock waiter count with a per-process PostgreSQL application name, replaced the production sequence's broken nested list with stable numbered headings, and aligned demo-seed documentation with the exact development/test mode allowlist. Added focused lock-query, rendering-structure, and documentation regressions.
@@ -174,6 +176,8 @@ Why: Provides shared visibility into recent dependency hardening work per projec
 - **2026-05-25:** No backend source changes for the repo-local Git Credential Manager update; this clone now defaults GitHub credentials to `quan3107` and suppresses GCM GUI prompts.
 
 ## Frontend
+
+- **2026-07-24:** No frontend files changed for the reference-bootstrap CI fixture stabilization.
 
 - **2026-07-24:** No frontend files changed for the production-bootstrap review fixes; the update is limited to backend seed/test behavior, local setup documentation, and this progress record.
 
