@@ -7,7 +7,7 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-import { basePrisma } from '../client.js'
+import { basePrisma, shutdownPrisma } from '../client.js'
 import type { Prisma } from '../generated.js'
 import { parseCmsPageContent } from '../../modules/cms/cms.content.js'
 import { CmsPageKeySchema } from '../../modules/cms/cms.schema.js'
@@ -104,7 +104,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       console.error('Error seeding CMS content:', error)
       process.exitCode = 1
     })
-    .finally(async () => {
-      await basePrisma.$disconnect()
-    })
+    .finally(shutdownPrisma)
 }
