@@ -91,7 +91,7 @@ describe('courses.service.createCourse', () => {
       action: 'course.created',
       entity: 'course',
       entityId: createdCourse.id,
-      after: createdCourse,
+      eventData: { ownerTeacherId: validCoursePayload.ownerTeacherId },
     })
     expect(result).toBe(createdCourse)
   })
@@ -192,19 +192,13 @@ describe('courses.service course settings mutations', () => {
       action: 'course.updated',
       entity: 'course',
       entityId: courseId,
-      before: {
-        id: courseId,
-        ownerId,
-        deletedAt: null,
-      },
-      after: updatedCourse,
-      diff: {
-        title: updatedCourse.title,
-        description: updatedCourse.description,
-        learningOutcomes: updatedCourse.learningOutcomes,
-        structureSummary: updatedCourse.structureSummary,
-        prerequisitesSummary: updatedCourse.prerequisitesSummary,
-        schedule: updatedCourse.scheduleJson,
+      eventData: {
+        titleChanged: true,
+        descriptionChanged: true,
+        learningOutcomesChanged: true,
+        structureSummaryChanged: true,
+        prerequisitesSummaryChanged: true,
+        scheduleChanged: true,
       },
     })
     expect(result).toBe(updatedCourse)
@@ -237,18 +231,14 @@ describe('courses.service course settings mutations', () => {
       action: 'course.archived',
       entity: 'course',
       entityId: courseId,
-      before: { id: courseId, ownerId, deletedAt: null },
-      after: { id: courseId, ownerId, deletedAt: archivedAt },
-      diff: { deletedAt: archivedAt },
+      eventData: { lifecycleChanged: true },
     })
     expect(writeAuditLogSafely).toHaveBeenNthCalledWith(2, {
       actorId: adminActor.id,
       action: 'course.restored',
       entity: 'course',
       entityId: courseId,
-      before: { id: courseId, ownerId, deletedAt: archivedAt },
-      after: { id: courseId, ownerId, deletedAt: null },
-      diff: { deletedAt: null },
+      eventData: { lifecycleChanged: true },
     })
 
     vi.useRealTimers()
