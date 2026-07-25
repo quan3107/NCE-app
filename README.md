@@ -78,9 +78,7 @@ GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
-`backend/.env.local` contains the approved owner settings used by short-lived
-database jobs. Localhost needs only the URL; hosted commands also require an
-absolute path to the project Server root certificate:
+`backend/.env.local` contains owner settings for short-lived database jobs; hosted commands also require an absolute path to the project Server root certificate:
 
 ```dotenv
 DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
@@ -103,16 +101,10 @@ Create the local database:
 createdb --host localhost --username postgres nce_app
 ```
 
-Create the prerequisite browser, service, runtime, and worker roles by following
-the [local database role bootstrap](backend/README.md#local-database-role-bootstrap).
-The boundary migrations then create and normalize the non-login `nce_app_*`
-request roles.
+Create the prerequisite roles using the [local database role bootstrap](backend/README.md#local-database-role-bootstrap).
+The boundary migrations create and normalize the non-login `nce_app_*` request roles.
 
-The owner-only scripts below read `.env.local`, derive a consumer-specific
-authenticated TLS URL for every hosted child, and leave the long-running backend
-on `.env`. Raw Prisma migration
-commands fail clearly when `DIRECT_URL` is not explicitly scoped. Install
-pg-boss before Prisma checks its worker grants, then migrate and seed. The final
+Owner-only scripts read `.env.local`, leave the backend on `.env`, and fail clearly when `DIRECT_URL` is absent. Install pg-boss before migrating;
 `verify:ielts-config` reads the runtime `DATABASE_URL` and does not require `DIRECT_URL`:
 
 ```bash
@@ -120,16 +112,8 @@ cd backend
 npm run prisma:generate
 npm run pgboss:install
 npm run prisma:migrate
-npm run prisma:status
-npm run prisma:migrations:verify -- --git-base origin/main
-npm run prisma:migrations:verify:pending
-npm run prisma:migrations:verify:exact
-npm run prisma:diff
-npm run prisma:diff:reverse
-npm run seed:ielts-config
-npm run seed:cms
-npm run seed:navigation
-npm run seed
+npm run seed:reference
+NODE_ENV=development DEMO_SEED_CONFIRM_DATABASE=nce_app npm run seed:demo # destructive; local only
 npm run verify:ielts-config
 ```
 
@@ -169,7 +153,7 @@ The Playwright workflow starts the Vite dev server on `http://127.0.0.1:3000`, u
 
 ## Local Accounts
 
-The main seed creates these accounts:
+The explicit `seed:demo` command creates these local accounts:
 
 | Role    | Email                     | Password    |
 | ------- | ------------------------- | ----------- |
@@ -177,7 +161,7 @@ The main seed creates these accounts:
 | Teacher | `sarah.tutor@ielts.local` | `Passw0rd!` |
 | Student | `amelia.chan@ielts.local` | `Passw0rd!` |
 
-It also creates extra teachers and students so course rosters, submissions, notifications, files, grades, and audit logs have realistic local data.
+It also creates extra teachers and students so course rosters, submissions, notifications, files, grades, and audit logs have realistic local data; supplemental fixtures use the explicit `seed:demo:ielts-assignments`, `seed:demo:ielts-sandbox`, and `seed:demo:nce-content` commands documented in the backend guide and require the same local approval.
 
 ## Project Shape
 
@@ -243,6 +227,7 @@ Backend commands, from `backend/`:
 | `npm run prisma:migrate`                   | Apply local development migrations through the owner-only launcher.      |
 | `npm run prisma:status`                    | Check migration status through the owner-only launcher.                  |
 | `npm run prisma:deploy`                    | Deploy pending migrations through the owner-only launcher.               |
+| `npm run prisma:migrate:deploy`            | Production migration deploy alias used by the bootstrap runbook.         |
 | `npm run prisma:diff`                      | Compare Prisma schema and database through the owner-only launcher.      |
 | `npm run prisma:diff:reverse`              | Compare the database back to Prisma through the owner-only launcher.     |
 | `npm run prisma:migrations:verify`         | Reject changes to migrations present in a trusted Git base.              |
@@ -251,7 +236,8 @@ Backend commands, from `backend/`:
 | `npm run seed:ielts-config`                | Seed IELTS reference data required at startup.                           |
 | `npm run seed:cms`                         | Seed Homepage, About, and Contact CMS content.                           |
 | `npm run seed:navigation`                  | Seed permissions, navigation, and feature flags.                         |
-| `npm run seed`                             | Reset and seed representative local app data.                            |
+| `npm run seed:reference`                   | Create missing production reference data without overwriting values.     |
+| `npm run seed:demo`                        | Reset local fixtures after exact `DEMO_SEED_CONFIRM_DATABASE` approval.  |
 | `npm run verify:ielts-config`              | Check the active IELTS config through the runtime `DATABASE_URL`.        |
 
 ## Testing
@@ -286,11 +272,11 @@ bootstrap sequence documented above.
 Production needs:
 
 - Node.js 20+ for the backend runtime;
-- PostgreSQL with migrations applied through the owner-scoped `npm --prefix backend run prisma:deploy` command during the coordinated rollout in `docs/supabase-data-api-runtime-boundary.md`;
+- PostgreSQL with migrations applied through `npm --prefix backend run prisma:migrate:deploy` (the `npm --prefix backend run prisma:deploy` compatibility command is equivalent), followed by `seed:reference` as documented in the [production bootstrap runbook](docs/production-database-bootstrap.md);
 - the committed forward migrations provision missing Contact CMS content, CMS admin permission/navigation, baseline revisions, and ancestor-aware CMS RLS without running production seed scripts or replacing managed rows;
 - Supabase roles `anon`, `authenticated`, and `service_role`, dedicated logins `nce_runtime` and `nce_job_runner`, plus non-login backend roles `nce_app_anon` and `nce_app_authenticated`;
 - the PR-48A rollout and rolled-back role probes in `docs/supabase-data-api-runtime-boundary.md`;
-- the Prisma-owned migration, backup, two-way diff, and recovery workflow in `docs/prisma-supabase-migration-governance.md`;
+- the Prisma-owned migration, backup, two-way diff, and recovery workflow in [migration governance](docs/prisma-supabase-migration-governance.md);
 - active IELTS reference data verified by `npm run verify:ielts-config`;
 - explicit `CORS_ALLOWED_ORIGINS` because production refuses an empty allowlist;
 - a real `TRUST_PROXY` list, not a boolean;

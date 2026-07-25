@@ -2,6 +2,9 @@
 
 Node.js 20 + Express 5 + TypeScript scaffold providing REST APIs for the English education platform.
 
+Production database deployment and safe reference initialization are documented in
+[`docs/production-database-bootstrap.md`](../docs/production-database-bootstrap.md).
+
 ## Setup
 
 ```bash
@@ -24,10 +27,11 @@ npm start
 
 ## Database Seeding
 
-1. Confirm `NODE_ENV` is not set to `production` and the database URL points to a disposable environment.
-2. Run `npm run seed` to reset the schema and load representative users, courses, and assignment fixtures.
-3. Review the per-table summary log to verify the seed executed successfully.
-   > Note: The seed script skips .env loading if the optional "dotenv" dependency is absent, so CI environments must export the required variables upfront.
+1. Set `NODE_ENV=development` or `NODE_ENV=test`; every other value is rejected. Confirm the database URL points to a disposable environment.
+2. Set `DEMO_SEED_CONFIRM_DATABASE` to the exact node-postgres database name from the loopback URL, then run `npm run seed:demo` to reset and load representative users, courses, and assignments. Reserved escapes and extra leading slashes remain part of that name.
+3. Optionally run `seed:demo:ielts-assignments`, `seed:demo:ielts-sandbox`, or `seed:demo:nce-content` to add the corresponding local fixtures.
+4. Review the per-table summary log to verify the seed executed successfully.
+   > Warning: every `seed:demo*` command is destructive or overwrites disposable fixture values. Each requires exact `NODE_ENV=development` or `NODE_ENV=test`, rejects remote hosts, and uses exact-name confirmation to permit only the intended disposable local database.
 
 ## Database Verification
 

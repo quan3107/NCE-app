@@ -12,7 +12,8 @@ import {
   UserRole,
   UserStatus,
 } from "./generated.js";
-import { basePrisma as prisma } from "./client.js";
+import { basePrisma as prisma, shutdownPrisma } from "./client.js";
+import { assertDemoSeedTarget } from "./demoSeedPolicy.js";
 import { buildSandboxIeltsAssignmentConfig } from "./seeds/ieltsOfficialFixtures.js";
 
 const SHADOWCLONE_EMAIL = "shadowclone3107@gmail.com";
@@ -159,9 +160,7 @@ async function ensureUser(
 }
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Refusing to seed in production mode.");
-  }
+  assertDemoSeedTarget();
 
   const sarahExisting = await prisma.user.findFirst({
     where: {
@@ -279,11 +278,11 @@ async function main(): Promise<void> {
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
+  .catch((error) => {
+    console.error(
+      "IELTS sandbox seed failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+    process.exitCode = 1;
   })
-  .catch(async (error) => {
-    console.error("IELTS sandbox seed failed:", error);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+  .finally(shutdownPrisma);

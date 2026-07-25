@@ -163,17 +163,23 @@ describe('NCE seed fixtures', () => {
     assertRepresentativeNceBookSeed(NCE_BOOK_SEEDS[0], NCE_EXERCISE_TYPES)
   })
 
-  it('keeps the NCE content seed separate from destructive demo seeding', () => {
+  it('keeps NCE course fixtures in the explicit demo seed namespace', () => {
     const packageJson = JSON.parse(readBackend('package.json')) as {
       scripts: Record<string, string>
     }
     const demoSeed = readBackend('src/prisma/seed.ts')
     const nceSeed = readBackend('src/prisma/seeds/nceContent.seed.ts')
 
-    expect(packageJson.scripts['seed:nce-content']).toBe(
+    expect(packageJson.scripts['seed:demo:nce-content']).toBe(
       'tsx scripts/runOwnerJob.ts tsx src/prisma/seedNceContent.ts',
     )
+    expect(packageJson.scripts['seed:nce-content']).toBeUndefined()
     expect(demoSeed).not.toContain('seedNceContent')
+    expect(nceSeed).not.toContain("from '../client.js'")
+    expect(nceSeed).toMatch(
+      /export async function seedNceContent\(\s*prismaClient: PrismaClient/,
+    )
+    expect(nceSeed).not.toMatch(/prisma: PrismaClient\s*=\s*basePrisma/)
     expect(nceSeed).toContain('nceCourseLessonAssignment.deleteMany')
     expect(nceSeed).toContain('nceCourseLessonAssignment.create')
     expect(nceSeed).not.toContain('nceCourseLessonAssignment.upsert')

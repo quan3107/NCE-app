@@ -30,9 +30,9 @@ const objectiveEditorPath = path.join(
   frontendRoot,
   'src/features/nce-content/components/NceObjectiveEditor.tsx',
 );
-const navigationSeedPath = path.resolve(
+const referenceDefaultsPath = path.resolve(
   frontendRoot,
-  '../backend/src/prisma/seeds/navigation.seed.ts',
+  '../backend/src/prisma/seeds/referenceBootstrap.data.ts',
 );
 
 test('AppRoutes exposes teacher NCE lesson authoring routes', async () => {
@@ -68,22 +68,22 @@ test('TeacherNceLessonsPage supports draft refresh and publish state', async () 
 });
 
 test('teacher navigation exposes NCE lesson authoring entry points', async () => {
-  const seedSource = await readFile(navigationSeedPath, 'utf8');
+  const seedSource = await readFile(referenceDefaultsPath, 'utf8');
 
   assert.match(seedSource, /NCE Lessons/);
   assert.match(seedSource, /\/teacher\/nce-lessons/);
 });
 
 test('student navigation exposes NCE learning path entry points', async () => {
-  const seedSource = await readFile(navigationSeedPath, 'utf8');
+  const seedSource = await readFile(referenceDefaultsPath, 'utf8');
 
   assert.match(
     seedSource,
-    /label: "NCE Path"[\s\S]*path: "\/student\/nce"[\s\S]*permission: "courses:read"/,
+    /\[UserRole\.student, 'NCE Path', '\/student\/nce', 'book-open', 'courses:read'/,
   );
   assert.match(
     seedSource,
-    /key: "courses:read"[\s\S]*roles: \[UserRole\.student, UserRole\.teacher, UserRole\.admin\]/,
+    /\['courses:read', 'Read Courses', \[UserRole\.student, UserRole\.teacher, UserRole\.admin\]\]/,
   );
 });
 

@@ -5,6 +5,7 @@
  */
 import bcrypt from 'bcrypt'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { assertDemoSeedTarget } from './demoSeedPolicy.js'
 import {
   AssignmentType,
   EnrollmentRole,
@@ -17,7 +18,7 @@ import {
   UserRole,
   UserStatus,
 } from './generated.js'
-import { basePrisma } from './client.js'
+import { basePrisma, shutdownPrisma } from './client.js'
 import { buildPrimaryIeltsAssignmentConfig } from './seeds/ieltsOfficialFixtures.js'
 import { buildIeltsWritingSubmissionPayload } from './seeds/ieltsOfficialSubmissions.js'
 
@@ -44,9 +45,7 @@ async function resetData(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Refusing to seed in production mode.')
-  }
+  assertDemoSeedTarget()
 
   console.info('Resetting existing data...')
   await resetData()
@@ -1411,11 +1410,13 @@ async function main(): Promise<void> {
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect()
+  .catch((error: unknown) => {
+    console.error(
+      'Seeding failed:',
+      error instanceof Error ? error.message : String(error),
+    )
+    process.exitCode = 1
   })
-  .catch(async (error: unknown) => {
-    console.error('Seeding failed:', error)
-    await prisma.$disconnect()
-    process.exit(1)
+  .finally(async () => {
+    await shutdownPrisma()
   })

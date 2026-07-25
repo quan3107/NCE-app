@@ -24,8 +24,21 @@ const normalizationMigration = readBackend(
 )
 const ciWorkflow = readRepo('.github/workflows/ci.yml')
 const rolloutRunbook = readRepo('docs/supabase-data-api-runtime-boundary.md')
+const bootstrapRunbook = readRepo('docs/production-database-bootstrap.md')
 const rootReadme = readRepo('README.md')
 const backendReadme = readBackend('README.md')
+const demoSeed = readBackend('src/prisma/seed.ts')
+const ieltsAssignmentSeed = readBackend('src/prisma/seedIeltsAssignments.ts')
+const ieltsSandboxSeed = readBackend('src/prisma/seedIeltsSandbox.ts')
+const nceContentSeed = readBackend('src/prisma/seedNceContent.ts')
+const referenceSeed = readBackend('src/prisma/seedReference.ts')
+const referenceLock = readBackend('src/prisma/referenceBootstrapLock.ts')
+const ieltsSeed = readBackend('src/prisma/seedIeltsConfig.ts')
+const navigationSeed = readBackend('src/prisma/seeds/navigation.seed.ts')
+const cmsSeed = readBackend('src/prisma/seeds/cmsContent.seed.ts')
+const referenceDatabaseTest = readBackend(
+  'tests/prisma/referenceBootstrap.database.test.ts',
+)
 
 describe('owner-only database workflow', () => {
   it('documents every fresh local bootstrap prerequisite in execution order', () => {
@@ -72,14 +85,16 @@ describe('owner-only database workflow', () => {
       'prisma:migrate',
       'prisma:status',
       'prisma:deploy',
+      'prisma:migrate:deploy',
       'prisma:diff',
       'pgboss:install',
-      'seed',
+      'seed:demo',
+      'seed:reference',
       'seed:ielts-config',
-      'seed:ielts',
-      'seed:ielts-sandbox',
+      'seed:demo:ielts-assignments',
+      'seed:demo:ielts-sandbox',
       'seed:cms',
-      'seed:nce-content',
+      'seed:demo:nce-content',
       'seed:navigation',
     ]) {
       expect(packageJson.scripts[script]).toContain('scripts/runOwnerJob.ts')
@@ -87,9 +102,23 @@ describe('owner-only database workflow', () => {
     expect(packageJson.scripts['verify:ielts-config']).toBe(
       'tsx src/prisma/verifyIeltsConfig.ts',
     )
+    for (const removedScript of [
+      'seed:ielts',
+      'seed:ielts-sandbox',
+      'seed:nce-content',
+    ]) {
+      expect(packageJson.scripts[removedScript]).toBeUndefined()
+    }
     expect(rootReadme).toContain('`verify:ielts-config` reads the runtime `DATABASE_URL`')
     expect(rootReadme).toContain('does not require `DIRECT_URL`')
     expect(rootReadme).toContain('npm --prefix backend run prisma:deploy')
+    expect(rootReadme).toContain(
+      'The explicit `seed:demo` command creates these local accounts:',
+    )
+    expect(rootReadme).toContain(
+      'NODE_ENV=development DEMO_SEED_CONFIRM_DATABASE=nce_app npm run seed:demo',
+    )
+    expect(rootReadme).not.toContain('The main seed')
     expect(rootReadme).not.toContain(
       'npx prisma migrate deploy --config prisma.config.ts',
     )
@@ -97,6 +126,75 @@ describe('owner-only database workflow', () => {
     expect(ciWorkflow).toContain('CREATE ROLE authenticator NOLOGIN')
     expect(ciWorkflow).not.toMatch(
       /- name: Seed backend CMS test content[\s\S]{0,160}DATABASE_URL:/,
+    )
+  })
+
+  it('closes the external pool in direct seed commands', () => {
+    for (const commandSource of [
+      demoSeed,
+      ieltsAssignmentSeed,
+      ieltsSandboxSeed,
+      nceContentSeed,
+      referenceSeed,
+      ieltsSeed,
+      navigationSeed,
+      cmsSeed,
+    ]) {
+      expect(commandSource).toMatch(/shutdownPrisma\(\)|\.finally\(shutdownPrisma\)/)
+      expect(commandSource).not.toContain('await basePrisma.$disconnect()')
+      expect(commandSource).not.toContain('await prisma.$disconnect()')
+    }
+  })
+
+  it('gates every executable demo fixture before database access', () => {
+    for (const commandSource of [
+      demoSeed,
+      ieltsAssignmentSeed,
+      ieltsSandboxSeed,
+      nceContentSeed,
+    ]) {
+      expect(commandSource).toContain('assertDemoSeedTarget()')
+    }
+    for (const script of [
+      'seed:demo:ielts-assignments',
+      'seed:demo:ielts-sandbox',
+      'seed:demo:nce-content',
+    ]) {
+      expect(rootReadme).toContain(script)
+      expect(backendReadme).toContain(script)
+      expect(bootstrapRunbook).toContain(script)
+    }
+    expect(bootstrapRunbook).toMatch(
+      /Never run any\s+`seed:demo\*` command in a production migration or bootstrap sequence\./,
+    )
+  })
+
+  it('pins the locked reference bootstrap to read committed', () => {
+    expect(referenceLock).toContain('REFERENCE_BOOTSTRAP_LOCK_ID')
+    expect(referenceLock).toContain('pg_advisory_xact_lock')
+    expect(referenceLock).toContain("SET LOCAL lock_timeout = '60s'")
+    expect(referenceLock).toContain('SET LOCAL lock_timeout = DEFAULT')
+    expect(referenceLock).toContain(
+      'isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted',
+    )
+    expect(referenceLock).toContain('timeout: 120_000')
+    expect(referenceSeed).toContain('runWithReferenceBootstrapLock')
+    expect(navigationSeed).toContain('runWithReferenceBootstrapLock')
+    expect(ieltsSeed).toContain('runWithReferenceBootstrapLock')
+    expect(referenceDatabaseTest).toContain('REFERENCE_BOOTSTRAP_LOCK_ID')
+    expect(referenceDatabaseTest).toContain('pg_advisory_xact_lock')
+  })
+
+  it('gives each standalone CMS transaction an explicit seed timeout', () => {
+    expect(cmsSeed).toMatch(
+      /\$transaction\(\(tx\) => createPageIfMissing\(tx, page\), \{\s+timeout: 60_000,/,
+    )
+  })
+
+  it('keeps the database entrypoint suite inside the requested test scope', () => {
+    expect(packageJson.scripts.posttest).toBeUndefined()
+    expect(packageJson.scripts.test).toContain(
+      'RUN_REFERENCE_BOOTSTRAP_ENTRYPOINT_TEST=true',
     )
   })
 

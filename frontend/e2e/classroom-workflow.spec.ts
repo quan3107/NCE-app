@@ -16,6 +16,9 @@ test('teacher publishes, student submits, teacher grades, and student sees feedb
   const api = await installClassroomApi(page);
   const assignmentTitle = 'E2E Writing Task';
   const feedback = 'Strong response with clear organization and precise vocabulary.';
+  const dueAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
 
   await signInAs(page, teacher, api);
   await page.goto('/teacher/assignments/create');
@@ -24,7 +27,7 @@ test('teacher publishes, student submits, teacher grades, and student sees feedb
 
   await page.getByPlaceholder('e.g., IELTS Reading Practice Test 1').fill(assignmentTitle);
   await page.getByPlaceholder('Provide instructions for students...').fill('Answer both writing tasks.');
-  await page.locator('input[type="datetime-local"]').fill('2026-07-15T09:00');
+  await page.locator('input[type="datetime-local"]').fill(dueAt);
   await page
     .getByPlaceholder('The chart below shows... / You should spend about 20 minutes on this task...')
     .fill('Summarize the chart for an academic reader.');

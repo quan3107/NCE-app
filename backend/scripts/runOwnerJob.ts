@@ -30,6 +30,34 @@ type OwnerConfig = {
 
 type OwnerTool = 'prisma' | 'tsx'
 
+function assertDirectOwnerEndpoint(url: URL): void {
+  if (!url.username || url.pathname.length <= 1) {
+    throw new Error('Owner DIRECT_URL must include an explicit user and database.')
+  }
+
+  const configuredOverrides = ['host', 'port'].filter((parameter) =>
+    url.searchParams.has(parameter),
+  )
+  if (configuredOverrides.length > 0) {
+    throw new Error(
+      `Owner DIRECT_URL must not set host or port query overrides: ${configuredOverrides.join(', ')}.`,
+    )
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/\.+$/, '')
+  const isSupabasePooler = hostname.endsWith('.pooler.supabase.com')
+  const isSupabaseDirectHost =
+    hostname.startsWith('db.') && hostname.endsWith('.supabase.co')
+  const usesUnsupportedDirectPort =
+    isSupabaseDirectHost && url.port !== '' && url.port !== '5432'
+
+  if (isSupabasePooler || usesUnsupportedDirectPort) {
+    throw new Error(
+      'Owner jobs require the direct Supabase database endpoint on port 5432; pooler endpoints are not allowed.',
+    )
+  }
+}
+
 export async function loadOwnerConfig(
   directory = backendDir,
   inheritedEnvironment: OwnerEnvironment = process.env,
@@ -85,8 +113,20 @@ export function buildOwnerJobEnvironment(
   certificateAuthorityPath?: string,
   tool: OwnerTool = 'tsx',
 ): OwnerEnvironment {
-  const { DIRECT_DATABASE_CA_CERT_PATH: ignoredCertificatePath, ...childEnvironment } =
-    inheritedEnvironment
+  // Owner jobs receive a complete connection URL, so no ambient libpq/node-postgres
+  // setting or Node TLS override may alter their target or verification policy.
+  const sensitiveEnvironmentNames = new Set([
+    'DIRECT_DATABASE_CA_CERT_PATH',
+    'NODE_TLS_REJECT_UNAUTHORIZED',
+  ])
+  const childEnvironment = Object.fromEntries(
+    Object.entries(inheritedEnvironment).filter(([name]) => {
+      const normalizedName = name.toUpperCase()
+      return (
+        !normalizedName.startsWith('PG') && !sensitiveEnvironmentNames.has(normalizedName)
+      )
+    }),
+  )
   const connectionUrl = buildOwnerConnectionUrl(
     ownerDatabaseUrl,
     certificateAuthorityPath,
@@ -104,9 +144,10 @@ export function buildOwnerConnectionUrl(
   certificateAuthorityPath: string | undefined,
   tool: OwnerTool,
 ): string {
+  const url = new URL(ownerDatabaseUrl)
+  assertDirectOwnerEndpoint(url)
   if (isLoopbackDatabaseUrl(ownerDatabaseUrl)) return ownerDatabaseUrl
 
-  const url = new URL(ownerDatabaseUrl)
   assertUnconfiguredRemoteSsl(url)
   if (!certificateAuthorityPath) {
     throw new Error(

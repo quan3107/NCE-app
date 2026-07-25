@@ -3,9 +3,10 @@
  * Purpose: Lock owner-only command environment scoping.
  * Why: Local migrations and seeds must read .env.local without exposing it to runtime.
  */
+import { spawnSync } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { Client } from 'pg'
@@ -17,6 +18,7 @@ import {
 } from '../../scripts/runOwnerJob.js'
 
 const temporaryDirectories: string[] = []
+const tsxCli = resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs')
 
 async function createBackendDirectory() {
   const directory = await mkdtemp(join(tmpdir(), 'nce-owner-job-'))
@@ -117,16 +119,70 @@ describe('owner job environment', () => {
     const parentEnvironment = {
       DATABASE_URL: 'postgresql://runtime:runtime@localhost:5432/nce',
       JOB_DATABASE_URL: 'postgresql://worker:worker@localhost:5432/nce',
+      NODE_TLS_REJECT_UNAUTHORIZED: '0',
+      PGDATABASE: 'ambient_database',
+      PGHOST: 'ambient.example.com',
+      PGPASSWORD: 'ambient_password',
+      PGPORT: '6543',
+      PGOPTIONS: '-c default_transaction_read_only=on',
+      PGUSER: 'ambient_user',
     }
-    const ownerDatabaseUrl = 'postgresql://owner:owner@localhost:5432/nce'
+    const ownerDatabaseUrl = 'postgresql://owner:owner@localhost/nce'
 
     expect(buildOwnerJobEnvironment(parentEnvironment, ownerDatabaseUrl)).toEqual({
-      ...parentEnvironment,
+      JOB_DATABASE_URL: parentEnvironment.JOB_DATABASE_URL,
       DATABASE_URL: ownerDatabaseUrl,
       DIRECT_URL: ownerDatabaseUrl,
     })
     expect(parentEnvironment).not.toHaveProperty('DIRECT_URL')
   })
+
+  it('strips lowercase PostgreSQL variables before Windows normalizes them', () => {
+    const childEnvironment = buildOwnerJobEnvironment(
+      { pgoptions: '-c default_transaction_read_only=on' },
+      'postgresql://owner:owner@localhost/nce',
+    )
+
+    expect(childEnvironment).not.toHaveProperty('pgoptions')
+    expect(childEnvironment).not.toHaveProperty('PGOPTIONS')
+  })
+
+  it('strips a lowercase TLS override from the spawned owner child', () => {
+    const environment = {
+      ...process.env,
+      DIRECT_URL: 'postgresql://owner:owner@localhost:5432/nce',
+      node_tls_reject_unauthorized: '0',
+    }
+    delete environment.NODE_TLS_REJECT_UNAUTHORIZED
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        tsxCli,
+        'scripts/runOwnerJob.ts',
+        'tsx',
+        '-e',
+        "process.stdout.write(process.env.NODE_TLS_REJECT_UNAUTHORIZED ?? 'unset')",
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        env: environment,
+      },
+    )
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toBe('unset')
+  })
+
+  it.each(['postgresql://localhost:5432/nce', 'postgresql://owner:owner@localhost:5432'])(
+    'rejects an owner URL without an explicit user and database: %s',
+    (url) => {
+      expect(() => buildOwnerJobEnvironment({}, url)).toThrow(
+        /explicit user and database/,
+      )
+    },
+  )
 
   it('gives Prisma owner commands a strict CA-backed TLS URL', () => {
     const childEnvironment = buildOwnerJobEnvironment(
@@ -182,6 +238,39 @@ describe('owner job environment', () => {
         '/trusted/project-ca.crt',
       ),
     ).toThrow(/must not set SSL options/)
+  })
+
+  it.each([
+    'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres',
+    'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres',
+    'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:6543/postgres',
+    'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co.:6543/postgres',
+    'postgresql://owner:secret@aws-0-ap-southeast-1.pooler.supabase.com.:6543/postgres',
+    'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:9999/postgres',
+  ])('rejects pooled Supabase owner endpoints: %s', (ownerDatabaseUrl) => {
+    expect(() =>
+      buildOwnerJobEnvironment({}, ownerDatabaseUrl, '/trusted/project-ca.crt', 'prisma'),
+    ).toThrow(/direct Supabase database endpoint.*port 5432/i)
+  })
+
+  it('rejects a pooled Supabase endpoint hidden by host and port overrides', () => {
+    expect(() =>
+      buildOwnerJobEnvironment(
+        {},
+        'postgresql://owner:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres?host=aws-0-ap-southeast-1.pooler.supabase.com&port=6543',
+        '/trusted/project-ca.crt',
+        'tsx',
+      ),
+    ).toThrow(/must not set host or port query overrides/i)
+  })
+
+  it('rejects ambiguous driver host overrides', () => {
+    expect(() =>
+      buildOwnerJobEnvironment(
+        {},
+        'postgresql://owner:owner@localhost:5432/nce?host=db.example.com',
+      ),
+    ).toThrow(/must not set host or port query overrides/i)
   })
 
   it('keeps bracketed IPv6 loopback CA-free', () => {

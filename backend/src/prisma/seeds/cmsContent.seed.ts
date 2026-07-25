@@ -7,24 +7,16 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-import { basePrisma } from '../client.js'
+import { basePrisma, shutdownPrisma } from '../client.js'
 import type { Prisma } from '../generated.js'
 import { parseCmsPageContent } from '../../modules/cms/cms.content.js'
 import { CmsPageKeySchema } from '../../modules/cms/cms.schema.js'
 import { CMS_PAGES, type CmsSeedPage } from './cmsContent.data.js'
 
-const prisma = basePrisma
-
 export async function createPageIfMissing(
   tx: Prisma.TransactionClient,
   page: CmsSeedPage,
 ) {
-  const existing = await tx.cmsPageContent.findUnique({
-    where: { pageKey: page.pageKey },
-    select: { id: true },
-  })
-  if (existing) return existing.id
-
   const pageKey = CmsPageKeySchema.parse(page.pageKey)
   const content = parseCmsPageContent(pageKey, {
     sections: page.sections.map((section) => ({
@@ -36,13 +28,31 @@ export async function createPageIfMissing(
       })),
     })),
   })
-  const created = await tx.cmsPageContent.create({
+  const [created] = await tx.cmsPageContent.createManyAndReturn({
+    data: [
+      {
+        pageKey,
+        label: page.label,
+        isActive: true,
+        publishedRevision: 1,
+        publishedAt: new Date(),
+      },
+    ],
+    skipDuplicates: true,
+    select: { id: true },
+  })
+  if (!created) {
+    return (
+      await tx.cmsPageContent.findUniqueOrThrow({
+        where: { pageKey },
+        select: { id: true },
+      })
+    ).id
+  }
+
+  await tx.cmsPageContent.update({
+    where: { id: created.id },
     data: {
-      pageKey,
-      label: page.label,
-      isActive: true,
-      publishedRevision: 1,
-      publishedAt: new Date(),
       sections: {
         create: page.sections.map((section) => ({
           sectionKey: section.sectionKey,
@@ -73,12 +83,16 @@ export async function createPageIfMissing(
   return created.id
 }
 
-export async function seedCmsContent() {
+export async function seedCmsContent(prismaClient: typeof basePrisma = basePrisma) {
   console.log('Seeding CMS content...')
 
   const ids: string[] = []
   for (const page of CMS_PAGES) {
-    ids.push(await prisma.$transaction((tx) => createPageIfMissing(tx, page)))
+    ids.push(
+      await prismaClient.$transaction((tx) => createPageIfMissing(tx, page), {
+        timeout: 60_000,
+      }),
+    )
   }
   const [homepageId, aboutPageId, contactPageId] = ids
 
@@ -94,7 +108,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       console.error('Error seeding CMS content:', error)
       process.exitCode = 1
     })
-    .finally(async () => {
-      await prisma.$disconnect()
-    })
+    .finally(shutdownPrisma)
 }
