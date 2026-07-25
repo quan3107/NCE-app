@@ -1,7 +1,7 @@
 /**
  * File: tests/modules/audit-logs/audit-logs.redaction-regressions.test.ts
  * Purpose: Cover audit redaction aliases, value detection, and safe boundaries.
- * Why: Immutable audit rows must never retain credentials, paths, or signed URLs.
+ * Why: Immutable audit rows must never retain credentials, paths, or credential URLs.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -35,9 +35,14 @@ const sensitiveMetadata = {
   credentials: 'username:password',
   code_verifier: 'oauth-code-verifier',
   path: 'private/course.json',
+  uploadPath: 'private/upload.json',
+  document_path: 'private/document.json',
   privatePem: 'private-pem',
   signed_uri: 'https://files.test/keyed-by-name',
   downloadLocation: 'https://files.test/course.json?X-Amz-Signature=private-signature',
+  authenticatedLocation: 'https://private-user:private-pass@files.test/course.json',
+  apiLocation: 'https://files.test/course.json?api_key=private-api-key',
+  callbackLocation: 'https://app.test/callback#access_token=private-access-token',
 }
 
 const entryPoints = [
@@ -64,7 +69,7 @@ describe('audit log redaction regressions', () => {
   })
 
   it.each(entryPoints)(
-    'redacts aliases and signed URL values in $inputKey',
+    'redacts aliases and credential URL values in $inputKey',
     async ({ inputKey, outputKey }) => {
       const input: Parameters<typeof writeAuditLog>[0] = { ...auditIdentity }
       input[inputKey] = sensitiveMetadata
@@ -80,6 +85,8 @@ describe('audit log redaction regressions', () => {
         'credentials',
         'code_verifier',
         'path',
+        'uploadPath',
+        'document_path',
         'privatePem',
         'signed_uri',
       ]) {
@@ -88,10 +95,17 @@ describe('audit log redaction regressions', () => {
           reason: 'sensitive-key',
         })
       }
-      expect(storedEntry?.downloadLocation).toEqual({
-        redacted: true,
-        reason: 'sensitive-value',
-      })
+      for (const key of [
+        'downloadLocation',
+        'authenticatedLocation',
+        'apiLocation',
+        'callbackLocation',
+      ]) {
+        expect(storedEntry?.[key]).toEqual({
+          redacted: true,
+          reason: 'sensitive-value',
+        })
+      }
 
       const storedJson = JSON.stringify(storedDiff)
       for (const privateValue of Object.values(sensitiveMetadata)) {
@@ -105,25 +119,31 @@ describe('audit log redaction regressions', () => {
       ...auditIdentity,
       diff: {
         payload: {
-          password: '123456',
+          endpoint: 'https://files.test/result?api_key=guessable-api-key',
         },
         prompt: {
-          nested: {
-            accessToken: 'guessable-token',
-          },
+          uploadPath: 'private/prompt.json',
         },
         response: [
           {
             url: 'https://files.test/result?sig=guessable-signature',
           },
         ],
+        submission: {
+          password: '123456',
+        },
+        content: {
+          nested: {
+            accessToken: 'guessable-token',
+          },
+        },
       },
     })
 
     const storedDiff = prisma.auditLog.create.mock.calls[0]?.[0].data.diff as {
       changes: Record<string, unknown>
     }
-    for (const key of ['payload', 'prompt', 'response']) {
+    for (const key of ['payload', 'prompt', 'response', 'submission', 'content']) {
       expect(storedDiff.changes[key]).toEqual({
         redacted: true,
         reason: 'sensitive-value',
@@ -131,7 +151,13 @@ describe('audit log redaction regressions', () => {
     }
 
     const storedJson = JSON.stringify(storedDiff)
-    for (const privateValue of ['123456', 'guessable-token', 'guessable-signature']) {
+    for (const privateValue of [
+      '123456',
+      'guessable-token',
+      'guessable-signature',
+      'guessable-api-key',
+      'private/prompt.json',
+    ]) {
       expect(storedJson).not.toContain(privateValue)
     }
   })
@@ -158,6 +184,20 @@ describe('audit log redaction regressions', () => {
       hash: expect.stringMatching(/^sha256:/),
       length: 201,
     })
+  })
+
+  it('preserves HTTP URLs without credential-bearing components', async () => {
+    const publicLocation = 'https://files.test/course.json?page=2#overview'
+
+    await writeAuditLog({
+      ...auditIdentity,
+      diff: { publicLocation },
+    })
+
+    const storedDiff = prisma.auditLog.create.mock.calls[0]?.[0].data.diff as {
+      changes: Record<string, unknown>
+    }
+    expect(storedDiff.changes.publicLocation).toBe(publicLocation)
   })
 
   it.each(lookalikeCases)(
