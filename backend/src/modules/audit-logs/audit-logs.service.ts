@@ -62,14 +62,14 @@ export type AuditLogWriteInput = {
 const sensitiveValueKeyPattern =
   /(body|content|essay|feedback|payload|prompt|response|submission|text)/i
 const secretNamePattern = /(authorization|cookie|hash|oauth|password|secret|token)/i
-const sensitiveIdentifierNamePattern =
-  /^(key|.*(access|api|credential|encryption|file|object|private|public|signing|storage)key(id|material|value)?|.*(file|object|storage)path|.*(presigned|signed).*url)$/
+const sensitivePathOrUrlNamePattern =
+  /(?:file|object|storage).*paths?|(?:presigned|signed).*url/
 // These exact Phase 5 identifiers are operational labels, never storage or credential keys.
 const benignOperationalIdentifierNames = new Set([
-  'itemkey',
-  'pagekey',
-  'sectionkey',
-  'widgetkey',
+  'itemKey',
+  'pageKey',
+  'sectionKey',
+  'widgetKey',
 ])
 const largeStringLimit = 200
 
@@ -78,12 +78,14 @@ function normalizedKeyName(key: string): string {
 }
 
 function isSensitiveKeyName(key: string): boolean {
-  const normalized = normalizedKeyName(key)
-  if (benignOperationalIdentifierNames.has(normalized)) {
+  if (benignOperationalIdentifierNames.has(key)) {
     return false
   }
+  const normalized = normalizedKeyName(key)
   return (
-    secretNamePattern.test(normalized) || sensitiveIdentifierNamePattern.test(normalized)
+    secretNamePattern.test(normalized) ||
+    normalized.includes('key') ||
+    sensitivePathOrUrlNamePattern.test(normalized)
   )
 }
 
@@ -131,8 +133,12 @@ function sanitizeAuditValue(key: string, value: unknown): unknown {
     return redactValue('sensitive-key')
   }
 
+  if (sensitiveValueKeyPattern.test(key)) {
+    return redactValue('sensitive-value', value)
+  }
+
   if (typeof value === 'string') {
-    if (sensitiveValueKeyPattern.test(key) || value.length > largeStringLimit) {
+    if (value.length > largeStringLimit) {
       return redactValue('sensitive-value', value)
     }
     return value
