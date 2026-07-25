@@ -3,7 +3,7 @@
  * Purpose: Implement assignment data access and validation via Prisma.
  * Why: Keeps assignment-specific operations encapsulated away from controllers.
  */
-import { Prisma, UserRole, type Assignment } from '../../prisma/index.js'
+import { Prisma, UserRole } from '../../prisma/index.js'
 
 import { prisma } from '../../prisma/client.js'
 import type { CourseManager } from '../courses/courses.types.js'
@@ -74,47 +74,22 @@ function hasAiPolicyChanged(before: unknown, after: unknown): boolean {
   return stableJson(aiPolicyFromConfig(before)) !== stableJson(aiPolicyFromConfig(after))
 }
 
-function toIsoStringOrNull(value: Date | null): string | null {
-  return value ? value.toISOString() : null
-}
-
-function buildAssignmentUpdateAuditDiff(
-  existing: Assignment,
-  updated: Assignment,
+function buildAssignmentUpdateAuditEventData(
   payload: UpdateAssignmentPayload,
   courseId: string,
-): Record<string, unknown> {
-  const diff: Record<string, unknown> = { courseId }
-
-  if (payload.title !== undefined) {
-    diff.title = { from: existing.title, to: updated.title }
+) {
+  return {
+    courseId,
+    ...(payload.title !== undefined ? { titleChanged: true as const } : {}),
+    ...(payload.descriptionMd !== undefined ? { descriptionChanged: true as const } : {}),
+    ...(payload.type !== undefined ? { typeChanged: true as const } : {}),
+    ...(payload.dueAt !== undefined ? { dueAtChanged: true as const } : {}),
+    ...(payload.latePolicy !== undefined ? { latePolicyChanged: true as const } : {}),
+    ...(payload.assignmentConfig !== undefined
+      ? { assignmentConfigChanged: true as const }
+      : {}),
+    ...(payload.publishedAt !== undefined ? { publishedAtChanged: true as const } : {}),
   }
-  if (payload.descriptionMd !== undefined) {
-    diff.descriptionMd = { changed: true }
-  }
-  if (payload.type !== undefined) {
-    diff.type = { from: existing.type, to: updated.type }
-  }
-  if (payload.dueAt !== undefined) {
-    diff.dueAt = {
-      from: toIsoStringOrNull(existing.dueAt),
-      to: toIsoStringOrNull(updated.dueAt),
-    }
-  }
-  if (payload.latePolicy !== undefined) {
-    diff.latePolicy = { changed: true }
-  }
-  if (payload.assignmentConfig !== undefined) {
-    diff.assignmentConfig = { changed: true }
-  }
-  if (payload.publishedAt !== undefined) {
-    diff.publishedAt = {
-      from: toIsoStringOrNull(existing.publishedAt),
-      to: toIsoStringOrNull(updated.publishedAt),
-    }
-  }
-
-  return diff
 }
 
 export async function listAssignments(params: unknown, actor: CourseManager) {
@@ -272,11 +247,10 @@ export async function createAssignment(
     action: 'assignment.created',
     entity: 'assignment',
     entityId: assignment.id,
-    diff: {
+    eventData: {
       courseId,
-      title: payload.title,
       type: payload.type,
-      publishedAt: publishedAt?.toISOString() ?? null,
+      published: publishedAt !== undefined,
     },
   })
 
@@ -363,7 +337,7 @@ export async function updateAssignment(
       action: 'assignment.updated',
       entity: 'assignment',
       entityId: assignmentId,
-      diff: buildAssignmentUpdateAuditDiff(existing, updated, payload, courseId),
+      eventData: buildAssignmentUpdateAuditEventData(payload, courseId),
     })
   }
 
@@ -374,10 +348,20 @@ export async function updateAssignment(
         action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
         entity: 'assignment',
         entityId: assignmentId,
-        entityIds: { courseId, assignmentId },
-        payload: {
-          before: aiPolicyFromConfig(existing.assignmentConfig),
-          after: aiPolicyFromConfig(assignmentConfig),
+        eventData: {
+          courseId,
+          assignmentId,
+          writingFeedbackModeChanged:
+            stableJson(
+              aiPolicyFromConfig(existing.assignmentConfig)?.writingFeedbackMode,
+            ) !== stableJson(aiPolicyFromConfig(assignmentConfig)?.writingFeedbackMode),
+          objectiveExplanationsChanged:
+            stableJson(
+              aiPolicyFromConfig(existing.assignmentConfig)?.objectiveExplanations,
+            ) !== stableJson(aiPolicyFromConfig(assignmentConfig)?.objectiveExplanations),
+          providerTierChanged:
+            stableJson(aiPolicyFromConfig(existing.assignmentConfig)?.providerTier) !==
+            stableJson(aiPolicyFromConfig(assignmentConfig)?.providerTier),
         },
       },
       undefined,
@@ -411,12 +395,9 @@ export async function deleteAssignment(params: unknown, actor: CourseManager) {
     action: 'assignment.deleted',
     entity: 'assignment',
     entityId: assignmentId,
-    diff: {
+    eventData: {
       courseId,
-      deletedAt: {
-        from: null,
-        to: deletedAt.toISOString(),
-      },
+      lifecycleChanged: true,
     },
   })
 }
