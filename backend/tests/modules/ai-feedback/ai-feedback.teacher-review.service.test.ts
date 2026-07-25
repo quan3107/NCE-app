@@ -102,28 +102,31 @@ describe("AI writing feedback teacher review service", () => {
     prisma.$transaction.mockImplementation(async (callback) => callback(prisma));
     prisma.grade.update.mockResolvedValue({ id: gradeId } as never);
     prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
-    prisma.aiFeedbackDraft.findUnique.mockImplementation(async () => ({
-      ...baseDraft,
-      status: "approved",
-      decision: "approved",
-      decisionActorId: teacherId,
-      teacherEditedFeedback: {
-        feedbackMd: "Teacher-edited final feedback.",
-      },
-    }) as never);
-    prisma.aiFeedbackDraft.update.mockImplementation(async (args) => ({
-      ...baseDraft,
-      ...args.data,
-    }) as never);
+    prisma.aiFeedbackDraft.findUnique.mockImplementation(
+      async () =>
+        ({
+          ...baseDraft,
+          status: "approved",
+          decision: "approved",
+          decisionActorId: teacherId,
+          teacherEditedFeedback: {
+            feedbackMd: "Teacher-edited final feedback.",
+          },
+        }) as never,
+    );
+    prisma.aiFeedbackDraft.update.mockImplementation(
+      async (args) =>
+        ({
+          ...baseDraft,
+          ...args.data,
+        }) as never,
+    );
   });
 
   it("lists all non-deleted writing drafts for an authorized course teacher", async () => {
     prisma.aiFeedbackDraft.findMany.mockResolvedValueOnce([baseDraft] as never);
 
-    const drafts = await listAiWritingFeedbackDrafts(
-      { submissionId },
-      teacherActor,
-    );
+    const drafts = await listAiWritingFeedbackDrafts({ submissionId }, teacherActor);
 
     expect(prisma.aiFeedbackDraft.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -224,13 +227,12 @@ describe("AI writing feedback teacher review service", () => {
         action: "ai_feedback.writing_approved",
         entity: "ai_feedback_draft",
         entityId: draftId,
-        diff: expect.objectContaining({
-          entityIds: expect.objectContaining({
-            submissionId,
-            assignmentId: "66666666-6666-4666-8666-666666666666",
-            gradeId,
-          }),
+        eventData: expect.objectContaining({
+          submissionId,
+          assignmentId: "66666666-6666-4666-8666-666666666666",
+          gradeId,
           teacherDecision: "approved",
+          feedbackChanged: true,
         }),
       }),
       select: { id: true },
@@ -241,11 +243,9 @@ describe("AI writing feedback teacher review service", () => {
         action: "ai_feedback.grade_feedback_updated",
         entity: "grade",
         entityId: gradeId,
-        diff: expect.objectContaining({
-          entityIds: expect.objectContaining({
-            submissionId,
-            draftId,
-          }),
+        eventData: expect.objectContaining({
+          submissionId,
+          draftId,
         }),
       }),
       select: { id: true },
@@ -394,8 +394,9 @@ describe("AI writing feedback teacher review service", () => {
         action: "ai_feedback.writing_rejected",
         entity: "ai_feedback_draft",
         entityId: draftId,
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           teacherDecision: "rejected",
+          feedbackChanged: true,
         }),
       }),
       select: { id: true },
@@ -446,10 +447,7 @@ describe("AI writing feedback teacher review service", () => {
       },
     ] as never);
 
-    const drafts = await listAiWritingFeedbackDrafts(
-      { submissionId },
-      teacherActor,
-    );
+    const drafts = await listAiWritingFeedbackDrafts({ submissionId }, teacherActor);
 
     expect(drafts[0]).toMatchObject({
       status: "rejected",
