@@ -43,19 +43,20 @@ const sensitiveKeyMetadata = {
   authMetadata: 'fixture-auth-metadata',
 }
 
-const authorizationSchemes = [
-  'Token',
-  'ApiKey',
-  'JWT',
-  'AWS4-HMAC-SHA256',
-  'DPoP',
-  'Hawk',
-  'MAC',
-]
+const authorizationExamples = [
+  ['Bearer', 'secret'],
+  ['Token', 'secret'],
+  ['ApiKey', 'secret'],
+  ['JWT', 'secret'],
+  ['AWS4-HMAC-SHA256', 'credential'],
+  ['DPoP', 'proof'],
+  ['Hawk', 'credential'],
+  ['MAC', 'credential'],
+] as const
 const authorizationMetadata = Object.fromEntries(
-  authorizationSchemes.map((scheme, index) => [
+  authorizationExamples.map(([scheme, credential], index) => [
     `transport${index}`,
-    [scheme, `fixture-credential-${index}`].join(' '),
+    [scheme, credential].join(' '),
   ]),
 )
 
@@ -83,6 +84,11 @@ describe('audit log credential families', () => {
         authorId: 'public-author',
         authorityLevel: 'editor',
         summary: 'Clear organization.',
+        roomLabel: 'Room 101',
+        lessonLabel: 'Lesson phase-1',
+        versionLabel: 'Version v2',
+        authenticityScore: 0.95,
+        authenticMaterial: 'verified source',
       }
 
       await writeAuditLog(input)
@@ -108,6 +114,11 @@ describe('audit log credential families', () => {
       expect(storedEntry?.authorId).toBe('public-author')
       expect(storedEntry?.authorityLevel).toBe('editor')
       expect(storedEntry?.summary).toBe('Clear organization.')
+      expect(storedEntry?.roomLabel).toBe('Room 101')
+      expect(storedEntry?.lessonLabel).toBe('Lesson phase-1')
+      expect(storedEntry?.versionLabel).toBe('Version v2')
+      expect(storedEntry?.authenticityScore).toBe(0.95)
+      expect(storedEntry?.authenticMaterial).toBe('verified source')
 
       const storedJson = JSON.stringify(storedDiff)
       for (const privateValue of [
@@ -120,8 +131,9 @@ describe('audit log credential families', () => {
   )
 
   it('omits hashes for containers with equivalent credential descendants', async () => {
-    const tokenValue = ['Token', 'fixture-nested-credential'].join(' ')
-    const dpopValue = ['DPoP', 'fixture-dpop-credential'].join(' ')
+    const bearerValue = ['Bearer', 'secret'].join(' ')
+    const tokenValue = ['Token', 'secret'].join(' ')
+    const dpopValue = ['DPoP', 'proof'].join(' ')
 
     await writeAuditLog({
       ...auditIdentity,
@@ -131,6 +143,9 @@ describe('audit log credential families', () => {
         },
         requestPayload: {
           transport: tokenValue,
+        },
+        headerPayload: {
+          transport: bearerValue,
         },
         contextPayload: {
           authContext: 'fixture-nested-auth-context',
@@ -150,6 +165,7 @@ describe('audit log credential families', () => {
     for (const key of [
       'payload',
       'requestPayload',
+      'headerPayload',
       'contextPayload',
       'statePayload',
       'proofPayload',
@@ -163,10 +179,11 @@ describe('audit log credential families', () => {
     const storedJson = JSON.stringify(storedDiff)
     for (const privateValue of [
       'fixture-nested-session',
-      'fixture-nested-credential',
       'fixture-nested-auth-context',
       'fixture-nested-auth-state',
-      'fixture-dpop-credential',
+      bearerValue,
+      tokenValue,
+      dpopValue,
     ]) {
       expect(storedJson).not.toContain(privateValue)
     }
