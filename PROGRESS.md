@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-25:** Derived assignment and AI-policy audit markers from normalized committed before/after values, preventing full-form payloads and materialized defaults from producing false change flags.
+
 - **2026-07-25:** Closed the remaining provider-response audit boundary by accepting only bounded model metadata and falling back to the validated configured model for unauditable provider labels.
 
 - **2026-07-25:** Closed audit review gaps by aligning AI producer bounds with audit contracts, recording only committed retry states, recognizing rubric and adjustment grade mutations, and validating seed audit events against retained grade records.
@@ -28,6 +30,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-25:** Preserved assignment due-date instants across `datetime-local` editing by formatting API timestamps in the user's local wall-clock timezone before submission.
 
 - **2026-07-25:** No frontend application files changed for the provider-response model metadata boundary fix.
 
