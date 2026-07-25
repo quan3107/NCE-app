@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-25:** Closed remaining representation-dependent audit leaks by treating normalized path suffixes as sensitive and detecting credentials in HTTP(S) userinfo, query parameters, and fragments before either direct storage or sensitive-container hashing.
+
 - **2026-07-25:** Hardened centralized audit redaction across before, after, diff, and request metadata by covering normalized credential/path/signed-URI aliases, detecting signed URL values, suppressing hashes for sensitive containers with secret descendants, and independently testing length boundaries and operational-key lookalikes.
 
 - **2026-07-25:** Closed audit-redaction review gaps by preserving broad non-allowlisted key protection, redacting sensitive object and array subtrees, covering real key/path/URL aliases and raw-value absence, and qualifying immutable historical audit behavior.
@@ -28,6 +30,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-25:** No frontend application files changed for the path-alias and credential-URL audit hardening.
 
 - **2026-07-25:** No frontend application files changed for the audit alias, signed-URL, or nested-credential hardening.
 
