@@ -44,7 +44,7 @@ describe('audit log service', () => {
       before: {
         status: 'draft',
         payload: {
-          notes: 'x'.repeat(201),
+          notes: 'Private draft notes.',
           attachments: [{ objectKey: 'private/submission-key.pdf' }],
         },
       },
@@ -74,19 +74,17 @@ describe('audit log service', () => {
         diff: {
           before: {
             status: 'draft',
-            payload: expect.objectContaining({
+            payload: {
               redacted: true,
               reason: 'sensitive-value',
-              hash: expect.stringMatching(/^sha256:/),
-            }),
+            },
           },
           after: {
             status: 'submitted',
-            payload: expect.objectContaining({
+            payload: {
               redacted: true,
               reason: 'sensitive-value',
-              hash: expect.stringMatching(/^sha256:/),
-            }),
+            },
           },
           changes: {
             status: { from: 'draft', to: 'submitted' },
@@ -105,7 +103,7 @@ describe('audit log service', () => {
     })
 
     const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls)
-    expect(auditPayload).not.toContain('x'.repeat(201))
+    expect(auditPayload).not.toContain('Private draft notes.')
     expect(auditPayload).not.toContain('private/submission-key.pdf')
     expect(auditPayload).not.toContain('private student essay with more text')
     expect(auditPayload).not.toContain('secret-token')
