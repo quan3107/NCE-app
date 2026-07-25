@@ -1320,12 +1320,12 @@ async function main(): Promise<void> {
     action: string
     entity: string
     entityLookup: () => { id: string }
-    diff: Prisma.InputJsonValue
+    eventData: () => Prisma.InputJsonValue
   }> = [
     {
       actorEmail: 'rosa.admin@ielts.local',
       action: 'user.invited',
-      entity: 'users',
+      entity: 'user',
       entityLookup: () => {
         const user = userByEmail.get('fatima.ahmed@ielts.local')
         if (!user) {
@@ -1333,12 +1333,12 @@ async function main(): Promise<void> {
         }
         return { id: user.id }
       },
-      diff: { status: { from: 'invited', to: 'active' } },
+      eventData: () => ({ role: 'student', status: 'invited' }),
     },
     {
       actorEmail: 'sarah.tutor@ielts.local',
       action: 'course.created',
-      entity: 'courses',
+      entity: 'course',
       entityLookup: () => {
         const course = courseByTitle.get('IELTS Academic Writing Bootcamp')
         if (!course) {
@@ -1346,12 +1346,18 @@ async function main(): Promise<void> {
         }
         return { id: course.id }
       },
-      diff: { title: 'IELTS Academic Writing Bootcamp' },
+      eventData: () => {
+        const owner = userByEmail.get('sarah.tutor@ielts.local')
+        if (!owner) {
+          throw new Error('Missing owner for course audit log')
+        }
+        return { ownerTeacherId: owner.id }
+      },
     },
     {
       actorEmail: 'david.tutor@ielts.local',
-      action: 'assignment.published',
-      entity: 'assignments',
+      action: 'assignment.created',
+      entity: 'assignment',
       entityLookup: () => {
         const assignment = assignmentByTitle.get('Part 2 Cue Card: Memorable Journey')
         if (!assignment) {
@@ -1359,12 +1365,22 @@ async function main(): Promise<void> {
         }
         return { id: assignment.id }
       },
-      diff: { publishedAt: daysFromNow(-1).toISOString() },
+      eventData: () => {
+        const assignment = assignmentByTitle.get('Part 2 Cue Card: Memorable Journey')
+        if (!assignment) {
+          throw new Error('Missing assignment data for audit log')
+        }
+        return {
+          courseId: assignment.courseId,
+          type: assignment.type,
+          published: assignment.publishedAt !== null,
+        }
+      },
     },
     {
       actorEmail: 'sarah.tutor@ielts.local',
-      action: 'grade.released',
-      entity: 'grades',
+      action: 'grade.upserted',
+      entity: 'grade',
       entityLookup: () => {
         const submission = submissions[0]
         if (!submission) {
@@ -1372,14 +1388,37 @@ async function main(): Promise<void> {
         }
         return { id: submission.id }
       },
-      diff: { finalScore: 7.5 },
+      eventData: () => {
+        const submission = submissions[0]
+        const grader = userByEmail.get('sarah.tutor@ielts.local')
+        if (!submission || !grader) {
+          throw new Error('Missing grade audit data')
+        }
+        return {
+          submissionId: submission.id,
+          graderId: grader.id,
+          scoreChanged: true,
+          feedbackChanged: true,
+        }
+      },
     },
     {
       actorEmail: null,
-      action: 'system.cleanup',
-      entity: 'cron',
-      entityLookup: () => ({ id: 'scheduled-task' }),
-      diff: { detail: 'Expired sessions revoked' },
+      action: 'cleanup.retention_executed',
+      entity: 'maintenance_job',
+      entityLookup: () => ({ id: 'cleanup-retention' }),
+      eventData: () => ({
+        authSessions: 0,
+        notificationMetadata: 0,
+        authSessionBatches: 0,
+        notificationMetadataBatches: 0,
+        batchSize: 100,
+        maxBatches: 10,
+        authSessionBatchLimitReached: false,
+        notificationMetadataBatchLimitReached: false,
+        authSessionCutoff: daysFromNow(-90).toISOString(),
+        notificationMetadataCutoff: daysFromNow(-90).toISOString(),
+      }),
     },
   ]
 
@@ -1393,7 +1432,8 @@ async function main(): Promise<void> {
           action: seed.action,
           entity: seed.entity,
           entityId: entity.id,
-          diff: seed.diff,
+          eventData: seed.eventData(),
+          schemaVersion: 1,
         },
       })
     }),
