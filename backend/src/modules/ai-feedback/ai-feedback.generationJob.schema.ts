@@ -5,6 +5,8 @@
  */
 import { z } from "zod";
 
+import { auditIdSchema } from "../audit-logs/contracts/common.js";
+
 const providerTierSchema = z.enum(["auto", "low_cost", "premium"]);
 
 const assignmentAiPolicySchema = z
@@ -128,7 +130,7 @@ const objectivePromptInputSchema = z
       .passthrough(),
     question: z
       .object({
-        id: z.string(),
+        id: auditIdSchema,
         text: z.string(),
         acceptedAnswer: z.string(),
       })
