@@ -8,6 +8,12 @@ import { createHash } from 'node:crypto'
 import { logger } from '../../config/logger.js'
 import { prisma } from '../../prisma/client.js'
 import { Prisma } from '../../prisma/index.js'
+import {
+  containsSensitiveDescendant,
+  isSensitiveKeyName,
+  isSensitiveStringValue,
+  isSensitiveValueKeyName,
+} from './audit-redaction.js'
 import { DEFAULT_AUDIT_LOG_LIMIT } from './audit-logs.schema.js'
 
 const auditLogSelect = {
@@ -53,73 +59,7 @@ export type AuditLogWriteInput = {
   requestMetadata?: JsonRecord | null
 }
 
-const sensitiveValueKeyPattern =
-  /(body|content|essay|feedback|payload|prompt|response|submission|text)/i
-const secretNamePattern =
-  /(authorization|codeverifier|cookie|credentials?|hash|oauth|password|privatepem|secret|signature|token)/i
-const sensitiveNormalizedKeyPattern =
-  /^(?:auth(?:entication)?(?:data|header|info|value)?|bearer.*|jwt.*|session.*)$/
-const sensitiveUrlParameterNames = new Set(['code', 'sig'])
-const sensitivePathOrUrlNamePattern =
-  /paths?$|(?:file|object|storage).*paths?|(?:presigned|signed).*(?:uri|url)/
-const authorizationValuePattern = /^\s*(?:basic|bearer|digest|negotiate)\s+\S+/i
-// These exact Phase 5 identifiers are operational labels, never storage or credential keys.
-const benignOperationalIdentifierNames = new Set([
-  'itemKey',
-  'pageKey',
-  'sectionKey',
-  'widgetKey',
-])
 const largeStringLimit = 200
-const normalizedKeyName = (key: string) => key.replace(/[^a-z0-9]/gi, '').toLowerCase()
-
-function isSensitiveKeyName(key: string): boolean {
-  if (benignOperationalIdentifierNames.has(key)) {
-    return false
-  }
-  const normalized = normalizedKeyName(key)
-  return (
-    sensitiveNormalizedKeyPattern.test(normalized) ||
-    secretNamePattern.test(normalized) ||
-    normalized.includes('key') ||
-    sensitivePathOrUrlNamePattern.test(normalized)
-  )
-}
-
-function isSensitiveUrlValue(value: string): boolean {
-  try {
-    const url = new URL(value)
-    const parameterNames = [
-      ...url.searchParams.keys(),
-      ...new URLSearchParams(url.hash.slice(1)).keys(),
-    ]
-    return (
-      Boolean(url.username || url.password) ||
-      parameterNames.some(
-        (key) =>
-          isSensitiveKeyName(key) ||
-          sensitiveUrlParameterNames.has(normalizedKeyName(key)),
-      )
-    )
-  } catch {
-    return false
-  }
-}
-
-function containsSensitiveDescendant(value: unknown): boolean {
-  if (typeof value === 'string') {
-    return authorizationValuePattern.test(value) || isSensitiveUrlValue(value)
-  }
-  if (Array.isArray(value)) {
-    return value.some(containsSensitiveDescendant)
-  }
-  if (!value || typeof value !== 'object' || value instanceof Date) {
-    return false
-  }
-  return Object.entries(value as JsonRecord).some(
-    ([key, nested]) => isSensitiveKeyName(key) || containsSensitiveDescendant(nested),
-  )
-}
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) {
@@ -165,14 +105,14 @@ function sanitizeAuditValue(key: string, value: unknown): unknown {
     return redactValue('sensitive-key')
   }
 
-  if (sensitiveValueKeyPattern.test(key)) {
+  if (isSensitiveValueKeyName(key)) {
     return containsSensitiveDescendant(value)
       ? redactValue('sensitive-value')
       : redactValue('sensitive-value', value)
   }
 
   if (typeof value === 'string') {
-    if (authorizationValuePattern.test(value) || isSensitiveUrlValue(value)) {
+    if (isSensitiveStringValue(value)) {
       return redactValue('sensitive-value')
     }
     if (value.length > largeStringLimit) {
