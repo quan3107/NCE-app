@@ -61,9 +61,12 @@ export type AuditLogWriteInput = {
 
 const sensitiveValueKeyPattern =
   /(body|content|essay|feedback|payload|prompt|response|submission|text)/i
-const secretNamePattern = /(authorization|cookie|hash|oauth|password|secret|token)/i
+const secretNamePattern =
+  /(authorization|codeverifier|cookie|credentials?|hash|oauth|password|privatepem|secret|token)/i
 const sensitivePathOrUrlNamePattern =
-  /(?:file|object|storage).*paths?|(?:presigned|signed).*url/
+  /^(?:path|signeduri)$|(?:file|object|storage).*paths?|(?:presigned|signed).*url/
+const signedUrlParameterPattern =
+  /^(?:accesstoken|credentials?|sig|signature|token|xamzsignature|xgoogsignature)$/
 // These exact Phase 5 identifiers are operational labels, never storage or credential keys.
 const benignOperationalIdentifierNames = new Set([
   'itemKey',
@@ -86,6 +89,35 @@ function isSensitiveKeyName(key: string): boolean {
     secretNamePattern.test(normalized) ||
     normalized.includes('key') ||
     sensitivePathOrUrlNamePattern.test(normalized)
+  )
+}
+
+function isSignedUrlValue(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      [...url.searchParams.keys()].some((key) =>
+        signedUrlParameterPattern.test(normalizedKeyName(key)),
+      )
+    )
+  } catch {
+    return false
+  }
+}
+
+function containsSensitiveDescendant(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return isSignedUrlValue(value)
+  }
+  if (Array.isArray(value)) {
+    return value.some(containsSensitiveDescendant)
+  }
+  if (!value || typeof value !== 'object' || value instanceof Date) {
+    return false
+  }
+  return Object.entries(value as JsonRecord).some(
+    ([key, nested]) => isSensitiveKeyName(key) || containsSensitiveDescendant(nested),
   )
 }
 
@@ -134,10 +166,15 @@ function sanitizeAuditValue(key: string, value: unknown): unknown {
   }
 
   if (sensitiveValueKeyPattern.test(key)) {
-    return redactValue('sensitive-value', value)
+    return containsSensitiveDescendant(value)
+      ? redactValue('sensitive-value')
+      : redactValue('sensitive-value', value)
   }
 
   if (typeof value === 'string') {
+    if (isSignedUrlValue(value)) {
+      return redactValue('sensitive-value')
+    }
     if (value.length > largeStringLimit) {
       return redactValue('sensitive-value', value)
     }
