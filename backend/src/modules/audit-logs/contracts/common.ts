@@ -5,8 +5,15 @@
  */
 import { z } from "zod";
 
-export const auditIdSchema = z.string().trim().min(1).max(160);
-export const auditLabelSchema = z.string().trim().min(1).max(120);
+export const AUDIT_ID_MAX_LENGTH = 160;
+export const AUDIT_LABEL_MAX_LENGTH = 120;
+
+export const auditIdSchema = z.string().trim().min(1).max(AUDIT_ID_MAX_LENGTH);
+export const auditLabelSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(AUDIT_LABEL_MAX_LENGTH);
 export const auditTimestampSchema = z.string().datetime({ offset: true });
 
 export const userRoleSchema = z.enum(["admin", "teacher", "student"]);
