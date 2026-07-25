@@ -1,7 +1,7 @@
 /**
  * File: tests/modules/audit-logs/audit-logs.service.test.ts
- * Purpose: Verify centralized audit writing, redaction, and filtering.
- * Why: Mutation audit trails must be reusable and safe for sensitive records.
+ * Purpose: Verify typed audit writing, runtime contracts, and filtering.
+ * Why: Only reviewed operational event data may cross the persistence boundary.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -33,166 +33,88 @@ describe('audit log service', () => {
     vi.clearAllMocks()
   })
 
-  it('writes centralized audit rows with redacted sensitive payloads', async () => {
+  it('writes registered event data with its schema version', async () => {
     prisma.auditLog.create.mockResolvedValueOnce({ id: 'audit-1' } as never)
 
     await writeAuditLog({
       actorId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
-      action: 'submission.updated',
-      entity: 'submission',
+      action: 'course.created',
+      entity: 'course',
       entityId: '6c986d3c-5d72-40d4-96b5-b5e3725c9811',
-      before: {
-        status: 'draft',
-        payload: {
-          responseText: 'This is a private student essay.',
-          attachments: [{ objectKey: 'private/submission-key.pdf' }],
-        },
-      },
-      after: {
-        status: 'submitted',
-        payload: {
-          responseText: 'This is a private student essay with more text.',
-          accessToken: 'secret-token',
-        },
-      },
-      diff: {
-        status: { from: 'draft', to: 'submitted' },
-      },
-      requestMetadata: {
-        ipAddress: '203.0.113.10',
-        userAgent: 'Vitest',
-        authorization: 'Bearer secret',
+      eventData: {
+        ownerTeacherId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
       },
     })
 
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: {
         actorId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
+        action: 'course.created',
+        entity: 'course',
+        entityId: '6c986d3c-5d72-40d4-96b5-b5e3725c9811',
+        eventData: {
+          ownerTeacherId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
+        },
+        schemaVersion: 1,
+      },
+      select: { id: true },
+    })
+  })
+
+  it.each([
+    {
+      name: 'unregistered actions',
+      input: {
         action: 'submission.updated',
         entity: 'submission',
-        entityId: '6c986d3c-5d72-40d4-96b5-b5e3725c9811',
-        diff: {
-          before: {
-            status: 'draft',
-            payload: {
-              responseText: expect.objectContaining({
-                redacted: true,
-                hash: expect.stringMatching(/^sha256:/),
-                length: 32,
-              }),
-              attachments: [
-                {
-                  objectKey: expect.objectContaining({
-                    redacted: true,
-                    reason: 'sensitive-key',
-                  }),
-                },
-              ],
-            },
-          },
-          after: {
-            status: 'submitted',
-            payload: {
-              responseText: expect.objectContaining({
-                redacted: true,
-                hash: expect.stringMatching(/^sha256:/),
-              }),
-              accessToken: expect.objectContaining({
-                redacted: true,
-                reason: 'sensitive-key',
-              }),
-            },
-          },
-          changes: {
-            status: { from: 'draft', to: 'submitted' },
-          },
-          request: {
-            ipAddress: '203.0.113.10',
-            userAgent: 'Vitest',
-            authorization: expect.objectContaining({
-              redacted: true,
-              reason: 'sensitive-key',
-            }),
-          },
+        eventData: { submissionContentChanged: true },
+      },
+    },
+    {
+      name: 'unknown properties',
+      input: {
+        action: 'course.created',
+        entity: 'course',
+        eventData: {
+          ownerTeacherId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
+          title: 'Private course title',
         },
       },
-      select: { id: true },
-    })
-
-    const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls)
-    expect(auditPayload).not.toContain('private student essay')
-    expect(auditPayload).not.toContain('private/submission-key.pdf')
-    expect(auditPayload).not.toContain('secret-token')
-    expect(auditPayload).not.toContain('Bearer secret')
-  })
-
-  it('redacts short feedback fields', async () => {
-    prisma.auditLog.create.mockResolvedValueOnce({ id: 'audit-1' } as never)
-
-    await writeAuditLog({
-      actorId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
-      action: 'grade.updated',
-      entity: 'grade',
-      entityId: 'grade-1',
-      diff: {
-        feedbackMd: 'Clear organization.',
+    },
+    {
+      name: 'complete records',
+      input: {
+        action: 'course.created',
+        entity: 'course',
+        eventData: {
+          id: '6c986d3c-5d72-40d4-96b5-b5e3725c9811',
+          ownerTeacherId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
+          description: 'Full database record',
+          createdAt: '2026-06-30T04:15:00.000Z',
+        },
       },
-    })
-
-    expect(prisma.auditLog.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        diff: expect.objectContaining({
-          changes: {
-            feedbackMd: expect.objectContaining({
-              redacted: true,
-              hash: expect.stringMatching(/^sha256:/),
-              length: 19,
-            }),
-          },
-        }),
-      }),
-      select: { id: true },
-    })
-    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
-      'Clear organization.',
-    )
-  })
-
-  it('serializes Date values in audit diffs', async () => {
-    prisma.auditLog.create.mockResolvedValueOnce({ id: 'audit-1' } as never)
-    const archivedAt = new Date('2026-06-30T04:15:00.000Z')
-
-    await writeAuditLog({
-      actorId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
-      action: 'course.archived',
-      entity: 'course',
-      entityId: 'course-1',
-      before: {
-        deletedAt: null,
+    },
+    {
+      name: 'private content',
+      input: {
+        action: 'grade.upserted',
+        entity: 'grade',
+        eventData: {
+          submissionId: '6c986d3c-5d72-40d4-96b5-b5e3725c9811',
+          feedbackMd: 'Clear organization.',
+        },
       },
-      after: {
-        deletedAt: archivedAt,
-      },
-      diff: {
-        deletedAt: { from: null, to: archivedAt },
-      },
-    })
+    },
+  ])('rejects $name before persistence', async ({ input }) => {
+    await expect(
+      writeAuditLog({
+        actorId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
+        entityId: '6c986d3c-5d72-40d4-96b5-b5e3725c9811',
+        ...input,
+      } as never),
+    ).rejects.toThrow()
 
-    expect(prisma.auditLog.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        diff: expect.objectContaining({
-          before: { deletedAt: null },
-          after: { deletedAt: archivedAt.toISOString() },
-          changes: {
-            deletedAt: {
-              from: null,
-              to: archivedAt.toISOString(),
-            },
-          },
-        }),
-      }),
-      select: { id: true },
-    })
+    expect(prisma.auditLog.create).not.toHaveBeenCalled()
   })
 
   it('logs and swallows audit insertion failures for safe writes', async () => {
@@ -205,7 +127,7 @@ describe('audit log service', () => {
         action: 'course.updated',
         entity: 'course',
         entityId: 'course-1',
-        diff: { title: { from: 'Old', to: 'New' } },
+        eventData: { titleChanged: true },
       }),
     ).resolves.toBeUndefined()
 
