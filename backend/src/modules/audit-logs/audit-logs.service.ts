@@ -59,10 +59,33 @@ export type AuditLogWriteInput = {
   requestMetadata?: JsonRecord | null
 }
 
-const sensitiveKeyPattern =
-  /(authorization|body|content|cookie|essay|feedback|filekey|hash|key|oauth|password|payload|prompt|response|secret|submission|text|token)/i
-const secretKeyPattern = /(authorization|cookie|hash|key|oauth|password|secret|token)/i
+const sensitiveValueKeyPattern =
+  /(body|content|essay|feedback|payload|prompt|response|submission|text)/i
+const secretNamePattern = /(authorization|cookie|hash|oauth|password|secret|token)/i
+const sensitiveIdentifierNamePattern =
+  /^(key|.*(access|api|credential|encryption|file|object|private|public|signing|storage)key(id|material|value)?|.*(file|object|storage)path|.*(presigned|signed).*url)$/
+// These exact Phase 5 identifiers are operational labels, never storage or credential keys.
+const benignOperationalIdentifierNames = new Set([
+  'itemkey',
+  'pagekey',
+  'sectionkey',
+  'widgetkey',
+])
 const largeStringLimit = 200
+
+function normalizedKeyName(key: string): string {
+  return key.replace(/[^a-z0-9]/gi, '').toLowerCase()
+}
+
+function isSensitiveKeyName(key: string): boolean {
+  const normalized = normalizedKeyName(key)
+  if (benignOperationalIdentifierNames.has(normalized)) {
+    return false
+  }
+  return (
+    secretNamePattern.test(normalized) || sensitiveIdentifierNamePattern.test(normalized)
+  )
+}
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) {
@@ -90,7 +113,7 @@ function redactValue(reason: string, value?: unknown) {
     reason,
   }
 
-  if (value !== undefined && !secretKeyPattern.test(reason)) {
+  if (value !== undefined && reason !== 'sensitive-key') {
     const serialized = typeof value === 'string' ? value : stableJson(value)
     redacted.hash = hashValue(value)
     redacted.length = serialized.length
@@ -104,12 +127,12 @@ function sanitizeAuditValue(key: string, value: unknown): unknown {
     return undefined
   }
 
-  if (secretKeyPattern.test(key)) {
+  if (isSensitiveKeyName(key)) {
     return redactValue('sensitive-key')
   }
 
   if (typeof value === 'string') {
-    if (sensitiveKeyPattern.test(key) || value.length > largeStringLimit) {
+    if (sensitiveValueKeyPattern.test(key) || value.length > largeStringLimit) {
       return redactValue('sensitive-value', value)
     }
     return value
