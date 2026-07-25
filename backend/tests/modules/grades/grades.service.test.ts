@@ -4,11 +4,7 @@
  * Why: Prevents clients from spoofing grading ownership or grading outside-course submissions.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AssignmentType,
-  EnrollmentRole,
-  UserRole,
-} from "../../../src/prisma/index.js";
+import { AssignmentType, EnrollmentRole, UserRole } from "../../../src/prisma/index.js";
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
@@ -37,33 +33,22 @@ vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
 
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
-const notificationsModule = await import(
-  "../../../src/modules/notifications/notifications.service.js"
-);
-const enqueueNotification = vi.mocked(
-  notificationsModule.enqueueNotification,
-  true,
-);
-const aiFeedbackRepositoryModule = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.repository.js"
-);
+const notificationsModule =
+  await import("../../../src/modules/notifications/notifications.service.js");
+const enqueueNotification = vi.mocked(notificationsModule.enqueueNotification, true);
+const aiFeedbackRepositoryModule =
+  await import("../../../src/modules/ai-feedback/ai-feedback.repository.js");
 const getStudentVisibleAiFeedbackDraft = vi.mocked(
   aiFeedbackRepositoryModule.getStudentVisibleAiFeedbackDraft,
 );
-const auditLogsModule = await import(
-  "../../../src/modules/audit-logs/audit-logs.service.js"
-);
-const writeAuditLogSafely = vi.mocked(
-  auditLogsModule.writeAuditLogSafely,
-  true,
-);
+const auditLogsModule =
+  await import("../../../src/modules/audit-logs/audit-logs.service.js");
+const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely, true);
 
-const { getGrade, upsertGrade } = await import(
-  "../../../src/modules/grades/grades.service.js"
-);
-const { gradePayloadSchema } = await import(
-  "../../../src/modules/grades/grades.schema.js"
-);
+const { getGrade, upsertGrade } =
+  await import("../../../src/modules/grades/grades.service.js");
+const { gradePayloadSchema } =
+  await import("../../../src/modules/grades/grades.schema.js");
 
 const submissionId = "2520f0dd-918a-4c2b-9544-b922eac066e5";
 const teacherId = "db2b572b-ef7d-44b3-96c6-a61c498cf673";
@@ -97,9 +82,7 @@ describe("grades.service.upsertGrade", () => {
     vi.clearAllMocks();
     prisma.grade.upsert.mockResolvedValue({ id: "grade-1" } as never);
     prisma.submission.update.mockResolvedValue({ id: submissionId } as never);
-    prisma.$transaction.mockImplementation(async (operations) =>
-      Promise.all(operations),
-    );
+    prisma.$transaction.mockImplementation(async (operations) => Promise.all(operations));
   });
 
   it("persists the authenticated teacher as grader without a graderId payload", async () => {
@@ -166,13 +149,11 @@ describe("grades.service.upsertGrade", () => {
         action: "grade.upserted",
         entity: "grade",
         entityId: "grade-audit-1",
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           submissionId,
           graderId: teacherId,
-          rawScore: 6,
-          finalScore: 7,
-          band: 7,
-          feedbackMd: "Detailed private feedback.",
+          scoreChanged: true,
+          feedbackChanged: true,
         }),
       }),
     );
@@ -596,8 +577,7 @@ describe("grades.service.getGrade", () => {
           label: "provisional AI feedback",
           status: "accepted",
           feedback: {
-            feedbackMd:
-              "This provisional feedback is ready before teacher grading.",
+            feedbackMd: "This provisional feedback is ready before teacher grading.",
           },
         },
       }),
@@ -639,10 +619,7 @@ describe("grades.service.getGrade", () => {
     prisma.grade.findFirst.mockResolvedValueOnce(null);
 
     await expect(
-      getGrade(
-        { submissionId },
-        { id: otherStudentId, role: UserRole.student },
-      ),
+      getGrade({ submissionId }, { id: otherStudentId, role: UserRole.student }),
     ).rejects.toMatchObject({ statusCode: 404 });
 
     expect(prisma.grade.findFirst).toHaveBeenCalledWith(
@@ -666,10 +643,7 @@ describe("grades.service.getGrade", () => {
       },
     } as never);
 
-    await getGrade(
-      { submissionId },
-      { id: teacherId, role: UserRole.teacher },
-    );
+    await getGrade({ submissionId }, { id: teacherId, role: UserRole.teacher });
 
     expect(prisma.grade.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -709,10 +683,7 @@ describe("grades.service.getGrade", () => {
       },
     } as never);
 
-    await getGrade(
-      { submissionId },
-      { id: adminId, role: UserRole.admin },
-    );
+    await getGrade({ submissionId }, { id: adminId, role: UserRole.admin });
 
     expect(prisma.grade.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
