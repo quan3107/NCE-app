@@ -75,9 +75,9 @@ export async function createUser(payload: unknown, actor: UserActor) {
     action: 'user.created',
     entity: 'user',
     entityId: user.id,
-    diff: {
-      role: { to: user.role },
-      status: { to: user.status },
+    eventData: {
+      role: user.role,
+      status: user.status,
     },
   })
 
@@ -105,9 +105,9 @@ export async function inviteUser(payload: unknown, actor: UserActor) {
       action: 'user.invited',
       entity: 'user',
       entityId: user.id,
-      diff: {
-        role: { to: user.role },
-        status: { to: user.status },
+      eventData: {
+        role: user.role,
+        status: user.status,
       },
     })
 
@@ -126,7 +126,6 @@ export async function approveTeacherRequest(params: unknown, actor: UserActor) {
     userId,
     actor,
     nextStatus: UserStatus.active,
-    auditAction: 'user.teacher_approved',
   })
 }
 
@@ -136,7 +135,6 @@ export async function rejectTeacherRequest(params: unknown, actor: UserActor) {
     userId,
     actor,
     nextStatus: UserStatus.suspended,
-    auditAction: 'user.teacher_rejected',
   })
 }
 
@@ -144,7 +142,6 @@ async function transitionPendingTeacher(input: {
   userId: string
   actor: UserActor
   nextStatus: UserStatus
-  auditAction: string
 }) {
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.user.updateMany({
@@ -195,18 +192,29 @@ async function transitionPendingTeacher(input: {
     return updated
   })
 
-  await writeAuditLogSafely({
-    actorId: input.actor.id,
-    action: input.auditAction,
-    entity: 'user',
-    entityId: updated.id,
-    diff: {
-      status: {
-        from: UserStatus.pending,
-        to: input.nextStatus,
+  if (input.nextStatus === UserStatus.active) {
+    await writeAuditLogSafely({
+      actorId: input.actor.id,
+      action: 'user.teacher_approved',
+      entity: 'user',
+      entityId: updated.id,
+      eventData: {
+        previousStatus: 'pending',
+        status: 'active',
       },
-    },
-  })
+    })
+  } else {
+    await writeAuditLogSafely({
+      actorId: input.actor.id,
+      action: 'user.teacher_rejected',
+      entity: 'user',
+      entityId: updated.id,
+      eventData: {
+        previousStatus: 'pending',
+        status: 'suspended',
+      },
+    })
+  }
 
   return updated
 }
