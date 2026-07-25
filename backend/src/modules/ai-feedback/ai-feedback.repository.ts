@@ -44,11 +44,7 @@ type GenerationStatus = {
 };
 
 const activeGenerationStatuses = ["queued", "running"] as const;
-const studentVisibleDraftStatuses = [
-  "accepted",
-  "approved",
-  "finalized",
-] as const;
+const studentVisibleDraftStatuses = ["accepted", "approved", "finalized"] as const;
 const supersedableDraftStatuses = [
   "queued",
   "running",
@@ -255,22 +251,17 @@ export async function createAiFeedbackDraft(input: unknown) {
           action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
           entity: "ai_feedback_draft",
           entityId: draft.id,
-          entityIds: {
+          eventData: {
             submissionId: data.submissionId,
             assignmentId: submission.assignmentId,
             ...(data.gradeId ? { gradeId: data.gradeId } : {}),
-          },
-          routeKey: data.routeKey,
-          provider: data.provider,
-          model: data.model,
-          promptVersion: data.promptVersion,
-          payload: {
+            routeKey: data.routeKey as "low_cost" | "premium",
+            provider: data.provider as "openai-compatible",
+            model: data.model,
+            promptVersion: data.promptVersion,
+            status: "failed",
             failureCode: "queue_enqueue_failed",
-            failureMessage:
-              error instanceof Error
-                ? error.message
-                : "AI feedback job enqueue failed.",
-            promptInput: data.generationJob.harnessInput.promptInput,
+            outputGenerated: false,
           },
         });
         throw error;
@@ -334,16 +325,12 @@ export async function getStudentVisibleAiFeedbackDraft(input: unknown) {
     return null;
   }
 
-  return isInstantVisibleAssignmentPolicy(
-    draft.submission.assignment.assignmentConfig,
-  )
+  return isInstantVisibleAssignmentPolicy(draft.submission.assignment.assignmentConfig)
     ? draft
     : null;
 }
 
-export async function findLatestAiFeedbackDraftBySubmission(
-  submissionId: string,
-) {
+export async function findLatestAiFeedbackDraftBySubmission(submissionId: string) {
   return prisma.aiFeedbackDraft.findFirst({
     where: {
       submissionId,
@@ -470,22 +457,17 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
           action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
           entity: "ai_objective_explanation",
           entityId: explanation.id,
-          entityIds: {
+          eventData: {
             submissionId: data.submissionId,
             assignmentId: submission.assignmentId,
             questionId: data.questionId,
-          },
-          routeKey: data.routeKey,
-          provider: data.provider,
-          model: data.model,
-          promptVersion: data.promptVersion,
-          payload: {
+            routeKey: data.routeKey as "low_cost" | "premium",
+            provider: data.provider as "openai-compatible",
+            model: data.model,
+            promptVersion: data.promptVersion,
+            status: "failed",
             failureCode: "queue_enqueue_failed",
-            failureMessage:
-              error instanceof Error
-                ? error.message
-                : "AI feedback job enqueue failed.",
-            promptInput: data.generationJob.harnessInput.promptInput,
+            outputGenerated: false,
           },
         });
         throw error;
