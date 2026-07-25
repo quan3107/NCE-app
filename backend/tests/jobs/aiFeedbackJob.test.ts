@@ -67,6 +67,26 @@ function providerResult(
   };
 }
 
+const writingWorkerRecord = {
+  requesterId: "599db5d5-7a3f-4039-b92f-5332c97371a9",
+  submissionId: "87b3a89f-745e-4c9a-9960-59a58d91b9ff",
+  assignmentId: "f08fd6ff-a35d-4b89-8db8-d82e87cb08e9",
+  promptVersion: "writing-feedback-v1",
+  provider: "openai-compatible",
+  routeKey: "low_cost",
+  model: "gpt-5.4-nano",
+};
+
+const explanationWorkerRecord = {
+  requesterId: "599db5d5-7a3f-4039-b92f-5332c97371a9",
+  submissionId: "87b3a89f-745e-4c9a-9960-59a58d91b9ff",
+  assignmentId: "f08fd6ff-a35d-4b89-8db8-d82e87cb08e9",
+  promptVersion: "objective-explanation-v2",
+  provider: "openai-compatible",
+  routeKey: "low_cost",
+  model: "gpt-5.4-nano",
+};
+
 describe("jobs.aiFeedbackJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -97,12 +117,8 @@ describe("jobs.aiFeedbackJob", () => {
       AI_FEEDBACK_JOB_NAMES.generateObjectiveExplanation,
       expect.any(Function),
     );
-    expect(boss.work.mock.calls[0]?.[1]).not.toBe(
-      handleGenerateWritingDraftJob,
-    );
-    expect(boss.work.mock.calls[1]?.[1]).not.toBe(
-      handleGenerateObjectiveExplanationJob,
-    );
+    expect(boss.work.mock.calls[0]?.[1]).not.toBe(handleGenerateWritingDraftJob);
+    expect(boss.work.mock.calls[1]?.[1]).not.toBe(handleGenerateObjectiveExplanationJob);
   });
 
   it("enqueues writing drafts and objective explanations with bounded retries", async () => {
@@ -150,6 +166,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 0,
@@ -212,12 +229,11 @@ describe("jobs.aiFeedbackJob", () => {
         action: "ai_feedback.writing_generated",
         entity: "ai_feedback_draft",
         entityId: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           routeKey: "low_cost",
           model: "gpt-test",
-          payloadSummary: expect.objectContaining({
-            providerOutput: expect.objectContaining({ redacted: true }),
-          }),
+          status: "accepted",
+          outputGenerated: true,
         }),
       }),
       select: { id: true },
@@ -240,6 +256,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 0,
@@ -291,6 +308,7 @@ describe("jobs.aiFeedbackJob", () => {
       .mockRejectedValueOnce(new Error("Audit insert failed."))
       .mockResolvedValueOnce({ id: "audit-failed" } as never);
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 0,
@@ -350,6 +368,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 0,
@@ -401,6 +420,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 2,
@@ -447,6 +467,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 3,
@@ -491,6 +512,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 1,
@@ -533,6 +555,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      ...explanationWorkerRecord,
       id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
       status: "queued",
       retryCount: 0,
@@ -581,11 +604,10 @@ describe("jobs.aiFeedbackJob", () => {
         action: "ai_feedback.explanation_generated",
         entity: "ai_objective_explanation",
         entityId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           model: "gpt-test",
-          payloadSummary: expect.objectContaining({
-            providerOutput: expect.objectContaining({ redacted: true }),
-          }),
+          status: "completed",
+          outputGenerated: true,
         }),
       }),
       select: { id: true },
@@ -608,6 +630,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      ...explanationWorkerRecord,
       id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
       status: "queued",
       retryCount: 0,
@@ -630,8 +653,7 @@ describe("jobs.aiFeedbackJob", () => {
       { providerRouter },
     );
 
-    const finalUpdate =
-      prisma.aiObjectiveExplanation.updateMany.mock.calls.at(-1)?.[0];
+    const finalUpdate = prisma.aiObjectiveExplanation.updateMany.mock.calls.at(-1)?.[0];
 
     expect(finalUpdate?.data).toEqual(
       expect.objectContaining({
@@ -655,6 +677,7 @@ describe("jobs.aiFeedbackJob", () => {
       .mockRejectedValueOnce(new Error("Audit insert failed."))
       .mockResolvedValueOnce({ id: "audit-failed" } as never);
     prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      ...explanationWorkerRecord,
       id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
       status: "queued",
       retryCount: 0,
@@ -715,10 +738,9 @@ describe("jobs.aiFeedbackJob", () => {
       }),
     };
 
-    prisma.auditLog.create.mockRejectedValueOnce(
-      new Error("Audit insert failed."),
-    );
+    prisma.auditLog.create.mockRejectedValueOnce(new Error("Audit insert failed."));
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 0,
@@ -768,10 +790,9 @@ describe("jobs.aiFeedbackJob", () => {
       }),
     };
 
-    prisma.auditLog.create.mockRejectedValueOnce(
-      new Error("Audit insert failed."),
-    );
+    prisma.auditLog.create.mockRejectedValueOnce(new Error("Audit insert failed."));
     prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      ...explanationWorkerRecord,
       id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
       status: "queued",
       retryCount: 0,
@@ -821,6 +842,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiObjectiveExplanation.findUnique.mockResolvedValue({
+      ...explanationWorkerRecord,
       id: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
       status: "queued",
       retryCount: 0,
@@ -843,17 +865,18 @@ describe("jobs.aiFeedbackJob", () => {
       { providerRouter },
     );
 
-    const finalUpdate =
-      prisma.aiObjectiveExplanation.updateMany.mock.calls.at(-1)?.[0];
+    const finalUpdate = prisma.aiObjectiveExplanation.updateMany.mock.calls.at(-1)?.[0];
     expect(finalUpdate?.data).not.toHaveProperty("routeKey");
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         action: "ai_feedback.explanation_generated",
         entity: "ai_objective_explanation",
         entityId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           routeKey: "premium",
           model: "gpt-test",
+          status: "completed",
+          outputGenerated: true,
         }),
       }),
       select: { id: true },
@@ -902,6 +925,7 @@ describe("jobs.aiFeedbackJob", () => {
     };
 
     prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...writingWorkerRecord,
       id: "b10d2a30-87bd-465f-8a5e-f23ca65be272",
       status: "queued",
       retryCount: 0,
