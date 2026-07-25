@@ -36,9 +36,7 @@ export function AdminAuditLogsPage() {
       <div className="p-4 sm:p-6 lg:p-8">
         {isLoading ? (
           <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              Loading audit logs...
-            </CardContent>
+            <CardContent className="py-12 text-center text-muted-foreground">Loading audit logs...</CardContent>
           </Card>
         ) : error ? (
           <Card>
@@ -56,6 +54,7 @@ export function AdminAuditLogsPage() {
                     <TableHead>Actor</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>Entity</TableHead>
+                    <TableHead>Version</TableHead>
                     <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -68,6 +67,9 @@ export function AdminAuditLogsPage() {
                         <Badge variant="secondary">{log.action}</Badge>
                       </TableCell>
                       <TableCell>{log.entity}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">v{log.schemaVersion}</Badge>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{log.details}</TableCell>
                     </TableRow>
                   ))}
@@ -80,12 +82,3 @@ export function AdminAuditLogsPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
