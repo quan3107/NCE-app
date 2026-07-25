@@ -41,11 +41,7 @@ type AuditLogQuery = {
 
 type JsonRecord = Record<string, unknown>
 
-type AuditLogClient = {
-  auditLog: {
-    create: typeof prisma.auditLog.create
-  }
-}
+type AuditLogClient = { auditLog: Pick<typeof prisma.auditLog, 'create'> }
 
 export type AuditLogWriteInput = {
   actorId?: string | null
@@ -62,11 +58,9 @@ export type AuditLogWriteInput = {
 const sensitiveValueKeyPattern =
   /(body|content|essay|feedback|payload|prompt|response|submission|text)/i
 const secretNamePattern =
-  /(authorization|codeverifier|cookie|credentials?|hash|oauth|password|privatepem|secret|token)/i
+  /(authorization|codeverifier|cookie|credentials?|hash|oauth|password|privatepem|secret|signature|token)/i
 const sensitivePathOrUrlNamePattern =
-  /^(?:path|signeduri)$|(?:file|object|storage).*paths?|(?:presigned|signed).*url/
-const signedUrlParameterPattern =
-  /^(?:accesstoken|credentials?|sig|signature|token|xamzsignature|xgoogsignature)$/
+  /paths?$|(?:file|object|storage).*paths?|(?:presigned|signed).*(?:uri|url)/
 // These exact Phase 5 identifiers are operational labels, never storage or credential keys.
 const benignOperationalIdentifierNames = new Set([
   'itemKey',
@@ -92,14 +86,19 @@ function isSensitiveKeyName(key: string): boolean {
   )
 }
 
-function isSignedUrlValue(value: string): boolean {
+function isSensitiveUrlValue(value: string): boolean {
   try {
     const url = new URL(value)
+    const parameterNames = [
+      ...url.searchParams.keys(),
+      ...new URLSearchParams(url.hash.slice(1)).keys(),
+    ]
     return (
       (url.protocol === 'http:' || url.protocol === 'https:') &&
-      [...url.searchParams.keys()].some((key) =>
-        signedUrlParameterPattern.test(normalizedKeyName(key)),
-      )
+      (Boolean(url.username || url.password) ||
+        parameterNames.some(
+          (key) => isSensitiveKeyName(key) || normalizedKeyName(key) === 'sig',
+        ))
     )
   } catch {
     return false
@@ -108,7 +107,7 @@ function isSignedUrlValue(value: string): boolean {
 
 function containsSensitiveDescendant(value: unknown): boolean {
   if (typeof value === 'string') {
-    return isSignedUrlValue(value)
+    return isSensitiveUrlValue(value)
   }
   if (Array.isArray(value)) {
     return value.some(containsSensitiveDescendant)
@@ -172,7 +171,7 @@ function sanitizeAuditValue(key: string, value: unknown): unknown {
   }
 
   if (typeof value === 'string') {
-    if (isSignedUrlValue(value)) {
+    if (isSensitiveUrlValue(value)) {
       return redactValue('sensitive-value')
     }
     if (value.length > largeStringLimit) {
