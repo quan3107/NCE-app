@@ -3,6 +3,8 @@
  * Purpose: Call the server-side OpenAI chat completions API through one adapter.
  * Why: Keeps provider credentials and model selection in the backend.
  */
+import { auditLabelSchema } from "../audit-logs/contracts/common.js";
+
 import { AiProviderError } from "./provider.errors.js";
 import type {
   AiConcreteProviderRouteKey,
@@ -259,11 +261,12 @@ export class OpenAIProvider implements AiProvider {
         routeKey: this.routeKey,
       });
     }
+    const responseModel = auditLabelSchema.safeParse(payload.model);
 
     return {
       rawText,
       parsedJson: parseJsonIfPossible(rawText),
-      model: typeof payload.model === "string" ? payload.model : this.model,
+      model: responseModel.success ? responseModel.data : this.model,
       routeKey: this.routeKey,
       latencyMs: Math.max(0, this.now() - startedAt),
       tokenUsage: normalizeTokenUsage(payload.usage),
