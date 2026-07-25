@@ -34,21 +34,17 @@ vi.mock("../../../src/jobs/aiFeedbackJob.enqueue.js", () => ({
 }));
 
 const prismaModule = await import("../../../src/prisma/client.js");
-const aiFeedbackJobQueueModule = await import(
-  "../../../src/jobs/aiFeedbackJob.enqueue.js"
-);
+const aiFeedbackJobQueueModule =
+  await import("../../../src/jobs/aiFeedbackJob.enqueue.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
 const enqueueObjectiveExplanationOnActiveQueue = vi.mocked(
   aiFeedbackJobQueueModule.enqueueObjectiveExplanationOnActiveQueue,
 );
 
-const {
-  findAiObjectiveExplanationByCacheKey,
-  upsertAiObjectiveExplanation,
-} = await import("../../../src/modules/ai-feedback/ai-feedback.repository.js");
-const { getAiGenerationStatus } = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.repository.js"
-);
+const { findAiObjectiveExplanationByCacheKey, upsertAiObjectiveExplanation } =
+  await import("../../../src/modules/ai-feedback/ai-feedback.repository.js");
+const { getAiGenerationStatus } =
+  await import("../../../src/modules/ai-feedback/ai-feedback.repository.js");
 const {
   aiFeedbackDraftStatusSchema,
   aiFeedbackVisibilityModeSchema,
@@ -268,11 +264,17 @@ describe("ai-feedback objective explanations", () => {
         action: "ai_feedback.explanation_failed",
         entity: "ai_objective_explanation",
         entityId: "38c79cf6-88bf-4dd6-8639-d6db3dd3b4a5",
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
+          submissionId,
+          assignmentId,
+          questionId: "q-1",
           routeKey: "low_cost",
           provider: "openai-compatible",
           model: "gpt-5.4-nano",
           promptVersion: "objective-explanation-v2",
+          status: "failed",
+          failureCode: "queue_enqueue_failed",
+          outputGenerated: false,
         }),
       }),
       select: { id: true },
@@ -289,9 +291,7 @@ describe("ai-feedback objective explanations", () => {
       id: "ab7f0b13-e7d9-45dd-8ed2-c2a17a9e762d",
       status: "queued",
     };
-    prisma.aiObjectiveExplanation.findFirst.mockResolvedValueOnce(
-      failed as never,
-    );
+    prisma.aiObjectiveExplanation.findFirst.mockResolvedValueOnce(failed as never);
     prisma.aiObjectiveExplanation.update.mockResolvedValueOnce(failed as never);
     prisma.aiObjectiveExplanation.create.mockResolvedValueOnce(created as never);
 
