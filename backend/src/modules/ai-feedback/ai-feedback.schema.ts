@@ -6,6 +6,10 @@
 import { z } from "zod";
 
 import {
+  auditIdSchema,
+  auditLabelSchema,
+} from "../audit-logs/contracts/common.js";
+import {
   objectiveGenerationJobSchema,
   writingGenerationJobSchema,
 } from "./ai-feedback.generationJob.schema.js";
@@ -73,7 +77,7 @@ export const createAiFeedbackDraftSchema = z
     promptVersion: z.string().min(1),
     routeKey: z.string().min(1),
     provider: z.string().min(1),
-    model: z.string().min(1),
+    model: auditLabelSchema,
     reasoningEffort: aiReasoningEffortResponseSchema.optional(),
     inputHash: z.string().min(1),
     status: aiFeedbackDraftStatusSchema.default("queued"),
@@ -130,13 +134,13 @@ export const upsertAiObjectiveExplanationSchema = z
     submissionId: z.string().uuid(),
     assignmentId: z.string().uuid(),
     requesterId: z.string().uuid(),
-    questionId: z.string().min(1),
+    questionId: auditIdSchema,
     deterministicResult: z.string().min(1),
     promptVersion: z.string().min(1),
     sourceContextHash: z.string().min(1),
     routeKey: z.string().min(1),
     provider: z.string().min(1),
-    model: z.string().min(1),
+    model: auditLabelSchema,
     status: aiObjectiveExplanationStatusSchema.default("completed"),
     generatedExplanation: jsonRecordSchema.optional(),
     failureCode: z.string().min(1).optional(),
@@ -163,7 +167,7 @@ export const findAiObjectiveExplanationByCacheKeySchema = z
     submissionId: z.string().uuid(),
     assignmentId: z.string().uuid(),
     requesterId: z.string().uuid(),
-    questionId: z.string().min(1),
+    questionId: auditIdSchema,
     deterministicResult: z.string().min(1),
     promptVersion: z.string().min(1),
     sourceContextHash: z.string().min(1),
@@ -189,7 +193,7 @@ export const aiGenerationStatusRequestSchema = z.discriminatedUnion("kind", [
 export const objectiveExplanationRequestParamsSchema = z
   .object({
     submissionId: z.string().uuid(),
-    questionId: z.string().min(1),
+    questionId: auditIdSchema,
   })
   .strict();
 
