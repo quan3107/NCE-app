@@ -7,11 +7,8 @@ import { Prisma } from "../../prisma/index.js";
 
 import { logger } from "../../config/logger.js";
 import { prisma } from "../../prisma/client.js";
-import { UserRole, UserStatus } from "../../prisma/index.js";
-import {
-  createHttpError,
-  createNotFoundError,
-} from "../../utils/httpError.js";
+import { SubmissionStatus, UserRole, UserStatus } from "../../prisma/index.js";
+import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import {
   assignmentScopedParamsSchema,
   DEFAULT_SUBMISSION_LIMIT,
@@ -45,47 +42,6 @@ type SubmissionAssignmentForAiFeedback = {
   assignmentConfig: unknown;
 };
 
-function summarizeSubmissionPayload(payload: unknown): Record<string, unknown> {
-  if (!payload || typeof payload !== "object") {
-    return { type: typeof payload };
-  }
-
-  if (Array.isArray(payload)) {
-    return {
-      type: "array",
-      length: payload.length,
-    };
-  }
-
-  const payloadRecord = payload as Record<string, unknown>;
-  const keys = Object.keys(payloadRecord);
-  const summary: Record<string, unknown> = {
-    type: "object",
-    keys,
-  };
-
-  for (const key of keys) {
-    const value = payloadRecord[key];
-    if (Array.isArray(value)) {
-      summary[key] = {
-        type: "array",
-        length: value.length,
-      };
-    } else if (value && typeof value === "object") {
-      summary[key] = {
-        type: "object",
-        keys: Object.keys(value as Record<string, unknown>),
-      };
-    } else {
-      summary[key] = {
-        type: typeof value,
-      };
-    }
-  }
-
-  return summary;
-}
-
 function serializeSubmittedAt(value: Date | string | null | undefined) {
   if (!value) {
     return null;
@@ -100,35 +56,31 @@ function serializeSubmittedAt(value: Date | string | null | undefined) {
 
 async function writeSubmissionAuditLog(input: {
   actorId: string;
-  action: string;
+  action: "submission.created" | "submission.updated" | "submission.submitted";
   assignmentId: string;
   courseId: string;
   studentId: string;
   submissionId: string;
-  statusBefore: string | null;
-  statusAfter: string;
+  statusBefore: SubmissionStatus | null;
+  statusAfter: SubmissionStatus;
   submittedAtBefore?: Date | string | null;
   submittedAtAfter?: Date | string | null;
-  payload: unknown;
 }) {
   await writeAuditLogSafely({
     actorId: input.actorId,
     action: input.action,
     entity: "submission",
     entityId: input.submissionId,
-    diff: {
+    eventData: {
       assignmentId: input.assignmentId,
-      courseId: input.courseId ?? null,
+      courseId: input.courseId,
       studentId: input.studentId,
-      status: {
-        before: input.statusBefore,
-        after: input.statusAfter,
-      },
-      submittedAt: {
-        before: serializeSubmittedAt(input.submittedAtBefore),
-        after: serializeSubmittedAt(input.submittedAtAfter),
-      },
-      payload: summarizeSubmissionPayload(input.payload),
+      statusBefore: input.statusBefore,
+      statusAfter: input.statusAfter,
+      submittedAtChanged:
+        serializeSubmittedAt(input.submittedAtBefore) !==
+        serializeSubmittedAt(input.submittedAtAfter),
+      submissionContentChanged: true,
     },
   });
 }
@@ -137,10 +89,7 @@ function shouldEnqueueWritingFeedback(
   assignment: SubmissionAssignmentForAiFeedback,
   status: string,
 ): boolean {
-  if (
-    assignment.type !== "writing" ||
-    (status !== "submitted" && status !== "late")
-  ) {
+  if (assignment.type !== "writing" || (status !== "submitted" && status !== "late")) {
     return false;
   }
 
@@ -193,8 +142,7 @@ export async function listSubmissions(
   user?: { id: string; role: string },
 ) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
-  const { limit: rawLimit, offset: rawOffset } =
-    submissionQuerySchema.parse(query);
+  const { limit: rawLimit, offset: rawOffset } = submissionQuerySchema.parse(query);
   const limit = rawLimit ?? DEFAULT_SUBMISSION_LIMIT;
   const offset = rawOffset ?? 0;
   const isStudent = user?.role === "student";
@@ -222,10 +170,8 @@ export async function createSubmission(
 ) {
   const { assignmentId } = assignmentScopedParamsSchema.parse(params);
   const requestedSubmittedAt = parseSubmittedAt(payload.submittedAt);
-  let status =
-    payload.status ?? (requestedSubmittedAt ? "submitted" : "draft");
-  let submittedAt =
-    status === "draft" ? requestedSubmittedAt : new Date();
+  let status = payload.status ?? (requestedSubmittedAt ? "submitted" : "draft");
+  let submittedAt = status === "draft" ? requestedSubmittedAt : new Date();
   if (!user || user.role !== "student") {
     throw createHttpError(403, "Only students can submit assignments.");
   }
@@ -306,22 +252,12 @@ export async function createSubmission(
 
     const existingPayload = existing.payload as Prisma.InputJsonObject;
     const existingVersion =
-      typeof existingPayload?.version === "number"
-        ? existingPayload.version
-        : 1;
+      typeof existingPayload?.version === "number" ? existingPayload.version : 1;
     const isSameAttempt = existing.status === "draft";
-    const nextVersion = isSameAttempt
-      ? existingVersion
-      : existingVersion + 1;
-    const maxAttempts = readMaxAttempts(
-      assignment.assignmentConfig,
-      isIeltsAssignment,
-    );
+    const nextVersion = isSameAttempt ? existingVersion : existingVersion + 1;
+    const maxAttempts = readMaxAttempts(assignment.assignmentConfig, isIeltsAssignment);
     if (maxAttempts !== undefined && nextVersion > maxAttempts) {
-      throw createHttpError(
-        409,
-        "Maximum attempts reached for this assignment.",
-      );
+      throw createHttpError(409, "Maximum attempts reached for this assignment.");
     }
     const payloadWithVersion: Prisma.InputJsonObject = {
       ...payloadJson,
@@ -336,7 +272,7 @@ export async function createSubmission(
         payload: payloadWithVersion,
       },
     });
-    let action = "submission.updated";
+    let action: "submission.updated" | "submission.submitted" = "submission.updated";
     if (existing.status === "draft" && status !== "draft") {
       action = "submission.submitted";
     }
@@ -351,7 +287,6 @@ export async function createSubmission(
       statusAfter: status,
       submittedAtBefore: existing.submittedAt,
       submittedAtAfter: updatedSubmission.submittedAt,
-      payload: payloadWithVersion,
     });
     if (
       (status === "submitted" || status === "late") &&
@@ -375,18 +310,10 @@ export async function createSubmission(
   }
 
   const payloadVersion =
-    typeof payloadJson?.version === "number"
-      ? payloadJson.version
-      : 1;
-  const maxAttempts = readMaxAttempts(
-    assignment.assignmentConfig,
-    isIeltsAssignment,
-  );
+    typeof payloadJson?.version === "number" ? payloadJson.version : 1;
+  const maxAttempts = readMaxAttempts(assignment.assignmentConfig, isIeltsAssignment);
   if (maxAttempts !== undefined && payloadVersion > maxAttempts) {
-    throw createHttpError(
-      409,
-      "Maximum attempts reached for this assignment.",
-    );
+    throw createHttpError(409, "Maximum attempts reached for this assignment.");
   }
   assertSubmittedIeltsPayloadHasContent({
     type: assignment.type,
@@ -418,7 +345,6 @@ export async function createSubmission(
     statusAfter: status,
     submittedAtBefore: null,
     submittedAtAfter: createdSubmission.submittedAt,
-    payload: payloadWithVersion,
   });
   if (
     (status === "submitted" || status === "late") &&
@@ -441,9 +367,7 @@ export async function createSubmission(
   return createdSubmission;
 }
 
-export async function getSubmissionById(
-  params: unknown,
-) {
+export async function getSubmissionById(params: unknown) {
   const { submissionId } = submissionIdParamsSchema.parse(params);
   const submission = await prisma.submission.findFirst({
     where: { id: submissionId, deletedAt: null },
