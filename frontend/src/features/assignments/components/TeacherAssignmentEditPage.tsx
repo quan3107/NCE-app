@@ -25,6 +25,10 @@ import {
   type IeltsAssignmentType,
 } from '@lib/ielts';
 import { useAssignmentResources, useUpdateAssignmentMutation } from '@features/assignments/api';
+import {
+  fromDateTimeLocalValue,
+  toDateTimeLocalValue,
+} from '@features/assignments/assignmentDateTime.logic';
 import { IeltsAssignmentBuilder } from './ielts/IeltsAssignmentBuilder';
 import { IeltsTypeCards } from './ielts/IeltsTypeCards';
 
@@ -70,7 +74,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
       title: assignment.title,
       description: assignment.description ?? '',
       type: assignment.type,
-      dueAt: assignment.dueAt ? new Date(assignment.dueAt).toISOString().slice(0, 16) : '',
+      dueAt: assignment.dueAt ? toDateTimeLocalValue(assignment.dueAt) : '',
     });
     if (isIeltsAssignmentType(assignment.type)) {
       setAssignmentConfig(
@@ -122,7 +126,9 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
       title: formState.title.trim(),
       descriptionMd: formState.description.trim() || undefined,
       type: formState.type as Assignment['type'],
-      dueAt: formState.dueAt ? new Date(formState.dueAt).toISOString() : undefined,
+      dueAt: formState.dueAt
+        ? fromDateTimeLocalValue(formState.dueAt).toISOString()
+        : undefined,
       assignmentConfig:
         isIeltsAssignmentType(formState.type) && assignmentConfig
           ? assignmentConfig
