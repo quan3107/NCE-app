@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-25:** Extracted semantic audit redaction classification to recognize credential key families regardless of position, credential-bearing authorization schemes by meaning, and camel/snake/kebab sensitive-content tokens without misclassifying ordinary `context` metadata.
+
 - **2026-07-25:** Generalized audit credential detection across normalized authentication/session/JWT/bearer key families, authorization-header values, credential-bearing URI schemes, and OAuth code parameters, with descendant checks preventing hashes of every supported representation.
 
 - **2026-07-25:** Closed remaining representation-dependent audit leaks by treating normalized path suffixes as sensitive and detecting credentials in HTTP(S) userinfo, query parameters, and fragments before either direct storage or sensitive-container hashing.
@@ -32,6 +34,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-25:** No frontend application files changed for the semantic credential-family and sensitive-content-token audit fix.
 
 - **2026-07-25:** No frontend application files changed for the generalized credential-alias, URI, or authorization-value audit hardening.
 
