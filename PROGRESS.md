@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-25:** Replaced audit authorization credential-shape heuristics with scheme recognition and switched auth/session/JWT/bearer key detection to semantic field tokens, preserving alphabetic credentials while keeping ordinary room, lesson, version, authenticity, and authentic-material metadata readable.
+
 - **2026-07-25:** Removed remaining audit representation gaps by recognizing auth families independent of suffix, detecting credential-shaped authorization schemes generically, restoring lowercase compact private-content keys, and guarding ordinary author/authority/context/sentence metadata from false positives.
 
 - **2026-07-25:** Extracted semantic audit redaction classification to recognize credential key families regardless of position, credential-bearing authorization schemes by meaning, and camel/snake/kebab sensitive-content tokens without misclassifying ordinary `context` metadata.
@@ -36,6 +38,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-25:** No frontend application files changed for the authorization-scheme and semantic auth-token audit correction.
 
 - **2026-07-25:** No frontend application files changed for the generic auth-family, authorization-scheme, or compact-content audit fix.
 
