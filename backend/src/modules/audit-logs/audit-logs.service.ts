@@ -40,9 +40,7 @@ type AuditLogQuery = {
 }
 
 type JsonRecord = Record<string, unknown>
-
 type AuditLogClient = { auditLog: Pick<typeof prisma.auditLog, 'create'> }
-
 export type AuditLogWriteInput = {
   actorId?: string | null
   action: string
@@ -59,8 +57,12 @@ const sensitiveValueKeyPattern =
   /(body|content|essay|feedback|payload|prompt|response|submission|text)/i
 const secretNamePattern =
   /(authorization|codeverifier|cookie|credentials?|hash|oauth|password|privatepem|secret|signature|token)/i
+const sensitiveNormalizedKeyPattern =
+  /^(?:auth(?:entication)?(?:data|header|info|value)?|bearer.*|jwt.*|session.*)$/
+const sensitiveUrlParameterNames = new Set(['code', 'sig'])
 const sensitivePathOrUrlNamePattern =
   /paths?$|(?:file|object|storage).*paths?|(?:presigned|signed).*(?:uri|url)/
+const authorizationValuePattern = /^\s*(?:basic|bearer|digest|negotiate)\s+\S+/i
 // These exact Phase 5 identifiers are operational labels, never storage or credential keys.
 const benignOperationalIdentifierNames = new Set([
   'itemKey',
@@ -69,10 +71,7 @@ const benignOperationalIdentifierNames = new Set([
   'widgetKey',
 ])
 const largeStringLimit = 200
-
-function normalizedKeyName(key: string): string {
-  return key.replace(/[^a-z0-9]/gi, '').toLowerCase()
-}
+const normalizedKeyName = (key: string) => key.replace(/[^a-z0-9]/gi, '').toLowerCase()
 
 function isSensitiveKeyName(key: string): boolean {
   if (benignOperationalIdentifierNames.has(key)) {
@@ -80,6 +79,7 @@ function isSensitiveKeyName(key: string): boolean {
   }
   const normalized = normalizedKeyName(key)
   return (
+    sensitiveNormalizedKeyPattern.test(normalized) ||
     secretNamePattern.test(normalized) ||
     normalized.includes('key') ||
     sensitivePathOrUrlNamePattern.test(normalized)
@@ -94,11 +94,12 @@ function isSensitiveUrlValue(value: string): boolean {
       ...new URLSearchParams(url.hash.slice(1)).keys(),
     ]
     return (
-      (url.protocol === 'http:' || url.protocol === 'https:') &&
-      (Boolean(url.username || url.password) ||
-        parameterNames.some(
-          (key) => isSensitiveKeyName(key) || normalizedKeyName(key) === 'sig',
-        ))
+      Boolean(url.username || url.password) ||
+      parameterNames.some(
+        (key) =>
+          isSensitiveKeyName(key) ||
+          sensitiveUrlParameterNames.has(normalizedKeyName(key)),
+      )
     )
   } catch {
     return false
@@ -107,7 +108,7 @@ function isSensitiveUrlValue(value: string): boolean {
 
 function containsSensitiveDescendant(value: unknown): boolean {
   if (typeof value === 'string') {
-    return isSensitiveUrlValue(value)
+    return authorizationValuePattern.test(value) || isSensitiveUrlValue(value)
   }
   if (Array.isArray(value)) {
     return value.some(containsSensitiveDescendant)
@@ -171,7 +172,7 @@ function sanitizeAuditValue(key: string, value: unknown): unknown {
   }
 
   if (typeof value === 'string') {
-    if (isSensitiveUrlValue(value)) {
+    if (authorizationValuePattern.test(value) || isSensitiveUrlValue(value)) {
       return redactValue('sensitive-value')
     }
     if (value.length > largeStringLimit) {
