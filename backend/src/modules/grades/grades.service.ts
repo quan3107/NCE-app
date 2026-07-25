@@ -252,11 +252,10 @@ async function writeGradeAuditLog(input: {
   entityId: string;
   submissionId: string;
   graderId: string;
-  rawScore?: number | null;
-  finalScore?: number | null;
-  band?: number | null;
-  feedbackMd?: string;
+  mutation: GradePayload;
 }) {
+  const { mutation } = input;
+
   await writeAuditLogSafely({
     actorId: input.actorId,
     action: "grade.upserted",
@@ -266,10 +265,12 @@ async function writeGradeAuditLog(input: {
       submissionId: input.submissionId,
       graderId: input.graderId,
       scoreChanged:
-        input.rawScore !== undefined ||
-        input.finalScore !== undefined ||
-        input.band !== undefined,
-      feedbackChanged: input.feedbackMd !== undefined,
+        mutation.rubricBreakdown !== undefined ||
+        mutation.rawScore !== undefined ||
+        mutation.adjustments !== undefined ||
+        mutation.finalScore !== undefined ||
+        mutation.band !== undefined,
+      feedbackChanged: mutation.feedbackMd !== undefined,
     },
   });
 }
@@ -395,10 +396,7 @@ export async function upsertGrade(
     entityId: grade.id ?? submissionId,
     submissionId,
     graderId: actor.id,
-    rawScore: normalizedData.rawScore,
-    finalScore: normalizedData.finalScore,
-    band: normalizedData.band,
-    feedbackMd: normalizedData.feedbackMd,
+    mutation: normalizedData,
   });
 
   const channels: NotificationChannel[] = ["inapp", "email"];
