@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-25:** Closed the remaining provider-response audit boundary by accepting only bounded model metadata and falling back to the validated configured model for unauditable provider labels.
+
 - **2026-07-25:** Closed audit review gaps by aligning AI producer bounds with audit contracts, recording only committed retry states, recognizing rubric and adjustment grade mutations, and validating seed audit events against retained grade records.
 
 - **2026-07-25:** Replaced heuristic audit redaction with strict versioned event contracts, migrated every audit producer to identifier/enum/count/marker-only data, removed AI and generic payload escape hatches, and added the intentional preproduction audit-history reset migration plus boundary regressions.
@@ -26,6 +28,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-25:** No frontend application files changed for the provider-response model metadata boundary fix.
 
 - **2026-07-25:** Preserved audit `entityId` values through admin API mapping and displayed them in the audit table with mapper and rendered-component regressions.
 
