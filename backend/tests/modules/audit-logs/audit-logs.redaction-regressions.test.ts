@@ -148,7 +148,7 @@ describe('audit log redaction regressions', () => {
         payload: {
           auth: authorizationHeader,
         },
-        payloadForSession: {
+        payloadWithIdentifier: {
           sessionId: 'fixture-nested-session',
         },
         prompt: {
@@ -187,7 +187,7 @@ describe('audit log redaction regressions', () => {
     }
     for (const key of [
       'payload',
-      'payloadForSession',
+      'payloadWithIdentifier',
       'prompt',
       'urlPayload',
       'response',
