@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-25:** Closed audit-redaction review gaps by preserving broad non-allowlisted key protection, redacting sensitive object and array subtrees, covering real key/path/URL aliases and raw-value absence, and qualifying immutable historical audit behavior.
+
 - **2026-07-25:** Refined audit metadata redaction with an explicit allowlist for CMS and dashboard identifiers while retaining credential, storage, signed-URL, private-content, nested-value, Date, and oversized-text protections.
 
 - **2026-07-25:** Refreshed Prisma, ESLint, PostCSS, brace-expansion, and Prisma tooling dependency resolutions after newly published npm advisories caused the upstream dependency-audit gate to fail.
@@ -24,6 +26,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-25:** No frontend application files changed for the audit-redaction review fixes.
 
 - **2026-07-25:** No frontend application files changed for the audit metadata redaction refinement.
 
