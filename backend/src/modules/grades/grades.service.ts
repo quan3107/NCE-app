@@ -12,10 +12,7 @@ import {
 } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
-import {
-  createHttpError,
-  createNotFoundError,
-} from "../../utils/httpError.js";
+import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import { enqueueNotification } from "../notifications/notifications.service.js";
 import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import { getStudentVisibleAiFeedbackDraft } from "../ai-feedback/ai-feedback.repository.js";
@@ -25,10 +22,7 @@ import {
   validateIeltsCriterionBreakdown,
   type IeltsCriterionScore,
 } from "../scoring/ieltsManualGrading.js";
-import {
-  gradePayloadSchema,
-  submissionScopedParamsSchema,
-} from "./grades.schema.js";
+import { gradePayloadSchema, submissionScopedParamsSchema } from "./grades.schema.js";
 
 type GradingActor = {
   id: string;
@@ -160,10 +154,7 @@ function assertCanGradeSubmission(
     );
 
   if (!teachesCourse) {
-    throw createHttpError(
-      403,
-      "You do not have permission to grade this submission.",
-    );
+    throw createHttpError(403, "You do not have permission to grade this submission.");
   }
 }
 
@@ -195,9 +186,7 @@ function normalizeGradePayload(
     throw createHttpError(400, message);
   }
 
-  const band = calculateIeltsManualBand(
-    data.rubricBreakdown as IeltsCriterionScore[],
-  );
+  const band = calculateIeltsManualBand(data.rubricBreakdown as IeltsCriterionScore[]);
   return {
     ...data,
     rawScore: band,
@@ -237,10 +226,7 @@ function toStudentAiFeedback(draft: StudentAiFeedbackDraft) {
   };
 }
 
-function toProvisionalOnlyGrade(
-  draft: StudentAiFeedbackDraft,
-  submissionId: string,
-) {
+function toProvisionalOnlyGrade(draft: StudentAiFeedbackDraft, submissionId: string) {
   if (!draft) {
     return undefined;
   }
@@ -276,13 +262,14 @@ async function writeGradeAuditLog(input: {
     action: "grade.upserted",
     entity: "grade",
     entityId: input.entityId,
-    diff: {
+    eventData: {
       submissionId: input.submissionId,
       graderId: input.graderId,
-      rawScore: input.rawScore,
-      finalScore: input.finalScore,
-      band: input.band,
-      feedbackMd: input.feedbackMd,
+      scoreChanged:
+        input.rawScore !== undefined ||
+        input.finalScore !== undefined ||
+        input.band !== undefined,
+      feedbackChanged: input.feedbackMd !== undefined,
     },
   });
 }
@@ -300,9 +287,7 @@ function feedbackLabelForGrade(grade: {
         draft.visibilityMode === "instant_student_visible"),
   );
 
-  return aiAssisted
-    ? "teacher-reviewed AI-assisted feedback"
-    : "teacher feedback";
+  return aiAssisted ? "teacher-reviewed AI-assisted feedback" : "teacher feedback";
 }
 
 export async function upsertGrade(
