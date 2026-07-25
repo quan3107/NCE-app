@@ -35,9 +35,8 @@ vi.mock("../../../src/jobs/aiFeedbackJob.enqueue.js", () => ({
 }));
 
 const prismaModule = await import("../../../src/prisma/client.js");
-const aiFeedbackJobQueueModule = await import(
-  "../../../src/jobs/aiFeedbackJob.enqueue.js"
-);
+const aiFeedbackJobQueueModule =
+  await import("../../../src/jobs/aiFeedbackJob.enqueue.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
 const enqueueAiFeedbackDraftOnActiveQueue = vi.mocked(
   aiFeedbackJobQueueModule.enqueueAiFeedbackDraftOnActiveQueue,
@@ -79,9 +78,7 @@ describe("ai-feedback.repository", () => {
       generatedFeedback: {
         summary: "Good structure.",
       },
-      normalizedCriterionSuggestions: [
-        { criterion: "Task Response", band: 6.5 },
-      ],
+      normalizedCriterionSuggestions: [{ criterion: "Task Response", band: 6.5 }],
       criteriaVersion: "ielts-writing-v1",
       safetyFlags: {
         blocked: false,
@@ -137,9 +134,7 @@ describe("ai-feedback.repository", () => {
           generatedFeedback: {
             summary: "Good structure.",
           },
-          normalizedCriterionSuggestions: [
-            { criterion: "Task Response", band: 6.5 },
-          ],
+          normalizedCriterionSuggestions: [{ criterion: "Task Response", band: 6.5 }],
           criteriaVersion: "ielts-writing-v1",
           safetyFlags: {
             blocked: false,
@@ -321,11 +316,16 @@ describe("ai-feedback.repository", () => {
         action: "ai_feedback.writing_failed",
         entity: "ai_feedback_draft",
         entityId: draftId,
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
+          submissionId,
+          assignmentId,
           routeKey: "low_cost",
           provider: "openai-compatible",
           model: "gpt-5.4-nano",
           promptVersion: "writing-feedback-v1",
+          status: "failed",
+          failureCode: "queue_enqueue_failed",
+          outputGenerated: false,
         }),
       }),
       select: { id: true },
@@ -344,10 +344,10 @@ describe("ai-feedback.repository", () => {
       submissionId,
       assignmentId,
       requesterId,
-        promptVersion: "writing-feedback-v1",
-        routeKey: "low_cost",
-        provider: "openai-compatible",
-        model: "gpt-5.4-nano",
+      promptVersion: "writing-feedback-v1",
+      routeKey: "low_cost",
+      provider: "openai-compatible",
+      model: "gpt-5.4-nano",
       inputHash: "sha256:writing-input",
       visibilityMode: "teacher_reviewed",
       generatedFeedback: {},
