@@ -54,7 +54,8 @@ type ApiAuditLog = {
   action: string;
   entity: string;
   entityId: string;
-  diff?: Record<string, unknown> | null;
+  eventData: Record<string, unknown>;
+  schemaVersion: number;
   createdAt: string;
 };
 
@@ -105,14 +106,15 @@ const toEnrollment = (enrollment: ApiEnrollment): AdminEnrollment => ({
 });
 
 const toAuditLog = (log: ApiAuditLog): AuditLog => {
-  const diff = log.diff ?? null;
-  const details = diff ? JSON.stringify(diff) : `Entity ID: ${log.entityId}`;
+  const details = JSON.stringify(log.eventData);
 
   return {
     id: log.id,
     actor: log.actor?.fullName ?? 'System',
     action: log.action,
     entity: log.entity,
+    eventData: log.eventData,
+    schemaVersion: log.schemaVersion,
     timestamp: new Date(log.createdAt),
     details,
   };
