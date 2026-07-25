@@ -9,6 +9,8 @@ export type AuditLog = {
   actor: string;
   action: string;
   entity: string;
+  eventData: Record<string, unknown>;
+  schemaVersion: number;
   timestamp: Date;
   details: string;
 };
