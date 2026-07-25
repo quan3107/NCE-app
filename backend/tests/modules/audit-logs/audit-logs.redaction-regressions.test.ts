@@ -31,18 +31,33 @@ const auditIdentity = {
   entityId: 'course-1',
 }
 
+const authorizationHeader = ['Bearer', 'fixture-credential'].join(' ')
+const urlUserInfo = ['fixture-user', 'fixture-password'].join(':')
+
 const sensitiveMetadata = {
   credentials: 'username:password',
   code_verifier: 'oauth-code-verifier',
+  auth: authorizationHeader,
+  authenticationHeader: authorizationHeader,
+  sessionId: 'fixture-session',
+  session_identifier: 'fixture-session-identifier',
+  jwt: 'fixture-jwt',
+  jwtPayload: 'fixture-jwt-payload',
+  bearer: 'fixture-bearer',
+  bearerValue: 'fixture-bearer-value',
   path: 'private/course.json',
   uploadPath: 'private/upload.json',
   document_path: 'private/document.json',
   privatePem: 'private-pem',
   signed_uri: 'https://files.test/keyed-by-name',
   downloadLocation: 'https://files.test/course.json?X-Amz-Signature=private-signature',
-  authenticatedLocation: 'https://private-user:private-pass@files.test/course.json',
+  authenticatedLocation: `https://${urlUserInfo}@files.test/course.json`,
   apiLocation: 'https://files.test/course.json?api_key=private-api-key',
   callbackLocation: 'https://app.test/callback#access_token=private-access-token',
+  transportValue: authorizationHeader,
+  databaseLocation: `postgresql://${urlUserInfo}@db.test/course`,
+  socketLocation: `wss://${urlUserInfo}@socket.test/course`,
+  callbackResult: 'https://app.test/callback?code=fixture-oauth-code',
 }
 
 const entryPoints = [
@@ -84,6 +99,14 @@ describe('audit log redaction regressions', () => {
       for (const key of [
         'credentials',
         'code_verifier',
+        'auth',
+        'authenticationHeader',
+        'sessionId',
+        'session_identifier',
+        'jwt',
+        'jwtPayload',
+        'bearer',
+        'bearerValue',
         'path',
         'uploadPath',
         'document_path',
@@ -100,6 +123,10 @@ describe('audit log redaction regressions', () => {
         'authenticatedLocation',
         'apiLocation',
         'callbackLocation',
+        'transportValue',
+        'databaseLocation',
+        'socketLocation',
+        'callbackResult',
       ]) {
         expect(storedEntry?.[key]).toEqual({
           redacted: true,
@@ -119,10 +146,16 @@ describe('audit log redaction regressions', () => {
       ...auditIdentity,
       diff: {
         payload: {
-          endpoint: 'https://files.test/result?api_key=guessable-api-key',
+          auth: authorizationHeader,
+        },
+        payloadForSession: {
+          sessionId: 'fixture-nested-session',
         },
         prompt: {
           uploadPath: 'private/prompt.json',
+        },
+        urlPayload: {
+          endpoint: 'https://files.test/result?api_key=guessable-api-key',
         },
         response: [
           {
@@ -137,13 +170,33 @@ describe('audit log redaction regressions', () => {
             accessToken: 'guessable-token',
           },
         },
+        essay: {
+          transport: authorizationHeader,
+        },
+        feedback: {
+          endpoint: `postgresql://${urlUserInfo}@db.test/audit`,
+        },
+        body: {
+          callback: 'https://app.test/callback?code=fixture-nested-code',
+        },
       },
     })
 
     const storedDiff = prisma.auditLog.create.mock.calls[0]?.[0].data.diff as {
       changes: Record<string, unknown>
     }
-    for (const key of ['payload', 'prompt', 'response', 'submission', 'content']) {
+    for (const key of [
+      'payload',
+      'payloadForSession',
+      'prompt',
+      'urlPayload',
+      'response',
+      'submission',
+      'content',
+      'essay',
+      'feedback',
+      'body',
+    ]) {
       expect(storedDiff.changes[key]).toEqual({
         redacted: true,
         reason: 'sensitive-value',
@@ -155,8 +208,11 @@ describe('audit log redaction regressions', () => {
       '123456',
       'guessable-token',
       'guessable-signature',
-      'guessable-api-key',
+      authorizationHeader,
+      'fixture-nested-session',
+      'fixture-nested-code',
       'private/prompt.json',
+      'guessable-api-key',
     ]) {
       expect(storedJson).not.toContain(privateValue)
     }
