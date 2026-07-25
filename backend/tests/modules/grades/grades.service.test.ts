@@ -159,6 +159,48 @@ describe("grades.service.upsertGrade", () => {
     );
   });
 
+  it("marks rubric-only grade mutations as score changes", async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce(buildSubmission() as never);
+
+    await upsertGrade(
+      { submissionId },
+      {
+        rubricBreakdown: [{ criterion: "Accuracy", points: 8 }],
+      },
+      { id: teacherId, role: UserRole.teacher },
+    );
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventData: expect.objectContaining({
+          scoreChanged: true,
+          feedbackChanged: false,
+        }),
+      }),
+    );
+  });
+
+  it("marks adjustment-only grade mutations as score changes", async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce(buildSubmission() as never);
+
+    await upsertGrade(
+      { submissionId },
+      {
+        adjustments: [{ reason: "Late penalty", delta: -1 }],
+      },
+      { id: teacherId, role: UserRole.teacher },
+    );
+
+    expect(writeAuditLogSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventData: expect.objectContaining({
+          scoreChanged: true,
+          feedbackChanged: false,
+        }),
+      }),
+    );
+  });
+
   it("loads grade targets only from active assignments and courses", async () => {
     prisma.submission.findFirst.mockResolvedValueOnce(buildSubmission() as never);
 
