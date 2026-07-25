@@ -4,7 +4,7 @@
  * Why: Ensures valid payloads persist once assignment types are verified.
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import type { Assignment, Submission } from '../../../src/prisma/index.js';
+import type { Assignment, Submission } from "../../../src/prisma/index.js";
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
@@ -44,41 +44,29 @@ vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
 
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
-const notificationPreferencesModule = await import(
-  "../../../src/modules/notification-preferences/notification-preferences.service.js"
-);
-const notificationsModule = await import(
-  "../../../src/modules/notifications/notifications.service.js"
-);
-const aiFeedbackModule = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.service.js"
-);
+const notificationPreferencesModule =
+  await import("../../../src/modules/notification-preferences/notification-preferences.service.js");
+const notificationsModule =
+  await import("../../../src/modules/notifications/notifications.service.js");
+const aiFeedbackModule =
+  await import("../../../src/modules/ai-feedback/ai-feedback.service.js");
 const resolveNotificationTypeEnabledForUsers = vi.mocked(
   notificationPreferencesModule.resolveNotificationTypeEnabledForUsers,
   true,
 );
-const enqueueNotification = vi.mocked(
-  notificationsModule.enqueueNotification,
-  true,
-);
+const enqueueNotification = vi.mocked(notificationsModule.enqueueNotification, true);
 const enqueueAiWritingFeedbackForSubmission = vi.mocked(
   aiFeedbackModule.enqueueAiWritingFeedbackForSubmission,
   true,
 );
-const auditLogsModule = await import(
-  "../../../src/modules/audit-logs/audit-logs.service.js"
-);
-const writeAuditLogSafely = vi.mocked(
-  auditLogsModule.writeAuditLogSafely,
-  true,
-);
+const auditLogsModule =
+  await import("../../../src/modules/audit-logs/audit-logs.service.js");
+const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely, true);
 
-const { createSubmission, listSubmissions } = await import(
-  "../../../src/modules/submissions/submissions.service.js"
-);
-const { createSubmissionSchema } = await import(
-  "../../../src/modules/submissions/submissions.schema.js"
-);
+const { createSubmission, listSubmissions } =
+  await import("../../../src/modules/submissions/submissions.service.js");
+const { createSubmissionSchema } =
+  await import("../../../src/modules/submissions/submissions.schema.js");
 
 const assignmentId = "4c67e29f-7a7b-4c3e-8d56-52e5487e59a1";
 const studentId = "b9a2031b-9eac-4c77-9f11-4e7fbf3b5c2b";
@@ -121,11 +109,10 @@ describe("submissions.service.createSubmission", () => {
       },
     };
 
-    const result = await createSubmission(
-      { assignmentId },
-      payload,
-      { id: studentId, role: "student" },
-    );
+    const result = await createSubmission({ assignmentId }, payload, {
+      id: studentId,
+      role: "student",
+    });
 
     expect(prisma.submission.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -184,27 +171,18 @@ describe("submissions.service.createSubmission", () => {
         action: "submission.created",
         entity: "submission",
         entityId: submission.id,
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           assignmentId,
           courseId: assignmentRecord.courseId,
           studentId,
-          status: {
-            before: null,
-            after: "draft",
-          },
-          submittedAt: {
-            before: null,
-            after: null,
-          },
-          payload: expect.objectContaining({
-            keys: ["version", "task1", "task2"],
-          }),
+          statusBefore: null,
+          statusAfter: "draft",
+          submittedAtChanged: false,
+          submissionContentChanged: true,
         }),
       }),
     );
-    expect(JSON.stringify(writeAuditLogSafely.mock.calls[0])).not.toContain(
-      "AAAA",
-    );
+    expect(JSON.stringify(writeAuditLogSafely.mock.calls[0])).not.toContain("AAAA");
   });
 
   it("writes submission.submitted audit logs for draft-to-submitted updates", async () => {
@@ -257,21 +235,14 @@ describe("submissions.service.createSubmission", () => {
         action: "submission.submitted",
         entity: "submission",
         entityId: existingSubmission.id,
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           assignmentId,
           courseId: assignmentRecord.courseId,
           studentId,
-          status: {
-            before: "draft",
-            after: "submitted",
-          },
-          submittedAt: {
-            before: null,
-            after: expect.any(String),
-          },
-          payload: expect.objectContaining({
-            keys: ["version", "answers"],
-          }),
+          statusBefore: "draft",
+          statusAfter: "submitted",
+          submittedAtChanged: true,
+          submissionContentChanged: true,
         }),
       }),
     );
@@ -325,17 +296,14 @@ describe("submissions.service.createSubmission", () => {
         action: "submission.updated",
         entity: "submission",
         entityId: existingSubmission.id,
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           assignmentId,
           courseId: assignmentRecord.courseId,
           studentId,
-          status: {
-            before: "draft",
-            after: "draft",
-          },
-          payload: expect.objectContaining({
-            keys: ["version", "answers"],
-          }),
+          statusBefore: "draft",
+          statusAfter: "draft",
+          submittedAtChanged: false,
+          submissionContentChanged: true,
         }),
       }),
     );
@@ -434,11 +402,7 @@ describe("submissions.service.createSubmission", () => {
       },
     };
 
-    await createSubmission(
-      { assignmentId },
-      payload,
-      { id: studentId, role: "student" },
-    );
+    await createSubmission({ assignmentId }, payload, { id: studentId, role: "student" });
 
     expect(prisma.submission.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -488,11 +452,7 @@ describe("submissions.service.createSubmission", () => {
     };
 
     await expect(
-      createSubmission(
-        { assignmentId },
-        payload,
-        { id: studentId, role: "student" },
-      ),
+      createSubmission({ assignmentId }, payload, { id: studentId, role: "student" }),
     ).rejects.toMatchObject({ statusCode: 409 });
   });
 
@@ -698,13 +658,10 @@ describe("submissions.service.createSubmission", () => {
       { id: studentId, role: "student" },
     );
 
-    expect(enqueueAiWritingFeedbackForSubmission).toHaveBeenCalledWith(
-      submission.id,
-      {
-        id: studentId,
-        role: "student",
-        status: "active",
-      },
-    );
+    expect(enqueueAiWritingFeedbackForSubmission).toHaveBeenCalledWith(submission.id, {
+      id: studentId,
+      role: "student",
+      status: "active",
+    });
   });
 });
