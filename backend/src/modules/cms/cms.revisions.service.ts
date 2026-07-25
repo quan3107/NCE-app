@@ -137,12 +137,13 @@ export async function rollbackCmsRevision(
     action: 'cms.rolled_back',
     entity: 'cms_page_content',
     entityId: result.page.id,
-    diff: {
+    eventData: {
       pageKey,
       revisionId: result.revisionId,
       revisionNumber: result.page.publishedRevision,
       sourceRevisionId: result.source.id,
       sourceRevisionNumber: result.source.revisionNumber,
+      publishedContentChanged: true,
     },
   })
   return pageState(result.page, result.content)
