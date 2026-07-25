@@ -227,23 +227,25 @@ export async function processWritingDraftJob(
     const failureUpdate = await updateWritingProviderFailure(draft, error, now, {
       suppressRetryThrow: true,
     });
-    await recordAiFeedbackAudit({
-      actorId: draft.requesterId,
-      action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
-      entity: "ai_feedback_draft",
-      entityId: draft.id,
-      eventData: {
-        submissionId: draft.submissionId,
-        assignmentId: draft.assignmentId,
-        routeKey: draft.routeKey as "low_cost" | "premium",
-        provider: draft.provider as "openai-compatible",
-        model: draft.model,
-        promptVersion: draft.promptVersion,
-        status: "failed",
-        failureCode: "provider_request_failed",
-        outputGenerated: false,
-      },
-    });
+    if (failureUpdate.updatedCount > 0) {
+      await recordAiFeedbackAudit({
+        actorId: draft.requesterId,
+        action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
+        entity: "ai_feedback_draft",
+        entityId: draft.id,
+        eventData: {
+          submissionId: draft.submissionId,
+          assignmentId: draft.assignmentId,
+          routeKey: draft.routeKey as "low_cost" | "premium",
+          provider: draft.provider as "openai-compatible",
+          model: draft.model,
+          promptVersion: draft.promptVersion,
+          status: failureUpdate.status,
+          failureCode: failureUpdate.failureCode,
+          outputGenerated: false,
+        },
+      });
+    }
     if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
       throw error;
     }
@@ -442,24 +444,26 @@ export async function processObjectiveExplanationJob(
     const failureUpdate = await updateObjectiveProviderFailure(explanation, error, now, {
       suppressRetryThrow: true,
     });
-    await recordAiFeedbackAudit({
-      actorId: explanation.requesterId,
-      action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
-      entity: "ai_objective_explanation",
-      entityId: explanation.id,
-      eventData: {
-        submissionId: explanation.submissionId,
-        assignmentId: explanation.assignmentId,
-        questionId: payload.harnessInput.promptInput.question.id,
-        routeKey: explanation.routeKey as "low_cost" | "premium",
-        provider: explanation.provider as "openai-compatible",
-        model: explanation.model,
-        promptVersion: explanation.promptVersion,
-        status: "failed",
-        failureCode: "provider_request_failed",
-        outputGenerated: false,
-      },
-    });
+    if (failureUpdate.updatedCount > 0) {
+      await recordAiFeedbackAudit({
+        actorId: explanation.requesterId,
+        action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+        entity: "ai_objective_explanation",
+        entityId: explanation.id,
+        eventData: {
+          submissionId: explanation.submissionId,
+          assignmentId: explanation.assignmentId,
+          questionId: payload.harnessInput.promptInput.question.id,
+          routeKey: explanation.routeKey as "low_cost" | "premium",
+          provider: explanation.provider as "openai-compatible",
+          model: explanation.model,
+          promptVersion: explanation.promptVersion,
+          status: failureUpdate.status,
+          failureCode: failureUpdate.failureCode,
+          outputGenerated: false,
+        },
+      });
+    }
     if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
       throw error;
     }
