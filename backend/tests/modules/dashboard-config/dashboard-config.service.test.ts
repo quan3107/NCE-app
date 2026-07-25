@@ -26,9 +26,8 @@ vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
 
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
-const auditLogsModule = await import(
-  "../../../src/modules/audit-logs/audit-logs.service.js"
-);
+const auditLogsModule =
+  await import("../../../src/modules/audit-logs/audit-logs.service.js");
 const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely);
 
 const {
@@ -259,11 +258,10 @@ describe("dashboard-config.service", () => {
       action: "dashboard_config.saved",
       entity: "user_dashboard_config",
       entityId: "user-1",
-      diff: {
+      eventData: {
         role: "student",
         widgetCount: 2,
         visibleCount: 1,
-        widgetIds: ["student_completed", "student_due_soon"],
       },
     });
   });
@@ -278,10 +276,9 @@ describe("dashboard-config.service", () => {
       action: "dashboard_config.reset",
       entity: "user_dashboard_config",
       entityId: "user-1",
-      diff: {
+      eventData: {
         role: "student",
         widgetCount: 2,
-        widgetIds: ["student_due_soon", "student_completed"],
       },
     });
   });
