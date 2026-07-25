@@ -38,9 +38,20 @@ const sensitiveKeyMetadata = {
   userBearer: 'fixture-user-bearer',
   authContext: 'fixture-auth-context',
   authenticationContext: 'fixture-authentication-context',
+  authState: 'fixture-auth-state',
+  authenticationState: 'fixture-authentication-state',
+  authMetadata: 'fixture-auth-metadata',
 }
 
-const authorizationSchemes = ['Token', 'ApiKey', 'JWT', 'AWS4-HMAC-SHA256']
+const authorizationSchemes = [
+  'Token',
+  'ApiKey',
+  'JWT',
+  'AWS4-HMAC-SHA256',
+  'DPoP',
+  'Hawk',
+  'MAC',
+]
 const authorizationMetadata = Object.fromEntries(
   authorizationSchemes.map((scheme, index) => [
     `transport${index}`,
@@ -69,6 +80,9 @@ describe('audit log credential families', () => {
         ...sensitiveKeyMetadata,
         ...authorizationMetadata,
         context: 'public-course-context',
+        authorId: 'public-author',
+        authorityLevel: 'editor',
+        summary: 'Clear organization.',
       }
 
       await writeAuditLog(input)
@@ -91,6 +105,9 @@ describe('audit log credential families', () => {
         })
       }
       expect(storedEntry?.context).toBe('public-course-context')
+      expect(storedEntry?.authorId).toBe('public-author')
+      expect(storedEntry?.authorityLevel).toBe('editor')
+      expect(storedEntry?.summary).toBe('Clear organization.')
 
       const storedJson = JSON.stringify(storedDiff)
       for (const privateValue of [
@@ -104,6 +121,7 @@ describe('audit log credential families', () => {
 
   it('omits hashes for containers with equivalent credential descendants', async () => {
     const tokenValue = ['Token', 'fixture-nested-credential'].join(' ')
+    const dpopValue = ['DPoP', 'fixture-dpop-credential'].join(' ')
 
     await writeAuditLog({
       ...auditIdentity,
@@ -117,13 +135,25 @@ describe('audit log credential families', () => {
         contextPayload: {
           authContext: 'fixture-nested-auth-context',
         },
+        statePayload: {
+          authState: 'fixture-nested-auth-state',
+        },
+        proofPayload: {
+          transport: dpopValue,
+        },
       },
     })
 
     const storedDiff = prisma.auditLog.create.mock.calls[0]?.[0].data.diff as {
       changes: Record<string, unknown>
     }
-    for (const key of ['payload', 'requestPayload', 'contextPayload']) {
+    for (const key of [
+      'payload',
+      'requestPayload',
+      'contextPayload',
+      'statePayload',
+      'proofPayload',
+    ]) {
       expect(storedDiff.changes[key]).toEqual({
         redacted: true,
         reason: 'sensitive-value',
@@ -135,7 +165,42 @@ describe('audit log credential families', () => {
       'fixture-nested-session',
       'fixture-nested-credential',
       'fixture-nested-auth-context',
+      'fixture-nested-auth-state',
+      'fixture-dpop-credential',
     ]) {
+      expect(storedJson).not.toContain(privateValue)
+    }
+  })
+
+  it('redacts lowercase compact private-content keys', async () => {
+    const privateContent = {
+      responsetext: 'private response',
+      feedbackmd: 'private feedback',
+      payloadjson: 'private payload',
+      promptbody: 'private prompt',
+      submissioncontent: 'private submission',
+    }
+
+    await writeAuditLog({
+      ...auditIdentity,
+      diff: privateContent,
+    })
+
+    const storedDiff = prisma.auditLog.create.mock.calls[0]?.[0].data.diff as {
+      changes: Record<string, unknown>
+    }
+    for (const key of Object.keys(privateContent)) {
+      expect(storedDiff.changes[key]).toEqual(
+        expect.objectContaining({
+          redacted: true,
+          reason: 'sensitive-value',
+          hash: expect.stringMatching(/^sha256:/),
+        }),
+      )
+    }
+
+    const storedJson = JSON.stringify(storedDiff)
+    for (const privateValue of Object.values(privateContent)) {
       expect(storedJson).not.toContain(privateValue)
     }
   })
