@@ -107,6 +107,7 @@ describe('audit log redaction regressions', () => {
         'jwtPayload',
         'bearer',
         'bearerValue',
+        'authenticatedLocation',
         'path',
         'uploadPath',
         'document_path',
@@ -120,7 +121,6 @@ describe('audit log redaction regressions', () => {
       }
       for (const key of [
         'downloadLocation',
-        'authenticatedLocation',
         'apiLocation',
         'callbackLocation',
         'transportValue',
