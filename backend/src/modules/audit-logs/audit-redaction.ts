@@ -7,13 +7,14 @@ type JsonRecord = Record<string, unknown>
 
 const secretNamePattern =
   /(authorization|codeverifier|cookie|credentials?|hash|oauth|password|privatepem|secret|signature|token)/i
-const credentialFamilyPattern =
-  /(?:session|jwt|bearer)|auth(?:entication)?(?:context|credential|data|header|id|info|value)?$/
+const credentialFamilyPattern = /(?:session|jwt|bearer)|auth(?!or)/
 const sensitivePathOrUrlNamePattern =
   /paths?$|(?:file|object|storage).*paths?|(?:presigned|signed).*(?:uri|url)/
 const authorizationValuePattern =
-  /^\s*(?:(?:basic|bearer|digest|negotiate)|[a-z0-9._~-]*(?:auth|hmac|jwt|key|oauth|signature|token)[a-z0-9._~-]*)\s+\S+/i
+  /^\s*(?:(?:basic|digest|negotiate)\s+\S+|[a-z][a-z0-9._~-]*\s+(?=\S*(?:[0-9_~+/=]|[.-]\S))\S+)/i
 const sensitiveUrlParameterNames = new Set(['code', 'sig'])
+const compactSensitiveValuePattern =
+  /(body|content|essay|feedback|payload|prompt|response|submission)/
 const sensitiveValueKeyTokens = new Set([
   'body',
   'content',
@@ -59,7 +60,12 @@ export function isSensitiveKeyName(key: string): boolean {
 }
 
 export function isSensitiveValueKeyName(key: string): boolean {
-  return keyNameTokens(key).some((token) => sensitiveValueKeyTokens.has(token))
+  const normalized = normalizedKeyName(key)
+  return (
+    keyNameTokens(key).some((token) => sensitiveValueKeyTokens.has(token)) ||
+    compactSensitiveValuePattern.test(normalized) ||
+    (normalized.endsWith('text') && !normalized.endsWith('context'))
+  )
 }
 
 function isSensitiveUrlValue(value: string): boolean {
