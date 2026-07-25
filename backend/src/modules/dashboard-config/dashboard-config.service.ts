@@ -171,9 +171,13 @@ function validatePreferencesPayload(
     }
 
     if (seenOrders.has(widget.order)) {
-      throw createHttpError(400, "Dashboard widget preferences contain duplicate order values.", {
-        order: widget.order,
-      });
+      throw createHttpError(
+        400,
+        "Dashboard widget preferences contain duplicate order values.",
+        {
+          order: widget.order,
+        },
+      );
     }
 
     seenWidgetIds.add(widget.id);
@@ -249,11 +253,10 @@ export async function saveMyDashboardConfigForUser(
     action: "dashboard_config.saved",
     entity: "user_dashboard_config",
     entityId: userId,
-    diff: {
+    eventData: {
       role,
       widgetCount: payload.widgets.length,
       visibleCount: payload.widgets.filter((widget) => widget.visible).length,
-      widgetIds: payload.widgets.map((widget) => widget.id),
     },
   });
 
@@ -284,10 +287,9 @@ export async function resetMyDashboardConfigForUser(
     action: "dashboard_config.reset",
     entity: "user_dashboard_config",
     entityId: userId,
-    diff: {
+    eventData: {
       role,
       widgetCount: definitions.length,
-      widgetIds: definitions.map((definition) => definition.widgetKey),
     },
   });
 }
