@@ -105,7 +105,7 @@ const toEnrollment = (enrollment: ApiEnrollment): AdminEnrollment => ({
   enrolledAt: new Date(enrollment.createdAt),
 });
 
-const toAuditLog = (log: ApiAuditLog): AuditLog => {
+export const toAuditLog = (log: ApiAuditLog): AuditLog => {
   const details = JSON.stringify(log.eventData);
 
   return {
@@ -113,6 +113,7 @@ const toAuditLog = (log: ApiAuditLog): AuditLog => {
     actor: log.actor?.fullName ?? 'System',
     action: log.action,
     entity: log.entity,
+    entityId: log.entityId,
     eventData: log.eventData,
     schemaVersion: log.schemaVersion,
     timestamp: new Date(log.createdAt),
