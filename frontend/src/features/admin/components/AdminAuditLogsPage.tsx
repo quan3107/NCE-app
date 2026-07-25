@@ -54,6 +54,7 @@ export function AdminAuditLogsPage() {
                     <TableHead>Actor</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>Entity</TableHead>
+                    <TableHead>Entity ID</TableHead>
                     <TableHead>Version</TableHead>
                     <TableHead>Details</TableHead>
                   </TableRow>
@@ -67,6 +68,12 @@ export function AdminAuditLogsPage() {
                         <Badge variant="secondary">{log.action}</Badge>
                       </TableCell>
                       <TableCell>{log.entity}</TableCell>
+                      <TableCell
+                        className="max-w-48 truncate font-mono text-xs"
+                        title={log.entityId}
+                      >
+                        {log.entityId}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline">v{log.schemaVersion}</Badge>
                       </TableCell>
