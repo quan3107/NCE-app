@@ -151,10 +151,11 @@ export async function updateCmsDraft(
       action: 'cms.draft_updated',
       entity: 'cms_page_content',
       entityId: result.existing.id,
-      diff: {
+      eventData: {
         pageKey,
         fromDraftVersion: result.existing.draftVersion,
         toDraftVersion: result.updated.draftVersion,
+        draftContentChanged: true,
       },
     })
   }
@@ -221,10 +222,11 @@ export async function publishCmsDraft(
     action: 'cms.published',
     entity: 'cms_page_content',
     entityId: result.page.id,
-    diff: {
+    eventData: {
       pageKey,
       revisionId: result.revisionId,
       revisionNumber: result.page.publishedRevision,
+      publishedContentChanged: true,
     },
   })
   return pageState(result.page, result.content)
