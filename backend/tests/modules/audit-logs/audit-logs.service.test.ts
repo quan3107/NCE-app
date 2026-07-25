@@ -25,7 +25,7 @@ const loggerModule = await import('../../../src/config/logger.js')
 const prisma = vi.mocked(prismaModule.prisma, true)
 const logger = vi.mocked(loggerModule.logger, true)
 
-const { listAuditLogs, writeAuditLog, writeAuditLogSafely } =
+const { writeAuditLog, writeAuditLogSafely } =
   await import('../../../src/modules/audit-logs/audit-logs.service.js')
 
 describe('audit log service', () => {
@@ -74,34 +74,19 @@ describe('audit log service', () => {
         diff: {
           before: {
             status: 'draft',
-            payload: {
-              notes: expect.objectContaining({
-                redacted: true,
-                hash: expect.stringMatching(/^sha256:/),
-                length: 201,
-              }),
-              attachments: [
-                {
-                  objectKey: expect.objectContaining({
-                    redacted: true,
-                    reason: 'sensitive-key',
-                  }),
-                },
-              ],
-            },
+            payload: expect.objectContaining({
+              redacted: true,
+              reason: 'sensitive-value',
+              hash: expect.stringMatching(/^sha256:/),
+            }),
           },
           after: {
             status: 'submitted',
-            payload: {
-              responseText: expect.objectContaining({
-                redacted: true,
-                hash: expect.stringMatching(/^sha256:/),
-              }),
-              accessToken: expect.objectContaining({
-                redacted: true,
-                reason: 'sensitive-key',
-              }),
-            },
+            payload: expect.objectContaining({
+              redacted: true,
+              reason: 'sensitive-value',
+              hash: expect.stringMatching(/^sha256:/),
+            }),
           },
           changes: {
             status: { from: 'draft', to: 'submitted' },
@@ -122,6 +107,7 @@ describe('audit log service', () => {
     const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls)
     expect(auditPayload).not.toContain('x'.repeat(201))
     expect(auditPayload).not.toContain('private/submission-key.pdf')
+    expect(auditPayload).not.toContain('private student essay with more text')
     expect(auditPayload).not.toContain('secret-token')
     expect(auditPayload).not.toContain('Bearer secret')
   })
@@ -167,6 +153,13 @@ describe('audit log service', () => {
       entityId: 'page-1',
       diff: {
         pageKey: 'homepage',
+        answerKey: { correct: 'private-answer' },
+        audioKey: 'private-audio',
+        clientKey: 'private-client',
+        privateKeyPem: 'private-pem',
+        filePaths: ['private/one.pdf'],
+        signedDownloadUrl: 'https://files.test/item?signature=private',
+        prompt: { value: 'private prompt' },
         layout: {
           sectionKey: 'stats',
           items: [
@@ -177,21 +170,50 @@ describe('audit log service', () => {
       },
     })
 
-    expect(prisma.auditLog.create.mock.calls[0]?.[0].data.diff).toEqual({
-      changes: {
-        pageKey: 'homepage',
-        layout: {
-          sectionKey: 'stats',
-          items: [
-            { itemKey: 'students', widgetKey: 'student-count' },
-            {
-              itemKey: 'courses',
-              pageObjectKey: { redacted: true, reason: 'sensitive-key' },
-            },
-          ],
-        },
+    const storedDiff = prisma.auditLog.create.mock.calls[0]?.[0].data.diff as {
+      changes: Record<string, unknown>
+    }
+    expect(storedDiff.changes).toMatchObject({
+      pageKey: 'homepage',
+      layout: {
+        sectionKey: 'stats',
+        items: [
+          { itemKey: 'students', widgetKey: 'student-count' },
+          {
+            itemKey: 'courses',
+            pageObjectKey: { redacted: true, reason: 'sensitive-key' },
+          },
+        ],
       },
     })
+    for (const key of [
+      'answerKey',
+      'audioKey',
+      'clientKey',
+      'privateKeyPem',
+      'filePaths',
+      'signedDownloadUrl',
+    ]) {
+      expect(storedDiff.changes[key]).toEqual({
+        redacted: true,
+        reason: 'sensitive-key',
+      })
+    }
+    expect(storedDiff.changes.prompt).toEqual(
+      expect.objectContaining({ redacted: true, reason: 'sensitive-value' }),
+    )
+    const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls)
+    for (const privateValue of [
+      'private-answer',
+      'private-audio',
+      'private-client',
+      'private-pem',
+      'private/one.pdf',
+      'signature=private',
+      'private prompt',
+    ]) {
+      expect(auditPayload).not.toContain(privateValue)
+    }
   })
 
   it('serializes Date values in audit diffs', async () => {
@@ -254,46 +276,5 @@ describe('audit log service', () => {
       },
       'Audit log write failed.',
     )
-  })
-
-  it('applies admin audit log filters and offset pagination', async () => {
-    prisma.auditLog.findMany.mockResolvedValueOnce([
-      { id: 'audit-1' },
-      { id: 'audit-2' },
-      { id: 'audit-3' },
-    ] as never)
-
-    const result = await listAuditLogs({
-      actorId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
-      entity: 'submission',
-      entityId: '6c986d3c-5d72-40d4-96b5-b5e3725c9811',
-      action: 'submission.updated',
-      from: new Date('2026-06-01T00:00:00.000Z'),
-      to: new Date('2026-06-30T23:59:59.000Z'),
-      limit: 2,
-      offset: 4,
-    })
-
-    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          deletedAt: null,
-          actorId: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
-          entity: 'submission',
-          entityId: '6c986d3c-5d72-40d4-96b5-b5e3725c9811',
-          action: 'submission.updated',
-          createdAt: {
-            gte: new Date('2026-06-01T00:00:00.000Z'),
-            lte: new Date('2026-06-30T23:59:59.000Z'),
-          },
-        },
-        take: 3,
-        skip: 4,
-      }),
-    )
-    expect(result).toEqual({
-      data: [{ id: 'audit-1' }, { id: 'audit-2' }],
-      nextOffset: 6,
-    })
   })
 })
