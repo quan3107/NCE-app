@@ -143,6 +143,24 @@ describe("OpenAIProvider", () => {
     expect(result.parsedJson).toEqual({ score: 7 });
   });
 
+  it("accepts 120-character provider models and falls back at 121", async () => {
+    const responseForModel = (model: string) =>
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          model,
+          choices: [{ message: { content: '{"score":7}' } }],
+        }),
+      );
+
+    const acceptedModel = "m".repeat(120);
+    const rejectedModel = "m".repeat(121);
+
+    await expect(provider(responseForModel(acceptedModel)).generate(baseRequest))
+      .resolves.toMatchObject({ model: acceptedModel });
+    await expect(provider(responseForModel(rejectedModel)).generate(baseRequest))
+      .resolves.toMatchObject({ model: "gpt-5.4-nano" });
+  });
+
   it("omits reasoning effort for providers that do not support it", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse({
