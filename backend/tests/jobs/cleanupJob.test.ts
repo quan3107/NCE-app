@@ -32,9 +32,7 @@ vi.mock("../../src/config/logger.js", () => ({
 }));
 
 const prismaModule = await import("../../src/prisma/client.js");
-const auditModule = await import(
-  "../../src/modules/audit-logs/audit-logs.service.js"
-);
+const auditModule = await import("../../src/modules/audit-logs/audit-logs.service.js");
 const loggerModule = await import("../../src/config/logger.js");
 
 const prisma = vi.mocked(prismaModule.prisma, true);
@@ -171,10 +169,7 @@ describe("jobs.cleanupJob", () => {
     });
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
       where: {
-        AND: [
-          expiredSessionWhere,
-          { id: { in: ["session-1", "session-2"] } },
-        ],
+        AND: [expiredSessionWhere, { id: { in: ["session-1", "session-2"] } }],
       },
       data: {
         deletedAt: fixedNow,
@@ -202,7 +197,7 @@ describe("jobs.cleanupJob", () => {
       action: "cleanup.retention_executed",
       entity: "maintenance_job",
       entityId: "cleanup-retention",
-      diff: {
+      eventData: {
         authSessions: 2,
         notificationMetadata: 3,
         authSessionBatches: 1,
@@ -249,7 +244,7 @@ describe("jobs.cleanupJob", () => {
     });
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
       expect.objectContaining({
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           authSessions: 1,
           notificationMetadata: 0,
         }),
@@ -277,10 +272,7 @@ describe("jobs.cleanupJob", () => {
     await registerCleanupJobs(boss as never);
 
     expect(boss.createQueue).toHaveBeenCalledWith(CLEANUP_JOB_NAME);
-    expect(boss.work).toHaveBeenCalledWith(
-      CLEANUP_JOB_NAME,
-      expect.any(Function),
-    );
+    expect(boss.work).toHaveBeenCalledWith(CLEANUP_JOB_NAME, expect.any(Function));
     expect(boss.work.mock.calls[0]?.[1]).not.toBe(handleCleanupJob);
     expect(boss.schedule).toHaveBeenCalledWith(CLEANUP_JOB_NAME, "17 3 * * *");
   });
