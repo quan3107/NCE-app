@@ -7,11 +7,35 @@ type JsonRecord = Record<string, unknown>
 
 const secretNamePattern =
   /(authorization|codeverifier|cookie|credentials?|hash|oauth|password|privatepem|secret|signature|token)/i
-const credentialFamilyPattern = /(?:session|jwt|bearer)|auth(?!or)/
+const credentialKeyTokens = new Set([
+  'auth',
+  'authentication',
+  'bearer',
+  'jwt',
+  'session',
+])
 const sensitivePathOrUrlNamePattern =
   /paths?$|(?:file|object|storage).*paths?|(?:presigned|signed).*(?:uri|url)/
-const authorizationValuePattern =
-  /^\s*(?:(?:basic|digest|negotiate)\s+\S+|[a-z][a-z0-9._~-]*\s+(?=\S*(?:[0-9_~+/=]|[.-]\S))\S+)/i
+const authorizationSchemeNames = new Set([
+  'apikey',
+  'aws4-hmac-sha256',
+  'basic',
+  'bearer',
+  'digest',
+  'dpop',
+  'hawk',
+  'hoba',
+  'jwt',
+  'mac',
+  'mutual',
+  'negotiate',
+  'oauth',
+  'scram-sha-1',
+  'scram-sha-256',
+  'signature',
+  'token',
+  'vapid',
+])
 const sensitiveUrlParameterNames = new Set(['code', 'sig'])
 const compactSensitiveValuePattern =
   /(body|content|essay|feedback|payload|prompt|response|submission)/
@@ -52,7 +76,7 @@ export function isSensitiveKeyName(key: string): boolean {
   }
   const normalized = normalizedKeyName(key)
   return (
-    credentialFamilyPattern.test(normalized) ||
+    keyNameTokens(key).some((token) => credentialKeyTokens.has(token)) ||
     secretNamePattern.test(normalized) ||
     normalized.includes('key') ||
     sensitivePathOrUrlNamePattern.test(normalized)
@@ -88,8 +112,15 @@ function isSensitiveUrlValue(value: string): boolean {
   }
 }
 
+function isAuthorizationValue(value: string): boolean {
+  const [scheme, credential] = value.trim().split(/\s+/, 2)
+  return Boolean(
+    scheme && credential && authorizationSchemeNames.has(scheme.toLowerCase()),
+  )
+}
+
 export function isSensitiveStringValue(value: string): boolean {
-  return authorizationValuePattern.test(value) || isSensitiveUrlValue(value)
+  return isAuthorizationValue(value) || isSensitiveUrlValue(value)
 }
 
 export function containsSensitiveDescendant(value: unknown): boolean {
