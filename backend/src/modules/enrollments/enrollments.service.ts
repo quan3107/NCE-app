@@ -168,7 +168,7 @@ export async function createEnrollment(payload: unknown, actor: EnrollmentActor)
     action: 'enrollment.created',
     entity: 'enrollment',
     entityId: enrollment.id,
-    diff: {
+    eventData: {
       courseId: enrollment.courseId,
       userId: enrollment.userId,
       roleInCourse: enrollment.roleInCourse,
@@ -207,14 +207,11 @@ export async function deleteEnrollment(params: unknown, actor: EnrollmentActor) 
     action: 'enrollment.deleted',
     entity: 'enrollment',
     entityId: enrollment.id,
-    diff: {
+    eventData: {
       courseId: enrollment.courseId,
       userId: enrollment.userId,
       roleInCourse: enrollment.roleInCourse,
-      deletedAt: {
-        from: null,
-        to: deletedAt.toISOString(),
-      },
+      membershipChanged: true,
     },
   })
 }
