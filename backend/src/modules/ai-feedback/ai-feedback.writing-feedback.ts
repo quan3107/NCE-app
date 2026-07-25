@@ -109,34 +109,48 @@ async function auditWritingDraftRequest(
   },
   routeKey: AiConcreteProviderRouteKey,
 ): Promise<void> {
-  const failed =
-    draft.status === "failed" || draft.status === "review_required";
+  const failed = draft.status === "failed" || draft.status === "review_required";
+  const eventIds = {
+    submissionId: context.submission.id,
+    assignmentId: context.submission.assignmentId,
+    ...(context.submission.grade?.id ? { gradeId: context.submission.grade.id } : {}),
+  };
+  const providerData = {
+    routeKey,
+    provider: (draft.provider ?? aiFeedbackConfig.provider) as "openai-compatible",
+    model: draft.model ?? modelForRouteKey(routeKey),
+    promptVersion: IELTS_WRITING_FEEDBACK_PROMPT_VERSION,
+  };
+
+  if (failed) {
+    await recordAiFeedbackAudit({
+      actorId: context.actor.id,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
+      entity: "ai_feedback_draft",
+      entityId: draft.id,
+      eventData: {
+        ...eventIds,
+        ...providerData,
+        status: draft.status as WritingFeedbackResponse["status"],
+        ...(draft.failureCode ? { failureCode: draft.failureCode } : {}),
+        outputGenerated: false,
+      },
+    });
+    return;
+  }
 
   await recordAiFeedbackAudit({
     actorId: context.actor.id,
-    action: failed
-      ? AI_FEEDBACK_AUDIT_ACTIONS.writingFailed
-      : AI_FEEDBACK_AUDIT_ACTIONS.writingRequested,
+    action: AI_FEEDBACK_AUDIT_ACTIONS.writingRequested,
     entity: "ai_feedback_draft",
     entityId: draft.id,
-    entityIds: {
-      submissionId: context.submission.id,
-      assignmentId: context.submission.assignmentId,
-      ...(context.submission.grade?.id
-        ? { gradeId: context.submission.grade.id }
-        : {}),
-    },
-    routeKey,
-    provider: draft.provider ?? aiFeedbackConfig.provider,
-    model: draft.model ?? modelForRouteKey(routeKey),
-    promptVersion: IELTS_WRITING_FEEDBACK_PROMPT_VERSION,
-    payload: {
-      status: draft.status,
+    eventData: {
+      ...eventIds,
+      ...providerData,
+      status: draft.status as WritingFeedbackResponse["status"],
       visibilityMode: context.visibilityMode,
-      inputHash: context.inputHash,
-      promptInput: context.promptInput,
-      ...(draft.failureCode ? { failureCode: draft.failureCode } : {}),
-      ...(draft.failureMessage ? { failureMessage: draft.failureMessage } : {}),
+      promptUsed: true,
+      submissionContentUsed: true,
     },
   });
 }
@@ -192,11 +206,7 @@ export async function enqueueAiWritingFeedbackForSubmission(
   submissionId: string,
   actor: RequestActor,
 ): Promise<WritingFeedbackResponse | null> {
-  const context = await loadWritingFeedbackContext(
-    { submissionId },
-    actor,
-    "automatic",
-  );
+  const context = await loadWritingFeedbackContext({ submissionId }, actor, "automatic");
   const draft = await createWritingDraftForContext(context);
   await supersedeAiFeedbackDrafts({
     submissionId: context.submission.id,
