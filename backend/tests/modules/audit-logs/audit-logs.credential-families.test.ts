@@ -41,6 +41,12 @@ const sensitiveKeyMetadata = {
   authState: 'fixture-auth-state',
   authenticationState: 'fixture-authentication-state',
   authMetadata: 'fixture-auth-metadata',
+  authstate: 'fixture-compact-auth-state',
+  authenticationstate: 'fixture-compact-authentication-state',
+  authmetadata: 'fixture-compact-auth-metadata',
+  currentsessionid: 'fixture-compact-session',
+  accessjwt: 'fixture-compact-jwt',
+  userbearer: 'fixture-compact-bearer',
 }
 
 const authorizationExamples = [
@@ -52,6 +58,10 @@ const authorizationExamples = [
   ['DPoP', 'proof'],
   ['Hawk', 'credential'],
   ['MAC', 'credential'],
+  ['Api-Key', 'secret'],
+  ['OAuth2', 'secret'],
+  ['PrivateToken', 'secret'],
+  ['SSWS', 'secret'],
 ] as const
 const authorizationMetadata = Object.fromEntries(
   authorizationExamples.map(([scheme, credential], index) => [
@@ -134,6 +144,7 @@ describe('audit log credential families', () => {
     const bearerValue = ['Bearer', 'secret'].join(' ')
     const tokenValue = ['Token', 'secret'].join(' ')
     const dpopValue = ['DPoP', 'proof'].join(' ')
+    const apiKeyValue = ['Api-Key', 'secret'].join(' ')
 
     await writeAuditLog({
       ...auditIdentity,
@@ -156,6 +167,15 @@ describe('audit log credential families', () => {
         proofPayload: {
           transport: dpopValue,
         },
+        lowercasePayload: {
+          authstate: 'fixture-nested-compact-auth',
+        },
+        identifierPayload: {
+          currentsessionid: 'fixture-nested-compact-session',
+        },
+        schemePayload: {
+          transport: apiKeyValue,
+        },
       },
     })
 
@@ -169,6 +189,9 @@ describe('audit log credential families', () => {
       'contextPayload',
       'statePayload',
       'proofPayload',
+      'lowercasePayload',
+      'identifierPayload',
+      'schemePayload',
     ]) {
       expect(storedDiff.changes[key]).toEqual({
         redacted: true,
@@ -184,6 +207,9 @@ describe('audit log credential families', () => {
       bearerValue,
       tokenValue,
       dpopValue,
+      apiKeyValue,
+      'fixture-nested-compact-auth',
+      'fixture-nested-compact-session',
     ]) {
       expect(storedJson).not.toContain(privateValue)
     }
