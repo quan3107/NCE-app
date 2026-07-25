@@ -44,7 +44,7 @@ describe('audit log service', () => {
       before: {
         status: 'draft',
         payload: {
-          responseText: 'This is a private student essay.',
+          notes: 'x'.repeat(201),
           attachments: [{ objectKey: 'private/submission-key.pdf' }],
         },
       },
@@ -75,10 +75,10 @@ describe('audit log service', () => {
           before: {
             status: 'draft',
             payload: {
-              responseText: expect.objectContaining({
+              notes: expect.objectContaining({
                 redacted: true,
                 hash: expect.stringMatching(/^sha256:/),
-                length: 32,
+                length: 201,
               }),
               attachments: [
                 {
@@ -120,7 +120,7 @@ describe('audit log service', () => {
     })
 
     const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls)
-    expect(auditPayload).not.toContain('private student essay')
+    expect(auditPayload).not.toContain('x'.repeat(201))
     expect(auditPayload).not.toContain('private/submission-key.pdf')
     expect(auditPayload).not.toContain('secret-token')
     expect(auditPayload).not.toContain('Bearer secret')
@@ -156,6 +156,42 @@ describe('audit log service', () => {
     expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       'Clear organization.',
     )
+  })
+
+  it('preserves allowlisted operational keys in nested metadata and arrays', async () => {
+    prisma.auditLog.create.mockResolvedValueOnce({ id: 'audit-1' } as never)
+
+    await writeAuditLog({
+      action: 'cms.layout_updated',
+      entity: 'cms_page_content',
+      entityId: 'page-1',
+      diff: {
+        pageKey: 'homepage',
+        layout: {
+          sectionKey: 'stats',
+          items: [
+            { itemKey: 'students', widgetKey: 'student-count' },
+            { itemKey: 'courses', pageObjectKey: 'private/courses.json' },
+          ],
+        },
+      },
+    })
+
+    expect(prisma.auditLog.create.mock.calls[0]?.[0].data.diff).toEqual({
+      changes: {
+        pageKey: 'homepage',
+        layout: {
+          sectionKey: 'stats',
+          items: [
+            { itemKey: 'students', widgetKey: 'student-count' },
+            {
+              itemKey: 'courses',
+              pageObjectKey: { redacted: true, reason: 'sensitive-key' },
+            },
+          ],
+        },
+      },
+    })
   })
 
   it('serializes Date values in audit diffs', async () => {
