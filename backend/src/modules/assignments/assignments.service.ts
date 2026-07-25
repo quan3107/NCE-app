@@ -18,6 +18,10 @@ import {
   ensureCourseAssignmentAccess,
 } from './assignments.authorization.js'
 import {
+  buildAiPolicyChangeAuditEventData,
+  buildAssignmentUpdateAuditEventData,
+} from './assignments.audit.js'
+import {
   assignmentIdParamsSchema,
   courseScopedParamsSchema,
   type CreateAssignmentPayload,
@@ -42,54 +46,6 @@ function parseOptionalDate(
     throw createHttpError(400, `${fieldName} must be an ISO date string.`)
   }
   return parsed
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
-function aiPolicyFromConfig(value: unknown): Record<string, unknown> | null {
-  return asRecord(asRecord(value)?.aiPolicy)
-}
-
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableJson).join(',')}]`
-  }
-
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>
-    return `{${Object.keys(record)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
-      .join(',')}}`
-  }
-
-  return JSON.stringify(value)
-}
-
-function hasAiPolicyChanged(before: unknown, after: unknown): boolean {
-  return stableJson(aiPolicyFromConfig(before)) !== stableJson(aiPolicyFromConfig(after))
-}
-
-function buildAssignmentUpdateAuditEventData(
-  payload: UpdateAssignmentPayload,
-  courseId: string,
-) {
-  return {
-    courseId,
-    ...(payload.title !== undefined ? { titleChanged: true as const } : {}),
-    ...(payload.descriptionMd !== undefined ? { descriptionChanged: true as const } : {}),
-    ...(payload.type !== undefined ? { typeChanged: true as const } : {}),
-    ...(payload.dueAt !== undefined ? { dueAtChanged: true as const } : {}),
-    ...(payload.latePolicy !== undefined ? { latePolicyChanged: true as const } : {}),
-    ...(payload.assignmentConfig !== undefined
-      ? { assignmentConfigChanged: true as const }
-      : {}),
-    ...(payload.publishedAt !== undefined ? { publishedAtChanged: true as const } : {}),
-  }
 }
 
 export async function listAssignments(params: unknown, actor: CourseManager) {
@@ -319,11 +275,6 @@ export async function updateAssignment(
     updateData.publishedAt = publishedAt
   }
 
-  const shouldAuditAssignmentUpdate = Object.keys(updateData).length > 0
-  const shouldAuditAiPolicyChange =
-    payload.assignmentConfig !== undefined &&
-    hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
-
   const updated = await prisma.$transaction(async (tx) =>
     tx.assignment.update({
       where: { id: assignmentId },
@@ -331,38 +282,39 @@ export async function updateAssignment(
     }),
   )
 
-  if (shouldAuditAssignmentUpdate) {
+  const assignmentAuditEventData = buildAssignmentUpdateAuditEventData(
+    existing,
+    updated,
+    courseId,
+  )
+  if (Object.keys(assignmentAuditEventData).length > 1) {
     await writeAuditLogSafely({
       actorId: actor.id,
       action: 'assignment.updated',
       entity: 'assignment',
       entityId: assignmentId,
-      eventData: buildAssignmentUpdateAuditEventData(payload, courseId),
+      eventData: assignmentAuditEventData,
     })
   }
 
-  if (shouldAuditAiPolicyChange) {
+  const aiPolicyAuditEventData = buildAiPolicyChangeAuditEventData(
+    existing.assignmentConfig,
+    updated.assignmentConfig,
+    courseId,
+    assignmentId,
+  )
+  if (
+    aiPolicyAuditEventData.writingFeedbackModeChanged ||
+    aiPolicyAuditEventData.objectiveExplanationsChanged ||
+    aiPolicyAuditEventData.providerTierChanged
+  ) {
     await recordAiFeedbackAudit(
       {
         actorId: actor.id,
         action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
         entity: 'assignment',
         entityId: assignmentId,
-        eventData: {
-          courseId,
-          assignmentId,
-          writingFeedbackModeChanged:
-            stableJson(
-              aiPolicyFromConfig(existing.assignmentConfig)?.writingFeedbackMode,
-            ) !== stableJson(aiPolicyFromConfig(assignmentConfig)?.writingFeedbackMode),
-          objectiveExplanationsChanged:
-            stableJson(
-              aiPolicyFromConfig(existing.assignmentConfig)?.objectiveExplanations,
-            ) !== stableJson(aiPolicyFromConfig(assignmentConfig)?.objectiveExplanations),
-          providerTierChanged:
-            stableJson(aiPolicyFromConfig(existing.assignmentConfig)?.providerTier) !==
-            stableJson(aiPolicyFromConfig(assignmentConfig)?.providerTier),
-        },
+        eventData: aiPolicyAuditEventData,
       },
       undefined,
       true,
