@@ -172,6 +172,8 @@ export async function processWritingDraftJob(
       assignmentId: true,
       promptVersion: true,
       provider: true,
+      routeKey: true,
+      model: true,
       status: true,
       retryCount: true,
       deletedAt: true,
@@ -210,9 +212,7 @@ export async function processWritingDraftJob(
   let parsed: ReturnType<typeof parseWritingFeedbackOutput>;
 
   try {
-    const builtPrompt = buildIeltsWritingFeedbackPrompt(
-      payload.harnessInput.promptInput,
-    );
+    const builtPrompt = buildIeltsWritingFeedbackPrompt(payload.harnessInput.promptInput);
     providerResult = await getProviderRouter(deps).generate(builtPrompt.request);
     harnessResult = evaluateAiFeedbackHarness({
       ...payload.harnessInput,
@@ -223,10 +223,7 @@ export async function processWritingDraftJob(
       writingScope: "combined",
     });
   } catch (error) {
-    logger.error(
-      { err: error, draftId: draft.id },
-      "AI writing draft generation failed",
-    );
+    logger.error({ err: error, draftId: draft.id }, "AI writing draft generation failed");
     const failureUpdate = await updateWritingProviderFailure(draft, error, now, {
       suppressRetryThrow: true,
     });
@@ -235,15 +232,16 @@ export async function processWritingDraftJob(
       action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
       entity: "ai_feedback_draft",
       entityId: draft.id,
-      entityIds: {
+      eventData: {
         submissionId: draft.submissionId,
         assignmentId: draft.assignmentId,
-      },
-      provider: draft.provider,
-      promptVersion: draft.promptVersion,
-      payload: {
-        failureMessage:
-          error instanceof Error ? error.message : "Unknown AI worker error.",
+        routeKey: draft.routeKey as "low_cost" | "premium",
+        provider: draft.provider as "openai-compatible",
+        model: draft.model,
+        promptVersion: draft.promptVersion,
+        status: "failed",
+        failureCode: "provider_request_failed",
+        outputGenerated: false,
       },
     });
     if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
@@ -301,40 +299,53 @@ export async function processWritingDraftJob(
         return;
       }
 
-      await recordAiFeedbackAudit({
-        actorId: draft.requesterId,
-        action: generated
-          ? AI_FEEDBACK_AUDIT_ACTIONS.writingGenerated
-          : AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
-        entity: "ai_feedback_draft",
-        entityId: draft.id,
-        entityIds: {
-          submissionId: draft.submissionId,
-          assignmentId: draft.assignmentId,
-        },
-        routeKey: providerResult.routeKey,
-        provider: draft.provider,
+      const eventData = {
+        submissionId: draft.submissionId,
+        assignmentId: draft.assignmentId,
+        routeKey: providerResult.routeKey as "low_cost" | "premium",
+        provider: draft.provider as "openai-compatible",
         model: providerResult.model,
         promptVersion: draft.promptVersion,
-        payload: {
-          status: harnessResult.status,
-          reasonCode: harnessResult.reasonCode,
-          validationErrors: harnessResult.validationErrors,
-          providerOutput: providerResult.rawText,
-          promptInput: payload.harnessInput.promptInput,
-        },
-      }, tx);
+      };
+      if (generated) {
+        await recordAiFeedbackAudit(
+          {
+            actorId: draft.requesterId,
+            action: AI_FEEDBACK_AUDIT_ACTIONS.writingGenerated,
+            entity: "ai_feedback_draft",
+            entityId: draft.id,
+            eventData: {
+              ...eventData,
+              status: harnessResult.status,
+              outputGenerated: true,
+            },
+          },
+          tx,
+        );
+      } else {
+        await recordAiFeedbackAudit(
+          {
+            actorId: draft.requesterId,
+            action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
+            entity: "ai_feedback_draft",
+            entityId: draft.id,
+            eventData: {
+              ...eventData,
+              status: harnessResult.status,
+              failureCode: harnessResult.reasonCode,
+              outputGenerated: false,
+            },
+          },
+          tx,
+        );
+      }
     });
   } catch (error) {
     logger.error(
       { err: error, draftId: draft.id },
       "AI writing draft finalization failed",
     );
-    const failureUpdate = await updateWritingFinalizationFailure(
-      draft,
-      error,
-      now,
-    );
+    const failureUpdate = await updateWritingFinalizationFailure(draft, error, now);
     if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
       throw error;
     }
@@ -372,6 +383,7 @@ export async function processObjectiveExplanationJob(
       promptVersion: true,
       provider: true,
       routeKey: true,
+      model: true,
       status: true,
       retryCount: true,
       deletedAt: true,
@@ -410,9 +422,7 @@ export async function processObjectiveExplanationJob(
   let parsed: ReturnType<typeof parseObjectiveExplanationOutput>;
 
   try {
-    const builtPrompt = buildObjectiveExplanationPrompt(
-      payload.harnessInput.promptInput,
-    );
+    const builtPrompt = buildObjectiveExplanationPrompt(payload.harnessInput.promptInput);
     providerResult = await getProviderRouter(deps).generate(builtPrompt.request);
     harnessResult = evaluateAiFeedbackHarness({
       ...payload.harnessInput,
@@ -422,35 +432,32 @@ export async function processObjectiveExplanationJob(
     parsed = parseObjectiveExplanationOutput(providerResult.rawText, {
       deterministicResult: payload.harnessInput.promptInput.deterministicResult,
       sourceContextText: objectiveSourceContextText(payload.harnessInput),
-      sourceEvidenceCandidates:
-        payload.harnessInput.promptInput.sourceEvidenceCandidates,
+      sourceEvidenceCandidates: payload.harnessInput.promptInput.sourceEvidenceCandidates,
     });
   } catch (error) {
     logger.error(
       { err: error, explanationId: explanation.id },
       "AI objective explanation generation failed",
     );
-    const failureUpdate = await updateObjectiveProviderFailure(
-      explanation,
-      error,
-      now,
-      { suppressRetryThrow: true },
-    );
+    const failureUpdate = await updateObjectiveProviderFailure(explanation, error, now, {
+      suppressRetryThrow: true,
+    });
     await recordAiFeedbackAudit({
       actorId: explanation.requesterId,
       action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
       entity: "ai_objective_explanation",
       entityId: explanation.id,
-      entityIds: {
+      eventData: {
         submissionId: explanation.submissionId,
         assignmentId: explanation.assignmentId,
-      },
-      routeKey: explanation.routeKey,
-      provider: explanation.provider,
-      promptVersion: explanation.promptVersion,
-      payload: {
-        failureMessage:
-          error instanceof Error ? error.message : "Unknown AI worker error.",
+        questionId: payload.harnessInput.promptInput.question.id,
+        routeKey: explanation.routeKey as "low_cost" | "premium",
+        provider: explanation.provider as "openai-compatible",
+        model: explanation.model,
+        promptVersion: explanation.promptVersion,
+        status: "failed",
+        failureCode: "provider_request_failed",
+        outputGenerated: false,
       },
     });
     if (failureUpdate.shouldRetry && failureUpdate.updatedCount > 0) {
@@ -459,8 +466,7 @@ export async function processObjectiveExplanationJob(
     return;
   }
 
-  const status =
-    harnessResult.status === "accepted" ? "completed" : harnessResult.status;
+  const status = harnessResult.status === "accepted" ? "completed" : harnessResult.status;
   const objectiveResultData =
     status === "completed" && parsed.status === "completed"
       ? {
@@ -482,7 +488,9 @@ export async function processObjectiveExplanationJob(
           ...objectiveResultData,
           failureCode: status === "completed" ? null : harnessResult.reasonCode,
           failureMessage:
-            status === "completed" ? null : failureMessage(harnessResult.validationErrors),
+            status === "completed"
+              ? null
+              : failureMessage(harnessResult.validationErrors),
           nextRetryAt: null,
           lastAttemptAt: now,
         },
@@ -492,30 +500,47 @@ export async function processObjectiveExplanationJob(
         return;
       }
 
-      await recordAiFeedbackAudit({
-        actorId: explanation.requesterId,
-        action:
-          status === "completed"
-            ? AI_FEEDBACK_AUDIT_ACTIONS.explanationGenerated
-            : AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
-        entity: "ai_objective_explanation",
-        entityId: explanation.id,
-        entityIds: {
-          submissionId: explanation.submissionId,
-          assignmentId: explanation.assignmentId,
-        },
-        routeKey: providerResult.routeKey,
-        provider: explanation.provider,
+      const eventData = {
+        submissionId: explanation.submissionId,
+        assignmentId: explanation.assignmentId,
+        questionId: payload.harnessInput.promptInput.question.id,
+        routeKey: providerResult.routeKey as "low_cost" | "premium",
+        provider: explanation.provider as "openai-compatible",
         model: providerResult.model,
         promptVersion: explanation.promptVersion,
-        payload: {
-          status,
-          reasonCode: harnessResult.reasonCode,
-          validationErrors: harnessResult.validationErrors,
-          providerOutput: providerResult.rawText,
-          promptInput: payload.harnessInput.promptInput,
-        },
-      }, tx);
+      };
+      if (status === "completed") {
+        await recordAiFeedbackAudit(
+          {
+            actorId: explanation.requesterId,
+            action: AI_FEEDBACK_AUDIT_ACTIONS.explanationGenerated,
+            entity: "ai_objective_explanation",
+            entityId: explanation.id,
+            eventData: {
+              ...eventData,
+              status,
+              outputGenerated: true,
+            },
+          },
+          tx,
+        );
+      } else {
+        await recordAiFeedbackAudit(
+          {
+            actorId: explanation.requesterId,
+            action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+            entity: "ai_objective_explanation",
+            entityId: explanation.id,
+            eventData: {
+              ...eventData,
+              status,
+              failureCode: harnessResult.reasonCode,
+              outputGenerated: false,
+            },
+          },
+          tx,
+        );
+      }
     });
   } catch (error) {
     logger.error(
