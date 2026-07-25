@@ -125,7 +125,7 @@ export async function createCourse(payload: unknown, actor: CourseMutationActor)
     action: 'course.created',
     entity: 'course',
     entityId: course.id,
-    after: course,
+    eventData: { ownerTeacherId: data.ownerTeacherId },
   })
 
   return course
@@ -177,9 +177,16 @@ export async function updateCourse(
     action: 'course.updated',
     entity: 'course',
     entityId: course.id,
-    before: course,
-    after: updatedCourse,
-    diff: data,
+    eventData: {
+      ...('title' in data ? { titleChanged: true as const } : {}),
+      ...('description' in data ? { descriptionChanged: true as const } : {}),
+      ...('learningOutcomes' in data ? { learningOutcomesChanged: true as const } : {}),
+      ...('structureSummary' in data ? { structureSummaryChanged: true as const } : {}),
+      ...('prerequisitesSummary' in data
+        ? { prerequisitesSummaryChanged: true as const }
+        : {}),
+      ...('schedule' in data ? { scheduleChanged: true as const } : {}),
+    },
   })
 
   return updatedCourse
@@ -198,9 +205,7 @@ export async function archiveCourse(params: unknown, actor: CourseMutationActor)
     action: 'course.archived',
     entity: 'course',
     entityId: course.id,
-    before: course,
-    after: archivedCourse,
-    diff: { deletedAt: archivedCourse.deletedAt },
+    eventData: { lifecycleChanged: true },
   })
 
   return archivedCourse
@@ -219,9 +224,7 @@ export async function restoreCourse(params: unknown, actor: CourseMutationActor)
     action: 'course.restored',
     entity: 'course',
     entityId: course.id,
-    before: course,
-    after: restoredCourse,
-    diff: { deletedAt: restoredCourse.deletedAt },
+    eventData: { lifecycleChanged: true },
   })
 
   return restoredCourse
