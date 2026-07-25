@@ -33,7 +33,12 @@ AuditLog:
       type: string
     diff:
       type: object
-      description: Redacted audit summary. Sensitive text, credentials, tokens, OAuth payloads, and file keys are summarized instead of stored verbatim.
+      description: >-
+        Redacted audit summary. Benign operational identifiers named pageKey,
+        sectionKey, itemKey, or widgetKey remain readable. Credentials, tokens,
+        OAuth payloads, API and object-storage keys, signed URLs, file paths,
+        AI prompt or response text, submission content, and oversized strings
+        are summarized instead of stored verbatim.
       additionalProperties: true
       nullable: true
     createdAt:
