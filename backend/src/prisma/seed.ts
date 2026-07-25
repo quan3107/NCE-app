@@ -9,6 +9,7 @@ import { assertDemoSeedTarget } from './demoSeedPolicy.js'
 import {
   AssignmentType,
   EnrollmentRole,
+  Grade,
   IdentityProvider,
   NotificationChannel,
   NotificationStatus,
@@ -19,6 +20,7 @@ import {
   UserStatus,
 } from './generated.js'
 import { basePrisma, shutdownPrisma } from './client.js'
+import { buildSeedAuditEvent } from './seedAuditEvents.js'
 import { buildPrimaryIeltsAssignmentConfig } from './seeds/ieltsOfficialFixtures.js'
 import { buildIeltsWritingSubmissionPayload } from './seeds/ieltsOfficialSubmissions.js'
 
@@ -770,6 +772,7 @@ async function main(): Promise<void> {
   ]
 
   const submissions: Submission[] = []
+  const grades: Grade[] = []
 
   for (const seed of submissionSeeds) {
     const assignment = assignmentByTitle.get(seed.assignmentTitle)
@@ -814,18 +817,20 @@ async function main(): Promise<void> {
       { criterion: 'Grammatical Range & Accuracy', points: seed.finalScore - 0.5 },
     ]
 
-    await prisma.grade.create({
-      data: {
-        submissionId: submission.id,
-        graderId: grader.id,
-        rubricBreakdown,
-        rawScore: new Prisma.Decimal(seed.rawScore),
-        adjustments: seed.adjustments ?? [],
-        finalScore: new Prisma.Decimal(seed.finalScore),
-        feedback: seed.feedback,
-        gradedAt: daysFromNow(-1),
-      },
-    })
+    grades.push(
+      await prisma.grade.create({
+        data: {
+          submissionId: submission.id,
+          graderId: grader.id,
+          rubricBreakdown,
+          rawScore: new Prisma.Decimal(seed.rawScore),
+          adjustments: seed.adjustments ?? [],
+          finalScore: new Prisma.Decimal(seed.finalScore),
+          feedback: seed.feedback,
+          gradedAt: daysFromNow(-1),
+        },
+      }),
+    )
   }
 
   console.info('Creating IELTS notifications...')
@@ -1149,18 +1154,20 @@ async function main(): Promise<void> {
 
       const gradedOffsetDays = Math.min(seed.submittedOffsetDays + 1, 0)
 
-      await prisma.grade.create({
-        data: {
-          submissionId: submission.id,
-          graderId: grader.id,
-          rubricBreakdown,
-          rawScore: new Prisma.Decimal(seed.rawScore),
-          adjustments: seed.adjustments ?? [],
-          finalScore: new Prisma.Decimal(seed.finalScore),
-          feedback: seed.feedback ?? null,
-          gradedAt: daysFromNow(gradedOffsetDays),
-        },
-      })
+      grades.push(
+        await prisma.grade.create({
+          data: {
+            submissionId: submission.id,
+            graderId: grader.id,
+            rubricBreakdown,
+            rawScore: new Prisma.Decimal(seed.rawScore),
+            adjustments: seed.adjustments ?? [],
+            finalScore: new Prisma.Decimal(seed.finalScore),
+            feedback: seed.feedback ?? null,
+            gradedAt: daysFromNow(gradedOffsetDays),
+          },
+        }),
+      )
     }
   }
 
@@ -1382,11 +1389,11 @@ async function main(): Promise<void> {
       action: 'grade.upserted',
       entity: 'grade',
       entityLookup: () => {
-        const submission = submissions[0]
-        if (!submission) {
-          throw new Error('Missing submission for audit log')
+        const grade = grades[0]
+        if (!grade) {
+          throw new Error('Missing grade for audit log')
         }
-        return { id: submission.id }
+        return { id: grade.id }
       },
       eventData: () => {
         const submission = submissions[0]
@@ -1426,14 +1433,21 @@ async function main(): Promise<void> {
     auditSeeds.map((seed) => {
       const actor = seed.actorEmail ? userByEmail.get(seed.actorEmail) : null
       const entity = seed.entityLookup()
+      const event = buildSeedAuditEvent({
+        actorId: actor?.id ?? null,
+        action: seed.action,
+        entity: seed.entity,
+        entityId: entity.id,
+        eventData: seed.eventData(),
+      })
       return prisma.auditLog.create({
         data: {
-          actorId: actor?.id ?? null,
-          action: seed.action,
-          entity: seed.entity,
-          entityId: entity.id,
-          eventData: seed.eventData(),
-          schemaVersion: 1,
+          actorId: event.actorId ?? null,
+          action: event.action,
+          entity: event.entity,
+          entityId: event.entityId,
+          eventData: event.eventData as Prisma.InputJsonObject,
+          schemaVersion: event.schemaVersion,
         },
       })
     }),
@@ -1445,6 +1459,7 @@ async function main(): Promise<void> {
     courses: createdCourses.length,
     assignments: assignments.length,
     submissions: submissions.length,
+    grades: grades.length,
     rubrics: rubrics.length,
   })
 }
