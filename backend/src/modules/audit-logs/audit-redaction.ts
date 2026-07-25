@@ -14,11 +14,13 @@ const credentialKeyTokens = new Set([
   'jwt',
   'session',
 ])
+const compactCredentialFamilyPattern =
+  /(?:session|jwt|bearer|authentication|auth(?!entic|or))/
 const sensitivePathOrUrlNamePattern =
   /paths?$|(?:file|object|storage).*paths?|(?:presigned|signed).*(?:uri|url)/
 const authorizationSchemeNames = new Set([
   'apikey',
-  'aws4-hmac-sha256',
+  'aws4hmacsha256',
   'basic',
   'bearer',
   'digest',
@@ -30,12 +32,15 @@ const authorizationSchemeNames = new Set([
   'mutual',
   'negotiate',
   'oauth',
-  'scram-sha-1',
-  'scram-sha-256',
+  'scramsha1',
+  'scramsha256',
   'signature',
+  'ssws',
   'token',
   'vapid',
 ])
+const credentialSchemePattern =
+  /(?:^apikey$|^oauth\d*$|token$|hmac|signature|^jwt$|^bearer$)/
 const sensitiveUrlParameterNames = new Set(['code', 'sig'])
 const compactSensitiveValuePattern =
   /(body|content|essay|feedback|payload|prompt|response|submission)/
@@ -77,6 +82,7 @@ export function isSensitiveKeyName(key: string): boolean {
   const normalized = normalizedKeyName(key)
   return (
     keyNameTokens(key).some((token) => credentialKeyTokens.has(token)) ||
+    compactCredentialFamilyPattern.test(normalized) ||
     secretNamePattern.test(normalized) ||
     normalized.includes('key') ||
     sensitivePathOrUrlNamePattern.test(normalized)
@@ -114,8 +120,11 @@ function isSensitiveUrlValue(value: string): boolean {
 
 function isAuthorizationValue(value: string): boolean {
   const [scheme, credential] = value.trim().split(/\s+/, 2)
+  const normalizedScheme = scheme ? normalizedKeyName(scheme) : ''
   return Boolean(
-    scheme && credential && authorizationSchemeNames.has(scheme.toLowerCase()),
+    credential &&
+    (authorizationSchemeNames.has(normalizedScheme) ||
+      credentialSchemePattern.test(normalizedScheme)),
   )
 }
 
