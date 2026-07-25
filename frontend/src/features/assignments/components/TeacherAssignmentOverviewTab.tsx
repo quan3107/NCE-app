@@ -11,18 +11,14 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
 import type { Assignment } from '@domain';
+import {
+  fromDateTimeLocalValue,
+  toDateTimeLocalValue,
+} from '@features/assignments/assignmentDateTime.logic';
 import type { TeacherAssignmentStatCard } from './TeacherAssignmentDetailTabs';
 
 const formatTypeLabel = (value: string) =>
   value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Unknown';
-
-const toDateTimeLocal = (dateValue: Date) =>
-  new Date(dateValue).toISOString().slice(0, 16);
-
-const fromDateTimeLocal = (value: string): Date => {
-  const date = new Date(value);
-  return isNaN(date.getTime()) ? new Date() : date;
-};
 
 type TeacherAssignmentOverviewTabProps = {
   assignment: Assignment;
@@ -103,9 +99,11 @@ export function TeacherAssignmentOverviewTab({
               <Input
                 id="assignment-due-date"
                 type="datetime-local"
-                value={toDateTimeLocal(assignment.dueAt)}
+                value={toDateTimeLocalValue(assignment.dueAt)}
                 disabled={!isEditing}
-                onChange={(e) => onAssignmentChange?.({ dueAt: fromDateTimeLocal(e.target.value) })}
+                onChange={(e) =>
+                  onAssignmentChange?.({ dueAt: fromDateTimeLocalValue(e.target.value) })
+                }
                 className={isEditing ? 'bg-background' : ''}
               />
             </div>
