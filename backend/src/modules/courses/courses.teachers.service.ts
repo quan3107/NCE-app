@@ -85,11 +85,7 @@ export async function listCoTeachersForCourse(
     throw createHttpError(404, "Course not found");
   }
 
-  const accessRole = getCourseAccessRole(
-    course.ownerId,
-    course.enrollments,
-    actor,
-  );
+  const accessRole = getCourseAccessRole(course.ownerId, course.enrollments, actor);
 
   if (!["admin", "owner", "coTeacher"].includes(accessRole)) {
     throw createHttpError(403, "You do not have permission to access this course");
@@ -203,13 +199,11 @@ export async function addCoTeacherToCourse(
     action: "course.teacher_added",
     entity: "enrollment",
     entityId: enrollment.id,
-    before: existingEnrollment ?? undefined,
-    after: {
-      id: enrollment.id,
+    eventData: {
       courseId,
-      teacherId: user.id,
+      userId: user.id,
       roleInCourse: EnrollmentRole.teacher,
-      deletedAt: null,
+      membershipChanged: true,
     },
   });
 
@@ -249,7 +243,7 @@ export async function removeCoTeacherFromCourse(
     return;
   }
 
-  const updatedEnrollment = await prisma.enrollment.update({
+  await prisma.enrollment.update({
     where: { id: enrollment.id },
     data: {
       deletedAt: new Date(),
@@ -261,13 +255,11 @@ export async function removeCoTeacherFromCourse(
     action: "course.teacher_removed",
     entity: "enrollment",
     entityId: enrollment.id,
-    before: enrollment,
-    after: {
-      id: enrollment.id,
+    eventData: {
       courseId,
-      teacherId,
+      userId: teacherId,
       roleInCourse: EnrollmentRole.teacher,
-      deletedAt: updatedEnrollment.deletedAt,
+      membershipChanged: true,
     },
   });
 }
