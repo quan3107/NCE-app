@@ -453,7 +453,6 @@ export async function processObjectiveExplanationJob(
         eventData: {
           submissionId: explanation.submissionId,
           assignmentId: explanation.assignmentId,
-          questionId: payload.harnessInput.promptInput.question.id,
           routeKey: explanation.routeKey as "low_cost" | "premium",
           provider: explanation.provider as "openai-compatible",
           model: explanation.model,
@@ -507,7 +506,6 @@ export async function processObjectiveExplanationJob(
       const eventData = {
         submissionId: explanation.submissionId,
         assignmentId: explanation.assignmentId,
-        questionId: payload.harnessInput.promptInput.question.id,
         routeKey: providerResult.routeKey as "low_cost" | "premium",
         provider: explanation.provider as "openai-compatible",
         model: providerResult.model,
