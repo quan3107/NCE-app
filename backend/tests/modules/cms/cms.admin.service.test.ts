@@ -15,10 +15,14 @@ const transactionClient = {
   cmsPageRevision: {
     create: vi.fn(),
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
   cmsSection: { deleteMany: vi.fn(), upsert: vi.fn() },
   cmsContentItem: {
-    findMany: vi.fn(), update: vi.fn(), create: vi.fn(), deleteMany: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
+    deleteMany: vi.fn(),
   },
 }
 vi.mock('../../../src/prisma/client.js', () => ({
@@ -57,7 +61,12 @@ const draftContent = {
   stats: [
     { itemKey: 'stat_students', label: 'Students', value: 10, format: 'number' },
     { itemKey: 'stat_band_score', label: 'Band score', value: 7.5, format: 'decimal' },
-    { itemKey: 'stat_success_rate', label: 'Success rate', value: 0.8, format: 'percentage' },
+    {
+      itemKey: 'stat_success_rate',
+      label: 'Success rate',
+      value: 0.8,
+      format: 'percentage',
+    },
   ],
   howItWorks: {
     title: 'How it works',
@@ -126,9 +135,9 @@ describe('cms admin service', () => {
       },
     })
     expect(transactionClient.cmsSection.deleteMany).not.toHaveBeenCalled()
-    expect(transactionClient.cmsPageContent.update.mock.invocationCallOrder[0]).toBeLessThan(
-      transactionClient.cmsPageDraft.upsert.mock.invocationCallOrder[0] ?? 0,
-    )
+    expect(
+      transactionClient.cmsPageContent.update.mock.invocationCallOrder[0],
+    ).toBeLessThan(transactionClient.cmsPageDraft.upsert.mock.invocationCallOrder[0] ?? 0)
     expect(result.hasUnpublishedChanges).toBe(true)
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -180,6 +189,9 @@ describe('cms admin service', () => {
       id: 'revision-3',
       revisionNumber: 3,
     })
+    transactionClient.cmsPageRevision.findUnique.mockResolvedValueOnce({
+      contentJson: draftContent,
+    })
     transactionClient.cmsPageContent.updateMany.mockResolvedValueOnce({ count: 1 })
     transactionClient.cmsPageContent.findUnique.mockResolvedValueOnce({
       id: 'page-1',
@@ -223,7 +235,11 @@ describe('cms admin service', () => {
     })
     expect(result.hasUnpublishedChanges).toBe(false)
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'cms.published', actorId: actor.id }),
+      expect.objectContaining({
+        action: 'cms.published',
+        actorId: actor.id,
+        eventData: expect.objectContaining({ publishedContentChanged: false }),
+      }),
     )
   })
 
@@ -262,6 +278,9 @@ describe('cms admin service', () => {
       revisionNumber: 1,
       contentJson: legacyDraftContent,
     })
+    transactionClient.cmsPageRevision.findUnique.mockResolvedValueOnce({
+      contentJson: draftContent,
+    })
     transactionClient.cmsPageRevision.create.mockResolvedValueOnce({
       id: 'revision-4',
       revisionNumber: 4,
@@ -290,11 +309,15 @@ describe('cms admin service', () => {
       }),
     })
     expect(result.publishedRevision).toBe(4)
-    expect(transactionClient.cmsPageContent.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
-      transactionClient.cmsPageDraft.upsert.mock.invocationCallOrder[0] ?? 0,
-    )
+    expect(
+      transactionClient.cmsPageContent.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(transactionClient.cmsPageDraft.upsert.mock.invocationCallOrder[0] ?? 0)
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'cms.rolled_back', actorId: actor.id }),
+      expect.objectContaining({
+        action: 'cms.rolled_back',
+        actorId: actor.id,
+        eventData: expect.objectContaining({ publishedContentChanged: false }),
+      }),
     )
   })
 })
