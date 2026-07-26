@@ -117,7 +117,39 @@ describe('audit log service', () => {
     expect(prisma.auditLog.create).not.toHaveBeenCalled()
   })
 
-  it('logs and swallows audit insertion failures for safe writes', async () => {
+  it.each([
+    { name: 'null', input: null },
+    { name: 'undefined', input: undefined },
+    {
+      name: 'oversized values',
+      input: {
+        action: 'a'.repeat(121),
+        entity: 'e'.repeat(121),
+        entityId: 'i'.repeat(161),
+        eventData: {},
+      },
+    },
+    {
+      name: 'secret-like malformed input',
+      input: {
+        action: 'student-answer: My private response',
+        entity: 'private prompt content',
+        entityId: 'secret-value',
+        eventData: { answer: 'My private response' },
+      },
+    },
+  ])('swallows $name without logging rejected fields', async ({ input }) => {
+    await expect(writeAuditLogSafely(input as never)).resolves.toBeUndefined()
+
+    expect(prisma.auditLog.create).not.toHaveBeenCalled()
+    expect(logger.warn).toHaveBeenCalledWith(
+      { code: 'audit_log_validation_failed' },
+      'Audit log write rejected.',
+    )
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('My private response')
+  })
+
+  it('logs a static code and swallows audit insertion failures', async () => {
     const error = new Error('insert failed')
     prisma.auditLog.create.mockRejectedValueOnce(error as never)
 
@@ -132,14 +164,10 @@ describe('audit log service', () => {
     ).resolves.toBeUndefined()
 
     expect(logger.warn).toHaveBeenCalledWith(
-      {
-        err: error,
-        action: 'course.updated',
-        entity: 'course',
-        entityId: 'course-1',
-      },
+      { code: 'audit_log_persistence_failed' },
       'Audit log write failed.',
     )
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(error.message)
   })
 
   it('applies admin audit log filters and offset pagination', async () => {
