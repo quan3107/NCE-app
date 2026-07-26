@@ -3,54 +3,55 @@
  * Purpose: Define strict AI feedback audit event contracts.
  * Why: AI prompts, submissions, explanations, answers, and provider output must never be stored.
  */
-import { z } from "zod";
+import { z } from 'zod'
 
-import { auditIdSchema, auditLabelSchema } from "./common.js";
+import { questionIdSchema } from '../../assignments/question-id.schema.js'
+import { auditIdSchema, auditLabelSchema } from './common.js'
 
 const providerShape = {
-  routeKey: z.enum(["low_cost", "premium"]),
-  provider: z.literal("openai-compatible"),
+  routeKey: z.enum(['low_cost', 'premium']),
+  provider: z.literal('openai-compatible'),
   model: auditLabelSchema,
   promptVersion: auditLabelSchema,
-};
+}
 const writingIdsShape = {
   submissionId: auditIdSchema,
   assignmentId: auditIdSchema,
   gradeId: auditIdSchema.optional(),
-};
+}
 const explanationIdsShape = {
   submissionId: auditIdSchema,
   assignmentId: auditIdSchema,
-  questionId: auditIdSchema,
-};
+  questionId: questionIdSchema,
+}
 const writingStatusSchema = z.enum([
-  "queued",
-  "running",
-  "accepted",
-  "review_required",
-  "rejected",
-  "failed",
-  "approved",
-  "finalized",
-  "superseded",
-]);
+  'queued',
+  'running',
+  'accepted',
+  'review_required',
+  'rejected',
+  'failed',
+  'approved',
+  'finalized',
+  'superseded',
+])
 const explanationStatusSchema = z.enum([
-  "queued",
-  "running",
-  "completed",
-  "review_required",
-  "rejected",
-  "failed",
-]);
+  'queued',
+  'running',
+  'completed',
+  'review_required',
+  'rejected',
+  'failed',
+])
 const visibilityModeSchema = z.enum([
-  "teacher_reviewed",
-  "instant_student_visible",
-  "hidden",
-]);
+  'teacher_reviewed',
+  'instant_student_visible',
+  'hidden',
+])
 
 export const aiFeedbackAuditContracts = {
-  "ai_feedback.policy_changed": {
-    entity: "assignment",
+  'ai_feedback.policy_changed': {
+    entity: 'assignment',
     schema: z.strictObject({
       courseId: auditIdSchema,
       assignmentId: auditIdSchema,
@@ -59,8 +60,8 @@ export const aiFeedbackAuditContracts = {
       providerTierChanged: z.boolean(),
     }),
   },
-  "ai_feedback.writing_requested": {
-    entity: "ai_feedback_draft",
+  'ai_feedback.writing_requested': {
+    entity: 'ai_feedback_draft',
     schema: z.strictObject({
       ...writingIdsShape,
       ...providerShape,
@@ -70,8 +71,8 @@ export const aiFeedbackAuditContracts = {
       submissionContentUsed: z.literal(true),
     }),
   },
-  "ai_feedback.writing_generated": {
-    entity: "ai_feedback_draft",
+  'ai_feedback.writing_generated': {
+    entity: 'ai_feedback_draft',
     schema: z.strictObject({
       ...writingIdsShape,
       ...providerShape,
@@ -79,8 +80,8 @@ export const aiFeedbackAuditContracts = {
       outputGenerated: z.literal(true),
     }),
   },
-  "ai_feedback.writing_failed": {
-    entity: "ai_feedback_draft",
+  'ai_feedback.writing_failed': {
+    entity: 'ai_feedback_draft',
     schema: z.strictObject({
       ...writingIdsShape,
       ...providerShape,
@@ -89,32 +90,32 @@ export const aiFeedbackAuditContracts = {
       outputGenerated: z.literal(false),
     }),
   },
-  "ai_feedback.writing_approved": {
-    entity: "ai_feedback_draft",
+  'ai_feedback.writing_approved': {
+    entity: 'ai_feedback_draft',
     schema: z.strictObject({
       ...writingIdsShape,
-      teacherDecision: z.literal("approved"),
+      teacherDecision: z.literal('approved'),
       feedbackChanged: z.boolean(),
     }),
   },
-  "ai_feedback.writing_rejected": {
-    entity: "ai_feedback_draft",
+  'ai_feedback.writing_rejected': {
+    entity: 'ai_feedback_draft',
     schema: z.strictObject({
       ...writingIdsShape,
-      teacherDecision: z.literal("rejected"),
+      teacherDecision: z.literal('rejected'),
       feedbackChanged: z.boolean(),
     }),
   },
-  "ai_feedback.writing_finalized": {
-    entity: "ai_feedback_draft",
+  'ai_feedback.writing_finalized': {
+    entity: 'ai_feedback_draft',
     schema: z.strictObject({
       ...writingIdsShape,
-      teacherDecision: z.literal("finalized"),
+      teacherDecision: z.literal('finalized'),
       feedbackChanged: z.boolean(),
     }),
   },
-  "ai_feedback.explanation_requested": {
-    entity: "ai_objective_explanation",
+  'ai_feedback.explanation_requested': {
+    entity: 'ai_objective_explanation',
     schema: z.strictObject({
       ...explanationIdsShape,
       ...providerShape,
@@ -123,8 +124,8 @@ export const aiFeedbackAuditContracts = {
       sourceEvidenceUsed: z.literal(true),
     }),
   },
-  "ai_feedback.explanation_generated": {
-    entity: "ai_objective_explanation",
+  'ai_feedback.explanation_generated': {
+    entity: 'ai_objective_explanation',
     schema: z.strictObject({
       ...explanationIdsShape,
       ...providerShape,
@@ -132,8 +133,8 @@ export const aiFeedbackAuditContracts = {
       outputGenerated: z.literal(true),
     }),
   },
-  "ai_feedback.explanation_failed": {
-    entity: "ai_objective_explanation",
+  'ai_feedback.explanation_failed': {
+    entity: 'ai_objective_explanation',
     schema: z.strictObject({
       ...explanationIdsShape,
       ...providerShape,
@@ -142,14 +143,14 @@ export const aiFeedbackAuditContracts = {
       outputGenerated: z.literal(false),
     }),
   },
-  "ai_feedback.grade_feedback_updated": {
-    entity: "grade",
+  'ai_feedback.grade_feedback_updated': {
+    entity: 'grade',
     schema: z.strictObject({
       submissionId: auditIdSchema,
       assignmentId: auditIdSchema,
       draftId: auditIdSchema,
-      teacherDecision: z.enum(["approved", "finalized"]),
+      teacherDecision: z.enum(['approved', 'finalized']),
       feedbackChanged: z.literal(true),
     }),
   },
-} as const;
+} as const
