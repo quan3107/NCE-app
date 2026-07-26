@@ -3,43 +3,40 @@
  * Purpose: Define IELTS assignment config + submission payload schemas by type/version.
  * Why: Ensures IELTS-specific payloads are validated consistently across create/update flows.
  */
-import { AssignmentType } from "../../prisma/index.js";
-import { z } from "zod";
+import { AssignmentType } from '../../prisma/index.js'
+import { z } from 'zod'
+import { questionIdSchema } from './question-id.schema.js'
 
 const IELTS_ASSIGNMENT_TYPES = [
   AssignmentType.reading,
   AssignmentType.listening,
   AssignmentType.writing,
   AssignmentType.speaking,
-] as const;
+] as const
 
-type IeltsAssignmentType = (typeof IELTS_ASSIGNMENT_TYPES)[number];
+type IeltsAssignmentType = (typeof IELTS_ASSIGNMENT_TYPES)[number]
 
 export const isIeltsAssignmentType = (
   type: AssignmentType,
 ): type is IeltsAssignmentType =>
-  IELTS_ASSIGNMENT_TYPES.includes(type as IeltsAssignmentType);
+  IELTS_ASSIGNMENT_TYPES.includes(type as IeltsAssignmentType)
 
-const configVersionSchema = z.literal(1);
+const configVersionSchema = z.literal(1)
 
 const defaultAssignmentAiPolicy = {
-  writingFeedbackMode: "off",
-  objectiveExplanations: "off",
-  providerTier: "auto",
-} as const;
+  writingFeedbackMode: 'off',
+  objectiveExplanations: 'off',
+  providerTier: 'auto',
+} as const
 
 const assignmentAiPolicySchema = z
   .object({
-    writingFeedbackMode: z.enum([
-      "off",
-      "teacher_reviewed",
-      "instant_student_visible",
-    ]),
-    objectiveExplanations: z.enum(["off", "on_demand_student_visible"]),
-    providerTier: z.enum(["auto", "low_cost", "premium"]),
+    writingFeedbackMode: z.enum(['off', 'teacher_reviewed', 'instant_student_visible']),
+    objectiveExplanations: z.enum(['off', 'on_demand_student_visible']),
+    providerTier: z.enum(['auto', 'low_cost', 'premium']),
   })
   .strict()
-  .default(defaultAssignmentAiPolicy);
+  .default(defaultAssignmentAiPolicy)
 
 const timingSchema = z
   .object({
@@ -51,13 +48,13 @@ const timingSchema = z
     autoSubmit: z.boolean().optional(),
     rejectLateStart: z.boolean().optional(),
   })
-  .strict();
+  .strict()
 
 const attemptsSchema = z
   .object({
     maxAttempts: z.number().int().min(1).nullable(),
   })
-  .strict();
+  .strict()
 
 const baseAssignmentConfigSchema = z
   .object({
@@ -67,50 +64,48 @@ const baseAssignmentConfigSchema = z
     instructions: z.string().optional(),
     attempts: attemptsSchema.optional(),
   })
-  .passthrough();
+  .passthrough()
 
 function validateAssignmentAiPolicy(
   type: IeltsAssignmentType,
   policy: z.infer<typeof assignmentAiPolicySchema>,
   ctx: z.RefinementCtx,
 ) {
-  if (
-    type !== AssignmentType.writing &&
-    policy.writingFeedbackMode !== "off"
-  ) {
+  if (type !== AssignmentType.writing && policy.writingFeedbackMode !== 'off') {
     ctx.addIssue({
-      code: "custom",
-      path: ["aiPolicy", "writingFeedbackMode"],
-      message: "Writing AI feedback is only supported for writing assignments.",
-    });
+      code: 'custom',
+      path: ['aiPolicy', 'writingFeedbackMode'],
+      message: 'Writing AI feedback is only supported for writing assignments.',
+    })
   }
 
   if (
     type !== AssignmentType.reading &&
     type !== AssignmentType.listening &&
-    policy.objectiveExplanations !== "off"
+    policy.objectiveExplanations !== 'off'
   ) {
     ctx.addIssue({
-      code: "custom",
-      path: ["aiPolicy", "objectiveExplanations"],
+      code: 'custom',
+      path: ['aiPolicy', 'objectiveExplanations'],
       message:
-        "Objective explanations are only supported for reading and listening assignments.",
-    });
+        'Objective explanations are only supported for reading and listening assignments.',
+    })
   }
 }
 
-const withAiPolicyValidation = (
-  type: IeltsAssignmentType,
-  schema: z.ZodTypeAny,
-) =>
+const withAiPolicyValidation = (type: IeltsAssignmentType, schema: z.ZodTypeAny) =>
   schema.superRefine((config, ctx) => {
     const assignmentConfig = config as {
-      aiPolicy: z.infer<typeof assignmentAiPolicySchema>;
-    };
-    validateAssignmentAiPolicy(type, assignmentConfig.aiPolicy, ctx);
-  });
+      aiPolicy: z.infer<typeof assignmentAiPolicySchema>
+    }
+    validateAssignmentAiPolicy(type, assignmentConfig.aiPolicy, ctx)
+  })
 
-const questionSchema = z.record(z.string(), z.unknown());
+const questionSchema = z
+  .object({
+    id: questionIdSchema,
+  })
+  .passthrough()
 
 const sectionBaseSchema = z
   .object({
@@ -118,11 +113,11 @@ const sectionBaseSchema = z
     title: z.string().min(1),
     questions: z.array(questionSchema),
   })
-  .passthrough();
+  .passthrough()
 
 const readingSectionSchema = sectionBaseSchema.extend({
   passage: z.string().min(1),
-});
+})
 
 const listeningSectionSchema = sectionBaseSchema.extend({
   audioFileId: z.string().uuid().nullable(),
@@ -132,112 +127,119 @@ const listeningSectionSchema = sectionBaseSchema.extend({
     })
     .strict()
     .optional(),
-});
+})
 
 const readingAssignmentConfigSchema = baseAssignmentConfigSchema.extend({
   sections: z.array(readingSectionSchema),
-});
+})
 
 const listeningAssignmentConfigSchema = baseAssignmentConfigSchema.extend({
   sections: z.array(listeningSectionSchema),
-});
+})
 
 // Word count validation helper (max 1000 words)
-const maxWords = 1000;
-const wordCountSchema = z.string()
-  .max(50000, "Sample response is too long")
+const maxWords = 1000
+const wordCountSchema = z
+  .string()
+  .max(50000, 'Sample response is too long')
   .refine(
     (text) => {
-      if (!text || text.trim() === '') return true;
-      const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
-      return wordCount <= maxWords;
+      if (!text || text.trim() === '') return true
+      const wordCount = text
+        .trim()
+        .split(/\s+/)
+        .filter((w) => w.length > 0).length
+      return wordCount <= maxWords
     },
-    { 
-      message: `Sample response must not exceed ${maxWords} words` 
-    }
-  );
+    {
+      message: `Sample response must not exceed ${maxWords} words`,
+    },
+  )
 
 // Visual type enum (teacher-only metadata)
-const visualTypeSchema = z.enum([
-  'line_graph', 
-  'bar_chart', 
-  'pie_chart', 
-  'table', 
-  'diagram', 
-  'map', 
-  'process'
-]).optional();
+const visualTypeSchema = z
+  .enum(['line_graph', 'bar_chart', 'pie_chart', 'table', 'diagram', 'map', 'process'])
+  .optional()
 
 // Sample visibility timing
-const showSampleTimingSchema = z.enum([
-  'immediate',
-  'after_submission',
-  'after_grading',
-  'specific_date'
-]).optional();
+const showSampleTimingSchema = z
+  .enum(['immediate', 'after_submission', 'after_grading', 'specific_date'])
+  .optional()
 
 // Task 1 schema with visual type and sample response
-const writingTask1Schema = z.object({
-  prompt: z.string().min(1, "Task 1 prompt is required"),
-  imageFileId: z.string().uuid().nullable().optional(),
-  visualType: visualTypeSchema,
-  sampleResponse: wordCountSchema.optional(),
-  showSampleToStudents: z.boolean().optional(),
-  showSampleTiming: showSampleTimingSchema,
-  showSampleDate: z.string().datetime().optional(),
-  rubricId: z.string().uuid().nullable().optional(),
-}).strict().refine(
-  (data) => {
-    // Can't show sample without content
-    if (data.showSampleToStudents && (!data.sampleResponse || data.sampleResponse.trim() === '')) {
-      return false;
-    }
-    // Must have date if timing is specific_date
-    if (data.showSampleTiming === 'specific_date' && !data.showSampleDate) {
-      return false;
-    }
-    return true;
-  },
-  { 
-    message: "Invalid sample response configuration",
-    path: ["showSampleToStudents"]
-  }
-);
+const writingTask1Schema = z
+  .object({
+    prompt: z.string().min(1, 'Task 1 prompt is required'),
+    imageFileId: z.string().uuid().nullable().optional(),
+    visualType: visualTypeSchema,
+    sampleResponse: wordCountSchema.optional(),
+    showSampleToStudents: z.boolean().optional(),
+    showSampleTiming: showSampleTimingSchema,
+    showSampleDate: z.string().datetime().optional(),
+    rubricId: z.string().uuid().nullable().optional(),
+  })
+  .strict()
+  .refine(
+    (data) => {
+      // Can't show sample without content
+      if (
+        data.showSampleToStudents &&
+        (!data.sampleResponse || data.sampleResponse.trim() === '')
+      ) {
+        return false
+      }
+      // Must have date if timing is specific_date
+      if (data.showSampleTiming === 'specific_date' && !data.showSampleDate) {
+        return false
+      }
+      return true
+    },
+    {
+      message: 'Invalid sample response configuration',
+      path: ['showSampleToStudents'],
+    },
+  )
 
 // Task 2 schema with sample response
-const writingTask2Schema = z.object({
-  prompt: z.string().min(1, "Task 2 prompt is required"),
-  sampleResponse: wordCountSchema.optional(),
-  showSampleToStudents: z.boolean().optional(),
-  showSampleTiming: showSampleTimingSchema,
-  showSampleDate: z.string().datetime().optional(),
-  rubricId: z.string().uuid().nullable().optional(),
-}).strict().refine(
-  (data) => {
-    if (data.showSampleToStudents && (!data.sampleResponse || data.sampleResponse.trim() === '')) {
-      return false;
-    }
-    if (data.showSampleTiming === 'specific_date' && !data.showSampleDate) {
-      return false;
-    }
-    return true;
-  },
-  { 
-    message: "Invalid sample response configuration",
-    path: ["showSampleToStudents"]
-  }
-);
+const writingTask2Schema = z
+  .object({
+    prompt: z.string().min(1, 'Task 2 prompt is required'),
+    sampleResponse: wordCountSchema.optional(),
+    showSampleToStudents: z.boolean().optional(),
+    showSampleTiming: showSampleTimingSchema,
+    showSampleDate: z.string().datetime().optional(),
+    rubricId: z.string().uuid().nullable().optional(),
+  })
+  .strict()
+  .refine(
+    (data) => {
+      if (
+        data.showSampleToStudents &&
+        (!data.sampleResponse || data.sampleResponse.trim() === '')
+      ) {
+        return false
+      }
+      if (data.showSampleTiming === 'specific_date' && !data.showSampleDate) {
+        return false
+      }
+      return true
+    },
+    {
+      message: 'Invalid sample response configuration',
+      path: ['showSampleToStudents'],
+    },
+  )
 
 const writingAssignmentConfigSchema = baseAssignmentConfigSchema.extend({
   task1: writingTask1Schema,
   task2: writingTask2Schema,
-});
+})
 
 const speakingPartSchema = z
   .object({
     questions: z.array(z.string().min(1)),
   })
-  .passthrough();
+  .passthrough()
 
 const speakingAssignmentConfigSchema = baseAssignmentConfigSchema.extend({
   part1: speakingPartSchema,
@@ -252,12 +254,9 @@ const speakingAssignmentConfigSchema = baseAssignmentConfigSchema.extend({
     })
     .passthrough(),
   part3: speakingPartSchema,
-});
+})
 
-const assignmentConfigSchemasByType: Record<
-  IeltsAssignmentType,
-  z.ZodTypeAny
-> = {
+const assignmentConfigSchemasByType: Record<IeltsAssignmentType, z.ZodTypeAny> = {
   [AssignmentType.reading]: withAiPolicyValidation(
     AssignmentType.reading,
     readingAssignmentConfigSchema,
@@ -274,7 +273,7 @@ const assignmentConfigSchemasByType: Record<
     AssignmentType.speaking,
     speakingAssignmentConfigSchema,
   ),
-};
+}
 
 const submissionBaseSchema = z
   .object({
@@ -284,22 +283,22 @@ const submissionBaseSchema = z
     submittedAt: z.string().optional(),
     durationSeconds: z.number().int().min(0).optional(),
   })
-  .passthrough();
+  .passthrough()
 
 const answerSchema = z
   .object({
-    questionId: z.string().min(1),
+    questionId: questionIdSchema,
     value: z.unknown(),
   })
-  .passthrough();
+  .passthrough()
 
 const readingSubmissionPayloadSchema = submissionBaseSchema.extend({
   answers: z.array(answerSchema),
-});
+})
 
 const listeningSubmissionPayloadSchema = submissionBaseSchema.extend({
   answers: z.array(answerSchema),
-});
+})
 
 const writingSubmissionPayloadSchema = submissionBaseSchema.extend({
   task1: z
@@ -312,51 +311,42 @@ const writingSubmissionPayloadSchema = submissionBaseSchema.extend({
       text: z.string(),
     })
     .passthrough(),
-});
+})
 
 const speakingSubmissionPayloadSchema = submissionBaseSchema.extend({
   recordings: z.array(
     z
       .object({
-        part: z.enum(["part1", "part2", "part3"]),
+        part: z.enum(['part1', 'part2', 'part3']),
         fileId: z.string().uuid(),
         durationSeconds: z.number().int().min(1),
       })
       .passthrough(),
   ),
   notes: z.record(z.string(), z.string()).optional(),
-});
+})
 
-const submissionPayloadSchemasByType: Record<
-  IeltsAssignmentType,
-  z.ZodTypeAny
-> = {
+const submissionPayloadSchemasByType: Record<IeltsAssignmentType, z.ZodTypeAny> = {
   [AssignmentType.reading]: readingSubmissionPayloadSchema,
   [AssignmentType.listening]: listeningSubmissionPayloadSchema,
   [AssignmentType.writing]: writingSubmissionPayloadSchema,
   [AssignmentType.speaking]: speakingSubmissionPayloadSchema,
-};
-
-export function parseAssignmentConfigForType(
-  type: AssignmentType,
-  config: unknown,
-) {
-  if (!isIeltsAssignmentType(type)) {
-    return config;
-  }
-  const schema = assignmentConfigSchemasByType[type];
-  const result = z.object({ assignmentConfig: schema }).parse({
-    assignmentConfig: config,
-  });
-  return result.assignmentConfig;
 }
 
-export function parseSubmissionPayloadForType(
-  type: AssignmentType,
-  payload: unknown,
-) {
+export function parseAssignmentConfigForType(type: AssignmentType, config: unknown) {
   if (!isIeltsAssignmentType(type)) {
-    return payload;
+    return config
   }
-  return submissionPayloadSchemasByType[type].parse(payload);
+  const schema = assignmentConfigSchemasByType[type]
+  const result = z.object({ assignmentConfig: schema }).parse({
+    assignmentConfig: config,
+  })
+  return result.assignmentConfig
+}
+
+export function parseSubmissionPayloadForType(type: AssignmentType, payload: unknown) {
+  if (!isIeltsAssignmentType(type)) {
+    return payload
+  }
+  return submissionPayloadSchemasByType[type].parse(payload)
 }
