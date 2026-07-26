@@ -188,7 +188,6 @@ describe("requestAiObjectiveExplanation", () => {
         eventData: expect.objectContaining({
           submissionId,
           assignmentId,
-          questionId: "q1",
           routeKey: "low_cost",
           provider: "openai-compatible",
           model: "gpt-5.4-nano",
@@ -200,6 +199,9 @@ describe("requestAiObjectiveExplanation", () => {
       }),
       select: { id: true },
     });
+    expect(
+      prisma.auditLog.create.mock.calls[0]?.[0].data.eventData,
+    ).not.toHaveProperty("questionId");
     const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls[0]?.[0]);
     expect(auditPayload).not.toContain("Which option matches paragraph B?");
     expect(auditPayload).not.toContain("Paragraph B says the new route");
