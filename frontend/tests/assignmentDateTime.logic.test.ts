@@ -31,7 +31,40 @@ test('toDateTimeLocalValue displays an instant in the browser local timezone', (
 test('an unchanged datetime-local value preserves the original instant', () => {
   const dueAt = new Date('2026-07-25T14:17:00.000Z');
 
-  const submitted = fromDateTimeLocalValue(toDateTimeLocalValue(dueAt));
+  const submitted = fromDateTimeLocalValue(toDateTimeLocalValue(dueAt), dueAt);
 
   assert.equal(submitted.toISOString(), dueAt.toISOString());
+});
+
+test('an unchanged repeated DST time preserves the original occurrence', () => {
+  process.env.TZ = 'America/New_York';
+  try {
+    const dueAt = new Date('2026-11-01T06:30:00.000Z');
+    const controlValue = toDateTimeLocalValue(dueAt);
+
+    assert.equal(controlValue, '2026-11-01T01:30');
+    assert.equal(new Date(controlValue).toISOString(), '2026-11-01T05:30:00.000Z');
+    assert.equal(
+      fromDateTimeLocalValue(controlValue, dueAt).toISOString(),
+      dueAt.toISOString(),
+    );
+  } finally {
+    process.env.TZ = 'Asia/Ho_Chi_Minh';
+  }
+});
+
+test('an unchanged minute-only value preserves seconds and milliseconds', () => {
+  process.env.TZ = 'UTC';
+  try {
+    const dueAt = new Date('2026-07-25T14:17:42.123Z');
+    const controlValue = toDateTimeLocalValue(dueAt);
+
+    assert.equal(controlValue, '2026-07-25T14:17');
+    assert.equal(
+      fromDateTimeLocalValue(controlValue, dueAt).toISOString(),
+      dueAt.toISOString(),
+    );
+  } finally {
+    process.env.TZ = 'Asia/Ho_Chi_Minh';
+  }
 });
