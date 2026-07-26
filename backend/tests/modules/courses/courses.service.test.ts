@@ -8,6 +8,8 @@ import { UserRole, UserStatus } from '../../../src/prisma/index.js'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
     course: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -140,6 +142,7 @@ describe('courses.service.createCourse', () => {
 describe('courses.service course settings mutations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    prisma.$transaction.mockImplementation(async (callback) => callback(prisma))
   })
 
   it('allows the course owner to update editable course metadata', async () => {
