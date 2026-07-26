@@ -267,7 +267,6 @@ describe("ai-feedback objective explanations", () => {
         eventData: expect.objectContaining({
           submissionId,
           assignmentId,
-          questionId: "q-1",
           routeKey: "low_cost",
           provider: "openai-compatible",
           model: "gpt-5.4-nano",
@@ -279,6 +278,9 @@ describe("ai-feedback objective explanations", () => {
       }),
       select: { id: true },
     });
+    expect(
+      prisma.auditLog.create.mock.calls[0]?.[0].data.eventData,
+    ).not.toHaveProperty("questionId");
   });
 
   it("replaces terminal failed objective explanation cache rows", async () => {
