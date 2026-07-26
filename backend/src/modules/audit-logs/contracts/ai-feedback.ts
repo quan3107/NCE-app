@@ -5,7 +5,6 @@
  */
 import { z } from 'zod'
 
-import { questionIdSchema } from '../../assignments/question-id.schema.js'
 import { auditIdSchema, auditLabelSchema } from './common.js'
 
 const providerShape = {
@@ -22,7 +21,6 @@ const writingIdsShape = {
 const explanationIdsShape = {
   submissionId: auditIdSchema,
   assignmentId: auditIdSchema,
-  questionId: questionIdSchema,
 }
 const writingStatusSchema = z.enum([
   'queued',
