@@ -13,7 +13,11 @@ import {
   validateCmsPageContent,
   validateStoredCmsPageContent,
 } from './cms.content.js'
-import { lockCmsPageByKey, replacePublishedSections } from './cms.persistence.js'
+import {
+  lockCmsPageByKey,
+  publishedCmsContentChanged,
+  replacePublishedSections,
+} from './cms.persistence.js'
 import { CmsPageKeySchema, type CmsPageContent, type CmsPageKey } from './cms.schema.js'
 
 type CmsActor = { id: string }
@@ -180,6 +184,12 @@ export async function publishCmsDraft(
     if (page.draftVersion !== expectedDraftVersion) {
       throw createHttpError(409, 'CMS draft changed; reload before publishing')
     }
+    const publishedContentChanged = await publishedCmsContentChanged(
+      tx,
+      page,
+      pageKey,
+      content,
+    )
 
     const revisionNumber = page.publishedRevision + 1
     const draftVersion = page.draftVersion + 1
@@ -214,7 +224,7 @@ export async function publishCmsDraft(
       where: { id: page.id },
     })
     if (!updated) throw createHttpError(404, 'CMS page not found')
-    return { page: updated, content, revisionId: revision.id }
+    return { page: updated, content, revisionId: revision.id, publishedContentChanged }
   })
 
   await writeAuditLogSafely({
@@ -226,7 +236,7 @@ export async function publishCmsDraft(
       pageKey,
       revisionId: result.revisionId,
       revisionNumber: result.page.publishedRevision,
-      publishedContentChanged: true,
+      publishedContentChanged: result.publishedContentChanged,
     },
   })
   return pageState(result.page, result.content)
