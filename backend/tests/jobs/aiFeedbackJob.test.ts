@@ -238,6 +238,9 @@ describe("jobs.aiFeedbackJob", () => {
       }),
       select: { id: true },
     });
+    expect(
+      prisma.auditLog.create.mock.calls[0]?.[0].data.eventData,
+    ).not.toHaveProperty("questionId");
     expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain(
       fixture.providerOutput,
     );
