@@ -20,7 +20,21 @@ export function toDateTimeLocalValue(value: Date | string): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-export function fromDateTimeLocalValue(value: string): Date {
+export function fromDateTimeLocalValue(
+  value: string,
+  unchangedInstant?: Date | string,
+): Date {
+  if (unchangedInstant !== undefined) {
+    const original =
+      unchangedInstant instanceof Date ? unchangedInstant : new Date(unchangedInstant);
+    if (
+      !Number.isNaN(original.getTime()) &&
+      toDateTimeLocalValue(original) === value
+    ) {
+      return new Date(original.getTime());
+    }
+  }
+
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
