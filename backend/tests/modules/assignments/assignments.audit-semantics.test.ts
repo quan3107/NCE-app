@@ -9,6 +9,7 @@ import { UserRole } from '../../../src/prisma/index.js'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    $queryRaw: vi.fn(),
     auditLog: {
       create: vi.fn(),
     },
@@ -147,5 +148,95 @@ describe('assignments.service.updateAssignment audit semantics', () => {
     )
 
     expect(prisma.auditLog.create).not.toHaveBeenCalled()
+  })
+
+  it('does not attribute a concurrent title change to a policy-only update', async () => {
+    let currentTitle = 'Original title'
+    const existing = {
+      id: assignmentId,
+      courseId,
+      title: currentTitle,
+      description: 'Read carefully.',
+      type: 'reading',
+      dueAt,
+      latePolicy: {},
+      assignmentConfig: configWithDefaultPolicy,
+      publishedAt: null,
+    }
+    prisma.assignment.findFirst.mockImplementation(async () => ({
+      ...existing,
+      title: currentTitle,
+    }) as never)
+    prisma.$transaction.mockImplementationOnce(async (callback) => {
+      currentTitle = 'Concurrent title'
+      return callback(prisma)
+    })
+    prisma.assignment.update.mockImplementationOnce(async () => ({
+      ...existing,
+      title: currentTitle,
+      assignmentConfig: configWithObjectiveExplanations,
+    }) as never)
+
+    await updateAssignment(
+      { courseId, assignmentId },
+      { assignmentConfig: configWithObjectiveExplanations },
+      ownerTeacher,
+    )
+
+    const assignmentEvent = prisma.auditLog.create.mock.calls.find(
+      ([call]) => call.data.action === 'assignment.updated',
+    )?.[0].data
+    expect(assignmentEvent?.eventData).toEqual({
+      courseId,
+      assignmentConfigChanged: true,
+    })
+    expect(prisma.$queryRaw).toHaveBeenCalledOnce()
+  })
+
+  it('audits a stale full-form overwrite against the locked current title', async () => {
+    let currentTitle = 'Original title'
+    const existing = {
+      id: assignmentId,
+      courseId,
+      title: currentTitle,
+      description: 'Read carefully.',
+      type: 'reading',
+      dueAt,
+      latePolicy: {},
+      assignmentConfig: configWithDefaultPolicy,
+      publishedAt: null,
+    }
+    prisma.assignment.findFirst.mockImplementation(async () => ({
+      ...existing,
+      title: currentTitle,
+    }) as never)
+    prisma.$transaction.mockImplementationOnce(async (callback) => {
+      currentTitle = 'Concurrent title'
+      return callback(prisma)
+    })
+    prisma.assignment.update.mockResolvedValueOnce({
+      ...existing,
+      title: 'Original title',
+      assignmentConfig: configWithObjectiveExplanations,
+    } as never)
+
+    await updateAssignment(
+      { courseId, assignmentId },
+      {
+        title: 'Original title',
+        assignmentConfig: configWithObjectiveExplanations,
+      },
+      ownerTeacher,
+    )
+
+    const assignmentEvent = prisma.auditLog.create.mock.calls.find(
+      ([call]) => call.data.action === 'assignment.updated',
+    )?.[0].data
+    expect(assignmentEvent?.eventData).toEqual({
+      courseId,
+      titleChanged: true,
+      assignmentConfigChanged: true,
+    })
+    expect(prisma.$queryRaw).toHaveBeenCalledOnce()
   })
 })
