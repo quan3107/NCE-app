@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-26:** Restored the typed `AuditLogWriteInput` contract on failure-safe audit writes while retaining runtime handling for cast or untyped malformed values.
+
 - **2026-07-26:** Removed canonical question IDs from AI explanation audit data and made failure-safe audit writes swallow malformed inputs while logging only static validation or persistence codes.
 
 - **2026-07-26:** Split CMS semantic audit-marker regressions into a focused suite so the general CMS admin test remains below the 300-line repository limit.
@@ -38,6 +40,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-26:** No frontend application files changed for the failure-safe audit writer type-contract correction.
 
 - **2026-07-26:** No frontend application files changed for the audit question-ID privacy and failure-safe logging fixes.
 
