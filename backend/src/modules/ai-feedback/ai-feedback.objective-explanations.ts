@@ -461,7 +461,6 @@ export async function requestAiObjectiveExplanation(
       eventData: {
         submissionId: context.submission.id,
         assignmentId: context.submission.assignmentId,
-        questionId: context.questionId,
         routeKey: context.routeKey,
         provider: aiFeedbackConfig.provider,
         model: modelForRouteKey(context.routeKey),
@@ -502,7 +501,6 @@ export async function requestAiObjectiveExplanation(
   const eventData = {
     submissionId: context.submission.id,
     assignmentId: context.submission.assignmentId,
-    questionId: context.questionId,
     routeKey: context.routeKey,
     provider: aiFeedbackConfig.provider,
     model: modelForRouteKey(context.routeKey),
