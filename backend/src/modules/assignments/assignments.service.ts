@@ -33,6 +33,7 @@ import {
   validateWritingRubrics,
 } from './assignments.helpers.js'
 import { parseAssignmentConfigForType } from './ielts.schema.js'
+import { buildAssignmentUpdateData } from './assignments.update.js'
 
 function parseOptionalDate(
   value: string | undefined,
@@ -226,61 +227,33 @@ export async function updateAssignment(
     ? (payload.latePolicy as Prisma.InputJsonObject)
     : undefined
 
-  const existing = await prisma.assignment.findFirst({
-    where: assignmentAccessWhere(courseId, actor, 'manage', assignmentId),
-  })
-  if (!existing) {
-    throw createNotFoundError('Assignment', assignmentId)
-  }
+  const { existing, updated } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "assignments"
+      WHERE "id" = ${assignmentId}::uuid
+        AND "course_id" = ${courseId}::uuid
+      FOR UPDATE
+    `)
 
-  const targetType = payload.type ?? existing.type
-
-  let assignmentConfig: Prisma.InputJsonObject | undefined
-  if (payload.assignmentConfig !== undefined) {
-    const validatedConfig = parseAssignmentConfigForType(
-      targetType,
-      payload.assignmentConfig,
-    )
-
-    // Validate rubric IDs for writing assignments
-    if (targetType === 'writing') {
-      await validateWritingRubrics(validatedConfig, courseId)
+    const existing = await tx.assignment.findFirst({
+      where: assignmentAccessWhere(courseId, actor, 'manage', assignmentId),
+    })
+    if (!existing) {
+      throw createNotFoundError('Assignment', assignmentId)
     }
 
-    assignmentConfig = validatedConfig as Prisma.InputJsonObject
-  } else if (payload.type !== undefined && payload.type !== existing.type) {
-    parseAssignmentConfigForType(targetType, existing.assignmentConfig)
-  }
-
-  const updateData: Prisma.AssignmentUpdateInput = {}
-  if (payload.title !== undefined) {
-    updateData.title = payload.title
-  }
-  if (payload.descriptionMd !== undefined) {
-    updateData.description = payload.descriptionMd
-  }
-  if (payload.type !== undefined) {
-    updateData.type = payload.type
-  }
-  if (payload.dueAt !== undefined) {
-    updateData.dueAt = dueAt
-  }
-  if (payload.latePolicy !== undefined) {
-    updateData.latePolicy = latePolicy
-  }
-  if (payload.assignmentConfig !== undefined) {
-    updateData.assignmentConfig = assignmentConfig
-  }
-  if (payload.publishedAt !== undefined) {
-    updateData.publishedAt = publishedAt
-  }
-
-  const updated = await prisma.$transaction(async (tx) =>
-    tx.assignment.update({
+    const updateData = await buildAssignmentUpdateData(existing, payload, courseId, {
+      dueAt,
+      publishedAt,
+      latePolicy,
+    })
+    const updated = await tx.assignment.update({
       where: { id: assignmentId },
       data: updateData,
-    }),
-  )
+    })
+    return { existing, updated }
+  })
 
   const assignmentAuditEventData = buildAssignmentUpdateAuditEventData(
     existing,
