@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-26:** Removed canonical question IDs from AI explanation audit data and made failure-safe audit writes swallow malformed inputs while logging only static validation or persistence codes.
+
 - **2026-07-26:** Split CMS semantic audit-marker regressions into a focused suite so the general CMS admin test remains below the 300-line repository limit.
 
 - **2026-07-26:** Trusted only the configured AI provider model, separated canonical question and audit entity identity schemas from display/reference bounds, and derived course, grade, submission, and CMS audit markers from locked committed before/after values with no-op suppression.
@@ -36,6 +38,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-26:** No frontend application files changed for the audit question-ID privacy and failure-safe logging fixes.
 
 - **2026-07-26:** No frontend application files changed for the CMS audit-test organization follow-up.
 
