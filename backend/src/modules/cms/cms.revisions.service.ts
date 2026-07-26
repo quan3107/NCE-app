@@ -8,7 +8,11 @@ import type { Prisma } from '../../prisma/generated.js'
 import { createHttpError } from '../../utils/httpError.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import { validateStoredCmsPageContent } from './cms.content.js'
-import { lockCmsPageByKey, replacePublishedSections } from './cms.persistence.js'
+import {
+  lockCmsPageByKey,
+  publishedCmsContentChanged,
+  replacePublishedSections,
+} from './cms.persistence.js'
 import {
   CmsPageKeySchema,
   CmsRevisionQuerySchema,
@@ -97,6 +101,12 @@ export async function rollbackCmsRevision(
     if (!source) throw createHttpError(404, 'CMS revision not found')
 
     const content = validateStoredCmsPageContent(pageKey, source.contentJson)
+    const publishedContentChanged = await publishedCmsContentChanged(
+      tx,
+      page,
+      pageKey,
+      content,
+    )
     const revisionNumber = page.publishedRevision + 1
     const draftVersion = page.draftVersion + 1
     const claimed = await tx.cmsPageContent.updateMany({
@@ -129,7 +139,13 @@ export async function rollbackCmsRevision(
     })
     const updated = await tx.cmsPageContent.findUnique({ where: { id: page.id } })
     if (!updated) throw createHttpError(404, 'CMS page not found')
-    return { page: updated, content, revisionId: revision.id, source }
+    return {
+      page: updated,
+      content,
+      revisionId: revision.id,
+      source,
+      publishedContentChanged,
+    }
   })
 
   await writeAuditLogSafely({
@@ -143,7 +159,7 @@ export async function rollbackCmsRevision(
       revisionNumber: result.page.publishedRevision,
       sourceRevisionId: result.source.id,
       sourceRevisionNumber: result.source.revisionNumber,
-      publishedContentChanged: true,
+      publishedContentChanged: result.publishedContentChanged,
     },
   })
   return pageState(result.page, result.content)
