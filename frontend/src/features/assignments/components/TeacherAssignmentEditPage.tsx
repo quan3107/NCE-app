@@ -127,7 +127,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
       descriptionMd: formState.description.trim() || undefined,
       type: formState.type as Assignment['type'],
       dueAt: formState.dueAt
-        ? fromDateTimeLocalValue(formState.dueAt).toISOString()
+        ? fromDateTimeLocalValue(formState.dueAt, assignment.dueAt).toISOString()
         : undefined,
       assignmentConfig:
         isIeltsAssignmentType(formState.type) && assignmentConfig
