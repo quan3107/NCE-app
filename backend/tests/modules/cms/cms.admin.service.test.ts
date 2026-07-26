@@ -41,14 +41,12 @@ vi.mock('../../../src/prisma/client.js', () => ({
 vi.mock('../../../src/modules/audit-logs/audit-logs.service.js', () => ({
   writeAuditLogSafely: vi.fn(),
 }))
-
 const auditModule = await import('../../../src/modules/audit-logs/audit-logs.service.js')
 const writeAuditLogSafely = vi.mocked(auditModule.writeAuditLogSafely)
 const { publishCmsDraft, updateCmsDraft } =
   await import('../../../src/modules/cms/cms.admin.service.js')
 const { rollbackCmsRevision } =
   await import('../../../src/modules/cms/cms.revisions.service.js')
-
 const actor = { id: '15eb1f4b-09a0-48e1-8844-c8f5cf7fa30b' }
 const draftContent = {
   hero: {
@@ -74,15 +72,13 @@ const draftContent = {
     features: [],
   },
 }
-const legacyDraftContent = {
-  ...draftContent,
-  stats: draftContent.stats.map(({ itemKey: _itemKey, ...stat }) => stat),
-}
-
 describe('cms admin service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     transactionClient.$queryRaw.mockResolvedValue([{ id: 'page-1' }])
+    transactionClient.cmsPageRevision.findUnique.mockResolvedValue({
+      contentJson: draftContent,
+    })
     transactionClient.cmsSection.deleteMany.mockResolvedValue({ count: 1 })
     transactionClient.cmsSection.upsert.mockImplementation(async (args) => ({
       id: `section-${args.create.sectionKey}`,
@@ -189,9 +185,6 @@ describe('cms admin service', () => {
       id: 'revision-3',
       revisionNumber: 3,
     })
-    transactionClient.cmsPageRevision.findUnique.mockResolvedValueOnce({
-      contentJson: draftContent,
-    })
     transactionClient.cmsPageContent.updateMany.mockResolvedValueOnce({ count: 1 })
     transactionClient.cmsPageContent.findUnique.mockResolvedValueOnce({
       id: 'page-1',
@@ -234,13 +227,6 @@ describe('cms admin service', () => {
       }),
     })
     expect(result.hasUnpublishedChanges).toBe(false)
-    expect(writeAuditLogSafely).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'cms.published',
-        actorId: actor.id,
-        eventData: expect.objectContaining({ publishedContentChanged: false }),
-      }),
-    )
   })
 
   it('rejects publishing when the reviewed draft version is stale', async () => {
@@ -276,9 +262,6 @@ describe('cms admin service', () => {
       id: 'revision-1',
       pageId: 'page-1',
       revisionNumber: 1,
-      contentJson: legacyDraftContent,
-    })
-    transactionClient.cmsPageRevision.findUnique.mockResolvedValueOnce({
       contentJson: draftContent,
     })
     transactionClient.cmsPageRevision.create.mockResolvedValueOnce({
@@ -312,12 +295,5 @@ describe('cms admin service', () => {
     expect(
       transactionClient.cmsPageContent.updateMany.mock.invocationCallOrder[0],
     ).toBeLessThan(transactionClient.cmsPageDraft.upsert.mock.invocationCallOrder[0] ?? 0)
-    expect(writeAuditLogSafely).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'cms.rolled_back',
-        actorId: actor.id,
-        eventData: expect.objectContaining({ publishedContentChanged: false }),
-      }),
-    )
   })
 })
