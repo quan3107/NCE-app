@@ -9,62 +9,61 @@ import {
   NotificationChannel,
   Prisma,
   UserRole,
-} from "../../prisma/index.js";
+} from '../../prisma/index.js'
 
-import { prisma } from "../../prisma/client.js";
-import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
-import { enqueueNotification } from "../notifications/notifications.service.js";
-import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
-import { getStudentVisibleAiFeedbackDraft } from "../ai-feedback/ai-feedback.repository.js";
+import { prisma } from '../../prisma/client.js'
+import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
+import { semanticValuesEqual } from '../../utils/semanticValue.js'
+import { enqueueNotification } from '../notifications/notifications.service.js'
+import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
+import { getStudentVisibleAiFeedbackDraft } from '../ai-feedback/ai-feedback.repository.js'
 import {
   calculateIeltsManualBand,
   isIeltsManualAssignment,
   validateIeltsCriterionBreakdown,
   type IeltsCriterionScore,
-} from "../scoring/ieltsManualGrading.js";
-import { gradePayloadSchema, submissionScopedParamsSchema } from "./grades.schema.js";
+} from '../scoring/ieltsManualGrading.js'
+import { gradePayloadSchema, submissionScopedParamsSchema } from './grades.schema.js'
 
 type GradingActor = {
-  id: string;
-  role: UserRole;
-};
+  id: string
+  role: UserRole
+}
 
 type SubmissionForGrading = {
   assignment: {
-    type: AssignmentType;
+    type: AssignmentType
     course: {
-      ownerId: string;
+      ownerId: string
       enrollments: Array<{
-        userId: string;
-        roleInCourse: EnrollmentRole;
-        deletedAt: Date | null;
-      }>;
-    } | null;
-  };
-};
+        userId: string
+        roleInCourse: EnrollmentRole
+        deletedAt: Date | null
+      }>
+    } | null
+  }
+}
 
-type StudentAiFeedbackDraft = Awaited<
-  ReturnType<typeof getStudentVisibleAiFeedbackDraft>
->;
+type StudentAiFeedbackDraft = Awaited<ReturnType<typeof getStudentVisibleAiFeedbackDraft>>
 
 const learnerFacingFeedbackKeys = new Set([
-  "feedbackMd",
-  "feedback",
-  "content",
-  "summary",
-  "band_estimate",
-  "rationale",
-  "strengths",
-  "improvement_areas",
-  "next_steps",
-]);
+  'feedbackMd',
+  'feedback',
+  'content',
+  'summary',
+  'band_estimate',
+  'rationale',
+  'strengths',
+  'improvement_areas',
+  'next_steps',
+])
 
 function buildGradeReadWhere(
   submissionId: string,
   actor: GradingActor | undefined,
 ): Prisma.GradeWhereInput {
   if (!actor) {
-    throw createHttpError(401, "Authentication is required to view grades.");
+    throw createHttpError(401, 'Authentication is required to view grades.')
   }
 
   const activeSubmission = {
@@ -75,14 +74,14 @@ function buildGradeReadWhere(
         deletedAt: null,
       },
     },
-  };
+  }
 
   if (actor.role === UserRole.admin) {
     return {
       submissionId,
       deletedAt: null,
       submission: activeSubmission,
-    };
+    }
   }
 
   if (actor.role === UserRole.student) {
@@ -93,7 +92,7 @@ function buildGradeReadWhere(
         ...activeSubmission,
         studentId: actor.id,
       },
-    };
+    }
   }
 
   if (actor.role === UserRole.teacher) {
@@ -121,10 +120,10 @@ function buildGradeReadWhere(
           },
         },
       },
-    };
+    }
   }
 
-  throw createHttpError(403, "You do not have permission to view this grade.");
+  throw createHttpError(403, 'You do not have permission to view this grade.')
 }
 
 function assertCanGradeSubmission(
@@ -132,18 +131,18 @@ function assertCanGradeSubmission(
   actor: GradingActor | undefined,
 ): asserts actor is GradingActor {
   if (!actor) {
-    throw createHttpError(401, "Authentication is required to grade.");
+    throw createHttpError(401, 'Authentication is required to grade.')
   }
 
   if (actor.role === UserRole.admin) {
-    return;
+    return
   }
 
   if (actor.role !== UserRole.teacher) {
-    throw createHttpError(403, "Only teachers and admins can grade.");
+    throw createHttpError(403, 'Only teachers and admins can grade.')
   }
 
-  const course = submission.assignment.course;
+  const course = submission.assignment.course
   const teachesCourse =
     course?.ownerId === actor.id ||
     course?.enrollments.some(
@@ -151,144 +150,166 @@ function assertCanGradeSubmission(
         enrollment.userId === actor.id &&
         enrollment.roleInCourse === EnrollmentRole.teacher &&
         enrollment.deletedAt === null,
-    );
+    )
 
   if (!teachesCourse) {
-    throw createHttpError(403, "You do not have permission to grade this submission.");
+    throw createHttpError(403, 'You do not have permission to grade this submission.')
   }
 }
 
-type GradePayload = ReturnType<typeof gradePayloadSchema.parse>;
+type GradePayload = ReturnType<typeof gradePayloadSchema.parse>
 
 function normalizeGradePayload(
   assignmentType: AssignmentType,
   data: GradePayload,
 ): GradePayload {
   if (!isIeltsManualAssignment(assignmentType)) {
-    return data;
+    return data
   }
 
   if (!data.rubricBreakdown || data.rubricBreakdown.length === 0) {
     throw createHttpError(
       400,
-      "IELTS writing and speaking grades require criterion breakdowns.",
-    );
+      'IELTS writing and speaking grades require criterion breakdowns.',
+    )
   }
 
   try {
     validateIeltsCriterionBreakdown(
       assignmentType,
       data.rubricBreakdown as IeltsCriterionScore[],
-    );
+    )
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Invalid IELTS grade breakdown.";
-    throw createHttpError(400, message);
+      error instanceof Error ? error.message : 'Invalid IELTS grade breakdown.'
+    throw createHttpError(400, message)
   }
 
-  const band = calculateIeltsManualBand(data.rubricBreakdown as IeltsCriterionScore[]);
+  const band = calculateIeltsManualBand(data.rubricBreakdown as IeltsCriterionScore[])
   return {
     ...data,
     rawScore: band,
     finalScore: band,
     band,
-  };
+  }
 }
 
 function sanitizeLearnerFeedback(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
   }
 
   const sanitized = Object.fromEntries(
     Object.entries(value as Record<string, unknown>).filter(([key]) =>
       learnerFacingFeedbackKeys.has(key),
     ),
-  );
+  )
 
-  return Object.keys(sanitized).length > 0 ? sanitized : null;
+  return Object.keys(sanitized).length > 0 ? sanitized : null
 }
 
 function toStudentAiFeedback(draft: StudentAiFeedbackDraft) {
-  if (!draft || draft.status !== "accepted") {
-    return undefined;
+  if (!draft || draft.status !== 'accepted') {
+    return undefined
   }
 
-  const feedback = sanitizeLearnerFeedback(draft.generatedFeedback);
+  const feedback = sanitizeLearnerFeedback(draft.generatedFeedback)
   if (!feedback) {
-    return undefined;
+    return undefined
   }
 
   return {
-    label: "provisional AI feedback",
+    label: 'provisional AI feedback',
     status: draft.status,
     feedback,
-  };
+  }
 }
 
 function toProvisionalOnlyGrade(draft: StudentAiFeedbackDraft, submissionId: string) {
   if (!draft) {
-    return undefined;
+    return undefined
   }
 
-  const studentAiFeedback = toStudentAiFeedback(draft);
+  const studentAiFeedback = toStudentAiFeedback(draft)
 
   if (!studentAiFeedback) {
-    return undefined;
+    return undefined
   }
 
   return {
     id: draft.id,
     submissionId,
     feedback: null,
-    feedbackLabel: "teacher feedback",
+    feedbackLabel: 'teacher feedback',
     provisionalOnly: true,
     studentAiFeedback,
-  };
+  }
 }
 
 async function writeGradeAuditLog(input: {
-  actorId: string;
-  entityId: string;
-  submissionId: string;
-  graderId: string;
-  mutation: GradePayload;
+  actorId: string
+  entityId: string
+  submissionId: string
+  graderId: string
+  before: {
+    rubricBreakdown?: unknown
+    rawScore?: unknown
+    adjustments?: unknown
+    finalScore?: unknown
+    band?: unknown
+    feedback?: unknown
+  } | null
+  after: {
+    rubricBreakdown?: unknown
+    rawScore?: unknown
+    adjustments?: unknown
+    finalScore?: unknown
+    band?: unknown
+    feedback?: unknown
+  }
 }) {
-  const { mutation } = input;
+  const scoreChanged =
+    !semanticValuesEqual(input.before?.rubricBreakdown, input.after.rubricBreakdown) ||
+    !semanticValuesEqual(input.before?.rawScore, input.after.rawScore) ||
+    !semanticValuesEqual(input.before?.adjustments, input.after.adjustments) ||
+    !semanticValuesEqual(input.before?.finalScore, input.after.finalScore) ||
+    !semanticValuesEqual(input.before?.band, input.after.band)
+  const feedbackChanged = !semanticValuesEqual(
+    input.before?.feedback,
+    input.after.feedback,
+  )
+  if (!scoreChanged && !feedbackChanged) {
+    return
+  }
 
   await writeAuditLogSafely({
     actorId: input.actorId,
-    action: "grade.upserted",
-    entity: "grade",
+    action: 'grade.upserted',
+    entity: 'grade',
     entityId: input.entityId,
     eventData: {
       submissionId: input.submissionId,
       graderId: input.graderId,
-      scoreChanged:
-        mutation.rubricBreakdown !== undefined ||
-        mutation.rawScore !== undefined ||
-        mutation.adjustments !== undefined ||
-        mutation.finalScore !== undefined ||
-        mutation.band !== undefined,
-      feedbackChanged: mutation.feedbackMd !== undefined,
+      scoreChanged,
+      feedbackChanged,
     },
-  });
+  })
 }
 
 function feedbackLabelForGrade(grade: {
   aiFeedbackDrafts?: Array<{
-    status: string;
-    visibilityMode: string;
-  }>;
-}): "teacher feedback" | "teacher-reviewed AI-assisted feedback" {
+    status: string
+    visibilityMode: string
+  }>
+}): 'teacher feedback' | 'teacher-reviewed AI-assisted feedback' {
   const aiAssisted = grade.aiFeedbackDrafts?.some(
     (draft) =>
-      (draft.status === "approved" || draft.status === "finalized") &&
-      (draft.visibilityMode === "teacher_reviewed" ||
-        draft.visibilityMode === "instant_student_visible"),
-  );
+      (draft.status === 'approved' || draft.status === 'finalized') &&
+      (draft.visibilityMode === 'teacher_reviewed' ||
+        draft.visibilityMode === 'instant_student_visible'),
+  )
 
-  return aiAssisted ? "teacher-reviewed AI-assisted feedback" : "teacher feedback";
+  return aiAssisted ? 'teacher-reviewed AI-assisted feedback' : 'teacher feedback'
 }
 
 export async function upsertGrade(
@@ -296,8 +317,8 @@ export async function upsertGrade(
   payload: unknown,
   actor?: GradingActor,
 ) {
-  const { submissionId } = submissionScopedParamsSchema.parse(params);
-  const data = gradePayloadSchema.parse(payload);
+  const { submissionId } = submissionScopedParamsSchema.parse(params)
+  const data = gradePayloadSchema.parse(payload)
   const submission = await prisma.submission.findFirst({
     where: {
       id: submissionId,
@@ -344,24 +365,33 @@ export async function upsertGrade(
         },
       },
     },
-  });
+  })
   if (!submission) {
-    throw createNotFoundError("Submission", submissionId);
+    throw createNotFoundError('Submission', submissionId)
   }
-  assertCanGradeSubmission(submission, actor);
-  const normalizedData = normalizeGradePayload(submission.assignment.type, data);
+  assertCanGradeSubmission(submission, actor)
+  const normalizedData = normalizeGradePayload(submission.assignment.type, data)
 
   // Cast arrays to Prisma JSON inputs because Zod cannot enforce JsonValue types.
   const rubricBreakdown = normalizedData.rubricBreakdown
     ? (normalizedData.rubricBreakdown as Prisma.InputJsonArray)
-    : undefined;
+    : undefined
   const adjustments = normalizedData.adjustments
     ? (normalizedData.adjustments as Prisma.InputJsonArray)
-    : undefined;
+    : undefined
 
-  const gradedAt = new Date();
-  const [grade] = await prisma.$transaction([
-    prisma.grade.upsert({
+  const gradedAt = new Date()
+  const { gradeBefore, grade } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "submissions"
+      WHERE "id" = ${submissionId}::uuid
+      FOR UPDATE
+    `)
+    const gradeBefore = await tx.grade.findFirst({
+      where: { submissionId, deletedAt: null },
+    })
+    const grade = await tx.grade.upsert({
       where: { submissionId },
       create: {
         submissionId,
@@ -384,43 +414,44 @@ export async function upsertGrade(
         feedback: normalizedData.feedbackMd,
         gradedAt,
       },
-    }),
-    // Keep grading + submission status update atomic for queue accuracy.
-    prisma.submission.update({
+    })
+    await tx.submission.update({
       where: { id: submissionId },
-      data: { status: "graded" },
-    }),
-  ]);
+      data: { status: 'graded' },
+    })
+    return { gradeBefore, grade }
+  })
   await writeGradeAuditLog({
     actorId: actor.id,
     entityId: grade.id ?? submissionId,
     submissionId,
     graderId: actor.id,
-    mutation: normalizedData,
-  });
+    before: gradeBefore,
+    after: grade,
+  })
 
-  const channels: NotificationChannel[] = ["inapp", "email"];
+  const channels: NotificationChannel[] = ['inapp', 'email']
   const payloadJson: Prisma.InputJsonObject = {
     submissionId,
     assignmentId: submission.assignment.id,
     assignmentTitle: submission.assignment.title,
     courseId: submission.assignment.courseId,
-    courseTitle: submission.assignment.course?.title ?? "",
+    courseTitle: submission.assignment.course?.title ?? '',
     gradedAt: new Date().toISOString(),
-  };
+  }
 
   await enqueueNotification({
     userId: submission.student.id,
-    type: "graded",
+    type: 'graded',
     payload: payloadJson,
     channels,
-  });
+  })
 
-  return grade;
+  return grade
 }
 
 export async function getGrade(params: unknown, actor?: GradingActor) {
-  const { submissionId } = submissionScopedParamsSchema.parse(params);
+  const { submissionId } = submissionScopedParamsSchema.parse(params)
   const grade = await prisma.grade.findFirst({
     where: buildGradeReadWhere(submissionId, actor),
     include: {
@@ -433,10 +464,10 @@ export async function getGrade(params: unknown, actor?: GradingActor) {
         where: {
           deletedAt: null,
           status: {
-            in: ["approved", "finalized"],
+            in: ['approved', 'finalized'],
           },
           visibilityMode: {
-            in: ["teacher_reviewed", "instant_student_visible"],
+            in: ['teacher_reviewed', 'instant_student_visible'],
           },
         },
         select: {
@@ -444,11 +475,11 @@ export async function getGrade(params: unknown, actor?: GradingActor) {
           status: true,
           visibilityMode: true,
         },
-        orderBy: [{ decidedAt: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ decidedAt: 'desc' }, { createdAt: 'desc' }],
         take: 1,
       },
     },
-  });
+  })
   if (!grade) {
     if (actor?.role === UserRole.student) {
       const provisionalGrade = toProvisionalOnlyGrade(
@@ -457,14 +488,14 @@ export async function getGrade(params: unknown, actor?: GradingActor) {
           studentId: actor.id,
         }),
         submissionId,
-      );
+      )
 
       if (provisionalGrade) {
-        return provisionalGrade;
+        return provisionalGrade
       }
     }
 
-    throw createNotFoundError("Grade", submissionId);
+    throw createNotFoundError('Grade', submissionId)
   }
   const studentAiFeedback =
     actor?.role === UserRole.student
@@ -474,12 +505,12 @@ export async function getGrade(params: unknown, actor?: GradingActor) {
             studentId: actor.id,
           }),
         )
-      : undefined;
-  const { grader, aiFeedbackDrafts, ...gradePayload } = grade;
+      : undefined
+  const { grader, aiFeedbackDrafts, ...gradePayload } = grade
   return {
     ...gradePayload,
     graderName: grader.fullName,
     feedbackLabel: feedbackLabelForGrade({ aiFeedbackDrafts }),
     ...(studentAiFeedback ? { studentAiFeedback } : {}),
-  };
+  }
 }
