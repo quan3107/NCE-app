@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-26:** Trusted only the configured AI provider model, separated canonical question and audit entity identity schemas from display/reference bounds, and derived course, grade, submission, and CMS audit markers from locked committed before/after values with no-op suppression.
+
 - **2026-07-26:** Made assignment update audit baselines concurrency-safe by locking the scoped assignment row before reading, validating, updating, and deriving semantic markers.
 
 - **2026-07-25:** Derived assignment and AI-policy audit markers from normalized committed before/after values, preventing full-form payloads and materialized defaults from producing false change flags.
@@ -32,6 +34,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-26:** No frontend application files changed for the provider identity boundary and transactional semantic audit-marker fixes.
 
 - **2026-07-26:** Preserved exact unchanged assignment deadlines through minute-only controls, including sub-minute precision and the original occurrence of repeated DST wall times.
 
