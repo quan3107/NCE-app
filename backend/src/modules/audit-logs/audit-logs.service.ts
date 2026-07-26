@@ -47,12 +47,10 @@ type AuditLogClient = {
 
 export type { AuditLogWriteInput } from './audit-events.js'
 
-export async function writeAuditLog(
-  input: AuditLogWriteInput,
+async function persistAuditEvent(
+  event: ReturnType<typeof parseAuditEvent>,
   client: AuditLogClient = prisma,
 ): Promise<void> {
-  const event = parseAuditEvent(input)
-
   await client.auditLog.create({
     data: {
       actorId: event.actorId ?? undefined,
@@ -67,22 +65,30 @@ export async function writeAuditLog(
 }
 
 export async function writeAuditLogSafely(
+  input: unknown,
+  client: AuditLogClient = prisma,
+): Promise<void> {
+  let event: ReturnType<typeof parseAuditEvent>
+
+  try {
+    event = parseAuditEvent(input)
+  } catch {
+    logger.warn({ code: 'audit_log_validation_failed' }, 'Audit log write rejected.')
+    return
+  }
+
+  try {
+    await persistAuditEvent(event, client)
+  } catch {
+    logger.warn({ code: 'audit_log_persistence_failed' }, 'Audit log write failed.')
+  }
+}
+
+export async function writeAuditLog(
   input: AuditLogWriteInput,
   client: AuditLogClient = prisma,
 ): Promise<void> {
-  try {
-    await writeAuditLog(input, client)
-  } catch (error) {
-    logger.warn(
-      {
-        err: error,
-        action: input.action,
-        entity: input.entity,
-        entityId: input.entityId,
-      },
-      'Audit log write failed.',
-    )
-  }
+  await persistAuditEvent(parseAuditEvent(input), client)
 }
 
 export async function listAuditLogs(params: AuditLogQuery) {
