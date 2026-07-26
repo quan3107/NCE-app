@@ -10,6 +10,7 @@ import { ZodError } from 'zod'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    $queryRaw: vi.fn(),
     auditLog: {
       create: vi.fn(),
     },
