@@ -3,14 +3,14 @@
  * Purpose: Define strict assignment, submission, and grade audit event contracts.
  * Why: Educational records need operational markers without authored content or scores.
  */
-import { z } from "zod";
+import { z } from 'zod'
 
 import {
   assignmentTypeSchema,
   auditIdSchema,
   changedMarkerSchema,
   submissionStatusSchema,
-} from "./common.js";
+} from './common.js'
 
 const submissionEventShape = {
   assignmentId: auditIdSchema,
@@ -19,20 +19,20 @@ const submissionEventShape = {
   statusBefore: submissionStatusSchema.nullable(),
   statusAfter: submissionStatusSchema,
   submittedAtChanged: z.boolean(),
-  submissionContentChanged: changedMarkerSchema,
-};
+  submissionContentChanged: z.boolean(),
+}
 
 export const learningAuditContracts = {
-  "assignment.created": {
-    entity: "assignment",
+  'assignment.created': {
+    entity: 'assignment',
     schema: z.strictObject({
       courseId: auditIdSchema,
       type: assignmentTypeSchema,
       published: z.boolean(),
     }),
   },
-  "assignment.updated": {
-    entity: "assignment",
+  'assignment.updated': {
+    entity: 'assignment',
     schema: z.strictObject({
       courseId: auditIdSchema,
       titleChanged: changedMarkerSchema.optional(),
@@ -44,27 +44,27 @@ export const learningAuditContracts = {
       publishedAtChanged: changedMarkerSchema.optional(),
     }),
   },
-  "assignment.deleted": {
-    entity: "assignment",
+  'assignment.deleted': {
+    entity: 'assignment',
     schema: z.strictObject({
       courseId: auditIdSchema,
       lifecycleChanged: changedMarkerSchema,
     }),
   },
-  "submission.created": {
-    entity: "submission",
+  'submission.created': {
+    entity: 'submission',
     schema: z.strictObject(submissionEventShape),
   },
-  "submission.updated": {
-    entity: "submission",
+  'submission.updated': {
+    entity: 'submission',
     schema: z.strictObject(submissionEventShape),
   },
-  "submission.submitted": {
-    entity: "submission",
+  'submission.submitted': {
+    entity: 'submission',
     schema: z.strictObject(submissionEventShape),
   },
-  "grade.upserted": {
-    entity: "grade",
+  'grade.upserted': {
+    entity: 'grade',
     schema: z.strictObject({
       submissionId: auditIdSchema,
       graderId: auditIdSchema,
@@ -72,4 +72,4 @@ export const learningAuditContracts = {
       feedbackChanged: z.boolean(),
     }),
   },
-} as const;
+} as const
