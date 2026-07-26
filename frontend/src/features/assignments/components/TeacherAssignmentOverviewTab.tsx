@@ -22,6 +22,7 @@ const formatTypeLabel = (value: string) =>
 
 type TeacherAssignmentOverviewTabProps = {
   assignment: Assignment;
+  originalDueAt?: Date;
   courseTitle: string;
   statsCards: TeacherAssignmentStatCard[];
   isEditing?: boolean;
@@ -30,6 +31,7 @@ type TeacherAssignmentOverviewTabProps = {
 
 export function TeacherAssignmentOverviewTab({
   assignment,
+  originalDueAt,
   courseTitle,
   statsCards,
   isEditing = false,
@@ -102,7 +104,12 @@ export function TeacherAssignmentOverviewTab({
                 value={toDateTimeLocalValue(assignment.dueAt)}
                 disabled={!isEditing}
                 onChange={(e) =>
-                  onAssignmentChange?.({ dueAt: fromDateTimeLocalValue(e.target.value) })
+                  onAssignmentChange?.({
+                    dueAt: fromDateTimeLocalValue(
+                      e.target.value,
+                      originalDueAt ?? assignment.dueAt,
+                    ),
+                  })
                 }
                 className={isEditing ? 'bg-background' : ''}
               />
