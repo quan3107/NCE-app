@@ -65,7 +65,7 @@ async function persistAuditEvent(
 }
 
 export async function writeAuditLogSafely(
-  input: unknown,
+  input: AuditLogWriteInput,
   client: AuditLogClient = prisma,
 ): Promise<void> {
   let event: ReturnType<typeof parseAuditEvent>
