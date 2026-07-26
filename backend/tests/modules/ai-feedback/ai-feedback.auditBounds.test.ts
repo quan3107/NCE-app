@@ -87,17 +87,14 @@ describe('AI feedback audit boundaries', () => {
     ).toBe(questionId)
   })
 
-  it('preserves canonical question IDs in audit serialization', () => {
-    const questionId = ` ${'q'.repeat(161)} `
-
-    const event = parseAuditEvent({
+  it('rejects question IDs from audit serialization', () => {
+    const auditInput = {
       action: 'ai_feedback.explanation_requested',
       entity: 'ai_objective_explanation',
       entityId: assignmentId,
       eventData: {
         submissionId,
         assignmentId,
-        questionId,
         routeKey: 'premium',
         provider: 'openai-compatible',
         model: 'gpt-test',
@@ -106,8 +103,18 @@ describe('AI feedback audit boundaries', () => {
         promptUsed: true,
         sourceEvidenceUsed: true,
       },
-    })
+    }
 
-    expect(event.eventData.questionId).toBe(questionId)
+    expect(() =>
+      parseAuditEvent({
+        ...auditInput,
+        eventData: {
+          ...auditInput.eventData,
+          questionId: 'student-answer: My private response',
+        },
+      }),
+    ).toThrow()
+
+    expect(parseAuditEvent(auditInput).eventData).not.toHaveProperty('questionId')
   })
 })
