@@ -11,6 +11,7 @@ import {
   upsertAiObjectiveExplanationSchema,
 } from '../../../src/modules/ai-feedback/ai-feedback.schema.js'
 import { objectiveGenerationJobSchema } from '../../../src/modules/ai-feedback/ai-feedback.generationJob.schema.js'
+import { parseAuditEvent } from '../../../src/modules/audit-logs/audit-events.js'
 import { objectiveHarnessFixtures } from '../../fixtures/ai-feedback/harness/harness.fixtures.js'
 
 const submissionId = '2520f0dd-918a-4c2b-9544-b922eac066e5'
@@ -60,30 +61,53 @@ describe('AI feedback audit boundaries', () => {
     ).toBe(false)
   })
 
-  it('accepts 160-character question IDs and rejects 161-character IDs', () => {
-    const acceptedId = 'q'.repeat(160)
-    const rejectedId = 'q'.repeat(161)
+  it('preserves long and whitespace-bearing canonical question IDs', () => {
+    const questionId = `  ${'q'.repeat(161)}  `
 
     expect(
-      upsertAiObjectiveExplanationSchema.safeParse(objectiveExplanationInput(acceptedId))
-        .success,
-    ).toBe(true)
+      upsertAiObjectiveExplanationSchema.parse(objectiveExplanationInput(questionId))
+        .questionId,
+    ).toBe(questionId)
     expect(
-      upsertAiObjectiveExplanationSchema.safeParse(objectiveExplanationInput(rejectedId))
-        .success,
-    ).toBe(false)
-    expect(
-      objectiveExplanationRequestParamsSchema.safeParse({
+      objectiveExplanationRequestParamsSchema.parse({
         submissionId,
-        questionId: rejectedId,
-      }).success,
-    ).toBe(false)
+        questionId,
+      }).questionId,
+    ).toBe(questionId)
   })
 
-  it('rejects unauditable question IDs in queued objective jobs', () => {
+  it('preserves canonical question IDs in queued objective jobs', () => {
     const harnessInput = structuredClone(objectiveHarnessFixtures[0])
-    harnessInput.promptInput.question.id = 'q'.repeat(161)
+    const questionId = ` ${'q'.repeat(161)} `
+    harnessInput.promptInput.question.id = questionId
 
-    expect(objectiveGenerationJobSchema.safeParse({ harnessInput }).success).toBe(false)
+    expect(
+      objectiveGenerationJobSchema.parse({ harnessInput }).harnessInput.promptInput
+        .question.id,
+    ).toBe(questionId)
+  })
+
+  it('preserves canonical question IDs in audit serialization', () => {
+    const questionId = ` ${'q'.repeat(161)} `
+
+    const event = parseAuditEvent({
+      action: 'ai_feedback.explanation_requested',
+      entity: 'ai_objective_explanation',
+      entityId: assignmentId,
+      eventData: {
+        submissionId,
+        assignmentId,
+        questionId,
+        routeKey: 'premium',
+        provider: 'openai-compatible',
+        model: 'gpt-test',
+        promptVersion: 'objective-v1',
+        status: 'queued',
+        promptUsed: true,
+        sourceEvidenceUsed: true,
+      },
+    })
+
+    expect(event.eventData.questionId).toBe(questionId)
   })
 })
