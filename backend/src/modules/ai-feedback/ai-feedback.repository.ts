@@ -460,7 +460,6 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
           eventData: {
             submissionId: data.submissionId,
             assignmentId: submission.assignmentId,
-            questionId: data.questionId,
             routeKey: data.routeKey as "low_cost" | "premium",
             provider: data.provider as "openai-compatible",
             model: data.model,
