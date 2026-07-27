@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-27:** Closed OpenAPI review gaps for arbitrary course JSON, objective conflicts, middleware/global errors, invite normalization, enabled tab filtering, and the CI validation gate with focused runtime-boundary regressions.
+
 - **2026-07-27:** Synchronized OpenAPI with every mounted backend route, documented security-sensitive cookie, ownership, pagination, metric, and server-derived identity behavior, and added deterministic spec validation.
 
 - **2026-07-27:** Locked and re-read grades inside AI approval/finalization transactions before deriving semantic feedback audit markers, preventing stale concurrent baselines.
@@ -46,6 +48,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-27:** Strengthened OpenAPI regressions with bidirectional route equality, stale-operation detection, runtime error-shape checks, normalization constraints, and CI-gate coverage.
 
 - **2026-07-27:** Added a source-backed contract regression that inventories mounted backend routes and protects every frontend-used OpenAPI path plus the named security-sensitive contract details.
 
