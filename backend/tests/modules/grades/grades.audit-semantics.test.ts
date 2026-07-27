@@ -38,6 +38,7 @@ const { upsertGrade } = await import('../../../src/modules/grades/grades.service
 
 const submissionId = '2520f0dd-918a-4c2b-9544-b922eac066e5'
 const teacherId = 'db2b572b-ef7d-44b3-96c6-a61c498cf673'
+const secondTeacherId = 'de54dc98-bc9f-41df-9ec0-5b719d8fab61'
 const studentId = '4335e34e-7ecb-4a31-ae53-b04c44cd7c09'
 const existingGrade = {
   id: 'grade-1',
@@ -62,14 +63,14 @@ describe('grades.service.upsertGrade audit semantics', () => {
         title: 'Writing Task',
         type: AssignmentType.text,
         courseId: '87ab2f6a-016b-4f4d-ab68-bc574ae3a660',
-        course: { title: 'Course', ownerId: teacherId, enrollments: [] },
+        course: { title: 'Course', ownerId: secondTeacherId, enrollments: [] },
       },
       student: { id: studentId },
     } as never)
     prisma.submission.update.mockResolvedValue({ id: submissionId } as never)
   })
 
-  it('suppresses an unchanged full-form grade audit', async () => {
+  it('preserves attribution when another teacher submits an unchanged grade', async () => {
     prisma.grade.findFirst.mockResolvedValueOnce(existingGrade as never)
     prisma.grade.upsert.mockResolvedValueOnce(existingGrade as never)
 
@@ -83,9 +84,17 @@ describe('grades.service.upsertGrade audit semantics', () => {
         band: existingGrade.band,
         feedbackMd: existingGrade.feedback,
       },
-      { id: teacherId, role: UserRole.teacher },
+      { id: secondTeacherId, role: UserRole.teacher },
     )
 
+    expect(prisma.grade.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.not.objectContaining({
+          graderId: expect.anything(),
+          gradedAt: expect.anything(),
+        }),
+      }),
+    )
     expect(writeAuditLogSafely).not.toHaveBeenCalled()
   })
 })
