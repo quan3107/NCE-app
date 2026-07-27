@@ -57,6 +57,27 @@ test('mobile menu exposes destinations and identifies the current page', async (
   assert.ok(screen.queryByRole('dialog') === null);
 });
 
+test.each(['/contact/', '/CONTACT'])(
+  'desktop and mobile navigation identify the router alias %s',
+  async (currentPath) => {
+    router.currentPath = currentPath;
+    render(publicShell());
+
+    const navigation = screen.getByRole('navigation');
+    assert.equal(
+      within(navigation).getByRole('button', { name: /contact/i }).getAttribute('aria-current'),
+      'page',
+    );
+
+    fireEvent.click(within(navigation).getByRole('button', { name: /open navigation/i }));
+    const dialog = await screen.findByRole('dialog');
+    assert.equal(
+      within(dialog).getByRole('button', { name: /contact/i }).getAttribute('aria-current'),
+      'page',
+    );
+  },
+);
+
 test('route changes invalidate an open mobile sheet', async () => {
   const view = render(publicShell());
   fireEvent.click(screen.getByRole('button', { name: /open navigation/i }));
