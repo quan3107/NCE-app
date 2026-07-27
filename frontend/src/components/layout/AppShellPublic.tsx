@@ -124,6 +124,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
 
             <div className="flex items-center gap-2">
               <MobilePublicNavigation
+                key={currentPath}
                 currentPath={currentPath}
                 items={publicNavigationItems}
                 navigate={navigate}
