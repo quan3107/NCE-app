@@ -94,11 +94,7 @@ Course:
     metrics:
       $ref: '#/CourseMetrics'
     learningOutcomes:
-      type: array
-      items:
-        type: string
-      nullable: true
-      description: JSON learning outcomes content for the course.
+      description: Arbitrary JSON learning outcomes content for the course, including null.
     structureSummary:
       type: string
       nullable: true
@@ -152,11 +148,7 @@ UpdateCourseRequest:
       type: string
       nullable: true
     learningOutcomes:
-      type: array
-      items:
-        type: string
-      nullable: true
-      description: JSON learning outcomes content.
+      description: Arbitrary JSON learning outcomes content, including null.
     structureSummary:
       type: string
       nullable: true
@@ -180,10 +172,7 @@ CourseMutationResponse:
       type: string
       nullable: true
     learningOutcomes:
-      type: array
-      items:
-        type: string
-      nullable: true
+      description: Arbitrary JSON learning outcomes content, including null.
     structureSummary:
       type: string
       nullable: true
