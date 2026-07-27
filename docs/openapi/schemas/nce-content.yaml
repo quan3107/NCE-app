@@ -167,12 +167,18 @@ NceExercise:
     prompt:
       type: string
     content:
+      type: object
+      additionalProperties: true
       nullable: true
       description: Exercise content JSON.
     answerKey:
+      type: object
+      additionalProperties: true
       nullable: true
       description: Present only for authorized teacher/admin reads.
     scoringConfig:
+      type: object
+      additionalProperties: true
       nullable: true
       description: Scoring configuration JSON.
     sortOrder:
@@ -195,6 +201,8 @@ NceLesson:
     lessonText:
       type: string
     media:
+      type: object
+      additionalProperties: true
       nullable: true
       description: Media metadata JSON.
     sortOrder:
