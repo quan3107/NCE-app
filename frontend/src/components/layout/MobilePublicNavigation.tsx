@@ -18,6 +18,8 @@ import {
 import type { NavigationItem } from '@features/navigation/types';
 import { getIcon } from '@features/navigation/utils/iconMap';
 
+import { isNavigationPathCurrent } from './appShell.helpers';
+
 type MobilePublicNavigationProps = {
   currentPath: string;
   items: NavigationItem[];
@@ -74,13 +76,14 @@ export function MobilePublicNavigation({
         <div className="flex flex-col gap-2 px-4">
           {items.map((item) => {
             const Icon = getIcon(item.iconName);
+            const isCurrent = isNavigationPathCurrent(currentPath, item.path);
             return (
               <Button
                 key={item.id}
                 type="button"
-                variant={currentPath === item.path ? 'secondary' : 'ghost'}
+                variant={isCurrent ? 'secondary' : 'ghost'}
                 className="justify-start gap-3"
-                aria-current={currentPath === item.path ? 'page' : undefined}
+                aria-current={isCurrent ? 'page' : undefined}
                 onClick={() => navigateFromSheet(item.path)}
               >
                 <Icon className="size-5" />
