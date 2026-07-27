@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, test, vi } from 'vitest';
 
@@ -33,28 +33,44 @@ function renderContact() {
   return render(<ContactRoute />, { wrapper });
 }
 
-function fillContactForm() {
-  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ada Lovelace' } });
-  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
-  fireEvent.change(screen.getByLabelText('Subject'), { target: { value: 'Course access' } });
+function fillContactForm(
+  values: Partial<Record<'name' | 'email' | 'subject' | 'message', string>> = {},
+) {
+  fireEvent.change(screen.getByLabelText('Name'), {
+    target: { value: values.name ?? 'Ada Lovelace' },
+  });
+  fireEvent.change(screen.getByLabelText('Email'), {
+    target: { value: values.email ?? 'ada@example.com' },
+  });
+  fireEvent.change(screen.getByLabelText('Subject'), {
+    target: { value: values.subject ?? 'Course access' },
+  });
   fireEvent.change(screen.getByLabelText('Message'), {
-    target: { value: 'Please help me access my course.' },
+    target: { value: values.message ?? 'Please help me access my course.' },
   });
 }
 
-test('submits persisted contact data once and clears the form only after success', async () => {
-  let resolveSubmission: ((response: Response) => void) | undefined;
-  const submission = new Promise<Response>((resolve) => { resolveSubmission = resolve; });
-  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+function mockContactRequests(
+  submit: (init: RequestInit) => Promise<Response>,
+) {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input);
     if (url.endsWith('/api/v1/cms/contact-page-content')) {
       return new Response(JSON.stringify(contactContent), {
         headers: { 'content-type': 'application/json' },
       });
     }
-    if (url.endsWith('/api/v1/contact') && init?.method === 'POST') return submission;
+    if (url.endsWith('/api/v1/contact') && init?.method === 'POST') {
+      return submit(init);
+    }
     throw new Error(`Unexpected request: ${init?.method ?? 'GET'} ${url}`);
   });
+}
+
+test('freezes one submission snapshot and clears only after generic success', async () => {
+  let resolveSubmission: ((response: Response) => void) | undefined;
+  const submission = new Promise<Response>((resolve) => { resolveSubmission = resolve; });
+  const fetchSpy = mockContactRequests(async () => submission);
 
   renderContact();
   await screen.findByRole('heading', { name: 'Contact us' });
@@ -62,51 +78,99 @@ test('submits persisted contact data once and clears the form only after success
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
 
   const pendingButton = await screen.findByRole('button', { name: 'Sending…' });
-  assert.ok(pendingButton.hasAttribute('disabled'));
+  assert.ok(pendingButton.matches(':disabled'));
+  assert.ok(screen.getByLabelText('Message').matches(':disabled'));
   assert.ok(resolveSubmission);
-  resolveSubmission(new Response(JSON.stringify({
-    id: '11111111-1111-4111-8111-111111111111',
-    status: 'new',
-    submittedAt: '2026-07-27T10:00:00.000Z',
-  }), { status: 201, headers: { 'content-type': 'application/json' } }));
+  resolveSubmission(new Response(JSON.stringify({ accepted: true }), {
+    status: 202,
+    headers: { 'content-type': 'application/json' },
+  }));
 
   await screen.findByRole('status');
   assert.equal((screen.getByLabelText('Name') as HTMLInputElement).value, '');
 
   const postCall = fetchSpy.mock.calls.find(([, init]) => init?.method === 'POST');
   assert.ok(postCall);
-  assert.deepEqual(JSON.parse(String(postCall[1]?.body)), {
+  const body = JSON.parse(String(postCall[1]?.body)) as Record<string, string>;
+  assert.match(body.idempotencyKey, /^[0-9a-f-]{36}$/i);
+  assert.deepEqual({ ...body, idempotencyKey: '<generated>' }, {
+    idempotencyKey: '<generated>',
     name: 'Ada Lovelace',
     email: 'ada@example.com',
     subject: 'Course access',
     message: 'Please help me access my course.',
     website: '',
   });
+
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New message' } });
+  await waitFor(() => assert.ok(screen.queryByRole('status') === null));
 });
 
-test('retains entered data and allows retry after a server validation error', async () => {
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
-    if (String(input).endsWith('/api/v1/cms/contact-page-content')) {
-      return new Response(JSON.stringify(contactContent), {
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (init?.method === 'POST') {
-      return new Response(JSON.stringify({ message: 'Please check the submitted fields.' }), {
-        status: 422,
-        statusText: 'Unprocessable Entity',
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    throw new Error(`Unexpected request: ${String(input)}`);
+test('reuses one idempotency key when an unchanged submission is retried', async () => {
+  const bodies: Array<Record<string, string>> = [];
+  let attempt = 0;
+  mockContactRequests(async (init) => {
+    bodies.push(JSON.parse(String(init.body)) as Record<string, string>);
+    attempt += 1;
+    if (attempt === 1) throw new TypeError('connection lost');
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { 'content-type': 'application/json' },
+    });
   });
 
   renderContact();
   await screen.findByRole('heading', { name: 'Contact us' });
   fillContactForm();
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  await screen.findByRole('alert');
 
-  assert.match((await screen.findByRole('alert')).textContent ?? '', /check the submitted fields/i);
-  assert.equal((screen.getByLabelText('Name') as HTMLInputElement).value, 'Ada Lovelace');
-  assert.equal(screen.getByRole('button', { name: 'Send message' }).hasAttribute('disabled'), false);
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  await screen.findByRole('status');
+
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[0]?.idempotencyKey, bodies[1]?.idempotencyKey);
+});
+
+test('validates trimmed canonical values before sending', async () => {
+  let postCount = 0;
+  mockContactRequests(async () => {
+    postCount += 1;
+    return new Response(JSON.stringify({ accepted: true }), { status: 202 });
+  });
+
+  renderContact();
+  await screen.findByRole('heading', { name: 'Contact us' });
+  fillContactForm({ name: ' a ', message: '          ' });
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+  assert.ok(await screen.findByText(/name must be at least 2 characters after trimming/i));
+  assert.ok(screen.getByText(/message must be at least 10 characters after trimming/i));
+  assert.equal(postCount, 0);
+});
+
+test('renders backend field details and clears stale errors when values change', async () => {
+  mockContactRequests(async () =>
+    new Response(JSON.stringify({
+      message: 'Validation failed.',
+      details: {
+        formErrors: [],
+        fieldErrors: { message: ['Message is not accepted.'] },
+      },
+    }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
+
+  renderContact();
+  await screen.findByRole('heading', { name: 'Contact us' });
+  fillContactForm();
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+  assert.ok(await screen.findByText('Message is not accepted.'));
+  fireEvent.change(screen.getByLabelText('Message'), {
+    target: { value: 'A different valid message.' },
+  });
+  await waitFor(() => assert.ok(screen.queryByText('Message is not accepted.') === null));
 });
