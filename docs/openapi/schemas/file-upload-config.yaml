@@ -1,0 +1,62 @@
+# File: docs/openapi/schemas/file-upload-config.yaml
+# Purpose: Define role-scoped file upload configuration payloads.
+# Why: Keeps frontend validation aligned with the backend upload policy.
+
+FileUploadLimits:
+  type: object
+  additionalProperties: false
+  properties:
+    max_file_size:
+      type: integer
+      minimum: 1
+    max_total_size:
+      type: integer
+      minimum: 1
+    max_files_per_upload:
+      type: integer
+      minimum: 1
+  required: [max_file_size, max_total_size, max_files_per_upload]
+
+FileUploadLimitsResponse:
+  type: object
+  additionalProperties: false
+  properties:
+    limits:
+      $ref: '#/FileUploadLimits'
+  required: [limits]
+
+AllowedFileType:
+  type: object
+  additionalProperties: false
+  properties:
+    mime_type:
+      type: string
+      minLength: 1
+    extensions:
+      type: array
+      items:
+        type: string
+        minLength: 2
+    label:
+      type: string
+      minLength: 1
+    accept_token:
+      type: string
+      minLength: 1
+  required: [mime_type, extensions, label, accept_token]
+
+AllowedFileTypesResponse:
+  type: object
+  additionalProperties: false
+  properties:
+    allowed_types:
+      type: array
+      items:
+        $ref: '#/AllowedFileType'
+    accept:
+      type: string
+      minLength: 1
+    type_label:
+      type: string
+      minLength: 1
+  required: [allowed_types, accept, type_label]
