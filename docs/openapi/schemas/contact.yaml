@@ -6,42 +6,35 @@ ContactSubmissionRequest:
   type: object
   additionalProperties: false
   properties:
+    idempotencyKey:
+      type: string
+      format: uuid
+      description: Stable identifier reused when retrying the same unchanged submission.
     name:
       type: string
       minLength: 2
       maxLength: 120
+      description: Canonical value without leading or trailing whitespace.
     email:
       type: string
       format: email
       maxLength: 254
+      description: Canonical email without surrounding whitespace; normalized to lowercase for storage.
     subject:
       type: string
       minLength: 3
       maxLength: 160
+      description: Canonical value without leading or trailing whitespace.
     message:
       type: string
       minLength: 10
       maxLength: 5000
+      description: Canonical value without leading or trailing whitespace.
     website:
       type: string
       maxLength: 500
       description: Honeypot field that normal users must leave empty.
-  required: [name, email, subject, message]
-
-ContactSubmissionCreated:
-  type: object
-  additionalProperties: false
-  properties:
-    id:
-      type: string
-      format: uuid
-    status:
-      type: string
-      enum: [new]
-    submittedAt:
-      type: string
-      format: date-time
-  required: [id, status, submittedAt]
+  required: [idempotencyKey, name, email, subject, message]
 
 ContactSubmissionAccepted:
   type: object
