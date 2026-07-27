@@ -42,3 +42,29 @@ CreateUserRequest:
     status:
       $ref: './common.yaml#/UserStatus'
   required: [email, fullName, role, status]
+
+InviteUserRequest:
+  type: object
+  additionalProperties: true
+  description: Clients normalize email and fullName before validation; the server repeats normalization, and unknown properties are accepted and discarded.
+  properties:
+    email:
+      type: string
+      format: email
+      description: Supply a trimmed, lowercase value for contract validation; the server also trims and lowercases it.
+      example: teacher@example.com
+    fullName:
+      type: string
+      minLength: 1
+      pattern: '\S'
+      description: Supply a trimmed value for contract validation; the server also trims it and rejects whitespace-only names.
+      example: Invited Teacher
+    role:
+      type: string
+      enum: [teacher, student]
+  required: [email, fullName, role]
+  example:
+    email: teacher@example.com
+    fullName: Invited Teacher
+    role: teacher
+    department: English

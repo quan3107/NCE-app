@@ -69,6 +69,17 @@ Refresh:
   post:
     tags: [auth]
     summary: Refresh an access token
+    description: >
+      Uses the HTTP-only refreshToken cookie when present and falls back to the
+      optional JSON refreshToken for non-browser clients. A successful rotation
+      replaces the cookie on the /api/v1/auth path.
+    parameters:
+      - in: cookie
+        name: refreshToken
+        required: false
+        description: Preferred browser refresh credential stored as an HTTP-only, SameSite=Lax cookie.
+        schema:
+          type: string
     requestBody:
       required: false
       content:
@@ -78,6 +89,11 @@ Refresh:
     responses:
       '200':
         description: Session refreshed
+        headers:
+          Set-Cookie:
+            description: Rotated refreshToken cookie; HttpOnly, SameSite=Lax, Path=/api/v1/auth, and Secure in production.
+            schema:
+              type: string
         content:
           application/json:
             schema:

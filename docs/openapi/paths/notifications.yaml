@@ -140,6 +140,7 @@ NotificationsRead:
   post:
     tags: [notifications]
     summary: Mark notifications as read
+    description: Non-admin callers can only mark their own notifications as read; admins may target another user for support operations.
     requestBody:
       required: true
       content:

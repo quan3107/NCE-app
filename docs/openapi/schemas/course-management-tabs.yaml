@@ -1,0 +1,30 @@
+# File: docs/openapi/schemas/course-management-tabs.yaml
+# Purpose: Define backend-owned course management tab metadata.
+# Why: Makes the teacher workspace configuration payload explicit.
+
+CourseManagementTab:
+  type: object
+  properties:
+    id:
+      type: string
+    label:
+      type: string
+    icon:
+      type: string
+    required_permission:
+      type: string
+      nullable: true
+    order:
+      type: integer
+    enabled:
+      type: boolean
+  required: [id, label, icon, required_permission, order, enabled]
+
+CourseManagementTabsResponse:
+  type: object
+  properties:
+    tabs:
+      type: array
+      items:
+        $ref: '#/CourseManagementTab'
+  required: [tabs]

@@ -41,8 +41,8 @@ jobs:
       - name: Install root dependencies
         run: npm ci --ignore-scripts
 
-      - name: Audit root dependencies
-        run: npm audit --audit-level=high
+      - name: Audit root dependencies and validate OpenAPI
+        run: npm audit --audit-level=high && npm run openapi:validate
 
   frontend:
     name: Frontend install, lint, test, and build

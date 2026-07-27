@@ -92,3 +92,55 @@ FileDownload:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+
+FileContent:
+  get:
+    tags: [files]
+    summary: Get an authorized file content location
+    description: Returns a short-lived content location after applying the same ownership and course-access checks as downloads.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Authorized file content location
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/FileContentResponse'
+      '400':
+        description: File identifier failed validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden without object-key details
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Missing or deleted file
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: File lookup or signed-location generation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

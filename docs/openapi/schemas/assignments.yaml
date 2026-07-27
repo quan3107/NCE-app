@@ -25,6 +25,7 @@ Assignment:
     latePolicy:
       $ref: '#/NullableLatePolicy'
     assignmentConfig:
+      type: object
       nullable: true
       description: IELTS assignment configuration payload (shape depends on assignment type).
       anyOf:

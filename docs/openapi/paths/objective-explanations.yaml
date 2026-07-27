@@ -1,0 +1,154 @@
+# File: docs/openapi/paths/objective-explanations.yaml
+# Purpose: Define on-demand objective question explanation endpoints.
+# Why: Documents the shared student, teacher, and admin explanation workflow.
+
+SubmissionObjectiveExplanation:
+  get:
+    tags: [ai-feedback, submissions]
+    summary: Get objective explanation status
+    description: Returns the requester-scoped cached explanation or generation status.
+    parameters:
+      - $ref: '#/SubmissionId'
+      - $ref: '#/QuestionId'
+    responses:
+      '200':
+        description: Explanation completed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+      '202':
+        description: Explanation generation is queued or running
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+      '400':
+        description: Path parameters or stored explanation context failed validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden by course access or assignment policy
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Submission, question, or cached explanation not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Explanation ended in a non-success state or lacks a deterministic precondition
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Unexpected explanation lookup failure
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+  post:
+    tags: [ai-feedback, submissions]
+    summary: Request an objective question explanation
+    description: >
+      Requests an explanation using server-derived submission, assignment, answer,
+      and requester identity. No answer or user identity is accepted in the body.
+    parameters:
+      - $ref: '#/SubmissionId'
+      - $ref: '#/QuestionId'
+    responses:
+      '200':
+        description: A completed cached explanation is available
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+      '202':
+        description: Explanation generation is queued or running
+        headers:
+          Location:
+            description: Polling location for this requester-scoped explanation
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+      '400':
+        description: The question is not eligible for objective explanation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden by course access or assignment policy
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: Submission or question not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Explanation cannot be queued, lacks a deterministic precondition, or ended unsuccessfully
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Unexpected explanation generation failure
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '503':
+        description: AI explanation generation is disabled or unavailable
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+SubmissionId:
+  in: path
+  name: submissionId
+  required: true
+  schema:
+    type: string
+    format: uuid
+
+QuestionId:
+  in: path
+  name: questionId
+  required: true
+  schema:
+    type: string
+    minLength: 1

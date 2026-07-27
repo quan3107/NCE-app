@@ -8,6 +8,8 @@ ErrorResponse:
     message:
       type: string
     details:
+      type: object
+      additionalProperties: true
       nullable: true
   required: [message]
 
@@ -17,7 +19,7 @@ UserRole:
 
 UserStatus:
   type: string
-  enum: [active, invited, suspended]
+  enum: [active, pending, invited, suspended]
 
 EnrollmentRole:
   type: string

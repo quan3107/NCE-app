@@ -40,10 +40,8 @@ Submission:
 
 CreateSubmissionRequest:
   type: object
+  additionalProperties: false
   properties:
-    studentId:
-      type: string
-      format: uuid
     payload:
       description: IELTS submission payload (shape depends on assignment type).
       anyOf:
@@ -52,9 +50,11 @@ CreateSubmissionRequest:
           additionalProperties: true
     submittedAt:
       type: string
+      format: date-time
     status:
-      $ref: './common.yaml#/SubmissionStatus'
-  required: [studentId, payload]
+      type: string
+      enum: [draft, submitted, late]
+  required: [payload]
 
 IeltsSubmissionPayload:
   oneOf:
@@ -89,7 +89,15 @@ IeltsAnswer:
     questionId:
       type: string
     value:
-      nullable: true
+      oneOf:
+        - type: string
+          nullable: true
+        - type: number
+        - type: boolean
+        - type: array
+          items: {}
+        - type: object
+          additionalProperties: true
   required: [questionId, value]
   additionalProperties: true
 

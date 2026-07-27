@@ -1,0 +1,79 @@
+# File: docs/openapi/paths/file-upload-config.yaml
+# Purpose: Define role-scoped file upload configuration endpoints.
+# Why: Upload clients need the same size and media policy enforced by the backend.
+
+FileUploadLimits:
+  get:
+    tags: [file-upload-config]
+    summary: Get file upload limits for the authenticated role
+    responses:
+      '200':
+        description: Role-scoped upload limits
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/file-upload-config.yaml#/FileUploadLimitsResponse'
+      '400':
+        description: Stored upload policy failed response validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Authenticated actor is inactive
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Upload policy lookup failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
+AllowedFileTypes:
+  get:
+    tags: [file-upload-config]
+    summary: Get allowed file types for the authenticated role
+    responses:
+      '200':
+        description: Role-scoped media types and browser accept tokens
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/file-upload-config.yaml#/AllowedFileTypesResponse'
+      '400':
+        description: Stored file-type policy failed response validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Authenticated actor is inactive
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: File-type policy lookup failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []

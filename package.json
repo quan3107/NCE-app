@@ -1,5 +1,9 @@
 {
+  "scripts": {
+    "openapi:validate": "redocly lint --extends=spec docs/openapi/openapi.yaml"
+  },
   "devDependencies": {
+    "@redocly/cli": "2.40.0",
     "@types/node": "^25.9.1"
   }
 }

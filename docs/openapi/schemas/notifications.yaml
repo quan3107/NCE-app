@@ -105,6 +105,7 @@ MarkNotificationsReadRequest:
     userId:
       type: string
       format: uuid
+      description: Authenticated non-admin callers must use their own user ID; admins may target another user.
     notificationIds:
       type: array
       items:

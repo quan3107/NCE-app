@@ -203,6 +203,7 @@ describe('users.service teacher approvals', () => {
         email: ' Teacher@Example.com ',
         fullName: ' Invited Teacher ',
         role: 'teacher',
+        department: 'English',
       },
       actor,
     )
@@ -226,6 +227,23 @@ describe('users.service teacher approvals', () => {
     )
     expect(transactionAuditLogCreate).not.toHaveBeenCalled()
     expect(result.status).toBe(UserStatus.invited)
+  })
+
+  it('rejects whitespace-only invite names after trimming', async () => {
+    await expect(
+      inviteUser(
+        {
+          email: 'teacher@example.com',
+          fullName: '   ',
+          role: 'teacher',
+        },
+        actor,
+      ),
+    ).rejects.toMatchObject({
+      name: 'ZodError',
+    })
+
+    expect(prisma.user.create).not.toHaveBeenCalled()
   })
 
   it('does not fail invitations when audit writing fails', async () => {

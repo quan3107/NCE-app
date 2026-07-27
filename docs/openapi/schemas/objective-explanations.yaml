@@ -1,0 +1,31 @@
+# File: docs/openapi/schemas/objective-explanations.yaml
+# Purpose: Define objective explanation status payloads.
+# Why: Keeps polling and terminal explanation responses aligned with runtime validation.
+
+ObjectiveExplanationStatus:
+  type: string
+  enum: [queued, running, completed, review_required, rejected, failed]
+
+ObjectiveExplanationResponse:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/ObjectiveExplanationStatus'
+    cached:
+      type: boolean
+    pollingLocation:
+      type: string
+      minLength: 1
+    explanation:
+      type: object
+      additionalProperties: true
+    failureCode:
+      type: string
+      minLength: 1
+    failureMessage:
+      type: string
+      minLength: 1
+  required: [id, status, cached]
