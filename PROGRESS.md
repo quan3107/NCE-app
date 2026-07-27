@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-27:** Added validated, rate-limited, honeypot-protected public contact persistence with request metadata, least-privilege database access, route tests, and an OpenAPI contract.
+
 - **2026-07-27:** Closed OpenAPI review gaps for arbitrary course JSON, objective conflicts, middleware/global errors, invite normalization and validation-safe examples, enabled tab filtering, and the CI validation gate with focused runtime-boundary regressions.
 
 - **2026-07-27:** Synchronized OpenAPI with every mounted backend route, documented security-sensitive cookie, ownership, pagination, metric, and server-derived identity behavior, and added deterministic spec validation.
@@ -48,6 +50,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-27:** Added a keyboard-accessible mobile public navigation sheet, removed dead-end footer destinations, and connected the CMS contact form to recoverable submission states with component regressions.
 
 - **2026-07-27:** Strengthened OpenAPI regressions with bidirectional route equality, stale-operation detection, runtime error-shape checks, normalization and example constraints, and CI-gate coverage.
 
