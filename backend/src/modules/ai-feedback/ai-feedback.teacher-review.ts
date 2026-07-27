@@ -384,20 +384,32 @@ async function publishAiWritingFeedbackDraft(
       "Only instant-visible AI feedback drafts can be finalized through this endpoint.",
     );
   }
-  const grade = assertExistingGrade(draft);
+  const gradeReference = assertExistingGrade(draft);
   validateCriterionSuggestions(
     draft,
     data.normalizedCriterionSuggestions as IeltsCriterionScore[] | undefined,
   );
 
   const decidedAt = new Date();
-  const feedbackChanged = !semanticValuesEqual(grade.feedback, data.feedbackMd);
   const teacherEditedFeedback = toJsonObject({ feedbackMd: data.feedbackMd });
   const normalizedCriterionSuggestions = data.normalizedCriterionSuggestions
     ? toJsonArray(data.normalizedCriterionSuggestions)
     : undefined;
 
   const updated = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "grades"
+      WHERE "id" = ${gradeReference.id}::uuid
+      FOR UPDATE
+    `);
+    const grade = await tx.grade.findFirst({
+      where: { id: gradeReference.id, deletedAt: null },
+    });
+    if (!grade) {
+      throw createHttpError(409, "AI feedback approval requires an existing grade.");
+    }
+    const feedbackChanged = !semanticValuesEqual(grade.feedback, data.feedbackMd);
     const decidedDraft = await claimDraftDecision(tx, {
       draft,
       actorId: actor.id,
