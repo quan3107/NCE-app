@@ -20,7 +20,11 @@ import { getIcon } from '@features/navigation/utils/iconMap';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
-import { DASHBOARD_PATH_BY_ROLE, resolveProfilePath } from './appShell.helpers';
+import {
+  DASHBOARD_PATH_BY_ROLE,
+  isNavigationPathCurrent,
+  resolveProfilePath,
+} from './appShell.helpers';
 import { MobilePublicNavigation } from './MobilePublicNavigation';
 
 type AppShellPublicProps = {
@@ -106,11 +110,13 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
               <div className="hidden md:flex items-center gap-1">
                 {publicNavigationItems.map((item) => {
                   const Icon = getIcon(item.iconName);
+                  const isCurrent = isNavigationPathCurrent(currentPath, item.path);
 
                   return (
                     <Button
                       key={item.id}
-                      variant={currentPath === item.path ? 'secondary' : 'ghost'}
+                      variant={isCurrent ? 'secondary' : 'ghost'}
+                      aria-current={isCurrent ? 'page' : undefined}
                       onClick={() => navigate(item.path)}
                       className="gap-2"
                     >
