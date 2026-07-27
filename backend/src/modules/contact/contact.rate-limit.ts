@@ -34,12 +34,28 @@ export function createContactRateLimiter(
 
   const entries = new Map<string, RateLimitEntry>();
 
-  const evictOldestAtCapacity = (): void => {
-    while (entries.size >= config.maxTrackedKeys) {
-      const oldestKey = entries.keys().next().value as string | undefined;
-      if (oldestKey === undefined) return;
+  const purgeExpiredEntries = (now: number): void => {
+    // Entries retain insertion order and use one fixed window, so the first
+    // entry also expires first. Stop as soon as the oldest entry is active.
+    while (entries.size > 0) {
+      const oldest = entries.entries().next().value as
+        | [string, RateLimitEntry]
+        | undefined;
+      if (!oldest || oldest[1].resetsAt > now) return;
+      const [oldestKey] = oldest;
       entries.delete(oldestKey);
     }
+  };
+
+  const reject = (res: Response, now: number, resetsAt: number): void => {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((resetsAt - now) / 1_000),
+    );
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    res.status(429).json({
+      message: "Too many contact submissions. Please try again later.",
+    });
   };
 
   const middleware = (
@@ -57,20 +73,22 @@ export function createContactRateLimiter(
     }
 
     if (!entry) {
-      evictOldestAtCapacity();
+      if (entries.size >= config.maxTrackedKeys) {
+        purgeExpiredEntries(now);
+      }
+      if (entries.size >= config.maxTrackedKeys) {
+        const oldestEntry = entries.values().next().value as
+          | RateLimitEntry
+          | undefined;
+        reject(res, now, oldestEntry?.resetsAt ?? now + config.windowMs);
+        return;
+      }
       entry = { count: 0, resetsAt: now + config.windowMs };
       entries.set(key, entry);
     }
 
     if (entry.count >= config.maxSubmissions) {
-      const retryAfterSeconds = Math.max(
-        1,
-        Math.ceil((entry.resetsAt - now) / 1_000),
-      );
-      res.setHeader("Retry-After", String(retryAfterSeconds));
-      res.status(429).json({
-        message: "Too many contact submissions. Please try again later.",
-      });
+      reject(res, now, entry.resetsAt);
       return;
     }
 
