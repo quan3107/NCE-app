@@ -16,6 +16,7 @@ vi.mock("../../../src/modules/contact/contact.service.js", () => ({
 
 const mockedCreateContactSubmission = vi.mocked(createContactSubmission);
 const validPayload = {
+  idempotencyKey: "11111111-1111-4111-8111-111111111111",
   name: "Ada Lovelace",
   email: "ada@example.com",
   subject: "Course access",
@@ -27,11 +28,7 @@ describe("POST /api/v1/contact", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetContactRateLimits();
-    mockedCreateContactSubmission.mockResolvedValue({
-      id: "11111111-1111-4111-8111-111111111111",
-      status: "new",
-      submittedAt: "2026-07-27T10:00:00.000Z",
-    });
+    mockedCreateContactSubmission.mockResolvedValue({ accepted: true });
   });
 
   it("accepts an anonymous submission and passes server-derived metadata", async () => {
@@ -41,12 +38,8 @@ describe("POST /api/v1/contact", () => {
       .set("referer", "https://example.test/contact")
       .send(validPayload);
 
-    expect(response.status).toBe(201);
-    expect(response.body).toEqual({
-      id: "11111111-1111-4111-8111-111111111111",
-      status: "new",
-      submittedAt: "2026-07-27T10:00:00.000Z",
-    });
+    expect(response.status).toBe(202);
+    expect(response.body).toEqual({ accepted: true });
     expect(mockedCreateContactSubmission).toHaveBeenCalledWith(
       validPayload,
       expect.objectContaining({
@@ -58,21 +51,23 @@ describe("POST /api/v1/contact", () => {
     );
   });
 
-  it("returns a generic accepted response for trapped spam", async () => {
-    mockedCreateContactSubmission.mockResolvedValueOnce({ accepted: true });
-
-    const response = await request(app)
+  it("does not expose honeypot classification through status or body", async () => {
+    const ordinaryResponse = await request(app)
       .post("/api/v1/contact")
-      .send({ ...validPayload, website: "https://spam.example" });
+      .send(validPayload);
+    const trappedResponse = await request(app)
+      .post("/api/v1/contact")
+      .send({ website: "https://spam.example" });
 
-    expect(response.status).toBe(202);
-    expect(response.body).toEqual({ accepted: true });
+    expect(trappedResponse.status).toBe(ordinaryResponse.status);
+    expect(trappedResponse.body).toEqual(ordinaryResponse.body);
+    expect(trappedResponse.body).toEqual({ accepted: true });
   });
 
   it("limits repeated submissions from one client", async () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const response = await request(app).post("/api/v1/contact").send(validPayload);
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(202);
     }
 
     const limitedResponse = await request(app)
