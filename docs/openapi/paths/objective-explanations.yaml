@@ -23,6 +23,12 @@ SubmissionObjectiveExplanation:
           application/json:
             schema:
               $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+      '400':
+        description: Path parameters or stored explanation context failed validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
         content:
@@ -42,11 +48,19 @@ SubmissionObjectiveExplanation:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '409':
-        description: Explanation generation ended in a non-success state
+        description: Explanation ended in a non-success state or lacks a deterministic precondition
         content:
           application/json:
             schema:
-              $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+              oneOf:
+                - $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Unexpected explanation lookup failure
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
   post:
@@ -101,11 +115,19 @@ SubmissionObjectiveExplanation:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '409':
-        description: Explanation cannot be queued or ended in a non-success state
+        description: Explanation cannot be queued, lacks a deterministic precondition, or ended unsuccessfully
         content:
           application/json:
             schema:
-              $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+              oneOf:
+                - $ref: '../schemas/objective-explanations.yaml#/ObjectiveExplanationResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Unexpected explanation generation failure
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '503':
         description: AI explanation generation is disabled or unavailable
         content:
