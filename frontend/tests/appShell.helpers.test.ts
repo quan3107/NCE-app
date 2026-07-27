@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import {
   DASHBOARD_PATH_BY_ROLE,
   getBadgeCountForSource,
+  isNavigationPathCurrent,
   resolveProfilePath,
 } from '../src/components/layout/appShell.helpers';
 
@@ -25,6 +26,13 @@ test('resolveProfilePath returns expected route per role', () => {
   assert.equal(resolveProfilePath('teacher'), '/teacher/profile');
   assert.equal(resolveProfilePath('admin'), null);
   assert.equal(resolveProfilePath('public'), null);
+});
+
+test('isNavigationPathCurrent follows exact case-insensitive router matching', () => {
+  assert.equal(isNavigationPathCurrent('/contact/', '/contact'), true);
+  assert.equal(isNavigationPathCurrent('/CONTACT', '/contact'), true);
+  assert.equal(isNavigationPathCurrent('/contact/history', '/contact'), false);
+  assert.equal(isNavigationPathCurrent('/courses', '/'), false);
 });
 
 test('getBadgeCountForSource returns 0 for null and maps known badge sources', () => {
