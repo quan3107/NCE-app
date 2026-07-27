@@ -51,7 +51,7 @@ export async function createContactSubmission(
       ${data.message},
       ${requestMetadata.source},
       ${metadata}::jsonb
-    )
+    )::text
   `);
 
   return { accepted: true };
