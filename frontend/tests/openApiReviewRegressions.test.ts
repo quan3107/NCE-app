@@ -134,9 +134,12 @@ test('invite normalization and course-tab filtering are documented', async () =>
   ]);
   const invite = fragment(userSchemas, 'InviteUserRequest');
 
-  assert.doesNotMatch(invite, /additionalProperties: false/);
+  assert.match(invite, /additionalProperties: true/);
   assert.match(invite, /pattern: ['"]?\\S/);
+  assert.match(invite, /clients[\s\S]*normalize[\s\S]*before[\s\S]*validation/i);
   assert.match(invite, /unknown properties[\s\S]*discarded/i);
+  assert.doesNotMatch(invite, /example: ['"]\s/);
+  assert.doesNotMatch(invite, /email: ['"]\s/);
   assert.match(
     fragment(tabPaths, 'CourseManagementTabs'),
     /enabled, permission-filtered/i,
