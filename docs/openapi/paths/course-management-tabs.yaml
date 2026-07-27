@@ -8,13 +8,25 @@ CourseManagementTabs:
     summary: Get course management tabs for the authenticated role
     responses:
       '200':
-        description: Enabled and disabled course management tab definitions
+        description: Enabled, permission-filtered course management tab definitions
         content:
           application/json:
             schema:
               $ref: '../schemas/course-management-tabs.yaml#/CourseManagementTabsResponse'
+      '400':
+        description: Stored tab configuration failed response validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Authenticated actor is inactive
         content:
           application/json:
             schema:
