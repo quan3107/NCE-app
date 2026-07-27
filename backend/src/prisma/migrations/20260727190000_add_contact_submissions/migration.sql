@@ -16,6 +16,7 @@ CREATE TYPE public."ContactSubmissionStatus" AS ENUM (
 
 CREATE TABLE public.contact_submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  idempotency_key UUID NOT NULL UNIQUE,
   name TEXT NOT NULL,
   email CITEXT NOT NULL,
   subject TEXT NOT NULL,
@@ -34,18 +35,56 @@ CREATE INDEX contact_submissions_email_created_at_idx
 
 ALTER TABLE public.contact_submissions ENABLE ROW LEVEL SECURITY;
 
--- Only backend request roles can create public messages. Browser Data API roles
--- receive no table grant, and the initial status cannot be forged by callers.
-GRANT INSERT ON public.contact_submissions
-  TO nce_app_anon, nce_app_authenticated;
-CREATE POLICY contact_submissions_backend_insert
-  ON public.contact_submissions
-  FOR INSERT
-  TO nce_app_anon, nce_app_authenticated
-  WITH CHECK (status = 'new');
+-- Request roles receive no table access. A security-definer function owns the
+-- narrow insert and returns no row, so INSERT ... RETURNING cannot require SELECT.
+REVOKE ALL ON public.contact_submissions
+  FROM anon, authenticated, nce_app_anon, nce_app_authenticated;
+
+CREATE FUNCTION app.submit_contact_message(
+  p_idempotency_key UUID,
+  p_name TEXT,
+  p_email CITEXT,
+  p_subject TEXT,
+  p_message TEXT,
+  p_source TEXT,
+  p_metadata JSONB
+) RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+  INSERT INTO public.contact_submissions (
+    idempotency_key,
+    name,
+    email,
+    subject,
+    message,
+    source,
+    status,
+    metadata
+  )
+  VALUES (
+    p_idempotency_key,
+    p_name,
+    p_email,
+    p_subject,
+    p_message,
+    p_source,
+    'new',
+    p_metadata
+  )
+  ON CONFLICT (idempotency_key) DO NOTHING;
+$function$;
+
+REVOKE ALL ON FUNCTION app.submit_contact_message(
+  UUID, TEXT, CITEXT, TEXT, TEXT, TEXT, JSONB
+) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION app.submit_contact_message(
+  UUID, TEXT, CITEXT, TEXT, TEXT, TEXT, JSONB
+) TO nce_app_anon, nce_app_authenticated;
 
 -- Service operations can recover and triage submissions without exposing them
--- through the anonymous or authenticated browser roles.
+-- through anonymous or authenticated request and browser roles.
 GRANT SELECT, UPDATE ON public.contact_submissions TO service_role;
 
 COMMIT;
