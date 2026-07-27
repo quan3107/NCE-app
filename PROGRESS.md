@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-27:** Locked and re-read grades inside AI approval/finalization transactions before deriving semantic feedback audit markers, preventing stale concurrent baselines.
+
 - **2026-07-27:** Preserved grade attribution on semantic no-ops and made AI approval/finalization emit grade-feedback audit events only when committed feedback actually changes.
 
 - **2026-07-26:** Restored the typed `AuditLogWriteInput` contract on failure-safe audit writes while retaining runtime handling for cast or untyped malformed values.
@@ -42,6 +44,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-27:** No frontend application files changed for the concurrency-safe AI grade-feedback audit comparison.
 
 - **2026-07-27:** No frontend application files changed for the grade attribution and AI feedback audit-semantic fixes.
 
