@@ -112,6 +112,12 @@ FileContent:
           application/json:
             schema:
               $ref: '../schemas/files.yaml#/FileContentResponse'
+      '400':
+        description: File identifier failed validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
         content:
@@ -126,6 +132,12 @@ FileContent:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: Missing or deleted file
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: File lookup or signed-location generation failed
         content:
           application/json:
             schema:
