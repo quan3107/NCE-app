@@ -21,6 +21,7 @@ import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
 import { DASHBOARD_PATH_BY_ROLE, resolveProfilePath } from './appShell.helpers';
+import { MobilePublicNavigation } from './MobilePublicNavigation';
 
 type AppShellPublicProps = {
   children: ReactNode;
@@ -122,6 +123,11 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <MobilePublicNavigation
+                currentPath={currentPath}
+                items={publicNavigationItems}
+                navigate={navigate}
+              />
               {isLoggedIn ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -163,7 +169,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
                   <Button variant="ghost" onClick={() => navigate('/login')}>
                     Login
                   </Button>
-                  <Button onClick={() => navigate('/login')}>Get Started</Button>
+                  <Button className="hidden sm:inline-flex" onClick={() => navigate('/login')}>Get Started</Button>
                 </>
               )}
             </div>
@@ -175,7 +181,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
 
       <footer className="border-t bg-card/70 py-12 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="brand-mark size-8">
@@ -192,8 +198,6 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
               <h3 className="font-medium mb-4">Platform</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><button onClick={() => navigate('/courses')}>Courses</button></li>
-                <li><button>For Teachers</button></li>
-                <li><button>For Students</button></li>
               </ul>
             </div>
 
@@ -202,18 +206,9 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><button onClick={() => navigate('/about')}>About</button></li>
                 <li><button onClick={() => navigate('/contact')}>Contact</button></li>
-                <li><button>Privacy</button></li>
               </ul>
             </div>
 
-            <div>
-              <h3 className="font-medium mb-4">Support</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><button>Help Center</button></li>
-                <li><button>Documentation</button></li>
-                <li><button>Status</button></li>
-              </ul>
-            </div>
           </div>
 
           <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
