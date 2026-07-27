@@ -4,7 +4,7 @@
  * Why: Keeps public contact content server-managed while submission remains a separate feature.
  */
 
-import type { FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
@@ -15,27 +15,61 @@ import {
   useContactPageContentQuery,
   useContactSubmissionMutation,
 } from '@features/marketing/api';
+import {
+  backendContactFieldErrors,
+  canonicalContactPayload,
+  validateCanonicalContact,
+  type ContactFieldErrors,
+} from '@features/marketing/contactForm';
 
 export function ContactRoute() {
   const contactQuery = useContactPageContentQuery();
   const submission = useContactSubmissionMutation();
+  const [clientErrors, setClientErrors] = useState<ContactFieldErrors>({});
+  const attempt = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
+  const serverErrors = backendContactFieldErrors(submission.error);
+  const fieldErrors = submission.isError ? serverErrors : clientErrors;
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+
+  const handleFormChange = () => {
+    if (submission.isPending) return;
+    attempt.current = null;
+    setClientErrors({});
+    submission.reset();
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
-    const formData = new FormData(form);
+    const payload = canonicalContactPayload(new FormData(form));
+    const validationErrors = validateCanonicalContact(payload);
+    if (Object.keys(validationErrors).length > 0) {
+      setClientErrors(validationErrors);
+      submission.reset();
+      return;
+    }
+
+    const fingerprint = JSON.stringify(payload);
+    let currentAttempt = attempt.current;
+    if (!currentAttempt || currentAttempt.fingerprint !== fingerprint) {
+      currentAttempt = {
+        fingerprint,
+        idempotencyKey: globalThis.crypto.randomUUID(),
+      };
+      attempt.current = currentAttempt;
+    }
+    setClientErrors({});
     submission.reset();
 
     try {
       await submission.mutateAsync({
-        name: String(formData.get('name') ?? ''),
-        email: String(formData.get('email') ?? ''),
-        subject: String(formData.get('subject') ?? ''),
-        message: String(formData.get('message') ?? ''),
-        website: String(formData.get('website') ?? ''),
+        ...payload,
+        idempotencyKey: currentAttempt.idempotencyKey,
       });
+      attempt.current = null;
       form.reset();
     } catch {
-      // The mutation exposes the API error below and preserves every entered value.
+      // Preserve both the frozen values and idempotency key for a safe retry.
     }
   };
 
@@ -79,54 +113,104 @@ export function ContactRoute() {
                 <CardDescription>{content.form.description}</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="sr-only" aria-hidden="true">
-                    <Label htmlFor="website">Website</Label>
-                    <Input
-                      id="website"
-                      name="website"
-                      autoComplete="off"
-                      tabIndex={-1}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      autoComplete="name"
-                      minLength={2}
-                      maxLength={120}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" autoComplete="email" maxLength={254} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" name="subject" minLength={3} maxLength={160} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="message">Message</Label>
-                    <Textarea id="message" name="message" rows={6} minLength={10} maxLength={5000} required />
-                  </div>
-                  {submission.isError && (
-                    <p role="alert" className="text-sm text-destructive">
-                      {submission.error instanceof Error
-                        ? submission.error.message
-                        : 'Unable to send your message. Please try again.'}
-                    </p>
-                  )}
-                  {submission.isSuccess && (
-                    <p role="status" className="text-sm text-primary">
-                      Message sent. We&apos;ll get back to you soon.
-                    </p>
-                  )}
-                  <Button type="submit" className="w-full sm:w-auto" disabled={submission.isPending}>
-                    {submission.isPending ? 'Sending…' : content.form.submitLabel}
-                  </Button>
+                <form
+                  onSubmit={handleSubmit}
+                  onChange={handleFormChange}
+                  className="space-y-4"
+                  noValidate
+                >
+                  <fieldset disabled={submission.isPending} className="space-y-4">
+                    <div className="sr-only" aria-hidden="true">
+                      <Label htmlFor="website">Website</Label>
+                      <Input
+                        id="website"
+                        name="website"
+                        autoComplete="off"
+                        tabIndex={-1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        autoComplete="name"
+                        aria-invalid={Boolean(fieldErrors.name)}
+                        aria-describedby={fieldErrors.name ? 'name-error' : undefined}
+                        required
+                      />
+                      {fieldErrors.name && (
+                        <p id="name-error" className="text-sm text-destructive">
+                          {fieldErrors.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        aria-invalid={Boolean(fieldErrors.email)}
+                        aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+                        required
+                      />
+                      {fieldErrors.email && (
+                        <p id="email-error" className="text-sm text-destructive">
+                          {fieldErrors.email}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subject">Subject</Label>
+                      <Input
+                        id="subject"
+                        name="subject"
+                        aria-invalid={Boolean(fieldErrors.subject)}
+                        aria-describedby={fieldErrors.subject ? 'subject-error' : undefined}
+                        required
+                      />
+                      {fieldErrors.subject && (
+                        <p id="subject-error" className="text-sm text-destructive">
+                          {fieldErrors.subject}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="message">Message</Label>
+                      <Textarea
+                        id="message"
+                        name="message"
+                        rows={6}
+                        aria-invalid={Boolean(fieldErrors.message)}
+                        aria-describedby={fieldErrors.message ? 'message-error' : undefined}
+                        required
+                      />
+                      {fieldErrors.message && (
+                        <p id="message-error" className="text-sm text-destructive">
+                          {fieldErrors.message}
+                        </p>
+                      )}
+                    </div>
+                    {(hasFieldErrors || submission.isError) && (
+                      <p role="alert" className="text-sm text-destructive">
+                        {hasFieldErrors
+                          ? 'Please correct the highlighted fields.'
+                          : submission.error instanceof Error
+                            ? submission.error.message
+                            : 'Unable to send your message. Please try again.'}
+                      </p>
+                    )}
+                    {submission.isSuccess && (
+                      <p role="status" className="text-sm text-primary">
+                        Message sent. We&apos;ll get back to you soon.
+                      </p>
+                    )}
+                    <Button type="submit" className="w-full sm:w-auto">
+                      {submission.isPending ? 'Sending…' : content.form.submitLabel}
+                    </Button>
+                  </fieldset>
                 </form>
               </CardContent>
             </Card>
