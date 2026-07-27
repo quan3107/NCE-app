@@ -24,9 +24,7 @@ import {
 
 const buildGoogleIdToken = (payload: Record<string, unknown>): string =>
   [
-    Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString(
-      "base64url",
-    ),
+    Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url"),
     Buffer.from(JSON.stringify(payload)).toString("base64url"),
     "signature",
   ].join(".");
@@ -48,8 +46,7 @@ describe("auth.service Google OAuth", () => {
       .mockImplementationOnce((size?: number) => Buffer.alloc(size ?? 32, 2))
       .mockImplementationOnce((size?: number) => Buffer.alloc(size ?? 32, 3));
 
-    const redirectUri =
-      "https://app.example.com/api/v1/auth/google/callback";
+    const redirectUri = "https://app.example.com/api/v1/auth/google/callback";
 
     const result = await buildGoogleAuthorizationUrl({ redirectUri });
 
@@ -59,9 +56,7 @@ describe("auth.service Google OAuth", () => {
 
     const url = new URL(result.authorizationUrl);
     expect(url.origin).toBe("https://accounts.google.com");
-    expect(url.searchParams.get("client_id")).toBe(
-      "test-google-client-id",
-    );
+    expect(url.searchParams.get("client_id")).toBe("test-google-client-id");
     expect(url.searchParams.get("redirect_uri")).toBe(redirectUri);
     expect(url.searchParams.get("scope")).toBe("openid email profile");
     expect(url.searchParams.get("state")).toBe(result.state);
@@ -71,9 +66,7 @@ describe("auth.service Google OAuth", () => {
       .createHash("sha256")
       .update(result.codeVerifier)
       .digest("base64url");
-    expect(url.searchParams.get("code_challenge")).toBe(
-      expectedChallenge,
-    );
+    expect(url.searchParams.get("code_challenge")).toBe(expectedChallenge);
   });
 
   it("completes Google authorization for an existing identity", async () => {
@@ -161,8 +154,7 @@ describe("auth.service Google OAuth", () => {
     const result = await completeGoogleAuthorization(
       { code: "auth-code", state },
       {
-        redirectUri:
-          "https://app.example.com/api/v1/auth/google/callback",
+        redirectUri: "https://app.example.com/api/v1/auth/google/callback",
         expectedState: state,
         codeVerifier,
         context: { ipAddress: "127.0.0.1", userAgent: "oauth-test" },
@@ -216,16 +208,11 @@ describe("auth.service Google OAuth", () => {
       action: "auth.google_login_succeeded",
       entity: "auth_session",
       entityId: "session-google-login",
-      diff: {
-        userId: "user-1",
-        identityId: "identity-1",
+      eventData: {
         role: "teacher",
         status: "active",
+        identityLinked: true,
         emailVerifiedUpdated: true,
-      },
-      requestMetadata: {
-        ipAddress: "127.0.0.1",
-        userAgent: "oauth-test",
       },
     });
     const auditPayload = JSON.stringify(writeAuditLogSafely.mock.calls);

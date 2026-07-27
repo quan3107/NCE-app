@@ -341,7 +341,8 @@ model AuditLog {
   action    String
   entity    String
   entityId  String    @map("entity_id")
-  diff      Json?
+  eventData     Json      @map("event_data")
+  schemaVersion Int       @map("schema_version")
   actor     User?     @relation("AuditActor", fields: [actorId], references: [id])
   createdAt DateTime  @default(now()) @db.Timestamptz
   updatedAt DateTime  @updatedAt @db.Timestamptz

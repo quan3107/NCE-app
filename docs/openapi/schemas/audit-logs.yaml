@@ -31,11 +31,14 @@ AuditLog:
       type: string
     entityId:
       type: string
-    diff:
+    eventData:
       type: object
-      description: Redacted audit summary. Sensitive text, credentials, tokens, OAuth payloads, and file keys are summarized instead of stored verbatim.
+      description: Versioned, action-specific operational data validated by a strict server contract. Unknown properties and private content are rejected.
       additionalProperties: true
-      nullable: true
+    schemaVersion:
+      type: integer
+      format: int32
+      minimum: 1
     createdAt:
       type: string
       format: date-time
@@ -46,7 +49,7 @@ AuditLog:
       type: string
       format: date-time
       nullable: true
-  required: [id, action, entity, entityId, createdAt, updatedAt]
+  required: [id, action, entity, entityId, eventData, schemaVersion, createdAt, updatedAt]
 
 AuditLogPage:
   type: object
@@ -61,20 +64,3 @@ AuditLogPage:
       nullable: true
       description: Offset for the next page, or null when no more rows are available.
   required: [data, nextOffset]
-
-AuditLogRedactedValue:
-  type: object
-  properties:
-    redacted:
-      type: boolean
-      enum: [true]
-    reason:
-      type: string
-      enum: [sensitive-key, sensitive-value]
-    hash:
-      type: string
-      nullable: true
-    length:
-      type: integer
-      nullable: true
-  required: [redacted, reason]

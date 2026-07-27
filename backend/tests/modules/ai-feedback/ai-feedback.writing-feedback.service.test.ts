@@ -232,16 +232,18 @@ describe('requestAiWritingFeedback', () => {
         action: 'ai_feedback.writing_requested',
         entity: 'ai_feedback_draft',
         entityId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        diff: expect.objectContaining({
-          entityIds: expect.objectContaining({
-            submissionId,
-            assignmentId,
-            gradeId: '66666666-6666-4666-8666-666666666666',
-          }),
+        eventData: expect.objectContaining({
+          submissionId,
+          assignmentId,
+          gradeId: '66666666-6666-4666-8666-666666666666',
           routeKey: 'low_cost',
           provider: 'openai-compatible',
           model: 'gpt-5.4-nano',
           promptVersion: 'ielts-writing-feedback-v1',
+          status: 'queued',
+          visibilityMode: 'teacher_reviewed',
+          promptUsed: true,
+          submissionContentUsed: true,
         }),
       }),
       select: { id: true },
@@ -488,10 +490,10 @@ describe('requestAiWritingFeedback', () => {
         action: 'ai_feedback.writing_failed',
         entity: 'ai_feedback_draft',
         entityId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        diff: expect.objectContaining({
-          payloadSummary: expect.objectContaining({
-            failureMessage: expect.objectContaining({ redacted: true }),
-          }),
+        eventData: expect.objectContaining({
+          failureCode: 'image_context_unavailable',
+          status: 'review_required',
+          outputGenerated: false,
         }),
       }),
       select: { id: true },

@@ -31,12 +31,10 @@ vi.mock("../../../src/modules/ai-feedback/ai-feedback.repository.js", () => ({
 }));
 
 const prismaModule = await import("../../../src/prisma/client.js");
-const repositoryModule = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.repository.js"
-);
-const configModule = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.config.js"
-);
+const repositoryModule =
+  await import("../../../src/modules/ai-feedback/ai-feedback.repository.js");
+const configModule =
+  await import("../../../src/modules/ai-feedback/ai-feedback.config.js");
 const { getAiObjectiveExplanationStatus, requestAiObjectiveExplanation } =
   await import("../../../src/modules/ai-feedback/ai-feedback.service.js");
 
@@ -187,20 +185,23 @@ describe("requestAiObjectiveExplanation", () => {
         action: "ai_feedback.explanation_requested",
         entity: "ai_objective_explanation",
         entityId: "77777777-7777-4777-8777-777777777777",
-        diff: expect.objectContaining({
-          entityIds: expect.objectContaining({
-            submissionId,
-            assignmentId,
-            questionId: "q1",
-          }),
+        eventData: expect.objectContaining({
+          submissionId,
+          assignmentId,
           routeKey: "low_cost",
           provider: "openai-compatible",
           model: "gpt-5.4-nano",
           promptVersion: "objective-explanation-v2",
+          status: "queued",
+          promptUsed: true,
+          sourceEvidenceUsed: true,
         }),
       }),
       select: { id: true },
     });
+    expect(
+      prisma.auditLog.create.mock.calls[0]?.[0].data.eventData,
+    ).not.toHaveProperty("questionId");
     const auditPayload = JSON.stringify(prisma.auditLog.create.mock.calls[0]?.[0]);
     expect(auditPayload).not.toContain("Which option matches paragraph B?");
     expect(auditPayload).not.toContain("Paragraph B says the new route");
@@ -363,8 +364,7 @@ describe("requestAiObjectiveExplanation", () => {
       requestAiObjectiveExplanation({ submissionId, questionId: "q1" }, studentActor),
     ).rejects.toMatchObject({
       statusCode: 409,
-      message:
-        "Listening objective explanations require transcript source context.",
+      message: "Listening objective explanations require transcript source context.",
     });
 
     expect(upsertAiObjectiveExplanation).not.toHaveBeenCalled();
@@ -400,8 +400,7 @@ describe("requestAiObjectiveExplanation", () => {
               id: "section-1",
               title: "Listening Part 1",
               audioFileId: "99999999-9999-4999-8999-999999999999",
-              transcript:
-                "The speaker confirms the move-in date with the caller.",
+              transcript: "The speaker confirms the move-in date with the caller.",
               questions: [
                 {
                   id: "move-in-date",
@@ -476,8 +475,7 @@ describe("requestAiObjectiveExplanation", () => {
               id: "section-1",
               title: "Listening Part 1",
               audioFileId: "99999999-9999-4999-8999-999999999999",
-              transcript:
-                "The speaker confirms the move-in date with the caller.",
+              transcript: "The speaker confirms the move-in date with the caller.",
               questions: [
                 {
                   id: "move-in-date",

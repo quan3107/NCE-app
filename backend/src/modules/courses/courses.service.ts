@@ -8,6 +8,7 @@ import { Prisma, UserRole, UserStatus } from '../../prisma/index.js'
 import { prisma } from '../../prisma/client.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
+import { semanticValuesEqual } from '../../utils/semanticValue.js'
 import { canManageCourse } from './courses.shared.js'
 import {
   courseIdParamsSchema,
@@ -125,7 +126,7 @@ export async function createCourse(payload: unknown, actor: CourseMutationActor)
     action: 'course.created',
     entity: 'course',
     entityId: course.id,
-    after: course,
+    eventData: { ownerTeacherId: data.ownerTeacherId },
   })
 
   return course
@@ -136,7 +137,7 @@ export async function updateCourse(
   payload: unknown,
   actor: CourseMutationActor,
 ) {
-  const course = await getCourseForMutation(params, actor, 'active')
+  const { courseId } = courseIdParamsSchema.parse(params)
   const parseResult = updateCourseSchema.safeParse(payload)
 
   if (!parseResult.success) {
@@ -167,20 +168,61 @@ export async function updateCourse(
     updateData.scheduleJson = jsonInput(data.schedule)
   }
 
-  const updatedCourse = await prisma.course.update({
-    where: { id: course.id },
-    data: updateData,
+  const { course, updatedCourse } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "courses"
+      WHERE "id" = ${courseId}::uuid
+      FOR UPDATE
+    `)
+    const course = await tx.course.findFirst({
+      where: { id: courseId, deletedAt: null },
+    })
+    if (!course) {
+      throw createNotFoundError('Course', courseId)
+    }
+    if (!canManageCourse(course.ownerId, actor)) {
+      throw createHttpError(403, 'You do not have permission to manage this course')
+    }
+    const updatedCourse = await tx.course.update({
+      where: { id: course.id },
+      data: updateData,
+    })
+    return { course, updatedCourse }
   })
 
-  await writeAuditLogSafely({
-    actorId: actor.id,
-    action: 'course.updated',
-    entity: 'course',
-    entityId: course.id,
-    before: course,
-    after: updatedCourse,
-    diff: data,
-  })
+  const eventData = {
+    ...(!semanticValuesEqual(course.title, updatedCourse.title)
+      ? { titleChanged: true as const }
+      : {}),
+    ...(!semanticValuesEqual(course.description, updatedCourse.description)
+      ? { descriptionChanged: true as const }
+      : {}),
+    ...(!semanticValuesEqual(course.learningOutcomes, updatedCourse.learningOutcomes)
+      ? { learningOutcomesChanged: true as const }
+      : {}),
+    ...(!semanticValuesEqual(course.structureSummary, updatedCourse.structureSummary)
+      ? { structureSummaryChanged: true as const }
+      : {}),
+    ...(!semanticValuesEqual(
+      course.prerequisitesSummary,
+      updatedCourse.prerequisitesSummary,
+    )
+      ? { prerequisitesSummaryChanged: true as const }
+      : {}),
+    ...(!semanticValuesEqual(course.scheduleJson, updatedCourse.scheduleJson)
+      ? { scheduleChanged: true as const }
+      : {}),
+  }
+  if (Object.keys(eventData).length > 0) {
+    await writeAuditLogSafely({
+      actorId: actor.id,
+      action: 'course.updated',
+      entity: 'course',
+      entityId: course.id,
+      eventData,
+    })
+  }
 
   return updatedCourse
 }
@@ -198,9 +240,7 @@ export async function archiveCourse(params: unknown, actor: CourseMutationActor)
     action: 'course.archived',
     entity: 'course',
     entityId: course.id,
-    before: course,
-    after: archivedCourse,
-    diff: { deletedAt: archivedCourse.deletedAt },
+    eventData: { lifecycleChanged: true },
   })
 
   return archivedCourse
@@ -219,9 +259,7 @@ export async function restoreCourse(params: unknown, actor: CourseMutationActor)
     action: 'course.restored',
     entity: 'course',
     entityId: course.id,
-    before: course,
-    after: restoredCourse,
-    diff: { deletedAt: restoredCourse.deletedAt },
+    eventData: { lifecycleChanged: true },
   })
 
   return restoredCourse

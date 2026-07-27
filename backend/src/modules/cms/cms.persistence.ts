@@ -4,9 +4,10 @@
  * Why: Publish and rollback must update modeled rows without deleting custom content.
  */
 import { Prisma } from '../../prisma/generated.js'
-import { toCmsSectionsCreateInput } from './cms.content.js'
+import { toCmsSectionsCreateInput, validateStoredCmsPageContent } from './cms.content.js'
 import { isManagedCmsItemKey } from './cms.managed.js'
 import type { CmsPageContent, CmsPageKey } from './cms.schema.js'
+import { semanticValuesEqual } from '../../utils/semanticValue.js'
 
 export async function lockCmsPageByKey(
   tx: Prisma.TransactionClient,
@@ -19,6 +20,34 @@ export async function lockCmsPageByKey(
     FOR UPDATE
   `)
   return rows[0]?.id ?? null
+}
+
+export async function publishedCmsContentChanged(
+  tx: Prisma.TransactionClient,
+  page: { id: string; publishedRevision: number },
+  pageKey: CmsPageKey,
+  nextContent: CmsPageContent,
+): Promise<boolean> {
+  if (page.publishedRevision < 1) {
+    return true
+  }
+  const currentRevision = await tx.cmsPageRevision.findUnique({
+    where: {
+      pageId_revisionNumber: {
+        pageId: page.id,
+        revisionNumber: page.publishedRevision,
+      },
+    },
+    select: { contentJson: true },
+  })
+  if (!currentRevision) {
+    return true
+  }
+  const currentContent = validateStoredCmsPageContent(
+    pageKey,
+    currentRevision.contentJson,
+  )
+  return !semanticValuesEqual(currentContent, nextContent)
 }
 
 export async function replacePublishedSections(

@@ -9,6 +9,7 @@ import { EnrollmentRole, UserRole } from '../../../src/prisma/index.js'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
     assignment: {
       create: vi.fn(),

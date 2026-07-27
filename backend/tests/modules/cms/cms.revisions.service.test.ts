@@ -15,6 +15,7 @@ const transactionClient = {
   cmsPageRevision: {
     create: vi.fn(),
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
   cmsSection: {
     deleteMany: vi.fn(),
@@ -36,7 +37,8 @@ const prismaMock = {
   },
   cmsPageRevision: { findMany: vi.fn() },
   $transaction: vi.fn(async (operation: (tx: typeof transactionClient) => unknown) =>
-    operation(transactionClient)),
+    operation(transactionClient),
+  ),
 }
 
 vi.mock('../../../src/prisma/client.js', () => ({ prisma: prismaMock }))

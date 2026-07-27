@@ -4,11 +4,7 @@
  * Why: Co-teacher enrollment management must preserve owner-only controls and role invariants.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  EnrollmentRole,
-  UserRole,
-  UserStatus,
-} from "../../../src/prisma/index.js";
+import { EnrollmentRole, UserRole, UserStatus } from "../../../src/prisma/index.js";
 
 vi.mock("../../../src/config/prismaClient.js", () => ({
   prisma: {
@@ -32,16 +28,12 @@ vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
 
 const prismaModule = await import("../../../src/config/prismaClient.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
-const auditLogsModule = await import(
-  "../../../src/modules/audit-logs/audit-logs.service.js"
-);
+const auditLogsModule =
+  await import("../../../src/modules/audit-logs/audit-logs.service.js");
 const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely);
 
-const {
-  addCoTeacherToCourse,
-  listCoTeachersForCourse,
-  removeCoTeacherFromCourse,
-} = await import("../../../src/modules/courses/courses.teachers.service.js");
+const { addCoTeacherToCourse, listCoTeachersForCourse, removeCoTeacherFromCourse } =
+  await import("../../../src/modules/courses/courses.teachers.service.js");
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 const ownerId = "22222222-2222-4222-8222-222222222222";
@@ -156,17 +148,11 @@ describe("courses.teachers.service", () => {
       action: "course.teacher_added",
       entity: "enrollment",
       entityId: enrollmentId,
-      before: {
-        id: enrollmentId,
-        deletedAt: new Date("2026-05-01T00:00:00.000Z"),
-        roleInCourse: EnrollmentRole.teacher,
-      },
-      after: {
-        id: enrollmentId,
+      eventData: {
         courseId,
-        teacherId: coTeacher.id,
+        userId: coTeacher.id,
         roleInCourse: EnrollmentRole.teacher,
-        deletedAt: null,
+        membershipChanged: true,
       },
     });
     expect(result).toEqual({
@@ -227,17 +213,11 @@ describe("courses.teachers.service", () => {
       action: "course.teacher_removed",
       entity: "enrollment",
       entityId: enrollmentId,
-      before: {
-        id: enrollmentId,
-        deletedAt: null,
-        roleInCourse: EnrollmentRole.teacher,
-      },
-      after: {
-        id: enrollmentId,
+      eventData: {
         courseId,
-        teacherId,
+        userId: teacherId,
         roleInCourse: EnrollmentRole.teacher,
-        deletedAt: removedAt,
+        membershipChanged: true,
       },
     });
 

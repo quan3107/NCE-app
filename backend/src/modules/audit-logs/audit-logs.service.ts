@@ -1,13 +1,12 @@
 /**
  * File: src/modules/audit-logs/audit-logs.service.ts
- * Purpose: Provide admin audit log queries backed by Prisma.
- * Why: Surfaces immutable change history for admin oversight.
+ * Purpose: Persist typed audit events and provide admin audit log queries.
+ * Why: Runtime validation keeps unregistered or private data out of audit storage.
  */
-import { createHash } from 'node:crypto'
-
 import { logger } from '../../config/logger.js'
 import { prisma } from '../../prisma/client.js'
 import { Prisma } from '../../prisma/index.js'
+import { parseAuditEvent, type AuditLogWriteInput } from './audit-events.js'
 import { DEFAULT_AUDIT_LOG_LIMIT } from './audit-logs.schema.js'
 
 const auditLogSelect = {
@@ -16,7 +15,8 @@ const auditLogSelect = {
   action: true,
   entity: true,
   entityId: true,
-  diff: true,
+  eventData: true,
+  schemaVersion: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
@@ -39,139 +39,26 @@ type AuditLogQuery = {
   offset?: number
 }
 
-type JsonRecord = Record<string, unknown>
-
 type AuditLogClient = {
   auditLog: {
     create: typeof prisma.auditLog.create
   }
 }
 
-export type AuditLogWriteInput = {
-  actorId?: string | null
-  action: string
-  entity: string
-  entityId: string
-  before?: unknown
-  after?: unknown
-  diff?: JsonRecord | null
-  redactedDiff?: Prisma.InputJsonObject
-  requestMetadata?: JsonRecord | null
-}
+export type { AuditLogWriteInput } from './audit-events.js'
 
-const sensitiveKeyPattern =
-  /(authorization|body|content|cookie|essay|feedback|filekey|hash|key|oauth|password|payload|prompt|response|secret|submission|text|token)/i
-const secretKeyPattern = /(authorization|cookie|hash|key|oauth|password|secret|token)/i
-const largeStringLimit = 200
-
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableJson).join(',')}]`
-  }
-
-  if (value && typeof value === 'object') {
-    const record = value as JsonRecord
-    return `{${Object.keys(record)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
-      .join(',')}}`
-  }
-
-  return JSON.stringify(value)
-}
-
-function hashValue(value: unknown): string {
-  return `sha256:${createHash('sha256').update(stableJson(value)).digest('hex')}`
-}
-
-function redactValue(reason: string, value?: unknown) {
-  const redacted: JsonRecord = {
-    redacted: true,
-    reason,
-  }
-
-  if (value !== undefined && !secretKeyPattern.test(reason)) {
-    const serialized = typeof value === 'string' ? value : stableJson(value)
-    redacted.hash = hashValue(value)
-    redacted.length = serialized.length
-  }
-
-  return redacted
-}
-
-function sanitizeAuditValue(key: string, value: unknown): unknown {
-  if (value === undefined) {
-    return undefined
-  }
-
-  if (secretKeyPattern.test(key)) {
-    return redactValue('sensitive-key')
-  }
-
-  if (typeof value === 'string') {
-    if (sensitiveKeyPattern.test(key) || value.length > largeStringLimit) {
-      return redactValue('sensitive-value', value)
-    }
-    return value
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => sanitizeAuditValue(key, entry))
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString()
-  }
-
-  if (value && typeof value === 'object') {
-    return sanitizeAuditRecord(value as JsonRecord)
-  }
-
-  return value
-}
-
-function sanitizeAuditRecord(record: JsonRecord): JsonRecord {
-  return Object.fromEntries(
-    Object.entries(record)
-      .map(([key, value]) => [key, sanitizeAuditValue(key, value)] as const)
-      .filter(([, value]) => value !== undefined),
-  )
-}
-
-function buildAuditDiff(input: AuditLogWriteInput): Prisma.InputJsonObject {
-  if (input.redactedDiff) {
-    return input.redactedDiff
-  }
-
-  const diff: JsonRecord = {}
-
-  if (input.before !== undefined) {
-    diff.before = sanitizeAuditValue('before', input.before)
-  }
-  if (input.after !== undefined) {
-    diff.after = sanitizeAuditValue('after', input.after)
-  }
-  if (input.diff) {
-    diff.changes = sanitizeAuditRecord(input.diff)
-  }
-  if (input.requestMetadata) {
-    diff.request = sanitizeAuditRecord(input.requestMetadata)
-  }
-
-  return diff as Prisma.InputJsonObject
-}
-
-export async function writeAuditLog(
-  input: AuditLogWriteInput,
+async function persistAuditEvent(
+  event: ReturnType<typeof parseAuditEvent>,
   client: AuditLogClient = prisma,
 ): Promise<void> {
   await client.auditLog.create({
     data: {
-      actorId: input.actorId ?? undefined,
-      action: input.action,
-      entity: input.entity,
-      entityId: input.entityId,
-      diff: buildAuditDiff(input),
+      actorId: event.actorId ?? undefined,
+      action: event.action,
+      entity: event.entity,
+      entityId: event.entityId,
+      eventData: event.eventData as Prisma.InputJsonObject,
+      schemaVersion: event.schemaVersion,
     },
     select: { id: true },
   })
@@ -181,19 +68,27 @@ export async function writeAuditLogSafely(
   input: AuditLogWriteInput,
   client: AuditLogClient = prisma,
 ): Promise<void> {
+  let event: ReturnType<typeof parseAuditEvent>
+
   try {
-    await writeAuditLog(input, client)
-  } catch (error) {
-    logger.warn(
-      {
-        err: error,
-        action: input.action,
-        entity: input.entity,
-        entityId: input.entityId,
-      },
-      'Audit log write failed.',
-    )
+    event = parseAuditEvent(input)
+  } catch {
+    logger.warn({ code: 'audit_log_validation_failed' }, 'Audit log write rejected.')
+    return
   }
+
+  try {
+    await persistAuditEvent(event, client)
+  } catch {
+    logger.warn({ code: 'audit_log_persistence_failed' }, 'Audit log write failed.')
+  }
+}
+
+export async function writeAuditLog(
+  input: AuditLogWriteInput,
+  client: AuditLogClient = prisma,
+): Promise<void> {
+  await persistAuditEvent(parseAuditEvent(input), client)
 }
 
 export async function listAuditLogs(params: AuditLogQuery) {

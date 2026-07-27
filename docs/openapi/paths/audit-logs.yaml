@@ -57,7 +57,7 @@ AuditLogs:
         description: Number of matching audit rows to skip before returning results.
     responses:
       '200':
-        description: Audit logs
+        description: Versioned audit events whose data matches the registered action contract.
         content:
           application/json:
             schema:

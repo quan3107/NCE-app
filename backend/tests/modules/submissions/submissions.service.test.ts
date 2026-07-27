@@ -3,11 +3,13 @@
  * Purpose: Validate IELTS submission payload handling in the service layer.
  * Why: Ensures valid payloads persist once assignment types are verified.
  */
-import { describe, expect, it, beforeEach, vi } from "vitest";
-import type { Assignment, Submission } from '../../../src/prisma/index.js';
+import { describe, expect, it, beforeEach, vi } from 'vitest'
+import type { Assignment, Submission } from '../../../src/prisma/index.js'
 
-vi.mock("../../../src/prisma/client.js", () => ({
+vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
     assignment: {
       findFirst: vi.fn(),
     },
@@ -22,329 +24,333 @@ vi.mock("../../../src/prisma/client.js", () => ({
       update: vi.fn(),
     },
   },
-}));
-vi.mock("../../../src/modules/scoring/ieltsScoring.service.js", () => ({
+}))
+vi.mock('../../../src/modules/scoring/ieltsScoring.service.js', () => ({
   autoScoreSubmission: vi.fn(),
-}));
-vi.mock("../../../src/modules/ai-feedback/ai-feedback.service.js", () => ({
+}))
+vi.mock('../../../src/modules/ai-feedback/ai-feedback.service.js', () => ({
   enqueueAiWritingFeedbackForSubmission: vi.fn(),
-}));
+}))
 vi.mock(
-  "../../../src/modules/notification-preferences/notification-preferences.service.js",
+  '../../../src/modules/notification-preferences/notification-preferences.service.js',
   () => ({
     resolveNotificationTypeEnabledForUsers: vi.fn(),
   }),
-);
-vi.mock("../../../src/modules/notifications/notifications.service.js", () => ({
+)
+vi.mock('../../../src/modules/notifications/notifications.service.js', () => ({
   enqueueNotification: vi.fn(),
-}));
-vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+}))
+vi.mock('../../../src/modules/audit-logs/audit-logs.service.js', () => ({
   writeAuditLogSafely: vi.fn(),
-}));
+}))
 
-const prismaModule = await import("../../../src/prisma/client.js");
-const prisma = vi.mocked(prismaModule.prisma, true);
-const notificationPreferencesModule = await import(
-  "../../../src/modules/notification-preferences/notification-preferences.service.js"
-);
-const notificationsModule = await import(
-  "../../../src/modules/notifications/notifications.service.js"
-);
-const aiFeedbackModule = await import(
-  "../../../src/modules/ai-feedback/ai-feedback.service.js"
-);
+const prismaModule = await import('../../../src/prisma/client.js')
+const prisma = vi.mocked(prismaModule.prisma, true)
+const notificationPreferencesModule =
+  await import('../../../src/modules/notification-preferences/notification-preferences.service.js')
+const notificationsModule =
+  await import('../../../src/modules/notifications/notifications.service.js')
+const aiFeedbackModule =
+  await import('../../../src/modules/ai-feedback/ai-feedback.service.js')
 const resolveNotificationTypeEnabledForUsers = vi.mocked(
   notificationPreferencesModule.resolveNotificationTypeEnabledForUsers,
   true,
-);
-const enqueueNotification = vi.mocked(
-  notificationsModule.enqueueNotification,
-  true,
-);
+)
+const enqueueNotification = vi.mocked(notificationsModule.enqueueNotification, true)
 const enqueueAiWritingFeedbackForSubmission = vi.mocked(
   aiFeedbackModule.enqueueAiWritingFeedbackForSubmission,
   true,
-);
-const auditLogsModule = await import(
-  "../../../src/modules/audit-logs/audit-logs.service.js"
-);
-const writeAuditLogSafely = vi.mocked(
-  auditLogsModule.writeAuditLogSafely,
-  true,
-);
+)
+const auditLogsModule =
+  await import('../../../src/modules/audit-logs/audit-logs.service.js')
+const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely, true)
 
-const { createSubmission, listSubmissions } = await import(
-  "../../../src/modules/submissions/submissions.service.js"
-);
-const { createSubmissionSchema } = await import(
-  "../../../src/modules/submissions/submissions.schema.js"
-);
+const { createSubmission, listSubmissions } =
+  await import('../../../src/modules/submissions/submissions.service.js')
+const { createSubmissionSchema } =
+  await import('../../../src/modules/submissions/submissions.schema.js')
 
-const assignmentId = "4c67e29f-7a7b-4c3e-8d56-52e5487e59a1";
-const studentId = "b9a2031b-9eac-4c77-9f11-4e7fbf3b5c2b";
+const assignmentId = '4c67e29f-7a7b-4c3e-8d56-52e5487e59a1'
+const studentId = 'b9a2031b-9eac-4c77-9f11-4e7fbf3b5c2b'
 
-describe("submissions.service.createSubmission", () => {
+describe('submissions.service.createSubmission', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.clearAllMocks()
+    prisma.$transaction.mockImplementation(async (callback) => callback(prisma))
     prisma.enrollment.findFirst.mockResolvedValue({
-      id: "a0c0fb2e-f9ef-4b4c-8c7e-69235fd247c8",
-    });
-    prisma.enrollment.findMany.mockResolvedValue([]);
-    resolveNotificationTypeEnabledForUsers.mockResolvedValue(new Map());
-  });
+      id: 'a0c0fb2e-f9ef-4b4c-8c7e-69235fd247c8',
+    })
+    prisma.enrollment.findMany.mockResolvedValue([])
+    resolveNotificationTypeEnabledForUsers.mockResolvedValue(new Map())
+  })
 
-  it("persists valid IELTS submission payloads for the authenticated student", async () => {
+  it('persists valid IELTS submission payloads for the authenticated student', async () => {
     const assignmentRecord: Assignment = {
       id: assignmentId,
-      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
-      title: "Reading Practice",
+      courseId: '8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15',
+      title: 'Reading Practice',
       description: null,
-      type: "reading",
+      type: 'reading',
       dueAt: null,
       latePolicy: null,
       assignmentConfig: null,
-      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
       deletedAt: null,
-    };
+    }
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(null);
-    const record = { id: "submission-1" } as Submission;
-    prisma.submission.create.mockResolvedValueOnce(record);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValueOnce(null)
+    const record = { id: 'submission-1' } as Submission
+    prisma.submission.create.mockResolvedValueOnce(record)
 
     const payload = {
       payload: {
         version: 1,
-        answers: [{ questionId: "q1", value: "A" }],
+        answers: [{ questionId: 'q1', value: 'A' }],
       },
-    };
+    }
 
-    const result = await createSubmission(
-      { assignmentId },
-      payload,
-      { id: studentId, role: "student" },
-    );
+    const result = await createSubmission({ assignmentId }, payload, {
+      id: studentId,
+      role: 'student',
+    })
 
     expect(prisma.submission.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           assignmentId,
           studentId,
-          status: "draft",
+          status: 'draft',
           payload: expect.objectContaining({
             version: 1,
           }),
         }),
       }),
-    );
-    expect(result).toBe(record);
-  });
+    )
+    expect(result).toBe(record)
+  })
 
-  it("writes a submission.created audit log with summarized payload details", async () => {
+  it('writes a submission.created audit log with summarized payload details', async () => {
     const assignmentRecord = {
       id: assignmentId,
-      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
-      title: "Writing Practice",
-      type: "writing",
+      courseId: '8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15',
+      title: 'Writing Practice',
+      type: 'writing',
       assignmentConfig: null,
       dueAt: null,
       latePolicy: null,
-      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
       course: {
-        title: "IELTS Writing",
+        title: 'IELTS Writing',
       },
-    };
+    }
     const submission = {
-      id: "submission-audit-created",
-      status: "draft",
+      id: 'submission-audit-created',
+      status: 'draft',
       submittedAt: null,
-    } as Submission;
+    } as Submission
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(null);
-    prisma.submission.create.mockResolvedValueOnce(submission);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValueOnce(null)
+    prisma.submission.create.mockResolvedValueOnce(submission)
 
     await createSubmission(
       { assignmentId },
       {
         payload: {
           version: 1,
-          task1: { text: "A".repeat(5000) },
-          task2: { text: "B".repeat(5000) },
+          task1: { text: 'A'.repeat(5000) },
+          task2: { text: 'B'.repeat(5000) },
         },
       },
-      { id: studentId, role: "student" },
-    );
+      { id: studentId, role: 'student' },
+    )
 
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: studentId,
-        action: "submission.created",
-        entity: "submission",
+        action: 'submission.created',
+        entity: 'submission',
         entityId: submission.id,
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           assignmentId,
           courseId: assignmentRecord.courseId,
           studentId,
-          status: {
-            before: null,
-            after: "draft",
-          },
-          submittedAt: {
-            before: null,
-            after: null,
-          },
-          payload: expect.objectContaining({
-            keys: ["version", "task1", "task2"],
-          }),
+          statusBefore: null,
+          statusAfter: 'draft',
+          submittedAtChanged: false,
+          submissionContentChanged: true,
         }),
       }),
-    );
-    expect(JSON.stringify(writeAuditLogSafely.mock.calls[0])).not.toContain(
-      "AAAA",
-    );
-  });
+    )
+    expect(JSON.stringify(writeAuditLogSafely.mock.calls[0])).not.toContain('AAAA')
+  })
 
-  it("writes submission.submitted audit logs for draft-to-submitted updates", async () => {
-    const submittedAt = new Date("2026-02-09T10:00:00.000Z");
+  it('writes submission.submitted audit logs for draft-to-submitted updates', async () => {
+    const submittedAt = new Date('2026-02-09T10:00:00.000Z')
     const assignmentRecord = {
       id: assignmentId,
-      courseId: "course-audit-submit",
-      title: "Reading Practice",
-      type: "reading",
+      courseId: 'course-audit-submit',
+      title: 'Reading Practice',
+      type: 'reading',
       assignmentConfig: null,
       dueAt: null,
       latePolicy: null,
-      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
       course: {
-        title: "IELTS Reading",
+        title: 'IELTS Reading',
       },
-    };
+    }
     const existingSubmission = {
-      id: "submission-audit-submitted",
-      status: "draft",
+      id: 'submission-audit-submitted',
+      status: 'draft',
       submittedAt: null,
       payload: { version: 1 },
-    } as Submission;
+    } as Submission
     const updatedSubmission = {
       id: existingSubmission.id,
-      status: "submitted",
+      status: 'submitted',
       submittedAt,
-    } as Submission;
+    } as Submission
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(existingSubmission);
-    prisma.submission.update.mockResolvedValueOnce(updatedSubmission);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValue(existingSubmission)
+    prisma.submission.update.mockResolvedValueOnce(updatedSubmission)
 
     await createSubmission(
       { assignmentId },
       {
         submittedAt: submittedAt.toISOString(),
-        status: "submitted",
+        status: 'submitted',
         payload: {
           version: 1,
-          answers: [{ questionId: "q1", value: "A" }],
+          answers: [{ questionId: 'q1', value: 'A' }],
         },
       },
-      { id: studentId, role: "student" },
-    );
+      { id: studentId, role: 'student' },
+    )
 
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: studentId,
-        action: "submission.submitted",
-        entity: "submission",
+        action: 'submission.submitted',
+        entity: 'submission',
         entityId: existingSubmission.id,
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           assignmentId,
           courseId: assignmentRecord.courseId,
           studentId,
-          status: {
-            before: "draft",
-            after: "submitted",
-          },
-          submittedAt: {
-            before: null,
-            after: expect.any(String),
-          },
-          payload: expect.objectContaining({
-            keys: ["version", "answers"],
-          }),
+          statusBefore: 'draft',
+          statusAfter: 'submitted',
+          submittedAtChanged: true,
+          submissionContentChanged: true,
         }),
       }),
-    );
-  });
+    )
+  })
 
-  it("writes submission.updated audit logs for existing draft saves", async () => {
+  it('writes submission.updated audit logs for existing draft saves', async () => {
     const assignmentRecord = {
       id: assignmentId,
-      courseId: "course-audit-update",
-      title: "Reading Practice",
-      type: "reading",
+      courseId: 'course-audit-update',
+      title: 'Reading Practice',
+      type: 'reading',
       assignmentConfig: null,
       dueAt: null,
       latePolicy: null,
-      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
       course: {
-        title: "IELTS Reading",
+        title: 'IELTS Reading',
       },
-    };
+    }
     const existingSubmission = {
-      id: "submission-audit-updated",
-      status: "draft",
+      id: 'submission-audit-updated',
+      status: 'draft',
       submittedAt: null,
       payload: { version: 1 },
-    } as Submission;
+    } as Submission
     const updatedSubmission = {
       id: existingSubmission.id,
-      status: "draft",
+      status: 'draft',
       submittedAt: null,
-    } as Submission;
+    } as Submission
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(existingSubmission);
-    prisma.submission.update.mockResolvedValueOnce(updatedSubmission);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValue(existingSubmission)
+    prisma.submission.update.mockResolvedValueOnce(updatedSubmission)
 
     await createSubmission(
       { assignmentId },
       {
-        status: "draft",
+        status: 'draft',
         payload: {
           version: 1,
-          answers: [{ questionId: "q1", value: "B" }],
+          answers: [{ questionId: 'q1', value: 'B' }],
         },
       },
-      { id: studentId, role: "student" },
-    );
+      { id: studentId, role: 'student' },
+    )
 
     expect(writeAuditLogSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: studentId,
-        action: "submission.updated",
-        entity: "submission",
+        action: 'submission.updated',
+        entity: 'submission',
         entityId: existingSubmission.id,
-        diff: expect.objectContaining({
+        eventData: expect.objectContaining({
           assignmentId,
           courseId: assignmentRecord.courseId,
           studentId,
-          status: {
-            before: "draft",
-            after: "draft",
-          },
-          payload: expect.objectContaining({
-            keys: ["version", "answers"],
-          }),
+          statusBefore: 'draft',
+          statusAfter: 'draft',
+          submittedAtChanged: false,
+          submissionContentChanged: true,
         }),
       }),
-    );
-  });
+    )
+  })
 
-  it("does not create submissions for assignments in archived courses", async () => {
+  it('suppresses an unchanged existing draft audit', async () => {
+    const assignmentRecord = {
+      id: assignmentId,
+      courseId: 'course-audit-noop',
+      title: 'Reading Practice',
+      type: 'reading',
+      assignmentConfig: null,
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
+      course: { title: 'IELTS Reading' },
+    }
+    const payload = {
+      version: 1,
+      answers: [{ questionId: 'q1', value: 'B' }],
+    }
+    const existingSubmission = {
+      id: 'submission-audit-noop',
+      status: 'draft',
+      submittedAt: null,
+      payload,
+    } as Submission
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValue(existingSubmission)
+    prisma.submission.update.mockResolvedValueOnce(existingSubmission)
+
+    await createSubmission(
+      { assignmentId },
+      { status: 'draft', payload },
+      { id: studentId, role: 'student' },
+    )
+
+    expect(writeAuditLogSafely).not.toHaveBeenCalled()
+  })
+
+  it('does not create submissions for assignments in archived courses', async () => {
     prisma.assignment.findFirst.mockImplementationOnce(async (args) =>
       args?.where?.course?.deletedAt === null ? null : ({} as Assignment),
-    );
+    )
 
     await expect(
       createSubmission(
@@ -352,20 +358,20 @@ describe("submissions.service.createSubmission", () => {
         {
           payload: {
             version: 1,
-            answers: [{ questionId: "q1", value: "A" }],
+            answers: [{ questionId: 'q1', value: 'A' }],
           },
         },
-        { id: studentId, role: "student" },
+        { id: studentId, role: 'student' },
       ),
-    ).rejects.toMatchObject({ statusCode: 404 });
+    ).rejects.toMatchObject({ statusCode: 404 })
 
-    expect(prisma.submission.create).not.toHaveBeenCalled();
-  });
+    expect(prisma.submission.create).not.toHaveBeenCalled()
+  })
 
-  it("lists submissions only for assignments in active courses", async () => {
-    prisma.submission.findMany.mockResolvedValueOnce([]);
+  it('lists submissions only for assignments in active courses', async () => {
+    prisma.submission.findMany.mockResolvedValueOnce([])
 
-    await listSubmissions({ assignmentId }, {}, { id: studentId, role: "student" });
+    await listSubmissions({ assignmentId }, {}, { id: studentId, role: 'student' })
 
     expect(prisma.submission.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -377,31 +383,31 @@ describe("submissions.service.createSubmission", () => {
           },
         }),
       }),
-    );
-  });
+    )
+  })
 
-  it("rejects client-supplied student identity fields", () => {
+  it('rejects client-supplied student identity fields', () => {
     expect(() =>
       createSubmissionSchema.parse({
-        studentId: "b5eb3d3c-b13f-4b3b-a93f-910fbb2a3c13",
+        studentId: 'b5eb3d3c-b13f-4b3b-a93f-910fbb2a3c13',
         payload: {
           version: 1,
-          answers: [{ questionId: "q1", value: "A" }],
+          answers: [{ questionId: 'q1', value: 'A' }],
         },
       }),
-    ).toThrow();
-  });
+    ).toThrow()
+  })
 
-  it("auto-submits when the time limit is exceeded", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-02T01:00:00.000Z"));
+  it('auto-submits when the time limit is exceeded', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-02T01:00:00.000Z'))
 
     const assignmentRecord: Assignment = {
       id: assignmentId,
-      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
-      title: "Reading Practice",
+      courseId: '8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15',
+      title: 'Reading Practice',
       description: null,
-      type: "reading",
+      type: 'reading',
       dueAt: null,
       latePolicy: null,
       assignmentConfig: {
@@ -415,50 +421,46 @@ describe("submissions.service.createSubmission", () => {
         attempts: { maxAttempts: null },
         sections: [],
       },
-      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
       deletedAt: null,
-    };
+    }
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(null);
-    const record = { id: "submission-2" } as Submission;
-    prisma.submission.create.mockResolvedValueOnce(record);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValueOnce(null)
+    const record = { id: 'submission-2' } as Submission
+    prisma.submission.create.mockResolvedValueOnce(record)
 
     const payload = {
       payload: {
         version: 1,
-        startedAt: "2026-01-02T00:00:00.000Z",
-        answers: [{ questionId: "q1", value: "A" }],
+        startedAt: '2026-01-02T00:00:00.000Z',
+        answers: [{ questionId: 'q1', value: 'A' }],
       },
-    };
+    }
 
-    await createSubmission(
-      { assignmentId },
-      payload,
-      { id: studentId, role: "student" },
-    );
+    await createSubmission({ assignmentId }, payload, { id: studentId, role: 'student' })
 
     expect(prisma.submission.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          status: "submitted",
+          status: 'submitted',
           submittedAt: expect.any(Date),
         }),
       }),
-    );
+    )
 
-    vi.useRealTimers();
-  });
+    vi.useRealTimers()
+  })
 
-  it("rejects submissions beyond max attempts", async () => {
+  it('rejects submissions beyond max attempts', async () => {
     const assignmentRecord: Assignment = {
       id: assignmentId,
-      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
-      title: "Reading Practice",
+      courseId: '8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15',
+      title: 'Reading Practice',
       description: null,
-      type: "reading",
+      type: 'reading',
       dueAt: null,
       latePolicy: null,
       assignmentConfig: {
@@ -467,93 +469,89 @@ describe("submissions.service.createSubmission", () => {
         attempts: { maxAttempts: 1 },
         sections: [],
       },
-      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
       deletedAt: null,
-    };
+    }
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce({
-      id: "submission-3",
-      status: "submitted",
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValue({
+      id: 'submission-3',
+      status: 'submitted',
       payload: { version: 1 },
-    } as Submission);
+    } as Submission)
 
     const payload = {
       payload: {
         version: 1,
-        answers: [{ questionId: "q1", value: "A" }],
+        answers: [{ questionId: 'q1', value: 'A' }],
       },
-    };
+    }
 
     await expect(
-      createSubmission(
-        { assignmentId },
-        payload,
-        { id: studentId, role: "student" },
-      ),
-    ).rejects.toMatchObject({ statusCode: 409 });
-  });
+      createSubmission({ assignmentId }, payload, { id: studentId, role: 'student' }),
+    ).rejects.toMatchObject({ statusCode: 409 })
+  })
 
-  it("rejects submitted IELTS speaking payloads without recording metadata", async () => {
+  it('rejects submitted IELTS speaking payloads without recording metadata', async () => {
     const assignmentRecord: Assignment = {
       id: assignmentId,
-      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
-      title: "Speaking Practice",
+      courseId: '8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15',
+      title: 'Speaking Practice',
       description: null,
-      type: "speaking",
+      type: 'speaking',
       dueAt: null,
       latePolicy: null,
       assignmentConfig: {
         version: 1,
         timing: { enabled: false, durationMinutes: 15, enforce: false },
         attempts: { maxAttempts: null },
-        part1: { questions: ["Where do you live?"] },
+        part1: { questions: ['Where do you live?'] },
         part2: {
           cueCard: {
-            topic: "Describe a useful object.",
-            bulletPoints: ["what it is"],
+            topic: 'Describe a useful object.',
+            bulletPoints: ['what it is'],
           },
           prepSeconds: 60,
           talkSeconds: 120,
         },
-        part3: { questions: ["How has technology changed daily life?"] },
+        part3: { questions: ['How has technology changed daily life?'] },
       },
-      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
       deletedAt: null,
-    };
+    }
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(null);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValueOnce(null)
 
     await expect(
       createSubmission(
         { assignmentId },
         {
-          submittedAt: "2026-01-02T00:00:00.000Z",
-          status: "submitted",
+          submittedAt: '2026-01-02T00:00:00.000Z',
+          status: 'submitted',
           payload: {
             version: 1,
             recordings: [],
           },
         },
-        { id: studentId, role: "student" },
+        { id: studentId, role: 'student' },
       ),
-    ).rejects.toMatchObject({ statusCode: 400 });
+    ).rejects.toMatchObject({ statusCode: 400 })
 
-    expect(prisma.submission.create).not.toHaveBeenCalled();
-  });
+    expect(prisma.submission.create).not.toHaveBeenCalled()
+  })
 
-  it("rejects submitted IELTS reading payloads with null-only answers", async () => {
+  it('rejects submitted IELTS reading payloads with null-only answers', async () => {
     const assignmentRecord: Assignment = {
       id: assignmentId,
-      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
-      title: "Reading Practice",
+      courseId: '8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15',
+      title: 'Reading Practice',
       description: null,
-      type: "reading",
+      type: 'reading',
       dueAt: null,
       latePolicy: null,
       assignmentConfig: {
@@ -562,149 +560,146 @@ describe("submissions.service.createSubmission", () => {
         attempts: { maxAttempts: null },
         sections: [],
       },
-      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-01-01T00:00:00.000Z'),
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
       deletedAt: null,
-    };
+    }
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(null);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValueOnce(null)
 
     await expect(
       createSubmission(
         { assignmentId },
         {
-          submittedAt: "2026-01-02T00:00:00.000Z",
-          status: "submitted",
+          submittedAt: '2026-01-02T00:00:00.000Z',
+          status: 'submitted',
           payload: {
             version: 1,
-            answers: [{ questionId: "q1", value: null }],
+            answers: [{ questionId: 'q1', value: null }],
           },
         },
-        { id: studentId, role: "student" },
+        { id: studentId, role: 'student' },
       ),
-    ).rejects.toMatchObject({ statusCode: 400 });
+    ).rejects.toMatchObject({ statusCode: 400 })
 
-    expect(prisma.submission.create).not.toHaveBeenCalled();
-  });
+    expect(prisma.submission.create).not.toHaveBeenCalled()
+  })
 
-  it("enqueues teacher notifications only for enabled teachers on submission", async () => {
+  it('enqueues teacher notifications only for enabled teachers on submission', async () => {
     const assignmentRecord = {
       id: assignmentId,
-      courseId: "course-1",
-      title: "Reading Practice",
-      type: "reading",
+      courseId: 'course-1',
+      title: 'Reading Practice',
+      type: 'reading',
       assignmentConfig: null,
       dueAt: null,
       latePolicy: null,
-      publishedAt: new Date("2026-02-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-02-01T00:00:00.000Z'),
       course: {
-        title: "IELTS Reading",
+        title: 'IELTS Reading',
       },
-    };
+    }
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(null);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValueOnce(null)
     prisma.enrollment.findMany.mockResolvedValueOnce([
-      { userId: "teacher-1" },
-      { userId: "teacher-2" },
-      { userId: "teacher-1" },
-    ]);
+      { userId: 'teacher-1' },
+      { userId: 'teacher-2' },
+      { userId: 'teacher-1' },
+    ])
     resolveNotificationTypeEnabledForUsers.mockResolvedValueOnce(
       new Map([
-        ["teacher-1", true],
-        ["teacher-2", false],
+        ['teacher-1', true],
+        ['teacher-2', false],
       ]),
-    );
+    )
     prisma.submission.create.mockResolvedValueOnce({
-      id: "submission-4",
-      submittedAt: new Date("2026-02-09T10:00:00.000Z"),
-    } as Submission);
+      id: 'submission-4',
+      submittedAt: new Date('2026-02-09T10:00:00.000Z'),
+    } as Submission)
 
     await createSubmission(
       { assignmentId },
       {
-        submittedAt: "2026-02-09T10:00:00.000Z",
+        submittedAt: '2026-02-09T10:00:00.000Z',
         payload: {
           version: 1,
-          answers: [{ questionId: "q1", value: "A" }],
+          answers: [{ questionId: 'q1', value: 'A' }],
         },
       },
-      { id: studentId, role: "student" },
-    );
+      { id: studentId, role: 'student' },
+    )
 
     expect(resolveNotificationTypeEnabledForUsers).toHaveBeenCalledWith({
-      role: "teacher",
-      type: "new_submission",
-      userIds: ["teacher-1", "teacher-2"],
-    });
-    expect(enqueueNotification).toHaveBeenCalledTimes(1);
+      role: 'teacher',
+      type: 'new_submission',
+      userIds: ['teacher-1', 'teacher-2'],
+    })
+    expect(enqueueNotification).toHaveBeenCalledTimes(1)
     expect(enqueueNotification).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "teacher-1",
-        type: "new_submission",
+        userId: 'teacher-1',
+        type: 'new_submission',
       }),
-    );
-  });
+    )
+  })
 
-  it("auto-enqueues AI writing feedback for submitted policy-enabled writing assignments", async () => {
+  it('auto-enqueues AI writing feedback for submitted policy-enabled writing assignments', async () => {
     const assignmentRecord = {
       id: assignmentId,
-      courseId: "8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15",
-      title: "Writing Practice",
-      type: "writing",
+      courseId: '8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15',
+      title: 'Writing Practice',
+      type: 'writing',
       assignmentConfig: {
         version: 1,
         aiPolicy: {
-          writingFeedbackMode: "instant_student_visible",
-          objectiveExplanations: "off",
-          providerTier: "auto",
+          writingFeedbackMode: 'instant_student_visible',
+          objectiveExplanations: 'off',
+          providerTier: 'auto',
         },
         task1: {
-          prompt: "Summarise the chart.",
+          prompt: 'Summarise the chart.',
         },
         task2: {
-          prompt: "Discuss both views.",
+          prompt: 'Discuss both views.',
         },
       },
       dueAt: null,
       latePolicy: null,
-      publishedAt: new Date("2026-02-01T00:00:00.000Z"),
+      publishedAt: new Date('2026-02-01T00:00:00.000Z'),
       course: {
-        title: "IELTS Writing",
+        title: 'IELTS Writing',
       },
-    };
+    }
     const submission = {
-      id: "77777777-7777-4777-8777-777777777777",
-      submittedAt: new Date("2026-02-09T10:00:00.000Z"),
-    } as Submission;
+      id: '77777777-7777-4777-8777-777777777777',
+      submittedAt: new Date('2026-02-09T10:00:00.000Z'),
+    } as Submission
 
-    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord);
-    prisma.submission.findUnique.mockResolvedValueOnce(null);
-    prisma.submission.create.mockResolvedValueOnce(submission);
+    prisma.assignment.findFirst.mockResolvedValueOnce(assignmentRecord)
+    prisma.submission.findUnique.mockResolvedValueOnce(null)
+    prisma.submission.create.mockResolvedValueOnce(submission)
 
     await createSubmission(
       { assignmentId },
       {
-        submittedAt: "2026-02-09T10:00:00.000Z",
-        status: "submitted",
+        submittedAt: '2026-02-09T10:00:00.000Z',
+        status: 'submitted',
         payload: {
           version: 1,
-          task1: { text: "The chart rises steadily." },
-          task2: { text: "Both views have merit." },
+          task1: { text: 'The chart rises steadily.' },
+          task2: { text: 'Both views have merit.' },
         },
       },
-      { id: studentId, role: "student" },
-    );
+      { id: studentId, role: 'student' },
+    )
 
-    expect(enqueueAiWritingFeedbackForSubmission).toHaveBeenCalledWith(
-      submission.id,
-      {
-        id: studentId,
-        role: "student",
-        status: "active",
-      },
-    );
-  });
-});
+    expect(enqueueAiWritingFeedbackForSubmission).toHaveBeenCalledWith(submission.id, {
+      id: studentId,
+      role: 'student',
+      status: 'active',
+    })
+  })
+})

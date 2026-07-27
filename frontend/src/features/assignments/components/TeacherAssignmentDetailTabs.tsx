@@ -31,6 +31,7 @@ export type TeacherAssignmentStatsSummary = {
 
 type TeacherAssignmentDetailTabsProps = {
   assignment: Assignment;
+  originalDueAt?: Date;
   courseTitle: string;
   submissions: Submission[];
   statsCards: TeacherAssignmentStatCard[];
@@ -46,6 +47,7 @@ type TeacherAssignmentDetailTabsProps = {
 
 export function TeacherAssignmentDetailTabs({
   assignment,
+  originalDueAt,
   courseTitle,
   submissions,
   statsCards,
@@ -89,6 +91,7 @@ export function TeacherAssignmentDetailTabs({
       <TabsContent value="overview" className="space-y-6">
         <TeacherAssignmentOverviewTab
           assignment={assignment}
+          originalDueAt={originalDueAt}
           courseTitle={courseTitle}
           statsCards={statsCards}
           isEditing={isEditing}

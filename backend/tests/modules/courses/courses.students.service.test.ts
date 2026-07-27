@@ -4,11 +4,7 @@
  * Why: Keeps student roster mutations aligned with enrollment role invariants.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  EnrollmentRole,
-  UserRole,
-  UserStatus,
-} from "../../../src/prisma/index.js";
+import { EnrollmentRole, UserRole, UserStatus } from "../../../src/prisma/index.js";
 
 vi.mock("../../../src/config/prismaClient.js", () => ({
   prisma: {
@@ -32,14 +28,12 @@ vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
 
 const prismaModule = await import("../../../src/config/prismaClient.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
-const auditLogsModule = await import(
-  "../../../src/modules/audit-logs/audit-logs.service.js"
-);
+const auditLogsModule =
+  await import("../../../src/modules/audit-logs/audit-logs.service.js");
 const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely);
 
-const { addStudentToCourse, removeStudentFromCourse } = await import(
-  "../../../src/modules/courses/courses.students.service.js"
-);
+const { addStudentToCourse, removeStudentFromCourse } =
+  await import("../../../src/modules/courses/courses.students.service.js");
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 const studentId = "22222222-2222-4222-8222-222222222222";
@@ -113,16 +107,11 @@ describe("courses.students.service.addStudentToCourse", () => {
       action: "course.student_added",
       entity: "enrollment",
       entityId: enrollmentId,
-      before: {
-        id: enrollmentId,
-        deletedAt: new Date("2026-05-01T00:00:00.000Z"),
-      },
-      after: {
-        id: enrollmentId,
+      eventData: {
         courseId,
-        studentId: student.id,
+        userId: student.id,
         roleInCourse: EnrollmentRole.student,
-        deletedAt: null,
+        membershipChanged: true,
       },
     });
     expect(result).toEqual({
@@ -156,17 +145,11 @@ describe("courses.students.service.addStudentToCourse", () => {
       action: "course.student_removed",
       entity: "enrollment",
       entityId: enrollmentId,
-      before: {
-        id: enrollmentId,
-        deletedAt: null,
-        roleInCourse: EnrollmentRole.student,
-      },
-      after: {
-        id: enrollmentId,
+      eventData: {
         courseId,
-        studentId,
+        userId: studentId,
         roleInCourse: EnrollmentRole.student,
-        deletedAt: removedAt,
+        membershipChanged: true,
       },
     });
 

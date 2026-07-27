@@ -21,11 +21,6 @@ import { writeAuthAuditLogSafely } from './auth.audit.js'
 const invalidRefreshTokenError = () =>
   createAuthError(401, 'Refresh token is invalid or expired.')
 
-const requestMetadataFromContext = (context: SessionContext) => ({
-  ipAddress: context.ipAddress ?? null,
-  userAgent: context.userAgent ?? null,
-})
-
 export async function handleSessionRefresh(
   payload: unknown,
   context: SessionContext,
@@ -144,11 +139,7 @@ export async function handleSessionRefresh(
     action: 'auth.session_refreshed',
     entity: 'auth_session',
     entityId: rotated.id,
-    diff: {
-      previousSessionId: rotated.rotatedFromId,
-      familyId: rotated.familyId,
-    },
-    requestMetadata: requestMetadataFromContext(context),
+    eventData: { sessionRotated: true },
   })
 
   return {
@@ -223,9 +214,6 @@ export async function handleLogout(
     action: 'auth.session_revoked',
     entity: 'auth_session',
     entityId: revokedSession.id,
-    diff: {
-      familyId: revokedSession.familyId,
-    },
-    requestMetadata: requestMetadataFromContext(context),
+    eventData: { sessionRevoked: true },
   })
 }

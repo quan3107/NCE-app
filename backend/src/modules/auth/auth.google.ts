@@ -30,11 +30,6 @@ type CompleteGoogleAuthorizationOptions = {
 
 export { buildGoogleAuthorizationUrl }
 
-const requestMetadataFromContext = (context: SessionContext) => ({
-  ipAddress: context.ipAddress ?? null,
-  userAgent: context.userAgent ?? null,
-})
-
 export async function completeGoogleAuthorization(
   query: unknown,
   options: CompleteGoogleAuthorizationOptions,
@@ -104,14 +99,12 @@ export async function completeGoogleAuthorization(
     action: 'auth.google_login_succeeded',
     entity: 'auth_session',
     entityId: session.id,
-    diff: {
-      userId: finalUser.id,
-      identityId,
+    eventData: {
       role: finalUser.role,
       status: finalUser.status,
+      identityLinked: Boolean(identityId),
       emailVerifiedUpdated,
     },
-    requestMetadata: requestMetadataFromContext(context),
   })
 
   return {

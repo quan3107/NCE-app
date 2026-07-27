@@ -13,6 +13,7 @@ import {
 } from "../../prisma/index.js";
 import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
+import { semanticValuesEqual } from "../../utils/semanticValue.js";
 import {
   validateIeltsCriterionBreakdown,
   type IeltsCriterionScore,
@@ -20,7 +21,6 @@ import {
 import {
   AI_FEEDBACK_AUDIT_ACTIONS,
   recordAiFeedbackAudit,
-  type AiFeedbackAuditAction,
 } from "../audit-logs/ai-feedback-audit.js";
 import {
   aiWritingFeedbackApprovalBodySchema,
@@ -85,9 +85,7 @@ const decidableDraftStatuses: AiFeedbackDraftStatus[] = [
   "review_required",
   "failed",
 ];
-const decidableDraftStatusSet = new Set<AiFeedbackDraftStatus>(
-  decidableDraftStatuses,
-);
+const decidableDraftStatusSet = new Set<AiFeedbackDraftStatus>(decidableDraftStatuses);
 
 function jsonObjectOrUndefined(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -121,13 +119,11 @@ function toReviewResponse(draft: ReviewDraft): WritingFeedbackReviewResponse {
       : {}),
     ...(draft.failureCode ? { failureCode: draft.failureCode } : {}),
     ...(draft.failureMessage ? { failureMessage: draft.failureMessage } : {}),
-    decision:
-      draft.decision as WritingFeedbackReviewResponse["decision"] | undefined,
+    decision: draft.decision as WritingFeedbackReviewResponse["decision"] | undefined,
     gradeId: draft.gradeId,
     decidedAt: toIso(draft.decidedAt),
     finalizedAt: toIso(draft.finalizedAt),
-    teacherEditedFeedback:
-      jsonObjectOrUndefined(draft.teacherEditedFeedback) ?? null,
+    teacherEditedFeedback: jsonObjectOrUndefined(draft.teacherEditedFeedback) ?? null,
     normalizedCriterionSuggestions:
       jsonArrayOrUndefined(draft.normalizedCriterionSuggestions) ?? null,
   };
@@ -161,8 +157,7 @@ async function claimDraftDecision(
       teacherEditedFeedback: input.teacherEditedFeedback,
       normalizedCriterionSuggestions: input.normalizedCriterionSuggestions,
       decidedAt: input.decidedAt,
-      finalizedAt:
-        input.decision === "finalized" ? input.decidedAt : undefined,
+      finalizedAt: input.decision === "finalized" ? input.decidedAt : undefined,
     },
   });
 
@@ -209,24 +204,15 @@ function assertTeacherReviewActor(
   actor: RequestActor | undefined,
 ): asserts actor is RequestActor {
   if (!actor) {
-    throw createHttpError(
-      401,
-      "Authentication is required to review AI feedback.",
-    );
+    throw createHttpError(401, "Authentication is required to review AI feedback.");
   }
 
   if (actor.role !== UserRole.teacher && actor.role !== UserRole.admin) {
-    throw createHttpError(
-      403,
-      "Only teachers and admins can review AI feedback.",
-    );
+    throw createHttpError(403, "Only teachers and admins can review AI feedback.");
   }
 }
 
-function assertCanReviewDraft(
-  draft: DraftWithSubmission,
-  actor: RequestActor,
-): void {
+function assertCanReviewDraft(draft: DraftWithSubmission, actor: RequestActor): void {
   if (actor.role === UserRole.admin) {
     return;
   }
@@ -255,10 +241,7 @@ function assertDraftCanBeDecided(draft: DraftWithSubmission): void {
   }
 
   if (!decidableDraftStatusSet.has(draft.status as AiFeedbackDraftStatus)) {
-    throw createHttpError(
-      409,
-      "AI feedback draft is not ready for teacher review.",
-    );
+    throw createHttpError(409, "AI feedback draft is not ready for teacher review.");
   }
 }
 
@@ -266,10 +249,7 @@ function assertExistingGrade(draft: DraftWithSubmission) {
   const grade = draft.submission.grade;
 
   if (!grade || grade.deletedAt) {
-    throw createHttpError(
-      409,
-      "AI feedback approval requires an existing grade.",
-    );
+    throw createHttpError(409, "AI feedback approval requires an existing grade.");
   }
 
   return grade;
@@ -299,20 +279,6 @@ function validateCriterionSuggestions(
         : "Invalid AI feedback criterion suggestions.";
     throw createHttpError(400, message);
   }
-}
-
-function auditActionForDecision(
-  decision: "approved" | "rejected" | "finalized",
-): AiFeedbackAuditAction {
-  if (decision === "approved") {
-    return AI_FEEDBACK_AUDIT_ACTIONS.writingApproved;
-  }
-
-  if (decision === "finalized") {
-    return AI_FEEDBACK_AUDIT_ACTIONS.writingFinalized;
-  }
-
-  return AI_FEEDBACK_AUDIT_ACTIONS.writingRejected;
 }
 
 async function findDraftForDecision(
@@ -412,16 +378,13 @@ async function publishAiWritingFeedbackDraft(
 
   assertCanReviewDraft(draft, actor);
   assertDraftCanBeDecided(draft);
-  if (
-    decision === "finalized" &&
-    draft.visibilityMode !== "instant_student_visible"
-  ) {
+  if (decision === "finalized" && draft.visibilityMode !== "instant_student_visible") {
     throw createHttpError(
       409,
       "Only instant-visible AI feedback drafts can be finalized through this endpoint.",
     );
   }
-  const grade = assertExistingGrade(draft);
+  const gradeReference = assertExistingGrade(draft);
   validateCriterionSuggestions(
     draft,
     data.normalizedCriterionSuggestions as IeltsCriterionScore[] | undefined,
@@ -434,6 +397,19 @@ async function publishAiWritingFeedbackDraft(
     : undefined;
 
   const updated = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "grades"
+      WHERE "id" = ${gradeReference.id}::uuid
+      FOR UPDATE
+    `);
+    const grade = await tx.grade.findFirst({
+      where: { id: gradeReference.id, deletedAt: null },
+    });
+    if (!grade) {
+      throw createHttpError(409, "AI feedback approval requires an existing grade.");
+    }
+    const feedbackChanged = !semanticValuesEqual(grade.feedback, data.feedbackMd);
     const decidedDraft = await claimDraftDecision(tx, {
       draft,
       actorId: actor.id,
@@ -453,45 +429,59 @@ async function publishAiWritingFeedbackDraft(
       },
     });
 
-    await recordAiFeedbackAudit(
-      {
-        actorId: actor.id,
-        action: auditActionForDecision(decision),
-        entity: "ai_feedback_draft",
-        entityId: draft.id,
-        entityIds: {
-          submissionId,
-          assignmentId: draft.assignmentId,
-          gradeId: grade.id,
+    const reviewEventData = {
+      submissionId,
+      assignmentId: draft.assignmentId,
+      gradeId: grade.id,
+      feedbackChanged,
+    };
+    if (decision === "approved") {
+      await recordAiFeedbackAudit(
+        {
+          actorId: actor.id,
+          action: AI_FEEDBACK_AUDIT_ACTIONS.writingApproved,
+          entity: "ai_feedback_draft",
+          entityId: draft.id,
+          eventData: {
+            ...reviewEventData,
+            teacherDecision: "approved",
+          },
         },
-        teacherDecision: decision,
-        payload: {
-          feedbackMd: data.feedbackMd,
-          normalizedCriterionSuggestions: data.normalizedCriterionSuggestions,
-          previousGradeFeedback: grade.feedback,
+        tx,
+      );
+    } else {
+      await recordAiFeedbackAudit(
+        {
+          actorId: actor.id,
+          action: AI_FEEDBACK_AUDIT_ACTIONS.writingFinalized,
+          entity: "ai_feedback_draft",
+          entityId: draft.id,
+          eventData: {
+            ...reviewEventData,
+            teacherDecision: "finalized",
+          },
         },
-      },
-      tx,
-    );
-    await recordAiFeedbackAudit(
-      {
-        actorId: actor.id,
-        action: AI_FEEDBACK_AUDIT_ACTIONS.gradeFeedbackUpdated,
-        entity: "grade",
-        entityId: grade.id,
-        entityIds: {
-          submissionId,
-          assignmentId: draft.assignmentId,
-          draftId: draft.id,
+        tx,
+      );
+    }
+    if (feedbackChanged) {
+      await recordAiFeedbackAudit(
+        {
+          actorId: actor.id,
+          action: AI_FEEDBACK_AUDIT_ACTIONS.gradeFeedbackUpdated,
+          entity: "grade",
+          entityId: grade.id,
+          eventData: {
+            submissionId,
+            assignmentId: draft.assignmentId,
+            draftId: draft.id,
+            teacherDecision: decision,
+            feedbackChanged: true,
+          },
         },
-        teacherDecision: decision,
-        payload: {
-          feedbackMd: data.feedbackMd,
-          previousGradeFeedback: grade.feedback,
-        },
-      },
-      tx,
-    );
+        tx,
+      );
+    }
 
     return decidedDraft;
   });
@@ -548,15 +538,12 @@ export async function rejectAiWritingFeedbackDraft(
         action: AI_FEEDBACK_AUDIT_ACTIONS.writingRejected,
         entity: "ai_feedback_draft",
         entityId: draft.id,
-        entityIds: {
+        eventData: {
           submissionId,
           assignmentId: draft.assignmentId,
           ...(draft.gradeId ? { gradeId: draft.gradeId } : {}),
-        },
-        teacherDecision: "rejected",
-        payload: {
-          rejectionReason: data.reason,
-          generatedFeedback: draft.generatedFeedback,
+          teacherDecision: "rejected",
+          feedbackChanged: Boolean(data.reason),
         },
       },
       tx,

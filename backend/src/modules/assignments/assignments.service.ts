@@ -3,7 +3,7 @@
  * Purpose: Implement assignment data access and validation via Prisma.
  * Why: Keeps assignment-specific operations encapsulated away from controllers.
  */
-import { Prisma, UserRole, type Assignment } from '../../prisma/index.js'
+import { Prisma, UserRole } from '../../prisma/index.js'
 
 import { prisma } from '../../prisma/client.js'
 import type { CourseManager } from '../courses/courses.types.js'
@@ -18,6 +18,10 @@ import {
   ensureCourseAssignmentAccess,
 } from './assignments.authorization.js'
 import {
+  buildAiPolicyChangeAuditEventData,
+  buildAssignmentUpdateAuditEventData,
+} from './assignments.audit.js'
+import {
   assignmentIdParamsSchema,
   courseScopedParamsSchema,
   type CreateAssignmentPayload,
@@ -29,6 +33,7 @@ import {
   validateWritingRubrics,
 } from './assignments.helpers.js'
 import { parseAssignmentConfigForType } from './ielts.schema.js'
+import { buildAssignmentUpdateData } from './assignments.update.js'
 
 function parseOptionalDate(
   value: string | undefined,
@@ -42,79 +47,6 @@ function parseOptionalDate(
     throw createHttpError(400, `${fieldName} must be an ISO date string.`)
   }
   return parsed
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
-function aiPolicyFromConfig(value: unknown): Record<string, unknown> | null {
-  return asRecord(asRecord(value)?.aiPolicy)
-}
-
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableJson).join(',')}]`
-  }
-
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>
-    return `{${Object.keys(record)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
-      .join(',')}}`
-  }
-
-  return JSON.stringify(value)
-}
-
-function hasAiPolicyChanged(before: unknown, after: unknown): boolean {
-  return stableJson(aiPolicyFromConfig(before)) !== stableJson(aiPolicyFromConfig(after))
-}
-
-function toIsoStringOrNull(value: Date | null): string | null {
-  return value ? value.toISOString() : null
-}
-
-function buildAssignmentUpdateAuditDiff(
-  existing: Assignment,
-  updated: Assignment,
-  payload: UpdateAssignmentPayload,
-  courseId: string,
-): Record<string, unknown> {
-  const diff: Record<string, unknown> = { courseId }
-
-  if (payload.title !== undefined) {
-    diff.title = { from: existing.title, to: updated.title }
-  }
-  if (payload.descriptionMd !== undefined) {
-    diff.descriptionMd = { changed: true }
-  }
-  if (payload.type !== undefined) {
-    diff.type = { from: existing.type, to: updated.type }
-  }
-  if (payload.dueAt !== undefined) {
-    diff.dueAt = {
-      from: toIsoStringOrNull(existing.dueAt),
-      to: toIsoStringOrNull(updated.dueAt),
-    }
-  }
-  if (payload.latePolicy !== undefined) {
-    diff.latePolicy = { changed: true }
-  }
-  if (payload.assignmentConfig !== undefined) {
-    diff.assignmentConfig = { changed: true }
-  }
-  if (payload.publishedAt !== undefined) {
-    diff.publishedAt = {
-      from: toIsoStringOrNull(existing.publishedAt),
-      to: toIsoStringOrNull(updated.publishedAt),
-    }
-  }
-
-  return diff
 }
 
 export async function listAssignments(params: unknown, actor: CourseManager) {
@@ -272,11 +204,10 @@ export async function createAssignment(
     action: 'assignment.created',
     entity: 'assignment',
     entityId: assignment.id,
-    diff: {
+    eventData: {
       courseId,
-      title: payload.title,
       type: payload.type,
-      publishedAt: publishedAt?.toISOString() ?? null,
+      published: publishedAt !== undefined,
     },
   })
 
@@ -296,89 +227,67 @@ export async function updateAssignment(
     ? (payload.latePolicy as Prisma.InputJsonObject)
     : undefined
 
-  const existing = await prisma.assignment.findFirst({
-    where: assignmentAccessWhere(courseId, actor, 'manage', assignmentId),
-  })
-  if (!existing) {
-    throw createNotFoundError('Assignment', assignmentId)
-  }
+  const { existing, updated } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "assignments"
+      WHERE "id" = ${assignmentId}::uuid
+        AND "course_id" = ${courseId}::uuid
+      FOR UPDATE
+    `)
 
-  const targetType = payload.type ?? existing.type
-
-  let assignmentConfig: Prisma.InputJsonObject | undefined
-  if (payload.assignmentConfig !== undefined) {
-    const validatedConfig = parseAssignmentConfigForType(
-      targetType,
-      payload.assignmentConfig,
-    )
-
-    // Validate rubric IDs for writing assignments
-    if (targetType === 'writing') {
-      await validateWritingRubrics(validatedConfig, courseId)
+    const existing = await tx.assignment.findFirst({
+      where: assignmentAccessWhere(courseId, actor, 'manage', assignmentId),
+    })
+    if (!existing) {
+      throw createNotFoundError('Assignment', assignmentId)
     }
 
-    assignmentConfig = validatedConfig as Prisma.InputJsonObject
-  } else if (payload.type !== undefined && payload.type !== existing.type) {
-    parseAssignmentConfigForType(targetType, existing.assignmentConfig)
-  }
-
-  const updateData: Prisma.AssignmentUpdateInput = {}
-  if (payload.title !== undefined) {
-    updateData.title = payload.title
-  }
-  if (payload.descriptionMd !== undefined) {
-    updateData.description = payload.descriptionMd
-  }
-  if (payload.type !== undefined) {
-    updateData.type = payload.type
-  }
-  if (payload.dueAt !== undefined) {
-    updateData.dueAt = dueAt
-  }
-  if (payload.latePolicy !== undefined) {
-    updateData.latePolicy = latePolicy
-  }
-  if (payload.assignmentConfig !== undefined) {
-    updateData.assignmentConfig = assignmentConfig
-  }
-  if (payload.publishedAt !== undefined) {
-    updateData.publishedAt = publishedAt
-  }
-
-  const shouldAuditAssignmentUpdate = Object.keys(updateData).length > 0
-  const shouldAuditAiPolicyChange =
-    payload.assignmentConfig !== undefined &&
-    hasAiPolicyChanged(existing.assignmentConfig, assignmentConfig)
-
-  const updated = await prisma.$transaction(async (tx) =>
-    tx.assignment.update({
+    const updateData = await buildAssignmentUpdateData(existing, payload, courseId, {
+      dueAt,
+      publishedAt,
+      latePolicy,
+    })
+    const updated = await tx.assignment.update({
       where: { id: assignmentId },
       data: updateData,
-    }),
-  )
+    })
+    return { existing, updated }
+  })
 
-  if (shouldAuditAssignmentUpdate) {
+  const assignmentAuditEventData = buildAssignmentUpdateAuditEventData(
+    existing,
+    updated,
+    courseId,
+  )
+  if (Object.keys(assignmentAuditEventData).length > 1) {
     await writeAuditLogSafely({
       actorId: actor.id,
       action: 'assignment.updated',
       entity: 'assignment',
       entityId: assignmentId,
-      diff: buildAssignmentUpdateAuditDiff(existing, updated, payload, courseId),
+      eventData: assignmentAuditEventData,
     })
   }
 
-  if (shouldAuditAiPolicyChange) {
+  const aiPolicyAuditEventData = buildAiPolicyChangeAuditEventData(
+    existing.assignmentConfig,
+    updated.assignmentConfig,
+    courseId,
+    assignmentId,
+  )
+  if (
+    aiPolicyAuditEventData.writingFeedbackModeChanged ||
+    aiPolicyAuditEventData.objectiveExplanationsChanged ||
+    aiPolicyAuditEventData.providerTierChanged
+  ) {
     await recordAiFeedbackAudit(
       {
         actorId: actor.id,
         action: AI_FEEDBACK_AUDIT_ACTIONS.policyChanged,
         entity: 'assignment',
         entityId: assignmentId,
-        entityIds: { courseId, assignmentId },
-        payload: {
-          before: aiPolicyFromConfig(existing.assignmentConfig),
-          after: aiPolicyFromConfig(assignmentConfig),
-        },
+        eventData: aiPolicyAuditEventData,
       },
       undefined,
       true,
@@ -411,12 +320,9 @@ export async function deleteAssignment(params: unknown, actor: CourseManager) {
     action: 'assignment.deleted',
     entity: 'assignment',
     entityId: assignmentId,
-    diff: {
+    eventData: {
       courseId,
-      deletedAt: {
-        from: null,
-        to: deletedAt.toISOString(),
-      },
+      lifecycleChanged: true,
     },
   })
 }

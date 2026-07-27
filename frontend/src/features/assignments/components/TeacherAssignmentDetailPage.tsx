@@ -263,6 +263,7 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
         <div className="w-full space-y-6">
           <TeacherAssignmentDetailTabs
             assignment={activeAssignment}
+            originalDueAt={assignment.dueAt}
             courseTitle={course?.title ?? activeAssignment.courseName}
             submissions={assignmentSubmissions}
             statsCards={statsCards}

@@ -12,10 +12,7 @@ import {
   courseIdParamsSchema,
   courseStudentParamsSchema,
 } from "./courses.schema.js";
-import {
-  createHttpError,
-  ensureCourseAccessible,
-} from "./courses.shared.js";
+import { createHttpError, ensureCourseAccessible } from "./courses.shared.js";
 import type {
   CourseManager,
   CourseStudent,
@@ -94,10 +91,7 @@ export async function listStudentsForCourse(
     });
 
     if (!teacherEnrollment) {
-      throw createHttpError(
-        403,
-        "You do not have permission to manage this course",
-      );
+      throw createHttpError(403, "You do not have permission to manage this course");
     }
   }
 
@@ -204,13 +198,11 @@ export async function addStudentToCourse(
     action: "course.student_added",
     entity: "enrollment",
     entityId: enrollment.id,
-    before: existingEnrollment ?? undefined,
-    after: {
-      id: enrollment.id,
+    eventData: {
       courseId,
-      studentId: user.id,
+      userId: user.id,
       roleInCourse: EnrollmentRole.student,
-      deletedAt: null,
+      membershipChanged: true,
     },
   });
 
@@ -247,7 +239,7 @@ export async function removeStudentFromCourse(
     return;
   }
 
-  const updatedEnrollment = await prisma.enrollment.update({
+  await prisma.enrollment.update({
     where: { id: enrollment.id },
     data: {
       deletedAt: new Date(),
@@ -259,13 +251,11 @@ export async function removeStudentFromCourse(
     action: "course.student_removed",
     entity: "enrollment",
     entityId: enrollment.id,
-    before: enrollment,
-    after: {
-      id: enrollment.id,
+    eventData: {
       courseId,
-      studentId,
+      userId: studentId,
       roleInCourse: EnrollmentRole.student,
-      deletedAt: updatedEnrollment.deletedAt,
+      membershipChanged: true,
     },
   });
 }

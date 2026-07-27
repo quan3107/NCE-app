@@ -1,61 +1,42 @@
 /**
  * File: tests/modules/ai-feedback/ai-feedback.audit.test.ts
- * Purpose: Verify AI feedback audit payload redaction.
- * Why: Audit rows must be traceable without storing student work, prompts, or model output.
+ * Purpose: Verify AI feedback audit event contracts.
+ * Why: Audit rows must reject student work, prompts, answers, and model output.
  */
 import { describe, expect, it } from "vitest";
 
-import {
-  AI_FEEDBACK_AUDIT_ACTIONS,
-  buildAiFeedbackAuditDiff,
-} from "../../../src/modules/audit-logs/ai-feedback-audit.js";
+import { AI_FEEDBACK_AUDIT_ACTIONS } from "../../../src/modules/audit-logs/ai-feedback-audit.js";
+import { parseAuditEvent } from "../../../src/modules/audit-logs/audit-events.js";
 
-describe("AI feedback audit redaction", () => {
-  it("summarizes sensitive prompt, response, submission, answer, and explanation text", () => {
-    const diff = buildAiFeedbackAuditDiff({
-      routeKey: "low_cost",
-      provider: "openai-compatible",
-      model: "gpt-5.4-nano",
-      promptVersion: "objective-explanation-v2",
-      teacherDecision: "approved",
-      payload: {
-        prompt:
-          "SYSTEM PROMPT: explain why the IELTS reading answer is correct.",
-        submissionText:
-          "My name is Minh and my full essay submission includes private details.",
-        acceptedAnswer: "B: the private answer text",
-        providerResponseBody:
-          '{"short_explanation":"The answer is B because of paragraph two."}',
-        explanation:
-          "The full explanation includes the student's misconception.",
-        apiKey: "sk-should-not-be-logged",
-        providerRequestId: "req_123",
-      },
-    });
-
-    expect(diff).toMatchObject({
-      routeKey: "low_cost",
-      provider: "openai-compatible",
-      model: "gpt-5.4-nano",
-      promptVersion: "objective-explanation-v2",
-      teacherDecision: "approved",
-      payloadSummary: {
-        prompt: expect.objectContaining({
-          redacted: true,
-          hash: expect.stringMatching(/^sha256:/),
-        }),
-        submissionText: expect.objectContaining({ redacted: true }),
-        acceptedAnswer: expect.objectContaining({ redacted: true }),
-        providerResponseBody: expect.objectContaining({ redacted: true }),
-        explanation: expect.objectContaining({ redacted: true }),
-        providerRequestId: "req_123",
-      },
-    });
-    expect(JSON.stringify(diff)).not.toContain("SYSTEM PROMPT");
-    expect(JSON.stringify(diff)).not.toContain("Minh");
-    expect(JSON.stringify(diff)).not.toContain("private answer text");
-    expect(JSON.stringify(diff)).not.toContain("short_explanation");
-    expect(JSON.stringify(diff)).not.toContain("sk-should-not-be-logged");
+describe("AI feedback audit contracts", () => {
+  it.each([
+    ["prompt", "SYSTEM PROMPT: explain the answer."],
+    ["submissionText", "My private essay submission."],
+    ["acceptedAnswer", "B: private answer text"],
+    ["providerOutput", '{"short_explanation":"private output"}'],
+    ["explanation", "The full generated explanation."],
+    ["apiKey", "sk-should-not-be-logged"],
+  ])("rejects the private %s field", (field, value) => {
+    expect(() =>
+      parseAuditEvent({
+        actorId: "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2",
+        action: AI_FEEDBACK_AUDIT_ACTIONS.explanationGenerated,
+        entity: "ai_objective_explanation",
+        entityId: "6c986d3c-5d72-40d4-96b5-b5e3725c9811",
+        eventData: {
+          submissionId: "11111111-1111-4111-8111-111111111111",
+          assignmentId: "22222222-2222-4222-8222-222222222222",
+          questionId: "question-1",
+          routeKey: "low_cost",
+          provider: "openai-compatible",
+          model: "gpt-5.4-nano",
+          promptVersion: "objective-explanation-v2",
+          status: "completed",
+          outputGenerated: true,
+          [field]: value,
+        },
+      }),
+    ).toThrow();
   });
 
   it("exposes stable action names for every AI feedback audit event", () => {

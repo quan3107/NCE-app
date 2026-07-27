@@ -113,12 +113,10 @@ describe('enrollments.service.createEnrollment', () => {
         action: 'enrollment.created',
         entity: 'enrollment',
         entityId: createdEnrollment.id,
-        diff: expect.objectContaining({
-          changes: expect.objectContaining({
-            courseId,
-            userId,
-            roleInCourse: EnrollmentRole.student,
-          }),
+        eventData: expect.objectContaining({
+          courseId,
+          userId,
+          roleInCourse: EnrollmentRole.student,
         }),
       }),
       select: { id: true },
@@ -305,16 +303,11 @@ describe('enrollments.service.createEnrollment', () => {
         action: 'enrollment.deleted',
         entity: 'enrollment',
         entityId: '33333333-3333-4333-8333-333333333333',
-        diff: expect.objectContaining({
-          changes: expect.objectContaining({
-            courseId,
-            userId,
-            roleInCourse: EnrollmentRole.student,
-            deletedAt: {
-              from: null,
-              to: expect.any(String),
-            },
-          }),
+        eventData: expect.objectContaining({
+          courseId,
+          userId,
+          roleInCourse: EnrollmentRole.student,
+          membershipChanged: true,
         }),
       }),
       select: { id: true },

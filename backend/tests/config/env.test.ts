@@ -226,4 +226,30 @@ describe('test environment defaults', () => {
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('AI_PREMIUM_SUPPORTS_IMAGE_INPUT')
   })
+
+  it('accepts 120-character AI model labels and rejects 121 characters', () => {
+    const runWithModel = (model: string) =>
+      spawnSync(
+        process.execPath,
+        [
+          '--import',
+          'tsx',
+          '-e',
+          'import("./src/config/env.ts").catch((error) => { console.error(error.message); process.exit(1); })',
+        ],
+        {
+          cwd: process.cwd(),
+          env: {
+            ...process.env,
+            AI_LOW_COST_MODEL: model,
+          },
+          encoding: 'utf8',
+        },
+      )
+
+    expect(runWithModel('m'.repeat(120)).status).toBe(0)
+    const rejected = runWithModel('m'.repeat(121))
+    expect(rejected.status).toBe(1)
+    expect(rejected.stderr).toContain('AI_LOW_COST_MODEL')
+  })
 })

@@ -92,11 +92,9 @@ describe('users.service teacher approvals', () => {
         action: 'user.created',
         entity: 'user',
         entityId: createdUser.id,
-        diff: expect.objectContaining({
-          changes: expect.objectContaining({
-            role: { to: UserRole.teacher },
-            status: { to: UserStatus.active },
-          }),
+        eventData: expect.objectContaining({
+          role: UserRole.teacher,
+          status: UserStatus.active,
         }),
       }),
       select: { id: true },
@@ -128,14 +126,11 @@ describe('users.service teacher approvals', () => {
         action: 'user.teacher_approved',
         entity: 'user',
         entityId: pendingTeacher.id,
-        diff: {
-          changes: {
-            status: {
-              from: UserStatus.pending,
-              to: UserStatus.active,
-            },
-          },
+        eventData: {
+          previousStatus: UserStatus.pending,
+          status: UserStatus.active,
         },
+        schemaVersion: 1,
       },
       select: { id: true },
     })

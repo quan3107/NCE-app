@@ -125,7 +125,10 @@ export const updateHomepageStatsWithRealtimeData = async (actor?: {
       ['stat_success_rate', stats.successRate],
     ])
     const draftContent = homepage.draft
-      ? (validateStoredCmsPageContent('homepage', homepage.draft.content) as HomepageContent)
+      ? (validateStoredCmsPageContent(
+          'homepage',
+          homepage.draft.content,
+        ) as HomepageContent)
       : null
     const draftStats = draftContent?.stats.map((item) => ({
       ...item,
@@ -187,10 +190,10 @@ export const updateHomepageStatsWithRealtimeData = async (actor?: {
       action: 'cms.homepage_stats_refreshed',
       entity: 'cms_page_content',
       entityId: result.homepageId,
-      diff: {
+      eventData: {
         pageKey: 'homepage',
         sectionKey: 'stats',
-        updatedItems: result.updatedItems,
+        updatedItemCount: result.updatedItems.length,
         draftSynchronized: result.draftChanged,
       },
     })

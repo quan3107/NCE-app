@@ -10,6 +10,7 @@ import { ZodError } from 'zod'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    $queryRaw: vi.fn(),
     auditLog: {
       create: vi.fn(),
     },
@@ -93,11 +94,10 @@ describe('assignments.service.createAssignment', () => {
         action: 'assignment.created',
         entity: 'assignment',
         entityId: 'assignment-1',
-        diff: expect.objectContaining({
-          changes: expect.objectContaining({
-            courseId,
-            type: 'reading',
-          }),
+        eventData: expect.objectContaining({
+          courseId,
+          type: 'reading',
+          published: false,
         }),
       }),
       select: { id: true },
@@ -197,20 +197,12 @@ describe('assignments.service.updateAssignment', () => {
         action: 'ai_feedback.policy_changed',
         entity: 'assignment',
         entityId: assignmentId,
-        diff: expect.objectContaining({
-          entityIds: { courseId, assignmentId },
-          payloadSummary: {
-            before: {
-              writingFeedbackMode: 'off',
-              objectiveExplanations: 'off',
-              providerTier: 'auto',
-            },
-            after: {
-              writingFeedbackMode: 'off',
-              objectiveExplanations: 'on_demand_student_visible',
-              providerTier: 'low_cost',
-            },
-          },
+        eventData: expect.objectContaining({
+          courseId,
+          assignmentId,
+          writingFeedbackModeChanged: false,
+          objectiveExplanationsChanged: true,
+          providerTierChanged: true,
         }),
       }),
       select: { id: true },
@@ -272,20 +264,12 @@ describe('assignments.service.updateAssignment', () => {
         action: 'assignment.updated',
         entity: 'assignment',
         entityId: assignmentId,
-        diff: expect.objectContaining({
-          changes: expect.objectContaining({
-            courseId,
-            title: { from: 'Draft Reading', to: 'Published Reading' },
-            descriptionMd: { changed: true },
-            dueAt: {
-              from: originalDueAt.toISOString(),
-              to: updatedDueAt.toISOString(),
-            },
-            publishedAt: {
-              from: null,
-              to: updatedDueAt.toISOString(),
-            },
-          }),
+        eventData: expect.objectContaining({
+          courseId,
+          titleChanged: true,
+          descriptionChanged: true,
+          dueAtChanged: true,
+          publishedAtChanged: true,
         }),
       }),
       select: { id: true },
@@ -367,14 +351,9 @@ describe('assignments.service.updateAssignment', () => {
         action: 'assignment.deleted',
         entity: 'assignment',
         entityId: assignmentId,
-        diff: expect.objectContaining({
-          changes: expect.objectContaining({
-            courseId,
-            deletedAt: expect.objectContaining({
-              from: null,
-              to: expect.any(String),
-            }),
-          }),
+        eventData: expect.objectContaining({
+          courseId,
+          lifecycleChanged: true,
         }),
       }),
       select: { id: true },

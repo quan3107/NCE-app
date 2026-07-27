@@ -130,10 +130,7 @@ function assertCanRequestObjectiveExplanation(
     if (submission.studentId === actor.id) {
       return;
     }
-    throw createHttpError(
-      403,
-      "You do not have permission to access this submission.",
-    );
+    throw createHttpError(403, "You do not have permission to access this submission.");
   }
 
   if (actor.role === UserRole.teacher) {
@@ -152,10 +149,7 @@ function assertCanRequestObjectiveExplanation(
     }
   }
 
-  throw createHttpError(
-    403,
-    "You do not have permission to access this submission.",
-  );
+  throw createHttpError(403, "You do not have permission to access this submission.");
 }
 
 function hasDeterministicGrade(
@@ -192,10 +186,7 @@ function assertObjectiveExplanationPolicy(
     );
   }
 
-  if (
-    assignmentConfig.aiPolicy?.objectiveExplanations !==
-    "on_demand_student_visible"
-  ) {
+  if (assignmentConfig.aiPolicy?.objectiveExplanations !== "on_demand_student_visible") {
     throw createHttpError(
       403,
       "Objective explanations are not enabled for this assignment.",
@@ -206,9 +197,7 @@ function assertObjectiveExplanationPolicy(
 function routeKeyForObjectiveExplanation(
   assignmentConfig: ObjectiveExplanationAssignmentConfig,
 ): AiConcreteProviderRouteKey {
-  return assignmentConfig.aiPolicy?.providerTier === "premium"
-    ? "premium"
-    : "low_cost";
+  return assignmentConfig.aiPolicy?.providerTier === "premium" ? "premium" : "low_cost";
 }
 
 function modelForRouteKey(routeKey: AiConcreteProviderRouteKey): string {
@@ -308,8 +297,7 @@ function toObjectiveExplanationResponse(
 ): ObjectiveExplanationResponse {
   const completed =
     explanation.status === "completed" && !!explanation.generatedExplanation;
-  const active =
-    explanation.status === "queued" || explanation.status === "running";
+  const active = explanation.status === "queued" || explanation.status === "running";
 
   return {
     id: explanation.id,
@@ -320,15 +308,11 @@ function toObjectiveExplanationResponse(
       : {}),
     ...(completed ? { explanation: explanation.generatedExplanation } : {}),
     ...(explanation.failureCode ? { failureCode: explanation.failureCode } : {}),
-    ...(explanation.failureMessage
-      ? { failureMessage: explanation.failureMessage }
-      : {}),
+    ...(explanation.failureMessage ? { failureMessage: explanation.failureMessage } : {}),
   };
 }
 
-function hasSourceEvidenceCandidates(
-  evidence: IeltsQuestionScoringEvidence,
-): boolean {
+function hasSourceEvidenceCandidates(evidence: IeltsQuestionScoringEvidence): boolean {
   return (
     evidence.sourceEvidenceStatus === "available" &&
     evidence.sourceEvidenceCandidates.length > 0
@@ -474,19 +458,16 @@ export async function requestAiObjectiveExplanation(
       action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
       entity: "ai_objective_explanation",
       entityId: explanation.id,
-      entityIds: {
+      eventData: {
         submissionId: context.submission.id,
         assignmentId: context.submission.assignmentId,
-        questionId: context.questionId,
-      },
-      routeKey: context.routeKey,
-      provider: aiFeedbackConfig.provider,
-      model: modelForRouteKey(context.routeKey),
-      promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
-      payload: {
+        routeKey: context.routeKey,
+        provider: aiFeedbackConfig.provider,
+        model: modelForRouteKey(context.routeKey),
+        promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
         status: explanation.status,
         failureCode: INSUFFICIENT_SOURCE_EVIDENCE_CODE,
-        deterministicResult: context.evidence.deterministicResult,
+        outputGenerated: false,
       },
     });
 
@@ -517,30 +498,40 @@ export async function requestAiObjectiveExplanation(
       },
     },
   });
-  await recordAiFeedbackAudit({
-    actorId: context.actor.id,
-    action:
-      explanation.status === "failed" || explanation.status === "review_required"
-        ? AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed
-        : AI_FEEDBACK_AUDIT_ACTIONS.explanationRequested,
-    entity: "ai_objective_explanation",
-    entityId: explanation.id,
-    entityIds: {
-      submissionId: context.submission.id,
-      assignmentId: context.submission.assignmentId,
-      questionId: context.questionId,
-    },
+  const eventData = {
+    submissionId: context.submission.id,
+    assignmentId: context.submission.assignmentId,
     routeKey: context.routeKey,
     provider: aiFeedbackConfig.provider,
     model: modelForRouteKey(context.routeKey),
     promptVersion: OBJECTIVE_EXPLANATION_PROMPT_VERSION,
-    payload: {
-      status: explanation.status,
-      deterministicResult: context.evidence.deterministicResult,
-      promptInput: context.promptInput,
-      generatedExplanation: explanation.generatedExplanation,
-    },
-  });
+  };
+  if (explanation.status === "failed" || explanation.status === "review_required") {
+    await recordAiFeedbackAudit({
+      actorId: context.actor.id,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
+      entity: "ai_objective_explanation",
+      entityId: explanation.id,
+      eventData: {
+        ...eventData,
+        status: explanation.status,
+        outputGenerated: false,
+      },
+    });
+  } else {
+    await recordAiFeedbackAudit({
+      actorId: context.actor.id,
+      action: AI_FEEDBACK_AUDIT_ACTIONS.explanationRequested,
+      entity: "ai_objective_explanation",
+      entityId: explanation.id,
+      eventData: {
+        ...eventData,
+        status: explanation.status,
+        promptUsed: true,
+        sourceEvidenceUsed: true,
+      },
+    });
+  }
 
   return toObjectiveExplanationResponse(explanation, {
     submissionId: context.submission.id,

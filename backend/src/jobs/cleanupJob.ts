@@ -90,10 +90,7 @@ function buildStaleNotificationMetadataWhere(
     },
     AND: [
       {
-        OR: [
-          { deadLetteredAt: { lte: cutoff } },
-          { updatedAt: { lte: cutoff } },
-        ],
+        OR: [{ deadLetteredAt: { lte: cutoff } }, { updatedAt: { lte: cutoff } }],
       },
       {
         OR: [
@@ -112,10 +109,7 @@ export async function runCleanupRetentionJob(
   const mode = options.mode ?? "execute";
   const now = options.now?.() ?? new Date();
   const retentionPolicy = resolveRetentionPolicy(options.retentionPolicy);
-  const authSessionCutoff = daysBefore(
-    now,
-    retentionPolicy.authSessionRetentionDays,
-  );
+  const authSessionCutoff = daysBefore(now, retentionPolicy.authSessionRetentionDays);
   const notificationMetadataCutoff = daysBefore(
     now,
     retentionPolicy.notificationMetadataRetentionDays,
@@ -176,11 +170,7 @@ export async function runCleanupRetentionJob(
     notificationMetadataWhere,
     retentionPolicy,
   );
-  logBatchLimitIfReached(
-    "auth_sessions",
-    authSessionResult,
-    retentionPolicy,
-  );
+  logBatchLimitIfReached("auth_sessions", authSessionResult, retentionPolicy);
   logBatchLimitIfReached(
     "notification_metadata",
     notificationMetadataResult,
@@ -210,8 +200,7 @@ export async function runCleanupRetentionJob(
       batch_size: retentionPolicy.batchSize,
       max_batches: retentionPolicy.maxBatches,
       auth_session_batch_limit_reached: reachedBatchLimit.authSessions,
-      notification_metadata_batch_limit_reached:
-        reachedBatchLimit.notificationMetadata,
+      notification_metadata_batch_limit_reached: reachedBatchLimit.notificationMetadata,
       auth_session_cutoff: authSessionCutoff.toISOString(),
       notification_metadata_cutoff: notificationMetadataCutoff.toISOString(),
     },
@@ -223,7 +212,7 @@ export async function runCleanupRetentionJob(
     action: "cleanup.retention_executed",
     entity: "maintenance_job",
     entityId: "cleanup-retention",
-    diff: {
+    eventData: {
       authSessions: counts.authSessions,
       notificationMetadata: counts.notificationMetadata,
       authSessionBatches: batchCounts.authSessions,
@@ -231,8 +220,7 @@ export async function runCleanupRetentionJob(
       batchSize: retentionPolicy.batchSize,
       maxBatches: retentionPolicy.maxBatches,
       authSessionBatchLimitReached: reachedBatchLimit.authSessions,
-      notificationMetadataBatchLimitReached:
-        reachedBatchLimit.notificationMetadata,
+      notificationMetadataBatchLimitReached: reachedBatchLimit.notificationMetadata,
       authSessionCutoff: authSessionCutoff.toISOString(),
       notificationMetadataCutoff: notificationMetadataCutoff.toISOString(),
     },
@@ -266,10 +254,7 @@ export async function handleCleanupJob(
 
 export async function registerCleanupJobs(boss: PgBoss): Promise<void> {
   await boss.createQueue(CLEANUP_JOB_NAME);
-  await boss.work(
-    CLEANUP_JOB_NAME,
-    withServiceRoleJobHandler(handleCleanupJob),
-  );
+  await boss.work(CLEANUP_JOB_NAME, withServiceRoleJobHandler(handleCleanupJob));
   await boss.schedule(CLEANUP_JOB_NAME, CLEANUP_JOB_CRON);
 
   logger.info("Cleanup jobs registered");

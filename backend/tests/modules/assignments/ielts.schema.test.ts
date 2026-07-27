@@ -40,3 +40,22 @@ describe('parseAssignmentConfigForType writing rubric IDs', () => {
     ).toThrow(ZodError)
   })
 })
+
+describe('parseAssignmentConfigForType question IDs', () => {
+  it('preserves long and whitespace-bearing canonical IDs', () => {
+    const questionId = ` question-${'q'.repeat(161)} `
+    const parsed = parseAssignmentConfigForType(AssignmentType.reading, {
+      version: 1,
+      sections: [
+        {
+          id: 'section-1',
+          title: 'Reading section',
+          passage: 'Read this passage.',
+          questions: [{ id: questionId, prompt: 'Choose the answer.' }],
+        },
+      ],
+    }) as { sections: Array<{ questions: Array<{ id: string }> }> }
+
+    expect(parsed.sections[0]?.questions[0]?.id).toBe(questionId)
+  })
+})
