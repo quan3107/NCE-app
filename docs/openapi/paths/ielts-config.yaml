@@ -33,11 +33,13 @@ IeltsConfig:
             schema:
               $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
       '500':
-        description: Stored configuration failed response validation
+        description: Stored configuration failed validation or lookup failed unexpectedly
         content:
           application/json:
             schema:
-              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+              oneOf:
+                - $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
     security: []
 
 QuestionOptions:
@@ -69,13 +71,21 @@ QuestionOptions:
         content:
           application/json:
             schema:
-              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+              oneOf:
+                - $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: Config version or options not found
         content:
           application/json:
             schema:
               $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+      '500':
+        description: Question-option lookup failed unexpectedly
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
     security: []
 
 TypeMetadata:
@@ -97,11 +107,13 @@ TypeMetadata:
             schema:
               $ref: '../schemas/ielts-config.yaml#/IeltsTypeMetadataResponse'
       '400':
-        description: Invalid version query
+        description: Invalid version query or response validation failure
         content:
           application/json:
             schema:
-              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+              oneOf:
+                - $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
     security: []
 
 IeltsConfigVersions:
@@ -122,9 +134,11 @@ IeltsConfigVersions:
             schema:
               $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
       '500':
-        description: Stored version data failed response validation
+        description: Stored version data failed validation or lookup failed unexpectedly
         content:
           application/json:
             schema:
-              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+              oneOf:
+                - $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+                - $ref: '../schemas/common.yaml#/ErrorResponse'
     security: []
