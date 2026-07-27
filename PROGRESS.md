@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-27:** Kept active contact rate-limit counters stable under identity churn, failed closed at capacity until expiry, and restricted contact triage updates to status timestamps rather than submitted payloads.
+
 - **2026-07-27:** Corrected the contact database boundary to connect as the runtime login before assuming request and service roles, and cast the execute-only function's void result to an adapter-supported type.
 
 - **2026-07-27:** Hardened contact submissions with an execute-only security-definer write, idempotent retries, bounded abuse counters, indistinguishable honeypot outcomes, canonical validation, and a database-boundary regression.
@@ -54,6 +56,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-27:** Centralized exact public-route matching through React Router so trailing-slash and case aliases retain desktop and mobile current-page semantics.
 
 - **2026-07-27:** No frontend application files changed for the contact database role and adapter-compatibility CI corrections.
 
