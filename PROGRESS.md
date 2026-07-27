@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-27:** Preserved grade attribution on semantic no-ops and made AI approval/finalization emit grade-feedback audit events only when committed feedback actually changes.
+
 - **2026-07-26:** Restored the typed `AuditLogWriteInput` contract on failure-safe audit writes while retaining runtime handling for cast or untyped malformed values.
 
 - **2026-07-26:** Removed canonical question IDs from AI explanation audit data and made failure-safe audit writes swallow malformed inputs while logging only static validation or persistence codes.
@@ -40,6 +42,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-27:** No frontend application files changed for the grade attribution and AI feedback audit-semantic fixes.
 
 - **2026-07-26:** No frontend application files changed for the failure-safe audit writer type-contract correction.
 
