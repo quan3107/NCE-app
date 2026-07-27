@@ -4,15 +4,18 @@
  * Why: Public pages must remain reachable by keyboard and narrow-screen users without dead ends.
  */
 import assert from 'node:assert/strict';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, test, vi } from 'vitest';
 
 import { AppShellPublic } from '../src/components/layout/AppShellPublic';
 
-const router = vi.hoisted(() => ({ navigate: vi.fn() }));
+const router = vi.hoisted(() => ({ currentPath: '/', navigate: vi.fn() }));
 
 vi.mock('@lib/router', () => ({
-  useRouter: () => ({ currentPath: '/', navigate: router.navigate }),
+  useRouter: () => ({
+    currentPath: router.currentPath,
+    navigate: router.navigate,
+  }),
 }));
 
 vi.mock('@store/authStore', () => ({
@@ -25,11 +28,16 @@ vi.mock('@store/authStore', () => ({
 
 afterEach(() => {
   cleanup();
+  router.currentPath = '/';
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
-test('mobile menu exposes every public destination and closes after navigation', async () => {
-  render(<AppShellPublic><main>Public page</main></AppShellPublic>);
+const publicShell = () => <AppShellPublic><main>Public page</main></AppShellPublic>;
+
+test('mobile menu exposes destinations and identifies the current page', async () => {
+  router.currentPath = '/contact';
+  render(publicShell());
 
   const trigger = screen.getByRole('button', { name: /open navigation/i });
   trigger.focus();
@@ -39,17 +47,56 @@ test('mobile menu exposes every public destination and closes after navigation',
   for (const label of ['Home', 'Courses', 'About', 'Contact']) {
     assert.ok(within(dialog).getByRole('button', { name: new RegExp(label, 'i') }));
   }
+  assert.equal(
+    within(dialog).getByRole('button', { name: /contact/i }).getAttribute('aria-current'),
+    'page',
+  );
 
-  const contactButton = within(dialog).getByRole('button', { name: /contact/i });
-  contactButton.focus();
-  fireEvent.click(contactButton);
-
-  assert.deepEqual(router.navigate.mock.calls.at(-1), ['/contact']);
+  fireEvent.click(within(dialog).getByRole('button', { name: /about/i }));
+  assert.deepEqual(router.navigate.mock.calls.at(-1), ['/about']);
   assert.ok(screen.queryByRole('dialog') === null);
 });
 
+test('route changes invalidate an open mobile sheet', async () => {
+  const view = render(publicShell());
+  fireEvent.click(screen.getByRole('button', { name: /open navigation/i }));
+  await screen.findByRole('dialog');
+
+  router.currentPath = '/about';
+  view.rerender(publicShell());
+
+  await waitFor(() => assert.ok(screen.queryByRole('dialog') === null));
+  assert.equal(
+    screen.getByRole('button', { name: /open navigation/i }).getAttribute('aria-expanded'),
+    'false',
+  );
+});
+
+test('desktop breakpoint changes close a hidden mobile trigger and sheet', async () => {
+  let breakpointListener: ((event: MediaQueryListEvent) => void) | undefined;
+  const mediaQuery = {
+    matches: false,
+    media: '(min-width: 768px)',
+    addEventListener: vi.fn((_type, listener) => {
+      breakpointListener = listener as (event: MediaQueryListEvent) => void;
+    }),
+    removeEventListener: vi.fn(),
+  };
+  vi.stubGlobal('matchMedia', vi.fn(() => mediaQuery));
+
+  render(publicShell());
+  fireEvent.click(screen.getByRole('button', { name: /open navigation/i }));
+  await screen.findByRole('dialog');
+
+  mediaQuery.matches = true;
+  act(() => breakpointListener?.({ matches: true } as MediaQueryListEvent));
+
+  await waitFor(() => assert.ok(screen.queryByRole('dialog') === null));
+  assert.equal(document.body.style.pointerEvents, '');
+});
+
 test('footer renders only destinations backed by live routes', () => {
-  render(<AppShellPublic><main>Public page</main></AppShellPublic>);
+  render(publicShell());
 
   assert.ok(screen.getByRole('contentinfo'));
   for (const unavailable of ['For Teachers', 'For Students', 'Privacy', 'Help Center', 'Documentation', 'Status']) {
