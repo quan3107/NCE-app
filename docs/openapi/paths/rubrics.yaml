@@ -30,6 +30,43 @@ CourseRubrics:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+  post:
+    tags: [rubrics]
+    summary: Create rubric (admin/teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/rubrics.yaml#/CreateRubricRequest'
+    responses:
+      '201':
+        description: Rubric created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rubrics.yaml#/Rubric'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
 
 DefaultRubrics:
   get:
@@ -121,43 +158,6 @@ RubricTemplates:
           application/json:
             schema:
               $ref: '../schemas/rubrics.yaml#/RubricTemplatesResponse'
-      '401':
-        description: Unauthorized
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/common.yaml#/ErrorResponse'
-      '403':
-        description: Forbidden
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/common.yaml#/ErrorResponse'
-    security:
-      - BearerAuth: []
-  post:
-    tags: [rubrics]
-    summary: Create rubric (admin/teacher)
-    parameters:
-      - in: path
-        name: courseId
-        required: true
-        schema:
-          type: string
-          format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../schemas/rubrics.yaml#/CreateRubricRequest'
-    responses:
-      '201':
-        description: Rubric created
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/rubrics.yaml#/Rubric'
       '401':
         description: Unauthorized
         content:
