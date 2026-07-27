@@ -101,6 +101,13 @@ describe("course-management-tabs.service", () => {
         },
       ],
     });
+    expect(prisma.courseManagementTabConfig.findMany).toHaveBeenCalledWith({
+      where: {
+        role: "teacher",
+        enabled: true,
+      },
+      orderBy: [{ sortOrder: "asc" }, { tabId: "asc" }],
+    });
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
