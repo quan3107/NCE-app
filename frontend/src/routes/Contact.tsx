@@ -4,20 +4,39 @@
  * Why: Keeps public contact content server-managed while submission remains a separate feature.
  */
 
+import type { FormEvent } from 'react';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
-import { toast } from 'sonner@2.0.3';
-import { useContactPageContentQuery } from '@features/marketing/api';
+import {
+  useContactPageContentQuery,
+  useContactSubmissionMutation,
+} from '@features/marketing/api';
 
 export function ContactRoute() {
   const contactQuery = useContactPageContentQuery();
-  const handleSubmit = (event: React.FormEvent) => {
+  const submission = useContactSubmissionMutation();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    toast.success("Message sent! We'll get back to you soon.");
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    submission.reset();
+
+    try {
+      await submission.mutateAsync({
+        name: String(formData.get('name') ?? ''),
+        email: String(formData.get('email') ?? ''),
+        subject: String(formData.get('subject') ?? ''),
+        message: String(formData.get('message') ?? ''),
+        website: String(formData.get('website') ?? ''),
+      });
+      form.reset();
+    } catch {
+      // The mutation exposes the API error below and preserves every entered value.
+    }
   };
 
   if (contactQuery.isLoading) {
@@ -61,29 +80,53 @@ export function ContactRoute() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" name="given-name" autoComplete="given-name" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" name="family-name" autoComplete="family-name" required />
-                    </div>
+                  <div className="sr-only" aria-hidden="true">
+                    <Label htmlFor="website">Website</Label>
+                    <Input
+                      id="website"
+                      name="website"
+                      autoComplete="off"
+                      tabIndex={-1}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      autoComplete="name"
+                      minLength={2}
+                      maxLength={120}
+                      required
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" autoComplete="email" required />
+                    <Input id="email" name="email" type="email" autoComplete="email" maxLength={254} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" name="subject" required />
+                    <Input id="subject" name="subject" minLength={3} maxLength={160} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>
-                    <Textarea id="message" name="message" rows={6} required />
+                    <Textarea id="message" name="message" rows={6} minLength={10} maxLength={5000} required />
                   </div>
-                  <Button type="submit" className="w-full sm:w-auto">{content.form.submitLabel}</Button>
+                  {submission.isError && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {submission.error instanceof Error
+                        ? submission.error.message
+                        : 'Unable to send your message. Please try again.'}
+                    </p>
+                  )}
+                  {submission.isSuccess && (
+                    <p role="status" className="text-sm text-primary">
+                      Message sent. We&apos;ll get back to you soon.
+                    </p>
+                  )}
+                  <Button type="submit" className="w-full sm:w-auto" disabled={submission.isPending}>
+                    {submission.isPending ? 'Sending…' : content.form.submitLabel}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
