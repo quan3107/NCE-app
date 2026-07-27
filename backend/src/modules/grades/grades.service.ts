@@ -194,6 +194,19 @@ function normalizeGradePayload(
   }
 }
 
+function numericGradeValueMatches(
+  current: unknown,
+  requested: number | undefined,
+): boolean {
+  if (requested === undefined) {
+    return true
+  }
+  if (current === null || current === undefined) {
+    return false
+  }
+  return Number(current) === requested
+}
+
 function sanitizeLearnerFeedback(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null
@@ -391,6 +404,17 @@ export async function upsertGrade(
     const gradeBefore = await tx.grade.findFirst({
       where: { submissionId, deletedAt: null },
     })
+    const gradeContentChanged =
+      !gradeBefore ||
+      (rubricBreakdown !== undefined &&
+        !semanticValuesEqual(gradeBefore.rubricBreakdown, rubricBreakdown)) ||
+      !numericGradeValueMatches(gradeBefore.rawScore, normalizedData.rawScore) ||
+      (adjustments !== undefined &&
+        !semanticValuesEqual(gradeBefore.adjustments, adjustments)) ||
+      !numericGradeValueMatches(gradeBefore.finalScore, normalizedData.finalScore) ||
+      !numericGradeValueMatches(gradeBefore.band, normalizedData.band) ||
+      (normalizedData.feedbackMd !== undefined &&
+        !semanticValuesEqual(gradeBefore.feedback, normalizedData.feedbackMd))
     const grade = await tx.grade.upsert({
       where: { submissionId },
       create: {
@@ -405,14 +429,13 @@ export async function upsertGrade(
         gradedAt,
       },
       update: {
-        graderId: actor.id,
+        ...(gradeContentChanged ? { graderId: actor.id, gradedAt } : {}),
         rubricBreakdown,
         rawScore: normalizedData.rawScore,
         adjustments,
         finalScore: normalizedData.finalScore,
         band: normalizedData.band,
         feedback: normalizedData.feedbackMd,
-        gradedAt,
       },
     })
     await tx.submission.update({
