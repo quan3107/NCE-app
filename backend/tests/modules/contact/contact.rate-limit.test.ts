@@ -24,26 +24,28 @@ const postFrom = (app: express.Express, ip: string) =>
   request(app).post("/contact").set("x-forwarded-for", ip);
 
 describe("contact.rate-limit", () => {
-  it("evicts the oldest identity when the tracked-key cap is reached", async () => {
+  it("fails closed without evicting limited identities at capacity", async () => {
     const app = createTestApp(() => 10_000);
 
     expect((await postFrom(app, "203.0.113.1")).status).toBe(204);
     expect((await postFrom(app, "203.0.113.1")).status).toBe(429);
     expect((await postFrom(app, "203.0.113.2")).status).toBe(204);
-    expect((await postFrom(app, "203.0.113.3")).status).toBe(204);
+    expect((await postFrom(app, "203.0.113.3")).status).toBe(429);
 
-    // The first identity was evicted instead of growing the map past two keys.
-    expect((await postFrom(app, "203.0.113.1")).status).toBe(204);
+    // Churn must not reset the first identity's still-active counter.
+    expect((await postFrom(app, "203.0.113.1")).status).toBe(429);
   });
 
-  it("expires counters without retaining stale identities", async () => {
+  it("purges expired identities before applying the tracked-key cap", async () => {
     let now = 10_000;
     const app = createTestApp(() => now);
 
     expect((await postFrom(app, "203.0.113.1")).status).toBe(204);
     expect((await postFrom(app, "203.0.113.1")).status).toBe(429);
+    expect((await postFrom(app, "203.0.113.2")).status).toBe(204);
+    expect((await postFrom(app, "203.0.113.3")).status).toBe(429);
 
     now += 60_000;
-    expect((await postFrom(app, "203.0.113.1")).status).toBe(204);
+    expect((await postFrom(app, "203.0.113.3")).status).toBe(204);
   });
 });
