@@ -3,7 +3,7 @@
  * Purpose: Render the keyboard-accessible public navigation sheet on narrow screens.
  * Why: Desktop-only links leave mobile visitors unable to reach public pages.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
 
 import { Button } from '@components/ui/button';
@@ -29,15 +29,32 @@ export function MobilePublicNavigation({
   items,
   navigate,
 }: MobilePublicNavigationProps) {
-  const [open, setOpen] = useState(false);
+  const [openAtPath, setOpenAtPath] = useState<string | null>(null);
+  const open = openAtPath === currentPath;
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const desktop = window.matchMedia('(min-width: 768px)');
+    const closeAtDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) setOpenAtPath(null);
+    };
+
+    if (desktop.matches) setOpenAtPath(null);
+    desktop.addEventListener('change', closeAtDesktop);
+    return () => desktop.removeEventListener('change', closeAtDesktop);
+  }, []);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpenAtPath(nextOpen ? currentPath : null);
+  };
 
   const navigateFromSheet = (path: string) => {
-    setOpen(false);
+    setOpenAtPath(null);
     navigate(path);
   };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         <Button
           type="button"
@@ -63,6 +80,7 @@ export function MobilePublicNavigation({
                 type="button"
                 variant={currentPath === item.path ? 'secondary' : 'ghost'}
                 className="justify-start gap-3"
+                aria-current={currentPath === item.path ? 'page' : undefined}
                 onClick={() => navigateFromSheet(item.path)}
               >
                 <Icon className="size-5" />
