@@ -5,15 +5,29 @@
  */
 import { z } from "zod";
 
-const trimmedText = (minimum: number, maximum: number) =>
-  z.string().trim().min(minimum).max(maximum);
+const canonicalText = (minimum: number, maximum: number) =>
+  z
+    .string()
+    .min(minimum)
+    .max(maximum)
+    .refine((value) => value === value.trim(), {
+      message: "Must not have leading or trailing whitespace.",
+    });
 
 export const contactSubmissionSchema = z
   .object({
-    name: trimmedText(2, 120),
-    email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
-    subject: trimmedText(3, 160),
-    message: trimmedText(10, 5_000),
+    idempotencyKey: z.string().uuid(),
+    name: canonicalText(2, 120),
+    email: z
+      .string()
+      .email()
+      .max(254)
+      .refine((value) => value === value.trim(), {
+        message: "Must not have leading or trailing whitespace.",
+      })
+      .transform((value) => value.toLowerCase()),
+    subject: canonicalText(3, 160),
+    message: canonicalText(10, 5_000),
     // Hidden from assistive technology and normal users; filled values identify simple bots.
     website: z.string().max(500).optional().default(""),
   })
