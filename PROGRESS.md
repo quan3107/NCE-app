@@ -13,7 +13,7 @@ and
 
 ## Backend
 
-- **2026-07-27:** Corrected the contact database-boundary regression to connect as the runtime login before assuming request and service roles, matching the production privilege boundary exercised by CI.
+- **2026-07-27:** Corrected the contact database boundary to connect as the runtime login before assuming request and service roles, and cast the execute-only function's void result to an adapter-supported type.
 
 - **2026-07-27:** Hardened contact submissions with an execute-only security-definer write, idempotent retries, bounded abuse counters, indistinguishable honeypot outcomes, canonical validation, and a database-boundary regression.
 
@@ -55,7 +55,7 @@ and
 
 ## Frontend
 
-- **2026-07-27:** No frontend application files changed for the contact database-boundary CI correction.
+- **2026-07-27:** No frontend application files changed for the contact database role and adapter-compatibility CI corrections.
 
 - **2026-07-27:** Froze in-flight contact snapshots, reused idempotency keys for safe retries, rendered canonical and backend field errors, invalidated mobile sheets across routes and desktop breakpoints, and exposed current-page semantics.
 
