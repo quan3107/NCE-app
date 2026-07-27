@@ -123,6 +123,12 @@ UserInvite:
           application/json:
             schema:
               $ref: '../schemas/users.yaml#/User'
+      '400':
+        description: Invitation payload failed validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
         content:
@@ -137,6 +143,12 @@ UserInvite:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '409':
         description: An account with the email already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: User invitation failed unexpectedly
         content:
           application/json:
             schema:
@@ -162,6 +174,12 @@ TeacherApproval:
           application/json:
             schema:
               $ref: '../schemas/users.yaml#/User'
+      '400':
+        description: Teacher identifier failed validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
         content:
@@ -182,6 +200,12 @@ TeacherApproval:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '409':
         description: Teacher request is no longer pending
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Teacher approval failed unexpectedly
         content:
           application/json:
             schema:
@@ -207,6 +231,12 @@ TeacherRejection:
           application/json:
             schema:
               $ref: '../schemas/users.yaml#/User'
+      '400':
+        description: Teacher identifier failed validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
         content:
@@ -227,6 +257,12 @@ TeacherRejection:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '409':
         description: Teacher request is no longer pending
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Teacher rejection failed unexpectedly
         content:
           application/json:
             schema:
