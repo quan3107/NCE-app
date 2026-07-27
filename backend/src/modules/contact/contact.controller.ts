@@ -14,12 +14,12 @@ export async function postContactSubmission(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const result = await createContactSubmission(req.body, {
+  await createContactSubmission(req.body, {
     source: "public-contact",
     ip: req.ip || req.socket.remoteAddress || null,
     userAgent: clampHeader(req.get("user-agent")),
     referrer: clampHeader(req.get("referer")),
   });
 
-  res.status("accepted" in result ? 202 : 201).json(result);
+  res.status(202).json({ accepted: true });
 }
