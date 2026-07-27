@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-27:** Corrected the contact database-boundary regression to connect as the runtime login before assuming request and service roles, matching the production privilege boundary exercised by CI.
+
 - **2026-07-27:** Hardened contact submissions with an execute-only security-definer write, idempotent retries, bounded abuse counters, indistinguishable honeypot outcomes, canonical validation, and a database-boundary regression.
 
 - **2026-07-27:** Added validated, rate-limited, honeypot-protected public contact persistence with request metadata, least-privilege database access, route tests, and an OpenAPI contract.
@@ -52,6 +54,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-27:** No frontend application files changed for the contact database-boundary CI correction.
 
 - **2026-07-27:** Froze in-flight contact snapshots, reused idempotency keys for safe retries, rendered canonical and backend field errors, invalidated mobile sheets across routes and desktop breakpoints, and exposed current-page semantics.
 
