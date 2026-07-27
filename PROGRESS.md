@@ -13,7 +13,7 @@ and
 
 ## Backend
 
-- **2026-07-27:** Closed OpenAPI review gaps for arbitrary course JSON, objective conflicts, middleware/global errors, invite normalization, enabled tab filtering, and the CI validation gate with focused runtime-boundary regressions.
+- **2026-07-27:** Closed OpenAPI review gaps for arbitrary course JSON, objective conflicts, middleware/global errors, invite normalization and validation-safe examples, enabled tab filtering, and the CI validation gate with focused runtime-boundary regressions.
 
 - **2026-07-27:** Synchronized OpenAPI with every mounted backend route, documented security-sensitive cookie, ownership, pagination, metric, and server-derived identity behavior, and added deterministic spec validation.
 
@@ -49,7 +49,7 @@ and
 
 ## Frontend
 
-- **2026-07-27:** Strengthened OpenAPI regressions with bidirectional route equality, stale-operation detection, runtime error-shape checks, normalization constraints, and CI-gate coverage.
+- **2026-07-27:** Strengthened OpenAPI regressions with bidirectional route equality, stale-operation detection, runtime error-shape checks, normalization and example constraints, and CI-gate coverage.
 
 - **2026-07-27:** Added a source-backed contract regression that inventories mounted backend routes and protects every frontend-used OpenAPI path plus the named security-sensitive contract details.
 
