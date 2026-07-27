@@ -3,10 +3,12 @@
  * Purpose: Exercise least-privilege idempotent contact writes against PostgreSQL.
  * Why: Mocked Prisma tests cannot prove request roles may execute the real RLS write shape.
  */
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { describe, expect, it } from "vitest";
 
-import { Prisma } from "../../src/prisma/generated.js";
-import { runDatabaseTestTransaction } from "./databaseTestClient.js";
+import { Prisma, PrismaClient } from "../../src/prisma/generated.js";
+import { shutdownDatabaseTestClient } from "./databaseTestClient.js";
 
 const databaseDescribe =
   process.env.CI === "true" || process.env.RUN_DATABASE_TESTS === "true"
@@ -14,6 +16,24 @@ const databaseDescribe =
     : describe.skip;
 const rollbackSignal = new Error("ROLLBACK_CONTACT_DATABASE_TEST");
 const idempotencyKey = "11111111-1111-4111-8111-111111111111";
+
+const runRuntimeDatabaseTestTransaction = async <T>(
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> => {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required for runtime database tests.");
+  }
+
+  const pool = new Pool({ connectionString: databaseUrl });
+  const client = new PrismaClient({ adapter: new PrismaPg(pool) });
+
+  try {
+    return await client.$transaction(operation, { timeout: 15_000 });
+  } finally {
+    await shutdownDatabaseTestClient(client, pool);
+  }
+};
 
 const submitAsAnonymousRole = async (
   tx: Prisma.TransactionClient,
@@ -30,18 +50,16 @@ const submitAsAnonymousRole = async (
       ${JSON.stringify({ ip: "203.0.113.10" })}::jsonb
     )
   `);
-  await tx.$executeRawUnsafe("RESET ROLE");
 };
 
 databaseDescribe("contact submission database boundary", () => {
   it("lets the anonymous request role write once without table SELECT", async () => {
     await expect(
-      runDatabaseTestTransaction(async (tx) => {
-        await tx.contactSubmission.deleteMany({ where: { idempotencyKey } });
-
+      runRuntimeDatabaseTestTransaction(async (tx) => {
         await submitAsAnonymousRole(tx);
         await submitAsAnonymousRole(tx);
 
+        await tx.$executeRawUnsafe("SET LOCAL ROLE service_role");
         await expect(
           tx.contactSubmission.count({ where: { idempotencyKey } }),
         ).resolves.toBe(1);
