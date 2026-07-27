@@ -45,25 +45,26 @@ CreateUserRequest:
 
 InviteUserRequest:
   type: object
-  description: Values are normalized before persistence; unknown properties are accepted and discarded.
+  additionalProperties: true
+  description: Clients normalize email and fullName before validation; the server repeats normalization, and unknown properties are accepted and discarded.
   properties:
     email:
       type: string
       format: email
-      description: Leading and trailing whitespace is removed and the value is lowercased.
-      example: ' Teacher@Example.com '
+      description: Supply a trimmed, lowercase value for contract validation; the server also trims and lowercases it.
+      example: teacher@example.com
     fullName:
       type: string
       minLength: 1
       pattern: '\S'
-      description: Leading and trailing whitespace is removed; whitespace-only names are rejected.
-      example: ' Invited Teacher '
+      description: Supply a trimmed value for contract validation; the server also trims it and rejects whitespace-only names.
+      example: Invited Teacher
     role:
       type: string
       enum: [teacher, student]
   required: [email, fullName, role]
   example:
-    email: ' Teacher@Example.com '
-    fullName: ' Invited Teacher '
+    email: teacher@example.com
+    fullName: Invited Teacher
     role: teacher
     department: English
