@@ -104,3 +104,16 @@ FileDownloadResponse:
       format: date-time
       description: Signed download URL expiry timestamp.
   required: [url, method, headers, fileName, mime, size, expiresAt]
+
+FileContentResponse:
+  type: object
+  properties:
+    url:
+      type: string
+      format: uri
+    mime:
+      type: string
+    size:
+      type: integer
+      minimum: 1
+  required: [url, mime, size]
