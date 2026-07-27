@@ -13,6 +13,7 @@ import {
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
+    $queryRaw: vi.fn(),
     auditLog: {
       create: vi.fn(),
     },
@@ -24,6 +25,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
       updateMany: vi.fn(),
     },
     grade: {
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -100,6 +102,7 @@ describe("AI writing feedback teacher review service", () => {
     vi.clearAllMocks();
     transactionAuditLogCreate.mockReset();
     prisma.$transaction.mockImplementation(async (callback) => callback(prisma));
+    prisma.grade.findFirst.mockResolvedValue(baseDraft.submission.grade as never);
     prisma.grade.update.mockResolvedValue({ id: gradeId } as never);
     prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never);
     prisma.aiFeedbackDraft.findUnique.mockImplementation(
