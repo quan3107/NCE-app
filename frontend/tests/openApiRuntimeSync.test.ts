@@ -110,17 +110,45 @@ async function collectDocumentedOperations(
   return operations;
 }
 
-test('OpenAPI documents every mounted backend route and method', async () => {
+function compareOperations(
+  mountedOperations: readonly string[],
+  documentedOperations: ReadonlySet<string>,
+) {
+  const mountedSet = new Set(mountedOperations);
+  return {
+    missing: mountedOperations.filter(
+      (operation) => !documentedOperations.has(operation),
+    ),
+    stale: [...documentedOperations]
+      .filter((operation) => !mountedSet.has(operation))
+      .sort(),
+  };
+}
+
+test('OpenAPI and mounted backend routes contain the same operations', async () => {
   const [mountedOperations, openApiSource] = await Promise.all([
     collectMountedOperations(),
     readFile(openApiPath, 'utf8'),
   ]);
   const documentedOperations = await collectDocumentedOperations(openApiSource);
-  const missingOperations = mountedOperations.filter(
-    (operation) => !documentedOperations.has(operation),
-  );
 
-  assert.deepEqual(missingOperations, []);
+  assert.deepEqual(compareOperations(mountedOperations, documentedOperations), {
+    missing: [],
+    stale: [],
+  });
+});
+
+test('operation comparison reports an extra documented operation', () => {
+  const mountedOperations = ['GET /api/v1/health'];
+  const documentedOperations = new Set([
+    'GET /api/v1/health',
+    'POST /api/v1/stale',
+  ]);
+
+  assert.deepEqual(compareOperations(mountedOperations, documentedOperations), {
+    missing: [],
+    stale: ['POST /api/v1/stale'],
+  });
 });
 
 test('OpenAPI reflects security-sensitive runtime contract details', async () => {
