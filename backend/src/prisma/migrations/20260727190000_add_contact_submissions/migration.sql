@@ -85,6 +85,10 @@ GRANT EXECUTE ON FUNCTION app.submit_contact_message(
 
 -- Service operations can recover and triage submissions without exposing them
 -- through anonymous or authenticated request and browser roles.
-GRANT SELECT, UPDATE ON public.contact_submissions TO service_role;
+-- Clear hosted/CI default table privileges before rebuilding the narrow matrix.
+REVOKE ALL ON public.contact_submissions FROM service_role;
+GRANT SELECT ON public.contact_submissions TO service_role;
+GRANT UPDATE (status, updated_at)
+  ON public.contact_submissions TO service_role;
 
 COMMIT;
