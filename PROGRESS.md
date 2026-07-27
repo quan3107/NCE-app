@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-27:** Hardened contact submissions with an execute-only security-definer write, idempotent retries, bounded abuse counters, indistinguishable honeypot outcomes, canonical validation, and a database-boundary regression.
+
 - **2026-07-27:** Added validated, rate-limited, honeypot-protected public contact persistence with request metadata, least-privilege database access, route tests, and an OpenAPI contract.
 
 - **2026-07-27:** Closed OpenAPI review gaps for arbitrary course JSON, objective conflicts, middleware/global errors, invite normalization and validation-safe examples, enabled tab filtering, and the CI validation gate with focused runtime-boundary regressions.
@@ -50,6 +52,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-27:** Froze in-flight contact snapshots, reused idempotency keys for safe retries, rendered canonical and backend field errors, invalidated mobile sheets across routes and desktop breakpoints, and exposed current-page semantics.
 
 - **2026-07-27:** Added a keyboard-accessible mobile public navigation sheet, removed dead-end footer destinations, and connected the CMS contact form to recoverable submission states with component regressions.
 
