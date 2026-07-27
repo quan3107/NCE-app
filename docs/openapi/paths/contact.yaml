@@ -6,7 +6,7 @@ ContactSubmission:
   post:
     tags: [contact]
     summary: Submit a public contact message
-    description: Persists a validated message or safely accepts honeypot-detected spam.
+    description: Accepts one idempotent logical attempt and returns the same response for every accepted outcome.
     requestBody:
       required: true
       content:
@@ -14,14 +14,8 @@ ContactSubmission:
           schema:
             $ref: '../schemas/contact.yaml#/ContactSubmissionRequest'
     responses:
-      '201':
-        description: Contact submission persisted
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/contact.yaml#/ContactSubmissionCreated'
       '202':
-        description: Submission safely accepted without exposing spam classification
+        description: Submission accepted; persistence and abuse classification are intentionally undisclosed
         content:
           application/json:
             schema:
@@ -40,6 +34,12 @@ ContactSubmission:
             schema:
               type: integer
               minimum: 1
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Contact persistence failed
         content:
           application/json:
             schema:
