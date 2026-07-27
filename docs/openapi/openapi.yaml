@@ -28,6 +28,8 @@ tags:
   - name: files
   - name: navigation
   - name: dashboard-config
+  - name: file-upload-config
+  - name: course-management-tabs
   - name: ielts-config
   - name: ai-feedback
   - name: cms
@@ -55,8 +57,20 @@ paths:
 
   /api/v1/navigation:
     $ref: './paths/navigation.yaml#/Navigation'
+  /api/v1/config/ielts:
+    $ref: './paths/ielts-config.yaml#/IeltsConfig'
   /api/v1/config/ielts/question-options:
     $ref: './paths/ielts-config.yaml#/QuestionOptions'
+  /api/v1/config/ielts/type-metadata:
+    $ref: './paths/ielts-config.yaml#/TypeMetadata'
+  /api/v1/config/ielts/versions:
+    $ref: './paths/ielts-config.yaml#/IeltsConfigVersions'
+  /api/v1/config/file-upload-limits:
+    $ref: './paths/file-upload-config.yaml#/FileUploadLimits'
+  /api/v1/config/allowed-file-types:
+    $ref: './paths/file-upload-config.yaml#/AllowedFileTypes'
+  /api/v1/config/course-management-tabs:
+    $ref: './paths/course-management-tabs.yaml#/CourseManagementTabs'
   /api/v1/config/notification-types:
     $ref: './paths/notification-config.yaml#/NotificationTypes'
   /api/v1/ai-feedback/health:
@@ -96,6 +110,12 @@ paths:
     $ref: './paths/users.yaml#/Users'
   /api/v1/users/{userId}:
     $ref: './paths/users.yaml#/UserById'
+  /api/v1/users/invite:
+    $ref: './paths/users.yaml#/UserInvite'
+  /api/v1/users/{userId}/approve-teacher:
+    $ref: './paths/users.yaml#/TeacherApproval'
+  /api/v1/users/{userId}/reject-teacher:
+    $ref: './paths/users.yaml#/TeacherRejection'
 
   /api/v1/analytics/teacher:
     $ref: './paths/analytics.yaml#/TeacherAnalytics'
@@ -178,6 +198,8 @@ paths:
 
   /api/v1/submissions/{submissionId}/grade:
     $ref: './paths/grades.yaml#/SubmissionGrade'
+  /api/v1/submissions/{submissionId}/questions/{questionId}/ai-explanation:
+    $ref: './paths/objective-explanations.yaml#/SubmissionObjectiveExplanation'
   /api/v1/submissions/{submissionId}/ai-feedback/writing:
     $ref: './paths/submissions.yaml#/SubmissionWritingAiFeedback'
   /api/v1/submissions/{submissionId}/ai-feedback/writing/drafts:
@@ -206,6 +228,8 @@ paths:
     $ref: './paths/files.yaml#/FileComplete'
   /api/v1/files/{id}/download:
     $ref: './paths/files.yaml#/FileDownload'
+  /api/v1/files/{id}/content:
+    $ref: './paths/files.yaml#/FileContent'
 
 components:
   securitySchemes:
