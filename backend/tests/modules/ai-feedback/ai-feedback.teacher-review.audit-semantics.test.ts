@@ -8,13 +8,17 @@ import { AssignmentType, UserRole, UserStatus } from '../../../src/prisma/index.
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
+    $queryRaw: vi.fn(),
     auditLog: { create: vi.fn() },
     aiFeedbackDraft: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
       updateMany: vi.fn(),
     },
-    grade: { update: vi.fn() },
+    grade: {
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }))
@@ -77,6 +81,11 @@ describe('AI teacher review audit semantics', () => {
     vi.clearAllMocks()
     prisma.$transaction.mockImplementation(async (callback) => callback(prisma))
     prisma.aiFeedbackDraft.updateMany.mockResolvedValue({ count: 1 } as never)
+    prisma.grade.findFirst.mockResolvedValue({
+      id: gradeId,
+      feedback: unchangedFeedback,
+      deletedAt: null,
+    } as never)
     prisma.grade.update.mockResolvedValue({ id: gradeId } as never)
   })
 
@@ -118,6 +127,71 @@ describe('AI teacher review audit semantics', () => {
       }),
     )
     expect(events.map((event) => event.action)).not.toContain(
+      'ai_feedback.grade_feedback_updated',
+    )
+  })
+
+  it('uses the locked grade when stale context falsely indicates a change', async () => {
+    const existingDraft = draft('teacher_reviewed')
+    existingDraft.submission.grade.feedback = 'Stale pre-transaction feedback.'
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValue(existingDraft as never)
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...existingDraft,
+      status: 'approved',
+      decision: 'approved',
+    } as never)
+
+    await approveAiWritingFeedbackDraft(
+      { submissionId, draftId },
+      { feedbackMd: unchangedFeedback },
+      actor,
+    )
+
+    const events = prisma.auditLog.create.mock.calls.map((call) => call[0].data)
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1)
+    expect(prisma.grade.findFirst).toHaveBeenCalledWith({
+      where: { id: gradeId, deletedAt: null },
+    })
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        action: 'ai_feedback.writing_approved',
+        eventData: expect.objectContaining({ feedbackChanged: false }),
+      }),
+    )
+    expect(events.map((event) => event.action)).not.toContain(
+      'ai_feedback.grade_feedback_updated',
+    )
+  })
+
+  it('uses the locked grade when stale context hides a real change', async () => {
+    const existingDraft = draft('instant_student_visible')
+    prisma.aiFeedbackDraft.findFirst.mockResolvedValue(existingDraft as never)
+    prisma.aiFeedbackDraft.findUnique.mockResolvedValue({
+      ...existingDraft,
+      status: 'finalized',
+      decision: 'finalized',
+    } as never)
+    prisma.grade.findFirst.mockResolvedValue({
+      id: gradeId,
+      feedback: 'Concurrent replacement feedback.',
+      deletedAt: null,
+    } as never)
+
+    await finalizeAiWritingFeedbackDraft(
+      { submissionId, draftId },
+      { feedbackMd: unchangedFeedback },
+      actor,
+    )
+
+    const events = prisma.auditLog.create.mock.calls.map((call) => call[0].data)
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1)
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        action: 'ai_feedback.writing_finalized',
+        eventData: expect.objectContaining({ feedbackChanged: true }),
+      }),
+    )
+    expect(events.map((event) => event.action)).toContain(
       'ai_feedback.grade_feedback_updated',
     )
   })
