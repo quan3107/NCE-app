@@ -46,4 +46,51 @@ describe("middleware.errorHandler", () => {
       }),
     );
   });
+
+  it("returns the common 500 body for unexpected persistence failures", () => {
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as unknown as Response;
+
+    errorHandler(
+      new Error("database unavailable"),
+      {} as Request,
+      res,
+      vi.fn() as NextFunction,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: "Internal Server Error",
+    });
+  });
+
+  it("returns exposed conflict details for deterministic preconditions", () => {
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as unknown as Response;
+    const error = Object.assign(
+      new Error("Objective explanations require an existing deterministic score."),
+      {
+        statusCode: 409,
+        expose: true,
+        details: { submissionId: "submission-id" },
+      },
+    );
+
+    errorHandler(
+      error,
+      {} as Request,
+      res,
+      vi.fn() as NextFunction,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      message: error.message,
+      details: { submissionId: "submission-id" },
+    });
+  });
 });
