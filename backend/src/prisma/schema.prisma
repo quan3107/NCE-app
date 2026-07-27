@@ -607,6 +607,23 @@ model NceExerciseAttempt {
   @@map("nce_exercise_attempts")
 }
 
+model ContactSubmission {
+  id        String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  email     String                  @db.Citext
+  subject   String
+  message   String
+  source    String
+  status    ContactSubmissionStatus @default(new)
+  metadata  Json                    @default("{}")
+  createdAt DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status, createdAt], map: "contact_submissions_status_created_at_idx")
+  @@index([email, createdAt], map: "contact_submissions_email_created_at_idx")
+  @@map("contact_submissions")
+}
+
 enum UserRole {
   admin
   teacher
@@ -659,6 +676,13 @@ enum NotificationStatus {
   suppressed
   dead_letter
   delivery_unknown
+}
+
+enum ContactSubmissionStatus {
+  new
+  in_progress
+  resolved
+  spam
 }
 
 enum IdentityProvider {
