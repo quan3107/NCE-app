@@ -51,7 +51,12 @@ CourseMetrics:
       type: number
     rubricCount:
       type: number
-  required: [activeStudentCount, invitedStudentCount, teacherCount, assignmentCount, rubricCount]
+    completionRatePercent:
+      type: number
+      minimum: 0
+      maximum: 100
+      description: Course lesson completion percentage; list and public summaries currently return 0.
+  required: [activeStudentCount, invitedStudentCount, teacherCount, assignmentCount, rubricCount, completionRatePercent]
 
 CourseOwner:
   type: object
@@ -78,6 +83,7 @@ Course:
       type: string
       nullable: true
     schedule:
+      type: object
       allOf:
         - $ref: '#/CourseSchedule'
       nullable: true
@@ -88,6 +94,9 @@ Course:
     metrics:
       $ref: '#/CourseMetrics'
     learningOutcomes:
+      type: array
+      items:
+        type: string
       nullable: true
       description: JSON learning outcomes content for the course.
     structureSummary:
@@ -143,6 +152,9 @@ UpdateCourseRequest:
       type: string
       nullable: true
     learningOutcomes:
+      type: array
+      items:
+        type: string
       nullable: true
       description: JSON learning outcomes content.
     structureSummary:
@@ -168,6 +180,9 @@ CourseMutationResponse:
       type: string
       nullable: true
     learningOutcomes:
+      type: array
+      items:
+        type: string
       nullable: true
     structureSummary:
       type: string
