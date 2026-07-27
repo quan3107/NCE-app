@@ -2,6 +2,44 @@
 # Purpose: Document IELTS configuration endpoints.
 # Why: Keeps the OpenAPI contract aligned with backend-driven IELTS authoring config.
 
+IeltsConfig:
+  get:
+    tags: [ielts-config]
+    summary: Get active or versioned IELTS configuration
+    parameters:
+      - in: query
+        name: version
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: IELTS assignment and question configuration
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigResponse'
+      '400':
+        description: Invalid version query
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+      '404':
+        description: Requested or active configuration not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+      '500':
+        description: Stored configuration failed response validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+    security: []
+
 QuestionOptions:
   get:
     tags: [ielts-config]
@@ -28,5 +66,65 @@ QuestionOptions:
               $ref: '../schemas/ielts-config.yaml#/IeltsQuestionOptionsResponse'
       '400':
         description: Invalid query parameters
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
       '404':
         description: Config version or options not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+    security: []
+
+TypeMetadata:
+  get:
+    tags: [ielts-config]
+    summary: Get IELTS assignment type card metadata
+    parameters:
+      - in: query
+        name: version
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Versioned type labels, icons, themes, and ordering
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsTypeMetadataResponse'
+      '400':
+        description: Invalid version query
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+    security: []
+
+IeltsConfigVersions:
+  get:
+    tags: [ielts-config]
+    summary: List IELTS configuration versions
+    responses:
+      '200':
+        description: Available versions and the active version number
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigVersionsResponse'
+      '404':
+        description: No IELTS configuration versions exist
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+      '500':
+        description: Stored version data failed response validation
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/ielts-config.yaml#/IeltsConfigErrorResponse'
+    security: []
