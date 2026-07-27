@@ -4,9 +4,15 @@
  * Why: Centralized data fetching with caching for marketing content
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@lib/apiClient";
-import type { HomepageContent, AboutPageContent, ContactPageContent } from "./types";
+import type {
+    AboutPageContent,
+    ContactPageContent,
+    ContactSubmissionPayload,
+    ContactSubmissionResponse,
+    HomepageContent,
+} from "./types";
 
 const CMS_KEYS = {
     homepage: ["cms", "homepage"] as const,
@@ -22,6 +28,15 @@ const fetchAboutPageContent = async (): Promise<AboutPageContent> =>
 
 const fetchContactPageContent = async (): Promise<ContactPageContent> =>
     apiClient<ContactPageContent>("/cms/contact-page-content");
+
+const submitContact = async (
+    payload: ContactSubmissionPayload,
+): Promise<ContactSubmissionResponse> =>
+    apiClient<ContactSubmissionResponse, ContactSubmissionPayload>("/contact", {
+        method: "POST",
+        body: payload,
+        withAuth: false,
+    });
 
 export function useHomepageContentQuery() {
     return useQuery({
@@ -44,5 +59,12 @@ export function useContactPageContentQuery() {
         queryKey: CMS_KEYS.contact,
         queryFn: fetchContactPageContent,
         staleTime: 1000 * 60 * 60,
+    });
+}
+
+export function useContactSubmissionMutation() {
+    return useMutation({
+        mutationKey: ["contact", "submission"],
+        mutationFn: submitContact,
     });
 }
