@@ -49,6 +49,7 @@ describe("contact.service", () => {
       values?: unknown[];
     };
     expect(query.sql).toContain("app.submit_contact_message");
+    expect(query.sql).toMatch(/submit_contact_message\([\s\S]*\)::text/);
     expect(query.values).toEqual([
       idempotencyKey,
       "Ada Lovelace",
