@@ -608,8 +608,9 @@ model NceExerciseAttempt {
 }
 
 model ContactSubmission {
-  id        String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey String                  @unique @map("idempotency_key") @db.Uuid
+  name           String
   email     String                  @db.Citext
   subject   String
   message   String
