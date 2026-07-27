@@ -48,7 +48,7 @@ const submitAsAnonymousRole = async (
       ${"Please help me access my course."},
       ${"public-contact"},
       ${JSON.stringify({ ip: "203.0.113.10" })}::jsonb
-    )
+    )::text
   `);
 };
 
