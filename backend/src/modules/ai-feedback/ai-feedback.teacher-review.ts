@@ -13,6 +13,7 @@ import {
 } from "../../prisma/index.js";
 import { prisma } from "../../prisma/client.js";
 import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
+import { semanticValuesEqual } from "../../utils/semanticValue.js";
 import {
   validateIeltsCriterionBreakdown,
   type IeltsCriterionScore,
@@ -390,6 +391,7 @@ async function publishAiWritingFeedbackDraft(
   );
 
   const decidedAt = new Date();
+  const feedbackChanged = !semanticValuesEqual(grade.feedback, data.feedbackMd);
   const teacherEditedFeedback = toJsonObject({ feedbackMd: data.feedbackMd });
   const normalizedCriterionSuggestions = data.normalizedCriterionSuggestions
     ? toJsonArray(data.normalizedCriterionSuggestions)
@@ -419,7 +421,7 @@ async function publishAiWritingFeedbackDraft(
       submissionId,
       assignmentId: draft.assignmentId,
       gradeId: grade.id,
-      feedbackChanged: true,
+      feedbackChanged,
     };
     if (decision === "approved") {
       await recordAiFeedbackAudit(
@@ -450,22 +452,24 @@ async function publishAiWritingFeedbackDraft(
         tx,
       );
     }
-    await recordAiFeedbackAudit(
-      {
-        actorId: actor.id,
-        action: AI_FEEDBACK_AUDIT_ACTIONS.gradeFeedbackUpdated,
-        entity: "grade",
-        entityId: grade.id,
-        eventData: {
-          submissionId,
-          assignmentId: draft.assignmentId,
-          draftId: draft.id,
-          teacherDecision: decision,
-          feedbackChanged: true,
+    if (feedbackChanged) {
+      await recordAiFeedbackAudit(
+        {
+          actorId: actor.id,
+          action: AI_FEEDBACK_AUDIT_ACTIONS.gradeFeedbackUpdated,
+          entity: "grade",
+          entityId: grade.id,
+          eventData: {
+            submissionId,
+            assignmentId: draft.assignmentId,
+            draftId: draft.id,
+            teacherDecision: decision,
+            feedbackChanged: true,
+          },
         },
-      },
-      tx,
-    );
+        tx,
+      );
+    }
 
     return decidedDraft;
   });
