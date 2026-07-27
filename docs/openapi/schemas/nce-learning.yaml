@@ -121,6 +121,7 @@ StudentNcePathExercise:
       required: [latestAttempt]
       properties:
         latestAttempt:
+          type: object
           nullable: true
           allOf:
             - $ref: '#/NceAttempt'
@@ -142,6 +143,7 @@ StudentNcePathLesson:
           format: date-time
           nullable: true
         progress:
+          type: object
           nullable: true
           allOf:
             - $ref: '#/NceLessonProgress'
