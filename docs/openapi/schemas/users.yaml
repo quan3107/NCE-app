@@ -45,15 +45,25 @@ CreateUserRequest:
 
 InviteUserRequest:
   type: object
-  additionalProperties: false
+  description: Values are normalized before persistence; unknown properties are accepted and discarded.
   properties:
     email:
       type: string
       format: email
+      description: Leading and trailing whitespace is removed and the value is lowercased.
+      example: ' Teacher@Example.com '
     fullName:
       type: string
       minLength: 1
+      pattern: '\S'
+      description: Leading and trailing whitespace is removed; whitespace-only names are rejected.
+      example: ' Invited Teacher '
     role:
       type: string
       enum: [teacher, student]
   required: [email, fullName, role]
+  example:
+    email: ' Teacher@Example.com '
+    fullName: ' Invited Teacher '
+    role: teacher
+    department: English
