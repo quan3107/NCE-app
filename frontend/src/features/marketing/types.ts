@@ -25,3 +25,15 @@ export type AboutHeroContent = BackendAboutHeroContent;
 export type ValueItem = BackendValueItem;
 export type AboutPageContent = BackendAboutPageContent;
 export type ContactPageContent = BackendContactPageContent;
+
+export type ContactSubmissionPayload = {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  website: string;
+};
+
+export type ContactSubmissionResponse =
+  | { accepted: true }
+  | { id: string; status: 'new'; submittedAt: string };
