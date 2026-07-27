@@ -1,0 +1,23 @@
+# File: docs/openapi/paths/course-management-tabs.yaml
+# Purpose: Define the course management tab configuration endpoint.
+# Why: Teacher workspaces render tabs from backend-owned role configuration.
+
+CourseManagementTabs:
+  get:
+    tags: [course-management-tabs]
+    summary: Get course management tabs for the authenticated role
+    responses:
+      '200':
+        description: Enabled and disabled course management tab definitions
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/course-management-tabs.yaml#/CourseManagementTabsResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
