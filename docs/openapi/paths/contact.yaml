@@ -1,0 +1,46 @@
+# File: docs/openapi/paths/contact.yaml
+# Purpose: Define the anonymous contact submission endpoint.
+# Why: Documents persistence, validation, spam routing, and rate-limit behavior.
+
+ContactSubmission:
+  post:
+    tags: [contact]
+    summary: Submit a public contact message
+    description: Persists a validated message or safely accepts honeypot-detected spam.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/contact.yaml#/ContactSubmissionRequest'
+    responses:
+      '201':
+        description: Contact submission persisted
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/contact.yaml#/ContactSubmissionCreated'
+      '202':
+        description: Submission safely accepted without exposing spam classification
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/contact.yaml#/ContactSubmissionAccepted'
+      '400':
+        description: Invalid submission payload
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '429':
+        description: Too many contact submissions from this client
+        headers:
+          Retry-After:
+            description: Seconds until another submission may be attempted.
+            schema:
+              type: integer
+              minimum: 1
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
