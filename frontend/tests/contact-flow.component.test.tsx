@@ -132,6 +132,44 @@ test('reuses one idempotency key when an unchanged submission is retried', async
   assert.equal(bodies[0]?.idempotencyKey, bodies[1]?.idempotencyKey);
 });
 
+test('reuses one idempotency key after canonical-equivalent and reverted edits', async () => {
+  const bodies: Array<Record<string, string>> = [];
+  let attempt = 0;
+  mockContactRequests(async (init) => {
+    bodies.push(JSON.parse(String(init.body)) as Record<string, string>);
+    attempt += 1;
+    if (attempt === 1) throw new TypeError('response lost');
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+
+  renderContact();
+  await screen.findByRole('heading', { name: 'Contact us' });
+  fillContactForm();
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  await screen.findByRole('alert');
+
+  fireEvent.change(screen.getByLabelText('Name'), {
+    target: { value: '  Ada Lovelace  ' },
+  });
+  fireEvent.change(screen.getByLabelText('Email'), {
+    target: { value: 'ADA@EXAMPLE.COM' },
+  });
+  fireEvent.change(screen.getByLabelText('Subject'), {
+    target: { value: 'Different request' },
+  });
+  fireEvent.change(screen.getByLabelText('Subject'), {
+    target: { value: 'Course access' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  await screen.findByRole('status');
+
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[0]?.idempotencyKey, bodies[1]?.idempotencyKey);
+});
+
 test('validates trimmed canonical values before sending', async () => {
   let postCount = 0;
   mockContactRequests(async () => {
@@ -149,13 +187,42 @@ test('validates trimmed canonical values before sending', async () => {
   assert.equal(postCount, 0);
 });
 
-test('renders backend field details and clears stale errors when values change', async () => {
+test('editing one field preserves unrelated client validation errors', async () => {
+  mockContactRequests(async () =>
+    new Response(JSON.stringify({ accepted: true }), { status: 202 }),
+  );
+
+  renderContact();
+  await screen.findByRole('heading', { name: 'Contact us' });
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+  assert.ok(await screen.findByText(/name must be at least 2 characters/i));
+  assert.ok(screen.getByText(/enter a valid email address/i));
+  assert.ok(screen.getByText(/subject must be at least 3 characters/i));
+  assert.ok(screen.getByText(/message must be at least 10 characters/i));
+
+  fireEvent.change(screen.getByLabelText('Name'), {
+    target: { value: 'Ada Lovelace' },
+  });
+
+  await waitFor(() =>
+    assert.ok(screen.queryByText(/name must be at least 2 characters/i) === null),
+  );
+  assert.ok(screen.getByText(/enter a valid email address/i));
+  assert.ok(screen.getByText(/subject must be at least 3 characters/i));
+  assert.ok(screen.getByText(/message must be at least 10 characters/i));
+});
+
+test('editing one field preserves unrelated backend validation errors', async () => {
   mockContactRequests(async () =>
     new Response(JSON.stringify({
       message: 'Validation failed.',
       details: {
         formErrors: [],
-        fieldErrors: { message: ['Message is not accepted.'] },
+        fieldErrors: {
+          email: ['Email is not accepted.'],
+          message: ['Message is not accepted.'],
+        },
       },
     }), {
       status: 400,
@@ -169,8 +236,10 @@ test('renders backend field details and clears stale errors when values change',
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
 
   assert.ok(await screen.findByText('Message is not accepted.'));
+  assert.ok(screen.getByText('Email is not accepted.'));
   fireEvent.change(screen.getByLabelText('Message'), {
     target: { value: 'A different valid message.' },
   });
   await waitFor(() => assert.ok(screen.queryByText('Message is not accepted.') === null));
+  assert.ok(screen.getByText('Email is not accepted.'));
 });
