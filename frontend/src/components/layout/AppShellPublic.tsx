@@ -84,7 +84,7 @@ const publicNavigationItems: NavigationItem[] = [
 
 export function AppShellPublic({ children }: AppShellPublicProps) {
   const { currentUser, isAuthenticated, logout } = useAuthStore();
-  const { currentPath, navigate } = useRouter();
+  const { currentEntryKey, currentPath, navigate } = useRouter();
 
   const isLoggedIn = isAuthenticated && currentUser.role !== 'public';
   const dashboardPath = DASHBOARD_PATH_BY_ROLE[currentUser.role];
@@ -130,7 +130,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
 
             <div className="flex items-center gap-2">
               <MobilePublicNavigation
-                key={currentPath}
+                currentEntryKey={currentEntryKey}
                 currentPath={currentPath}
                 items={publicNavigationItems}
                 navigate={navigate}
