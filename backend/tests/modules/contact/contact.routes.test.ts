@@ -81,4 +81,25 @@ describe("POST /api/v1/contact", () => {
     expect(limitedResponse.headers["retry-after"]).toBeDefined();
     expect(mockedCreateContactSubmission).toHaveBeenCalledTimes(5);
   });
+
+  it("exposes a permanent idempotency payload conflict as 409", async () => {
+    mockedCreateContactSubmission.mockRejectedValueOnce(
+      Object.assign(
+        new Error(
+          "Idempotency key is already bound to a different contact payload.",
+        ),
+        { statusCode: 409, expose: true },
+      ),
+    );
+
+    const response = await request(app)
+      .post("/api/v1/contact")
+      .send(validPayload);
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      message:
+        "Idempotency key is already bound to a different contact payload.",
+    });
+  });
 });
