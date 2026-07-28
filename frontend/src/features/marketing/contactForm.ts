@@ -13,6 +13,10 @@ export type ContactFormPayload = Omit<ContactSubmissionPayload, 'idempotencyKey'
 const CONTACT_FIELDS: ContactField[] = ['name', 'email', 'subject', 'message'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function unicodeCodePointLength(value: string): number {
+  return Array.from(value).length;
+}
+
 export function contactFieldFromName(name: string): ContactField | null {
   return CONTACT_FIELDS.includes(name as ContactField)
     ? (name as ContactField)
@@ -55,22 +59,26 @@ export function validateCanonicalContact(
   payload: ContactFormPayload,
 ): ContactFieldErrors {
   const errors: ContactFieldErrors = {};
-  if (payload.name.length < 2) {
+  const nameLength = unicodeCodePointLength(payload.name);
+  const emailLength = unicodeCodePointLength(payload.email);
+  const subjectLength = unicodeCodePointLength(payload.subject);
+  const messageLength = unicodeCodePointLength(payload.message);
+  if (nameLength < 2) {
     errors.name = 'Name must be at least 2 characters after trimming.';
-  } else if (payload.name.length > 120) {
+  } else if (nameLength > 120) {
     errors.name = 'Name must be at most 120 characters after trimming.';
   }
-  if (!EMAIL_PATTERN.test(payload.email) || payload.email.length > 254) {
+  if (!EMAIL_PATTERN.test(payload.email) || emailLength > 254) {
     errors.email = 'Enter a valid email address of at most 254 characters.';
   }
-  if (payload.subject.length < 3) {
+  if (subjectLength < 3) {
     errors.subject = 'Subject must be at least 3 characters after trimming.';
-  } else if (payload.subject.length > 160) {
+  } else if (subjectLength > 160) {
     errors.subject = 'Subject must be at most 160 characters after trimming.';
   }
-  if (payload.message.length < 10) {
+  if (messageLength < 10) {
     errors.message = 'Message must be at least 10 characters after trimming.';
-  } else if (payload.message.length > 5_000) {
+  } else if (messageLength > 5_000) {
     errors.message = 'Message must be at most 5000 characters after trimming.';
   }
   return errors;
