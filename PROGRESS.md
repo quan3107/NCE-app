@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-28:** Translated the verified Prisma raw-query envelope for contact idempotency payload mismatches into an exposed HTTP 409, documented the response, and added service and route regressions.
+
 - **2026-07-28:** Validated honeypot type and Unicode-character bounds before spam masking, retained 202 responses for valid nonempty traps, and added real-route regressions for invalid JSON trap values.
 
 - **2026-07-28:** Bound contact idempotency keys to canonical persisted fields with a forward migration, rejected NUL and unpaired-surrogate text before node-postgres encoding, and added real PostgreSQL conflict and Unicode round-trip coverage.
@@ -64,6 +66,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-28:** Preserved unresolved contact retry identities across route remounts with a bounded, expiring per-tab registry; rendered mobile destinations as native router links; and aligned no-POST email validation with the backend Zod contract.
 
 - **2026-07-28:** Aligned contact name, email, subject, and message length validation with OpenAPI Unicode code-point semantics and added astral-character boundary tests.
 
