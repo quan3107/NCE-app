@@ -16,6 +16,20 @@ vi.mock("../../../src/prisma/client.js", () => ({
 
 const prisma = vi.mocked(prismaClient, true);
 const idempotencyKey = "11111111-1111-4111-8111-111111111111";
+const validPayload = {
+  idempotencyKey,
+  name: "Ada Lovelace",
+  email: "ada@example.com",
+  subject: "Course access",
+  message: "Please help me access my course.",
+  website: "",
+};
+const requestMetadata = {
+  source: "public-contact" as const,
+  ip: null,
+  userAgent: null,
+  referrer: null,
+};
 
 describe("contact.service", () => {
   beforeEach(() => {
@@ -111,6 +125,50 @@ describe("contact.service", () => {
       ),
     ).rejects.toBeDefined();
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["boolean", false],
+    ["object", { value: "spam" }],
+    ["array", ["spam"]],
+    ["overlong string", "x".repeat(501)],
+  ])("rejects a %s honeypot value before spam classification", async (_case, website) => {
+    await expect(
+      createContactSubmission({ ...validPayload, website }, requestMetadata),
+    ).rejects.toBeDefined();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["one-code-point name", { name: "😀" }],
+    ["two-code-point subject", { subject: "😀😀" }],
+    ["nine-code-point message", { message: "😀".repeat(9) }],
+    ["121-code-point name", { name: "😀".repeat(121) }],
+    ["161-code-point subject", { subject: "😀".repeat(161) }],
+    ["5001-code-point message", { message: "😀".repeat(5_001) }],
+  ])("rejects an astral %s outside documented character bounds", async (_case, override) => {
+    await expect(
+      createContactSubmission(
+        { ...validPayload, ...override },
+        requestMetadata,
+      ),
+    ).rejects.toBeDefined();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("accepts astral text at documented code-point boundaries", async () => {
+    await expect(
+      createContactSubmission(
+        {
+          ...validPayload,
+          name: "😀".repeat(120),
+          subject: "😀".repeat(160),
+          message: "😀".repeat(5_000),
+        },
+        requestMetadata,
+      ),
+    ).resolves.toEqual({ accepted: true });
+    expect(prisma.$queryRaw).toHaveBeenCalledOnce();
   });
 
   it("routes malformed honeypot submissions before validating normal fields", async () => {
