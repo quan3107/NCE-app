@@ -21,37 +21,45 @@ import { getIcon } from '@features/navigation/utils/iconMap';
 import { isNavigationPathCurrent } from './appShell.helpers';
 
 type MobilePublicNavigationProps = {
+  currentEntryKey: string;
   currentPath: string;
   items: NavigationItem[];
   navigate: (path: string) => void;
 };
 
 export function MobilePublicNavigation({
+  currentEntryKey,
   currentPath,
   items,
   navigate,
 }: MobilePublicNavigationProps) {
-  const [openAtPath, setOpenAtPath] = useState<string | null>(null);
-  const open = openAtPath === currentPath;
+  const [openAtEntryKey, setOpenAtEntryKey] = useState<string | null>(null);
+  const open = openAtEntryKey === currentEntryKey;
+
+  useEffect(() => {
+    setOpenAtEntryKey((entryKey) =>
+      entryKey === currentEntryKey ? entryKey : null,
+    );
+  }, [currentEntryKey]);
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return undefined;
     const desktop = window.matchMedia('(min-width: 768px)');
     const closeAtDesktop = (event: MediaQueryListEvent) => {
-      if (event.matches) setOpenAtPath(null);
+      if (event.matches) setOpenAtEntryKey(null);
     };
 
-    if (desktop.matches) setOpenAtPath(null);
+    if (desktop.matches) setOpenAtEntryKey(null);
     desktop.addEventListener('change', closeAtDesktop);
     return () => desktop.removeEventListener('change', closeAtDesktop);
   }, []);
 
   const handleOpenChange = (nextOpen: boolean) => {
-    setOpenAtPath(nextOpen ? currentPath : null);
+    setOpenAtEntryKey(nextOpen ? currentEntryKey : null);
   };
 
   const navigateFromSheet = (path: string) => {
-    setOpenAtPath(null);
+    setOpenAtEntryKey(null);
     navigate(path);
   };
 
