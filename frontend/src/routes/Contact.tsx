@@ -31,7 +31,7 @@ export function ContactRoute() {
   const submission = useContactSubmissionMutation();
   const [clientErrors, setClientErrors] = useState<ContactFieldErrors>({});
   const [dismissedServerFields, setDismissedServerFields] = useState<Set<ContactField>>(new Set());
-  const attempt = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
+  const unresolvedAttempts = useRef(new Map<string, string>());
   const serverErrors = backendContactFieldErrors(submission.error);
   const fieldErrors = submission.isError
     ? withoutDismissedContactErrors(serverErrors, dismissedServerFields)
@@ -74,13 +74,10 @@ export function ContactRoute() {
     }
 
     const fingerprint = JSON.stringify(payload);
-    let currentAttempt = attempt.current;
-    if (!currentAttempt || currentAttempt.fingerprint !== fingerprint) {
-      currentAttempt = {
-        fingerprint,
-        idempotencyKey: globalThis.crypto.randomUUID(),
-      };
-      attempt.current = currentAttempt;
+    let idempotencyKey = unresolvedAttempts.current.get(fingerprint);
+    if (!idempotencyKey) {
+      idempotencyKey = globalThis.crypto.randomUUID();
+      unresolvedAttempts.current.set(fingerprint, idempotencyKey);
     }
     setClientErrors({});
     setDismissedServerFields(new Set());
@@ -89,12 +86,12 @@ export function ContactRoute() {
     try {
       await submission.mutateAsync({
         ...payload,
-        idempotencyKey: currentAttempt.idempotencyKey,
+        idempotencyKey,
       });
-      attempt.current = null;
+      unresolvedAttempts.current.delete(fingerprint);
       form.reset();
     } catch {
-      // Preserve both the frozen values and idempotency key for a safe retry.
+      // Preserve every unresolved fingerprint so switching drafts stays retry-safe.
     }
   };
 
@@ -290,5 +287,4 @@ export function ContactRoute() {
     </div>
   );
 }
-
 
