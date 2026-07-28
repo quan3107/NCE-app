@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-28:** Validated honeypot type and Unicode-character bounds before spam masking, retained 202 responses for valid nonempty traps, and added real-route regressions for invalid JSON trap values.
+
 - **2026-07-28:** Bound contact idempotency keys to canonical persisted fields with a forward migration, rejected NUL and unpaired-surrogate text before node-postgres encoding, and added real PostgreSQL conflict and Unicode round-trip coverage.
 
 - **2026-07-28:** No backend files changed for the frontend test-runner memory correction.
@@ -62,6 +64,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-28:** Aligned contact name, email, subject, and message length validation with OpenAPI Unicode code-point semantics and added astral-character boundary tests.
 
 - **2026-07-28:** Preserved unresolved contact retry keys per canonical fingerprint across A/B/A edits and forwarded sheet overlay refs for warning-free Radix Presence cleanup.
 
