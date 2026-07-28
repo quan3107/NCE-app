@@ -5,6 +5,10 @@
  */
 import { z } from "zod";
 
+function unicodeCodePointLength(value: string): number {
+  return Array.from(value).length;
+}
+
 function isPostgresSafeText(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const codeUnit = value.charCodeAt(index);
@@ -23,8 +27,12 @@ function isPostgresSafeText(value: string): boolean {
 const canonicalText = (minimum: number, maximum: number) =>
   z
     .string()
-    .min(minimum)
-    .max(maximum)
+    .refine((value) => unicodeCodePointLength(value) >= minimum, {
+      message: `Must contain at least ${minimum} Unicode characters.`,
+    })
+    .refine((value) => unicodeCodePointLength(value) <= maximum, {
+      message: `Must contain at most ${maximum} Unicode characters.`,
+    })
     .refine((value) => value === value.trim(), {
       message: "Must not have leading or trailing whitespace.",
     })
@@ -39,7 +47,9 @@ export const contactSubmissionSchema = z
     email: z
       .string()
       .email()
-      .max(254)
+      .refine((value) => unicodeCodePointLength(value) <= 254, {
+        message: "Must contain at most 254 Unicode characters.",
+      })
       .refine((value) => value === value.trim(), {
         message: "Must not have leading or trailing whitespace.",
       })
@@ -47,8 +57,15 @@ export const contactSubmissionSchema = z
     subject: canonicalText(3, 160),
     message: canonicalText(10, 5_000),
     // Hidden from assistive technology and normal users; filled values identify simple bots.
-    website: z.string().max(500).optional().default(""),
+    website: z
+      .string()
+      .refine((value) => unicodeCodePointLength(value) <= 500, {
+        message: "Must contain at most 500 Unicode characters.",
+      })
+      .optional()
+      .default(""),
   })
   .strict();
 
+export const contactHoneypotSchema = contactSubmissionSchema.shape.website;
 export type ContactSubmissionInput = z.input<typeof contactSubmissionSchema>;
