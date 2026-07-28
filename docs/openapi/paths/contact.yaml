@@ -26,6 +26,12 @@ ContactSubmission:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Idempotency key is already bound to a different canonical submission payload
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '429':
         description: Too many contact submissions from this client
         headers:
