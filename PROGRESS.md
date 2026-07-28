@@ -67,6 +67,8 @@ and
 
 ## Frontend
 
+- **2026-07-28:** Kept unresolved contact retry identities authoritative in memory when per-tab storage remains readable but quota-blocked writes fail, with recovery and regression coverage.
+
 - **2026-07-28:** Preserved unresolved contact retry identities across route remounts with a bounded, expiring per-tab registry; rendered mobile destinations as native router links; and aligned no-POST email validation with the backend Zod contract.
 
 - **2026-07-28:** Aligned contact name, email, subject, and message length validation with OpenAPI Unicode code-point semantics and added astral-character boundary tests.
