@@ -11,7 +11,9 @@ export type ContactFieldErrors = Partial<Record<ContactField, string>>;
 export type ContactFormPayload = Omit<ContactSubmissionPayload, 'idempotencyKey'>;
 
 const CONTACT_FIELDS: ContactField[] = ['name', 'email', 'subject', 'message'];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Keep this predicate identical to the installed backend Zod email contract.
+const EMAIL_PATTERN =
+  /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9-]*\.)+[A-Za-z]{2,}$/;
 
 function unicodeCodePointLength(value: string): number {
   return Array.from(value).length;
