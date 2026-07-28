@@ -19,6 +19,44 @@ export type ContactRequestMetadata = {
 
 export type ContactSubmissionResult = { accepted: true };
 
+const IDEMPOTENCY_CONFLICT_MESSAGE =
+  "Idempotency key is already bound to a different contact payload.";
+
+type RawQueryErrorMeta = {
+  driverAdapterError?: {
+    cause?: {
+      originalCode?: unknown;
+      originalMessage?: unknown;
+    };
+  };
+};
+
+function isIdempotencyPayloadConflict(error: unknown): boolean {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== "P2010"
+  ) {
+    return false;
+  }
+  const cause = (error.meta as RawQueryErrorMeta | undefined)
+    ?.driverAdapterError?.cause;
+  return (
+    cause?.originalCode === "23505" &&
+    typeof cause.originalMessage === "string" &&
+    cause.originalMessage.includes(IDEMPOTENCY_CONFLICT_MESSAGE)
+  );
+}
+
+function createIdempotencyConflict(): Error & {
+  statusCode: number;
+  expose: boolean;
+} {
+  return Object.assign(new Error(IDEMPOTENCY_CONFLICT_MESSAGE), {
+    statusCode: 409,
+    expose: true,
+  });
+}
+
 function isHoneypotSubmission(payload: unknown): boolean {
   const website =
     typeof payload === "object" && payload !== null
@@ -46,17 +84,24 @@ export async function createContactSubmission(
 
   // The security-definer function owns table access and deduplicates retries.
   // Request roles receive EXECUTE only; no protected row is returned.
-  await prisma.$queryRaw(Prisma.sql`
-    SELECT app.submit_contact_message(
-      ${data.idempotencyKey}::uuid,
-      ${data.name},
-      ${data.email},
-      ${data.subject},
-      ${data.message},
-      ${requestMetadata.source},
-      ${metadata}::jsonb
-    )::text
-  `);
+  try {
+    await prisma.$queryRaw(Prisma.sql`
+      SELECT app.submit_contact_message(
+        ${data.idempotencyKey}::uuid,
+        ${data.name},
+        ${data.email},
+        ${data.subject},
+        ${data.message},
+        ${requestMetadata.source},
+        ${metadata}::jsonb
+      )::text
+    `);
+  } catch (error) {
+    if (isIdempotencyPayloadConflict(error)) {
+      throw createIdempotencyConflict();
+    }
+    throw error;
+  }
 
   return { accepted: true };
 }
