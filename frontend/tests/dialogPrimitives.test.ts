@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 
 import { Button } from '../src/components/ui/button';
 import { DialogContent, DialogOverlay } from '../src/components/ui/dialog';
+import * as sheetPrimitives from '../src/components/ui/sheet';
 
 const forwardRefType = Symbol.for('react.forward_ref');
 
@@ -32,4 +33,11 @@ test('shared button forwards the trigger ref for Radix focus restoration', () =>
     (Button as unknown as { $$typeof?: symbol }).$$typeof,
     forwardRefType,
   );
+});
+
+test('sheet overlay forwards refs for Radix presence cleanup', () => {
+  const sheetOverlay = Reflect.get(sheetPrimitives, 'SheetOverlay') as
+    | { $$typeof?: symbol }
+    | undefined;
+  assert.equal(sheetOverlay?.$$typeof, forwardRefType);
 });
