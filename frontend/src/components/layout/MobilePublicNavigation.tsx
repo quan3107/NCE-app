@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { Button } from '@components/ui/button';
 import {
@@ -31,7 +32,6 @@ export function MobilePublicNavigation({
   currentEntryKey,
   currentPath,
   items,
-  navigate,
 }: MobilePublicNavigationProps) {
   const [openAtEntryKey, setOpenAtEntryKey] = useState<string | null>(null);
   const open = openAtEntryKey === currentEntryKey;
@@ -58,9 +58,8 @@ export function MobilePublicNavigation({
     setOpenAtEntryKey(nextOpen ? currentEntryKey : null);
   };
 
-  const navigateFromSheet = (path: string) => {
+  const closeSheet = () => {
     setOpenAtEntryKey(null);
-    navigate(path);
   };
 
   return (
@@ -88,14 +87,18 @@ export function MobilePublicNavigation({
             return (
               <Button
                 key={item.id}
-                type="button"
+                asChild
                 variant={isCurrent ? 'secondary' : 'ghost'}
                 className="justify-start gap-3"
-                aria-current={isCurrent ? 'page' : undefined}
-                onClick={() => navigateFromSheet(item.path)}
               >
-                <Icon className="size-5" />
-                {item.label}
+                <Link
+                  to={item.path}
+                  aria-current={isCurrent ? 'page' : undefined}
+                  onClick={closeSheet}
+                >
+                  <Icon className="size-5" />
+                  {item.label}
+                </Link>
               </Button>
             );
           })}
