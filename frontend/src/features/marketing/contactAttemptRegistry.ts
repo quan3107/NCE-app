@@ -16,6 +16,8 @@ const STORAGE_KEY = 'nce.contact-attempts.v1';
 const ATTEMPT_TTL_MS = 24 * 60 * 60 * 1_000;
 const MAX_ATTEMPTS = 20;
 let fallbackAttempts: ContactAttempt[] = [];
+// Failed writes make storage stale, so memory stays authoritative until resynced.
+let persistentWritesSucceeded = true;
 
 function isContactAttempt(value: unknown): value is ContactAttempt {
   if (typeof value !== 'object' || value === null) return false;
@@ -32,19 +34,22 @@ function writeAttempts(attempts: ContactAttempt[]): void {
   fallbackAttempts = attempts;
   try {
     globalThis.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(attempts));
+    persistentWritesSucceeded = true;
   } catch {
-    // The in-memory fallback keeps retries stable when tab storage is unavailable.
+    persistentWritesSucceeded = false;
   }
 }
 
 function readAttempts(now: number): ContactAttempt[] {
   let storedAttempts = fallbackAttempts;
-  try {
-    const stored = globalThis.sessionStorage.getItem(STORAGE_KEY);
-    const parsed = stored === null ? [] : JSON.parse(stored) as unknown;
-    storedAttempts = Array.isArray(parsed) ? parsed.filter(isContactAttempt) : [];
-  } catch {
-    // Malformed or unavailable storage falls back to the current tab process.
+  if (persistentWritesSucceeded) {
+    try {
+      const stored = globalThis.sessionStorage.getItem(STORAGE_KEY);
+      const parsed = stored === null ? [] : JSON.parse(stored) as unknown;
+      storedAttempts = Array.isArray(parsed) ? parsed.filter(isContactAttempt) : [];
+    } catch {
+      // Malformed or unavailable storage falls back to the current tab process.
+    }
   }
 
   const activeAttempts = storedAttempts
