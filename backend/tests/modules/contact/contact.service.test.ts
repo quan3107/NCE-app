@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createContactSubmission } from "../../../src/modules/contact/contact.service.js";
 import { prisma as prismaClient } from "../../../src/prisma/client.js";
+import { Prisma } from "../../../src/prisma/index.js";
 
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
@@ -83,6 +84,9 @@ describe("contact.service", () => {
     [{ idempotencyKey, name: "A", email: "ada@example.com", subject: "Help", message: "A valid message" }],
     [{ idempotencyKey, name: " Ada ", email: "ada@example.com", subject: "Help", message: "A valid message" }],
     [{ idempotencyKey, name: "Ada", email: "not-an-email", subject: "Help", message: "A valid message" }],
+    [{ idempotencyKey, name: "Ada", email: "a..b@example.com", subject: "Help", message: "A valid message" }],
+    [{ idempotencyKey, name: "Ada", email: ".a@example.com", subject: "Help", message: "A valid message" }],
+    [{ idempotencyKey, name: "Ada", email: "é@example.com", subject: "Help", message: "A valid message" }],
     [{ idempotencyKey, name: "Ada", email: "ada@example.com", subject: "Hi", message: "short" }],
     [{ idempotencyKey: "not-a-uuid", name: "Ada", email: "ada@example.com", subject: "Help", message: "A valid message" }],
     [{ idempotencyKey, name: "Ada", email: "ada@example.com", subject: "Help", message: "A valid message", extra: true }],
@@ -184,5 +188,59 @@ describe("contact.service", () => {
       ),
     ).resolves.toEqual({ accepted: true });
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("maps the verified raw-query payload mismatch envelope to an exposed 409", async () => {
+    const conflict = new Prisma.PrismaClientKnownRequestError(
+      "Raw query failed.",
+      {
+        code: "P2010",
+        clientVersion: "7.9.0",
+        meta: {
+          driverAdapterError: {
+            cause: {
+              kind: "postgres",
+              originalCode: "23505",
+              originalMessage:
+                "ERROR: Idempotency key is already bound to a different contact payload.",
+            },
+          },
+        },
+      },
+    );
+    prisma.$queryRaw.mockRejectedValueOnce(conflict);
+
+    await expect(
+      createContactSubmission(validPayload, requestMetadata),
+    ).rejects.toMatchObject({
+      message:
+        "Idempotency key is already bound to a different contact payload.",
+      statusCode: 409,
+      expose: true,
+    });
+  });
+
+  it("does not translate unrelated raw-query failures", async () => {
+    const failure = new Prisma.PrismaClientKnownRequestError(
+      "Raw query failed.",
+      {
+        code: "P2010",
+        clientVersion: "7.9.0",
+        meta: {
+          driverAdapterError: {
+            cause: {
+              kind: "postgres",
+              originalCode: "23505",
+              originalMessage: "ERROR: another unique constraint failed.",
+            },
+          },
+        },
+      },
+    );
+    prisma.$queryRaw.mockRejectedValueOnce(failure);
+
+    await expect(
+      createContactSubmission(validPayload, requestMetadata),
+    ).rejects.toBe(failure);
   });
 });
