@@ -5,7 +5,10 @@
  */
 import { prisma } from "../../prisma/client.js";
 import { Prisma } from "../../prisma/index.js";
-import { contactSubmissionSchema } from "./contact.schema.js";
+import {
+  contactHoneypotSchema,
+  contactSubmissionSchema,
+} from "./contact.schema.js";
 
 export type ContactRequestMetadata = {
   source: "public-contact";
@@ -17,18 +20,19 @@ export type ContactRequestMetadata = {
 export type ContactSubmissionResult = { accepted: true };
 
 function isHoneypotSubmission(payload: unknown): boolean {
-  if (typeof payload !== "object" || payload === null) return false;
-  const website = (payload as Record<string, unknown>).website;
-  if (typeof website === "string") return website.length > 0;
-  return website !== undefined && website !== null;
+  const website =
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).website
+      : undefined;
+  return contactHoneypotSchema.parse(website).length > 0;
 }
 
 export async function createContactSubmission(
   payload: unknown,
   requestMetadata: ContactRequestMetadata,
 ): Promise<ContactSubmissionResult> {
-  // Classify the bounded trap field before normal validation so spam receives
-  // the exact same external outcome even when its visible fields are malformed.
+  // Validate the trap field before classification, then mask valid nonempty
+  // values even when the visible fields are malformed.
   if (isHoneypotSubmission(payload)) {
     return { accepted: true };
   }
