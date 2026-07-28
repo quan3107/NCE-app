@@ -13,6 +13,34 @@ export type ContactFormPayload = Omit<ContactSubmissionPayload, 'idempotencyKey'
 const CONTACT_FIELDS: ContactField[] = ['name', 'email', 'subject', 'message'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export function contactFieldFromName(name: string): ContactField | null {
+  return CONTACT_FIELDS.includes(name as ContactField)
+    ? (name as ContactField)
+    : null;
+}
+
+export function withoutContactFieldError(
+  errors: ContactFieldErrors,
+  field: ContactField,
+): ContactFieldErrors {
+  if (!errors[field]) return errors;
+  const nextErrors = { ...errors };
+  delete nextErrors[field];
+  return nextErrors;
+}
+
+export function withoutDismissedContactErrors(
+  errors: ContactFieldErrors,
+  dismissedFields: ReadonlySet<ContactField>,
+): ContactFieldErrors {
+  return CONTACT_FIELDS.reduce<ContactFieldErrors>((visibleErrors, field) => {
+    if (!dismissedFields.has(field) && errors[field]) {
+      visibleErrors[field] = errors[field];
+    }
+    return visibleErrors;
+  }, {});
+}
+
 export function canonicalContactPayload(formData: FormData): ContactFormPayload {
   return {
     name: String(formData.get('name') ?? '').trim(),
