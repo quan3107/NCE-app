@@ -9,10 +9,15 @@ import { afterEach, test, vi } from 'vitest';
 
 import { AppShellPublic } from '../src/components/layout/AppShellPublic';
 
-const router = vi.hoisted(() => ({ currentPath: '/', navigate: vi.fn() }));
+const router = vi.hoisted(() => ({
+  currentEntryKey: 'home-entry',
+  currentPath: '/',
+  navigate: vi.fn(),
+}));
 
 vi.mock('@lib/router', () => ({
   useRouter: () => ({
+    currentEntryKey: router.currentEntryKey,
     currentPath: router.currentPath,
     navigate: router.navigate,
   }),
@@ -28,6 +33,7 @@ vi.mock('@store/authStore', () => ({
 
 afterEach(() => {
   cleanup();
+  router.currentEntryKey = 'home-entry';
   router.currentPath = '/';
   vi.clearAllMocks();
   vi.unstubAllGlobals();
@@ -57,6 +63,20 @@ test('mobile menu exposes destinations and identifies the current page', async (
   assert.ok(screen.queryByRole('dialog') === null);
 });
 
+test('closing the mobile sheet with Escape restores focus to its trigger', async () => {
+  render(publicShell());
+
+  const trigger = screen.getByRole('button', { name: /open navigation/i });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const dialog = await screen.findByRole('dialog');
+
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+
+  await waitFor(() => assert.ok(screen.queryByRole('dialog') === null));
+  assert.equal(document.activeElement, trigger);
+});
+
 test.each(['/contact/', '/CONTACT'])(
   'desktop and mobile navigation identify the router alias %s',
   async (currentPath) => {
@@ -80,10 +100,30 @@ test.each(['/contact/', '/CONTACT'])(
 
 test('route changes invalidate an open mobile sheet', async () => {
   const view = render(publicShell());
+  const trigger = screen.getByRole('button', { name: /open navigation/i });
+  fireEvent.click(trigger);
+  await screen.findByRole('dialog');
+
+  router.currentEntryKey = 'about-entry';
+  router.currentPath = '/about';
+  view.rerender(publicShell());
+
+  await waitFor(() => assert.ok(screen.queryByRole('dialog') === null));
+  assert.equal(screen.getByRole('button', { name: /open navigation/i }), trigger);
+  assert.equal(
+    screen.getByRole('button', { name: /open navigation/i }).getAttribute('aria-expanded'),
+    'false',
+  );
+});
+
+test('same-path history entry changes invalidate an open mobile sheet', async () => {
+  router.currentEntryKey = 'contact-entry-1';
+  router.currentPath = '/contact';
+  const view = render(publicShell());
   fireEvent.click(screen.getByRole('button', { name: /open navigation/i }));
   await screen.findByRole('dialog');
 
-  router.currentPath = '/about';
+  router.currentEntryKey = 'contact-entry-2';
   view.rerender(publicShell());
 
   await waitFor(() => assert.ok(screen.queryByRole('dialog') === null));
