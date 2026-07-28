@@ -5,6 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, test, vi } from 'vitest';
 
 import { AppShellPublic } from '../src/components/layout/AppShellPublic';
@@ -40,10 +41,11 @@ afterEach(() => {
 });
 
 const publicShell = () => <AppShellPublic><main>Public page</main></AppShellPublic>;
+const renderPublicShell = () => render(publicShell(), { wrapper: MemoryRouter });
 
 test('mobile menu exposes destinations and identifies the current page', async () => {
   router.currentPath = '/contact';
-  render(publicShell());
+  renderPublicShell();
 
   const trigger = screen.getByRole('button', { name: /open navigation/i });
   trigger.focus();
@@ -51,20 +53,22 @@ test('mobile menu exposes destinations and identifies the current page', async (
 
   const dialog = await screen.findByRole('dialog');
   for (const label of ['Home', 'Courses', 'About', 'Contact']) {
-    assert.ok(within(dialog).getByRole('button', { name: new RegExp(label, 'i') }));
+    assert.ok(within(dialog).getByRole('link', { name: new RegExp(label, 'i') }));
   }
   assert.equal(
-    within(dialog).getByRole('button', { name: /contact/i }).getAttribute('aria-current'),
+    within(dialog).getByRole('link', { name: /contact/i }).getAttribute('aria-current'),
     'page',
   );
 
-  fireEvent.click(within(dialog).getByRole('button', { name: /about/i }));
-  assert.deepEqual(router.navigate.mock.calls.at(-1), ['/about']);
+  const aboutLink = within(dialog).getByRole('link', { name: /about/i });
+  assert.equal(aboutLink.getAttribute('href'), '/about');
+  fireEvent.click(aboutLink);
+  assert.equal(router.navigate.mock.calls.length, 0);
   assert.ok(screen.queryByRole('dialog') === null);
 });
 
 test('closing the mobile sheet with Escape restores focus to its trigger', async () => {
-  render(publicShell());
+  renderPublicShell();
 
   const trigger = screen.getByRole('button', { name: /open navigation/i });
   trigger.focus();
@@ -81,7 +85,7 @@ test.each(['/contact/', '/CONTACT'])(
   'desktop and mobile navigation identify the router alias %s',
   async (currentPath) => {
     router.currentPath = currentPath;
-    render(publicShell());
+    renderPublicShell();
 
     const navigation = screen.getByRole('navigation');
     assert.equal(
@@ -92,14 +96,14 @@ test.each(['/contact/', '/CONTACT'])(
     fireEvent.click(within(navigation).getByRole('button', { name: /open navigation/i }));
     const dialog = await screen.findByRole('dialog');
     assert.equal(
-      within(dialog).getByRole('button', { name: /contact/i }).getAttribute('aria-current'),
+      within(dialog).getByRole('link', { name: /contact/i }).getAttribute('aria-current'),
       'page',
     );
   },
 );
 
 test('route changes invalidate an open mobile sheet', async () => {
-  const view = render(publicShell());
+  const view = renderPublicShell();
   const trigger = screen.getByRole('button', { name: /open navigation/i });
   fireEvent.click(trigger);
   await screen.findByRole('dialog');
@@ -119,7 +123,7 @@ test('route changes invalidate an open mobile sheet', async () => {
 test('same-path history entry changes invalidate an open mobile sheet', async () => {
   router.currentEntryKey = 'contact-entry-1';
   router.currentPath = '/contact';
-  const view = render(publicShell());
+  const view = renderPublicShell();
   fireEvent.click(screen.getByRole('button', { name: /open navigation/i }));
   await screen.findByRole('dialog');
 
@@ -145,7 +149,7 @@ test('desktop breakpoint changes close a hidden mobile trigger and sheet', async
   };
   vi.stubGlobal('matchMedia', vi.fn(() => mediaQuery));
 
-  render(publicShell());
+  renderPublicShell();
   fireEvent.click(screen.getByRole('button', { name: /open navigation/i }));
   await screen.findByRole('dialog');
 
@@ -157,10 +161,35 @@ test('desktop breakpoint changes close a hidden mobile trigger and sheet', async
 });
 
 test('footer renders only destinations backed by live routes', () => {
-  render(publicShell());
+  renderPublicShell();
 
   assert.ok(screen.getByRole('contentinfo'));
   for (const unavailable of ['For Teachers', 'For Students', 'Privacy', 'Help Center', 'Documentation', 'Status']) {
     assert.ok(screen.queryByRole('button', { name: unavailable }) === null);
   }
+});
+
+test('modified mobile link clicks keep native link semantics', async () => {
+  renderPublicShell();
+  fireEvent.click(screen.getByRole('button', { name: /open navigation/i }));
+  const dialog = await screen.findByRole('dialog');
+  const coursesLink = within(dialog).getByRole('link', { name: /courses/i });
+  const modifiedClick = new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    ctrlKey: true,
+  });
+  let defaultPreventedByLink = true;
+  const stopTestNavigation = (event: MouseEvent) => {
+    defaultPreventedByLink = event.defaultPrevented;
+    event.preventDefault();
+  };
+  document.addEventListener('click', stopTestNavigation, { once: true });
+
+  coursesLink.dispatchEvent(modifiedClick);
+
+  assert.equal(defaultPreventedByLink, false);
+  assert.equal(coursesLink.getAttribute('href'), '/courses');
+  assert.equal(router.navigate.mock.calls.length, 0);
+  await waitFor(() => assert.ok(screen.queryByRole('dialog') === null));
 });
