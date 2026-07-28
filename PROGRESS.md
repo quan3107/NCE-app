@@ -13,6 +13,10 @@ and
 
 ## Backend
 
+- **2026-07-28:** No backend files changed for the frontend test-runner memory correction.
+
+- **2026-07-28:** No backend files changed for the mobile focus, contact retry identity, field-error persistence, and router-entry lifecycle fixes.
+
 - **2026-07-27:** Kept active contact rate-limit counters stable under identity churn, failed closed at capacity until expiry, and restricted contact triage updates to status timestamps rather than submitted payloads.
 
 - **2026-07-27:** Corrected the contact database boundary to connect as the runtime login before assuming request and service roles, and cast the execute-only function's void result to an adapter-supported type.
@@ -56,6 +60,10 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-28:** Capped Node and Vitest file-level test concurrency at two workers, preventing multi-gigabyte aggregate memory spikes while retaining parallel execution and regression coverage.
+
+- **2026-07-28:** Restored mobile-sheet trigger focus, closed overlays on full router-entry changes without remounting triggers, preserved canonical retry identities, and cleared only edited validation fields.
 
 - **2026-07-27:** Centralized exact public-route matching through React Router so trailing-slash and case aliases retain desktop and mobile current-page semantics.
 
