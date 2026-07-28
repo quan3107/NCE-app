@@ -4,7 +4,7 @@
  * Why: Keeps public contact content server-managed while submission remains a separate feature.
  */
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
@@ -25,13 +25,16 @@ import {
   type ContactField,
   type ContactFieldErrors,
 } from '@features/marketing/contactForm';
+import {
+  getContactAttempt,
+  resolveContactAttempt,
+} from '@features/marketing/contactAttemptRegistry';
 
 export function ContactRoute() {
   const contactQuery = useContactPageContentQuery();
   const submission = useContactSubmissionMutation();
   const [clientErrors, setClientErrors] = useState<ContactFieldErrors>({});
   const [dismissedServerFields, setDismissedServerFields] = useState<Set<ContactField>>(new Set());
-  const unresolvedAttempts = useRef(new Map<string, string>());
   const serverErrors = backendContactFieldErrors(submission.error);
   const fieldErrors = submission.isError
     ? withoutDismissedContactErrors(serverErrors, dismissedServerFields)
@@ -73,12 +76,7 @@ export function ContactRoute() {
       return;
     }
 
-    const fingerprint = JSON.stringify(payload);
-    let idempotencyKey = unresolvedAttempts.current.get(fingerprint);
-    if (!idempotencyKey) {
-      idempotencyKey = globalThis.crypto.randomUUID();
-      unresolvedAttempts.current.set(fingerprint, idempotencyKey);
-    }
+    const attempt = await getContactAttempt(payload);
     setClientErrors({});
     setDismissedServerFields(new Set());
     submission.reset();
@@ -86,9 +84,9 @@ export function ContactRoute() {
     try {
       await submission.mutateAsync({
         ...payload,
-        idempotencyKey,
+        idempotencyKey: attempt.idempotencyKey,
       });
-      unresolvedAttempts.current.delete(fingerprint);
+      resolveContactAttempt(attempt.fingerprint);
       form.reset();
     } catch {
       // Preserve every unresolved fingerprint so switching drafts stays retry-safe.
@@ -287,4 +285,3 @@ export function ContactRoute() {
     </div>
   );
 }
-
