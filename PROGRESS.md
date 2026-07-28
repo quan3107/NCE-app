@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-28:** Bound contact idempotency keys to canonical persisted fields with a forward migration, rejected NUL and unpaired-surrogate text before node-postgres encoding, and added real PostgreSQL conflict and Unicode round-trip coverage.
+
 - **2026-07-28:** No backend files changed for the frontend test-runner memory correction.
 
 - **2026-07-28:** No backend files changed for the mobile focus, contact retry identity, field-error persistence, and router-entry lifecycle fixes.
@@ -60,6 +62,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-28:** Preserved unresolved contact retry keys per canonical fingerprint across A/B/A edits and forwarded sheet overlay refs for warning-free Radix Presence cleanup.
 
 - **2026-07-28:** Capped Node and Vitest file-level test concurrency at two workers, preventing multi-gigabyte aggregate memory spikes while retaining parallel execution and regression coverage.
 
