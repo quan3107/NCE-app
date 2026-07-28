@@ -84,6 +84,35 @@ describe("contact.service", () => {
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["name containing NUL", { name: "Ada\u0000Lovelace" }],
+    ["subject containing NUL", { subject: "Course\u0000access" }],
+    ["message containing NUL", { message: "Please\u0000 help with access." }],
+    ["name containing a lone surrogate", { name: "Ada\uD800Lovelace" }],
+    ["subject containing a lone surrogate", { subject: "Course\uDC00access" }],
+    ["message containing a lone surrogate", { message: "Please \uD800help with access." }],
+  ])("rejects PostgreSQL-unsafe %s", async (_case, override) => {
+    await expect(
+      createContactSubmission(
+        {
+          idempotencyKey,
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          subject: "Course access",
+          message: "Please help me access my course.",
+          ...override,
+        },
+        {
+          source: "public-contact",
+          ip: null,
+          userAgent: null,
+          referrer: null,
+        },
+      ),
+    ).rejects.toBeDefined();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
   it("routes malformed honeypot submissions before validating normal fields", async () => {
     await expect(
       createContactSubmission(
