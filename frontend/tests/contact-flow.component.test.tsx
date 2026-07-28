@@ -20,6 +20,7 @@ const contactContent = {
 
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -184,6 +185,26 @@ test('validates trimmed canonical values before sending', async () => {
 
   assert.ok(await screen.findByText(/name must be at least 2 characters after trimming/i));
   assert.ok(screen.getByText(/message must be at least 10 characters after trimming/i));
+  assert.equal(postCount, 0);
+});
+
+test.each([
+  'a..b@example.com',
+  '.a@example.com',
+  'é@example.com',
+])('rejects backend-invalid email %s without posting', async (email) => {
+  let postCount = 0;
+  mockContactRequests(async () => {
+    postCount += 1;
+    return new Response(JSON.stringify({ accepted: true }), { status: 202 });
+  });
+
+  renderContact();
+  await screen.findByRole('heading', { name: 'Contact us' });
+  fillContactForm({ email });
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+  assert.ok(await screen.findByText(/enter a valid email address/i));
   assert.equal(postCount, 0);
 });
 
