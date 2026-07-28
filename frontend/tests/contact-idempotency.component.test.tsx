@@ -21,6 +21,7 @@ const contactContent = {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   sessionStorage.clear();
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -161,4 +162,37 @@ test('bounds unresolved attempts and replaces expired identities', async () => {
   vi.setSystemTime(new Date('2026-07-29T01:00:00Z'));
   const expiredReplacement = await getContactAttempt(payload);
   assert.notEqual(expiredReplacement.idempotencyKey, replacement.idempotencyKey);
+});
+
+test('keeps retry identity in memory when storage reads but writes fail', async () => {
+  const payload = {
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    subject: 'Storage quota',
+    message: 'Please help me access my course.',
+    website: '',
+  };
+  const readSpy = vi.fn<Storage['getItem']>(() => null);
+  const writeSpy = vi.fn<Storage['setItem']>();
+  vi.stubGlobal('sessionStorage', {
+    getItem: readSpy,
+    setItem: writeSpy,
+  });
+  await getContactAttempt({ ...payload, subject: 'Writable storage' });
+  readSpy.mockClear();
+  writeSpy.mockClear();
+  writeSpy.mockImplementation(() => {
+    throw new DOMException('Storage quota exceeded.', 'QuotaExceededError');
+  });
+
+  const firstAttempt = await getContactAttempt(payload);
+  const retryAttempt = await getContactAttempt(payload);
+
+  assert.equal(retryAttempt.idempotencyKey, firstAttempt.idempotencyKey);
+  assert.equal(readSpy.mock.calls.length, 1);
+  assert.ok(writeSpy.mock.calls.length >= 2);
+
+  // Let the module resynchronize so this failure mode cannot leak into later tests.
+  writeSpy.mockImplementation(() => undefined);
+  await getContactAttempt({ ...payload, subject: 'Storage recovered' });
 });
