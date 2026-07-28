@@ -18,7 +18,11 @@ import {
 import {
   backendContactFieldErrors,
   canonicalContactPayload,
+  contactFieldFromName,
   validateCanonicalContact,
+  withoutContactFieldError,
+  withoutDismissedContactErrors,
+  type ContactField,
   type ContactFieldErrors,
 } from '@features/marketing/contactForm';
 
@@ -26,16 +30,35 @@ export function ContactRoute() {
   const contactQuery = useContactPageContentQuery();
   const submission = useContactSubmissionMutation();
   const [clientErrors, setClientErrors] = useState<ContactFieldErrors>({});
+  const [dismissedServerFields, setDismissedServerFields] = useState<Set<ContactField>>(new Set());
   const attempt = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
   const serverErrors = backendContactFieldErrors(submission.error);
-  const fieldErrors = submission.isError ? serverErrors : clientErrors;
+  const fieldErrors = submission.isError
+    ? withoutDismissedContactErrors(serverErrors, dismissedServerFields)
+    : clientErrors;
   const hasFieldErrors = Object.keys(fieldErrors).length > 0;
 
-  const handleFormChange = () => {
+  const handleFormChange = (event: FormEvent<HTMLFormElement>) => {
     if (submission.isPending) return;
-    attempt.current = null;
-    setClientErrors({});
-    submission.reset();
+    const field = contactFieldFromName((event.target as HTMLInputElement).name);
+    if (field) {
+      setClientErrors((errors) => withoutContactFieldError(errors, field));
+    }
+    if (!submission.isError || Object.keys(serverErrors).length === 0) {
+      submission.reset();
+      return;
+    }
+    if (!field || !serverErrors[field]) return;
+    const dismissedFields = new Set(dismissedServerFields).add(field);
+    if (
+      Object.keys(withoutDismissedContactErrors(serverErrors, dismissedFields))
+        .length === 0
+    ) {
+      setDismissedServerFields(new Set());
+      submission.reset();
+      return;
+    }
+    setDismissedServerFields(dismissedFields);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -45,6 +68,7 @@ export function ContactRoute() {
     const validationErrors = validateCanonicalContact(payload);
     if (Object.keys(validationErrors).length > 0) {
       setClientErrors(validationErrors);
+      setDismissedServerFields(new Set());
       submission.reset();
       return;
     }
@@ -59,6 +83,7 @@ export function ContactRoute() {
       attempt.current = currentAttempt;
     }
     setClientErrors({});
+    setDismissedServerFields(new Set());
     submission.reset();
 
     try {
@@ -265,6 +290,5 @@ export function ContactRoute() {
     </div>
   );
 }
-
 
 
