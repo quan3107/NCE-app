@@ -41,3 +41,17 @@ test("refresh timeout aborts work and releases the cookie queue", async () => {
   assert.equal(refreshSignal?.aborted, true);
   assert.equal(await withDeadline(queuedLogout), "logout-complete");
 });
+
+test("generic cookie operation timeout aborts work and releases the queue", async () => {
+  const operations = createAuthCookieOperations({ operationTimeoutMs: 10 });
+  let operationSignal: AbortSignal | null = null;
+  const stalledLogin = operations.run(async (signal) => {
+    operationSignal = signal;
+    return new Promise<string>(() => undefined);
+  });
+  const queuedLogout = operations.run(async () => "logout-complete");
+
+  await assert.rejects(withDeadline(stalledLogin), { name: "AbortError" });
+  assert.equal(operationSignal?.aborted, true);
+  assert.equal(await withDeadline(queuedLogout), "logout-complete");
+});
