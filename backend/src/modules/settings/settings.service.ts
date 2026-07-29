@@ -4,13 +4,16 @@
  * Why: The settings UI must persist values consumed by upload enforcement.
  */
 import { prisma } from "../../prisma/client.js";
+import { createHttpError } from "../../utils/httpError.js";
 import { writeAuditLog } from "../audit-logs/audit-logs.service.js";
 import type {
   FileUploadLimitsPayload,
+  UpdateFileUploadLimitsPayload,
   UploadLimitRole,
 } from "./settings.schema.js";
 
 const BYTES_PER_MEGABYTE = 1024 * 1024;
+const UPDATE_ORDER: UploadLimitRole[] = ["student", "teacher", "admin"];
 
 const toPayload = (
   limits: Array<{ role: "admin" | "student" | "teacher"; maxFileSize: number }>,
@@ -31,40 +34,37 @@ export async function getFileUploadLimits(): Promise<FileUploadLimitsPayload> {
 }
 
 export async function updateFileUploadLimits(
-  input: FileUploadLimitsPayload,
+  input: UpdateFileUploadLimitsPayload,
   actorId: string,
 ): Promise<FileUploadLimitsPayload> {
   const limits = await prisma.$transaction(async (transaction) => {
-    const existing = await transaction.fileUploadPolicy.findMany({
-      where: {
-        role: {
-          in: input.limits.map((limit) => limit.role),
-        },
-      },
-      select: { role: true, maxFileSize: true },
-    });
-    const existingByRole = new Map(
-      existing.map((limit) => [limit.role, limit]),
-    );
-    const saved = [];
     const changedRoles: UploadLimitRole[] = [];
 
-    for (const limit of input.limits) {
-      const maxFileSize = limit.maxFileSizeMb * BYTES_PER_MEGABYTE;
-      const current = existingByRole.get(limit.role);
-      if (current?.maxFileSize === maxFileSize) {
-        saved.push(current);
+    for (const role of UPDATE_ORDER) {
+      const update = input.updates[role];
+      if (!update || update.expectedMaxFileSizeMb === update.maxFileSizeMb) {
         continue;
       }
 
-      saved.push(
-        await transaction.fileUploadPolicy.update({
-          where: { role: limit.role },
-          data: { maxFileSize },
-          select: { role: true, maxFileSize: true },
-        }),
-      );
-      changedRoles.push(limit.role);
+      const expectedMaxFileSize =
+        update.expectedMaxFileSizeMb * BYTES_PER_MEGABYTE;
+      const maxFileSize = update.maxFileSizeMb * BYTES_PER_MEGABYTE;
+      const [result] = await transaction.$queryRaw<Array<{ updated: boolean }>>`
+        SELECT app.update_file_upload_policy(
+          ${role},
+          ${expectedMaxFileSize},
+          ${maxFileSize}
+        ) AS updated
+      `;
+
+      if (!result?.updated) {
+        throw createHttpError(
+          409,
+          "File upload limits changed; reload before saving.",
+          { role },
+        );
+      }
+      changedRoles.push(role);
     }
 
     if (changedRoles.length > 0) {
@@ -80,7 +80,10 @@ export async function updateFileUploadLimits(
       );
     }
 
-    return saved;
+    return transaction.fileUploadPolicy.findMany({
+      select: { role: true, maxFileSize: true },
+      orderBy: { role: "asc" },
+    });
   });
 
   return toPayload(limits);
