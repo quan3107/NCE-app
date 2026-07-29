@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-29:** Added authenticated profile-name persistence with bounded audit markers, plus admin-only per-role upload-limit settings backed by the runtime file-upload policy table and documented in OpenAPI.
+
 - **2026-07-29:** Made the bounded contact rate-limit capacity purge scan every tracked expiry, preserving admission after backward wall-clock adjustments reorder expiration times.
 
 - **2026-07-28:** Translated the verified Prisma raw-query envelope for contact idempotency payload mismatches into an exposed HTTP 409, documented the response, and added service and route regressions.
@@ -68,6 +70,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-29:** Added controlled student, teacher, and admin profile editing with inline validation and synchronized auth/cache state; replaced cosmetic admin settings with persisted role upload limits.
 
 - **2026-07-29:** Moved retry-key preparation into the serialized contact mutation lifecycle, surfaced unavailable crypto as a visible error, and restricted form resets to the active submission.
 
