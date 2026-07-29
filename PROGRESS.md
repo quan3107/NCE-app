@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-29:** Added an idempotent migration for existing admin Profile navigation, renamed upload-limit API units to MiB, and documented explicit settings runtime failures.
+
 - **2026-07-29:** Routed Google-provisioned display names and email-derived fallbacks through the shared persistence-safe name policy before creating OAuth users.
 
 - **2026-07-29:** No backend files changed for the frontend profile-cache test isolation correction.
@@ -82,6 +84,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-29:** Coordinated auth-cookie mutations across tabs and OAuth redirects, isolated upload-policy caches by role/session with cancellation, reused Unicode-safe shell initials, dedicated the E2E frontend port, labeled upload limits as MiB, and restored the profile header action layout.
 
 - **2026-07-29:** Bound 401 retries to their initiating session, added abortable deadlines to every serialized auth-cookie mutation with late-response browser coverage, and made profile initials Unicode code-point safe.
 
