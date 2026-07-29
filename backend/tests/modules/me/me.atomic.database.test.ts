@@ -84,6 +84,10 @@ databaseDescribe("atomic profile updates", () => {
         "Ada\u0000Lovelace",
         "Ada\uD800Lovelace",
         "Ada\uDC00Lovelace",
+        "Ada\u200BLovelace",
+        "Ada\u202ELovelace",
+        "Ada\tLovelace",
+        "Ada\nLovelace",
       ]) {
         const response = await request(app)
           .patch("/api/v1/me")
