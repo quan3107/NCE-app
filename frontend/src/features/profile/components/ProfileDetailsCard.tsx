@@ -3,52 +3,119 @@
  * Purpose: Render the shared controlled profile editor for authenticated roles.
  * Why: Student, teacher, and admin profile routes should share persistence and validation.
  */
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Edit } from "lucide-react";
 
 import { Button } from "@components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@components/ui/card";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
-import { useUpdateMeProfileMutation } from "@features/profile/api";
+import {
+  meProfileQueryKey,
+  useMeProfileQuery,
+  useUpdateMeProfileMutation,
+} from "@features/profile/api";
+import { queryClient } from "@lib/queryClient";
 import { useAuthStore } from "@store/authStore";
 
 const NAME_ERROR = "Name must be between 2 and 100 characters.";
 
 export function ProfileDetailsCard() {
-  const { currentUser, updateCurrentUser } = useAuthStore();
+  const { currentUser, sessionGeneration, updateCurrentUser } = useAuthStore();
+  const profileQuery = useMeProfileQuery(currentUser.id);
   const updateProfile = useUpdateMeProfileMutation();
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState(currentUser.name);
   const [nameError, setNameError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const latestIdentity = useRef({
+    userId: currentUser.id,
+    generation: sessionGeneration,
+  });
+  const previousUserId = useRef(currentUser.id);
+  const requestSequence = useRef(0);
+  latestIdentity.current = {
+    userId: currentUser.id,
+    generation: sessionGeneration,
+  };
+  const authoritativeName =
+    profileQuery.data?.id === currentUser.id
+      ? profileQuery.data.fullName
+      : currentUser.name;
+
+  useEffect(() => {
+    if (previousUserId.current !== currentUser.id) {
+      previousUserId.current = currentUser.id;
+      requestSequence.current += 1;
+      setEditing(false);
+      setNameError(null);
+      setSaveError(null);
+      setFullName(authoritativeName);
+      return;
+    }
+
+    if (!editing) {
+      setFullName(authoritativeName);
+    }
+  }, [authoritativeName, currentUser.id, editing]);
 
   const cancelEditing = () => {
-    setFullName(currentUser.name);
+    requestSequence.current += 1;
+    setFullName(authoritativeName);
     setNameError(null);
     setSaveError(null);
     setEditing(false);
   };
 
+  const startEditing = () => {
+    setFullName(authoritativeName);
+    setNameError(null);
+    setSaveError(null);
+    setEditing(true);
+  };
+
   const submitProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedName = fullName.trim();
-    if (normalizedName.length < 2 || normalizedName.length > 100) {
+    const codePointLength = Array.from(normalizedName).length;
+    if (codePointLength < 2 || codePointLength > 100) {
       setNameError(NAME_ERROR);
       return;
     }
 
     setNameError(null);
     setSaveError(null);
+    const initiatingIdentity = { ...latestIdentity.current };
+    const requestId = requestSequence.current + 1;
+    requestSequence.current = requestId;
     try {
       const profile = await updateProfile.mutateAsync({
         fullName: normalizedName,
       });
-      updateCurrentUser({ name: profile.fullName });
+      const identityStillCurrent =
+        latestIdentity.current.userId === initiatingIdentity.userId &&
+        latestIdentity.current.generation === initiatingIdentity.generation;
+      if (
+        requestSequence.current !== requestId ||
+        !identityStillCurrent ||
+        profile.id !== initiatingIdentity.userId ||
+        !updateCurrentUser(initiatingIdentity, { name: profile.fullName })
+      ) {
+        return;
+      }
+      queryClient.setQueryData(
+        meProfileQueryKey(initiatingIdentity.userId),
+        profile,
+      );
       setFullName(profile.fullName);
       setEditing(false);
     } catch {
-      setSaveError("Unable to save your profile. Please try again.");
+      const identityStillCurrent =
+        latestIdentity.current.userId === initiatingIdentity.userId &&
+        latestIdentity.current.generation === initiatingIdentity.generation;
+      if (requestSequence.current === requestId && identityStillCurrent) {
+        setSaveError("Unable to save your profile. Please try again.");
+      }
     }
   };
 
@@ -66,7 +133,7 @@ export function ProfileDetailsCard() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => (editing ? cancelEditing() : setEditing(true))}
+          onClick={() => (editing ? cancelEditing() : startEditing())}
         >
           <Edit className="mr-2 size-4" />
           {editing ? "Cancel" : "Edit Profile"}
