@@ -20,7 +20,12 @@ import { getIcon } from '@features/navigation/utils/iconMap';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
-import { DASHBOARD_PATH_BY_ROLE, resolveProfilePath } from './appShell.helpers';
+import {
+  DASHBOARD_PATH_BY_ROLE,
+  isNavigationPathCurrent,
+  resolveProfilePath,
+} from './appShell.helpers';
+import { MobilePublicNavigation } from './MobilePublicNavigation';
 
 type AppShellPublicProps = {
   children: ReactNode;
@@ -79,7 +84,7 @@ const publicNavigationItems: NavigationItem[] = [
 
 export function AppShellPublic({ children }: AppShellPublicProps) {
   const { currentUser, isAuthenticated, logout } = useAuthStore();
-  const { currentPath, navigate } = useRouter();
+  const { currentEntryKey, currentPath, navigate } = useRouter();
 
   const isLoggedIn = isAuthenticated && currentUser.role !== 'public';
   const dashboardPath = DASHBOARD_PATH_BY_ROLE[currentUser.role];
@@ -105,11 +110,13 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
               <div className="hidden md:flex items-center gap-1">
                 {publicNavigationItems.map((item) => {
                   const Icon = getIcon(item.iconName);
+                  const isCurrent = isNavigationPathCurrent(currentPath, item.path);
 
                   return (
                     <Button
                       key={item.id}
-                      variant={currentPath === item.path ? 'secondary' : 'ghost'}
+                      variant={isCurrent ? 'secondary' : 'ghost'}
+                      aria-current={isCurrent ? 'page' : undefined}
                       onClick={() => navigate(item.path)}
                       className="gap-2"
                     >
@@ -122,6 +129,12 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <MobilePublicNavigation
+                currentEntryKey={currentEntryKey}
+                currentPath={currentPath}
+                items={publicNavigationItems}
+                navigate={navigate}
+              />
               {isLoggedIn ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -163,7 +176,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
                   <Button variant="ghost" onClick={() => navigate('/login')}>
                     Login
                   </Button>
-                  <Button onClick={() => navigate('/login')}>Get Started</Button>
+                  <Button className="hidden sm:inline-flex" onClick={() => navigate('/login')}>Get Started</Button>
                 </>
               )}
             </div>
@@ -175,7 +188,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
 
       <footer className="border-t bg-card/70 py-12 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="brand-mark size-8">
@@ -192,8 +205,6 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
               <h3 className="font-medium mb-4">Platform</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><button onClick={() => navigate('/courses')}>Courses</button></li>
-                <li><button>For Teachers</button></li>
-                <li><button>For Students</button></li>
               </ul>
             </div>
 
@@ -202,18 +213,9 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><button onClick={() => navigate('/about')}>About</button></li>
                 <li><button onClick={() => navigate('/contact')}>Contact</button></li>
-                <li><button>Privacy</button></li>
               </ul>
             </div>
 
-            <div>
-              <h3 className="font-medium mb-4">Support</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><button>Help Center</button></li>
-                <li><button>Documentation</button></li>
-                <li><button>Status</button></li>
-              </ul>
-            </div>
           </div>
 
           <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">

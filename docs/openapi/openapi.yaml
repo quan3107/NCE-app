@@ -33,6 +33,7 @@ tags:
   - name: ielts-config
   - name: ai-feedback
   - name: cms
+  - name: contact
   - name: nce-content
   - name: nce-learning
 
@@ -99,6 +100,8 @@ paths:
     $ref: './paths/cms.yaml#/AdminPageRollback'
   /api/v1/cms/refresh-stats:
     $ref: './paths/cms.yaml#/RefreshStats'
+  /api/v1/contact:
+    $ref: './paths/contact.yaml#/ContactSubmission'
 
   /api/v1/assignments/pending-count:
     $ref: './paths/assignments.yaml#/PendingAssignmentsCount'

@@ -16,6 +16,8 @@ export default defineConfig({
       '@radix-ui/react-alert-dialog@1.1.6': '@radix-ui/react-alert-dialog',
       '@radix-ui/react-label@2.1.2': '@radix-ui/react-label',
       '@radix-ui/react-dialog@1.1.6': '@radix-ui/react-dialog',
+      '@radix-ui/react-avatar@1.1.3': '@radix-ui/react-avatar',
+      '@radix-ui/react-dropdown-menu@2.1.6': '@radix-ui/react-dropdown-menu',
       '@radix-ui/react-progress@1.1.2': '@radix-ui/react-progress',
       '@radix-ui/react-select@2.1.6': '@radix-ui/react-select',
       '@radix-ui/react-switch@1.1.3': '@radix-ui/react-switch',
@@ -36,6 +38,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/*.component.test.tsx'],
+    // Each isolated jsdom worker is large; two retain parallelism without multi-GB spikes.
+    maxWorkers: 2,
     env: {
       VITE_API_BASE_URL: 'http://localhost:4000/api/v1',
     },

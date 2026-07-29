@@ -13,6 +13,7 @@ import { assignmentRouter } from "./assignments/assignments.routes.js";
 import { authRouter } from "./auth/auth.routes.js";
 import { auditLogRouter } from "./audit-logs/audit-logs.routes.js";
 import { courseRouter } from "./courses/courses.routes.js";
+import { contactRouter } from "./contact/contact.routes.js";
 import { courseManagementTabsRouter } from "./course-management-tabs/course-management-tabs.routes.js";
 import {
   dashboardWidgetsRouter,
@@ -57,6 +58,7 @@ apiRouter.use("/users", userRouter);
 apiRouter.use("/ai-feedback", aiFeedbackRouter);
 apiRouter.use("/analytics", analyticsRouter);
 apiRouter.use("/audit-logs", auditLogRouter);
+apiRouter.use("/contact", contactRouter);
 apiRouter.use("/enrollments", enrollmentRouter);
 apiRouter.use("/courses", courseRouter);
 apiRouter.use("/config/dashboard-widgets", dashboardWidgetsRouter);

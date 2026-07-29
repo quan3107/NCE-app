@@ -1,0 +1,52 @@
+# File: docs/openapi/paths/contact.yaml
+# Purpose: Define the anonymous contact submission endpoint.
+# Why: Documents persistence, validation, spam routing, and rate-limit behavior.
+
+ContactSubmission:
+  post:
+    tags: [contact]
+    summary: Submit a public contact message
+    description: Accepts one idempotent logical attempt and returns the same response for every accepted outcome.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/contact.yaml#/ContactSubmissionRequest'
+    responses:
+      '202':
+        description: Submission accepted; persistence and abuse classification are intentionally undisclosed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/contact.yaml#/ContactSubmissionAccepted'
+      '400':
+        description: Invalid submission payload
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Idempotency key is already bound to a different canonical submission payload
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '429':
+        description: Too many contact submissions from this client
+        headers:
+          Retry-After:
+            description: Seconds until another submission may be attempted.
+            schema:
+              type: integer
+              minimum: 1
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Contact persistence failed
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'

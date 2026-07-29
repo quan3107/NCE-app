@@ -14,6 +14,7 @@ import {
 } from 'react-router-dom';
 
 type RouterContextType = {
+  currentEntryKey: string;
   currentPath: string;
   navigate: NavigateFunction;
   goBack: () => void;
@@ -58,6 +59,7 @@ export function useRouter(): RouterContextType {
   };
 
   return {
+    currentEntryKey: location.key,
     currentPath: location.pathname,
     navigate,
     goBack,

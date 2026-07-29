@@ -13,6 +13,26 @@ and
 
 ## Backend
 
+- **2026-07-29:** Made the bounded contact rate-limit capacity purge scan every tracked expiry, preserving admission after backward wall-clock adjustments reorder expiration times.
+
+- **2026-07-28:** Translated the verified Prisma raw-query envelope for contact idempotency payload mismatches into an exposed HTTP 409, documented the response, and added service and route regressions.
+
+- **2026-07-28:** Validated honeypot type and Unicode-character bounds before spam masking, retained 202 responses for valid nonempty traps, and added real-route regressions for invalid JSON trap values.
+
+- **2026-07-28:** Bound contact idempotency keys to canonical persisted fields with a forward migration, rejected NUL and unpaired-surrogate text before node-postgres encoding, and added real PostgreSQL conflict and Unicode round-trip coverage.
+
+- **2026-07-28:** No backend files changed for the frontend test-runner memory correction.
+
+- **2026-07-28:** No backend files changed for the mobile focus, contact retry identity, field-error persistence, and router-entry lifecycle fixes.
+
+- **2026-07-27:** Kept active contact rate-limit counters stable under identity churn, failed closed at capacity until expiry, and restricted contact triage updates to status timestamps rather than submitted payloads.
+
+- **2026-07-27:** Corrected the contact database boundary to connect as the runtime login before assuming request and service roles, and cast the execute-only function's void result to an adapter-supported type.
+
+- **2026-07-27:** Hardened contact submissions with an execute-only security-definer write, idempotent retries, bounded abuse counters, indistinguishable honeypot outcomes, canonical validation, and a database-boundary regression.
+
+- **2026-07-27:** Added validated, rate-limited, honeypot-protected public contact persistence with request metadata, least-privilege database access, route tests, and an OpenAPI contract.
+
 - **2026-07-27:** Closed OpenAPI review gaps for arbitrary course JSON, objective conflicts, middleware/global errors, invite normalization and validation-safe examples, enabled tab filtering, and the CI validation gate with focused runtime-boundary regressions.
 
 - **2026-07-27:** Synchronized OpenAPI with every mounted backend route, documented security-sensitive cookie, ownership, pagination, metric, and server-derived identity behavior, and added deterministic spec validation.
@@ -48,6 +68,28 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-29:** Moved retry-key preparation into the serialized contact mutation lifecycle, surfaced unavailable crypto as a visible error, and restricted form resets to the active submission.
+
+- **2026-07-28:** Kept unresolved contact retry identities authoritative in memory when per-tab storage remains readable but quota-blocked writes fail, with recovery and regression coverage.
+
+- **2026-07-28:** Preserved unresolved contact retry identities across route remounts with a bounded, expiring per-tab registry; rendered mobile destinations as native router links; and aligned no-POST email validation with the backend Zod contract.
+
+- **2026-07-28:** Aligned contact name, email, subject, and message length validation with OpenAPI Unicode code-point semantics and added astral-character boundary tests.
+
+- **2026-07-28:** Preserved unresolved contact retry keys per canonical fingerprint across A/B/A edits and forwarded sheet overlay refs for warning-free Radix Presence cleanup.
+
+- **2026-07-28:** Capped Node and Vitest file-level test concurrency at two workers, preventing multi-gigabyte aggregate memory spikes while retaining parallel execution and regression coverage.
+
+- **2026-07-28:** Restored mobile-sheet trigger focus, closed overlays on full router-entry changes without remounting triggers, preserved canonical retry identities, and cleared only edited validation fields.
+
+- **2026-07-27:** Centralized exact public-route matching through React Router so trailing-slash and case aliases retain desktop and mobile current-page semantics.
+
+- **2026-07-27:** No frontend application files changed for the contact database role and adapter-compatibility CI corrections.
+
+- **2026-07-27:** Froze in-flight contact snapshots, reused idempotency keys for safe retries, rendered canonical and backend field errors, invalidated mobile sheets across routes and desktop breakpoints, and exposed current-page semantics.
+
+- **2026-07-27:** Added a keyboard-accessible mobile public navigation sheet, removed dead-end footer destinations, and connected the CMS contact form to recoverable submission states with component regressions.
 
 - **2026-07-27:** Strengthened OpenAPI regressions with bidirectional route equality, stale-operation detection, runtime error-shape checks, normalization and example constraints, and CI-gate coverage.
 

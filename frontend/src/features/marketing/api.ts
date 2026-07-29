@@ -4,9 +4,20 @@
  * Why: Centralized data fetching with caching for marketing content
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@lib/apiClient";
-import type { HomepageContent, AboutPageContent, ContactPageContent } from "./types";
+import {
+    getContactAttempt,
+    resolveContactAttempt,
+} from "./contactAttemptRegistry";
+import type { ContactFormPayload } from "./contactForm";
+import type {
+    AboutPageContent,
+    ContactPageContent,
+    ContactSubmissionPayload,
+    ContactSubmissionResponse,
+    HomepageContent,
+} from "./types";
 
 const CMS_KEYS = {
     homepage: ["cms", "homepage"] as const,
@@ -22,6 +33,25 @@ const fetchAboutPageContent = async (): Promise<AboutPageContent> =>
 
 const fetchContactPageContent = async (): Promise<ContactPageContent> =>
     apiClient<ContactPageContent>("/cms/contact-page-content");
+
+const submitContact = async (
+    payload: ContactFormPayload,
+): Promise<ContactSubmissionResponse> => {
+    let attempt;
+    try {
+        attempt = await getContactAttempt(payload);
+    } catch {
+        throw new Error("Unable to prepare your message. Please try again.");
+    }
+
+    const response = await apiClient<ContactSubmissionResponse, ContactSubmissionPayload>("/contact", {
+        method: "POST",
+        body: { ...payload, idempotencyKey: attempt.idempotencyKey },
+        withAuth: false,
+    });
+    resolveContactAttempt(attempt.fingerprint);
+    return response;
+};
 
 export function useHomepageContentQuery() {
     return useQuery({
@@ -44,5 +74,14 @@ export function useContactPageContentQuery() {
         queryKey: CMS_KEYS.contact,
         queryFn: fetchContactPageContent,
         staleTime: 1000 * 60 * 60,
+    });
+}
+
+export function useContactSubmissionMutation() {
+    return useMutation({
+        mutationKey: ["contact", "submission"],
+        mutationFn: submitContact,
+        // Key preparation and persistence are one serial lifecycle per form.
+        scope: { id: "contact-submission" },
     });
 }
