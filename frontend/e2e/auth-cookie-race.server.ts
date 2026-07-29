@@ -47,7 +47,7 @@ function resetRefreshGate() {
 resetRefreshGate();
 
 function addCors(response: ServerResponse) {
-  response.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:3000');
+  response.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:3010');
   response.setHeader('Access-Control-Allow-Credentials', 'true');
   response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
   response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
