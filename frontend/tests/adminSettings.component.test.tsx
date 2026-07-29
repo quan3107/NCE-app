@@ -20,9 +20,9 @@ const saveSettings = vi.hoisted(() => vi.fn());
 const settingsState = vi.hoisted(() => ({
   data: {
     limits: [
-      { role: "student" as const, maxFileSizeMb: 25 },
-      { role: "teacher" as const, maxFileSizeMb: 25 },
-      { role: "admin" as const, maxFileSizeMb: 25 },
+      { role: "student" as const, maxFileSizeMib: 25 },
+      { role: "teacher" as const, maxFileSizeMib: 25 },
+      { role: "admin" as const, maxFileSizeMib: 25 },
     ],
   },
 }));
@@ -47,9 +47,9 @@ const { AdminSettingsPage } = await import(
 beforeEach(() => {
   settingsState.data = {
     limits: [
-      { role: "student", maxFileSizeMb: 25 },
-      { role: "teacher", maxFileSizeMb: 25 },
-      { role: "admin", maxFileSizeMb: 25 },
+      { role: "student", maxFileSizeMib: 25 },
+      { role: "teacher", maxFileSizeMib: 25 },
+      { role: "admin", maxFileSizeMib: 25 },
     ],
   };
 });
@@ -66,22 +66,22 @@ test("blocks out-of-range upload limits with inline feedback", async () => {
     </MemoryRouter>,
   );
   const studentLimit = await screen.findByLabelText(
-    "Student max file size (MB)",
+    "Student max file size (MiB)",
   );
 
   fireEvent.change(studentLimit, { target: { value: "0" } });
   fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
 
-  assert.ok(screen.getByText("Enter a whole number from 1 to 100 MB."));
+  assert.ok(screen.getByText("Enter a whole number from 1 to 100 MiB."));
   assert.equal(saveSettings.mock.calls.length, 0);
 });
 
 test("submits only dirty roles with their expected values", async () => {
   saveSettings.mockResolvedValueOnce({
     limits: [
-      { role: "student", maxFileSizeMb: 12 },
-      { role: "teacher", maxFileSizeMb: 25 },
-      { role: "admin", maxFileSizeMb: 25 },
+      { role: "student", maxFileSizeMib: 12 },
+      { role: "teacher", maxFileSizeMib: 25 },
+      { role: "admin", maxFileSizeMib: 25 },
     ],
   });
   render(
@@ -90,7 +90,7 @@ test("submits only dirty roles with their expected values", async () => {
     </MemoryRouter>,
   );
   const studentLimit = await screen.findByLabelText(
-    "Student max file size (MB)",
+    "Student max file size (MiB)",
   );
 
   fireEvent.change(studentLimit, { target: { value: "12" } });
@@ -100,8 +100,8 @@ test("submits only dirty roles with their expected values", async () => {
     assert.deepEqual(saveSettings.mock.calls[0]?.[0], {
       updates: {
         student: {
-          expectedMaxFileSizeMb: 25,
-          maxFileSizeMb: 12,
+          expectedMaxFileSizeMib: 25,
+          maxFileSizeMib: 12,
         },
       },
     });
@@ -118,7 +118,7 @@ test("shows a reload message when another admin changed the same role", async ()
     </MemoryRouter>,
   );
   fireEvent.change(
-    await screen.findByLabelText("Teacher max file size (MB)"),
+    await screen.findByLabelText("Teacher max file size (MiB)"),
     { target: { value: "30" } },
   );
   fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
@@ -135,9 +135,9 @@ test("shows a reload message when another admin changed the same role", async ()
 test("preserves dirty roles and their baseline during background refresh", async () => {
   saveSettings.mockResolvedValueOnce({
     limits: [
-      { role: "student", maxFileSizeMb: 12 },
-      { role: "teacher", maxFileSizeMb: 40 },
-      { role: "admin", maxFileSizeMb: 25 },
+      { role: "student", maxFileSizeMib: 12 },
+      { role: "teacher", maxFileSizeMib: 40 },
+      { role: "admin", maxFileSizeMib: 25 },
     ],
   });
   const view = render(
@@ -146,15 +146,15 @@ test("preserves dirty roles and their baseline during background refresh", async
     </MemoryRouter>,
   );
   const studentLimit = await screen.findByLabelText(
-    "Student max file size (MB)",
+    "Student max file size (MiB)",
   );
   fireEvent.change(studentLimit, { target: { value: "12" } });
 
   settingsState.data = {
     limits: [
-      { role: "student", maxFileSizeMb: 30 },
-      { role: "teacher", maxFileSizeMb: 40 },
-      { role: "admin", maxFileSizeMb: 25 },
+      { role: "student", maxFileSizeMib: 30 },
+      { role: "teacher", maxFileSizeMib: 40 },
+      { role: "admin", maxFileSizeMib: 25 },
     ],
   };
   view.rerender(
@@ -165,7 +165,7 @@ test("preserves dirty roles and their baseline during background refresh", async
 
   assert.equal((studentLimit as HTMLInputElement).value, "12");
   assert.equal(
-    (screen.getByLabelText("Teacher max file size (MB)") as HTMLInputElement)
+    (screen.getByLabelText("Teacher max file size (MiB)") as HTMLInputElement)
       .value,
     "40",
   );
@@ -175,8 +175,8 @@ test("preserves dirty roles and their baseline during background refresh", async
     assert.deepEqual(saveSettings.mock.calls[0]?.[0], {
       updates: {
         student: {
-          expectedMaxFileSizeMb: 25,
-          maxFileSizeMb: 12,
+          expectedMaxFileSizeMib: 25,
+          maxFileSizeMib: 12,
         },
       },
     });
