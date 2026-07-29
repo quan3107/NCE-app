@@ -17,15 +17,27 @@ export type AdminUploadLimits = {
   }>;
 };
 
+export type AdminUploadLimitUpdates = {
+  updates: Partial<
+    Record<
+      UploadLimitRole,
+      {
+        expectedMaxFileSizeMb: number;
+        maxFileSizeMb: number;
+      }
+    >
+  >;
+};
+
 const ADMIN_UPLOAD_LIMITS_KEY = ["admin", "settings", "upload-limits"] as const;
 
 export const fetchAdminUploadLimits = (): Promise<AdminUploadLimits> =>
   apiClient<AdminUploadLimits>("/api/v1/settings/file-upload-limits");
 
 export const updateAdminUploadLimits = (
-  payload: AdminUploadLimits,
+  payload: AdminUploadLimitUpdates,
 ): Promise<AdminUploadLimits> =>
-  apiClient<AdminUploadLimits, AdminUploadLimits>(
+  apiClient<AdminUploadLimits, AdminUploadLimitUpdates>(
     "/api/v1/settings/file-upload-limits",
     {
       method: "PATCH",
