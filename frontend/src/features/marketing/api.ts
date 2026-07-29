@@ -6,6 +6,11 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@lib/apiClient";
+import {
+    getContactAttempt,
+    resolveContactAttempt,
+} from "./contactAttemptRegistry";
+import type { ContactFormPayload } from "./contactForm";
 import type {
     AboutPageContent,
     ContactPageContent,
@@ -30,13 +35,23 @@ const fetchContactPageContent = async (): Promise<ContactPageContent> =>
     apiClient<ContactPageContent>("/cms/contact-page-content");
 
 const submitContact = async (
-    payload: ContactSubmissionPayload,
-): Promise<ContactSubmissionResponse> =>
-    apiClient<ContactSubmissionResponse, ContactSubmissionPayload>("/contact", {
+    payload: ContactFormPayload,
+): Promise<ContactSubmissionResponse> => {
+    let attempt;
+    try {
+        attempt = await getContactAttempt(payload);
+    } catch {
+        throw new Error("Unable to prepare your message. Please try again.");
+    }
+
+    const response = await apiClient<ContactSubmissionResponse, ContactSubmissionPayload>("/contact", {
         method: "POST",
-        body: payload,
+        body: { ...payload, idempotencyKey: attempt.idempotencyKey },
         withAuth: false,
     });
+    resolveContactAttempt(attempt.fingerprint);
+    return response;
+};
 
 export function useHomepageContentQuery() {
     return useQuery({
@@ -66,5 +81,7 @@ export function useContactSubmissionMutation() {
     return useMutation({
         mutationKey: ["contact", "submission"],
         mutationFn: submitContact,
+        // Key preparation and persistence are one serial lifecycle per form.
+        scope: { id: "contact-submission" },
     });
 }
