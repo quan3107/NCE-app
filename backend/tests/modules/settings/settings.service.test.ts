@@ -68,8 +68,8 @@ describe("settings.service upload limits", () => {
     const result = await updateFileUploadLimits(
       {
         updates: {
-          teacher: { expectedMaxFileSizeMb: 25, maxFileSizeMb: 30 },
-          student: { expectedMaxFileSizeMb: 10, maxFileSizeMb: 12 },
+          teacher: { expectedMaxFileSizeMib: 25, maxFileSizeMib: 30 },
+          student: { expectedMaxFileSizeMib: 10, maxFileSizeMib: 12 },
         },
       },
       actorId,
@@ -93,9 +93,9 @@ describe("settings.service upload limits", () => {
     });
     expect(result).toEqual({
       limits: [
-        { role: "admin", maxFileSizeMb: 50 },
-        { role: "student", maxFileSizeMb: 12 },
-        { role: "teacher", maxFileSizeMb: 30 },
+        { role: "admin", maxFileSizeMib: 50 },
+        { role: "student", maxFileSizeMib: 12 },
+        { role: "teacher", maxFileSizeMib: 30 },
       ],
     });
   });
@@ -107,7 +107,7 @@ describe("settings.service upload limits", () => {
       updateFileUploadLimits(
         {
           updates: {
-            student: { expectedMaxFileSizeMb: 10, maxFileSizeMb: 12 },
+            student: { expectedMaxFileSizeMib: 10, maxFileSizeMib: 12 },
           },
         },
         actorId,
@@ -131,7 +131,7 @@ describe("settings.service upload limits", () => {
     await updateFileUploadLimits(
       {
         updates: {
-          student: { expectedMaxFileSizeMb: 12, maxFileSizeMb: 12 },
+          student: { expectedMaxFileSizeMib: 12, maxFileSizeMib: 12 },
         },
       },
       actorId,
