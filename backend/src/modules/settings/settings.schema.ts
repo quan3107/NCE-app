@@ -14,7 +14,7 @@ export const uploadLimitRoleSchema = z.enum([
 export const fileUploadLimitSchema = z
   .object({
     role: uploadLimitRoleSchema,
-    maxFileSizeMb: z.number().int().min(1).max(100),
+    maxFileSizeMib: z.number().int().min(1).max(100),
   })
   .strict();
 
@@ -32,8 +32,8 @@ export const fileUploadLimitsResponseSchema = z
 
 const uploadLimitUpdateSchema = z
   .object({
-    expectedMaxFileSizeMb: z.number().int().min(1).max(100),
-    maxFileSizeMb: z.number().int().min(1).max(100),
+    expectedMaxFileSizeMib: z.number().int().min(1).max(100),
+    maxFileSizeMib: z.number().int().min(1).max(100),
   })
   .strict();
 
