@@ -48,11 +48,13 @@ const reviewedActions = [
   'enrollment.created',
   'enrollment.deleted',
   'grade.upserted',
+  'settings.file_upload_limits_updated',
   'submission.created',
   'submission.submitted',
   'submission.updated',
   'user.created',
   'user.invited',
+  'user.profile_updated',
   'user.teacher_approved',
   'user.teacher_rejected',
 ] as const
