@@ -57,3 +57,12 @@ test('frontend component tests cap memory-heavy jsdom workers', async () => {
     'component workers should have a hard heap bound if a run is interrupted',
   );
 });
+
+test('Playwright uses a dedicated frontend server for its API harness', async () => {
+  const filePath = path.resolve(import.meta.dirname, '../playwright.config.ts');
+  const config = await readFile(filePath, 'utf8');
+
+  assert.match(config, /baseURL:\s*'http:\/\/127\.0\.0\.1:3010'/);
+  assert.match(config, /--port 3010/);
+  assert.match(config, /reuseExistingServer:\s*false/g);
+});
