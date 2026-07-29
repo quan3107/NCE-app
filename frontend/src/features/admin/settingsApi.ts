@@ -13,7 +13,7 @@ export type UploadLimitRole = "student" | "teacher" | "admin";
 export type AdminUploadLimits = {
   limits: Array<{
     role: UploadLimitRole;
-    maxFileSizeMb: number;
+    maxFileSizeMib: number;
   }>;
 };
 
@@ -22,8 +22,8 @@ export type AdminUploadLimitUpdates = {
     Record<
       UploadLimitRole,
       {
-        expectedMaxFileSizeMb: number;
-        maxFileSizeMb: number;
+        expectedMaxFileSizeMib: number;
+        maxFileSizeMib: number;
       }
     >
   >;
