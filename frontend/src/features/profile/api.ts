@@ -27,8 +27,10 @@ type MeResponse = {
 export const meProfileQueryKey = (userId: string) =>
   ["identity", userId, "profile"] as const;
 
-export const fetchMeProfile = async (): Promise<MeProfile> => {
-  const response = await apiClient<MeResponse>("/api/v1/me");
+export const fetchMeProfile = async (
+  signal?: AbortSignal,
+): Promise<MeProfile> => {
+  const response = await apiClient<MeResponse>("/api/v1/me", { signal });
   return response.profile;
 };
 
@@ -43,7 +45,7 @@ export const updateMeProfile = async (
 export function useMeProfileQuery(userId: string) {
   return useQuery({
     queryKey: meProfileQueryKey(userId),
-    queryFn: fetchMeProfile,
+    queryFn: ({ signal }) => fetchMeProfile(signal),
     enabled: Boolean(userId),
   });
 }
