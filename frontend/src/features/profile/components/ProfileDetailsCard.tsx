@@ -7,7 +7,13 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Edit } from "lucide-react";
 
 import { Button } from "@components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@components/ui/card";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import {
@@ -133,16 +139,18 @@ export function ProfileDetailsCard() {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-4">
+      <CardHeader>
         <CardTitle>Personal Information</CardTitle>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => (editing ? cancelEditing() : startEditing())}
-        >
-          <Edit className="mr-2 size-4" />
-          {editing ? "Cancel" : "Edit Profile"}
-        </Button>
+        <CardAction>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => (editing ? cancelEditing() : startEditing())}
+          >
+            <Edit className="mr-2 size-4" />
+            {editing ? "Cancel" : "Edit Profile"}
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={submitProfile}>
