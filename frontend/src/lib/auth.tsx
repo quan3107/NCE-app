@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getSessionVersion,
     applyLiveSession,
     updateLiveUser,
+    commitLiveProfile,
     clearSession,
   } = useAuthSession();
   const [isRestoringSession, setIsRestoringSession] = useState(
@@ -215,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentUser,
       sessionGeneration,
       updateCurrentUser: updateLiveUser,
+      commitCurrentProfile: commitLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
@@ -228,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentUser,
       sessionGeneration,
       updateLiveUser,
+      commitLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
