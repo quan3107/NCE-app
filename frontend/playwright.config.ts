@@ -16,7 +16,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: 'http://127.0.0.1:3010',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -29,13 +29,13 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'npm run dev -- --host 127.0.0.1',
+      command: 'npm run dev -- --host 127.0.0.1 --port 3010 --strictPort',
       cwd: __dirname,
       env: {
         VITE_API_BASE_URL: 'http://127.0.0.1:4010/api/v1',
       },
-      url: 'http://127.0.0.1:3000',
-      reuseExistingServer: !process.env.CI,
+      url: 'http://127.0.0.1:3010',
+      reuseExistingServer: false,
       timeout: 120_000,
     },
   ],
