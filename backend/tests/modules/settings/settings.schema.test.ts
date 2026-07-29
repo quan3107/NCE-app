@@ -16,16 +16,16 @@ describe("updateFileUploadLimitsSchema", () => {
       updateFileUploadLimitsSchema.parse({
         updates: {
           teacher: {
-            expectedMaxFileSizeMb: 25,
-            maxFileSizeMb: 30,
+            expectedMaxFileSizeMib: 25,
+            maxFileSizeMib: 30,
           },
         },
       }),
     ).toEqual({
       updates: {
         teacher: {
-          expectedMaxFileSizeMb: 25,
-          maxFileSizeMb: 30,
+          expectedMaxFileSizeMib: 25,
+          maxFileSizeMib: 30,
         },
       },
     });
@@ -35,8 +35,8 @@ describe("updateFileUploadLimitsSchema", () => {
     expect(() =>
       updateFileUploadLimitsSchema.parse({
         limits: [
-          { role: "student", maxFileSizeMb: 10 },
-          { role: "student", maxFileSizeMb: 20 },
+          { role: "student", maxFileSizeMib: 10 },
+          { role: "student", maxFileSizeMib: 20 },
         ],
       }),
     ).toThrow();
@@ -54,17 +54,17 @@ describe("updateFileUploadLimitsSchema", () => {
     expect(() =>
       fileUploadLimitsResponseSchema.parse({
         limits: [
-          { role: "student", maxFileSizeMb: 10 },
-          { role: "teacher", maxFileSizeMb: 20 },
+          { role: "student", maxFileSizeMib: 10 },
+          { role: "teacher", maxFileSizeMib: 20 },
         ],
       }),
     ).toThrow();
     expect(() =>
       fileUploadLimitsResponseSchema.parse({
         limits: [
-          { role: "student", maxFileSizeMb: 10 },
-          { role: "student", maxFileSizeMb: 20 },
-          { role: "admin", maxFileSizeMb: 30 },
+          { role: "student", maxFileSizeMib: 10 },
+          { role: "student", maxFileSizeMib: 20 },
+          { role: "admin", maxFileSizeMib: 30 },
         ],
       }),
     ).toThrow();
