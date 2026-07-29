@@ -5,6 +5,7 @@
  */
 
 import type { Role, User } from '@domain';
+import type { UserStatus } from './backend-schema';
 
 export type SupportedRole = Exclude<Role, 'public'>;
 
@@ -38,6 +39,14 @@ export type SessionIdentity = {
   generation: number;
 };
 
+export type CurrentProfile = {
+  id: string;
+  email: string;
+  fullName: string;
+  role: SupportedRole;
+  status: UserStatus;
+};
+
 export type RegisterPayload = {
   fullName: string;
   email: string;
@@ -57,6 +66,10 @@ export type AuthContextType = {
     expected: SessionIdentity,
     updates: Partial<Pick<User, 'name'>>,
   ) => boolean;
+  commitCurrentProfile: (
+    expected: SessionIdentity,
+    profile: CurrentProfile,
+  ) => Promise<boolean>;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
   login: (email: string, password: string) => Promise<'live' | null>;
