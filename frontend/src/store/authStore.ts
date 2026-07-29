@@ -9,6 +9,7 @@ import { useAuth } from '../lib/auth';
 export function useAuthStore() {
   const {
     currentUser,
+    sessionGeneration,
     updateCurrentUser,
     isAuthenticated,
     isRestoringSession,
@@ -22,6 +23,7 @@ export function useAuthStore() {
 
   return {
     currentUser,
+    sessionGeneration,
     updateCurrentUser,
     isAuthenticated,
     isRestoringSession,
