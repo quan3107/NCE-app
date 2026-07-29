@@ -25,6 +25,12 @@ FileUploadLimits:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Stored upload limits are unavailable or noncanonical
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
   patch:
@@ -63,6 +69,12 @@ FileUploadLimits:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '409':
         description: A role limit conflicts with a concurrently saved value
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '500':
+        description: Upload-limit persistence or audit failed
         content:
           application/json:
             schema:
