@@ -12,7 +12,7 @@ import type {
   UploadLimitRole,
 } from "./settings.schema.js";
 
-const BYTES_PER_MEGABYTE = 1024 * 1024;
+const BYTES_PER_MEBIBYTE = 1024 * 1024;
 const UPDATE_ORDER: UploadLimitRole[] = ["student", "teacher", "admin"];
 
 const toPayload = (
@@ -26,9 +26,9 @@ const toPayload = (
     limits.every(
       (limit) =>
         Number.isSafeInteger(limit.maxFileSize) &&
-        limit.maxFileSize % BYTES_PER_MEGABYTE === 0 &&
-        limit.maxFileSize >= BYTES_PER_MEGABYTE &&
-        limit.maxFileSize <= 100 * BYTES_PER_MEGABYTE,
+        limit.maxFileSize % BYTES_PER_MEBIBYTE === 0 &&
+        limit.maxFileSize >= BYTES_PER_MEBIBYTE &&
+        limit.maxFileSize <= 100 * BYTES_PER_MEBIBYTE,
     );
   if (!isCanonical) {
     throw createHttpError(
@@ -40,7 +40,7 @@ const toPayload = (
   return {
     limits: limits.map((limit) => ({
       role: limit.role,
-      maxFileSizeMb: limit.maxFileSize / BYTES_PER_MEGABYTE,
+      maxFileSizeMib: limit.maxFileSize / BYTES_PER_MEBIBYTE,
     })),
   };
 };
@@ -63,13 +63,13 @@ export async function updateFileUploadLimits(
 
     for (const role of UPDATE_ORDER) {
       const update = input.updates[role];
-      if (!update || update.expectedMaxFileSizeMb === update.maxFileSizeMb) {
+      if (!update || update.expectedMaxFileSizeMib === update.maxFileSizeMib) {
         continue;
       }
 
       const expectedMaxFileSize =
-        update.expectedMaxFileSizeMb * BYTES_PER_MEGABYTE;
-      const maxFileSize = update.maxFileSizeMb * BYTES_PER_MEGABYTE;
+        update.expectedMaxFileSizeMib * BYTES_PER_MEBIBYTE;
+      const maxFileSize = update.maxFileSizeMib * BYTES_PER_MEBIBYTE;
       const [result] = await transaction.$queryRaw<Array<{ updated: boolean }>>`
         SELECT app.update_file_upload_policy(
           ${role},
