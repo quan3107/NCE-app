@@ -19,6 +19,9 @@ const transactionAuditCreate = vi.fn();
 const { updateFileUploadLimits } = await import(
   "../../../src/modules/settings/settings.service.js"
 );
+const { getFileUploadLimits } = await import(
+  "../../../src/modules/settings/settings.service.js"
+);
 
 const actorId = "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2";
 
@@ -120,7 +123,9 @@ describe("settings.service upload limits", () => {
 
   it("does not write or audit an unchanged dirty value", async () => {
     transactionPolicyFindMany.mockResolvedValue([
+      { role: "admin", maxFileSize: 50 * 1024 * 1024 },
       { role: "student", maxFileSize: 12 * 1024 * 1024 },
+      { role: "teacher", maxFileSize: 25 * 1024 * 1024 },
     ]);
 
     await updateFileUploadLimits(
@@ -134,5 +139,48 @@ describe("settings.service upload limits", () => {
 
     expect(transactionQueryRaw).not.toHaveBeenCalled();
     expect(transactionAuditCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "a fractional MiB value",
+      [
+        { role: "admin", maxFileSize: 50 * 1024 * 1024 },
+        { role: "student", maxFileSize: 10 * 1024 * 1024 + 1 },
+        { role: "teacher", maxFileSize: 25 * 1024 * 1024 },
+      ],
+    ],
+    [
+      "an incomplete role set",
+      [
+        { role: "admin", maxFileSize: 50 * 1024 * 1024 },
+        { role: "student", maxFileSize: 10 * 1024 * 1024 },
+      ],
+    ],
+    [
+      "an out-of-range value",
+      [
+        { role: "admin", maxFileSize: 101 * 1024 * 1024 },
+        { role: "student", maxFileSize: 10 * 1024 * 1024 },
+        { role: "teacher", maxFileSize: 25 * 1024 * 1024 },
+      ],
+    ],
+    [
+      "duplicate roles",
+      [
+        { role: "admin", maxFileSize: 50 * 1024 * 1024 },
+        { role: "student", maxFileSize: 10 * 1024 * 1024 },
+        { role: "student", maxFileSize: 20 * 1024 * 1024 },
+      ],
+    ],
+  ])("rejects stored upload limits with %s", async (_case, limits) => {
+    prisma.fileUploadPolicy = {
+      findMany: vi.fn().mockResolvedValue(limits),
+    } as never;
+
+    await expect(getFileUploadLimits()).rejects.toMatchObject({
+      statusCode: 500,
+      message: "Stored file upload policies are not canonical.",
+    });
   });
 });
