@@ -11,23 +11,25 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, test, vi } from "vitest";
+import { afterEach, beforeEach, test, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
 import { ApiError } from "../src/lib/apiClient";
 
 const saveSettings = vi.hoisted(() => vi.fn());
-const settingsData = vi.hoisted(() => ({
-  limits: [
-    { role: "student" as const, maxFileSizeMb: 25 },
-    { role: "teacher" as const, maxFileSizeMb: 25 },
-    { role: "admin" as const, maxFileSizeMb: 25 },
-  ],
+const settingsState = vi.hoisted(() => ({
+  data: {
+    limits: [
+      { role: "student" as const, maxFileSizeMb: 25 },
+      { role: "teacher" as const, maxFileSizeMb: 25 },
+      { role: "admin" as const, maxFileSizeMb: 25 },
+    ],
+  },
 }));
 
 vi.mock("@features/admin/settingsApi", () => ({
   useAdminUploadLimitsQuery: () => ({
-    data: settingsData,
+    data: settingsState.data,
     isLoading: false,
     error: null,
   }),
@@ -41,6 +43,16 @@ vi.mock("@features/admin/settingsApi", () => ({
 const { AdminSettingsPage } = await import(
   "../src/features/admin/components/AdminSettingsPage"
 );
+
+beforeEach(() => {
+  settingsState.data = {
+    limits: [
+      { role: "student", maxFileSizeMb: 25 },
+      { role: "teacher", maxFileSizeMb: 25 },
+      { role: "admin", maxFileSizeMb: 25 },
+    ],
+  };
+});
 
 afterEach(() => {
   cleanup();
@@ -117,5 +129,56 @@ test("shows a reload message when another admin changed the same role", async ()
         "Settings changed in another session. Reload before saving again.",
       ),
     );
+  });
+});
+
+test("preserves dirty roles and their baseline during background refresh", async () => {
+  saveSettings.mockResolvedValueOnce({
+    limits: [
+      { role: "student", maxFileSizeMb: 12 },
+      { role: "teacher", maxFileSizeMb: 40 },
+      { role: "admin", maxFileSizeMb: 25 },
+    ],
+  });
+  const view = render(
+    <MemoryRouter>
+      <AdminSettingsPage />
+    </MemoryRouter>,
+  );
+  const studentLimit = await screen.findByLabelText(
+    "Student max file size (MB)",
+  );
+  fireEvent.change(studentLimit, { target: { value: "12" } });
+
+  settingsState.data = {
+    limits: [
+      { role: "student", maxFileSizeMb: 30 },
+      { role: "teacher", maxFileSizeMb: 40 },
+      { role: "admin", maxFileSizeMb: 25 },
+    ],
+  };
+  view.rerender(
+    <MemoryRouter>
+      <AdminSettingsPage />
+    </MemoryRouter>,
+  );
+
+  assert.equal((studentLimit as HTMLInputElement).value, "12");
+  assert.equal(
+    (screen.getByLabelText("Teacher max file size (MB)") as HTMLInputElement)
+      .value,
+    "40",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
+
+  await waitFor(() => {
+    assert.deepEqual(saveSettings.mock.calls[0]?.[0], {
+      updates: {
+        student: {
+          expectedMaxFileSizeMb: 25,
+          maxFileSizeMb: 12,
+        },
+      },
+    });
   });
 });
