@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-29:** No backend files changed for the frontend profile-cache test isolation correction.
+
 - **2026-07-29:** Repaired and constrained upload-policy storage through a forward migration, and unified profile, registration, creation, and invitation display names behind PostgreSQL-safe printable Unicode validation.
 
 - **2026-07-29:** Required a complete unique upload-limit role set, rejected noncanonical stored byte values, enforced exact whole-MiB database writes, and documented inactive-user 403 profile responses.
@@ -78,6 +80,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-29:** Mounted the authoritative identity profile observer in the profile commit-order regression, preventing zero-GC cache cleanup from making parallel component CI flaky.
 
 - **2026-07-29:** Bound refresh retries and returned tokens to the initiating session, and scoped asynchronous profile commit ordering by account identity and generation.
 
