@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 test.each(["success", "failure"] as const)(
-  "a delayed refresh %s cannot retry or clear across A to B",
+  "a delayed refresh %s completes before switching from A to B",
   async (outcome) => {
     let resolveRefresh!: (response: Response) => void;
     let rejectRefresh!: (error: Error) => void;
@@ -102,23 +102,37 @@ test.each(["success", "failure"] as const)(
     });
     await waitFor(() => assert.equal(typeof resolveRefresh, "function"));
 
-    await act(async () => {
+    let transitionComplete = false;
+    const transition = (async () => {
       await result.current.logout();
       await result.current.login("b@example.com", "password");
-    });
-    if (outcome === "success") {
-      resolveRefresh(Response.json(authResponse("user-a", "refreshed-a")));
-    } else {
-      rejectRefresh(new Error("late refresh failed"));
-    }
+      transitionComplete = true;
+    })();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(transitionComplete, false);
+    assert.equal(result.current.currentUser.id, "user-a");
 
-    await assert.rejects(request, (error: unknown) => {
-      return (
-        error instanceof Error &&
-        (error as { status?: number }).status === 401
-      );
+    await act(async () => {
+      if (outcome === "success") {
+        resolveRefresh(Response.json(authResponse("user-a", "refreshed-a")));
+        await request;
+      } else {
+        rejectRefresh(new Error("late refresh failed"));
+        await assert.rejects(request, (error: unknown) => {
+          return (
+            error instanceof Error &&
+            (error as { status?: number }).status === 401
+          );
+        });
+      }
+      await transition;
     });
-    assert.deepEqual(patchTokens, ["Bearer token-a"]);
+    assert.deepEqual(
+      patchTokens,
+      outcome === "success"
+        ? ["Bearer token-a", "Bearer refreshed-a"]
+        : ["Bearer token-a"],
+    );
     await waitFor(() => assert.equal(result.current.currentUser.id, "user-b"));
     assert.equal(result.current.isAuthenticated, true);
     assert.match(
