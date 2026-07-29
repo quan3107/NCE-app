@@ -19,6 +19,12 @@ Me:
           application/json:
             schema:
               $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for an authenticated user who is not active
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: Not found
         content:
@@ -52,6 +58,12 @@ Me:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden for an authenticated user who is not active
         content:
           application/json:
             schema:
