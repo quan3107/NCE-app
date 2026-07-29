@@ -20,16 +20,25 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
-    cwd: __dirname,
-    env: {
-      VITE_API_BASE_URL: 'http://127.0.0.1:4000/api/v1',
+  webServer: [
+    {
+      command: 'npx tsx e2e/auth-cookie-race.server.ts',
+      cwd: __dirname,
+      url: 'http://127.0.0.1:4010/health',
+      reuseExistingServer: false,
+      timeout: 120_000,
     },
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+    {
+      command: 'npm run dev -- --host 127.0.0.1',
+      cwd: __dirname,
+      env: {
+        VITE_API_BASE_URL: 'http://127.0.0.1:4010/api/v1',
+      },
+      url: 'http://127.0.0.1:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
   projects: [
     {
       name: 'chromium',
