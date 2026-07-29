@@ -54,6 +54,7 @@ export const navigationDefaults = [
   [UserRole.admin, 'Audit Logs', '/admin/logs', 'scroll-text', 'audit-logs:view', null, 4],
   [UserRole.admin, 'Content', '/admin/content', 'file-pen-line', 'cms:manage', null, 5],
   [UserRole.admin, 'Settings', '/admin/settings', 'settings', 'settings:manage', null, 6],
+  [UserRole.admin, 'Profile', '/admin/profile', 'user', 'profile:view', null, 7],
 ] as const
 
 // prettier-ignore
