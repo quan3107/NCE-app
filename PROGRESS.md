@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-29:** Made the bounded contact rate-limit capacity purge scan every tracked expiry, preserving admission after backward wall-clock adjustments reorder expiration times.
+
 - **2026-07-28:** Translated the verified Prisma raw-query envelope for contact idempotency payload mismatches into an exposed HTTP 409, documented the response, and added service and route regressions.
 
 - **2026-07-28:** Validated honeypot type and Unicode-character bounds before spam masking, retained 202 responses for valid nonempty traps, and added real-route regressions for invalid JSON trap values.
@@ -66,6 +68,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-29:** Moved retry-key preparation into the serialized contact mutation lifecycle, surfaced unavailable crypto as a visible error, and restricted form resets to the active submission.
 
 - **2026-07-28:** Kept unresolved contact retry identities authoritative in memory when per-tab storage remains readable but quota-blocked writes fail, with recovery and regression coverage.
 
