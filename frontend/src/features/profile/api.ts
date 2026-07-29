@@ -6,15 +6,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "@lib/apiClient";
-import type { UserRole, UserStatus } from "@lib/backend-schema";
+import type { CurrentProfile } from "@lib/auth-types";
 
-export type MeProfile = {
-  id: string;
-  email: string;
-  fullName: string;
-  role: UserRole;
-  status: UserStatus;
-};
+export type MeProfile = CurrentProfile;
 
 export type UpdateMeProfilePayload = {
   fullName: string;
