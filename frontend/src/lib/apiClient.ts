@@ -161,6 +161,7 @@ async function apiClientInternal<TResponse, TBody>(
   endpoint: string,
   options: ApiClientOptions<TBody>,
   hasRetried: boolean,
+  retryAccessToken?: string,
 ): Promise<TResponse> {
   const {
     method = "GET",
@@ -175,7 +176,11 @@ async function apiClientInternal<TResponse, TBody>(
   } = options;
 
   const url = buildUrl(endpoint, params);
-  const authHeaders = withAuth ? getAuthHeaders() : {};
+  const authHeaders = withAuth
+    ? retryAccessToken
+      ? { Authorization: `Bearer ${retryAccessToken}` }
+      : getAuthHeaders()
+    : {};
   const hasBearerAuth =
     withAuth && typeof authHeaders.Authorization === "string";
 
@@ -211,10 +216,9 @@ async function apiClientInternal<TResponse, TBody>(
 
   if (response.status === 401 && withAuth && hasBearerAuth && !hasRetried) {
     const refreshed = await authBridge.refreshAccessToken();
-    if (refreshed) {
-      return apiClientInternal(endpoint, options, true);
+    if (refreshed.status === "refreshed") {
+      return apiClientInternal(endpoint, options, true, refreshed.accessToken);
     }
-    authBridge.clearSession();
   }
 
   if (!response.ok) {
