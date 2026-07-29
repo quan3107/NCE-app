@@ -17,6 +17,7 @@ import {
 } from '@components/ui/dropdown-menu';
 import type { NavigationItem } from '@features/navigation/types';
 import { getIcon } from '@features/navigation/utils/iconMap';
+import { getProfileInitials } from '@features/profile/profileInitials';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
@@ -145,7 +146,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
                     >
                       <Avatar className="size-9">
                         <AvatarFallback>
-                          {currentUser.name.substring(0, 2).toUpperCase()}
+                          {getProfileInitials(currentUser.name)}
                         </AvatarFallback>
                       </Avatar>
                     </button>
