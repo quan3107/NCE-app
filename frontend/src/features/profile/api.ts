@@ -3,13 +3,10 @@
  * Purpose: Persist the authenticated user's editable profile fields.
  * Why: Profile pages need one mutation contract and a synchronized query cache.
  */
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "@lib/apiClient";
-import { queryClient } from "@lib/queryClient";
 import type { UserRole, UserStatus } from "@lib/backend-schema";
-
-export const ME_PROFILE_QUERY_KEY = ["me", "profile"] as const;
 
 export type MeProfile = {
   id: string;
@@ -23,6 +20,18 @@ export type UpdateMeProfilePayload = {
   fullName: string;
 };
 
+type MeResponse = {
+  profile: MeProfile;
+};
+
+export const meProfileQueryKey = (userId: string) =>
+  ["identity", userId, "profile"] as const;
+
+export const fetchMeProfile = async (): Promise<MeProfile> => {
+  const response = await apiClient<MeResponse>("/api/v1/me");
+  return response.profile;
+};
+
 export const updateMeProfile = async (
   payload: UpdateMeProfilePayload,
 ): Promise<MeProfile> =>
@@ -31,11 +40,16 @@ export const updateMeProfile = async (
     body: payload,
   });
 
+export function useMeProfileQuery(userId: string) {
+  return useQuery({
+    queryKey: meProfileQueryKey(userId),
+    queryFn: fetchMeProfile,
+    enabled: Boolean(userId),
+  });
+}
+
 export function useUpdateMeProfileMutation() {
   return useMutation({
     mutationFn: updateMeProfile,
-    onSuccess: (profile) => {
-      queryClient.setQueryData(ME_PROFILE_QUERY_KEY, profile);
-    },
   });
 }
