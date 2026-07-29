@@ -4,7 +4,9 @@
  * Why: A stale account-A completion must not supersede account B's commit.
  */
 import assert from "node:assert/strict";
+import type { PropsWithChildren } from "react";
 
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
 
@@ -43,7 +45,18 @@ afterEach(() => {
 });
 
 test("a stale A commit cannot supersede a waiting B commit", async () => {
-  const { result } = renderHook(() => useAuthSession());
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  const { result } = renderHook(() => {
+    const authSession = useAuthSession();
+    useQuery({
+      queryKey: meProfileQueryKey("user-b"),
+      queryFn: async () => ({ id: "user-b", fullName: "User B" }),
+      enabled: false,
+    });
+    return authSession;
+  }, { wrapper });
   act(() => result.current.applyLiveSession(session("user-a", "User A")));
   const identityA = {
     userId: "user-a",
