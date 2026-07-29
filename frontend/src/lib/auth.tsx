@@ -40,6 +40,7 @@ function isPendingApprovalResponse(
 export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     liveUser,
+    sessionGeneration,
     tokenRef,
     refreshPromiseRef,
     shouldRefreshOnMountRef,
@@ -210,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const contextValue = useMemo<AuthContextType>(
     () => ({
       currentUser,
+      sessionGeneration,
       updateCurrentUser: updateLiveUser,
       isAuthenticated,
       isRestoringSession,
@@ -222,6 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       currentUser,
+      sessionGeneration,
       updateLiveUser,
       isAuthenticated,
       isRestoringSession,
