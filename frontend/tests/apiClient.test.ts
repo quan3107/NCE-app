@@ -110,7 +110,7 @@ test('apiClient attaches bearer token supplied by authBridge', async () => {
     async () => {
       authBridge.configure({
         getAccessToken: () => 'live-token',
-        refreshAccessToken: async () => null,
+        refreshAccessToken: async () => ({ status: 'failed' }),
         clearSession: () => {},
       });
 
@@ -145,7 +145,7 @@ test('apiClient ignores stored snapshots without a live user', async () => {
     async () => {
       authBridge.configure({
         getAccessToken: () => null,
-        refreshAccessToken: async () => null,
+        refreshAccessToken: async () => ({ status: 'failed' }),
         clearSession: () => {},
       });
 
@@ -157,7 +157,7 @@ test('apiClient ignores stored snapshots without a live user', async () => {
   );
 });
 
-test('apiClient retries once on 401 when refresh succeeds', async () => {
+test('apiClient retries once with the exact token returned by refresh', async () => {
   let callCount = 0;
   let cleared = false;
   let currentToken = 'stale-token';
@@ -184,8 +184,8 @@ test('apiClient retries once on 401 when refresh succeeds', async () => {
       authBridge.configure({
         getAccessToken: () => currentToken,
         refreshAccessToken: async () => {
-          currentToken = 'fresh-token';
-          return currentToken;
+          currentToken = 'newer-session-token';
+          return { status: 'refreshed', accessToken: 'fresh-token' };
         },
         clearSession: () => {
           cleared = true;
@@ -211,7 +211,7 @@ test('apiClient does not clear session on 401 without bearer auth', async () => 
     async () => {
       authBridge.configure({
         getAccessToken: () => null,
-        refreshAccessToken: async () => null,
+        refreshAccessToken: async () => ({ status: 'failed' }),
         clearSession: () => {
           cleared = true;
         },
