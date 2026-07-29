@@ -12,7 +12,7 @@ test.beforeEach(async ({ request }) => {
   await request.post(`${TEST_SERVER}/test/reset`);
 });
 
-test('serializes refresh before logout and account switch', async ({
+test('cancels refresh before logout and preserves the new account cookie', async ({
   page,
   request,
 }) => {
@@ -25,17 +25,10 @@ test('serializes refresh before logout and account switch', async ({
   await refreshStarted;
 
   await page.getByRole('button', { name: 'Switch to B' }).click();
-  try {
-    await expect(page.getByTestId('current-user')).toHaveText('user-b', {
-      timeout: 500,
-    });
-  } catch {
-    // With serialization, the account switch correctly waits for refresh.
-  }
-
-  await request.post(`${TEST_SERVER}/test/release-refresh`);
   await expect(page.getByTestId('switch-status')).toHaveText('complete');
   await expect(page.getByTestId('current-user')).toHaveText('user-b');
+
+  await request.post(`${TEST_SERVER}/test/release-refresh`);
 
   await page.getByRole('button', { name: 'Restore B session' }).click();
   await expect(page.getByTestId('restore-status')).toHaveText('success');
