@@ -17,8 +17,22 @@ describe("profile OpenAPI contract", () => {
   it("requires a canonical unpadded 2-100 code-point name", () => {
     expect(schema).toContain("minLength: 2");
     expect(schema).toContain("maxLength: 100");
-    expect(schema).toContain("pattern: '^\\S(?:[\\s\\S]*\\S)?$'");
+    expect(schema).toContain(
+      "pattern: '^(?=\\S(?:[\\s\\S]*\\S)?$)(?:[^\\u0000\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])*$'",
+    );
     expect(schema).toContain("Unicode code points");
+    expect(schema).toContain("PostgreSQL-safe Unicode scalar values");
+    expect(schema).toContain("\\u0000");
+    expect(schema).toContain("\\uD800");
+    expect(schema).toContain("\\uDFFF");
     expect(schema).not.toContain("after surrounding whitespace is trimmed");
+
+    const documentedPattern = schema.match(/pattern: '([^']+)'/)?.[1];
+    expect(documentedPattern).toBeDefined();
+    const fullNamePattern = new RegExp(documentedPattern ?? "");
+    expect(fullNamePattern.test("Ada 😀 Lovelace")).toBe(true);
+    expect(fullNamePattern.test("Ada\u0000Lovelace")).toBe(false);
+    expect(fullNamePattern.test("Ada\uD800Lovelace")).toBe(false);
+    expect(fullNamePattern.test("Ada\uDC00Lovelace")).toBe(false);
   });
 });
