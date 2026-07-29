@@ -81,6 +81,8 @@ and
 
 ## Frontend
 
+- **2026-07-29:** Extracted refresh, restore, cancellation, and auth-bridge lifecycle coordination into a focused runtime hook, returning `AuthProvider` to its user-facing action and context boundary under the 300-line limit.
+
 - **2026-07-29:** Made refresh-cookie serialization interruptible with a hard timeout, cleared logout identity immediately and again at its queued boundary, and verified hung-refresh cancellation with component, queue, and real-browser cookie regressions.
 
 - **2026-07-29:** Serialized refresh-cookie mutations across refresh, login, registration, and logout so delayed responses cannot overwrite a newer account cookie; added a real Chromium/HTTP regression for the cross-session `Set-Cookie` race.
