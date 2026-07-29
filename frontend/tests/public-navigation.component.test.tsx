@@ -15,6 +15,10 @@ const router = vi.hoisted(() => ({
   currentPath: '/',
   navigate: vi.fn(),
 }));
+const authState = vi.hoisted(() => ({
+  currentUser: { id: '', name: 'Guest', email: '', role: 'public' as const },
+  isAuthenticated: false,
+}));
 
 vi.mock('@lib/router', () => ({
   useRouter: () => ({
@@ -26,8 +30,8 @@ vi.mock('@lib/router', () => ({
 
 vi.mock('@store/authStore', () => ({
   useAuthStore: () => ({
-    currentUser: { id: '', name: 'Guest', email: '', role: 'public' },
-    isAuthenticated: false,
+    currentUser: authState.currentUser,
+    isAuthenticated: authState.isAuthenticated,
     logout: vi.fn(),
   }),
 }));
@@ -36,6 +40,8 @@ afterEach(() => {
   cleanup();
   router.currentEntryKey = 'home-entry';
   router.currentPath = '/';
+  authState.currentUser = { id: '', name: 'Guest', email: '', role: 'public' };
+  authState.isAuthenticated = false;
   vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
@@ -167,6 +173,20 @@ test('footer renders only destinations backed by live routes', () => {
   for (const unavailable of ['For Teachers', 'For Students', 'Privacy', 'Help Center', 'Documentation', 'Status']) {
     assert.ok(screen.queryByRole('button', { name: unavailable }) === null);
   }
+});
+
+test('authenticated public shell renders complete Unicode initials', () => {
+  authState.currentUser = {
+    id: 'student-1',
+    name: '😀A',
+    email: 'student@example.com',
+    role: 'student',
+  };
+  authState.isAuthenticated = true;
+
+  renderPublicShell();
+
+  assert.ok(screen.getByText('😀'));
 });
 
 test('modified mobile link clicks keep native link semantics', async () => {
