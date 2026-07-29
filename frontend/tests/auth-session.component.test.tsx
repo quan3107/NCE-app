@@ -5,9 +5,10 @@
  */
 import assert from "node:assert/strict";
 
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
 
+import { fetchMeProfile, meProfileQueryKey } from "../src/features/profile/api";
 import { apiClient } from "../src/lib/apiClient";
 import { authBridge } from "../src/lib/authBridge";
 import { useAuthSession } from "../src/lib/auth-session";
@@ -105,6 +106,66 @@ test("synchronizes an independently stale profile cache on same-user refresh", (
       "user-a",
       "profile",
     ])?.fullName,
+    "New Name",
+  );
+});
+
+test("cancels an older profile fetch before synchronizing refreshed auth", async () => {
+  const { result } = renderHook(() => useAuthSession());
+  act(() => result.current.applyLiveSession(session("user-a", "Old Name", "token-a")));
+  const queryKey = meProfileQueryKey("user-a");
+  queryClient.setQueryData(queryKey, {
+    id: "user-a",
+    email: "user-a@example.com",
+    fullName: "Old Name",
+    role: "student",
+    status: "active",
+  });
+  let requestSignal: AbortSignal | undefined;
+  let resolveRequest!: (response: Response) => void;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          requestSignal = init?.signal ?? undefined;
+          resolveRequest = resolve;
+        }),
+    ),
+  );
+
+  const oldRequest = queryClient.fetchQuery({
+    queryKey,
+    queryFn: ({ signal }) => fetchMeProfile(signal),
+  });
+  const settledOldRequest = oldRequest.catch(() => undefined);
+  await waitFor(() => assert.equal(typeof resolveRequest, "function"));
+
+  act(() => {
+    result.current.applyLiveSession(session("user-a", "New Name", "token-b"));
+  });
+  assert.equal(requestSignal?.aborted, true);
+  resolveRequest(
+    new Response(
+      JSON.stringify({
+        profile: {
+          id: "user-a",
+          email: "user-a@example.com",
+          fullName: "Old Name",
+          role: "student",
+          status: "active",
+        },
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    ),
+  );
+  await settledOldRequest;
+
+  assert.equal(
+    queryClient.getQueryData<{ fullName: string }>(queryKey)?.fullName,
     "New Name",
   );
 });
