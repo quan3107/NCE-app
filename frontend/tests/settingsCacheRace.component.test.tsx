@@ -34,9 +34,9 @@ test("an old GET resolving after PATCH success cannot restore stale settings", a
           new Response(
             JSON.stringify({
               limits: [
-                { role: "student", maxFileSizeMb: 12 },
-                { role: "teacher", maxFileSizeMb: 25 },
-                { role: "admin", maxFileSizeMb: 25 },
+                { role: "student", maxFileSizeMib: 12 },
+                { role: "teacher", maxFileSizeMib: 25 },
+                { role: "admin", maxFileSizeMib: 25 },
               ],
             }),
             {
@@ -69,8 +69,8 @@ test("an old GET resolving after PATCH success cannot restore stale settings", a
     await result.current.mutateAsync({
       updates: {
         student: {
-          expectedMaxFileSizeMb: 25,
-          maxFileSizeMb: 12,
+          expectedMaxFileSizeMib: 25,
+          maxFileSizeMib: 12,
         },
       },
     });
@@ -81,9 +81,9 @@ test("an old GET resolving after PATCH success cannot restore stale settings", a
     new Response(
       JSON.stringify({
         limits: [
-          { role: "student", maxFileSizeMb: 25 },
-          { role: "teacher", maxFileSizeMb: 25 },
-          { role: "admin", maxFileSizeMb: 25 },
+          { role: "student", maxFileSizeMib: 25 },
+          { role: "teacher", maxFileSizeMib: 25 },
+          { role: "admin", maxFileSizeMib: 25 },
         ],
       }),
       {
@@ -96,8 +96,8 @@ test("an old GET resolving after PATCH success cannot restore stale settings", a
 
   assert.equal(
     queryClient.getQueryData<{
-      limits: Array<{ role: string; maxFileSizeMb: number }>;
-    }>(adminUploadLimitsQueryKey)?.limits[0]?.maxFileSizeMb,
+      limits: Array<{ role: string; maxFileSizeMib: number }>;
+    }>(adminUploadLimitsQueryKey)?.limits[0]?.maxFileSizeMib,
     12,
   );
 });
