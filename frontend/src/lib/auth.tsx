@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenRef,
     refreshPromiseRef,
     shouldRefreshOnMountRef,
+    getSessionVersion,
     applyLiveSession,
     updateLiveUser,
     clearSession,
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const tokenAtRefreshStart = tokenRef.current;
+    const sessionVersionAtRefreshStart = getSessionVersion();
     const refreshPromise = (async () => {
       try {
         const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
@@ -65,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           withAuth: false,
           credentials: 'include',
         });
-        applyLiveSession(result);
+        applyLiveSession(result, sessionVersionAtRefreshStart);
         return tokenRef.current;
       } catch {
         if (shouldClearSessionAfterRefreshFailure(tokenAtRefreshStart, tokenRef.current)) {
@@ -79,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     refreshPromiseRef.current = refreshPromise;
     return refreshPromise;
-  }, [applyLiveSession, clearSession]);
+  }, [applyLiveSession, clearSession, getSessionVersion]);
 
   const restoreLiveSession = useCallback(async (): Promise<boolean> => {
     setIsRestoringSession(true);
