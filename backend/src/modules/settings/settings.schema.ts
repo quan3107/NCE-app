@@ -20,7 +20,13 @@ export const fileUploadLimitSchema = z
 
 export const fileUploadLimitsResponseSchema = z
   .object({
-    limits: z.array(fileUploadLimitSchema).min(1).max(3),
+    limits: z
+      .array(fileUploadLimitSchema)
+      .length(3)
+      .refine(
+        (limits) => new Set(limits.map((limit) => limit.role)).size === 3,
+        "Each upload-limit role is required exactly once",
+      ),
   })
   .strict();
 
