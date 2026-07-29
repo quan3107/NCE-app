@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshPromiseRef,
     shouldRefreshOnMountRef,
     applyLiveSession,
+    updateLiveUser,
     clearSession,
   } = useAuthSession();
   const [isRestoringSession, setIsRestoringSession] = useState(
@@ -209,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const contextValue = useMemo<AuthContextType>(
     () => ({
       currentUser,
+      updateCurrentUser: updateLiveUser,
       isAuthenticated,
       isRestoringSession,
       login,
@@ -220,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       currentUser,
+      updateLiveUser,
       isAuthenticated,
       isRestoringSession,
       login,
