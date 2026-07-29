@@ -27,8 +27,19 @@ describe("settings OpenAPI contract", () => {
     );
   });
 
+  it("names binary size units as MiB", () => {
+    expect(schema).toContain("maxFileSizeMib:");
+    expect(schema).toContain("expectedMaxFileSizeMib:");
+    expect(schema).not.toContain("maxFileSizeMb");
+  });
+
   it("documents optimistic write conflicts", () => {
     expect(path).toMatch(/'409':\s*\r?\n\s+description: .*conflict/i);
+  });
+
+  it("documents runtime failures for reads and writes", () => {
+    expect(path.match(/'500':/g)).toHaveLength(2);
+    expect(path.match(/common\.yaml#\/ErrorResponse/g)?.length).toBeGreaterThanOrEqual(8);
   });
 
   it("requires the complete upload-limit role set in responses", () => {
