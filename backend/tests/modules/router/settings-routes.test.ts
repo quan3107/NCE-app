@@ -51,8 +51,8 @@ describe("modules.router settings routes", () => {
       .send({
         updates: {
           student: {
-            expectedMaxFileSizeMb: 10,
-            maxFileSizeMb: 0,
+            expectedMaxFileSizeMib: 10,
+            maxFileSizeMib: 0,
           },
         },
       });
@@ -65,16 +65,16 @@ describe("modules.router settings routes", () => {
     const requestPayload = {
       updates: {
         student: {
-          expectedMaxFileSizeMb: 10,
-          maxFileSizeMb: 12,
+          expectedMaxFileSizeMib: 10,
+          maxFileSizeMib: 12,
         },
       },
     };
     const responsePayload = {
       limits: [
-        { role: "student" as const, maxFileSizeMb: 12 },
-        { role: "teacher" as const, maxFileSizeMb: 25 },
-        { role: "admin" as const, maxFileSizeMb: 50 },
+        { role: "student" as const, maxFileSizeMib: 12 },
+        { role: "teacher" as const, maxFileSizeMib: 25 },
+        { role: "admin" as const, maxFileSizeMib: 50 },
       ],
     };
     updateFileUploadLimits.mockResolvedValueOnce(responsePayload);
