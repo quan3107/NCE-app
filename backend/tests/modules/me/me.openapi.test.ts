@@ -12,6 +12,10 @@ const schema = readFileSync(
   resolve(process.cwd(), "../docs/openapi/schemas/me.yaml"),
   "utf8",
 );
+const path = readFileSync(
+  resolve(process.cwd(), "../docs/openapi/paths/me.yaml"),
+  "utf8",
+);
 
 describe("profile OpenAPI contract", () => {
   it("requires a canonical unpadded 2-100 code-point name", () => {
@@ -34,5 +38,13 @@ describe("profile OpenAPI contract", () => {
     expect(fullNamePattern.test("Ada\u0000Lovelace")).toBe(false);
     expect(fullNamePattern.test("Ada\uD800Lovelace")).toBe(false);
     expect(fullNamePattern.test("Ada\uDC00Lovelace")).toBe(false);
+  });
+
+  it("documents guarded 403 responses for GET and PATCH", () => {
+    const forbiddenResponses = path.match(/'403':/g) ?? [];
+    expect(forbiddenResponses).toHaveLength(2);
+    expect(path).toMatch(
+      /get:[\s\S]*'403':[\s\S]*patch:[\s\S]*'403':/,
+    );
   });
 });
