@@ -21,6 +21,9 @@ describe("updateMeProfileSchema", () => {
     ["one hundred and one code points", "😀".repeat(101)],
     ["leading whitespace", " Ada"],
     ["trailing whitespace", "Ada "],
+    ["NUL", "Ada\u0000Lovelace"],
+    ["unpaired high surrogate", "Ada\uD800Lovelace"],
+    ["unpaired low surrogate", "Ada\uDC00Lovelace"],
   ])("rejects %s", (_label, fullName) => {
     expect(() => updateMeProfileSchema.parse({ fullName })).toThrow();
   });
