@@ -4,7 +4,7 @@
  * Why: Keeps public contact content server-managed while submission remains a separate feature.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
@@ -25,14 +25,10 @@ import {
   type ContactField,
   type ContactFieldErrors,
 } from '@features/marketing/contactForm';
-import {
-  getContactAttempt,
-  resolveContactAttempt,
-} from '@features/marketing/contactAttemptRegistry';
-
 export function ContactRoute() {
   const contactQuery = useContactPageContentQuery();
   const submission = useContactSubmissionMutation();
+  const activeSubmissionId = useRef(0);
   const [clientErrors, setClientErrors] = useState<ContactFieldErrors>({});
   const [dismissedServerFields, setDismissedServerFields] = useState<Set<ContactField>>(new Set());
   const serverErrors = backendContactFieldErrors(submission.error);
@@ -76,18 +72,17 @@ export function ContactRoute() {
       return;
     }
 
-    const attempt = await getContactAttempt(payload);
+    const submissionId = activeSubmissionId.current + 1;
+    activeSubmissionId.current = submissionId;
     setClientErrors({});
     setDismissedServerFields(new Set());
     submission.reset();
 
     try {
-      await submission.mutateAsync({
-        ...payload,
-        idempotencyKey: attempt.idempotencyKey,
-      });
-      resolveContactAttempt(attempt.fingerprint);
-      form.reset();
+      await submission.mutateAsync(payload);
+      if (activeSubmissionId.current === submissionId) {
+        form.reset();
+      }
     } catch {
       // Preserve every unresolved fingerprint so switching drafts stays retry-safe.
     }
