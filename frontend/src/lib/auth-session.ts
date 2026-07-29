@@ -17,12 +17,19 @@ import type {
   CurrentProfile,
   LiveUser,
   PersistSnapshot,
+  RefreshAccessTokenResult,
   SessionIdentity,
 } from './auth-types';
 
 type SessionVersion = {
   generation: number;
   userRevision: number;
+  userId: string | null;
+};
+
+type RefreshPromiseSlot = {
+  generation: number;
+  promise: Promise<RefreshAccessTokenResult>;
 };
 
 const synchronizeProfileCache = (user: LiveUser): void => {
@@ -59,9 +66,9 @@ export const useAuthSession = () => {
   const liveUserRef = useRef<LiveUser | null>(initial.liveUser);
   const sessionGenerationRef = useRef(initial.liveUser ? 1 : 0);
   const userRevisionRef = useRef(initial.liveUser ? 1 : 0);
-  const profileCommitSequenceRef = useRef(0);
+  const profileCommitSequenceRef = useRef(new Map<string, number>());
   const tokenRef = useRef<string | null>(initial.token);
-  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
+  const refreshPromiseRef = useRef<RefreshPromiseSlot | null>(null);
   const shouldRefreshOnMountRef = useRef(
     Boolean(initial.token || initial.liveUser),
   );
@@ -89,6 +96,8 @@ export const useAuthSession = () => {
     userRevisionRef.current += 1;
     tokenRef.current = null;
     liveUserRef.current = null;
+    refreshPromiseRef.current = null;
+    profileCommitSequenceRef.current.clear();
     setLiveUser(null);
     queryClient.removeQueries({ queryKey: ['identity'] });
     persistState({
@@ -101,6 +110,7 @@ export const useAuthSession = () => {
     (): SessionVersion => ({
       generation: sessionGenerationRef.current,
       userRevision: userRevisionRef.current,
+      userId: liveUserRef.current?.id ?? null,
     }),
     [],
   );
@@ -111,7 +121,8 @@ export const useAuthSession = () => {
       const previousUser = liveUserRef.current;
       if (
         expectedVersion &&
-        expectedVersion.generation !== sessionGenerationRef.current
+        (expectedVersion.generation !== sessionGenerationRef.current ||
+          expectedVersion.userId !== (previousUser?.id ?? null))
       ) {
         return previousUser;
       }
@@ -132,6 +143,7 @@ export const useAuthSession = () => {
       }
 
       if (replacesIdentity) {
+        profileCommitSequenceRef.current.clear();
         if (previousUser) {
           queryClient.removeQueries({ queryKey: ['identity'] });
         }
@@ -186,14 +198,26 @@ export const useAuthSession = () => {
       expected: SessionIdentity,
       profile: CurrentProfile,
     ): Promise<boolean> => {
-      const commitSequence = profileCommitSequenceRef.current + 1;
-      profileCommitSequenceRef.current = commitSequence;
+      const currentAtStart = liveUserRef.current;
+      if (
+        !currentAtStart ||
+        currentAtStart.id !== expected.userId ||
+        profile.id !== expected.userId ||
+        sessionGenerationRef.current !== expected.generation
+      ) {
+        return false;
+      }
+
+      const sequenceKey = `${expected.generation}:${expected.userId}`;
+      const commitSequence =
+        (profileCommitSequenceRef.current.get(sequenceKey) ?? 0) + 1;
+      profileCommitSequenceRef.current.set(sequenceKey, commitSequence);
       const queryKey = ['identity', expected.userId, 'profile'] as const;
       await queryClient.cancelQueries({ queryKey, exact: true });
 
       const current = liveUserRef.current;
       if (
-        commitSequence !== profileCommitSequenceRef.current ||
+        commitSequence !== profileCommitSequenceRef.current.get(sequenceKey) ||
         !current ||
         current.id !== expected.userId ||
         profile.id !== expected.userId ||
