@@ -7,7 +7,7 @@ import type { EnrollmentRole, UserRole, UserStatus } from "../../prisma/index.js
 
 import { prisma } from "../../prisma/client.js";
 import { createNotFoundError } from "../../utils/httpError.js";
-import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
+import { writeAuditLog } from "../audit-logs/audit-logs.service.js";
 import { getNavigationForRole } from "../navigation/navigation.service.js";
 import type { NavigationResponse } from "../navigation/navigation.types.js";
 
@@ -56,35 +56,40 @@ export async function updateMeProfile(
   userId: string,
   input: UpdateMeProfileInput,
 ): Promise<MeProfile> {
-  const existing = await prisma.user.findFirst({
-    where: { id: userId, deletedAt: null },
-    select: meProfileSelect,
+  return prisma.$transaction(async (transaction) => {
+    const updateResult = await transaction.user.updateMany({
+      where: {
+        id: userId,
+        deletedAt: null,
+        NOT: { fullName: input.fullName },
+      },
+      data: { fullName: input.fullName },
+    });
+
+    const profile = await transaction.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: meProfileSelect,
+    });
+
+    if (!profile) {
+      throw createNotFoundError("User", userId);
+    }
+
+    if (updateResult.count === 1) {
+      await writeAuditLog(
+        {
+          actorId: userId,
+          action: "user.profile_updated",
+          entity: "user",
+          entityId: userId,
+          eventData: { fullNameChanged: true },
+        },
+        transaction,
+      );
+    }
+
+    return profile;
   });
-
-  if (!existing) {
-    throw createNotFoundError("User", userId);
-  }
-
-  const fullName = input.fullName.trim();
-  if (fullName === existing.fullName) {
-    return existing;
-  }
-
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: { fullName },
-    select: meProfileSelect,
-  });
-
-  await writeAuditLogSafely({
-    actorId: userId,
-    action: "user.profile_updated",
-    entity: "user",
-    entityId: userId,
-    eventData: { fullNameChanged: true },
-  });
-
-  return updated;
 }
 
 export async function getMe(userId: string): Promise<MeResponse> {
