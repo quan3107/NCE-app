@@ -29,10 +29,18 @@ export type AdminUploadLimitUpdates = {
   >;
 };
 
-const ADMIN_UPLOAD_LIMITS_KEY = ["admin", "settings", "upload-limits"] as const;
+export const adminUploadLimitsQueryKey = [
+  "admin",
+  "settings",
+  "upload-limits",
+] as const;
 
-export const fetchAdminUploadLimits = (): Promise<AdminUploadLimits> =>
-  apiClient<AdminUploadLimits>("/api/v1/settings/file-upload-limits");
+export const fetchAdminUploadLimits = (
+  signal?: AbortSignal,
+): Promise<AdminUploadLimits> =>
+  apiClient<AdminUploadLimits>("/api/v1/settings/file-upload-limits", {
+    signal,
+  });
 
 export const updateAdminUploadLimits = (
   payload: AdminUploadLimitUpdates,
@@ -47,8 +55,8 @@ export const updateAdminUploadLimits = (
 
 export function useAdminUploadLimitsQuery() {
   return useQuery({
-    queryKey: ADMIN_UPLOAD_LIMITS_KEY,
-    queryFn: fetchAdminUploadLimits,
+    queryKey: adminUploadLimitsQueryKey,
+    queryFn: ({ signal }) => fetchAdminUploadLimits(signal),
   });
 }
 
@@ -56,7 +64,11 @@ export function useUpdateAdminUploadLimitsMutation() {
   return useMutation({
     mutationFn: updateAdminUploadLimits,
     onSuccess: async (limits) => {
-      queryClient.setQueryData(ADMIN_UPLOAD_LIMITS_KEY, limits);
+      await queryClient.cancelQueries({
+        queryKey: adminUploadLimitsQueryKey,
+        exact: true,
+      });
+      queryClient.setQueryData(adminUploadLimitsQueryKey, limits);
       await queryClient.invalidateQueries({
         queryKey: ["config:file-upload"],
       });
