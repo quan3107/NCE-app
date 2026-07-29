@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-29:** Routed Google-provisioned display names and email-derived fallbacks through the shared persistence-safe name policy before creating OAuth users.
+
 - **2026-07-29:** No backend files changed for the frontend profile-cache test isolation correction.
 
 - **2026-07-29:** Repaired and constrained upload-policy storage through a forward migration, and unified profile, registration, creation, and invitation display names behind PostgreSQL-safe printable Unicode validation.
@@ -80,6 +82,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-29:** Bound 401 retries to their initiating session, added abortable deadlines to every serialized auth-cookie mutation with late-response browser coverage, and made profile initials Unicode code-point safe.
 
 - **2026-07-29:** Extracted refresh, restore, cancellation, and auth-bridge lifecycle coordination into a focused runtime hook, returning `AuthProvider` to its user-facing action and context boundary under the 300-line limit.
 
