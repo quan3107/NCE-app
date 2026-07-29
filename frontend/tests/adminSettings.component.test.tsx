@@ -14,6 +14,8 @@ import {
 import { afterEach, test, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
+import { ApiError } from "../src/lib/apiClient";
+
 const saveSettings = vi.hoisted(() => vi.fn());
 const settingsData = vi.hoisted(() => ({
   limits: [
@@ -62,7 +64,7 @@ test("blocks out-of-range upload limits with inline feedback", async () => {
   assert.equal(saveSettings.mock.calls.length, 0);
 });
 
-test("submits every controlled role limit to runtime persistence", async () => {
+test("submits only dirty roles with their expected values", async () => {
   saveSettings.mockResolvedValueOnce({
     limits: [
       { role: "student", maxFileSizeMb: 12 },
@@ -84,11 +86,36 @@ test("submits every controlled role limit to runtime persistence", async () => {
 
   await waitFor(() => {
     assert.deepEqual(saveSettings.mock.calls[0]?.[0], {
-      limits: [
-        { role: "student", maxFileSizeMb: 12 },
-        { role: "teacher", maxFileSizeMb: 25 },
-        { role: "admin", maxFileSizeMb: 25 },
-      ],
+      updates: {
+        student: {
+          expectedMaxFileSizeMb: 25,
+          maxFileSizeMb: 12,
+        },
+      },
     });
+  });
+});
+
+test("shows a reload message when another admin changed the same role", async () => {
+  saveSettings.mockRejectedValueOnce(
+    new ApiError("File upload limits changed; reload before saving.", 409),
+  );
+  render(
+    <MemoryRouter>
+      <AdminSettingsPage />
+    </MemoryRouter>,
+  );
+  fireEvent.change(
+    await screen.findByLabelText("Teacher max file size (MB)"),
+    { target: { value: "30" } },
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
+
+  await waitFor(() => {
+    assert.ok(
+      screen.getByText(
+        "Settings changed in another session. Reload before saving again.",
+      ),
+    );
   });
 });
