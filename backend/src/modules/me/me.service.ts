@@ -7,10 +7,11 @@ import type { EnrollmentRole, UserRole, UserStatus } from "../../prisma/index.js
 
 import { prisma } from "../../prisma/client.js";
 import { createNotFoundError } from "../../utils/httpError.js";
+import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import { getNavigationForRole } from "../navigation/navigation.service.js";
 import type { NavigationResponse } from "../navigation/navigation.types.js";
 
-type MeProfile = {
+export type MeProfile = {
   id: string;
   email: string;
   fullName: string;
@@ -38,6 +39,53 @@ type MeResponse = {
   enrollments: MeEnrollment[];
   navigation: NavigationResponse;
 };
+
+const meProfileSelect = {
+  id: true,
+  email: true,
+  fullName: true,
+  role: true,
+  status: true,
+} as const;
+
+type UpdateMeProfileInput = {
+  fullName: string;
+};
+
+export async function updateMeProfile(
+  userId: string,
+  input: UpdateMeProfileInput,
+): Promise<MeProfile> {
+  const existing = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null },
+    select: meProfileSelect,
+  });
+
+  if (!existing) {
+    throw createNotFoundError("User", userId);
+  }
+
+  const fullName = input.fullName.trim();
+  if (fullName === existing.fullName) {
+    return existing;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { fullName },
+    select: meProfileSelect,
+  });
+
+  await writeAuditLogSafely({
+    actorId: userId,
+    action: "user.profile_updated",
+    entity: "user",
+    entityId: userId,
+    eventData: { fullNameChanged: true },
+  });
+
+  return updated;
+}
 
 export async function getMe(userId: string): Promise<MeResponse> {
   const user = await prisma.user.findFirst({
