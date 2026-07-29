@@ -41,6 +41,55 @@ afterEach(() => {
   queryClient.clear();
   vi.unstubAllGlobals();
   window.localStorage.clear();
+  window.sessionStorage.clear();
+});
+
+test("OAuth completion can replace the initiating account under its cross-tab lease", async () => {
+  window.localStorage.setItem(
+    "currentUser",
+    JSON.stringify({
+      token: "token-a",
+      liveUser: {
+        id: "user-a",
+        name: "User A",
+        email: "user-a@example.com",
+        role: "student",
+      },
+    }),
+  );
+  window.sessionStorage.setItem("nce:auth-cookie-oauth-owner", "oauth-owner");
+  window.localStorage.setItem(
+    "nce:auth-cookie-oauth-lease",
+    JSON.stringify({
+      ownerId: "oauth-owner",
+      expiresAt: Date.now() + 60_000,
+    }),
+  );
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/auth/refresh")) {
+        return Response.json(authResponse("user-b", "token-b"));
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const { result } = renderHook(() => useAuth(), { wrapper });
+  assert.equal(result.current.currentUser.id, "user-a");
+
+  await act(async () => {
+    assert.equal(await result.current.completeGoogleLogin(), "live");
+  });
+
+  assert.equal(result.current.currentUser.id, "user-b");
+  assert.equal(
+    window.localStorage.getItem("nce:auth-cookie-oauth-lease"),
+    null,
+  );
 });
 
 test.each(["success", "failure"] as const)(
