@@ -23,6 +23,7 @@ import type {
   AuthContextType,
   AuthPendingApprovalResponse,
   AuthSuccessResponse,
+  RefreshAccessTokenResult,
   RegisterPayload,
   RegisterResult,
 } from './auth-types';
@@ -54,41 +55,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     shouldRefreshOnMountRef.current,
   );
 
-  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    if (refreshPromiseRef.current) {
-      return refreshPromiseRef.current;
+  const refreshAccessToken = useCallback(async (): Promise<RefreshAccessTokenResult> => {
+    const sessionVersionAtRefreshStart = getSessionVersion();
+    if (
+      refreshPromiseRef.current?.generation ===
+      sessionVersionAtRefreshStart.generation
+    ) {
+      return refreshPromiseRef.current.promise;
     }
 
     const tokenAtRefreshStart = tokenRef.current;
-    const sessionVersionAtRefreshStart = getSessionVersion();
-    const refreshPromise = (async () => {
+    let refreshPromise!: Promise<RefreshAccessTokenResult>;
+    refreshPromise = (async () => {
       try {
         const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
           method: 'POST',
           withAuth: false,
           credentials: 'include',
         });
+        const currentVersion = getSessionVersion();
+        if (
+          currentVersion.generation !== sessionVersionAtRefreshStart.generation ||
+          currentVersion.userId !== sessionVersionAtRefreshStart.userId ||
+          (sessionVersionAtRefreshStart.userId !== null &&
+            result.user.id !== sessionVersionAtRefreshStart.userId)
+        ) {
+          return { status: 'stale' };
+        }
         applyLiveSession(result, sessionVersionAtRefreshStart);
-        return tokenRef.current;
+        return { status: 'refreshed', accessToken: result.accessToken };
       } catch {
+        const currentVersion = getSessionVersion();
+        if (
+          currentVersion.generation !== sessionVersionAtRefreshStart.generation ||
+          currentVersion.userId !== sessionVersionAtRefreshStart.userId
+        ) {
+          return { status: 'stale' };
+        }
         if (shouldClearSessionAfterRefreshFailure(tokenAtRefreshStart, tokenRef.current)) {
           clearSession();
         }
-        return null;
+        return { status: 'failed' };
       } finally {
-        refreshPromiseRef.current = null;
+        if (refreshPromiseRef.current?.promise === refreshPromise) {
+          refreshPromiseRef.current = null;
+        }
       }
     })();
 
-    refreshPromiseRef.current = refreshPromise;
+    refreshPromiseRef.current = {
+      generation: sessionVersionAtRefreshStart.generation,
+      promise: refreshPromise,
+    };
     return refreshPromise;
   }, [applyLiveSession, clearSession, getSessionVersion]);
 
   const restoreLiveSession = useCallback(async (): Promise<boolean> => {
     setIsRestoringSession(true);
     try {
-      const token = await refreshAccessToken();
-      return Boolean(token);
+      const result = await refreshAccessToken();
+      return result.status === 'refreshed';
     } finally {
       setIsRestoringSession(false);
     }
@@ -187,8 +213,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const completeGoogleLogin = useCallback(async (): Promise<'live'> => {
-    const token = await refreshAccessToken();
-    if (!token) {
+    const result = await refreshAccessToken();
+    if (result.status !== 'refreshed') {
       throw new ApiError('Unable to finalize Google sign-in. Please try again.', 401);
     }
     return 'live';
