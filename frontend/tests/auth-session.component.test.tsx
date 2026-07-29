@@ -66,6 +66,39 @@ test("rejects a stale identity update after an account switch", () => {
   assert.equal(result.current.liveUser?.name, "User B");
 });
 
+test("commits an authoritative profile to the guarded identity and cache", async () => {
+  const { result } = renderHook(() => useAuthSession());
+  act(() => result.current.applyLiveSession(session("user-a", "Old Name", "token-a")));
+  const initiatingIdentity = {
+    userId: "user-a",
+    generation: result.current.sessionGeneration,
+  };
+
+  let applied = false;
+  await act(async () => {
+    applied = await result.current.commitLiveProfile(initiatingIdentity, {
+      id: "user-a",
+      email: "user-a@example.com",
+      fullName: "External Name",
+      role: "student",
+      status: "active",
+    });
+  });
+
+  assert.equal(applied, true);
+  assert.equal(result.current.liveUser?.name, "External Name");
+  assert.equal(
+    queryClient.getQueryData<{ fullName: string }>(
+      meProfileQueryKey("user-a"),
+    )?.fullName,
+    "External Name",
+  );
+  assert.match(
+    window.localStorage.getItem("currentUser") ?? "",
+    /External Name/,
+  );
+});
+
 test("clears identity queries on account switch and logout", () => {
   const { result } = renderHook(() => useAuthSession());
   act(() => result.current.applyLiveSession(session("user-a", "User A", "token-a")));
