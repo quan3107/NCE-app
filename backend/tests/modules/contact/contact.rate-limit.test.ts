@@ -48,4 +48,17 @@ describe("contact.rate-limit", () => {
     now += 60_000;
     expect((await postFrom(app, "203.0.113.3")).status).toBe(204);
   });
+
+  it("purges later expired entries after the wall clock moves backward", async () => {
+    let now = 100_000;
+    const app = createTestApp(() => now);
+
+    expect((await postFrom(app, "203.0.113.1")).status).toBe(204);
+    now = 0;
+    expect((await postFrom(app, "203.0.113.2")).status).toBe(204);
+
+    // The first entry is active at this time, but the later entry is expired.
+    now = 70_000;
+    expect((await postFrom(app, "203.0.113.3")).status).toBe(204);
+  });
 });
