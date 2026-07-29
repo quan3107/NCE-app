@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-29:** Secured runtime upload-policy writes behind an admin-checked database function with optimistic concurrency, made profile updates and audits atomic, aligned name validation with Unicode code-point OpenAPI rules, and bootstrapped admin profile navigation.
+
 - **2026-07-29:** Added authenticated profile-name persistence with bounded audit markers, plus admin-only per-role upload-limit settings backed by the runtime file-upload policy table and documented in OpenAPI.
 
 - **2026-07-29:** Made the bounded contact rate-limit capacity purge scan every tracked expiry, preserving admission after backward wall-clock adjustments reorder expiration times.
@@ -70,6 +72,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-29:** Bound profile saves and cache entries to session identity, preserved fresh and dirty drafts correctly, submitted only dirty upload-policy roles with conflict detection, exposed admin profile navigation, and hardened Vitest workers against orphaned-process memory growth.
 
 - **2026-07-29:** Added controlled student, teacher, and admin profile editing with inline validation and synchronized auth/cache state; replaced cosmetic admin settings with persisted role upload limits.
 
