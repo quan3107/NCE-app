@@ -99,21 +99,35 @@ test("commits an authoritative profile to the guarded identity and cache", async
   );
 });
 
-test("clears identity queries on account switch and logout", () => {
+test("clears identity and authenticated configuration on account switch and logout", () => {
   const { result } = renderHook(() => useAuthSession());
   act(() => result.current.applyLiveSession(session("user-a", "User A", "token-a")));
   queryClient.setQueryData(["identity", "user-a", "profile"], { id: "user-a" });
+  queryClient.setQueryData(["config:file-upload", "student", 1], {
+    maxFileSize: 1,
+  });
 
   act(() => result.current.applyLiveSession(session("user-b", "User B", "token-b")));
   assert.equal(
     queryClient.getQueryData(["identity", "user-a", "profile"]),
     undefined,
   );
+  assert.equal(
+    queryClient.getQueryData(["config:file-upload", "student", 1]),
+    undefined,
+  );
 
   queryClient.setQueryData(["identity", "user-b", "profile"], { id: "user-b" });
+  queryClient.setQueryData(["config:file-upload", "student", 2], {
+    maxFileSize: 2,
+  });
   act(() => result.current.clearSession());
   assert.equal(
     queryClient.getQueryData(["identity", "user-b", "profile"]),
+    undefined,
+  );
+  assert.equal(
+    queryClient.getQueryData(["config:file-upload", "student", 2]),
     undefined,
   );
 });
