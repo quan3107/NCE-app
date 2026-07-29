@@ -17,12 +17,33 @@ const UPDATE_ORDER: UploadLimitRole[] = ["student", "teacher", "admin"];
 
 const toPayload = (
   limits: Array<{ role: "admin" | "student" | "teacher"; maxFileSize: number }>,
-): FileUploadLimitsPayload => ({
-  limits: limits.map((limit) => ({
-    role: limit.role,
-    maxFileSizeMb: Math.round(limit.maxFileSize / BYTES_PER_MEGABYTE),
-  })),
-});
+): FileUploadLimitsPayload => {
+  const roles = new Set(limits.map((limit) => limit.role));
+  const isCanonical =
+    limits.length === UPDATE_ORDER.length &&
+    roles.size === UPDATE_ORDER.length &&
+    UPDATE_ORDER.every((role) => roles.has(role)) &&
+    limits.every(
+      (limit) =>
+        Number.isSafeInteger(limit.maxFileSize) &&
+        limit.maxFileSize % BYTES_PER_MEGABYTE === 0 &&
+        limit.maxFileSize >= BYTES_PER_MEGABYTE &&
+        limit.maxFileSize <= 100 * BYTES_PER_MEGABYTE,
+    );
+  if (!isCanonical) {
+    throw createHttpError(
+      500,
+      "Stored file upload policies are not canonical.",
+    );
+  }
+
+  return {
+    limits: limits.map((limit) => ({
+      role: limit.role,
+      maxFileSizeMb: limit.maxFileSize / BYTES_PER_MEGABYTE,
+    })),
+  };
+};
 
 export async function getFileUploadLimits(): Promise<FileUploadLimitsPayload> {
   const limits = await prisma.fileUploadPolicy.findMany({
