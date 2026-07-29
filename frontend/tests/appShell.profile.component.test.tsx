@@ -15,7 +15,7 @@ vi.mock("@store/authStore", () => ({
   useAuthStore: () => ({
     currentUser: {
       id: "admin-1",
-      name: "Admin User",
+      name: "😀A",
       email: "admin@example.com",
       role: "admin",
     },
@@ -75,7 +75,8 @@ test("admin dropdown navigates to the live profile item", async () => {
     </AppShellAuthenticated>,
   );
 
-  await user.click(screen.getByRole("button", { name: /Admin User/i }));
+  assert.ok(screen.getByText("😀"));
+  await user.click(screen.getByRole("button", { name: /😀A/i }));
   fireEvent.click(await screen.findByRole("menuitem", { name: "Profile" }));
 
   assert.deepEqual(navigate.mock.calls[0], ["/admin/profile"]);
