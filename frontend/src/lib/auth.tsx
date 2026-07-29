@@ -43,8 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     commitLiveProfile,
     clearSession,
     cookieOperations,
+    completeOAuthSession,
     isRestoringSession,
-    refreshAccessToken,
     restoreLiveSession,
   } = useAuthRuntime();
 
@@ -117,13 +117,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const returnTo = `${window.location.origin}/auth/oauth`;
-      const result = await apiClient<{ authorizationUrl: string }>('/auth/google', {
-        withAuth: false,
-        credentials: 'include',
-        params: {
-          returnTo,
-        },
+      cookieOperations.cancelRefreshes();
+      const result = await cookieOperations.runOAuthStart(async (signal) => {
+        const returnTo = `${window.location.origin}/auth/oauth`;
+        return apiClient<{ authorizationUrl: string }>('/auth/google', {
+          withAuth: false,
+          credentials: 'include',
+          params: {
+            returnTo,
+          },
+          signal,
+        });
       });
       window.location.href = result.authorizationUrl;
     } catch (error) {
@@ -132,15 +136,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       throw new ApiError('Unable to start Google sign-in. Please try again.', 500);
     }
-  }, []);
+  }, [cookieOperations]);
 
   const completeGoogleLogin = useCallback(async (): Promise<'live'> => {
-    const result = await refreshAccessToken();
+    const result = await completeOAuthSession();
     if (result.status !== 'refreshed') {
       throw new ApiError('Unable to finalize Google sign-in. Please try again.', 401);
     }
     return 'live';
-  }, [refreshAccessToken]);
+  }, [completeOAuthSession]);
 
   const logout = useCallback(async () => {
     cookieOperations.cancelRefreshes();
