@@ -6,8 +6,11 @@
 import { randomUUID } from "node:crypto";
 
 import { PrismaPg } from "@prisma/adapter-pg";
+import request from "supertest";
 import { describe, expect, it } from "vitest";
 
+import { app } from "../../../src/app.js";
+import { updateMeProfileSchema } from "../../../src/modules/me/me.schema.js";
 import { updateMeProfile } from "../../../src/modules/me/me.service.js";
 import { runWithRole } from "../../../src/prisma/client.js";
 import { PrismaClient } from "../../../src/prisma/generated.js";
@@ -29,6 +32,89 @@ const updateAsStudent = (userId: string, fullName: string) =>
   );
 
 databaseDescribe("atomic profile updates", () => {
+  it("persists PostgreSQL-safe astral names exactly", async () => {
+    const pool = createDatabaseTestOwnerPool();
+    const owner = new PrismaClient({ adapter: new PrismaPg(pool) });
+    const userId = randomUUID();
+    const fullName = "Ada 😀 Lovelace";
+    try {
+      await owner.user.create({
+        data: {
+          id: userId,
+          email: `profile-unicode-${userId}@example.test`,
+          fullName: "Original Name",
+          role: "student",
+          status: "active",
+        },
+      });
+      const parsed = updateMeProfileSchema.parse({ fullName });
+
+      await updateAsStudent(userId, parsed.fullName);
+
+      await expect(
+        owner.user.findUnique({
+          where: { id: userId },
+          select: { fullName: true },
+        }),
+      ).resolves.toEqual({ fullName });
+    } finally {
+      await owner.auditLog.deleteMany({ where: { actorId: userId } });
+      await owner.user.deleteMany({ where: { id: userId } });
+      await owner.$disconnect();
+      await pool.end();
+    }
+  });
+
+  it("rejects PostgreSQL-unsafe route input without changing the row", async () => {
+    const pool = createDatabaseTestOwnerPool();
+    const owner = new PrismaClient({ adapter: new PrismaPg(pool) });
+    const userId = randomUUID();
+    try {
+      await owner.user.create({
+        data: {
+          id: userId,
+          email: `profile-unsafe-${userId}@example.test`,
+          fullName: "Original Name",
+          role: "student",
+          status: "active",
+        },
+      });
+
+      for (const fullName of [
+        "Ada\u0000Lovelace",
+        "Ada\uD800Lovelace",
+        "Ada\uDC00Lovelace",
+      ]) {
+        const response = await request(app)
+          .patch("/api/v1/me")
+          .set({
+            "x-user-id": userId,
+            "x-user-role": "student",
+            "x-user-status": "active",
+          })
+          .send({ fullName });
+        expect(response.status).toBe(400);
+      }
+
+      await expect(
+        owner.user.findUnique({
+          where: { id: userId },
+          select: { fullName: true },
+        }),
+      ).resolves.toEqual({ fullName: "Original Name" });
+      await expect(
+        owner.auditLog.count({
+          where: { actorId: userId, action: "user.profile_updated" },
+        }),
+      ).resolves.toBe(0);
+    } finally {
+      await owner.auditLog.deleteMany({ where: { actorId: userId } });
+      await owner.user.deleteMany({ where: { id: userId } });
+      await owner.$disconnect();
+      await pool.end();
+    }
+  });
+
   it("creates one audit event for concurrent identical requests", async () => {
     const pool = createDatabaseTestOwnerPool();
     const owner = new PrismaClient({ adapter: new PrismaPg(pool) });
