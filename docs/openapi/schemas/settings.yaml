@@ -8,11 +8,11 @@ FileUploadLimit:
   properties:
     role:
       $ref: './common.yaml#/UserRole'
-    maxFileSizeMb:
+    maxFileSizeMib:
       type: integer
       minimum: 1
       maximum: 100
-  required: [role, maxFileSizeMb]
+  required: [role, maxFileSizeMib]
 
 FileUploadLimitsResponse:
   type: object
@@ -31,15 +31,15 @@ FileUploadLimitUpdate:
   type: object
   additionalProperties: false
   properties:
-    expectedMaxFileSizeMb:
+    expectedMaxFileSizeMib:
       type: integer
       minimum: 1
       maximum: 100
-    maxFileSizeMb:
+    maxFileSizeMib:
       type: integer
       minimum: 1
       maximum: 100
-  required: [expectedMaxFileSizeMb, maxFileSizeMb]
+  required: [expectedMaxFileSizeMib, maxFileSizeMib]
 
 FileUploadLimitUpdates:
   type: object
