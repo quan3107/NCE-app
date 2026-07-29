@@ -20,9 +20,11 @@ import type {
 } from './auth-types';
 
 const synchronizeProfileCache = (user: LiveUser): void => {
+  const queryKey = ['identity', user.id, 'profile'] as const;
+  void queryClient.cancelQueries({ queryKey, exact: true });
   queryClient.setQueriesData(
     {
-      queryKey: ['identity', user.id, 'profile'],
+      queryKey,
       exact: true,
     },
     (cached: unknown) => {
