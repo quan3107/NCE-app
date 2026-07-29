@@ -19,6 +19,32 @@ import type {
   SessionIdentity,
 } from './auth-types';
 
+const synchronizeProfileCache = (user: LiveUser): void => {
+  queryClient.setQueriesData(
+    {
+      queryKey: ['identity', user.id, 'profile'],
+      exact: true,
+    },
+    (cached: unknown) => {
+      if (
+        !cached ||
+        typeof cached !== 'object' ||
+        !('id' in cached) ||
+        cached.id !== user.id
+      ) {
+        return cached;
+      }
+
+      return {
+        ...cached,
+        email: user.email,
+        fullName: user.name,
+        role: user.role,
+      };
+    },
+  );
+};
+
 export const useAuthSession = () => {
   const initial = useMemo(loadInitialState, []);
   const [liveUser, setLiveUser] = useState<LiveUser | null>(initial.liveUser);
@@ -63,10 +89,17 @@ export const useAuthSession = () => {
   const applyLiveSession = useCallback(
     (payload: AuthSuccessResponse) => {
       const nextUser = mapBackendUser(payload.user);
-      if (liveUserRef.current && liveUserRef.current.id !== nextUser.id) {
-        queryClient.removeQueries({ queryKey: ['identity'] });
+      const previousUser = liveUserRef.current;
+      const replacesIdentity = previousUser?.id !== nextUser.id;
+
+      if (replacesIdentity) {
+        if (previousUser) {
+          queryClient.removeQueries({ queryKey: ['identity'] });
+        }
+        sessionGenerationRef.current += 1;
+      } else {
+        synchronizeProfileCache(nextUser);
       }
-      sessionGenerationRef.current += 1;
       tokenRef.current = payload.accessToken;
       liveUserRef.current = nextUser;
       setLiveUser(nextUser);
