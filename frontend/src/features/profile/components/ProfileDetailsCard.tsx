@@ -103,10 +103,9 @@ export function ProfileDetailsCard() {
       ) {
         return;
       }
-      queryClient.setQueryData(
-        meProfileQueryKey(initiatingIdentity.userId),
-        profile,
-      );
+      const queryKey = meProfileQueryKey(initiatingIdentity.userId);
+      void queryClient.cancelQueries({ queryKey, exact: true });
+      queryClient.setQueryData(queryKey, profile);
       setFullName(profile.fullName);
       setEditing(false);
     } catch {
