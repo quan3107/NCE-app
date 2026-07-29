@@ -73,6 +73,8 @@ and
 
 ## Frontend
 
+- **2026-07-29:** Propagated abort signals through profile reads and cancelled exact in-flight identity queries before refreshed-auth or successful-save cache writes, preventing older `/me` responses from restoring stale names.
+
 - **2026-07-29:** Kept identity generations stable across same-user token refreshes and synchronized independently cached profile data from refreshed auth responses, preserving successful PATCH retries without stale-name shadowing.
 
 - **2026-07-29:** Bound profile saves and cache entries to session identity, preserved fresh and dirty drafts correctly, submitted only dirty upload-policy roles with conflict detection, exposed admin profile navigation, and hardened Vitest workers against orphaned-process memory growth.
