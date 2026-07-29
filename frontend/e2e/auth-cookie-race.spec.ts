@@ -4,7 +4,7 @@
  * Why: HttpOnly Set-Cookie races require a real browser and HTTP server.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser } from '@playwright/test';
 
 const TEST_SERVER = 'http://127.0.0.1:4010';
 
@@ -12,9 +12,64 @@ test.beforeEach(async ({ request }) => {
   await request.post(`${TEST_SERVER}/test/reset`);
 });
 
+async function verifyDelayedCrossTabSwitch(
+  browser: Browser,
+  request: APIRequestContext,
+  disableWebLocks = false,
+) {
+  const context = await browser.newContext();
+  if (disableWebLocks) {
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'locks', {
+        configurable: true,
+        value: undefined,
+      });
+    });
+  }
+  const pageA = await context.newPage();
+  const pageB = await context.newPage();
+  try {
+    await Promise.all([
+      pageA.goto('/e2e/auth-cookie-race.html'),
+      pageB.goto('/e2e/auth-cookie-race.html'),
+    ]);
+
+    await pageA.getByRole('button', { name: 'Login A' }).click();
+    await expect(pageA.getByTestId('current-user')).toHaveText('user-a');
+
+    const refreshStarted = pageA.waitForRequest('**/api/v1/auth/refresh');
+    await pageA.getByRole('button', { name: 'Start protected request' }).click();
+    await refreshStarted;
+
+    await pageB.getByRole('button', { name: 'Login B' }).click();
+    await expect(pageB.getByTestId('current-user')).toHaveText('guest');
+
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
+
+    await pageB.reload();
+    await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
+  } finally {
+    await context.close();
+  }
+}
+
 test('serializes a delayed refresh and account switch across two pages', async ({
   browser,
   request,
+}) => {
+  await verifyDelayedCrossTabSwitch(browser, request);
+});
+
+test('serializes cross-tab cookie writes without Web Locks', async ({
+  browser,
+  request,
+}) => {
+  await verifyDelayedCrossTabSwitch(browser, request, true);
+});
+
+test('refresh reconciles a tab to the shared cookie identity', async ({
+  browser,
 }) => {
   const context = await browser.newContext();
   const pageA = await context.newPage();
@@ -26,19 +81,11 @@ test('serializes a delayed refresh and account switch across two pages', async (
 
   await pageA.getByRole('button', { name: 'Login A' }).click();
   await expect(pageA.getByTestId('current-user')).toHaveText('user-a');
-
-  const refreshStarted = pageA.waitForRequest('**/api/v1/auth/refresh');
-  await pageA.getByRole('button', { name: 'Start protected request' }).click();
-  await refreshStarted;
-
   await pageB.getByRole('button', { name: 'Login B' }).click();
-  await expect(pageB.getByTestId('current-user')).toHaveText('guest');
-
-  await request.post(`${TEST_SERVER}/test/release-refresh`);
   await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
 
-  await pageB.reload();
-  await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
+  await pageA.getByRole('button', { name: 'Start protected request' }).click();
+  await expect(pageA.getByTestId('current-user')).toHaveText('user-b');
   await context.close();
 });
 
