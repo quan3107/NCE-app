@@ -17,7 +17,7 @@ import { afterEach, beforeEach, test, vi } from "vitest";
 import { queryClient } from "../src/lib/queryClient";
 
 const saveProfile = vi.hoisted(() => vi.fn());
-const updateCurrentUser = vi.hoisted(() => vi.fn(() => true));
+const commitCurrentProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("@store/authStore", () => ({
   useAuthStore: () => ({
@@ -28,7 +28,7 @@ vi.mock("@store/authStore", () => ({
       role: "student",
     },
     sessionGeneration: 1,
-    updateCurrentUser,
+    commitCurrentProfile,
   }),
 }));
 
@@ -54,6 +54,12 @@ const { ProfileDetailsCard } = await import(
 );
 
 beforeEach(() => {
+  commitCurrentProfile.mockImplementation(async (_expected, profile) => {
+    const queryKey = ["identity", "user-1", "profile"] as const;
+    await queryClient.cancelQueries({ queryKey, exact: true });
+    queryClient.setQueryData(queryKey, profile);
+    return true;
+  });
   saveProfile.mockResolvedValue({
     id: "user-1",
     email: "student@example.com",
