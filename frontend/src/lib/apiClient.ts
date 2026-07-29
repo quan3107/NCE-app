@@ -43,6 +43,8 @@ type StoredAuthPayload = {
   } | null;
 };
 
+type RequestSession = ReturnType<typeof authBridge.getSessionVersion>;
+
 const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
 const API_VERSION_PREFIX = "/api/v1";
 const SHOULD_LOG_API_ERRORS = import.meta.env?.DEV ?? false;
@@ -125,6 +127,13 @@ function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
+function isSameSession(left: RequestSession, right: RequestSession): boolean {
+  return (
+    left.generation === right.generation &&
+    left.userId === right.userId
+  );
+}
+
 async function parseErrorPayload(response: Response) {
   const contentType = response.headers.get("content-type");
 
@@ -161,6 +170,7 @@ async function apiClientInternal<TResponse, TBody>(
   endpoint: string,
   options: ApiClientOptions<TBody>,
   hasRetried: boolean,
+  initiatingSession: RequestSession,
   retryAccessToken?: string,
 ): Promise<TResponse> {
   const {
@@ -215,9 +225,20 @@ async function apiClientInternal<TResponse, TBody>(
   }
 
   if (response.status === 401 && withAuth && hasBearerAuth && !hasRetried) {
-    const refreshed = await authBridge.refreshAccessToken();
-    if (refreshed.status === "refreshed") {
-      return apiClientInternal(endpoint, options, true, refreshed.accessToken);
+    if (isSameSession(initiatingSession, authBridge.getSessionVersion())) {
+      const refreshed = await authBridge.refreshAccessToken();
+      if (
+        refreshed.status === "refreshed" &&
+        isSameSession(initiatingSession, authBridge.getSessionVersion())
+      ) {
+        return apiClientInternal(
+          endpoint,
+          options,
+          true,
+          initiatingSession,
+          refreshed.accessToken,
+        );
+      }
     }
   }
 
@@ -254,5 +275,10 @@ export async function apiClient<TResponse = unknown, TBody = unknown>(
   endpoint: string,
   options: ApiClientOptions<TBody> = {},
 ): Promise<TResponse> {
-  return apiClientInternal<TResponse, TBody>(endpoint, options, false);
+  return apiClientInternal<TResponse, TBody>(
+    endpoint,
+    options,
+    false,
+    authBridge.getSessionVersion(),
+  );
 }
