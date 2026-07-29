@@ -35,7 +35,7 @@ FileUploadLimits:
       content:
         application/json:
           schema:
-            $ref: '../schemas/settings.yaml#/FileUploadLimitsResponse'
+            $ref: '../schemas/settings.yaml#/FileUploadLimitUpdates'
     responses:
       '200':
         description: Persisted role upload limits
@@ -44,7 +44,7 @@ FileUploadLimits:
             schema:
               $ref: '../schemas/settings.yaml#/FileUploadLimitsResponse'
       '400':
-        description: Invalid or duplicate role limits
+        description: Invalid role limit update
         content:
           application/json:
             schema:
@@ -57,6 +57,12 @@ FileUploadLimits:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '403':
         description: Administrator access required
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: A role limit conflicts with a concurrently saved value
         content:
           application/json:
             schema:
