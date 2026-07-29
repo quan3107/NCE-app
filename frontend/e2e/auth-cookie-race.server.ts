@@ -27,10 +27,20 @@ const users = {
 
 let releaseARefresh!: () => void;
 let aRefreshGate!: Promise<void>;
+let releaseDelayedLogin!: () => void;
+let delayedLoginGate!: Promise<void>;
+let releaseDelayedLogout!: () => void;
+let delayedLogoutGate!: Promise<void>;
 
 function resetRefreshGate() {
   aRefreshGate = new Promise((resolve) => {
     releaseARefresh = resolve;
+  });
+  delayedLoginGate = new Promise((resolve) => {
+    releaseDelayedLogin = resolve;
+  });
+  delayedLogoutGate = new Promise((resolve) => {
+    releaseDelayedLogout = resolve;
   });
 }
 
@@ -111,18 +121,36 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (url.pathname === '/test/release-login' && request.method === 'POST') {
+    releaseDelayedLogin();
+    sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  if (url.pathname === '/test/release-logout' && request.method === 'POST') {
+    releaseDelayedLogout();
+    sendJson(response, 200, { ok: true });
+    return;
+  }
+
   if (url.pathname === '/api/v1/auth/login' && request.method === 'POST') {
     let body = '';
     for await (const chunk of request) {
       body += chunk;
     }
     const email = (JSON.parse(body) as { email: string }).email;
+    if (email.startsWith('delayed-a@')) {
+      await delayedLoginGate;
+    }
     const account = email.startsWith('b@') ? 'b' : 'a';
     sendAuth(response, account, `${account}-refresh-1`);
     return;
   }
 
   if (url.pathname === '/api/v1/auth/logout' && request.method === 'POST') {
+    if (url.searchParams.get('delay') === 'true') {
+      await delayedLogoutGate;
+    }
     addCors(response);
     response.statusCode = 204;
     response.setHeader('Set-Cookie', clearCookie());
