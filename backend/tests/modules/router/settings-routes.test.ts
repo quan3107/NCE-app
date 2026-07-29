@@ -49,7 +49,12 @@ describe("modules.router settings routes", () => {
       .patch("/api/v1/settings/file-upload-limits")
       .set(headersFor("admin"))
       .send({
-        limits: [{ role: "student", maxFileSizeMb: 0 }],
+        updates: {
+          student: {
+            expectedMaxFileSizeMb: 10,
+            maxFileSizeMb: 0,
+          },
+        },
       });
 
     expect(response.status).toBe(400);
@@ -57,18 +62,26 @@ describe("modules.router settings routes", () => {
   });
 
   it("persists validated admin settings", async () => {
-    const payload = {
+    const requestPayload = {
+      updates: {
+        student: {
+          expectedMaxFileSizeMb: 10,
+          maxFileSizeMb: 12,
+        },
+      },
+    };
+    const responsePayload = {
       limits: [{ role: "student" as const, maxFileSizeMb: 12 }],
     };
-    updateFileUploadLimits.mockResolvedValueOnce(payload);
+    updateFileUploadLimits.mockResolvedValueOnce(responsePayload);
 
     const response = await request(app)
       .patch("/api/v1/settings/file-upload-limits")
       .set(headersFor("admin"))
-      .send(payload);
+      .send(requestPayload);
 
     expect(response.status).toBe(200);
-    expect(updateFileUploadLimits).toHaveBeenCalledWith(payload, userId);
-    expect(response.body).toEqual(payload);
+    expect(updateFileUploadLimits).toHaveBeenCalledWith(requestPayload, userId);
+    expect(response.body).toEqual(responsePayload);
   });
 });
