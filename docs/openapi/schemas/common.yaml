@@ -21,6 +21,13 @@ UserStatus:
   type: string
   enum: [active, pending, invited, suspended]
 
+DisplayName:
+  type: string
+  minLength: 2
+  maxLength: 100
+  pattern: '^(?=\S(?:[\s\S]*\S)?$)(?![\s\S]*[\p{Cc}\p{Cf}\p{Zl}\p{Zp}])(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$'
+  description: Canonical display name with no surrounding whitespace, measured as 2-100 Unicode code points, restricted to PostgreSQL-safe Unicode scalar values, and excluding non-printing and bidirectional controls.
+
 EnrollmentRole:
   type: string
   enum: [teacher, student]
