@@ -7,6 +7,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { STORAGE_KEYS } from './constants';
+import { queryClient } from './queryClient';
 import {
   loadInitialState,
   mapBackendUser,
@@ -15,11 +16,14 @@ import type {
   AuthSuccessResponse,
   LiveUser,
   PersistSnapshot,
+  SessionIdentity,
 } from './auth-types';
 
 export const useAuthSession = () => {
   const initial = useMemo(loadInitialState, []);
   const [liveUser, setLiveUser] = useState<LiveUser | null>(initial.liveUser);
+  const liveUserRef = useRef<LiveUser | null>(initial.liveUser);
+  const sessionGenerationRef = useRef(initial.liveUser ? 1 : 0);
   const tokenRef = useRef<string | null>(initial.token);
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
   const shouldRefreshOnMountRef = useRef(
@@ -45,8 +49,11 @@ export const useAuthSession = () => {
   );
 
   const clearSession = useCallback(() => {
+    sessionGenerationRef.current += 1;
     tokenRef.current = null;
+    liveUserRef.current = null;
     setLiveUser(null);
+    queryClient.removeQueries({ queryKey: ['identity'] });
     persistState({
       token: null,
       liveUser: null,
@@ -56,7 +63,12 @@ export const useAuthSession = () => {
   const applyLiveSession = useCallback(
     (payload: AuthSuccessResponse) => {
       const nextUser = mapBackendUser(payload.user);
+      if (liveUserRef.current && liveUserRef.current.id !== nextUser.id) {
+        queryClient.removeQueries({ queryKey: ['identity'] });
+      }
+      sessionGenerationRef.current += 1;
       tokenRef.current = payload.accessToken;
+      liveUserRef.current = nextUser;
       setLiveUser(nextUser);
       persistState(
         buildSnapshot({
@@ -70,22 +82,34 @@ export const useAuthSession = () => {
   );
 
   const updateLiveUser = useCallback(
-    (updates: Partial<Pick<LiveUser, 'name'>>) => {
-      setLiveUser((current) => {
-        if (!current) return current;
-        const nextUser = { ...current, ...updates };
-        persistState({
-          token: tokenRef.current,
-          liveUser: nextUser,
-        });
-        return nextUser;
+    (
+      expected: SessionIdentity,
+      updates: Partial<Pick<LiveUser, 'name'>>,
+    ): boolean => {
+      const current = liveUserRef.current;
+      if (
+        !current ||
+        current.id !== expected.userId ||
+        sessionGenerationRef.current !== expected.generation
+      ) {
+        return false;
+      }
+
+      const nextUser = { ...current, ...updates };
+      liveUserRef.current = nextUser;
+      setLiveUser(nextUser);
+      persistState({
+        token: tokenRef.current,
+        liveUser: nextUser,
       });
+      return true;
     },
     [persistState],
   );
 
   return {
     liveUser,
+    sessionGeneration: sessionGenerationRef.current,
     tokenRef,
     refreshPromiseRef,
     shouldRefreshOnMountRef,
