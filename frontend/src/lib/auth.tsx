@@ -16,6 +16,7 @@ import {
 
 import { ApiError, apiClient } from './apiClient';
 import { authBridge } from './authBridge';
+import { createAuthCookieOperations } from './auth-cookie-operations';
 import { shouldClearSessionAfterRefreshFailure } from './auth-refresh';
 import { PUBLIC_USER } from './auth-state';
 import { useAuthSession } from './auth-session';
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isRestoringSession, setIsRestoringSession] = useState(
     shouldRefreshOnMountRef.current,
   );
+  const cookieOperations = useMemo(createAuthCookieOperations, []);
 
   const refreshAccessToken = useCallback(async (): Promise<RefreshAccessTokenResult> => {
     const sessionVersionAtRefreshStart = getSessionVersion();
@@ -66,7 +68,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const tokenAtRefreshStart = tokenRef.current;
     let refreshPromise!: Promise<RefreshAccessTokenResult>;
-    refreshPromise = (async () => {
+    refreshPromise = cookieOperations.run(async () => {
+      const versionBeforeRequest = getSessionVersion();
+      if (
+        versionBeforeRequest.generation !== sessionVersionAtRefreshStart.generation ||
+        versionBeforeRequest.userId !== sessionVersionAtRefreshStart.userId
+      ) {
+        return { status: 'stale' };
+      }
       try {
         const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
           method: 'POST',
@@ -101,14 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           refreshPromiseRef.current = null;
         }
       }
-    })();
+    });
 
     refreshPromiseRef.current = {
       generation: sessionVersionAtRefreshStart.generation,
       promise: refreshPromise,
     };
     return refreshPromise;
-  }, [applyLiveSession, clearSession, getSessionVersion]);
+  }, [applyLiveSession, clearSession, cookieOperations, getSessionVersion]);
 
   const restoreLiveSession = useCallback(async (): Promise<boolean> => {
     setIsRestoringSession(true);
@@ -143,13 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       try {
-        const result = await apiClient<AuthSuccessResponse>('/auth/login', {
-          method: 'POST',
-          withAuth: false,
-          credentials: 'include',
-          body: { email, password },
+        await cookieOperations.run(async () => {
+          const result = await apiClient<AuthSuccessResponse>('/auth/login', {
+            method: 'POST',
+            withAuth: false,
+            credentials: 'include',
+            body: { email, password },
+          });
+          applyLiveSession(result);
         });
-        applyLiveSession(result);
         return 'live';
       } catch (error) {
         if (error instanceof ApiError && error.status === 400) {
@@ -162,31 +173,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [applyLiveSession],
+    [applyLiveSession, cookieOperations],
   );
 
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
-      const result = await apiClient<
-        AuthSuccessResponse | AuthPendingApprovalResponse
-      >('/auth/register', {
-        method: 'POST',
-        withAuth: false,
-        credentials: 'include',
-        body: {
-          fullName: payload.fullName.trim(),
-          email: payload.email.trim(),
-          password: payload.password,
-          role: payload.role,
-        },
+      return cookieOperations.run(async () => {
+        const result = await apiClient<
+          AuthSuccessResponse | AuthPendingApprovalResponse
+        >('/auth/register', {
+          method: 'POST',
+          withAuth: false,
+          credentials: 'include',
+          body: {
+            fullName: payload.fullName.trim(),
+            email: payload.email.trim(),
+            password: payload.password,
+            role: payload.role,
+          },
+        });
+        if (isPendingApprovalResponse(result)) {
+          return 'pending_approval';
+        }
+        applyLiveSession(result);
+        return 'live';
       });
-      if (isPendingApprovalResponse(result)) {
-        return 'pending_approval';
-      }
-      applyLiveSession(result);
-      return 'live';
     },
-    [applyLiveSession],
+    [applyLiveSession, cookieOperations],
   );
 
   const loginWithGoogle = useCallback(async () => {
@@ -221,18 +234,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshAccessToken]);
 
   const logout = useCallback(async () => {
-    try {
-      await apiClient('/auth/logout', {
-        method: 'POST',
-        withAuth: false,
-        credentials: 'include',
-        parseJson: false,
-      });
-    } catch {
-      // Ignore logout errors; we still clear the local session.
-    }
-    clearSession();
-  }, [clearSession]);
+    await cookieOperations.run(async () => {
+      try {
+        await apiClient('/auth/logout', {
+          method: 'POST',
+          withAuth: false,
+          credentials: 'include',
+          parseJson: false,
+        });
+      } catch {
+        // Ignore logout errors; we still clear the local session.
+      }
+      clearSession();
+    });
+  }, [clearSession, cookieOperations]);
 
   const currentUser = liveUser ?? PUBLIC_USER;
   const isAuthenticated = Boolean(tokenRef.current && liveUser);
