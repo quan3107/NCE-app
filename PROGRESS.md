@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-29:** Reused the shared PostgreSQL-safe Unicode boundary for profile names, rejecting NUL and unpaired surrogates before persistence while documenting the exact OpenAPI scalar-value contract.
+
 - **2026-07-29:** Secured runtime upload-policy writes behind an admin-checked database function with optimistic concurrency, made profile updates and audits atomic, aligned name validation with Unicode code-point OpenAPI rules, and bootstrapped admin profile navigation.
 
 - **2026-07-29:** Added authenticated profile-name persistence with bounded audit markers, plus admin-only per-role upload-limit settings backed by the runtime file-upload policy table and documented in OpenAPI.
@@ -72,6 +74,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-29:** Versioned refresh-time user snapshots so delayed token refreshes preserve newer profile saves, and merged background upload-limit data role-by-role without discarding dirty values or their conflict baselines.
 
 - **2026-07-29:** Propagated abort signals through profile reads and cancelled exact in-flight identity queries before refreshed-auth or successful-save cache writes, preventing older `/me` responses from restoring stale names.
 
