@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 test.each(["success", "failure"] as const)(
-  "a delayed refresh %s completes before switching from A to B",
+  "a delayed refresh %s is cancelled before switching from A to B",
   async (outcome) => {
     let resolveRefresh!: (response: Response) => void;
     let rejectRefresh!: (error: Error) => void;
@@ -99,7 +99,10 @@ test.each(["success", "failure"] as const)(
     const request = apiClient("/me/profile", {
       method: "PATCH",
       body: { fullName: "Saved A" },
-    });
+    }).then(
+      () => null,
+      (error: unknown) => error,
+    );
     await waitFor(() => assert.equal(typeof resolveRefresh, "function"));
 
     let transitionComplete = false;
@@ -108,31 +111,24 @@ test.each(["success", "failure"] as const)(
       await result.current.login("b@example.com", "password");
       transitionComplete = true;
     })();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(transitionComplete, false);
-    assert.equal(result.current.currentUser.id, "user-a");
-
     await act(async () => {
-      if (outcome === "success") {
-        resolveRefresh(Response.json(authResponse("user-a", "refreshed-a")));
-        await request;
-      } else {
-        rejectRefresh(new Error("late refresh failed"));
-        await assert.rejects(request, (error: unknown) => {
-          return (
-            error instanceof Error &&
-            (error as { status?: number }).status === 401
-          );
-        });
-      }
       await transition;
     });
-    assert.deepEqual(
-      patchTokens,
-      outcome === "success"
-        ? ["Bearer token-a", "Bearer refreshed-a"]
-        : ["Bearer token-a"],
+    assert.equal(transitionComplete, true);
+    assert.equal(result.current.currentUser.id, "user-b");
+
+    if (outcome === "success") {
+      resolveRefresh(Response.json(authResponse("user-a", "refreshed-a")));
+    } else {
+      rejectRefresh(new Error("late refresh failed"));
+    }
+    const requestError = await request;
+    assert.equal(
+      requestError instanceof Error &&
+        (requestError as { status?: number }).status === 401,
+      true,
     );
+    assert.deepEqual(patchTokens, ["Bearer token-a"]);
     await waitFor(() => assert.equal(result.current.currentUser.id, "user-b"));
     assert.equal(result.current.isAuthenticated, true);
     assert.match(
@@ -145,3 +141,110 @@ test.each(["success", "failure"] as const)(
     );
   },
 );
+
+test("logout clears local auth and cancels a hung refresh", async () => {
+  let refreshStarted = false;
+  let refreshSignal: AbortSignal | null = null;
+  let logoutCalls = 0;
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/auth/login")) {
+        return Response.json(authResponse("user-a", "token-a"));
+      }
+      if (path.endsWith("/auth/refresh")) {
+        refreshStarted = true;
+        refreshSignal = init?.signal ?? null;
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        });
+      }
+      if (path.endsWith("/auth/logout")) {
+        logoutCalls += 1;
+        return new Response(null, { status: 204 });
+      }
+      if (path.endsWith("/me/profile")) {
+        return new Response("Unauthorized", {
+          status: 401,
+          statusText: "Unauthorized",
+        });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const { result } = renderHook(() => useAuth(), { wrapper });
+
+  await act(async () => {
+    await result.current.login("a@example.com", "password");
+  });
+  const protectedRequest = apiClient("/me/profile").catch(() => undefined);
+  await waitFor(() => assert.equal(refreshStarted, true));
+
+  let logoutPromise!: Promise<void>;
+  act(() => {
+    logoutPromise = result.current.logout();
+  });
+
+  await waitFor(() => assert.equal(result.current.isAuthenticated, false));
+  assert.equal(result.current.currentUser.id, "");
+  assert.equal(refreshSignal?.aborted, true);
+  await act(async () => {
+    await logoutPromise;
+    await protectedRequest;
+  });
+  assert.equal(logoutCalls, 1);
+});
+
+test("logout remains locally clear after an earlier login completes", async () => {
+  let resolveLogin!: (response: Response) => void;
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/auth/login")) {
+        return new Promise<Response>((resolve) => {
+          resolveLogin = resolve;
+        });
+      }
+      if (path.endsWith("/auth/logout")) {
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const { result } = renderHook(() => useAuth(), { wrapper });
+
+  let loginPromise!: Promise<"live" | null>;
+  act(() => {
+    loginPromise = result.current.login("a@example.com", "password");
+  });
+  await waitFor(() => assert.equal(typeof resolveLogin, "function"));
+
+  let logoutPromise!: Promise<void>;
+  act(() => {
+    logoutPromise = result.current.logout();
+  });
+  resolveLogin(Response.json(authResponse("user-a", "token-a")));
+
+  await act(async () => {
+    await loginPromise;
+    await logoutPromise;
+  });
+  assert.equal(result.current.isAuthenticated, false);
+  assert.equal(result.current.currentUser.id, "");
+});
