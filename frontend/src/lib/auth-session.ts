@@ -60,6 +60,11 @@ const synchronizeProfileCache = (user: LiveUser): void => {
   );
 };
 
+const clearAuthenticatedQueries = (): void => {
+  queryClient.removeQueries({ queryKey: ['identity'] });
+  queryClient.removeQueries({ queryKey: ['config:file-upload'] });
+};
+
 export const useAuthSession = () => {
   const initial = useMemo(loadInitialState, []);
   const [liveUser, setLiveUser] = useState<LiveUser | null>(initial.liveUser);
@@ -99,7 +104,7 @@ export const useAuthSession = () => {
     refreshPromiseRef.current = null;
     profileCommitSequenceRef.current.clear();
     setLiveUser(null);
-    queryClient.removeQueries({ queryKey: ['identity'] });
+    clearAuthenticatedQueries();
     persistState({
       token: null,
       liveUser: null,
@@ -145,7 +150,7 @@ export const useAuthSession = () => {
       if (replacesIdentity) {
         profileCommitSequenceRef.current.clear();
         if (previousUser) {
-          queryClient.removeQueries({ queryKey: ['identity'] });
+          clearAuthenticatedQueries();
         }
         sessionGenerationRef.current += 1;
       } else {
