@@ -18,6 +18,7 @@ import {
 } from '@components/ui/dropdown-menu';
 import { useNavigationContext } from '@features/navigation';
 import { NavigationItem as NavigationItemRow } from '@features/navigation/components/NavigationItem';
+import { getProfileInitials } from '@features/profile/profileInitials';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
@@ -111,7 +112,7 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
           <DropdownMenuTrigger asChild>
             <button className="inline-flex items-center gap-2 rounded-md px-3 py-2 hover:bg-accent transition-colors" type="button">
               <Avatar className="size-8">
-                <AvatarFallback>{currentUser.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{getProfileInitials(currentUser.name)}</AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start">
                 <span className="text-sm">{currentUser.name}</span>
