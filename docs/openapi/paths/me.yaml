@@ -27,3 +27,40 @@ Me:
               $ref: '../schemas/common.yaml#/ErrorResponse'
     security:
       - BearerAuth: []
+  patch:
+    tags: [me]
+    summary: Update the authenticated profile
+    description: Updates the display name only; email changes require a separate verified flow.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/me.yaml#/UpdateMeProfileRequest'
+    responses:
+      '200':
+        description: Persisted authenticated profile
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/me.yaml#/MeProfile'
+      '400':
+        description: Validation error
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '404':
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
