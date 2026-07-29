@@ -100,6 +100,26 @@ databaseDescribe("file upload policy runtime write boundary", () => {
     },
   );
 
+  it("rejects fractional-MiB values at the database write boundary", async () => {
+    const { client, pool } = await connectRuntimeClient();
+    try {
+      await client.query("BEGIN");
+      await setAuthenticatedRole(client, "admin");
+      const expected = await readLimit(client, "student");
+
+      await expect(
+        client.query(
+          "SELECT app.update_file_upload_policy($1, $2, $3) AS updated",
+          ["student", expected, expected + 1],
+        ),
+      ).rejects.toMatchObject({ code: "23514" });
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+      await pool.end();
+    }
+  });
+
   it("allows concurrent disjoint role updates", async () => {
     const first = await connectRuntimeClient();
     const second = await connectRuntimeClient();
