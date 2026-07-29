@@ -22,6 +22,13 @@ const canonicalMigration = readFileSync(
   ),
   "utf8",
 );
+const repairMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/prisma/migrations/20260729150000_repair_upload_policy_storage/migration.sql",
+  ),
+  "utf8",
+);
 
 describe("secure file upload policy update migration", () => {
   it("uses an admin-checked security-definer function", () => {
@@ -50,6 +57,23 @@ describe("secure file upload policy update migration", () => {
     );
     expect(canonicalMigration).toMatch(
       /p_max_file_size\s*%\s*1048576\s*<>\s*0/,
+    );
+  });
+
+  it("repairs existing rows before enforcing a table-level invariant", () => {
+    const normalization = repairMigration.indexOf(
+      "UPDATE public.file_upload_policies",
+    );
+    const constraint = repairMigration.indexOf(
+      "ADD CONSTRAINT file_upload_policies_max_file_size_canonical_check",
+    );
+
+    expect(repairMigration).toContain("INSERT INTO public.file_upload_policies");
+    expect(repairMigration).toContain("ON CONFLICT (role) DO NOTHING");
+    expect(normalization).toBeGreaterThan(-1);
+    expect(constraint).toBeGreaterThan(normalization);
+    expect(repairMigration).toMatch(
+      /CHECK\s*\([\s\S]*max_file_size BETWEEN 1048576 AND 104857600[\s\S]*max_file_size % 1048576 = 0/i,
     );
   });
 });
