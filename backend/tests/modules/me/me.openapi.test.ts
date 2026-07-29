@@ -8,8 +8,20 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const schema = readFileSync(
+const meSchema = readFileSync(
   resolve(process.cwd(), "../docs/openapi/schemas/me.yaml"),
+  "utf8",
+);
+const commonSchema = readFileSync(
+  resolve(process.cwd(), "../docs/openapi/schemas/common.yaml"),
+  "utf8",
+);
+const authSchema = readFileSync(
+  resolve(process.cwd(), "../docs/openapi/schemas/auth.yaml"),
+  "utf8",
+);
+const usersSchema = readFileSync(
+  resolve(process.cwd(), "../docs/openapi/schemas/users.yaml"),
   "utf8",
 );
 const path = readFileSync(
@@ -18,26 +30,29 @@ const path = readFileSync(
 );
 
 describe("profile OpenAPI contract", () => {
-  it("requires a canonical unpadded 2-100 code-point name", () => {
-    expect(schema).toContain("minLength: 2");
-    expect(schema).toContain("maxLength: 100");
-    expect(schema).toContain(
-      "pattern: '^(?=\\S(?:[\\s\\S]*\\S)?$)(?:[^\\u0000\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])*$'",
-    );
-    expect(schema).toContain("Unicode code points");
-    expect(schema).toContain("PostgreSQL-safe Unicode scalar values");
-    expect(schema).toContain("\\u0000");
-    expect(schema).toContain("\\uD800");
-    expect(schema).toContain("\\uDFFF");
-    expect(schema).not.toContain("after surrounding whitespace is trimmed");
+  it("shares a safe canonical display-name contract across write APIs", () => {
+    expect(commonSchema).toContain("minLength: 2");
+    expect(commonSchema).toContain("maxLength: 100");
+    expect(commonSchema).toContain("Unicode code points");
+    expect(commonSchema).toContain("PostgreSQL-safe Unicode scalar values");
+    expect(commonSchema).toContain("non-printing and bidirectional controls");
+    expect(meSchema).toContain("$ref: './common.yaml#/DisplayName'");
+    expect(authSchema).toContain("$ref: './common.yaml#/DisplayName'");
+    expect(
+      usersSchema.match(/\$ref: '\.\/common\.yaml#\/DisplayName'/g) ?? [],
+    ).toHaveLength(2);
 
-    const documentedPattern = schema.match(/pattern: '([^']+)'/)?.[1];
+    const documentedPattern = commonSchema.match(/pattern: '([^']+)'/)?.[1];
     expect(documentedPattern).toBeDefined();
-    const fullNamePattern = new RegExp(documentedPattern ?? "");
+    const fullNamePattern = new RegExp(documentedPattern ?? "", "u");
     expect(fullNamePattern.test("Ada 😀 Lovelace")).toBe(true);
     expect(fullNamePattern.test("Ada\u0000Lovelace")).toBe(false);
     expect(fullNamePattern.test("Ada\uD800Lovelace")).toBe(false);
     expect(fullNamePattern.test("Ada\uDC00Lovelace")).toBe(false);
+    expect(fullNamePattern.test("\u200B\u200B")).toBe(false);
+    expect(fullNamePattern.test("Ada\u202ELovelace")).toBe(false);
+    expect(fullNamePattern.test("Ada\tLovelace")).toBe(false);
+    expect(fullNamePattern.test("Ada\nLovelace")).toBe(false);
   });
 
   it("documents guarded 403 responses for GET and PATCH", () => {
