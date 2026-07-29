@@ -18,7 +18,7 @@ import {
 import { ApiError } from "@lib/apiClient";
 
 const ROLES: UploadLimitRole[] = ["student", "teacher", "admin"];
-const LIMIT_ERROR = "Enter a whole number from 1 to 100 MB.";
+const LIMIT_ERROR = "Enter a whole number from 1 to 100 MiB.";
 
 type FormValues = Record<UploadLimitRole, string>;
 type FormErrors = Partial<Record<UploadLimitRole, string>>;
@@ -48,7 +48,7 @@ export function AdminSettingsPage() {
     if (!limitsQuery.data) return;
     const incomingValues = emptyValues();
     for (const limit of limitsQuery.data.limits) {
-      incomingValues[limit.role] = String(limit.maxFileSizeMb);
+      incomingValues[limit.role] = String(limit.maxFileSizeMib);
     }
     setForm((current) => {
       const nextValues = { ...current.values };
@@ -68,15 +68,15 @@ export function AdminSettingsPage() {
     const nextErrors: FormErrors = {};
     const parsedValues = emptyValues();
     for (const role of ROLES) {
-      const maxFileSizeMb = Number(values[role]);
+      const maxFileSizeMib = Number(values[role]);
       if (
-        !Number.isInteger(maxFileSizeMb) ||
-        maxFileSizeMb < 1 ||
-        maxFileSizeMb > 100
+        !Number.isInteger(maxFileSizeMib) ||
+        maxFileSizeMib < 1 ||
+        maxFileSizeMib > 100
       ) {
         nextErrors[role] = LIMIT_ERROR;
       }
-      parsedValues[role] = String(maxFileSizeMb);
+      parsedValues[role] = String(maxFileSizeMib);
     }
 
     setErrors(nextErrors);
@@ -86,8 +86,8 @@ export function AdminSettingsPage() {
       ROLES.filter((role) => values[role] !== savedValues[role]).map((role) => [
         role,
         {
-          expectedMaxFileSizeMb: Number(savedValues[role]),
-          maxFileSizeMb: Number(parsedValues[role]),
+          expectedMaxFileSizeMib: Number(savedValues[role]),
+          maxFileSizeMib: Number(parsedValues[role]),
         },
       ]),
     );
@@ -98,7 +98,7 @@ export function AdminSettingsPage() {
       const saved = await updateLimits.mutateAsync({ updates });
       const nextSavedValues = emptyValues();
       for (const limit of saved.limits) {
-        nextSavedValues[limit.role] = String(limit.maxFileSizeMb);
+        nextSavedValues[limit.role] = String(limit.maxFileSizeMib);
       }
       setForm({
         values: nextSavedValues,
@@ -143,7 +143,7 @@ export function AdminSettingsPage() {
                 ROLES.map((role) => {
                   const inputId = `${role}-max-file-size`;
                   const errorId = `${inputId}-error`;
-                  const label = `${role[0].toUpperCase()}${role.slice(1)} max file size (MB)`;
+                  const label = `${role[0].toUpperCase()}${role.slice(1)} max file size (MiB)`;
                   return (
                     <div key={role} className="space-y-2">
                       <Label htmlFor={inputId}>{label}</Label>
