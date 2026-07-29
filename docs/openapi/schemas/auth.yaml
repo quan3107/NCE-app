@@ -17,7 +17,7 @@ RegisterAccountRequest:
   type: object
   properties:
     fullName:
-      type: string
+      $ref: './common.yaml#/DisplayName'
     email:
       type: string
       format: email
