@@ -4,13 +4,17 @@
  * Why: Allows fetch utilities to retrieve/refresh tokens while the provider controls session state.
  */
 
+import type { RefreshAccessTokenResult } from './auth-types';
+
 type AccessTokenGetter = () => string | null;
-type RefreshInvoker = () => Promise<string | null>;
+type RefreshInvoker = () => Promise<RefreshAccessTokenResult>;
 type SessionClearer = () => void;
 
 const defaultHandlers = {
   getAccessToken: (): string | null => null,
-  refreshAccessToken: async (): Promise<string | null> => null,
+  refreshAccessToken: async (): Promise<RefreshAccessTokenResult> => ({
+    status: 'failed',
+  }),
   clearSession: (): void => {},
 };
 
@@ -24,7 +28,7 @@ export const authBridge = {
   getAccessToken(): string | null {
     return handlers.getAccessToken();
   },
-  async refreshAccessToken(): Promise<string | null> {
+  async refreshAccessToken(): Promise<RefreshAccessTokenResult> {
     return handlers.refreshAccessToken();
   },
   clearSession(): void {
@@ -46,4 +50,3 @@ export const authBridge = {
     handlers = { ...defaultHandlers };
   },
 };
-
