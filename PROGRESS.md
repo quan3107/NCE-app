@@ -81,6 +81,8 @@ and
 
 ## Frontend
 
+- **2026-07-29:** Serialized refresh-cookie mutations across refresh, login, registration, and logout so delayed responses cannot overwrite a newer account cookie; added a real Chromium/HTTP regression for the cross-session `Set-Cookie` race.
+
 - **2026-07-29:** Mounted the authoritative identity profile observer in the profile commit-order regression, preventing zero-GC cache cleanup from making parallel component CI flaky.
 
 - **2026-07-29:** Bound refresh retries and returned tokens to the initiating session, and scoped asynchronous profile commit ordering by account identity and generation.
