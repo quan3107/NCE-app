@@ -71,7 +71,11 @@ describe("modules.router settings routes", () => {
       },
     };
     const responsePayload = {
-      limits: [{ role: "student" as const, maxFileSizeMb: 12 }],
+      limits: [
+        { role: "student" as const, maxFileSizeMb: 12 },
+        { role: "teacher" as const, maxFileSizeMb: 25 },
+        { role: "admin" as const, maxFileSizeMb: 50 },
+      ],
     };
     updateFileUploadLimits.mockResolvedValueOnce(responsePayload);
 
