@@ -46,6 +46,7 @@ import {
   rubricTemplatesRouter,
 } from "./rubric-templates/rubric-templates.routes.js";
 import { rubricRouter } from "./rubrics/rubrics.routes.js";
+import { settingsRouter } from "./settings/settings.routes.js";
 import { submissionsTopLevelRouter } from "./submissions/submissions-top-level.routes.js";
 import { submissionRouter } from "./submissions/submissions.routes.js";
 import { userRouter } from "./users/users.routes.js";
@@ -55,6 +56,7 @@ export const apiRouter = Router();
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/me", meRouter);
 apiRouter.use("/users", userRouter);
+apiRouter.use("/settings", settingsRouter);
 apiRouter.use("/ai-feedback", aiFeedbackRouter);
 apiRouter.use("/analytics", analyticsRouter);
 apiRouter.use("/audit-logs", auditLogRouter);
