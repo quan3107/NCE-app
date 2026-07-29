@@ -5,6 +5,11 @@
  */
 import { z } from "zod";
 
+import {
+  isPostgresSafeText,
+  unicodeCodePointLength,
+} from "../../utils/textValidation.js";
+
 export const updateMeProfileSchema = z
   .object({
     fullName: z.string().superRefine((value, context) => {
@@ -15,11 +20,18 @@ export const updateMeProfileSchema = z
         });
       }
 
-      const codePointLength = Array.from(value).length;
+      const codePointLength = unicodeCodePointLength(value);
       if (codePointLength < 2 || codePointLength > 100) {
         context.addIssue({
           code: "custom",
           message: "Full name must contain between 2 and 100 Unicode characters",
+        });
+      }
+
+      if (!isPostgresSafeText(value)) {
+        context.addIssue({
+          code: "custom",
+          message: "Full name must contain only PostgreSQL-safe Unicode text",
         });
       }
     }),
