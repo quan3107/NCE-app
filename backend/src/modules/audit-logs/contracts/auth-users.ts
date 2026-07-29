@@ -45,6 +45,12 @@ export const authUserAuditContracts = {
     entity: "user",
     schema: z.strictObject(authOutcomeShape),
   },
+  "user.profile_updated": {
+    entity: "user",
+    schema: z.strictObject({
+      fullNameChanged: z.literal(true),
+    }),
+  },
   "user.teacher_approved": {
     entity: "user",
     schema: z.strictObject({
