@@ -14,6 +14,7 @@ import {
   useMeProfileQuery,
   useUpdateMeProfileMutation,
 } from "@features/profile/api";
+import { getProfileInitials } from "@features/profile/profileInitials";
 import { useAuthStore } from "@store/authStore";
 
 const NAME_ERROR = "Name must be between 2 and 100 characters.";
@@ -128,12 +129,7 @@ export function ProfileDetailsCard() {
     }
   };
 
-  const initials = currentUser.name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 3);
+  const initials = getProfileInitials(currentUser.name);
 
   return (
     <Card>
