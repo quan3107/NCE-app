@@ -85,6 +85,8 @@ and
 
 ## Frontend
 
+- **2026-07-29:** Added a recoverable localStorage mutex when Web Locks are unavailable and reconciled stale tabs to the authoritative identity returned by the shared refresh cookie.
+
 - **2026-07-29:** Coordinated auth-cookie mutations across tabs and OAuth redirects, isolated upload-policy caches by role/session with cancellation, reused Unicode-safe shell initials, dedicated the E2E frontend port, labeled upload limits as MiB, and restored the profile header action layout.
 
 - **2026-07-29:** Bound 401 retries to their initiating session, added abortable deadlines to every serialized auth-cookie mutation with late-response browser coverage, and made profile initials Unicode code-point safe.
