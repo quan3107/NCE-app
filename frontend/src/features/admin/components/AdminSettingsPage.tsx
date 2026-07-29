@@ -22,6 +22,10 @@ const LIMIT_ERROR = "Enter a whole number from 1 to 100 MB.";
 
 type FormValues = Record<UploadLimitRole, string>;
 type FormErrors = Partial<Record<UploadLimitRole, string>>;
+type FormState = {
+  values: FormValues;
+  savedValues: FormValues;
+};
 
 const emptyValues = (): FormValues => ({
   student: "",
@@ -32,19 +36,31 @@ const emptyValues = (): FormValues => ({
 export function AdminSettingsPage() {
   const limitsQuery = useAdminUploadLimitsQuery();
   const updateLimits = useUpdateAdminUploadLimitsMutation();
-  const [values, setValues] = useState<FormValues>(emptyValues);
-  const [savedValues, setSavedValues] = useState<FormValues>(emptyValues);
+  const [form, setForm] = useState<FormState>(() => ({
+    values: emptyValues(),
+    savedValues: emptyValues(),
+  }));
   const [errors, setErrors] = useState<FormErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { values, savedValues } = form;
 
   useEffect(() => {
     if (!limitsQuery.data) return;
-    const nextValues = emptyValues();
+    const incomingValues = emptyValues();
     for (const limit of limitsQuery.data.limits) {
-      nextValues[limit.role] = String(limit.maxFileSizeMb);
+      incomingValues[limit.role] = String(limit.maxFileSizeMb);
     }
-    setValues(nextValues);
-    setSavedValues(nextValues);
+    setForm((current) => {
+      const nextValues = { ...current.values };
+      const nextSavedValues = { ...current.savedValues };
+      for (const role of ROLES) {
+        if (current.values[role] === current.savedValues[role]) {
+          nextValues[role] = incomingValues[role];
+          nextSavedValues[role] = incomingValues[role];
+        }
+      }
+      return { values: nextValues, savedValues: nextSavedValues };
+    });
   }, [limitsQuery.data]);
 
   const submitSettings = async (event: FormEvent<HTMLFormElement>) => {
@@ -84,8 +100,10 @@ export function AdminSettingsPage() {
       for (const limit of saved.limits) {
         nextSavedValues[limit.role] = String(limit.maxFileSizeMb);
       }
-      setValues(nextSavedValues);
-      setSavedValues(nextSavedValues);
+      setForm({
+        values: nextSavedValues,
+        savedValues: nextSavedValues,
+      });
     } catch (error) {
       setSaveError(
         error instanceof ApiError && error.status === 409
@@ -137,9 +155,12 @@ export function AdminSettingsPage() {
                         step={1}
                         value={values[role]}
                         onChange={(event) => {
-                          setValues((current) => ({
+                          setForm((current) => ({
                             ...current,
-                            [role]: event.target.value,
+                            values: {
+                              ...current.values,
+                              [role]: event.target.value,
+                            },
                           }));
                           setErrors((current) => ({
                             ...current,
