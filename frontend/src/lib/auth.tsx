@@ -68,19 +68,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const tokenAtRefreshStart = tokenRef.current;
     let refreshPromise!: Promise<RefreshAccessTokenResult>;
-    refreshPromise = cookieOperations.run(async () => {
-      const versionBeforeRequest = getSessionVersion();
-      if (
-        versionBeforeRequest.generation !== sessionVersionAtRefreshStart.generation ||
-        versionBeforeRequest.userId !== sessionVersionAtRefreshStart.userId
-      ) {
-        return { status: 'stale' };
-      }
-      try {
+    refreshPromise = cookieOperations
+      .runRefresh(async (signal): Promise<RefreshAccessTokenResult> => {
+        const versionBeforeRequest = getSessionVersion();
+        if (
+          versionBeforeRequest.generation !== sessionVersionAtRefreshStart.generation ||
+          versionBeforeRequest.userId !== sessionVersionAtRefreshStart.userId
+        ) {
+          return { status: 'stale' };
+        }
         const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
           method: 'POST',
           withAuth: false,
           credentials: 'include',
+          signal,
         });
         const currentVersion = getSessionVersion();
         if (
@@ -93,7 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         applyLiveSession(result, sessionVersionAtRefreshStart);
         return { status: 'refreshed', accessToken: result.accessToken };
-      } catch {
+      })
+      .catch((): RefreshAccessTokenResult => {
         const currentVersion = getSessionVersion();
         if (
           currentVersion.generation !== sessionVersionAtRefreshStart.generation ||
@@ -105,12 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearSession();
         }
         return { status: 'failed' };
-      } finally {
+      })
+      .finally(() => {
         if (refreshPromiseRef.current?.promise === refreshPromise) {
           refreshPromiseRef.current = null;
         }
-      }
-    });
+      });
 
     refreshPromiseRef.current = {
       generation: sessionVersionAtRefreshStart.generation,
@@ -140,6 +142,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [clearSession, refreshAccessToken]);
 
+  useEffect(
+    () => () => cookieOperations.cancelRefreshes(),
+    [cookieOperations],
+  );
+
   useEffect(() => {
     if (!shouldRefreshOnMountRef.current) {
       setIsRestoringSession(false);
@@ -151,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
+      cookieOperations.cancelRefreshes();
       try {
         await cookieOperations.run(async () => {
           const result = await apiClient<AuthSuccessResponse>('/auth/login', {
@@ -178,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
+      cookieOperations.cancelRefreshes();
       return cookieOperations.run(async () => {
         const result = await apiClient<
           AuthSuccessResponse | AuthPendingApprovalResponse
@@ -234,7 +243,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshAccessToken]);
 
   const logout = useCallback(async () => {
+    cookieOperations.cancelRefreshes();
+    clearSession();
     await cookieOperations.run(async () => {
+      // An earlier queued login may have restored identity after the immediate clear.
+      clearSession();
       try {
         await apiClient('/auth/logout', {
           method: 'POST',
@@ -245,7 +258,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // Ignore logout errors; we still clear the local session.
       }
-      clearSession();
     });
   }, [clearSession, cookieOperations]);
 
