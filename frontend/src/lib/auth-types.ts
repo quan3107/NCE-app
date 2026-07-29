@@ -33,6 +33,11 @@ export type AuthPendingApprovalResponse = {
 export type RegisterRole = Exclude<SupportedRole, 'admin'>;
 export type RegisterResult = 'live' | 'pending_approval';
 
+export type SessionIdentity = {
+  userId: string;
+  generation: number;
+};
+
 export type RegisterPayload = {
   fullName: string;
   email: string;
@@ -47,7 +52,11 @@ export type StoredAuthPayload = {
 
 export type AuthContextType = {
   currentUser: User;
-  updateCurrentUser: (updates: Partial<Pick<User, 'name'>>) => void;
+  sessionGeneration: number;
+  updateCurrentUser: (
+    expected: SessionIdentity,
+    updates: Partial<Pick<User, 'name'>>,
+  ) => boolean;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
   login: (email: string, password: string) => Promise<'live' | null>;
