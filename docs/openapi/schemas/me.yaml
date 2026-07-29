@@ -27,7 +27,8 @@ UpdateMeProfileRequest:
       type: string
       minLength: 2
       maxLength: 100
-      description: Display name after surrounding whitespace is trimmed.
+      pattern: '^\S(?:[\s\S]*\S)?$'
+      description: Canonical display name with no surrounding whitespace, measured as 2-100 Unicode code points.
   required: [fullName]
 
 MeResponse:
