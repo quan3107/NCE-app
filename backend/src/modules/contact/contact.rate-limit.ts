@@ -35,15 +35,10 @@ export function createContactRateLimiter(
   const entries = new Map<string, RateLimitEntry>();
 
   const purgeExpiredEntries = (now: number): void => {
-    // Entries retain insertion order and use one fixed window, so the first
-    // entry also expires first. Stop as soon as the oldest entry is active.
-    while (entries.size > 0) {
-      const oldest = entries.entries().next().value as
-        | [string, RateLimitEntry]
-        | undefined;
-      if (!oldest || oldest[1].resetsAt > now) return;
-      const [oldestKey] = oldest;
-      entries.delete(oldestKey);
+    // A wall-clock rollback can make insertion order differ from expiry order.
+    // This scan runs only at capacity and remains bounded by maxTrackedKeys.
+    for (const [key, entry] of entries) {
+      if (entry.resetsAt <= now) entries.delete(key);
     }
   };
 
