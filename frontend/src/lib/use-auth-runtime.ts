@@ -110,11 +110,12 @@ export function useAuthRuntime() {
       getAccessToken: () => tokenRef.current,
       refreshAccessToken,
       clearSession,
+      getSessionVersion,
     });
     return () => {
       authBridge.reset();
     };
-  }, [clearSession, refreshAccessToken]);
+  }, [clearSession, getSessionVersion, refreshAccessToken]);
 
   useEffect(
     () => () => cookieOperations.cancelRefreshes(),
