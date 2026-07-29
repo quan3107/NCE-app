@@ -24,6 +24,10 @@ describe("updateMeProfileSchema", () => {
     ["NUL", "Ada\u0000Lovelace"],
     ["unpaired high surrogate", "Ada\uD800Lovelace"],
     ["unpaired low surrogate", "Ada\uDC00Lovelace"],
+    ["zero-width space", "Ada\u200BLovelace"],
+    ["bidirectional override", "Ada\u202ELovelace"],
+    ["tab", "Ada\tLovelace"],
+    ["newline", "Ada\nLovelace"],
   ])("rejects %s", (_label, fullName) => {
     expect(() => updateMeProfileSchema.parse({ fullName })).toThrow();
   });
