@@ -52,13 +52,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       cookieOperations.cancelRefreshes();
       try {
-        await cookieOperations.run(async () => {
+        await cookieOperations.run(async (signal) => {
           const result = await apiClient<AuthSuccessResponse>('/auth/login', {
             method: 'POST',
             withAuth: false,
             credentials: 'include',
             body: { email, password },
+            signal,
           });
+          if (signal.aborted) {
+            throw new ApiError('Login request timed out.', 0);
+          }
           applyLiveSession(result);
         });
         return 'live';
@@ -79,13 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
       cookieOperations.cancelRefreshes();
-      return cookieOperations.run(async () => {
+      return cookieOperations.run(async (signal) => {
         const result = await apiClient<
           AuthSuccessResponse | AuthPendingApprovalResponse
         >('/auth/register', {
           method: 'POST',
           withAuth: false,
           credentials: 'include',
+          signal,
           body: {
             fullName: payload.fullName.trim(),
             email: payload.email.trim(),
@@ -95,6 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         if (isPendingApprovalResponse(result)) {
           return 'pending_approval';
+        }
+        if (signal.aborted) {
+          throw new ApiError('Registration request timed out.', 0);
         }
         applyLiveSession(result);
         return 'live';
@@ -137,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     cookieOperations.cancelRefreshes();
     clearSession();
-    await cookieOperations.run(async () => {
+    await cookieOperations.run(async (signal) => {
       // An earlier queued login may have restored identity after the immediate clear.
       clearSession();
       try {
@@ -146,11 +154,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           withAuth: false,
           credentials: 'include',
           parseJson: false,
+          signal,
         });
       } catch {
         // Ignore logout errors; we still clear the local session.
       }
-    });
+    }).catch(() => undefined);
   }, [clearSession, cookieOperations]);
 
   const currentUser = liveUser ?? PUBLIC_USER;
