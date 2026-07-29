@@ -19,6 +19,11 @@ import type {
   SessionIdentity,
 } from './auth-types';
 
+type SessionVersion = {
+  generation: number;
+  userRevision: number;
+};
+
 const synchronizeProfileCache = (user: LiveUser): void => {
   const queryKey = ['identity', user.id, 'profile'] as const;
   void queryClient.cancelQueries({ queryKey, exact: true });
@@ -52,6 +57,7 @@ export const useAuthSession = () => {
   const [liveUser, setLiveUser] = useState<LiveUser | null>(initial.liveUser);
   const liveUserRef = useRef<LiveUser | null>(initial.liveUser);
   const sessionGenerationRef = useRef(initial.liveUser ? 1 : 0);
+  const userRevisionRef = useRef(initial.liveUser ? 1 : 0);
   const tokenRef = useRef<string | null>(initial.token);
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
   const shouldRefreshOnMountRef = useRef(
@@ -78,6 +84,7 @@ export const useAuthSession = () => {
 
   const clearSession = useCallback(() => {
     sessionGenerationRef.current += 1;
+    userRevisionRef.current += 1;
     tokenRef.current = null;
     liveUserRef.current = null;
     setLiveUser(null);
@@ -88,11 +95,39 @@ export const useAuthSession = () => {
     });
   }, [persistState]);
 
+  const getSessionVersion = useCallback(
+    (): SessionVersion => ({
+      generation: sessionGenerationRef.current,
+      userRevision: userRevisionRef.current,
+    }),
+    [],
+  );
+
   const applyLiveSession = useCallback(
-    (payload: AuthSuccessResponse) => {
+    (payload: AuthSuccessResponse, expectedVersion?: SessionVersion) => {
       const nextUser = mapBackendUser(payload.user);
       const previousUser = liveUserRef.current;
+      if (
+        expectedVersion &&
+        expectedVersion.generation !== sessionGenerationRef.current
+      ) {
+        return previousUser;
+      }
+
       const replacesIdentity = previousUser?.id !== nextUser.id;
+      const userChangedSinceRequest =
+        expectedVersion &&
+        !replacesIdentity &&
+        expectedVersion.userRevision !== userRevisionRef.current;
+
+      if (userChangedSinceRequest) {
+        tokenRef.current = payload.accessToken;
+        persistState({
+          token: payload.accessToken,
+          liveUser: previousUser,
+        });
+        return previousUser;
+      }
 
       if (replacesIdentity) {
         if (previousUser) {
@@ -102,6 +137,7 @@ export const useAuthSession = () => {
       } else {
         synchronizeProfileCache(nextUser);
       }
+      userRevisionRef.current += 1;
       tokenRef.current = payload.accessToken;
       liveUserRef.current = nextUser;
       setLiveUser(nextUser);
@@ -131,6 +167,7 @@ export const useAuthSession = () => {
       }
 
       const nextUser = { ...current, ...updates };
+      userRevisionRef.current += 1;
       liveUserRef.current = nextUser;
       setLiveUser(nextUser);
       persistState({
@@ -148,6 +185,7 @@ export const useAuthSession = () => {
     tokenRef,
     refreshPromiseRef,
     shouldRefreshOnMountRef,
+    getSessionVersion,
     applyLiveSession,
     updateLiveUser,
     clearSession,
