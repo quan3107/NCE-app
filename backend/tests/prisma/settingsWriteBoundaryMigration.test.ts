@@ -15,6 +15,13 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const canonicalMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/prisma/migrations/20260729133000_require_canonical_upload_policy_sizes/migration.sql",
+  ),
+  "utf8",
+);
 
 describe("secure file upload policy update migration", () => {
   it("uses an admin-checked security-definer function", () => {
@@ -34,6 +41,15 @@ describe("secure file upload policy update migration", () => {
     );
     expect(migration).not.toMatch(
       /GRANT\s+UPDATE\s+ON\s+public\.file_upload_policies/i,
+    );
+  });
+
+  it("rejects byte values that are not exact whole MiB", () => {
+    expect(canonicalMigration).toMatch(
+      /p_expected_max_file_size\s*%\s*1048576\s*<>\s*0/,
+    );
+    expect(canonicalMigration).toMatch(
+      /p_max_file_size\s*%\s*1048576\s*<>\s*0/,
     );
   });
 });
