@@ -46,6 +46,20 @@ describe("modules.router me routes", () => {
     expect(updateMeProfile).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["NUL", "Ada\u0000Lovelace"],
+    ["unpaired high surrogate", "Ada\uD800Lovelace"],
+    ["unpaired low surrogate", "Ada\uDC00Lovelace"],
+  ])("rejects a profile name containing %s", async (_label, fullName) => {
+    const response = await request(app)
+      .patch("/api/v1/me")
+      .set(activeStudentHeaders)
+      .send({ fullName });
+
+    expect(response.status).toBe(400);
+    expect(updateMeProfile).not.toHaveBeenCalled();
+  });
+
   it("returns the persisted authenticated profile", async () => {
     updateMeProfile.mockResolvedValueOnce({
       id: userId,
