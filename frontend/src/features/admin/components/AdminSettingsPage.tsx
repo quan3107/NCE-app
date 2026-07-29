@@ -15,6 +15,7 @@ import {
   useAdminUploadLimitsQuery,
   useUpdateAdminUploadLimitsMutation,
 } from "@features/admin/settingsApi";
+import { ApiError } from "@lib/apiClient";
 
 const ROLES: UploadLimitRole[] = ["student", "teacher", "admin"];
 const LIMIT_ERROR = "Enter a whole number from 1 to 100 MB.";
@@ -32,6 +33,7 @@ export function AdminSettingsPage() {
   const limitsQuery = useAdminUploadLimitsQuery();
   const updateLimits = useUpdateAdminUploadLimitsMutation();
   const [values, setValues] = useState<FormValues>(emptyValues);
+  const [savedValues, setSavedValues] = useState<FormValues>(emptyValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -42,12 +44,14 @@ export function AdminSettingsPage() {
       nextValues[limit.role] = String(limit.maxFileSizeMb);
     }
     setValues(nextValues);
+    setSavedValues(nextValues);
   }, [limitsQuery.data]);
 
   const submitSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextErrors: FormErrors = {};
-    const limits = ROLES.map((role) => {
+    const parsedValues = emptyValues();
+    for (const role of ROLES) {
       const maxFileSizeMb = Number(values[role]);
       if (
         !Number.isInteger(maxFileSizeMb) ||
@@ -56,22 +60,38 @@ export function AdminSettingsPage() {
       ) {
         nextErrors[role] = LIMIT_ERROR;
       }
-      return { role, maxFileSizeMb };
-    });
+      parsedValues[role] = String(maxFileSizeMb);
+    }
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
+    const updates = Object.fromEntries(
+      ROLES.filter((role) => values[role] !== savedValues[role]).map((role) => [
+        role,
+        {
+          expectedMaxFileSizeMb: Number(savedValues[role]),
+          maxFileSizeMb: Number(parsedValues[role]),
+        },
+      ]),
+    );
+    if (Object.keys(updates).length === 0) return;
+
     setSaveError(null);
     try {
-      const saved = await updateLimits.mutateAsync({ limits });
-      const savedValues = emptyValues();
+      const saved = await updateLimits.mutateAsync({ updates });
+      const nextSavedValues = emptyValues();
       for (const limit of saved.limits) {
-        savedValues[limit.role] = String(limit.maxFileSizeMb);
+        nextSavedValues[limit.role] = String(limit.maxFileSizeMb);
       }
-      setValues(savedValues);
-    } catch {
-      setSaveError("Unable to save settings. Please try again.");
+      setValues(nextSavedValues);
+      setSavedValues(nextSavedValues);
+    } catch (error) {
+      setSaveError(
+        error instanceof ApiError && error.status === 409
+          ? "Settings changed in another session. Reload before saving again."
+          : "Unable to save settings. Please try again.",
+      );
     }
   };
 
