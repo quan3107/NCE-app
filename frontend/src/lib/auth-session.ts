@@ -14,6 +14,7 @@ import {
 } from './auth-state';
 import type {
   AuthSuccessResponse,
+  CurrentProfile,
   LiveUser,
   PersistSnapshot,
   SessionIdentity,
@@ -58,6 +59,7 @@ export const useAuthSession = () => {
   const liveUserRef = useRef<LiveUser | null>(initial.liveUser);
   const sessionGenerationRef = useRef(initial.liveUser ? 1 : 0);
   const userRevisionRef = useRef(initial.liveUser ? 1 : 0);
+  const profileCommitSequenceRef = useRef(0);
   const tokenRef = useRef<string | null>(initial.token);
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
   const shouldRefreshOnMountRef = useRef(
@@ -179,6 +181,52 @@ export const useAuthSession = () => {
     [persistState],
   );
 
+  const commitLiveProfile = useCallback(
+    async (
+      expected: SessionIdentity,
+      profile: CurrentProfile,
+    ): Promise<boolean> => {
+      const commitSequence = profileCommitSequenceRef.current + 1;
+      profileCommitSequenceRef.current = commitSequence;
+      const queryKey = ['identity', expected.userId, 'profile'] as const;
+      await queryClient.cancelQueries({ queryKey, exact: true });
+
+      const current = liveUserRef.current;
+      if (
+        commitSequence !== profileCommitSequenceRef.current ||
+        !current ||
+        current.id !== expected.userId ||
+        profile.id !== expected.userId ||
+        sessionGenerationRef.current !== expected.generation
+      ) {
+        return false;
+      }
+
+      queryClient.setQueryData(queryKey, profile);
+      const nextUser = {
+        ...current,
+        name: profile.fullName,
+        email: profile.email,
+        role: profile.role,
+      };
+      const identityChanged =
+        nextUser.name !== current.name ||
+        nextUser.email !== current.email ||
+        nextUser.role !== current.role;
+      if (identityChanged) {
+        userRevisionRef.current += 1;
+        liveUserRef.current = nextUser;
+        setLiveUser(nextUser);
+        persistState({
+          token: tokenRef.current,
+          liveUser: nextUser,
+        });
+      }
+      return true;
+    },
+    [persistState],
+  );
+
   return {
     liveUser,
     sessionGeneration: sessionGenerationRef.current,
@@ -188,6 +236,7 @@ export const useAuthSession = () => {
     getSessionVersion,
     applyLiveSession,
     updateLiveUser,
+    commitLiveProfile,
     clearSession,
   };
 };
