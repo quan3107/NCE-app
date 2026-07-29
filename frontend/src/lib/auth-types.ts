@@ -34,6 +34,11 @@ export type AuthPendingApprovalResponse = {
 export type RegisterRole = Exclude<SupportedRole, 'admin'>;
 export type RegisterResult = 'live' | 'pending_approval';
 
+export type RefreshAccessTokenResult =
+  | { status: 'refreshed'; accessToken: string }
+  | { status: 'stale' }
+  | { status: 'failed' };
+
 export type SessionIdentity = {
   userId: string;
   generation: number;
