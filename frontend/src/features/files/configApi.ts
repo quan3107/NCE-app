@@ -7,6 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@lib/apiClient';
+import { useAuthStore } from '@store/authStore';
 
 import {
   createFileUploadPolicy,
@@ -55,19 +56,30 @@ function mapToPolicy(
   });
 }
 
-export async function fetchFileUploadConfig(): Promise<FileUploadPolicy> {
+export async function fetchFileUploadConfig(
+  signal?: AbortSignal,
+): Promise<FileUploadPolicy> {
   const [limitsResponse, allowedTypesResponse] = await Promise.all([
-    apiClient<FileUploadLimitsResponse>('/api/v1/config/file-upload-limits'),
-    apiClient<AllowedFileTypesResponse>('/api/v1/config/allowed-file-types'),
+    apiClient<FileUploadLimitsResponse>('/api/v1/config/file-upload-limits', {
+      signal,
+    }),
+    apiClient<AllowedFileTypesResponse>('/api/v1/config/allowed-file-types', {
+      signal,
+    }),
   ]);
 
   return mapToPolicy(limitsResponse, allowedTypesResponse);
 }
 
 export function useFileUploadConfig() {
+  const { currentUser, sessionGeneration } = useAuthStore();
   return useQuery({
-    queryKey: [FILE_UPLOAD_CONFIG_QUERY_KEY],
-    queryFn: fetchFileUploadConfig,
+    queryKey: [
+      FILE_UPLOAD_CONFIG_QUERY_KEY,
+      currentUser.role,
+      sessionGeneration,
+    ],
+    queryFn: ({ signal }) => fetchFileUploadConfig(signal),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     retry: 1,
