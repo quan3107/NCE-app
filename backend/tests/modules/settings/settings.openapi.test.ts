@@ -30,4 +30,11 @@ describe("settings OpenAPI contract", () => {
   it("documents optimistic write conflicts", () => {
     expect(path).toMatch(/'409':\s*\r?\n\s+description: .*conflict/i);
   });
+
+  it("requires the complete upload-limit role set in responses", () => {
+    expect(schema).toMatch(
+      /FileUploadLimitsResponse:[\s\S]*minItems:\s*3[\s\S]*maxItems:\s*3/,
+    );
+    expect(schema).toContain("exactly once");
+  });
 });
