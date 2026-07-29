@@ -12,6 +12,90 @@ test.beforeEach(async ({ request }) => {
   await request.post(`${TEST_SERVER}/test/reset`);
 });
 
+test('serializes a delayed refresh and account switch across two pages', async ({
+  browser,
+  request,
+}) => {
+  const context = await browser.newContext();
+  const pageA = await context.newPage();
+  const pageB = await context.newPage();
+  await Promise.all([
+    pageA.goto('/e2e/auth-cookie-race.html'),
+    pageB.goto('/e2e/auth-cookie-race.html'),
+  ]);
+
+  await pageA.getByRole('button', { name: 'Login A' }).click();
+  await expect(pageA.getByTestId('current-user')).toHaveText('user-a');
+
+  const refreshStarted = pageA.waitForRequest('**/api/v1/auth/refresh');
+  await pageA.getByRole('button', { name: 'Start protected request' }).click();
+  await refreshStarted;
+
+  await pageB.getByRole('button', { name: 'Login B' }).click();
+  await expect(pageB.getByTestId('current-user')).toHaveText('guest');
+
+  await request.post(`${TEST_SERVER}/test/release-refresh`);
+  await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
+
+  await pageB.reload();
+  await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
+  await context.close();
+});
+
+test('holds cross-tab cookie operations until OAuth completion', async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const oauthPage = await context.newPage();
+  const otherPage = await context.newPage();
+  await Promise.all([
+    oauthPage.goto('/e2e/auth-cookie-race.html'),
+    otherPage.goto('/e2e/auth-cookie-race.html'),
+  ]);
+
+  await oauthPage.evaluate(async () => {
+    const { createAuthCookieOperations } = await import(
+      '/src/lib/auth-cookie-operations.ts'
+    );
+    const operations = createAuthCookieOperations();
+    await operations.runOAuthStart(async () => 'authorization-url');
+  });
+  await otherPage.evaluate(async () => {
+    const { createAuthCookieOperations } = await import(
+      '/src/lib/auth-cookie-operations.ts'
+    );
+    const operations = createAuthCookieOperations();
+    (window as Window & { authOperationDone?: boolean }).authOperationDone = false;
+    void operations.run(async () => {
+      (window as Window & { authOperationDone?: boolean }).authOperationDone = true;
+    });
+  });
+
+  await expect
+    .poll(() =>
+      otherPage.evaluate(
+        () => (window as Window & { authOperationDone?: boolean }).authOperationDone,
+      ),
+    )
+    .toBe(false);
+
+  await oauthPage.evaluate(async () => {
+    const { createAuthCookieOperations } = await import(
+      '/src/lib/auth-cookie-operations.ts'
+    );
+    const operations = createAuthCookieOperations();
+    await operations.runOAuthCompletion(async () => undefined);
+  });
+  await expect
+    .poll(() =>
+      otherPage.evaluate(
+        () => (window as Window & { authOperationDone?: boolean }).authOperationDone,
+      ),
+    )
+    .toBe(true);
+  await context.close();
+});
+
 test('cancels refresh before logout and preserves the new account cookie', async ({
   page,
   request,
