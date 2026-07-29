@@ -5,7 +5,9 @@
  */
 
 export type AuthCookieOperations = {
-  run: <T>(operation: () => Promise<T>) => Promise<T>;
+  run: <T>(
+    operation: (signal: AbortSignal) => Promise<T>,
+  ) => Promise<T>;
   runRefresh: <T>(
     operation: (signal: AbortSignal) => Promise<T>,
   ) => Promise<T>;
@@ -13,13 +15,15 @@ export type AuthCookieOperations = {
 };
 
 type AuthCookieOperationOptions = {
+  operationTimeoutMs?: number;
   refreshTimeoutMs?: number;
 };
 
+const DEFAULT_OPERATION_TIMEOUT_MS = 10_000;
 const DEFAULT_REFRESH_TIMEOUT_MS = 10_000;
 
 function abortError(): Error {
-  const error = new Error('Authentication refresh was aborted.');
+  const error = new Error('Authentication cookie operation was aborted.');
   error.name = 'AbortError';
   return error;
 }
@@ -29,16 +33,51 @@ export function createAuthCookieOperations(
 ): AuthCookieOperations {
   let tail: Promise<void> = Promise.resolve();
   const refreshControllers = new Set<AbortController>();
+  const operationTimeoutMs =
+    options.operationTimeoutMs ?? DEFAULT_OPERATION_TIMEOUT_MS;
   const refreshTimeoutMs =
     options.refreshTimeoutMs ?? DEFAULT_REFRESH_TIMEOUT_MS;
 
-  function run<T>(operation: () => Promise<T>): Promise<T> {
-    const result = tail.then(operation);
+  function enqueue<T>(
+    operation: (signal: AbortSignal) => Promise<T>,
+    timeoutMs: number,
+    trackedControllers?: Set<AbortController>,
+  ): Promise<T> {
+    const controller = new AbortController();
+    trackedControllers?.add(controller);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const result = tail.then(async () => {
+      if (controller.signal.aborted) {
+        throw abortError();
+      }
+      timeout = setTimeout(() => controller.abort(), timeoutMs);
+      return new Promise<T>((resolve, reject) => {
+        const onAbort = () => reject(abortError());
+        controller.signal.addEventListener('abort', onAbort, { once: true });
+        Promise.resolve()
+          .then(() => operation(controller.signal))
+          .then(resolve, reject)
+          .finally(() => {
+            controller.signal.removeEventListener('abort', onAbort);
+          });
+      });
+    });
     tail = result.then(
       () => undefined,
       () => undefined,
     );
-    return result;
+    return result.finally(() => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      trackedControllers?.delete(controller);
+    });
+  }
+
+  function run<T>(
+    operation: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    return enqueue(operation, operationTimeoutMs);
   }
 
   return {
@@ -46,37 +85,7 @@ export function createAuthCookieOperations(
     runRefresh<T>(
       operation: (signal: AbortSignal) => Promise<T>,
     ): Promise<T> {
-      const controller = new AbortController();
-      refreshControllers.add(controller);
-      const timeout = setTimeout(
-        () => controller.abort(),
-        refreshTimeoutMs,
-      );
-      const result = run(async () => {
-        if (controller.signal.aborted) {
-          throw abortError();
-        }
-        return new Promise<T>((resolve, reject) => {
-          const onAbort = () => {
-            reject(abortError());
-          };
-          controller.signal.addEventListener('abort', onAbort, { once: true });
-          operation(controller.signal).then(
-            (value) => {
-              controller.signal.removeEventListener('abort', onAbort);
-              resolve(value);
-            },
-            (error: unknown) => {
-              controller.signal.removeEventListener('abort', onAbort);
-              reject(error);
-            },
-          );
-        });
-      });
-      return result.finally(() => {
-        clearTimeout(timeout);
-        refreshControllers.delete(controller);
-      });
+      return enqueue(operation, refreshTimeoutMs, refreshControllers);
     },
     cancelRefreshes() {
       refreshControllers.forEach((controller) => controller.abort());
