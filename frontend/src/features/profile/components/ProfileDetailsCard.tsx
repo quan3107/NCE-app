@@ -11,17 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@components/ui/card";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import {
-  meProfileQueryKey,
   useMeProfileQuery,
   useUpdateMeProfileMutation,
 } from "@features/profile/api";
-import { queryClient } from "@lib/queryClient";
 import { useAuthStore } from "@store/authStore";
 
 const NAME_ERROR = "Name must be between 2 and 100 characters.";
 
 export function ProfileDetailsCard() {
-  const { currentUser, sessionGeneration, updateCurrentUser } = useAuthStore();
+  const { currentUser, sessionGeneration, commitCurrentProfile } = useAuthStore();
   const profileQuery = useMeProfileQuery(currentUser.id);
   const updateProfile = useUpdateMeProfileMutation();
   const [editing, setEditing] = useState(false);
@@ -46,7 +44,6 @@ export function ProfileDetailsCard() {
   useEffect(() => {
     if (previousUserId.current !== currentUser.id) {
       previousUserId.current = currentUser.id;
-      requestSequence.current += 1;
       setEditing(false);
       setNameError(null);
       setSaveError(null);
@@ -59,8 +56,29 @@ export function ProfileDetailsCard() {
     }
   }, [authoritativeName, currentUser.id, editing]);
 
+  useEffect(() => {
+    const profile = profileQuery.data;
+    if (
+      !profile ||
+      profile.id !== currentUser.id ||
+      (profile.fullName === currentUser.name &&
+        profile.email === currentUser.email &&
+        profile.role === currentUser.role)
+    ) {
+      return;
+    }
+    void commitCurrentProfile(
+      { userId: currentUser.id, generation: sessionGeneration },
+      profile,
+    );
+  }, [
+    commitCurrentProfile,
+    currentUser.id,
+    profileQuery.data,
+    sessionGeneration,
+  ]);
+
   const cancelEditing = () => {
-    requestSequence.current += 1;
     setFullName(authoritativeName);
     setNameError(null);
     setSaveError(null);
@@ -92,20 +110,12 @@ export function ProfileDetailsCard() {
       const profile = await updateProfile.mutateAsync({
         fullName: normalizedName,
       });
-      const identityStillCurrent =
-        latestIdentity.current.userId === initiatingIdentity.userId &&
-        latestIdentity.current.generation === initiatingIdentity.generation;
       if (
         requestSequence.current !== requestId ||
-        !identityStillCurrent ||
-        profile.id !== initiatingIdentity.userId ||
-        !updateCurrentUser(initiatingIdentity, { name: profile.fullName })
+        !(await commitCurrentProfile(initiatingIdentity, profile))
       ) {
         return;
       }
-      const queryKey = meProfileQueryKey(initiatingIdentity.userId);
-      void queryClient.cancelQueries({ queryKey, exact: true });
-      queryClient.setQueryData(queryKey, profile);
       setFullName(profile.fullName);
       setEditing(false);
     } catch {
