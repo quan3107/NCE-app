@@ -244,7 +244,7 @@ test("accepts a PATCH retry after a 401 refreshes the same user", async () => {
       act(() => {
         result.current.applyLiveSession(session("user-a", "User A", "token-b"));
       });
-      return result.current.tokenRef.current;
+      return { status: "refreshed", accessToken: "token-b" };
     },
   });
 
