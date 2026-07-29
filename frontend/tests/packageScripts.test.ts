@@ -46,4 +46,14 @@ test('frontend component tests cap memory-heavy jsdom workers', async () => {
     /maxWorkers:\s*2/,
     'component tests should not create one jsdom worker per test file',
   );
+  assert.match(
+    vitestConfig,
+    /pool:\s*['"]forks['"]/,
+    'component tests should isolate process-wide state such as timezone changes',
+  );
+  assert.match(
+    vitestConfig,
+    /execArgv:\s*\[['"]--max-old-space-size=512['"]\]/,
+    'component workers should have a hard heap bound if a run is interrupted',
+  );
 });
