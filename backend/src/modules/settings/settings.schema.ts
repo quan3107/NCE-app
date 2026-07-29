@@ -24,19 +24,33 @@ export const fileUploadLimitsResponseSchema = z
   })
   .strict();
 
-export const updateFileUploadLimitsSchema =
-  fileUploadLimitsResponseSchema.superRefine((value, context) => {
-    const roles = value.limits.map((limit) => limit.role);
-    if (new Set(roles).size !== roles.length) {
-      context.addIssue({
-        code: "custom",
-        message: "Each role can appear only once",
-        path: ["limits"],
-      });
-    }
+const uploadLimitUpdateSchema = z
+  .object({
+    expectedMaxFileSizeMb: z.number().int().min(1).max(100),
+    maxFileSizeMb: z.number().int().min(1).max(100),
+  })
+  .strict();
+
+export const updateFileUploadLimitsSchema = z
+  .object({
+    updates: z
+      .object({
+        student: uploadLimitUpdateSchema.optional(),
+        teacher: uploadLimitUpdateSchema.optional(),
+        admin: uploadLimitUpdateSchema.optional(),
+      })
+      .strict(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value.updates).length > 0, {
+    message: "At least one role update is required",
+    path: ["updates"],
   });
 
 export type UploadLimitRole = z.infer<typeof uploadLimitRoleSchema>;
 export type FileUploadLimitsPayload = z.infer<
   typeof fileUploadLimitsResponseSchema
+>;
+export type UpdateFileUploadLimitsPayload = z.infer<
+  typeof updateFileUploadLimitsSchema
 >;
