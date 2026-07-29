@@ -37,7 +37,6 @@ export function useAuthRuntime() {
   const refreshSessionWith = useCallback(
     async (
       runCookieOperation: AuthCookieOperations['runRefresh'],
-      allowIdentityReplacement = false,
     ): Promise<RefreshAccessTokenResult> => {
       const sessionVersionAtRefreshStart = getSessionVersion();
       if (
@@ -67,10 +66,7 @@ export function useAuthRuntime() {
           const currentVersion = getSessionVersion();
           if (
             currentVersion.generation !== sessionVersionAtRefreshStart.generation ||
-            currentVersion.userId !== sessionVersionAtRefreshStart.userId ||
-            (!allowIdentityReplacement &&
-              sessionVersionAtRefreshStart.userId !== null &&
-              result.user.id !== sessionVersionAtRefreshStart.userId)
+            currentVersion.userId !== sessionVersionAtRefreshStart.userId
           ) {
             return { status: 'stale' };
           }
@@ -119,7 +115,7 @@ export function useAuthRuntime() {
 
   const completeOAuthSession = useCallback(
     (): Promise<RefreshAccessTokenResult> =>
-      refreshSessionWith(cookieOperations.runOAuthCompletion, true),
+      refreshSessionWith(cookieOperations.runOAuthCompletion),
     [cookieOperations, refreshSessionWith],
   );
 
