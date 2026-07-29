@@ -69,12 +69,28 @@ export const useAuthSession = () => {
     [buildSnapshot, persistState],
   );
 
+  const updateLiveUser = useCallback(
+    (updates: Partial<Pick<LiveUser, 'name'>>) => {
+      setLiveUser((current) => {
+        if (!current) return current;
+        const nextUser = { ...current, ...updates };
+        persistState({
+          token: tokenRef.current,
+          liveUser: nextUser,
+        });
+        return nextUser;
+      });
+    },
+    [persistState],
+  );
+
   return {
     liveUser,
     tokenRef,
     refreshPromiseRef,
     shouldRefreshOnMountRef,
     applyLiveSession,
+    updateLiveUser,
     clearSession,
   };
 };
