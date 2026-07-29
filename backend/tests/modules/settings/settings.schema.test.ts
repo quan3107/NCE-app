@@ -5,7 +5,10 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { updateFileUploadLimitsSchema } from "../../../src/modules/settings/settings.schema.js";
+import {
+  fileUploadLimitsResponseSchema,
+  updateFileUploadLimitsSchema,
+} from "../../../src/modules/settings/settings.schema.js";
 
 describe("updateFileUploadLimitsSchema", () => {
   it("accepts a partial role-keyed update with an expected value", () => {
@@ -43,6 +46,26 @@ describe("updateFileUploadLimitsSchema", () => {
     expect(() =>
       updateFileUploadLimitsSchema.parse({
         updates: {},
+      }),
+    ).toThrow();
+  });
+
+  it("requires one response row for every unique upload-limit role", () => {
+    expect(() =>
+      fileUploadLimitsResponseSchema.parse({
+        limits: [
+          { role: "student", maxFileSizeMb: 10 },
+          { role: "teacher", maxFileSizeMb: 20 },
+        ],
+      }),
+    ).toThrow();
+    expect(() =>
+      fileUploadLimitsResponseSchema.parse({
+        limits: [
+          { role: "student", maxFileSizeMb: 10 },
+          { role: "student", maxFileSizeMb: 20 },
+          { role: "admin", maxFileSizeMb: 30 },
+        ],
       }),
     ).toThrow();
   });
