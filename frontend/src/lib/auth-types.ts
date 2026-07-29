@@ -47,6 +47,7 @@ export type StoredAuthPayload = {
 
 export type AuthContextType = {
   currentUser: User;
+  updateCurrentUser: (updates: Partial<Pick<User, 'name'>>) => void;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
   login: (email: string, password: string) => Promise<'live' | null>;
