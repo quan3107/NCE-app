@@ -11,6 +11,7 @@ type RefreshInvoker = () => Promise<RefreshAccessTokenResult>;
 type SessionClearer = () => void;
 type SessionVersion = {
   generation: number;
+  sessionEpoch: number;
   userId: string | null;
 };
 type SessionVersionGetter = () => SessionVersion;
@@ -21,7 +22,11 @@ const defaultHandlers = {
     status: 'failed',
   }),
   clearSession: (): void => {},
-  getSessionVersion: (): SessionVersion => ({ generation: 0, userId: null }),
+  getSessionVersion: (): SessionVersion => ({
+    generation: 0,
+    sessionEpoch: 0,
+    userId: null,
+  }),
 };
 
 let handlers: {
