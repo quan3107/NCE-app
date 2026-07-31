@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-31:** No backend files changed for the consistent cross-tab authentication lock-boundary correction.
+
 - **2026-07-31:** Added machine-checkable OpenAPI constraints for whitespace-normalized display-name inputs, including Unicode scalar, control-character, and post-trim length boundaries.
 
 - **2026-07-30:** Required an active database user inside the atomic profile-write transaction and separated whitespace-normalized display-name request contracts from canonical responses and profile PATCH inputs.
@@ -88,6 +90,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-31:** Routed every no-Web-Locks auth-cookie operation through one IndexedDB lease boundary, preventing readable, unreadable, and non-enumerable localStorage states from splitting cross-tab coordination.
 
 - **2026-07-31:** Preserved cross-tab auth-cookie serialization through an atomic IndexedDB lease when Web Locks or localStorage locking is unavailable, with two-page access-denial and write-failure regressions.
 
