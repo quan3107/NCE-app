@@ -3,10 +3,17 @@
  * Purpose: Fetch the authenticated user's profile, roles, enrollments, and navigation.
  * Why: Powers the PRD-required /me endpoint with a single query flow.
  */
-import type { EnrollmentRole, UserRole, UserStatus } from "../../prisma/index.js";
+import {
+  UserStatus,
+  type EnrollmentRole,
+  type UserRole,
+} from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
-import { createNotFoundError } from "../../utils/httpError.js";
+import {
+  createHttpError,
+  createNotFoundError,
+} from "../../utils/httpError.js";
 import { writeAuditLog } from "../audit-logs/audit-logs.service.js";
 import { getNavigationForRole } from "../navigation/navigation.service.js";
 import type { NavigationResponse } from "../navigation/navigation.types.js";
@@ -61,6 +68,7 @@ export async function updateMeProfile(
       where: {
         id: userId,
         deletedAt: null,
+        status: UserStatus.active,
         NOT: { fullName: input.fullName },
       },
       data: { fullName: input.fullName },
@@ -73,6 +81,9 @@ export async function updateMeProfile(
 
     if (!profile) {
       throw createNotFoundError("User", userId);
+    }
+    if (profile.status !== UserStatus.active) {
+      throw createHttpError(403, "Active account required.");
     }
 
     if (updateResult.count === 1) {
