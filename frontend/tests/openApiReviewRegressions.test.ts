@@ -145,8 +145,16 @@ test('normalized name inputs and course-tab filtering are documented', async () 
   assert.match(displayName, /minLength: 2/);
   assert.match(displayName, /\\p\{Cc\}.*\\p\{Cf\}.*\\p\{Zl\}.*\\p\{Zp\}/);
   assert.match(normalizedInput, /trimmed[\s\S]*DisplayName/i);
-  assert.doesNotMatch(normalizedInput, /minLength: 2/);
-  assert.doesNotMatch(normalizedInput, /pattern:/);
+  assert.match(normalizedInput, /minLength: 2/);
+  const normalizedPattern = normalizedInput.match(
+    /^\s*pattern: '(.+)'$/m,
+  )?.[1];
+  assert.ok(normalizedPattern, 'normalized input must define a pattern');
+  const acceptsNormalizedInput = new RegExp(normalizedPattern, 'u');
+  assert.match('  Ada 😀  ', acceptsNormalizedInput);
+  assert.doesNotMatch(' A ', acceptsNormalizedInput);
+  assert.doesNotMatch(` Ada\u202eLovelace `, acceptsNormalizedInput);
+  assert.doesNotMatch(` ${'A'.repeat(101)} `, acceptsNormalizedInput);
   assert.match(invite, /clients[\s\S]*normalize[\s\S]*before[\s\S]*validation/i);
   assert.match(invite, /unknown properties[\s\S]*discarded/i);
   assert.doesNotMatch(invite, /example: ['"]\s/);
