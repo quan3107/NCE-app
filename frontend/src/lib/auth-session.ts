@@ -118,7 +118,7 @@ export const useAuthSession = () => {
           expectedVersion.sessionEpoch !== sessionEpochRef.current ||
           expectedVersion.userId !== (previousUser?.id ?? null))
       ) {
-        return previousUser;
+        return false;
       }
 
       const replacesIdentity = previousUser?.id !== nextUser.id;
@@ -155,7 +155,7 @@ export const useAuthSession = () => {
         }),
         replacesAuthorization,
       );
-      return resolvedNextUser;
+      return true;
     },
     [buildSnapshot, persistState],
   );
