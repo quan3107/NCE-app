@@ -197,3 +197,37 @@ test("a password fallback releases its tab's abandoned OAuth lease", async () =>
   );
   assert.equal(operations.hasOwnedOAuthLease(), false);
 });
+
+test("OAuth admission does not spend refresh or logout network deadlines", async () => {
+  const operations = createAuthCookieOperations({
+    operationTimeoutMs: 10,
+    refreshTimeoutMs: 10,
+  });
+  const runners = [
+    operations.runRefresh.bind(operations),
+    operations.run.bind(operations),
+  ];
+
+  for (const run of runners) {
+    const ownerId = crypto.randomUUID();
+    await writeIndexedDbAuthLease({
+      name: "oauth-reservation",
+      ownerId,
+      expiresAt: Date.now() + 75,
+    });
+    let networkStarted = false;
+
+    try {
+      await expect(
+        run(async (signal) => {
+          networkStarted = true;
+          assert.equal(signal.aborted, false);
+          return "network-complete";
+        }),
+      ).resolves.toBe("network-complete");
+      assert.equal(networkStarted, true);
+    } finally {
+      await removeIndexedDbAuthLease("oauth-reservation", ownerId);
+    }
+  }
+});
