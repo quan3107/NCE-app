@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import type { PropsWithChildren } from "react";
 
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { AuthProvider, useAuth } from "../src/lib/auth";
@@ -230,4 +230,39 @@ test("OAuth admission does not spend refresh or logout network deadlines", async
       await removeIndexedDbAuthLease("oauth-reservation", ownerId);
     }
   }
+});
+
+test("mount cleanup releases an abandoned OAuth lease before restoring", async () => {
+  const initial = {
+    token: "stale-token",
+    liveUser: {
+      id: "user-a",
+      name: "User A",
+      email: "user-a@example.com",
+      role: "student",
+    },
+  };
+  window.localStorage.setItem("currentUser", JSON.stringify(initial));
+  const operations = createAuthCookieOperations();
+  await operations.runOAuthStart(async () => "started");
+  const fetchSpy = vi.fn(async () =>
+    Response.json({
+      accessToken: "fresh-token",
+      user: {
+        id: "user-a",
+        fullName: "User A",
+        email: "user-a@example.com",
+        role: "student",
+      },
+    }),
+  );
+  vi.stubGlobal("fetch", fetchSpy);
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+
+  renderHook(() => useAuth(), { wrapper });
+
+  await waitFor(() => assert.equal(fetchSpy.mock.calls.length, 1));
+  assert.match(String(fetchSpy.mock.calls[0]?.[0]), /\/auth\/refresh$/);
 });
