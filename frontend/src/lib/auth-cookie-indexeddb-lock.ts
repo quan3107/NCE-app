@@ -11,7 +11,7 @@ const LOCK_NAME = "auth-cookie-operations";
 const LOCK_POLL_MS = 25;
 const MINIMUM_LEASE_MS = 60_000;
 
-type LockRecord = {
+export type AuthCoordinationLease = {
   name: string;
   ownerId: string;
   expiresAt: number;
@@ -73,7 +73,7 @@ function tryAcquireLease(
     const request = store.get(LOCK_NAME);
 
     request.onsuccess = () => {
-      const current = request.result as LockRecord | undefined;
+      const current = request.result as AuthCoordinationLease | undefined;
       if (current && current.expiresAt > Date.now()) {
         return;
       }
@@ -82,7 +82,7 @@ function tryAcquireLease(
         name: LOCK_NAME,
         ownerId,
         expiresAt: Date.now() + Math.max(leaseMs, MINIMUM_LEASE_MS),
-      } satisfies LockRecord);
+      } satisfies AuthCoordinationLease);
     };
     transaction.oncomplete = () => resolve(acquired);
     transaction.onerror = () => reject(coordinationUnavailableError());
@@ -100,7 +100,7 @@ function releaseLease(
     const request = store.get(LOCK_NAME);
 
     request.onsuccess = () => {
-      const current = request.result as LockRecord | undefined;
+      const current = request.result as AuthCoordinationLease | undefined;
       if (current?.ownerId === ownerId) {
         store.delete(LOCK_NAME);
       }
@@ -123,6 +123,96 @@ function delay(signal: AbortSignal): Promise<void> {
     }, LOCK_POLL_MS);
     signal.addEventListener("abort", onAbort, { once: true });
   });
+}
+
+function readLease(
+  database: IDBDatabase,
+  name: string,
+): Promise<AuthCoordinationLease | null> {
+  return new Promise((resolve, reject) => {
+    let lease: AuthCoordinationLease | null = null;
+    const transaction = database.transaction(LOCK_STORE_NAME, "readonly");
+    const request = transaction.objectStore(LOCK_STORE_NAME).get(name);
+
+    request.onsuccess = () => {
+      const stored = request.result as AuthCoordinationLease | undefined;
+      lease = stored && stored.expiresAt > Date.now() ? stored : null;
+    };
+    transaction.oncomplete = () => resolve(lease);
+    transaction.onerror = () => reject(coordinationUnavailableError());
+    transaction.onabort = () => reject(coordinationUnavailableError());
+  });
+}
+
+function writeLease(
+  database: IDBDatabase,
+  lease: AuthCoordinationLease,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(LOCK_STORE_NAME, "readwrite");
+    transaction.objectStore(LOCK_STORE_NAME).put(lease);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(coordinationUnavailableError());
+    transaction.onabort = () => reject(coordinationUnavailableError());
+  });
+}
+
+function removeLease(
+  database: IDBDatabase,
+  name: string,
+  ownerId: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(LOCK_STORE_NAME, "readwrite");
+    const store = transaction.objectStore(LOCK_STORE_NAME);
+    const request = store.get(name);
+
+    request.onsuccess = () => {
+      const stored = request.result as AuthCoordinationLease | undefined;
+      if (stored?.ownerId === ownerId) {
+        store.delete(name);
+      }
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(coordinationUnavailableError());
+    transaction.onabort = () => reject(coordinationUnavailableError());
+  });
+}
+
+async function withDatabase<T>(
+  operation: (database: IDBDatabase) => Promise<T>,
+): Promise<T> {
+  const factory = indexedDbOrNull();
+  if (!factory) {
+    throw coordinationUnavailableError();
+  }
+  const database = await openDatabase(factory);
+  try {
+    return await operation(database);
+  } finally {
+    database.close();
+  }
+}
+
+export function readIndexedDbAuthLease(
+  name: string,
+): Promise<AuthCoordinationLease | null> {
+  return withDatabase((database) => readLease(database, name));
+}
+
+export function writeIndexedDbAuthLease(
+  lease: AuthCoordinationLease,
+): Promise<void> {
+  return withDatabase((database) => writeLease(database, lease));
+}
+
+export function removeIndexedDbAuthLease(
+  name: string,
+  ownerId: string,
+): Promise<void> {
+  return withDatabase((database) =>
+    removeLease(database, name, ownerId),
+  );
 }
 
 export async function runWithIndexedDbAuthLock<T>(
