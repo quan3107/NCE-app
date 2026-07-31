@@ -4,6 +4,8 @@
  * Why: Component tests need an explicit coordination primitive while IndexedDB is absent.
  */
 
+import "fake-indexeddb/auto";
+
 if (!navigator.locks) {
   Object.defineProperty(navigator, "locks", {
     configurable: true,
