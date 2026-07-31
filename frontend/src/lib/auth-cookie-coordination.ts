@@ -6,7 +6,6 @@
 
 import {
   sessionStorageOrNull,
-  storageGet,
   storageRemove,
   storageSet,
 } from "./browser-storage";
@@ -29,20 +28,29 @@ type OwnedOAuthLease = {
   expiresAt: number;
 };
 
+type OwnedOAuthLeaseRead =
+  | { readable: true; storage: Storage; lease: OwnedOAuthLease | null }
+  | { readable: false };
+
 function abortError(): Error {
   const error = new Error('Authentication cookie operation was aborted.');
   error.name = 'AbortError';
   return error;
 }
 
-function ownedOAuthLease(): OwnedOAuthLease | null {
+function ownedOAuthLease(): OwnedOAuthLeaseRead {
   const storage = sessionStorageOrNull();
   if (!storage) {
-    return null;
+    return { readable: false };
   }
-  const raw = storageGet(storage, OAUTH_LEASE_OWNER_KEY);
+  let raw: string | null;
+  try {
+    raw = storage.getItem(OAUTH_LEASE_OWNER_KEY);
+  } catch {
+    return { readable: false };
+  }
   if (!raw) {
-    return null;
+    return { readable: true, storage, lease: null };
   }
   try {
     const parsed = JSON.parse(raw) as Partial<OwnedOAuthLease>;
@@ -52,17 +60,22 @@ function ownedOAuthLease(): OwnedOAuthLease | null {
       parsed.expiresAt <= Date.now()
     ) {
       storageRemove(storage, OAUTH_LEASE_OWNER_KEY);
-      return null;
+      return { readable: true, storage, lease: null };
     }
-    return parsed as OwnedOAuthLease;
+    return {
+      readable: true,
+      storage,
+      lease: parsed as OwnedOAuthLease,
+    };
   } catch {
     storageRemove(storage, OAUTH_LEASE_OWNER_KEY);
-    return null;
+    return { readable: true, storage, lease: null };
   }
 }
 
 function ownedOAuthLeaseId(): string | null {
-  return ownedOAuthLease()?.ownerId ?? null;
+  const ownership = ownedOAuthLease();
+  return ownership.readable ? ownership.lease?.ownerId ?? null : null;
 }
 
 async function isOAuthLeaseAvailable(
@@ -174,16 +187,22 @@ export async function clearOwnedOAuthLease(): Promise<void> {
   if (typeof window === 'undefined') {
     return;
   }
-  const ownerStorage = sessionStorageOrNull();
-  if (!ownerStorage) {
-    throw coordinationUnavailableError();
-  }
-  const ownerId = ownedOAuthLeaseId();
-  if (!ownerId) {
+  const reservation = await readIndexedDbAuthLease(OAUTH_LEASE_NAME);
+  const ownership = ownedOAuthLease();
+  if (!reservation) {
+    if (ownership.readable) {
+      storageRemove(ownership.storage, OAUTH_LEASE_OWNER_KEY);
+    }
     return;
   }
-  await removeIndexedDbAuthLease(OAUTH_LEASE_NAME, ownerId);
-  storageRemove(ownerStorage, OAUTH_LEASE_OWNER_KEY);
+  if (!ownership.readable) {
+    throw coordinationUnavailableError();
+  }
+  if (ownership.lease?.ownerId !== reservation.ownerId) {
+    return;
+  }
+  await removeIndexedDbAuthLease(OAUTH_LEASE_NAME, reservation.ownerId);
+  storageRemove(ownership.storage, OAUTH_LEASE_OWNER_KEY);
 }
 
 export function hasOwnedOAuthLease(): boolean {
