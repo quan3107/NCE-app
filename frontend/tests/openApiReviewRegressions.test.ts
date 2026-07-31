@@ -127,7 +127,7 @@ test('IELTS operations distinguish controller errors from global 500 errors', as
   assertCommonResponse(fragment(paths, 'QuestionOptions'), 500);
 });
 
-test('invite normalization and course-tab filtering are documented', async () => {
+test('normalized name inputs and course-tab filtering are documented', async () => {
   const [userSchemas, commonSchemas, tabPaths] = await Promise.all([
     readRepositoryFile('docs/openapi/schemas/users.yaml'),
     readRepositoryFile('docs/openapi/schemas/common.yaml'),
@@ -135,11 +135,18 @@ test('invite normalization and course-tab filtering are documented', async () =>
   ]);
   const invite = fragment(userSchemas, 'InviteUserRequest');
   const displayName = fragment(commonSchemas, 'DisplayName');
+  const normalizedInput = fragment(
+    commonSchemas,
+    'NormalizedDisplayNameInput',
+  );
 
   assert.match(invite, /additionalProperties: true/);
-  assert.match(invite, /common\.yaml#\/DisplayName/);
+  assert.match(invite, /common\.yaml#\/NormalizedDisplayNameInput/);
   assert.match(displayName, /minLength: 2/);
   assert.match(displayName, /\\p\{Cc\}.*\\p\{Cf\}.*\\p\{Zl\}.*\\p\{Zp\}/);
+  assert.match(normalizedInput, /trimmed[\s\S]*DisplayName/i);
+  assert.doesNotMatch(normalizedInput, /minLength: 2/);
+  assert.doesNotMatch(normalizedInput, /pattern:/);
   assert.match(invite, /clients[\s\S]*normalize[\s\S]*before[\s\S]*validation/i);
   assert.match(invite, /unknown properties[\s\S]*discarded/i);
   assert.doesNotMatch(invite, /example: ['"]\s/);
