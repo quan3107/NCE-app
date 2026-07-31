@@ -23,7 +23,7 @@ before(async () => {
 test("does not refresh or retry after the initiating session changes", async () => {
   const originalFetch = globalThis.fetch;
   let currentToken = "token-a";
-  let currentSession = { userId: "user-a", generation: 1 };
+  let currentSession = { userId: "user-a", generation: 1, sessionEpoch: 1 };
   let resolveInitialResponse!: (response: Response) => void;
   let refreshCalls = 0;
   const requests: Array<{ authorization: string | null; body: string | null }> = [];
@@ -56,7 +56,7 @@ test("does not refresh or retry after the initiating session changes", async () 
     });
 
     currentToken = "token-b";
-    currentSession = { userId: "user-b", generation: 3 };
+    currentSession = { userId: "user-b", generation: 3, sessionEpoch: 2 };
     resolveInitialResponse(
       new Response("", { status: 401, statusText: "Unauthorized" }),
     );
