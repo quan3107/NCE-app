@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-31:** No backend files changed for the OAuth reservation ownership fallback correction.
+
 - **2026-07-31:** No backend files changed for the IndexedDB-backed OAuth reservation correction.
 
 - **2026-07-31:** No backend files changed for the consistent cross-tab authentication lock-boundary correction.
@@ -92,6 +94,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-31:** Allowed auth operations to proceed when session storage is unavailable and no authoritative OAuth reservation exists, while failing closed when active reservation ownership cannot be proven.
 
 - **2026-07-31:** Moved OAuth reservations into the authoritative IndexedDB coordination database, so unreadable localStorage cannot make another tab bypass an active OAuth flow.
 
