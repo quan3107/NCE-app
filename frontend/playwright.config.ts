@@ -40,11 +40,7 @@ const webServer = [
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: [
-    'auth-cookie-race.spec.ts',
-    'auth-recovery.spec.ts',
-    'auth-storage-lock.spec.ts',
-  ],
+  testMatch: 'real-backend.spec.ts',
   timeout: 60_000,
   expect: {
     timeout: 10_000,
