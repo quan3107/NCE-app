@@ -35,6 +35,11 @@ test('frontend test scripts use CI-expandable globs and bounded concurrency', as
     'playwright test',
     'frontend e2e script should run the Playwright classroom workflow',
   );
+  assert.equal(
+    packageJson.scripts?.['e2e:synthetic'],
+    'playwright test --config playwright.synthetic.config.ts',
+    'synthetic cookie races should require an explicit harness command',
+  );
 });
 
 test('frontend component tests cap memory-heavy jsdom workers', async () => {
@@ -58,11 +63,19 @@ test('frontend component tests cap memory-heavy jsdom workers', async () => {
   );
 });
 
-test('Playwright uses a dedicated frontend server for its API harness', async () => {
-  const filePath = path.resolve(import.meta.dirname, '../playwright.config.ts');
-  const config = await readFile(filePath, 'utf8');
+test('Playwright separates actual-backend and synthetic API configurations', async () => {
+  const actualPath = path.resolve(import.meta.dirname, '../playwright.config.ts');
+  const syntheticPath = path.resolve(
+    import.meta.dirname,
+    '../playwright.synthetic.config.ts',
+  );
+  const actual = await readFile(actualPath, 'utf8');
+  const synthetic = await readFile(syntheticPath, 'utf8');
 
-  assert.match(config, /baseURL:\s*'http:\/\/127\.0\.0\.1:3010'/);
-  assert.match(config, /--port 3010/);
-  assert.match(config, /reuseExistingServer:\s*false/g);
+  assert.match(actual, /PLAYWRIGHT_API_BASE_URL/);
+  assert.match(actual, /VITE_API_BASE_URL:\s*apiBaseURL/);
+  assert.doesNotMatch(actual, /auth-cookie-race\.server/);
+  assert.match(synthetic, /auth-cookie-race\.server/);
+  assert.match(synthetic, /127\.0\.0\.1:4010/);
+  assert.match(synthetic, /reuseExistingServer:\s*false/g);
 });
