@@ -18,6 +18,10 @@ import type {
   AuthSuccessResponse,
   RefreshAccessTokenResult,
 } from './auth-types';
+import { subscribeToSharedAuth } from './shared-auth-session';
+
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.name === 'AbortError';
 
 export function useAuthRuntime() {
   const session = useAuthSession();
@@ -74,12 +78,15 @@ export function useAuthRuntime() {
           return { status: 'refreshed', accessToken: result.accessToken };
         },
       )
-        .catch((): RefreshAccessTokenResult => {
+        .catch((error): RefreshAccessTokenResult => {
           const currentVersion = getSessionVersion();
           if (
             currentVersion.generation !== sessionVersionAtRefreshStart.generation ||
             currentVersion.userId !== sessionVersionAtRefreshStart.userId
           ) {
+            return { status: 'stale' };
+          }
+          if (isAbortError(error)) {
             return { status: 'stale' };
           }
           if (
@@ -153,33 +160,47 @@ export function useAuthRuntime() {
   );
 
   useEffect(() => {
-    const releaseAbandonedOAuthLease = () => {
+    let cancelled = false;
+    const releaseAbandonedOAuthLease = async () => {
       if (
         window.location.pathname !== '/auth/oauth' &&
         cookieOperations.hasOwnedOAuthLease()
       ) {
-        void cookieOperations.releaseOAuthLease().catch(() => undefined);
+        await cookieOperations.releaseOAuthLease().catch(() => undefined);
       }
     };
-    releaseAbandonedOAuthLease();
-    window.addEventListener('pageshow', releaseAbandonedOAuthLease);
-    return () => {
-      window.removeEventListener('pageshow', releaseAbandonedOAuthLease);
+    const initialize = async () => {
+      await releaseAbandonedOAuthLease();
+      if (cancelled) {
+        return;
+      }
+      if (!shouldRefreshOnMountRef.current) {
+        setIsRestoringSession(false);
+        return;
+      }
+      if (cookieOperations.hasOwnedOAuthLease()) {
+        setIsRestoringSession(false);
+        return;
+      }
+      shouldRefreshOnMountRef.current = false;
+      await restoreLiveSession();
     };
-  }, [cookieOperations]);
-
-  useEffect(() => {
-    if (!shouldRefreshOnMountRef.current) {
-      setIsRestoringSession(false);
-      return;
-    }
-    shouldRefreshOnMountRef.current = false;
-    if (cookieOperations.hasOwnedOAuthLease()) {
-      setIsRestoringSession(false);
-      return;
-    }
-    void restoreLiveSession();
+    const onPageShow = () => void initialize();
+    void initialize();
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pageshow', onPageShow);
+    };
   }, [cookieOperations, restoreLiveSession, shouldRefreshOnMountRef]);
+
+  useEffect(
+    () =>
+      subscribeToSharedAuth(getSessionVersion().sessionEpoch, () => {
+        cookieOperations.cancelRefreshes();
+      }),
+    [cookieOperations, getSessionVersion],
+  );
 
   return {
     ...session,
