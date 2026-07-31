@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
-test("frontend CI explicitly runs the mocked browser workflow", async () => {
+test("CI runs both mocked UI coverage and seeded real-backend E2E", async () => {
   const workflowPath = path.resolve(
     import.meta.dirname,
     "../../.github/workflows/ci.yml",
@@ -19,6 +19,13 @@ test("frontend CI explicitly runs the mocked browser workflow", async () => {
     workflow,
     /npm run e2e:mocked/,
     "frontend CI should identify its API-intercepting Playwright workflow",
+  );
+  assert.match(workflow, /npm run seed:demo/);
+  assert.match(workflow, /PLAYWRIGHT_BACKEND_COMMAND/);
+  assert.match(
+    workflow,
+    /npm run e2e\s*\r?\n\s+working-directory: frontend/,
+    "CI should run the default Playwright suite against the seeded backend",
   );
 });
 
