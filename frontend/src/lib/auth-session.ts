@@ -8,6 +8,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { STORAGE_KEYS } from './constants';
 import { queryClient } from './queryClient';
+import { setAuthenticatedQueryScope } from './authenticated-query-scope';
 import {
   loadInitialState,
   mapBackendUser,
@@ -61,8 +62,7 @@ const synchronizeProfileCache = (user: LiveUser): void => {
 };
 
 const clearAuthenticatedQueries = (): void => {
-  queryClient.removeQueries({ queryKey: ['identity'] });
-  queryClient.removeQueries({ queryKey: ['config:file-upload'] });
+  queryClient.clear();
 };
 
 export const useAuthSession = () => {
@@ -77,6 +77,10 @@ export const useAuthSession = () => {
   const shouldRefreshOnMountRef = useRef(
     Boolean(initial.token || initial.liveUser),
   );
+  setAuthenticatedQueryScope({
+    generation: sessionGenerationRef.current,
+    userId: liveUserRef.current?.id ?? null,
+  });
 
   const buildSnapshot = useCallback(
     (overrides?: Partial<PersistSnapshot>): PersistSnapshot => ({
@@ -91,7 +95,14 @@ export const useAuthSession = () => {
       if (typeof window === 'undefined') {
         return;
       }
-      localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(snapshot));
+      try {
+        window.localStorage.setItem(
+          STORAGE_KEYS.currentUser,
+          JSON.stringify(snapshot),
+        );
+      } catch {
+        // Authentication remains live even when persistence is unavailable.
+      }
     },
     [],
   );
@@ -103,6 +114,10 @@ export const useAuthSession = () => {
     liveUserRef.current = null;
     refreshPromiseRef.current = null;
     profileCommitSequenceRef.current.clear();
+    setAuthenticatedQueryScope({
+      generation: sessionGenerationRef.current,
+      userId: null,
+    });
     setLiveUser(null);
     clearAuthenticatedQueries();
     persistState({
@@ -149,10 +164,12 @@ export const useAuthSession = () => {
 
       if (replacesIdentity) {
         profileCommitSequenceRef.current.clear();
-        if (previousUser) {
-          clearAuthenticatedQueries();
-        }
         sessionGenerationRef.current += 1;
+        setAuthenticatedQueryScope({
+          generation: sessionGenerationRef.current,
+          userId: nextUser.id,
+        });
+        clearAuthenticatedQueries();
       } else {
         synchronizeProfileCache(nextUser);
       }
@@ -212,6 +229,10 @@ export const useAuthSession = () => {
       ) {
         return false;
       }
+      if (profile.role !== currentAtStart.role || profile.status !== 'active') {
+        clearSession();
+        return false;
+      }
 
       const sequenceKey = `${expected.generation}:${expected.userId}`;
       const commitSequence =
@@ -253,7 +274,7 @@ export const useAuthSession = () => {
       }
       return true;
     },
-    [persistState],
+    [clearSession, persistState],
   );
 
   return {
