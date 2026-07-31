@@ -44,13 +44,15 @@ export async function createActor(options: {
   deleted?: boolean;
 }): Promise<string> {
   const pool = createDatabaseTestOwnerPool();
+  const actorId = randomUUID();
   try {
     const result = await pool.query<{ id: string }>(
       `INSERT INTO public.users (
-        email, full_name, role, status, "deletedAt"
-      ) VALUES ($1, $2, $3, $4, $5)
+        id, email, full_name, role, status, "updatedAt", "deletedAt"
+      ) VALUES ($1, $2, $3, $4, $5, NOW(), $6)
       RETURNING id`,
       [
+        actorId,
         `settings-boundary-${randomUUID()}@example.com`,
         "Settings Boundary Actor",
         options.role,
@@ -58,12 +60,12 @@ export async function createActor(options: {
         options.deleted ? new Date() : null,
       ],
     );
-    const actorId = result.rows[0]?.id;
-    if (!actorId) {
+    const insertedActorId = result.rows[0]?.id;
+    if (!insertedActorId) {
       throw new Error("Settings boundary actor was not created.");
     }
-    createdActorIds.push(actorId);
-    return actorId;
+    createdActorIds.push(insertedActorId);
+    return insertedActorId;
   } finally {
     await pool.end();
   }
