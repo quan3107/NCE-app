@@ -169,7 +169,19 @@ export async function getRoleFileUploadConfig(role: UserRole): Promise<RoleFileU
   }
 
   if (policy.allowedTypes.length === 0) {
-    return buildFallbackConfig(role, "allowed_types_missing");
+    logger.warn(
+      { role, reason: "allowed_types_missing" },
+      "Using fallback file upload types",
+    );
+    return buildRoleConfig(
+      role,
+      {
+        max_file_size: policy.maxFileSize,
+        max_total_size: policy.maxTotalSize,
+        max_files_per_upload: policy.maxFilesPerUpload,
+      },
+      FALLBACK_ALLOWED_TYPES,
+    );
   }
 
   return buildRoleConfig(
