@@ -136,6 +136,9 @@ export async function getMe(userId: string): Promise<MeResponse> {
   if (!user) {
     throw createNotFoundError("User", userId);
   }
+  if (user.status !== UserStatus.active) {
+    throw createHttpError(403, "Active account required.");
+  }
 
   const enrollments = user.enrollments
     .map((enrollment) => {
