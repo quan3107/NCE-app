@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-31:** Required active persisted users on `/me` reads and active persisted administrators on every settings read/write, locking the settings actor through no-op checks, writes, and audit creation.
+
 - **2026-07-31:** Made upload-policy database actors supply Prisma-managed UUID and update timestamps during raw-SQL fixture creation.
 
 - **2026-07-31:** Corrected upload-policy administrator authorization and its database fixtures to use the quoted physical `users."deletedAt"` column.
@@ -100,6 +102,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-31:** Published ordered cross-tab session epochs, aborted stale bearer requests and refreshes, cleared authenticated caches in every tab, coordinated OAuth cleanup with restoration, preserved persistence on unmount cancellation, and split real-backend Playwright checks from the opt-in synthetic cookie harness.
 
 - **2026-07-31:** Separated OAuth lock admission from network deadlines, invalidated authenticated caches on same-user role changes, preserved only editable profile fields across refresh races, and surfaced complete display-name validation feedback.
 
