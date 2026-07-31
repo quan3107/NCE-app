@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-31:** No backend files changed while making the default browser suite require a live backend and dedicated active test accounts.
+
 - **2026-07-31:** Required active persisted users on `/me` reads and active persisted administrators on every settings read/write, locking the settings actor through no-op checks, writes, and audit creation.
 
 - **2026-07-31:** Made upload-policy database actors supply Prisma-managed UUID and update timestamps during raw-SQL fixture creation.
@@ -102,6 +104,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-31:** Restricted default Playwright coverage to live-backend login and profile checks using environment-supplied account passwords, moving route-intercepted workflows behind an explicit mocked command.
 
 - **2026-07-31:** Published ordered cross-tab session epochs, aborted stale bearer requests and refreshes, cleared authenticated caches in every tab, coordinated OAuth cleanup with restoration, preserved persistence on unmount cancellation, and split real-backend Playwright checks from the opt-in synthetic cookie harness.
 
