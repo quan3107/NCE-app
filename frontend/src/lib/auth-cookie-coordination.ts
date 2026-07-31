@@ -4,6 +4,15 @@
  * Why: Every supported browser path needs one recoverable, cross-tab cookie-write boundary.
  */
 
+import {
+  localStorageOrNull,
+  sessionStorageOrNull,
+  storageGet,
+  storageKeys,
+  storageRemove,
+  storageSet,
+} from "./browser-storage";
+
 const AUTH_COOKIE_LOCK_NAME = 'nce-auth-cookie-operations';
 const AUTH_COOKIE_CHOOSING_PREFIX = 'nce:auth-cookie-choosing:';
 const AUTH_COOKIE_TICKET_PREFIX = 'nce:auth-cookie-ticket:';
@@ -26,10 +35,7 @@ function abortError(): Error {
 }
 
 function browserStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  return window.localStorage;
+  return localStorageOrNull();
 }
 
 function readLease(key: string): StorageLease | null {
@@ -37,7 +43,7 @@ function readLease(key: string): StorageLease | null {
   if (!storage) {
     return null;
   }
-  const raw = storage.getItem(key);
+  const raw = storageGet(storage, key);
   if (!raw) {
     return null;
   }
@@ -48,21 +54,19 @@ function readLease(key: string): StorageLease | null {
       typeof parsed.expiresAt !== 'number' ||
       parsed.expiresAt <= Date.now()
     ) {
-      storage.removeItem(key);
+      storageRemove(storage, key);
       return null;
     }
     return parsed as StorageLease;
   } catch {
-    storage.removeItem(key);
+    storageRemove(storage, key);
     return null;
   }
 }
 
 function ownedOAuthLeaseId(): string | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  return window.sessionStorage.getItem(OAUTH_LEASE_OWNER_KEY);
+  const storage = sessionStorageOrNull();
+  return storage ? storageGet(storage, OAUTH_LEASE_OWNER_KEY) : null;
 }
 
 function isOAuthLeaseAvailable(allowOwnedLease: boolean): boolean {
@@ -108,9 +112,17 @@ async function acquireStorageLock(
   const choosingKey = `${AUTH_COOKIE_CHOOSING_PREFIX}${ownerId}`;
   const ticketKey = `${AUTH_COOKIE_TICKET_PREFIX}${ownerId}`;
   const expiresAt = Date.now() + Math.max(leaseMs, 60_000);
-  storage.setItem(choosingKey, JSON.stringify({ ownerId, expiresAt }));
+  if (
+    !storageSet(
+      storage,
+      choosingKey,
+      JSON.stringify({ ownerId, expiresAt }),
+    )
+  ) {
+    return () => undefined;
+  }
   let maxTicket = 0;
-  for (const key of Object.keys(storage)) {
+  for (const key of storageKeys(storage)) {
     if (!key?.startsWith(AUTH_COOKIE_TICKET_PREFIX)) {
       continue;
     }
@@ -120,17 +132,26 @@ async function acquireStorageLock(
     }
   }
   const ticket = maxTicket + 1;
-  storage.setItem(ticketKey, JSON.stringify({ ownerId, expiresAt, ticket }));
-  storage.removeItem(choosingKey);
+  if (
+    !storageSet(
+      storage,
+      ticketKey,
+      JSON.stringify({ ownerId, expiresAt, ticket }),
+    )
+  ) {
+    storageRemove(storage, choosingKey);
+    return () => undefined;
+  }
+  storageRemove(storage, choosingKey);
 
   while (true) {
     if (signal.aborted) {
-      storage.removeItem(choosingKey);
-      storage.removeItem(ticketKey);
+      storageRemove(storage, choosingKey);
+      storageRemove(storage, ticketKey);
       throw abortError();
     }
     const participants = new Set<string>();
-    for (const key of Object.keys(storage)) {
+    for (const key of storageKeys(storage)) {
       if (key?.startsWith(AUTH_COOKIE_CHOOSING_PREFIX)) {
         participants.add(key.slice(AUTH_COOKIE_CHOOSING_PREFIX.length));
       }
@@ -162,7 +183,7 @@ async function acquireStorageLock(
     if (!hasPriorityContender) {
       return () => {
         if (readLease(ticketKey)?.ownerId === ownerId) {
-          storage.removeItem(ticketKey);
+          storageRemove(storage, ticketKey);
         }
       };
     }
@@ -221,27 +242,32 @@ export async function runWithCrossTabAuthLock<T>(
 
 export function createOAuthLease(): void {
   const storage = browserStorage();
-  if (!storage || typeof window === 'undefined') {
+  const ownerStorage = sessionStorageOrNull();
+  if (!storage || !ownerStorage) {
     return;
   }
   const ownerId = crypto.randomUUID();
-  window.sessionStorage.setItem(OAUTH_LEASE_OWNER_KEY, ownerId);
-  storage.setItem(
+  const leaseStored = storageSet(
+    storage,
     OAUTH_LEASE_KEY,
     JSON.stringify({ ownerId, expiresAt: Date.now() + OAUTH_LEASE_MS }),
   );
+  if (!leaseStored || !storageSet(ownerStorage, OAUTH_LEASE_OWNER_KEY, ownerId)) {
+    storageRemove(storage, OAUTH_LEASE_KEY);
+  }
 }
 
 export function clearOwnedOAuthLease(): void {
   const storage = browserStorage();
-  if (!storage || typeof window === 'undefined') {
+  const ownerStorage = sessionStorageOrNull();
+  if (!storage || !ownerStorage) {
     return;
   }
   const ownerId = ownedOAuthLeaseId();
   if (readLease(OAUTH_LEASE_KEY)?.ownerId === ownerId) {
-    storage.removeItem(OAUTH_LEASE_KEY);
+    storageRemove(storage, OAUTH_LEASE_KEY);
   }
-  window.sessionStorage.removeItem(OAUTH_LEASE_OWNER_KEY);
+  storageRemove(ownerStorage, OAUTH_LEASE_OWNER_KEY);
 }
 
 export function hasOwnedOAuthLease(): boolean {
