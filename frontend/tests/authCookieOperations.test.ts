@@ -49,9 +49,25 @@ test("generic cookie operation timeout aborts work and releases the queue", asyn
     operationSignal = signal;
     return new Promise<string>(() => undefined);
   });
-  const queuedLogout = operations.run(async () => "logout-complete");
 
   await assert.rejects(withDeadline(stalledLogin), { name: "AbortError" });
   assert.equal(operationSignal?.aborted, true);
+  const queuedLogout = operations.run(async () => "logout-complete");
   assert.equal(await withDeadline(queuedLogout), "logout-complete");
+});
+
+test("operation timeout includes time spent in the local queue", async () => {
+  const operations = createAuthCookieOperations({ operationTimeoutMs: 20 });
+  let queuedOperationStarted = false;
+  const stalledLogin = operations.run(
+    async () => new Promise<string>(() => undefined),
+  );
+  const queuedLogout = operations.run(async () => {
+    queuedOperationStarted = true;
+    return "logout-complete";
+  });
+
+  await assert.rejects(withDeadline(stalledLogin), { name: "AbortError" });
+  await assert.rejects(withDeadline(queuedLogout), { name: "AbortError" });
+  assert.equal(queuedOperationStarted, false);
 });
