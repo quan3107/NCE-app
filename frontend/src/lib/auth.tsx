@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [completeOAuthSession]);
 
   const cancelGoogleLogin = useCallback(() => {
-    cookieOperations.releaseOAuthLease();
+    void cookieOperations.releaseOAuthLease().catch(() => undefined);
   }, [cookieOperations]);
 
   const logout = useCallback(async () => {
