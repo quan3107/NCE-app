@@ -5,22 +5,26 @@
  */
 
 import {
-  localStorageOrNull,
   sessionStorageOrNull,
   storageGet,
   storageRemove,
   storageSet,
 } from "./browser-storage";
-import { runWithIndexedDbAuthLock } from "./auth-cookie-indexeddb-lock";
+import {
+  readIndexedDbAuthLease,
+  removeIndexedDbAuthLease,
+  runWithIndexedDbAuthLock,
+  writeIndexedDbAuthLease,
+} from "./auth-cookie-indexeddb-lock";
 
 const AUTH_COOKIE_LOCK_NAME = 'nce-auth-cookie-operations';
-const OAUTH_LEASE_KEY = 'nce:auth-cookie-oauth-lease';
+const OAUTH_LEASE_NAME = 'oauth-reservation';
 const OAUTH_LEASE_OWNER_KEY = 'nce:auth-cookie-oauth-owner';
 const OAUTH_LEASE_MS = 5 * 60 * 1000;
 const LEASE_POLL_MS = 25;
 const RETRY_LOCK = Symbol('retry-auth-cookie-lock');
 
-type StorageLease = {
+type OwnedOAuthLease = {
   ownerId: string;
   expiresAt: number;
 };
@@ -31,43 +35,40 @@ function abortError(): Error {
   return error;
 }
 
-function browserStorage(): Storage | null {
-  return localStorageOrNull();
-}
-
-function readLease(key: string): StorageLease | null {
-  const storage = browserStorage();
+function ownedOAuthLease(): OwnedOAuthLease | null {
+  const storage = sessionStorageOrNull();
   if (!storage) {
     return null;
   }
-  const raw = storageGet(storage, key);
+  const raw = storageGet(storage, OAUTH_LEASE_OWNER_KEY);
   if (!raw) {
     return null;
   }
   try {
-    const parsed = JSON.parse(raw) as Partial<StorageLease>;
+    const parsed = JSON.parse(raw) as Partial<OwnedOAuthLease>;
     if (
       typeof parsed.ownerId !== 'string' ||
       typeof parsed.expiresAt !== 'number' ||
       parsed.expiresAt <= Date.now()
     ) {
-      storageRemove(storage, key);
+      storageRemove(storage, OAUTH_LEASE_OWNER_KEY);
       return null;
     }
-    return parsed as StorageLease;
+    return parsed as OwnedOAuthLease;
   } catch {
-    storageRemove(storage, key);
+    storageRemove(storage, OAUTH_LEASE_OWNER_KEY);
     return null;
   }
 }
 
 function ownedOAuthLeaseId(): string | null {
-  const storage = sessionStorageOrNull();
-  return storage ? storageGet(storage, OAUTH_LEASE_OWNER_KEY) : null;
+  return ownedOAuthLease()?.ownerId ?? null;
 }
 
-function isOAuthLeaseAvailable(allowOwnedLease: boolean): boolean {
-  const lease = readLease(OAUTH_LEASE_KEY);
+async function isOAuthLeaseAvailable(
+  allowOwnedLease: boolean,
+): Promise<boolean> {
+  const lease = await readIndexedDbAuthLease(OAUTH_LEASE_NAME);
   return Boolean(
     !lease ||
       (allowOwnedLease && lease.ownerId === ownedOAuthLeaseId()),
@@ -92,7 +93,7 @@ async function waitForOAuthLease(
   signal: AbortSignal,
   allowOwnedLease: boolean,
 ): Promise<void> {
-  while (!isOAuthLeaseAvailable(allowOwnedLease)) {
+  while (!(await isOAuthLeaseAvailable(allowOwnedLease))) {
     await delayForLease(signal);
   }
 }
@@ -104,7 +105,9 @@ async function runWithIndexedDbLock<T>(
   operation: () => Promise<T>,
 ): Promise<T | typeof RETRY_LOCK> {
   return runWithIndexedDbAuthLock(signal, leaseMs, async () =>
-    isOAuthLeaseAvailable(allowOwnedLease) ? operation() : RETRY_LOCK,
+    (await isOAuthLeaseAvailable(allowOwnedLease))
+      ? operation()
+      : RETRY_LOCK,
   );
 }
 
@@ -123,8 +126,8 @@ export async function runWithCrossTabAuthLock<T>(
       ? await navigator.locks.request(
           AUTH_COOKIE_LOCK_NAME,
           { mode: 'exclusive', signal },
-          () =>
-            isOAuthLeaseAvailable(allowOwnedLease)
+          async () =>
+            (await isOAuthLeaseAvailable(allowOwnedLease))
               ? operation()
               : RETRY_LOCK,
         )
@@ -140,37 +143,57 @@ export async function runWithCrossTabAuthLock<T>(
   }
 }
 
-export function createOAuthLease(): void {
-  const storage = browserStorage();
+export async function createOAuthLease(): Promise<void> {
   const ownerStorage = sessionStorageOrNull();
-  if (!storage || !ownerStorage) {
-    return;
+  if (!ownerStorage) {
+    throw coordinationUnavailableError();
   }
   const ownerId = crypto.randomUUID();
-  const leaseStored = storageSet(
-    storage,
-    OAUTH_LEASE_KEY,
-    JSON.stringify({ ownerId, expiresAt: Date.now() + OAUTH_LEASE_MS }),
+  const expiresAt = Date.now() + OAUTH_LEASE_MS;
+  const ownerStored = storageSet(
+    ownerStorage,
+    OAUTH_LEASE_OWNER_KEY,
+    JSON.stringify({ ownerId, expiresAt } satisfies OwnedOAuthLease),
   );
-  if (!leaseStored || !storageSet(ownerStorage, OAUTH_LEASE_OWNER_KEY, ownerId)) {
-    storageRemove(storage, OAUTH_LEASE_KEY);
+  if (!ownerStored) {
+    throw coordinationUnavailableError();
+  }
+  try {
+    await writeIndexedDbAuthLease({
+      name: OAUTH_LEASE_NAME,
+      ownerId,
+      expiresAt,
+    });
+  } catch (error) {
+    storageRemove(ownerStorage, OAUTH_LEASE_OWNER_KEY);
+    throw error;
   }
 }
 
-export function clearOwnedOAuthLease(): void {
-  const storage = browserStorage();
-  const ownerStorage = sessionStorageOrNull();
-  if (!storage || !ownerStorage) {
+export async function clearOwnedOAuthLease(): Promise<void> {
+  if (typeof window === 'undefined') {
     return;
   }
-  const ownerId = ownedOAuthLeaseId();
-  if (readLease(OAUTH_LEASE_KEY)?.ownerId === ownerId) {
-    storageRemove(storage, OAUTH_LEASE_KEY);
+  const ownerStorage = sessionStorageOrNull();
+  if (!ownerStorage) {
+    throw coordinationUnavailableError();
   }
+  const ownerId = ownedOAuthLeaseId();
+  if (!ownerId) {
+    return;
+  }
+  await removeIndexedDbAuthLease(OAUTH_LEASE_NAME, ownerId);
   storageRemove(ownerStorage, OAUTH_LEASE_OWNER_KEY);
 }
 
 export function hasOwnedOAuthLease(): boolean {
-  const ownerId = ownedOAuthLeaseId();
-  return Boolean(ownerId && readLease(OAUTH_LEASE_KEY)?.ownerId === ownerId);
+  return Boolean(ownedOAuthLeaseId());
+}
+
+function coordinationUnavailableError(): Error {
+  const error = new Error(
+    'Cross-tab authentication coordination is unavailable.',
+  );
+  error.name = 'AuthCoordinationUnavailableError';
+  return error;
 }
