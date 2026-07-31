@@ -152,38 +152,35 @@ export const useAuthSession = () => {
         expectedVersion &&
         !replacesIdentity &&
         expectedVersion.userRevision !== userRevisionRef.current;
+      const resolvedNextUser =
+        userChangedSinceRequest && previousUser
+          ? { ...nextUser, name: previousUser.name }
+          : nextUser;
+      const replacesAuthorization =
+        replacesIdentity || previousUser?.role !== resolvedNextUser.role;
 
-      if (userChangedSinceRequest) {
-        tokenRef.current = payload.accessToken;
-        persistState({
-          token: payload.accessToken,
-          liveUser: previousUser,
-        });
-        return previousUser;
-      }
-
-      if (replacesIdentity) {
+      if (replacesAuthorization) {
         profileCommitSequenceRef.current.clear();
         sessionGenerationRef.current += 1;
         setAuthenticatedQueryScope({
           generation: sessionGenerationRef.current,
-          userId: nextUser.id,
+          userId: resolvedNextUser.id,
         });
         clearAuthenticatedQueries();
       } else {
-        synchronizeProfileCache(nextUser);
+        synchronizeProfileCache(resolvedNextUser);
       }
       userRevisionRef.current += 1;
       tokenRef.current = payload.accessToken;
-      liveUserRef.current = nextUser;
-      setLiveUser(nextUser);
+      liveUserRef.current = resolvedNextUser;
+      setLiveUser(resolvedNextUser);
       persistState(
         buildSnapshot({
           token: payload.accessToken,
-          liveUser: nextUser,
+          liveUser: resolvedNextUser,
         }),
       );
-      return nextUser;
+      return resolvedNextUser;
     },
     [buildSnapshot, persistState],
   );
