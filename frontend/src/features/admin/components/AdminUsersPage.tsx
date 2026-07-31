@@ -11,38 +11,21 @@ import { Input } from '@components/ui/input';
 import { Badge } from '@components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@components/ui/table';
 import { PageHeader } from '@components/common/PageHeader';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
-import { Label } from '@components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { Check, Plus, Search, X } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
   useAdminUsersQuery,
   useApproveTeacherMutation,
-  useCreateUserMutation,
   useRejectTeacherMutation,
 } from '@features/admin/api';
-import type { UserRole, UserStatus } from '@lib/backend-schema';
+import type { UserStatus } from '@lib/backend-schema';
+import { AdminCreateUserDialog } from './AdminCreateUserDialog';
 
 const statusLabels: Record<UserStatus, string> = {
   active: 'Active',
   pending: 'Pending',
   invited: 'Invited',
   suspended: 'Suspended',
-};
-
-type UserFormState = {
-  fullName: string;
-  email: string;
-  role: UserRole;
-  status: UserStatus;
-};
-
-const initialFormState: UserFormState = {
-  fullName: '',
-  email: '',
-  role: 'student',
-  status: 'active',
 };
 
 function statusBadgeVariant(status: UserStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
@@ -59,9 +42,7 @@ export function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [transitioningUserId, setTransitioningUserId] = useState<string | null>(null);
-  const [formState, setFormState] = useState<UserFormState>(initialFormState);
   const { data: users = [], isLoading, error, refetch } = useAdminUsersQuery();
-  const createUserMutation = useCreateUserMutation();
   const approveTeacherMutation = useApproveTeacherMutation();
   const rejectTeacherMutation = useRejectTeacherMutation();
 
@@ -206,109 +187,10 @@ export function AdminUsersPage() {
         )}
       </div>
 
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add User</DialogTitle>
-            <DialogDescription>Create a new user account.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                placeholder="Full name"
-                value={formState.fullName}
-                onChange={(event) =>
-                  setFormState((current) => ({ ...current, fullName: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                placeholder="email@example.com"
-                value={formState.email}
-                onChange={(event) =>
-                  setFormState((current) => ({ ...current, email: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select
-                value={formState.role}
-                onValueChange={(value) =>
-                  setFormState((current) => ({ ...current, role: value as UserRole }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="teacher">Teacher</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={formState.status}
-                onValueChange={(value) =>
-                  setFormState((current) => ({ ...current, status: value as UserStatus }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="invited">Invited</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCreateDialog(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!formState.fullName.trim() || !formState.email.trim()) {
-                  toast.error('Name and email are required.');
-                  return;
-                }
-                try {
-                  await createUserMutation.mutateAsync({
-                    fullName: formState.fullName.trim(),
-                    email: formState.email.trim(),
-                    role: formState.role,
-                    status: formState.status,
-                  });
-                  toast.success('User created.');
-                  setShowCreateDialog(false);
-                  setFormState(initialFormState);
-                } catch (errorValue) {
-                  toast.error(
-                    errorValue instanceof Error ? errorValue.message : 'Unable to create user.',
-                  );
-                }
-              }}
-              disabled={createUserMutation.isPending}
-            >
-              {createUserMutation.isPending ? 'Creating...' : 'Create User'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AdminCreateUserDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+      />
     </div>
   );
 }
