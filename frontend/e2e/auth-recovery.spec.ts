@@ -91,16 +91,14 @@ test("storage denial cannot prevent login or server logout", async ({
 
   await page.getByRole("button", { name: "Login A" }).click();
   await expect(page.getByTestId("current-user")).toHaveText("user-a");
+  const logoutResponse = page.waitForResponse("**/api/v1/auth/logout");
   await page.getByRole("button", { name: "Logout" }).click();
+  expect((await logoutResponse).status()).toBe(204);
   await expect(page.getByTestId("current-user")).toHaveText("guest");
 
-  const refreshStatus = await page.evaluate(async () => {
-    const response = await fetch(
-      "http://127.0.0.1:4010/api/v1/auth/refresh",
-      { method: "POST", credentials: "include" },
-    );
-    return response.status;
-  });
-  expect(refreshStatus).toBe(401);
+  const cookies = await context.cookies(TEST_SERVER);
+  expect(cookies.some((cookie) => cookie.name === "refreshToken")).toBe(
+    false,
+  );
   await context.close();
 });
