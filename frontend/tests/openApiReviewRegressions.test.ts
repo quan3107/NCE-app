@@ -134,7 +134,8 @@ test('normalized name inputs and course-tab filtering are documented', async () 
     readRepositoryFile('docs/openapi/paths/course-management-tabs.yaml'),
   ]);
   const invite = fragment(userSchemas, 'InviteUserRequest');
-  const displayName = fragment(commonSchemas, 'DisplayName');
+  const storedDisplayName = fragment(commonSchemas, 'DisplayName');
+  const canonicalDisplayName = fragment(commonSchemas, 'CanonicalDisplayName');
   const normalizedInput = fragment(
     commonSchemas,
     'NormalizedDisplayNameInput',
@@ -142,9 +143,15 @@ test('normalized name inputs and course-tab filtering are documented', async () 
 
   assert.match(invite, /additionalProperties: true/);
   assert.match(invite, /common\.yaml#\/NormalizedDisplayNameInput/);
-  assert.match(displayName, /minLength: 2/);
-  assert.match(displayName, /\\p\{Cc\}.*\\p\{Cf\}.*\\p\{Zl\}.*\\p\{Zp\}/);
-  assert.match(normalizedInput, /trimmed[\s\S]*DisplayName/i);
+  assert.match(storedDisplayName, /minLength: 1/);
+  assert.match(storedDisplayName, /legacy/i);
+  assert.doesNotMatch(storedDisplayName, /maxLength:|pattern:/);
+  assert.match(canonicalDisplayName, /minLength: 2/);
+  assert.match(
+    canonicalDisplayName,
+    /\\p\{Cc\}.*\\p\{Cf\}.*\\p\{Zl\}.*\\p\{Zp\}/,
+  );
+  assert.match(normalizedInput, /trimmed[\s\S]*CanonicalDisplayName/i);
   assert.match(normalizedInput, /minLength: 2/);
   const normalizedPattern = normalizedInput.match(
     /^\s*pattern: '(.+)'$/m,
