@@ -3,62 +3,31 @@
  * Purpose: Exercise upload-policy writes through the production runtime role.
  * Why: Static grants and mocked Prisma calls cannot prove the PostgreSQL boundary.
  */
-import type { PoolClient } from "pg";
-import { Pool } from "pg";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+  cleanupCreatedActors,
+  connectRuntimeClient,
+  createActor,
+  differentLimit,
+  readLimit,
+  setAuthenticatedRole,
+} from "./settingsWriteBoundary.database.helpers.js";
 
 const databaseDescribe =
   process.env.CI === "true" || process.env.RUN_DATABASE_TESTS === "true"
     ? describe
     : describe.skip;
 
-const connectRuntimeClient = async (): Promise<{
-  client: PoolClient;
-  pool: Pool;
-}> => {
-  const databaseUrl = process.env.DATABASE_URL?.trim();
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required for runtime database tests.");
-  }
-  const pool = new Pool({ connectionString: databaseUrl });
-  return { client: await pool.connect(), pool };
-};
-
-const setAuthenticatedRole = async (
-  client: PoolClient,
-  userRole: "admin" | "student" | "teacher",
-): Promise<void> => {
-  await client.query("SET LOCAL ROLE nce_app_authenticated");
-  await client.query(
-    "SELECT set_config('app.current_user_role', $1, true)",
-    [userRole],
-  );
-};
-
-const readLimit = async (
-  client: PoolClient,
-  role: "student" | "teacher",
-): Promise<number> => {
-  const result = await client.query<{ max_file_size: number }>(
-    "SELECT max_file_size FROM public.file_upload_policies WHERE role = $1",
-    [role],
-  );
-  const value = result.rows[0]?.max_file_size;
-  if (typeof value !== "number") {
-    throw new Error(`${role} upload policy fixture is missing.`);
-  }
-  return value;
-};
-
-const differentLimit = (value: number): number =>
-  value === 1024 * 1024 ? 2 * 1024 * 1024 : value - 1024 * 1024;
+afterEach(cleanupCreatedActors);
 
 databaseDescribe("file upload policy runtime write boundary", () => {
   it("allows an admin-scoped runtime transaction to update a policy", async () => {
     const { client, pool } = await connectRuntimeClient();
     try {
       await client.query("BEGIN");
-      await setAuthenticatedRole(client, "admin");
+      const actorId = await createActor({ role: "admin" });
+      await setAuthenticatedRole(client, "admin", actorId);
       const expected = await readLimit(client, "student");
       const next = differentLimit(expected);
 
@@ -85,7 +54,34 @@ databaseDescribe("file upload policy runtime write boundary", () => {
       const { client, pool } = await connectRuntimeClient();
       try {
         await client.query("BEGIN");
-        await setAuthenticatedRole(client, userRole);
+        const actorId = await createActor({ role: userRole });
+        await setAuthenticatedRole(client, userRole, actorId);
+        await expect(
+          client.query(
+            "SELECT app.update_file_upload_policy($1, $2, $3) AS updated",
+            ["student", 10 * 1024 * 1024, 11 * 1024 * 1024],
+          ),
+        ).rejects.toMatchObject({ code: "42501" });
+      } finally {
+        await client.query("ROLLBACK");
+        client.release();
+        await pool.end();
+      }
+    },
+  );
+
+  it.each([
+    ["suspended", { role: "admin", status: "suspended" }],
+    ["soft-deleted", { role: "admin", deleted: true }],
+    ["role-demoted", { role: "student" }],
+  ] as const)(
+    "rejects a token-admin transaction for a %s actor",
+    async (_label, actorOptions) => {
+      const { client, pool } = await connectRuntimeClient();
+      try {
+        await client.query("BEGIN");
+        const actorId = await createActor(actorOptions);
+        await setAuthenticatedRole(client, "admin", actorId);
         await expect(
           client.query(
             "SELECT app.update_file_upload_policy($1, $2, $3) AS updated",
@@ -104,7 +100,8 @@ databaseDescribe("file upload policy runtime write boundary", () => {
     const { client, pool } = await connectRuntimeClient();
     try {
       await client.query("BEGIN");
-      await setAuthenticatedRole(client, "admin");
+      const actorId = await createActor({ role: "admin" });
+      await setAuthenticatedRole(client, "admin", actorId);
       const expected = await readLimit(client, "student");
 
       await expect(
@@ -129,8 +126,12 @@ databaseDescribe("file upload policy runtime write boundary", () => {
         second.client.query("BEGIN"),
       ]);
       await Promise.all([
-        setAuthenticatedRole(first.client, "admin"),
-        setAuthenticatedRole(second.client, "admin"),
+        createActor({ role: "admin" }).then((actorId) =>
+          setAuthenticatedRole(first.client, "admin", actorId),
+        ),
+        createActor({ role: "admin" }).then((actorId) =>
+          setAuthenticatedRole(second.client, "admin", actorId),
+        ),
       ]);
       const [student, teacher] = await Promise.all([
         readLimit(first.client, "student"),
@@ -167,14 +168,20 @@ databaseDescribe("file upload policy runtime write boundary", () => {
     let expected: number | undefined;
     let winner: number | undefined;
     let firstCommitted = false;
+    let firstActorId: string | undefined;
     try {
       await Promise.all([
         first.client.query("BEGIN"),
         second.client.query("BEGIN"),
       ]);
+      const [createdFirstActorId, secondActorId] = await Promise.all([
+        createActor({ role: "admin" }),
+        createActor({ role: "admin" }),
+      ]);
+      firstActorId = createdFirstActorId;
       await Promise.all([
-        setAuthenticatedRole(first.client, "admin"),
-        setAuthenticatedRole(second.client, "admin"),
+        setAuthenticatedRole(first.client, "admin", createdFirstActorId),
+        setAuthenticatedRole(second.client, "admin", secondActorId),
       ]);
       expected = await readLimit(first.client, "student");
       winner = differentLimit(expected);
@@ -199,9 +206,14 @@ databaseDescribe("file upload policy runtime write boundary", () => {
       expect(secondResult.rows[0]?.updated).toBe(false);
     } finally {
       await second.client.query("ROLLBACK").catch(() => undefined);
-      if (firstCommitted && expected !== undefined && winner !== undefined) {
+      if (
+        firstCommitted &&
+        expected !== undefined &&
+        winner !== undefined &&
+        firstActorId
+      ) {
         await first.client.query("BEGIN");
-        await setAuthenticatedRole(first.client, "admin");
+        await setAuthenticatedRole(first.client, "admin", firstActorId);
         await first.client.query(
           "SELECT app.update_file_upload_policy($1, $2, $3)",
           ["student", winner, expected],
