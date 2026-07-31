@@ -80,8 +80,9 @@ function ownedOAuthLeaseId(): string | null {
 
 async function isOAuthLeaseAvailable(
   allowOwnedLease: boolean,
+  signal?: AbortSignal,
 ): Promise<boolean> {
-  const lease = await readIndexedDbAuthLease(OAUTH_LEASE_NAME);
+  const lease = await readIndexedDbAuthLease(OAUTH_LEASE_NAME, signal);
   return Boolean(
     !lease ||
       (allowOwnedLease && lease.ownerId === ownedOAuthLeaseId()),
@@ -106,7 +107,7 @@ async function waitForOAuthLease(
   signal: AbortSignal,
   allowOwnedLease: boolean,
 ): Promise<void> {
-  while (!(await isOAuthLeaseAvailable(allowOwnedLease))) {
+  while (!(await isOAuthLeaseAvailable(allowOwnedLease, signal))) {
     await delayForLease(signal);
   }
 }
@@ -115,11 +116,11 @@ async function runWithIndexedDbLock<T>(
   signal: AbortSignal,
   allowOwnedLease: boolean,
   leaseMs: number,
-  operation: () => Promise<T>,
+  operation: (signal: AbortSignal) => Promise<T>,
 ): Promise<T | typeof RETRY_LOCK> {
-  return runWithIndexedDbAuthLock(signal, leaseMs, async () =>
-    (await isOAuthLeaseAvailable(allowOwnedLease))
-      ? operation()
+  return runWithIndexedDbAuthLock(signal, leaseMs, async (leaseSignal) =>
+    (await isOAuthLeaseAvailable(allowOwnedLease, leaseSignal))
+      ? operation(leaseSignal)
       : RETRY_LOCK,
   );
 }
@@ -128,10 +129,10 @@ export async function runWithCrossTabAuthLock<T>(
   signal: AbortSignal,
   allowOwnedLease: boolean,
   leaseMs: number,
-  operation: () => Promise<T>,
+  operation: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   if (typeof window === 'undefined') {
-    return operation();
+    return operation(signal);
   }
   while (true) {
     await waitForOAuthLease(signal, allowOwnedLease);
@@ -140,8 +141,8 @@ export async function runWithCrossTabAuthLock<T>(
           AUTH_COOKIE_LOCK_NAME,
           { mode: 'exclusive', signal },
           async () =>
-            (await isOAuthLeaseAvailable(allowOwnedLease))
-              ? operation()
+            (await isOAuthLeaseAvailable(allowOwnedLease, signal))
+              ? operation(signal)
               : RETRY_LOCK,
         )
       : await runWithIndexedDbLock(
@@ -156,7 +157,7 @@ export async function runWithCrossTabAuthLock<T>(
   }
 }
 
-export async function createOAuthLease(): Promise<void> {
+export async function createOAuthLease(signal?: AbortSignal): Promise<void> {
   const ownerStorage = sessionStorageOrNull();
   if (!ownerStorage) {
     throw coordinationUnavailableError();
@@ -172,22 +173,21 @@ export async function createOAuthLease(): Promise<void> {
     throw coordinationUnavailableError();
   }
   try {
-    await writeIndexedDbAuthLease({
-      name: OAUTH_LEASE_NAME,
-      ownerId,
-      expiresAt,
-    });
+    await writeIndexedDbAuthLease(
+      { name: OAUTH_LEASE_NAME, ownerId, expiresAt },
+      signal,
+    );
   } catch (error) {
     storageRemove(ownerStorage, OAUTH_LEASE_OWNER_KEY);
     throw error;
   }
 }
 
-export async function clearOwnedOAuthLease(): Promise<void> {
+export async function clearOwnedOAuthLease(signal?: AbortSignal): Promise<void> {
   if (typeof window === 'undefined') {
     return;
   }
-  const reservation = await readIndexedDbAuthLease(OAUTH_LEASE_NAME);
+  const reservation = await readIndexedDbAuthLease(OAUTH_LEASE_NAME, signal);
   const ownership = ownedOAuthLease();
   if (!reservation) {
     if (ownership.readable) {
@@ -201,7 +201,11 @@ export async function clearOwnedOAuthLease(): Promise<void> {
   if (ownership.lease?.ownerId !== reservation.ownerId) {
     return;
   }
-  await removeIndexedDbAuthLease(OAUTH_LEASE_NAME, reservation.ownerId);
+  await removeIndexedDbAuthLease(
+    OAUTH_LEASE_NAME,
+    reservation.ownerId,
+    signal,
+  );
   storageRemove(ownership.storage, OAUTH_LEASE_OWNER_KEY);
 }
 
