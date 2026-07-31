@@ -59,29 +59,54 @@ export function createAuthCookieOperations(
     trackedControllers?: Set<AbortController>,
     allowOwnedLease = false,
   ): Promise<T> {
-    const controller = new AbortController();
-    trackedControllers?.add(controller);
-    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const cancellationController = new AbortController();
+    trackedControllers?.add(cancellationController);
+
+    const runNetworkOperation = (): Promise<T> => {
+      const networkController = new AbortController();
+      const cancelNetwork = () => networkController.abort();
+      if (cancellationController.signal.aborted) {
+        cancelNetwork();
+      } else {
+        cancellationController.signal.addEventListener('abort', cancelNetwork, {
+          once: true,
+        });
+      }
+      const timeout = setTimeout(cancelNetwork, timeoutMs);
+
+      return new Promise<T>((resolve, reject) => {
+        if (networkController.signal.aborted) {
+          reject(abortError());
+          return;
+        }
+        const onAbort = () => reject(abortError());
+        networkController.signal.addEventListener('abort', onAbort, {
+          once: true,
+        });
+        Promise.resolve()
+          .then(() => operation(networkController.signal))
+          .then(resolve, reject)
+          .finally(() => {
+            networkController.signal.removeEventListener('abort', onAbort);
+          });
+      }).finally(() => {
+        clearTimeout(timeout);
+        cancellationController.signal.removeEventListener(
+          'abort',
+          cancelNetwork,
+        );
+      });
+    };
+
     const result = inRealmTail.then(async () => {
-      if (controller.signal.aborted) {
+      if (cancellationController.signal.aborted) {
         throw abortError();
       }
-      timeout = setTimeout(() => controller.abort(), timeoutMs);
       return runWithCrossTabAuthLock(
-        controller.signal,
+        cancellationController.signal,
         allowOwnedLease,
         timeoutMs + 1_000,
-        () =>
-          new Promise<T>((resolve, reject) => {
-            const onAbort = () => reject(abortError());
-            controller.signal.addEventListener('abort', onAbort, { once: true });
-            Promise.resolve()
-              .then(() => operation(controller.signal))
-              .then(resolve, reject)
-              .finally(() => {
-                controller.signal.removeEventListener('abort', onAbort);
-              });
-          }),
+        runNetworkOperation,
       );
     });
     inRealmTail = result.then(
@@ -89,10 +114,7 @@ export function createAuthCookieOperations(
       () => undefined,
     );
     return result.finally(() => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      trackedControllers?.delete(controller);
+      trackedControllers?.delete(cancellationController);
     });
   }
 
