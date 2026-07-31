@@ -1,13 +1,15 @@
 /**
  * Location: src/lib/auth-cookie-indexeddb-lock.ts
- * Purpose: Serialize auth-cookie operations when Web Locks and localStorage are unavailable.
- * Why: IndexedDB read-write transactions provide an atomic cross-tab lease boundary.
+ * Purpose: Serialize auth-cookie operations when Web Locks are unavailable.
+ * Why: A renewed, fenced IndexedDB lease prevents concurrent cookie writers.
  */
 
-const DATABASE_NAME = "nce-auth-coordination";
-const DATABASE_VERSION = 1;
-const LOCK_STORE_NAME = "locks";
-const LOCK_NAME = "auth-cookie-operations";
+import {
+  openAuthCoordinationDatabase,
+  runAuthCoordinationTransaction,
+} from './auth-cookie-indexeddb-store';
+
+const LOCK_NAME = 'auth-cookie-operations';
 const LOCK_POLL_MS = 25;
 const MINIMUM_LEASE_MS = 60_000;
 
@@ -15,145 +17,37 @@ export type AuthCoordinationLease = {
   name: string;
   ownerId: string;
   expiresAt: number;
+  fence?: number;
 };
 
 function abortError(): Error {
-  const error = new Error("Authentication cookie operation was aborted.");
-  error.name = "AbortError";
+  const error = new Error('Authentication cookie operation was aborted.');
+  error.name = 'AbortError';
   return error;
-}
-
-function coordinationUnavailableError(): Error {
-  const error = new Error(
-    "Cross-tab authentication coordination is unavailable.",
-  );
-  error.name = "AuthCoordinationUnavailableError";
-  return error;
-}
-
-function indexedDbOrNull(): IDBFactory | null {
-  try {
-    return globalThis.indexedDB ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    let request: IDBOpenDBRequest;
-    try {
-      request = factory.open(DATABASE_NAME, DATABASE_VERSION);
-    } catch {
-      reject(coordinationUnavailableError());
-      return;
-    }
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(LOCK_STORE_NAME)) {
-        request.result.createObjectStore(LOCK_STORE_NAME, {
-          keyPath: "name",
-        });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(coordinationUnavailableError());
-    request.onblocked = () => reject(coordinationUnavailableError());
-  });
-}
-
-function tryAcquireLease(
-  database: IDBDatabase,
-  ownerId: string,
-  leaseMs: number,
-): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    let acquired = false;
-    const transaction = database.transaction(LOCK_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(LOCK_STORE_NAME);
-    const request = store.get(LOCK_NAME);
-
-    request.onsuccess = () => {
-      const current = request.result as AuthCoordinationLease | undefined;
-      if (current && current.expiresAt > Date.now()) {
-        return;
-      }
-      acquired = true;
-      store.put({
-        name: LOCK_NAME,
-        ownerId,
-        expiresAt: Date.now() + Math.max(leaseMs, MINIMUM_LEASE_MS),
-      } satisfies AuthCoordinationLease);
-    };
-    transaction.oncomplete = () => resolve(acquired);
-    transaction.onerror = () => reject(coordinationUnavailableError());
-    transaction.onabort = () => reject(coordinationUnavailableError());
-  });
-}
-
-function releaseLease(
-  database: IDBDatabase,
-  ownerId: string,
-): Promise<void> {
-  return new Promise((resolve) => {
-    const transaction = database.transaction(LOCK_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(LOCK_STORE_NAME);
-    const request = store.get(LOCK_NAME);
-
-    request.onsuccess = () => {
-      const current = request.result as AuthCoordinationLease | undefined;
-      if (current?.ownerId === ownerId) {
-        store.delete(LOCK_NAME);
-      }
-    };
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => resolve();
-    transaction.onabort = () => resolve();
-  });
-}
-
-function delay(signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const onAbort = () => {
-      clearTimeout(timeout);
-      reject(abortError());
-    };
-    const timeout = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, LOCK_POLL_MS);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
 }
 
 function readLease(
   database: IDBDatabase,
   name: string,
+  signal?: AbortSignal,
 ): Promise<AuthCoordinationLease | null> {
-  return new Promise((resolve, reject) => {
-    let lease: AuthCoordinationLease | null = null;
-    const transaction = database.transaction(LOCK_STORE_NAME, "readonly");
-    const request = transaction.objectStore(LOCK_STORE_NAME).get(name);
-
+  return runAuthCoordinationTransaction(database, 'readonly', signal, (store, setResult) => {
+    const request = store.get(name);
     request.onsuccess = () => {
       const stored = request.result as AuthCoordinationLease | undefined;
-      lease = stored && stored.expiresAt > Date.now() ? stored : null;
+      setResult(stored && stored.expiresAt > Date.now() ? stored : null);
     };
-    transaction.oncomplete = () => resolve(lease);
-    transaction.onerror = () => reject(coordinationUnavailableError());
-    transaction.onabort = () => reject(coordinationUnavailableError());
   });
 }
 
 function writeLease(
   database: IDBDatabase,
   lease: AuthCoordinationLease,
+  signal?: AbortSignal,
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(LOCK_STORE_NAME, "readwrite");
-    transaction.objectStore(LOCK_STORE_NAME).put(lease);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(coordinationUnavailableError());
-    transaction.onabort = () => reject(coordinationUnavailableError());
+  return runAuthCoordinationTransaction(database, 'readwrite', signal, (store, setResult) => {
+    setResult(undefined);
+    store.put(lease);
   });
 }
 
@@ -161,32 +55,102 @@ function removeLease(
   database: IDBDatabase,
   name: string,
   ownerId: string,
+  signal?: AbortSignal,
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(LOCK_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(LOCK_STORE_NAME);
+  return runAuthCoordinationTransaction(database, 'readwrite', signal, (store, setResult) => {
+    setResult(undefined);
     const request = store.get(name);
-
     request.onsuccess = () => {
       const stored = request.result as AuthCoordinationLease | undefined;
-      if (stored?.ownerId === ownerId) {
-        store.delete(name);
-      }
+      if (stored?.ownerId === ownerId) store.delete(name);
     };
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(coordinationUnavailableError());
-    transaction.onabort = () => reject(coordinationUnavailableError());
+  });
+}
+
+function tryAcquireLease(
+  database: IDBDatabase,
+  ownerId: string,
+  leaseMs: number,
+  signal: AbortSignal,
+): Promise<AuthCoordinationLease | null> {
+  return runAuthCoordinationTransaction(database, 'readwrite', signal, (store, setResult) => {
+    setResult(null);
+    const request = store.get(LOCK_NAME);
+    request.onsuccess = () => {
+      const current = request.result as AuthCoordinationLease | undefined;
+      if (current && current.expiresAt > Date.now()) return;
+      const lease: AuthCoordinationLease = {
+        name: LOCK_NAME,
+        ownerId,
+        expiresAt: Date.now() + leaseMs,
+        fence: (current?.fence ?? 0) + 1,
+      };
+      store.put(lease);
+      setResult(lease);
+    };
+  });
+}
+
+function updateOwnedLease(
+  database: IDBDatabase,
+  lease: AuthCoordinationLease,
+  leaseMs: number,
+  release: boolean,
+): Promise<boolean> {
+  return runAuthCoordinationTransaction(database, 'readwrite', undefined, (store, setResult) => {
+    setResult(false);
+    const request = store.get(LOCK_NAME);
+    request.onsuccess = () => {
+      const current = request.result as AuthCoordinationLease | undefined;
+      if (
+        current?.ownerId !== lease.ownerId ||
+        current.fence !== lease.fence
+      ) {
+        return;
+      }
+      store.put({
+        ...current,
+        expiresAt: release ? 0 : Date.now() + leaseMs,
+      });
+      setResult(true);
+    };
+  });
+}
+
+function delay(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(abortError());
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timeout);
+      reject(abortError());
+    };
+    const timeout = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, LOCK_POLL_MS);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() =>
+      signal.removeEventListener('abort', onAbort),
+    );
   });
 }
 
 async function withDatabase<T>(
+  signal: AbortSignal | undefined,
   operation: (database: IDBDatabase) => Promise<T>,
 ): Promise<T> {
-  const factory = indexedDbOrNull();
-  if (!factory) {
-    throw coordinationUnavailableError();
-  }
-  const database = await openDatabase(factory);
+  const database = await openAuthCoordinationDatabase(signal);
   try {
     return await operation(database);
   } finally {
@@ -196,46 +160,68 @@ async function withDatabase<T>(
 
 export function readIndexedDbAuthLease(
   name: string,
+  signal?: AbortSignal,
 ): Promise<AuthCoordinationLease | null> {
-  return withDatabase((database) => readLease(database, name));
+  return withDatabase(signal, (database) => readLease(database, name, signal));
 }
 
 export function writeIndexedDbAuthLease(
   lease: AuthCoordinationLease,
+  signal?: AbortSignal,
 ): Promise<void> {
-  return withDatabase((database) => writeLease(database, lease));
+  return withDatabase(signal, (database) => writeLease(database, lease, signal));
 }
 
 export function removeIndexedDbAuthLease(
   name: string,
   ownerId: string,
+  signal?: AbortSignal,
 ): Promise<void> {
-  return withDatabase((database) =>
-    removeLease(database, name, ownerId),
+  return withDatabase(signal, (database) =>
+    removeLease(database, name, ownerId, signal),
   );
 }
 
 export async function runWithIndexedDbAuthLock<T>(
   signal: AbortSignal,
-  leaseMs: number,
-  operation: () => Promise<T>,
+  requestedLeaseMs: number,
+  operation: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
-  const factory = indexedDbOrNull();
-  if (!factory) {
-    throw coordinationUnavailableError();
-  }
-  const database = await openDatabase(factory);
-  const ownerId = crypto.randomUUID();
-  try {
-    while (!(await tryAcquireLease(database, ownerId, leaseMs))) {
+  const leaseMs = Math.max(requestedLeaseMs, MINIMUM_LEASE_MS);
+  return withDatabase(signal, async (database) => {
+    const ownerId = crypto.randomUUID();
+    let lease: AuthCoordinationLease | null = null;
+    while (!(lease = await tryAcquireLease(database, ownerId, leaseMs, signal))) {
       await delay(signal);
     }
-    if (signal.aborted) {
-      throw abortError();
+
+    const operationController = new AbortController();
+    const abortOperation = () => operationController.abort();
+    signal.addEventListener('abort', abortOperation, { once: true });
+    const renew = async () => {
+      if (!lease || !(await updateOwnedLease(database, lease, leaseMs, false))) {
+        operationController.abort();
+      }
+    };
+    let renewalTail = Promise.resolve();
+    const renewalTimer = setInterval(() => {
+      renewalTail = renewalTail.then(renew, abortOperation);
+    }, Math.min(1_000, Math.max(25, Math.floor(leaseMs / 3))));
+
+    try {
+      const result = await abortable(
+        operation(operationController.signal),
+        operationController.signal,
+      );
+      await renewalTail;
+      await renew();
+      if (operationController.signal.aborted) throw abortError();
+      return result;
+    } finally {
+      clearInterval(renewalTimer);
+      signal.removeEventListener('abort', abortOperation);
+      await renewalTail.catch(() => undefined);
+      if (lease) await updateOwnedLease(database, lease, leaseMs, true);
     }
-    return await operation();
-  } finally {
-    await releaseLease(database, ownerId);
-    database.close();
-  }
+  });
 }
