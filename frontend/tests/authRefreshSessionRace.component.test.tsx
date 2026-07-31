@@ -250,3 +250,68 @@ test("logout remains locally clear after an earlier login completes", async () =
   assert.equal(result.current.isAuthenticated, false);
   assert.equal(result.current.currentUser.id, "");
 });
+
+test.each(["login", "registration"] as const)(
+  "a delayed %s cannot replace a newer cross-tab logout",
+  async (operation) => {
+    let resolveAuth!: (response: Response) => void;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = new URL(String(input)).pathname;
+        if (
+          path.endsWith("/auth/login") ||
+          path.endsWith("/auth/register")
+        ) {
+          return new Promise<Response>((resolve) => {
+            resolveAuth = resolve;
+          });
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      }),
+    );
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <AuthProvider>{children}</AuthProvider>
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    let authPromise!: Promise<unknown>;
+    act(() => {
+      authPromise =
+        operation === "login"
+          ? result.current.login("a@example.com", "password")
+          : result.current.register({
+              fullName: "User A",
+              email: "a@example.com",
+              password: "password",
+              role: "student",
+            });
+    });
+    await waitFor(() => assert.equal(typeof resolveAuth, "function"));
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "currentUser",
+          newValue: JSON.stringify({
+            sessionEpoch: Date.now() + 10_000,
+            token: null,
+            liveUser: null,
+          }),
+        }),
+      );
+    });
+    resolveAuth(Response.json(authResponse("user-a", "token-a")));
+
+    await act(async () => {
+      await authPromise.catch(() => undefined);
+    });
+    assert.equal(result.current.isAuthenticated, false);
+    assert.equal(result.current.currentUser.id, "");
+    assert.doesNotMatch(
+      window.localStorage.getItem("currentUser") ?? "",
+      /user-a/,
+    );
+  },
+);
