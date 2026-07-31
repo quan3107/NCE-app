@@ -28,6 +28,10 @@ DisplayName:
   pattern: '^(?=\S(?:[\s\S]*\S)?$)(?![\s\S]*[\p{Cc}\p{Cf}\p{Zl}\p{Zp}])(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$'
   description: Canonical display name with no surrounding whitespace, measured as 2-100 Unicode code points, restricted to PostgreSQL-safe Unicode scalar values, and excluding non-printing and bidirectional controls.
 
+NormalizedDisplayNameInput:
+  type: string
+  description: Raw display-name request accepted by normalization entry points. The value is trimmed of surrounding whitespace, then the resulting canonical value is validated against DisplayName.
+
 EnrollmentRole:
   type: string
   enum: [teacher, student]
