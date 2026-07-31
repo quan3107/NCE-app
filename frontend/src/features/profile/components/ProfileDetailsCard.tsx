@@ -21,9 +21,11 @@ import {
   useUpdateMeProfileMutation,
 } from "@features/profile/api";
 import { getProfileInitials } from "@features/profile/profileInitials";
+import {
+  profileNameFieldError,
+  validateProfileDisplayName,
+} from "@features/profile/profileValidation";
 import { useAuthStore } from "@store/authStore";
-
-const NAME_ERROR = "Name must be between 2 and 100 characters.";
 
 export function ProfileDetailsCard() {
   const { currentUser, sessionGeneration, commitCurrentProfile } = useAuthStore();
@@ -101,10 +103,9 @@ export function ProfileDetailsCard() {
 
   const submitProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalizedName = fullName.trim();
-    const codePointLength = Array.from(normalizedName).length;
-    if (codePointLength < 2 || codePointLength > 100) {
-      setNameError(NAME_ERROR);
+    const validation = validateProfileDisplayName(fullName);
+    if (validation.error) {
+      setNameError(validation.error);
       return;
     }
 
@@ -115,7 +116,7 @@ export function ProfileDetailsCard() {
     requestSequence.current = requestId;
     try {
       const profile = await updateProfile.mutateAsync({
-        fullName: normalizedName,
+        fullName: validation.normalizedName,
       });
       if (
         requestSequence.current !== requestId ||
@@ -125,12 +126,17 @@ export function ProfileDetailsCard() {
       }
       setFullName(profile.fullName);
       setEditing(false);
-    } catch {
+    } catch (error) {
       const identityStillCurrent =
         latestIdentity.current.userId === initiatingIdentity.userId &&
         latestIdentity.current.generation === initiatingIdentity.generation;
       if (requestSequence.current === requestId && identityStillCurrent) {
-        setSaveError("Unable to save your profile. Please try again.");
+        const fieldError = profileNameFieldError(error);
+        if (fieldError) {
+          setNameError(fieldError);
+        } else {
+          setSaveError("Unable to save your profile. Please try again.");
+        }
       }
     }
   };
