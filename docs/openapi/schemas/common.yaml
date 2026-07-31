@@ -30,6 +30,8 @@ DisplayName:
 
 NormalizedDisplayNameInput:
   type: string
+  minLength: 2
+  pattern: '^\s*(?=\S)(?:(?![\p{Cc}\p{Cf}\p{Zl}\p{Zp}])(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])){1,99}(?:(?![\s\p{Cc}\p{Cf}\p{Zl}\p{Zp}])(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]))\s*$'
   description: Raw display-name request accepted by normalization entry points. The value is trimmed of surrounding whitespace, then the resulting canonical value is validated against DisplayName.
 
 EnrollmentRole:
