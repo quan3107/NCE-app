@@ -46,13 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     completeOAuthSession,
     isRestoringSession,
     restoreLiveSession,
+    getSessionVersion,
   } = useAuthRuntime();
 
   const login = useCallback(
     async (email: string, password: string) => {
+      const initiatingVersion = getSessionVersion();
       cookieOperations.cancelRefreshes();
       try {
-        await cookieOperations.run(async (signal) => {
+        const committed = await cookieOperations.run(async (signal) => {
           const result = await apiClient<AuthSuccessResponse>('/auth/login', {
             method: 'POST',
             withAuth: false,
@@ -63,9 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (signal.aborted) {
             throw new ApiError('Login request timed out.', 0);
           }
-          applyLiveSession(result);
+          return applyLiveSession(result, initiatingVersion);
         });
-        return 'live';
+        return committed ? 'live' : null;
       } catch (error) {
         if (error instanceof ApiError && error.status === 400) {
           // Bubble validation errors so the login UI can show field feedback.
@@ -77,11 +79,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [applyLiveSession, cookieOperations],
+    [applyLiveSession, cookieOperations, getSessionVersion],
   );
 
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
+      const initiatingVersion = getSessionVersion();
       cookieOperations.cancelRefreshes();
       return cookieOperations.run(async (signal) => {
         const result = await apiClient<
@@ -104,11 +107,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (signal.aborted) {
           throw new ApiError('Registration request timed out.', 0);
         }
-        applyLiveSession(result);
+        if (!applyLiveSession(result, initiatingVersion)) {
+          throw new ApiError(
+            'Registration was cancelled by a newer session change.',
+            0,
+          );
+        }
         return 'live';
       });
     },
-    [applyLiveSession, cookieOperations],
+    [applyLiveSession, cookieOperations, getSessionVersion],
   );
 
   const loginWithGoogle = useCallback(async () => {
