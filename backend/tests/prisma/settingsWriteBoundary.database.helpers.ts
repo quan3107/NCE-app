@@ -47,7 +47,7 @@ export async function createActor(options: {
   try {
     const result = await pool.query<{ id: string }>(
       `INSERT INTO public.users (
-        email, full_name, role, status, deleted_at
+        email, full_name, role, status, "deletedAt"
       ) VALUES ($1, $2, $3, $4, $5)
       RETURNING id`,
       [
