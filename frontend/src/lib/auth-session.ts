@@ -4,15 +4,15 @@
  * Why: Keeps AuthProvider focused on user-facing auth actions and context values.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { STORAGE_KEYS } from './constants';
 import { queryClient } from './queryClient';
 import { setAuthenticatedQueryScope } from './authenticated-query-scope';
 import {
-  loadInitialState,
-  mapBackendUser,
-} from './auth-state';
+  clearAuthenticatedQueries,
+  synchronizeProfileCache,
+} from './auth-query-session';
+import { loadInitialState, mapBackendUser } from './auth-state';
 import type {
   AuthSuccessResponse,
   CurrentProfile,
@@ -21,9 +21,15 @@ import type {
   RefreshAccessTokenResult,
   SessionIdentity,
 } from './auth-types';
+import {
+  persistSharedAuthSnapshot,
+  subscribeToSharedAuth,
+  type SharedAuthSnapshot,
+} from './shared-auth-session';
 
 type SessionVersion = {
   generation: number;
+  sessionEpoch: number;
   userRevision: number;
   userId: string | null;
 };
@@ -33,43 +39,12 @@ type RefreshPromiseSlot = {
   promise: Promise<RefreshAccessTokenResult>;
 };
 
-const synchronizeProfileCache = (user: LiveUser): void => {
-  const queryKey = ['identity', user.id, 'profile'] as const;
-  void queryClient.cancelQueries({ queryKey, exact: true });
-  queryClient.setQueriesData(
-    {
-      queryKey,
-      exact: true,
-    },
-    (cached: unknown) => {
-      if (
-        !cached ||
-        typeof cached !== 'object' ||
-        !('id' in cached) ||
-        cached.id !== user.id
-      ) {
-        return cached;
-      }
-
-      return {
-        ...cached,
-        email: user.email,
-        fullName: user.name,
-        role: user.role,
-      };
-    },
-  );
-};
-
-const clearAuthenticatedQueries = (): void => {
-  queryClient.clear();
-};
-
 export const useAuthSession = () => {
   const initial = useMemo(loadInitialState, []);
   const [liveUser, setLiveUser] = useState<LiveUser | null>(initial.liveUser);
   const liveUserRef = useRef<LiveUser | null>(initial.liveUser);
   const sessionGenerationRef = useRef(initial.liveUser ? 1 : 0);
+  const sessionEpochRef = useRef(initial.sessionEpoch);
   const userRevisionRef = useRef(initial.liveUser ? 1 : 0);
   const profileCommitSequenceRef = useRef(new Map<string, number>());
   const tokenRef = useRef<string | null>(initial.token);
@@ -91,18 +66,12 @@ export const useAuthSession = () => {
   );
 
   const persistState = useCallback(
-    (snapshot: PersistSnapshot) => {
-      if (typeof window === 'undefined') {
-        return;
-      }
-      try {
-        window.localStorage.setItem(
-          STORAGE_KEYS.currentUser,
-          JSON.stringify(snapshot),
-        );
-      } catch {
-        // Authentication remains live even when persistence is unavailable.
-      }
+    (snapshot: PersistSnapshot, advanceEpoch = false) => {
+      sessionEpochRef.current = persistSharedAuthSnapshot(
+        snapshot,
+        sessionEpochRef.current,
+        advanceEpoch,
+      );
     },
     [],
   );
@@ -120,15 +89,19 @@ export const useAuthSession = () => {
     });
     setLiveUser(null);
     clearAuthenticatedQueries();
-    persistState({
-      token: null,
-      liveUser: null,
-    });
+    persistState(
+      {
+        token: null,
+        liveUser: null,
+      },
+      true,
+    );
   }, [persistState]);
 
   const getSessionVersion = useCallback(
     (): SessionVersion => ({
       generation: sessionGenerationRef.current,
+      sessionEpoch: sessionEpochRef.current,
       userRevision: userRevisionRef.current,
       userId: liveUserRef.current?.id ?? null,
     }),
@@ -142,6 +115,7 @@ export const useAuthSession = () => {
       if (
         expectedVersion &&
         (expectedVersion.generation !== sessionGenerationRef.current ||
+          expectedVersion.sessionEpoch !== sessionEpochRef.current ||
           expectedVersion.userId !== (previousUser?.id ?? null))
       ) {
         return previousUser;
@@ -179,6 +153,7 @@ export const useAuthSession = () => {
           token: payload.accessToken,
           liveUser: resolvedNextUser,
         }),
+        replacesAuthorization,
       );
       return resolvedNextUser;
     },
@@ -272,6 +247,27 @@ export const useAuthSession = () => {
       return true;
     },
     [clearSession, persistState],
+  );
+
+  const consumeSharedSession = useCallback((snapshot: SharedAuthSnapshot) => {
+    sessionEpochRef.current = snapshot.sessionEpoch;
+    sessionGenerationRef.current += 1;
+    userRevisionRef.current += 1;
+    tokenRef.current = snapshot.token;
+    liveUserRef.current = snapshot.liveUser;
+    refreshPromiseRef.current = null;
+    profileCommitSequenceRef.current.clear();
+    setAuthenticatedQueryScope({
+      generation: sessionGenerationRef.current,
+      userId: snapshot.liveUser?.id ?? null,
+    });
+    setLiveUser(snapshot.liveUser);
+    clearAuthenticatedQueries();
+  }, []);
+
+  useEffect(
+    () => subscribeToSharedAuth(sessionEpochRef.current, consumeSharedSession),
+    [consumeSharedSession],
   );
 
   return {
