@@ -174,7 +174,8 @@ test.each(["success", "failure"] as const)(
     const requestError = await request;
     assert.equal(
       requestError instanceof Error &&
-        (requestError as { status?: number }).status === 401,
+        (requestError as { status?: number }).status === 0 &&
+        /session changed/i.test(requestError.message),
       true,
     );
     assert.deepEqual(patchTokens, ["Bearer token-a"]);
