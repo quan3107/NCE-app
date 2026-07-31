@@ -14,6 +14,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
 const prismaModule = await import("../../../src/prisma/client.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
 const transactionQueryRaw = vi.fn();
+const transactionUserFindFirst = vi.fn();
 const transactionPolicyFindMany = vi.fn();
 const transactionAuditCreate = vi.fn();
 const { updateFileUploadLimits } = await import(
@@ -29,6 +30,7 @@ describe("settings.service upload limits", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     transactionQueryRaw.mockReset();
+    transactionUserFindFirst.mockReset();
     transactionPolicyFindMany.mockReset();
     transactionAuditCreate.mockReset();
     prisma.$transaction.mockImplementation(async (callback: unknown) => {
@@ -38,6 +40,9 @@ describe("settings.service upload limits", () => {
 
       return callback({
         $queryRaw: transactionQueryRaw,
+        user: {
+          findFirst: transactionUserFindFirst,
+        },
         fileUploadPolicy: {
           findMany: transactionPolicyFindMany,
         },
@@ -49,7 +54,10 @@ describe("settings.service upload limits", () => {
   });
 
   it("updates dirty roles in canonical order and audits them atomically", async () => {
-    transactionQueryRaw.mockResolvedValue([{ updated: true }]);
+    transactionQueryRaw
+      .mockResolvedValueOnce([{ id: actorId }])
+      .mockResolvedValue([{ updated: true }]);
+    transactionUserFindFirst.mockResolvedValueOnce({ id: actorId });
     transactionPolicyFindMany.mockResolvedValue([
       {
         role: "admin",
@@ -75,11 +83,10 @@ describe("settings.service upload limits", () => {
       actorId,
     );
 
-    expect(transactionQueryRaw).toHaveBeenCalledTimes(2);
-    expect(transactionQueryRaw.mock.calls.map((call) => call[1])).toEqual([
-      "student",
-      "teacher",
-    ]);
+    expect(transactionQueryRaw).toHaveBeenCalledTimes(3);
+    expect(
+      transactionQueryRaw.mock.calls.slice(1).map((call) => call[1]),
+    ).toEqual(["student", "teacher"]);
     expect(transactionAuditCreate).toHaveBeenCalledWith({
       data: {
         actorId,
@@ -101,7 +108,10 @@ describe("settings.service upload limits", () => {
   });
 
   it("returns 409 without auditing when the expected value is stale", async () => {
-    transactionQueryRaw.mockResolvedValueOnce([{ updated: false }]);
+    transactionQueryRaw
+      .mockResolvedValueOnce([{ id: actorId }])
+      .mockResolvedValueOnce([{ updated: false }]);
+    transactionUserFindFirst.mockResolvedValueOnce({ id: actorId });
 
     await expect(
       updateFileUploadLimits(
@@ -122,6 +132,8 @@ describe("settings.service upload limits", () => {
   });
 
   it("does not write or audit an unchanged dirty value", async () => {
+    transactionQueryRaw.mockResolvedValueOnce([{ id: actorId }]);
+    transactionUserFindFirst.mockResolvedValueOnce({ id: actorId });
     transactionPolicyFindMany.mockResolvedValue([
       { role: "admin", maxFileSize: 50 * 1024 * 1024 },
       { role: "student", maxFileSize: 12 * 1024 * 1024 },
@@ -137,8 +149,38 @@ describe("settings.service upload limits", () => {
       actorId,
     );
 
-    expect(transactionQueryRaw).not.toHaveBeenCalled();
+    expect(transactionQueryRaw).toHaveBeenCalledTimes(1);
     expect(transactionAuditCreate).not.toHaveBeenCalled();
+  });
+
+  it("authorizes and locks the database actor before a no-op update", async () => {
+    transactionQueryRaw.mockResolvedValueOnce([{ id: actorId }]);
+    transactionUserFindFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      updateFileUploadLimits(
+        {
+          updates: {
+            student: { expectedMaxFileSizeMib: 12, maxFileSizeMib: 12 },
+          },
+        },
+        actorId,
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(transactionQueryRaw).toHaveBeenCalledTimes(1);
+    expect(transactionPolicyFindMany).not.toHaveBeenCalled();
+    expect(transactionAuditCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale demoted admin claim on GET", async () => {
+    prisma.user = {
+      findFirst: vi.fn().mockResolvedValue(null),
+    } as never;
+
+    await expect(getFileUploadLimits(actorId)).rejects.toMatchObject({
+      statusCode: 403,
+    });
   });
 
   it.each([
@@ -178,7 +220,11 @@ describe("settings.service upload limits", () => {
       findMany: vi.fn().mockResolvedValue(limits),
     } as never;
 
-    await expect(getFileUploadLimits()).rejects.toMatchObject({
+    prisma.user = {
+      findFirst: vi.fn().mockResolvedValue({ id: actorId }),
+    } as never;
+
+    await expect(getFileUploadLimits(actorId)).rejects.toMatchObject({
       statusCode: 500,
       message: "Stored file upload policies are not canonical.",
     });
