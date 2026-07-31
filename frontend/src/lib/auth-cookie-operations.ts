@@ -45,6 +45,17 @@ function abortError(): Error {
   return error;
 }
 
+function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() =>
+      signal.removeEventListener('abort', onAbort),
+    );
+  });
+}
+
 export function createAuthCookieOperations(
   options: AuthCookieOperationOptions = {},
 ): AuthCookieOperations {
@@ -58,71 +69,48 @@ export function createAuthCookieOperations(
     timeoutMs: number,
     trackedControllers?: Set<AbortController>,
     allowOwnedLease = false,
+    prepare?: (signal: AbortSignal) => Promise<void>,
   ): Promise<T> {
     const cancellationController = new AbortController();
     trackedControllers?.add(cancellationController);
-
-    const runNetworkOperation = (): Promise<T> => {
-      const networkController = new AbortController();
-      const cancelNetwork = () => networkController.abort();
-      if (cancellationController.signal.aborted) {
-        cancelNetwork();
-      } else {
-        cancellationController.signal.addEventListener('abort', cancelNetwork, {
-          once: true,
-        });
-      }
-      const timeout = setTimeout(cancelNetwork, timeoutMs);
-
-      return new Promise<T>((resolve, reject) => {
-        if (networkController.signal.aborted) {
-          reject(abortError());
-          return;
-        }
-        const onAbort = () => reject(abortError());
-        networkController.signal.addEventListener('abort', onAbort, {
-          once: true,
-        });
-        Promise.resolve()
-          .then(() => operation(networkController.signal))
-          .then(resolve, reject)
-          .finally(() => {
-            networkController.signal.removeEventListener('abort', onAbort);
-          });
-      }).finally(() => {
-        clearTimeout(timeout);
-        cancellationController.signal.removeEventListener(
-          'abort',
-          cancelNetwork,
-        );
-      });
-    };
-
-    const result = inRealmTail.then(async () => {
-      if (cancellationController.signal.aborted) {
-        throw abortError();
-      }
+    const signal = cancellationController.signal;
+    const deadline = Date.now() + timeoutMs;
+    const timeout = setTimeout(() => cancellationController.abort(), timeoutMs);
+    const queued = inRealmTail.then(async () => {
+      if (signal.aborted || Date.now() >= deadline) throw abortError();
+      await prepare?.(signal);
+      if (signal.aborted || Date.now() >= deadline) throw abortError();
       return runWithCrossTabAuthLock(
-        cancellationController.signal,
+        signal,
         allowOwnedLease,
-        timeoutMs + 1_000,
-        runNetworkOperation,
+        timeoutMs,
+        (coordinatedSignal) => {
+          if (Date.now() >= deadline) throw abortError();
+          return operation(coordinatedSignal);
+        },
       );
     });
+    const result = abortable(queued, signal);
     inRealmTail = result.then(
       () => undefined,
       () => undefined,
     );
     return result.finally(() => {
+      clearTimeout(timeout);
       trackedControllers?.delete(cancellationController);
     });
   }
 
-  async function run<T>(
+  function run<T>(
     operation: (signal: AbortSignal) => Promise<T>,
   ): Promise<T> {
-    await clearOwnedOAuthLease();
-    return enqueue(operation, operationTimeoutMs);
+    return enqueue(
+      operation,
+      operationTimeoutMs,
+      undefined,
+      false,
+      clearOwnedOAuthLease,
+    );
   }
 
   return {
@@ -141,16 +129,20 @@ export function createAuthCookieOperations(
     ): Promise<T> {
       return enqueue(async (signal) => {
         const result = await operation(signal);
-        await createOAuthLease();
+        await createOAuthLease(signal);
         return result;
       }, operationTimeoutMs);
     },
     runOAuthCompletion<T>(
       operation: (signal: AbortSignal) => Promise<T>,
     ): Promise<T> {
-      return enqueue(operation, operationTimeoutMs, undefined, true).finally(
-        clearOwnedOAuthLease,
-      );
+      return enqueue(async (signal) => {
+        try {
+          return await operation(signal);
+        } finally {
+          await clearOwnedOAuthLease(signal);
+        }
+      }, operationTimeoutMs, undefined, true);
     },
     releaseOAuthLease() {
       return clearOwnedOAuthLease();
