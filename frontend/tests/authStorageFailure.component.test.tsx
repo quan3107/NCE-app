@@ -12,7 +12,9 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { AuthProvider, useAuth } from "../src/lib/auth";
 import { createAuthCookieOperations } from "../src/lib/auth-cookie-operations";
 import {
+  readIndexedDbAuthLease,
   removeIndexedDbAuthLease,
+  runWithIndexedDbAuthLock,
   writeIndexedDbAuthLease,
 } from "../src/lib/auth-cookie-indexeddb-lock";
 import { authBridge } from "../src/lib/authBridge";
@@ -198,7 +200,7 @@ test("a password fallback releases its tab's abandoned OAuth lease", async () =>
   assert.equal(operations.hasOwnedOAuthLease(), false);
 });
 
-test("OAuth admission does not spend refresh or logout network deadlines", async () => {
+test("OAuth admission wait consumes refresh and logout deadlines", async () => {
   const operations = createAuthCookieOperations({
     operationTimeoutMs: 10,
     refreshTimeoutMs: 10,
@@ -224,11 +226,105 @@ test("OAuth admission does not spend refresh or logout network deadlines", async
           assert.equal(signal.aborted, false);
           return "network-complete";
         }),
-      ).resolves.toBe("network-complete");
-      assert.equal(networkStarted, true);
+      ).rejects.toMatchObject({ name: "AbortError" });
+      assert.equal(networkStarted, false);
     } finally {
       await removeIndexedDbAuthLease("oauth-reservation", ownerId);
     }
+  }
+});
+
+test("cancellation interrupts an IndexedDB open that never completes", async () => {
+  Object.defineProperty(globalThis, "indexedDB", {
+    configurable: true,
+    value: {
+      open: () => ({}),
+    },
+  });
+  const controller = new AbortController();
+  const readWithSignal = readIndexedDbAuthLease as (
+    name: string,
+    signal: AbortSignal,
+  ) => Promise<unknown>;
+  const read = readWithSignal("blocked-read", controller.signal);
+  controller.abort();
+
+  await expect(
+    Promise.race([
+      read,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("IndexedDB read stayed blocked")), 100),
+      ),
+    ]),
+  ).rejects.toMatchObject({ name: "AbortError" });
+});
+
+test("an active IndexedDB writer renews its lease", async () => {
+  let now = Date.now();
+  vi.spyOn(Date, "now").mockImplementation(() => now);
+  let releaseWriter!: () => void;
+  let writerStarted = false;
+  const writer = runWithIndexedDbAuthLock(
+    new AbortController().signal,
+    60_000,
+    async () => {
+      writerStarted = true;
+      await new Promise<void>((resolve) => {
+        releaseWriter = resolve;
+      });
+      return "writer-complete";
+    },
+  );
+  await waitFor(() => assert.equal(writerStarted, true));
+
+  now += 61_000;
+  await new Promise((resolve) => setTimeout(resolve, 1_100));
+  let secondWriterStarted = false;
+  const secondWriter = runWithIndexedDbAuthLock(
+    new AbortController().signal,
+    60_000,
+    async () => {
+      secondWriterStarted = true;
+      return "second-complete";
+    },
+  );
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(secondWriterStarted, false);
+  } finally {
+    releaseWriter();
+  }
+  await expect(writer).resolves.toBe("writer-complete");
+  await expect(secondWriter).resolves.toBe("second-complete");
+});
+
+test("an IndexedDB writer rejects a result after losing its fence", async () => {
+  let releaseWriter!: () => void;
+  let writerStarted = false;
+  const writer = runWithIndexedDbAuthLock(
+    new AbortController().signal,
+    60_000,
+    async () => {
+      writerStarted = true;
+      await new Promise<void>((resolve) => {
+        releaseWriter = resolve;
+      });
+      return "stale-result";
+    },
+  );
+  await waitFor(() => assert.equal(writerStarted, true));
+  await writeIndexedDbAuthLease({
+    name: "auth-cookie-operations",
+    ownerId: "new-owner",
+    expiresAt: Date.now() + 60_000,
+  });
+  releaseWriter();
+
+  try {
+    await expect(writer).rejects.toMatchObject({ name: "AbortError" });
+  } finally {
+    await removeIndexedDbAuthLease("auth-cookie-operations", "new-owner");
   }
 });
 
