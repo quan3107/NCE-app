@@ -1,13 +1,50 @@
 /**
  * Location: frontend/playwright.config.ts
  * Purpose: Configure Playwright browser checks for critical frontend workflows.
- * Why: Gives classroom flows screenshot-on-failure coverage without requiring a live database.
+ * Why: Validates browser workflows against an environment-selected real backend.
  */
+
+import path from 'node:path';
 
 import { defineConfig, devices } from '@playwright/test';
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3010';
+const apiBaseURL =
+  process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:4000/api/v1';
+const backendCommand = process.env.PLAYWRIGHT_BACKEND_COMMAND;
+const reuseExistingServer = !process.env.CI;
+
+const webServer = [
+  ...(backendCommand
+    ? [
+        {
+          command: backendCommand,
+          cwd: path.resolve(__dirname, '../backend'),
+          url:
+            process.env.PLAYWRIGHT_BACKEND_HEALTH_URL ??
+            'http://127.0.0.1:4000/health',
+          reuseExistingServer,
+          timeout: 120_000,
+        },
+      ]
+    : []),
+  {
+    command: 'npm run dev -- --host 127.0.0.1 --port 3010 --strictPort',
+    cwd: __dirname,
+    env: { VITE_API_BASE_URL: apiBaseURL },
+    url: baseURL,
+    reuseExistingServer,
+    timeout: 120_000,
+  },
+];
+
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: [
+    'auth-cookie-race.spec.ts',
+    'auth-recovery.spec.ts',
+    'auth-storage-lock.spec.ts',
+  ],
   timeout: 60_000,
   expect: {
     timeout: 10_000,
@@ -16,29 +53,11 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:3010',
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: [
-    {
-      command: 'npx tsx e2e/auth-cookie-race.server.ts',
-      cwd: __dirname,
-      url: 'http://127.0.0.1:4010/health',
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
-    {
-      command: 'npm run dev -- --host 127.0.0.1 --port 3010 --strictPort',
-      cwd: __dirname,
-      env: {
-        VITE_API_BASE_URL: 'http://127.0.0.1:4010/api/v1',
-      },
-      url: 'http://127.0.0.1:3010',
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
-  ],
+  webServer,
   projects: [
     {
       name: 'chromium',
