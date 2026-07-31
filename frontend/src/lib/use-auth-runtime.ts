@@ -158,7 +158,7 @@ export function useAuthRuntime() {
         window.location.pathname !== '/auth/oauth' &&
         cookieOperations.hasOwnedOAuthLease()
       ) {
-        cookieOperations.releaseOAuthLease();
+        void cookieOperations.releaseOAuthLease().catch(() => undefined);
       }
     };
     releaseAbandonedOAuthLease();
