@@ -8,15 +8,12 @@ import {
   localStorageOrNull,
   sessionStorageOrNull,
   storageGet,
-  storageKeys,
   storageRemove,
   storageSet,
 } from "./browser-storage";
 import { runWithIndexedDbAuthLock } from "./auth-cookie-indexeddb-lock";
 
 const AUTH_COOKIE_LOCK_NAME = 'nce-auth-cookie-operations';
-const AUTH_COOKIE_CHOOSING_PREFIX = 'nce:auth-cookie-choosing:';
-const AUTH_COOKIE_TICKET_PREFIX = 'nce:auth-cookie-ticket:';
 const OAUTH_LEASE_KEY = 'nce:auth-cookie-oauth-lease';
 const OAUTH_LEASE_OWNER_KEY = 'nce:auth-cookie-oauth-owner';
 const OAUTH_LEASE_MS = 5 * 60 * 1000;
@@ -26,7 +23,6 @@ const RETRY_LOCK = Symbol('retry-auth-cookie-lock');
 type StorageLease = {
   ownerId: string;
   expiresAt: number;
-  ticket?: number;
 };
 
 function abortError(): Error {
@@ -101,119 +97,15 @@ async function waitForOAuthLease(
   }
 }
 
-async function acquireStorageLock(
-  signal: AbortSignal,
-  leaseMs: number,
-): Promise<(() => void) | null> {
-  const storage = browserStorage();
-  if (!storage) {
-    return null;
-  }
-  const ownerId = crypto.randomUUID();
-  const choosingKey = `${AUTH_COOKIE_CHOOSING_PREFIX}${ownerId}`;
-  const ticketKey = `${AUTH_COOKIE_TICKET_PREFIX}${ownerId}`;
-  const expiresAt = Date.now() + Math.max(leaseMs, 60_000);
-  if (
-    !storageSet(
-      storage,
-      choosingKey,
-      JSON.stringify({ ownerId, expiresAt }),
-    )
-  ) {
-    return null;
-  }
-  let maxTicket = 0;
-  for (const key of storageKeys(storage)) {
-    if (!key?.startsWith(AUTH_COOKIE_TICKET_PREFIX)) {
-      continue;
-    }
-    const ticket = readLease(key)?.ticket;
-    if (typeof ticket === 'number' && ticket > maxTicket) {
-      maxTicket = ticket;
-    }
-  }
-  const ticket = maxTicket + 1;
-  if (
-    !storageSet(
-      storage,
-      ticketKey,
-      JSON.stringify({ ownerId, expiresAt, ticket }),
-    )
-  ) {
-    storageRemove(storage, choosingKey);
-    return null;
-  }
-  storageRemove(storage, choosingKey);
-
-  while (true) {
-    if (signal.aborted) {
-      storageRemove(storage, choosingKey);
-      storageRemove(storage, ticketKey);
-      throw abortError();
-    }
-    const participants = new Set<string>();
-    for (const key of storageKeys(storage)) {
-      if (key?.startsWith(AUTH_COOKIE_CHOOSING_PREFIX)) {
-        participants.add(key.slice(AUTH_COOKIE_CHOOSING_PREFIX.length));
-      }
-      if (key?.startsWith(AUTH_COOKIE_TICKET_PREFIX)) {
-        participants.add(key.slice(AUTH_COOKIE_TICKET_PREFIX.length));
-      }
-    }
-    let hasPriorityContender = false;
-    for (const participantId of participants) {
-      if (participantId === ownerId) {
-        continue;
-      }
-      if (readLease(`${AUTH_COOKIE_CHOOSING_PREFIX}${participantId}`)) {
-        hasPriorityContender = true;
-        break;
-      }
-      const contender = readLease(
-        `${AUTH_COOKIE_TICKET_PREFIX}${participantId}`,
-      );
-      if (
-        typeof contender?.ticket === 'number' &&
-        (contender.ticket < ticket ||
-          (contender.ticket === ticket && participantId < ownerId))
-      ) {
-        hasPriorityContender = true;
-        break;
-      }
-    }
-    if (!hasPriorityContender) {
-      return () => {
-        if (readLease(ticketKey)?.ownerId === ownerId) {
-          storageRemove(storage, ticketKey);
-        }
-      };
-    }
-    await delayForLease(signal);
-  }
-}
-
-async function runWithStorageLock<T>(
+async function runWithIndexedDbLock<T>(
   signal: AbortSignal,
   allowOwnedLease: boolean,
   leaseMs: number,
   operation: () => Promise<T>,
 ): Promise<T | typeof RETRY_LOCK> {
-  const release = await acquireStorageLock(signal, leaseMs);
-  if (!release) {
-    return runWithIndexedDbAuthLock(signal, leaseMs, async () =>
-      isOAuthLeaseAvailable(allowOwnedLease)
-        ? operation()
-        : RETRY_LOCK,
-    );
-  }
-  try {
-    if (!isOAuthLeaseAvailable(allowOwnedLease)) {
-      return RETRY_LOCK;
-    }
-    return await operation();
-  } finally {
-    release();
-  }
+  return runWithIndexedDbAuthLock(signal, leaseMs, async () =>
+    isOAuthLeaseAvailable(allowOwnedLease) ? operation() : RETRY_LOCK,
+  );
 }
 
 export async function runWithCrossTabAuthLock<T>(
@@ -236,7 +128,7 @@ export async function runWithCrossTabAuthLock<T>(
               ? operation()
               : RETRY_LOCK,
         )
-      : await runWithStorageLock(
+      : await runWithIndexedDbLock(
           signal,
           allowOwnedLease,
           leaseMs,
