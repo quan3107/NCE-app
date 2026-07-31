@@ -90,8 +90,8 @@ jobs:
         run: npm run build
         working-directory: frontend
 
-      - name: Test frontend classroom workflow
-        run: npm run e2e
+      - name: Test mocked frontend classroom workflow
+        run: npm run e2e:mocked
         working-directory: frontend
 
   backend:
