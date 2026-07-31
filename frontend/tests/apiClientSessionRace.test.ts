@@ -61,12 +61,13 @@ test("does not refresh or retry after the initiating session changes", async () 
       new Response("", { status: 401, statusText: "Unauthorized" }),
     );
 
-    await assert.rejects(request, (error: unknown) => {
-      return (
+    await assert.rejects(request, (error: unknown) =>
+      Boolean(
         error instanceof Error &&
-        (error as { status?: number }).status === 401
-      );
-    });
+          (error as { status?: number }).status === 0 &&
+          /session changed/i.test(error.message),
+      ),
+    );
     assert.equal(refreshCalls, 0);
     assert.deepEqual(requests, [
       {
