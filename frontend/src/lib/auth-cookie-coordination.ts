@@ -12,6 +12,7 @@ import {
   storageRemove,
   storageSet,
 } from "./browser-storage";
+import { runWithIndexedDbAuthLock } from "./auth-cookie-indexeddb-lock";
 
 const AUTH_COOKIE_LOCK_NAME = 'nce-auth-cookie-operations';
 const AUTH_COOKIE_CHOOSING_PREFIX = 'nce:auth-cookie-choosing:';
@@ -103,10 +104,10 @@ async function waitForOAuthLease(
 async function acquireStorageLock(
   signal: AbortSignal,
   leaseMs: number,
-): Promise<() => void> {
+): Promise<(() => void) | null> {
   const storage = browserStorage();
   if (!storage) {
-    return () => undefined;
+    return null;
   }
   const ownerId = crypto.randomUUID();
   const choosingKey = `${AUTH_COOKIE_CHOOSING_PREFIX}${ownerId}`;
@@ -119,7 +120,7 @@ async function acquireStorageLock(
       JSON.stringify({ ownerId, expiresAt }),
     )
   ) {
-    return () => undefined;
+    return null;
   }
   let maxTicket = 0;
   for (const key of storageKeys(storage)) {
@@ -140,7 +141,7 @@ async function acquireStorageLock(
     )
   ) {
     storageRemove(storage, choosingKey);
-    return () => undefined;
+    return null;
   }
   storageRemove(storage, choosingKey);
 
@@ -198,6 +199,13 @@ async function runWithStorageLock<T>(
   operation: () => Promise<T>,
 ): Promise<T | typeof RETRY_LOCK> {
   const release = await acquireStorageLock(signal, leaseMs);
+  if (!release) {
+    return runWithIndexedDbAuthLock(signal, leaseMs, async () =>
+      isOAuthLeaseAvailable(allowOwnedLease)
+        ? operation()
+        : RETRY_LOCK,
+    );
+  }
   try {
     if (!isOAuthLeaseAvailable(allowOwnedLease)) {
       return RETRY_LOCK;
