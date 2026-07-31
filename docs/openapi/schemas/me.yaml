@@ -12,7 +12,7 @@ MeProfile:
       type: string
       format: email
     fullName:
-      type: string
+      $ref: './common.yaml#/DisplayName'
     role:
       $ref: './common.yaml#/UserRole'
     status:
