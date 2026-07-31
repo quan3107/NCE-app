@@ -57,7 +57,7 @@ afterEach(() => {
   }
 });
 
-test("falls back safely when localStorage access throws", async () => {
+test("fails closed when every cross-tab lock boundary is unavailable", async () => {
   Object.defineProperty(window, "localStorage", {
     configurable: true,
     get() {
@@ -70,7 +70,9 @@ test("falls back safely when localStorage access throws", async () => {
   });
   const operations = createAuthCookieOperations();
 
-  await expect(operations.run(async () => "complete")).resolves.toBe("complete");
+  await expect(operations.run(async () => "complete")).rejects.toMatchObject({
+    name: "AuthCoordinationUnavailableError",
+  });
 });
 
 test("server logout still runs when cleared-session persistence fails", async () => {
@@ -84,6 +86,16 @@ test("server logout still runs when cleared-session persistence fails", async ()
       setItem: () => {
         throw new DOMException("Quota exceeded", "QuotaExceededError");
       },
+    },
+  });
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: {
+      request: async (
+        _name: string,
+        _options: LockOptions,
+        callback: () => Promise<unknown>,
+      ) => callback(),
     },
   });
   const fetchSpy = vi.fn(async () => new Response(null, { status: 204 }));
