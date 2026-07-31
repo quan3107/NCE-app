@@ -27,7 +27,7 @@ BEGIN
   WHERE users.id::TEXT = current_setting('app.current_user_id', true)
     AND users.role = 'admin'
     AND users.status = 'active'
-    AND users.deleted_at IS NULL
+    AND users."deletedAt" IS NULL
   FOR SHARE;
 
   IF v_admin_id IS NULL THEN
