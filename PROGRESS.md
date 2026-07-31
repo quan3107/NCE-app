@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-31:** Locked upload-policy writes to the active, non-deleted database administrator row and made display-name responses tolerate legacy stored values while retaining canonical write contracts.
+
 - **2026-07-31:** No backend files changed for the OAuth reservation ownership fallback correction.
 
 - **2026-07-31:** No backend files changed for the IndexedDB-backed OAuth reservation correction.
@@ -94,6 +96,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-31:** Separated OAuth lock admission from network deadlines, invalidated authenticated caches on same-user role changes, preserved only editable profile fields across refresh races, and surfaced complete display-name validation feedback.
 
 - **2026-07-31:** Allowed auth operations to proceed when session storage is unavailable and no authoritative OAuth reservation exists, while failing closed when active reservation ownership cannot be proven.
 
