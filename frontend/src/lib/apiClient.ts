@@ -6,10 +6,9 @@
 
 import { authBridge } from "./authBridge";
 import { API_BASE_URL } from "./apiBaseUrl";
+import { localStorageOrNull, storageGet } from "./browser-storage";
 import { STORAGE_KEYS } from "./constants";
-
 type Primitive = string | number | boolean;
-
 export type ApiClientOptions<TBody = unknown> = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: TBody;
@@ -21,7 +20,6 @@ export type ApiClientOptions<TBody = unknown> = {
   responseType?: "blob" | "json" | "text";
   credentials?: RequestCredentials;
 };
-
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -32,9 +30,7 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
-
 const JSON_CONTENT_TYPE = "application/json";
-
 type StoredAuthPayload = {
   token?: string | null;
   liveUser?: {
@@ -42,9 +38,7 @@ type StoredAuthPayload = {
     role?: string;
   } | null;
 };
-
 type RequestSession = ReturnType<typeof authBridge.getSessionVersion>;
-
 const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
 const API_VERSION_PREFIX = "/api/v1";
 const SHOULD_LOG_API_ERRORS = import.meta.env?.DEV ?? false;
@@ -81,12 +75,12 @@ function buildUrl(endpoint: string, params?: ApiClientOptions["params"]) {
 }
 
 function readStoredBearerToken(): string | null {
-  const storage = (globalThis as { localStorage?: Storage }).localStorage;
+  const storage = localStorageOrNull();
   if (!storage) {
     return null;
   }
 
-  const stored = storage.getItem(STORAGE_KEYS.currentUser);
+  const stored = storageGet(storage, STORAGE_KEYS.currentUser);
   if (!stored) {
     return null;
   }
@@ -132,6 +126,21 @@ function isSameSession(left: RequestSession, right: RequestSession): boolean {
     left.generation === right.generation &&
     left.userId === right.userId
   );
+}
+
+function assertRequestSession(
+  initiatingSession: RequestSession,
+  hasBearerAuth: boolean,
+): void {
+  if (
+    hasBearerAuth &&
+    !isSameSession(initiatingSession, authBridge.getSessionVersion())
+  ) {
+    throw new ApiError(
+      "Authentication session changed while the request was in flight.",
+      0,
+    );
+  }
 }
 
 async function parseErrorPayload(response: Response) {
@@ -241,6 +250,7 @@ async function apiClientInternal<TResponse, TBody>(
       }
     }
   }
+  assertRequestSession(initiatingSession, hasBearerAuth);
 
   if (!response.ok) {
     const errorPayload = await parseErrorPayload(response);
@@ -262,13 +272,19 @@ async function apiClientInternal<TResponse, TBody>(
   }
 
   if (responseType === "blob") {
-    return (await response.blob()) as TResponse;
+    const payload = await response.blob();
+    assertRequestSession(initiatingSession, hasBearerAuth);
+    return payload as TResponse;
   }
   if (responseType === "text") {
-    return (await response.text()) as TResponse;
+    const payload = await response.text();
+    assertRequestSession(initiatingSession, hasBearerAuth);
+    return payload as TResponse;
   }
 
-  return (await response.json()) as TResponse;
+  const payload = await response.json();
+  assertRequestSession(initiatingSession, hasBearerAuth);
+  return payload as TResponse;
 }
 
 export async function apiClient<TResponse = unknown, TBody = unknown>(
