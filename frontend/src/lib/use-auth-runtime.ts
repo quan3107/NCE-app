@@ -129,6 +129,12 @@ export function useAuthRuntime() {
     }
   }, [refreshAccessToken]);
 
+  authBridge.configure({
+    getAccessToken: () => tokenRef.current,
+    refreshAccessToken,
+    clearSession,
+    getSessionVersion,
+  });
   useEffect(() => {
     authBridge.configure({
       getAccessToken: () => tokenRef.current,
@@ -139,12 +145,28 @@ export function useAuthRuntime() {
     return () => {
       authBridge.reset();
     };
-  }, [clearSession, getSessionVersion, refreshAccessToken]);
+  }, [clearSession, getSessionVersion, refreshAccessToken, tokenRef]);
 
   useEffect(
     () => () => cookieOperations.cancelRefreshes(),
     [cookieOperations],
   );
+
+  useEffect(() => {
+    const releaseAbandonedOAuthLease = () => {
+      if (
+        window.location.pathname !== '/auth/oauth' &&
+        cookieOperations.hasOwnedOAuthLease()
+      ) {
+        cookieOperations.releaseOAuthLease();
+      }
+    };
+    releaseAbandonedOAuthLease();
+    window.addEventListener('pageshow', releaseAbandonedOAuthLease);
+    return () => {
+      window.removeEventListener('pageshow', releaseAbandonedOAuthLease);
+    };
+  }, [cookieOperations]);
 
   useEffect(() => {
     if (!shouldRefreshOnMountRef.current) {
