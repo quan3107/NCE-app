@@ -92,3 +92,4 @@ export type PersistSnapshot = {
 };
 
 export type InitialSnapshot = PersistSnapshot;
+export type InitialAuthSnapshot = PersistSnapshot & { sessionEpoch: number };
