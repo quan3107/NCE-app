@@ -143,13 +143,31 @@ The app runs on `http://localhost:3000`. `frontend/.env` should point at the ver
 VITE_API_BASE_URL=http://localhost:4000/api/v1
 ```
 
-Run the classroom browser workflow from the repo root:
+With the backend running and the demo seed installed, run the real-backend
+browser checks from the repo root:
 
 ```bash
 npm --prefix frontend run e2e
 ```
 
-The Playwright workflow starts the Vite dev server on `http://127.0.0.1:3000`, uses isolated mocked classroom API state, and captures screenshots/traces when the teacher publish, student submit, teacher grade, or student feedback visibility path fails.
+The default Playwright command starts Vite on `http://127.0.0.1:3010`, targets
+`http://127.0.0.1:4000/api/v1`, and signs in with each local demo role before
+checking the authoritative `/me` response. It fails when the backend is not
+available. Supply `PLAYWRIGHT_TEST_PASSWORD` for the shared local demo password,
+or use the role-specific `PLAYWRIGHT_ADMIN_PASSWORD`,
+`PLAYWRIGHT_TEACHER_PASSWORD`, and `PLAYWRIGHT_STUDENT_PASSWORD` variables.
+Override `PLAYWRIGHT_API_BASE_URL` and the role-specific email variables when
+checking another safe test environment; non-local backends require explicit
+email credentials.
+
+API-intercepting classroom and profile-layout checks are opt-in:
+
+```bash
+npm --prefix frontend run e2e:mocked
+```
+
+The cookie-race API harness remains separately opt-in with
+`npm --prefix frontend run e2e:synthetic`.
 
 ## Local Accounts
 
