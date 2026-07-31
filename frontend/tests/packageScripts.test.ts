@@ -33,7 +33,12 @@ test('frontend test scripts use CI-expandable globs and bounded concurrency', as
   assert.equal(
     packageJson.scripts?.e2e,
     'playwright test',
-    'frontend e2e script should run the Playwright classroom workflow',
+    'frontend e2e script should run against the actual backend by default',
+  );
+  assert.equal(
+    packageJson.scripts?.['e2e:mocked'],
+    'playwright test --config playwright.mocked.config.ts',
+    'API-intercepting browser checks should require an explicit mocked command',
   );
   assert.equal(
     packageJson.scripts?.['e2e:synthetic'],
@@ -63,19 +68,44 @@ test('frontend component tests cap memory-heavy jsdom workers', async () => {
   );
 });
 
-test('Playwright separates actual-backend and synthetic API configurations', async () => {
+test('Playwright separates actual-backend, mocked, and synthetic configurations', async () => {
   const actualPath = path.resolve(import.meta.dirname, '../playwright.config.ts');
+  const mockedPath = path.resolve(
+    import.meta.dirname,
+    '../playwright.mocked.config.ts',
+  );
   const syntheticPath = path.resolve(
     import.meta.dirname,
     '../playwright.synthetic.config.ts',
   );
+  const realBackendSpecPath = path.resolve(
+    import.meta.dirname,
+    '../e2e/real-backend.spec.ts',
+  );
   const actual = await readFile(actualPath, 'utf8');
+  const mocked = await readFile(mockedPath, 'utf8');
   const synthetic = await readFile(syntheticPath, 'utf8');
+  const realBackendSpec = await readFile(realBackendSpecPath, 'utf8');
 
   assert.match(actual, /PLAYWRIGHT_API_BASE_URL/);
   assert.match(actual, /VITE_API_BASE_URL:\s*apiBaseURL/);
-  assert.doesNotMatch(actual, /auth-cookie-race\.server/);
+  assert.match(actual, /testMatch:\s*['"]real-backend\.spec\.ts['"]/);
+  assert.doesNotMatch(actual, /classroom-workflow\.spec/);
+  assert.doesNotMatch(actual, /profile-layout\.visual\.spec/);
+  assert.match(mocked, /classroom-workflow\.spec\.ts/);
+  assert.match(mocked, /profile-layout\.visual\.spec\.ts/);
+  assert.doesNotMatch(mocked, /auth-cookie-race\.server/);
   assert.match(synthetic, /auth-cookie-race\.server/);
   assert.match(synthetic, /127\.0\.0\.1:4010/);
   assert.match(synthetic, /reuseExistingServer:\s*false/g);
+  assert.match(realBackendSpec, /PLAYWRIGHT_API_BASE_URL/);
+  assert.match(realBackendSpec, /PLAYWRIGHT_TEST_PASSWORD/);
+  assert.match(realBackendSpec, /\/auth\/login/);
+  assert.match(realBackendSpec, /\/me/);
+  assert.doesNotMatch(realBackendSpec, /\.route\(/);
+  assert.doesNotMatch(
+    realBackendSpec,
+    /(?:localPassword|password:\s*['"])/,
+    'real-backend credentials must come from the environment',
+  );
 });
