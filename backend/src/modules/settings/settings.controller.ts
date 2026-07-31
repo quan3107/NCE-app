@@ -15,10 +15,16 @@ import {
 } from "./settings.service.js";
 
 export async function getUploadLimits(
-  _req: Request,
+  req: Request,
   res: Response,
 ): Promise<void> {
-  const payload = await getFileUploadLimits();
+  const actor = req.user;
+  if (!actor) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const payload = await getFileUploadLimits(actor.id);
   res.status(200).json(fileUploadLimitsResponseSchema.parse(payload));
 }
 
