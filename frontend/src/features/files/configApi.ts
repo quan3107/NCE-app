@@ -34,6 +34,7 @@ type AllowedFileTypesResponse = {
 };
 
 const FILE_UPLOAD_CONFIG_QUERY_KEY = 'config:file-upload';
+const FILE_UPLOAD_CONFIG_REVALIDATE_MS = 60_000;
 
 function mapToPolicy(
   limitsResponse: FileUploadLimitsResponse,
@@ -76,11 +77,15 @@ export function useFileUploadConfig() {
   return useQuery({
     queryKey: [
       FILE_UPLOAD_CONFIG_QUERY_KEY,
+      currentUser.id,
       currentUser.role,
       sessionGeneration,
     ],
     queryFn: ({ signal }) => fetchFileUploadConfig(signal),
     staleTime: 5 * 60 * 1000,
+    refetchInterval: FILE_UPLOAD_CONFIG_REVALIDATE_MS,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: 'always',
     gcTime: 30 * 60 * 1000,
     retry: 1,
   });
