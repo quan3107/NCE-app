@@ -80,6 +80,7 @@ export type AuthContextType = {
   login: (email: string, password: string) => Promise<'live' | null>;
   register: (payload: RegisterPayload) => Promise<RegisterResult>;
   loginWithGoogle: () => Promise<void>;
+  cancelGoogleLogin: () => void;
   completeGoogleLogin: () => Promise<'live'>;
   restoreLiveSession: () => Promise<boolean>;
   logout: () => Promise<void>;
