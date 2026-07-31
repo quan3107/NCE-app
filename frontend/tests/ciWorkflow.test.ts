@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
-test("frontend CI runs the classroom e2e workflow", async () => {
+test("frontend CI explicitly runs the mocked browser workflow", async () => {
   const workflowPath = path.resolve(
     import.meta.dirname,
     "../../.github/workflows/ci.yml",
@@ -17,8 +17,8 @@ test("frontend CI runs the classroom e2e workflow", async () => {
   );
   assert.match(
     workflow,
-    /npm run e2e/,
-    "frontend CI should run the classroom Playwright workflow",
+    /npm run e2e:mocked/,
+    "frontend CI should identify its API-intercepting Playwright workflow",
   );
 });
 
