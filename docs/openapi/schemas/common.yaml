@@ -23,6 +23,11 @@ UserStatus:
 
 DisplayName:
   type: string
+  minLength: 1
+  description: Persisted display name returned without rewriting legacy user data. Historical records may contain whitespace, controls, or values outside the canonical write bounds; new writes use CanonicalDisplayName.
+
+CanonicalDisplayName:
+  type: string
   minLength: 2
   maxLength: 100
   pattern: '^(?=\S(?:[\s\S]*\S)?$)(?![\s\S]*[\p{Cc}\p{Cf}\p{Zl}\p{Zp}])(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$'
@@ -32,7 +37,7 @@ NormalizedDisplayNameInput:
   type: string
   minLength: 2
   pattern: '^\s*(?=\S)(?:(?![\p{Cc}\p{Cf}\p{Zl}\p{Zp}])(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])){1,99}(?:(?![\s\p{Cc}\p{Cf}\p{Zl}\p{Zp}])(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]))\s*$'
-  description: Raw display-name request accepted by normalization entry points. The value is trimmed of surrounding whitespace, then the resulting canonical value is validated against DisplayName.
+  description: Raw display-name request accepted by normalization entry points. The value is trimmed of surrounding whitespace, then the resulting canonical value is validated against CanonicalDisplayName.
 
 EnrollmentRole:
   type: string
