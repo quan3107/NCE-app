@@ -89,8 +89,9 @@ describe("secure file upload policy update migration", () => {
       "current_setting('app.current_user_id', true)",
     );
     expect(actorAuthorizationMigration).toMatch(
-      /FROM public\.users[\s\S]*role = 'admin'[\s\S]*status = 'active'[\s\S]*deleted_at IS NULL[\s\S]*FOR SHARE/i,
+      /FROM public\.users[\s\S]*role = 'admin'[\s\S]*status = 'active'[\s\S]*users\."deletedAt" IS NULL[\s\S]*FOR SHARE/i,
     );
+    expect(actorAuthorizationMigration).not.toContain("users.deleted_at");
     expect(actorAuthorizationMigration).not.toContain(
       "current_setting('app.current_user_role'",
     );
