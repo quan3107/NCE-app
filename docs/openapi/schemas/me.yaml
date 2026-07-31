@@ -24,7 +24,7 @@ UpdateMeProfileRequest:
   additionalProperties: false
   properties:
     fullName:
-      $ref: './common.yaml#/DisplayName'
+      $ref: './common.yaml#/CanonicalDisplayName'
   required: [fullName]
 
 MeResponse:
