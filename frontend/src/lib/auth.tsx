@@ -146,6 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return 'live';
   }, [completeOAuthSession]);
 
+  const cancelGoogleLogin = useCallback(() => {
+    cookieOperations.releaseOAuthLease();
+  }, [cookieOperations]);
+
   const logout = useCallback(async () => {
     cookieOperations.cancelRefreshes();
     clearSession();
@@ -180,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       loginWithGoogle,
+      cancelGoogleLogin,
       completeGoogleLogin,
       restoreLiveSession,
       logout,
@@ -194,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       loginWithGoogle,
+      cancelGoogleLogin,
       completeGoogleLogin,
       restoreLiveSession,
       logout,
