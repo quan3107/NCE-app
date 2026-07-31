@@ -11,12 +11,20 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { AuthProvider, useAuth } from "../src/lib/auth";
 import { createAuthCookieOperations } from "../src/lib/auth-cookie-operations";
+import {
+  removeIndexedDbAuthLease,
+  writeIndexedDbAuthLease,
+} from "../src/lib/auth-cookie-indexeddb-lock";
 import { authBridge } from "../src/lib/authBridge";
 import { queryClient } from "../src/lib/queryClient";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   window,
   "localStorage",
+);
+const originalSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "sessionStorage",
 );
 const originalLocksDescriptor = Object.getOwnPropertyDescriptor(
   navigator,
@@ -54,6 +62,15 @@ afterEach(() => {
   } else {
     Reflect.deleteProperty(window, "localStorage");
   }
+  if (originalSessionStorageDescriptor) {
+    Object.defineProperty(
+      window,
+      "sessionStorage",
+      originalSessionStorageDescriptor,
+    );
+  } else {
+    Reflect.deleteProperty(window, "sessionStorage");
+  }
   if (originalLocksDescriptor) {
     Object.defineProperty(navigator, "locks", originalLocksDescriptor);
   } else {
@@ -90,6 +107,36 @@ test("fails closed when every cross-tab lock boundary is unavailable", async () 
   await expect(operations.run(async () => "complete")).rejects.toMatchObject({
     name: "AuthCoordinationUnavailableError",
   });
+});
+
+test("fails closed when an active OAuth lease has unreadable ownership", async () => {
+  const ownerId = "other-tab";
+  await writeIndexedDbAuthLease({
+    name: "oauth-reservation",
+    ownerId,
+    expiresAt: Date.now() + 60_000,
+  });
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    get() {
+      throw new DOMException("Storage denied", "SecurityError");
+    },
+  });
+  const operations = createAuthCookieOperations();
+  let entered = false;
+
+  try {
+    await expect(
+      operations.run(async () => {
+        entered = true;
+      }),
+    ).rejects.toMatchObject({
+      name: "AuthCoordinationUnavailableError",
+    });
+    assert.equal(entered, false);
+  } finally {
+    await removeIndexedDbAuthLease("oauth-reservation", ownerId);
+  }
 });
 
 test("server logout still runs when cleared-session persistence fails", async () => {
