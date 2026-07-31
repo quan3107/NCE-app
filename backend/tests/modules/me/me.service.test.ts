@@ -62,6 +62,7 @@ describe("me.service profile updates", () => {
       where: {
         id: userId,
         deletedAt: null,
+        status: "active",
         NOT: { fullName: "Updated Name" },
       },
       data: { fullName: "Updated Name" },
@@ -107,6 +108,23 @@ describe("me.service profile updates", () => {
     await expect(
       updateMeProfile(userId, { fullName: "Updated Name" }),
     ).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(transactionAuditCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a profile write when the database user is suspended", async () => {
+    transactionUserUpdateMany.mockResolvedValueOnce({ count: 0 });
+    transactionUserFindFirst.mockResolvedValueOnce({
+      id: userId,
+      email: "student@example.com",
+      fullName: "Original Name",
+      role: "student",
+      status: "suspended",
+    });
+
+    await expect(
+      updateMeProfile(userId, { fullName: "Updated Name" }),
+    ).rejects.toMatchObject({ statusCode: 403 });
 
     expect(transactionAuditCreate).not.toHaveBeenCalled();
   });
