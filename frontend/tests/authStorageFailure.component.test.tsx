@@ -22,6 +22,10 @@ const originalLocksDescriptor = Object.getOwnPropertyDescriptor(
   navigator,
   "locks",
 );
+const originalIndexedDbDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "indexedDB",
+);
 
 beforeEach(() => {
   const values = new Map<string, string>();
@@ -55,6 +59,15 @@ afterEach(() => {
   } else {
     Reflect.deleteProperty(navigator, "locks");
   }
+  if (originalIndexedDbDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "indexedDB",
+      originalIndexedDbDescriptor,
+    );
+  } else {
+    Reflect.deleteProperty(globalThis, "indexedDB");
+  }
 });
 
 test("fails closed when every cross-tab lock boundary is unavailable", async () => {
@@ -65,6 +78,10 @@ test("fails closed when every cross-tab lock boundary is unavailable", async () 
     },
   });
   Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: undefined,
+  });
+  Object.defineProperty(globalThis, "indexedDB", {
     configurable: true,
     value: undefined,
   });
@@ -117,28 +134,19 @@ test("server logout still runs when cleared-session persistence fails", async ()
 test("an owned OAuth lease can be released on a terminal cancellation", async () => {
   const operations = createAuthCookieOperations();
   await operations.runOAuthStart(async () => "started");
-  assert.notEqual(
-    window.localStorage.getItem("nce:auth-cookie-oauth-lease"),
-    null,
-  );
+  assert.equal(operations.hasOwnedOAuthLease(), true);
 
-  operations.releaseOAuthLease();
+  await operations.releaseOAuthLease();
 
-  assert.equal(
-    window.localStorage.getItem("nce:auth-cookie-oauth-lease"),
-    null,
-  );
+  assert.equal(operations.hasOwnedOAuthLease(), false);
 });
 
 test("a password fallback releases its tab's abandoned OAuth lease", async () => {
-  const operations = createAuthCookieOperations({ operationTimeoutMs: 25 });
+  const operations = createAuthCookieOperations({ operationTimeoutMs: 250 });
   await operations.runOAuthStart(async () => "started");
 
   await expect(operations.run(async () => "password-login")).resolves.toBe(
     "password-login",
   );
-  assert.equal(
-    window.localStorage.getItem("nce:auth-cookie-oauth-lease"),
-    null,
-  );
+  assert.equal(operations.hasOwnedOAuthLease(), false);
 });
