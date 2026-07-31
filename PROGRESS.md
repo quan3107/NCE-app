@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-30:** Required an active database user inside the atomic profile-write transaction and separated whitespace-normalized display-name request contracts from canonical responses and profile PATCH inputs.
+
 - **2026-07-29:** Added an idempotent migration for existing admin Profile navigation, renamed upload-limit API units to MiB, and documented explicit settings runtime failures.
 
 - **2026-07-29:** Routed Google-provisioned display names and email-derived fallbacks through the shared persistence-safe name policy before creating OAuth users.
@@ -84,6 +86,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-30:** Namespaced and atomically cleared authenticated queries across account generations, rejected late prior-session responses, recovered OAuth leases on cancellation and password fallback, made auth persistence failure-safe, terminated sessions on authorization drift, and added bounded upload-policy revalidation.
 
 - **2026-07-29:** Added a recoverable localStorage mutex when Web Locks are unavailable and reconciled stale tabs to the authoritative identity returned by the shared refresh cookie.
 
