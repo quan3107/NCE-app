@@ -17,7 +17,7 @@ if (process.env.NODE_ENV !== "production") {
 const defaultCorsAllowedOrigins =
   process.env.NODE_ENV === "production"
     ? ""
-    : "http://localhost:5173,http://127.0.0.1:5173";
+    : "http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:3010";
 
 const defaultAuthRateLimit =
   process.env.NODE_ENV === "test"
