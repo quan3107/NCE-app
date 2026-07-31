@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-31:** Preserved persisted upload byte/count limits when type rows are corrupt, allowed the real-browser origin under repository defaults, and added seeded live-backend browser coverage to CI.
+
 - **2026-07-31:** No backend files changed while making the default browser suite require a live backend and dedicated active test accounts.
 
 - **2026-07-31:** Required active persisted users on `/me` reads and active persisted administrators on every settings read/write, locking the settings actor through no-op checks, writes, and audit creation.
@@ -104,6 +106,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-31:** Bounded complete auth-cookie lifecycles, renewed and fenced IndexedDB writers, suppressed stale login/registration commits, reused display-name validation across registration and admin creation, and exercised seeded real-backend sessions in CI.
 
 - **2026-07-31:** Restricted default Playwright coverage to live-backend login and profile checks using environment-supplied account passwords, moving route-intercepted workflows behind an explicit mocked command.
 
