@@ -6,8 +6,10 @@
 
 import { authBridge } from "./authBridge";
 import { API_BASE_URL } from "./apiBaseUrl";
-import { localStorageOrNull, storageGet } from "./browser-storage";
-import { STORAGE_KEYS } from "./constants";
+import {
+  authenticatedRequestSignal,
+  readSharedBearerToken,
+} from "./shared-auth-session";
 type Primitive = string | number | boolean;
 export type ApiClientOptions<TBody = unknown> = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -31,13 +33,6 @@ export class ApiError extends Error {
   }
 }
 const JSON_CONTENT_TYPE = "application/json";
-type StoredAuthPayload = {
-  token?: string | null;
-  liveUser?: {
-    id?: string;
-    role?: string;
-  } | null;
-};
 type RequestSession = ReturnType<typeof authBridge.getSessionVersion>;
 const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
 const API_VERSION_PREFIX = "/api/v1";
@@ -74,36 +69,7 @@ function buildUrl(endpoint: string, params?: ApiClientOptions["params"]) {
   return url;
 }
 
-function readStoredBearerToken(): string | null {
-  const storage = localStorageOrNull();
-  if (!storage) {
-    return null;
-  }
-
-  const stored = storageGet(storage, STORAGE_KEYS.currentUser);
-  if (!stored) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(stored) as StoredAuthPayload;
-    if (!parsed || typeof parsed !== "object") {
-      throw new Error("Invalid stored auth payload");
-    }
-
-    if (!parsed.liveUser) {
-      return null;
-    }
-
-    return typeof parsed.token === "string" && parsed.token.length > 0
-      ? parsed.token
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(session: RequestSession): Record<string, string> {
   const token = authBridge.getAccessToken();
   if (typeof token === "string" && token.length > 0) {
     return {
@@ -111,7 +77,7 @@ function getAuthHeaders(): Record<string, string> {
     };
   }
 
-  const storedToken = readStoredBearerToken();
+  const storedToken = readSharedBearerToken(session.sessionEpoch);
   if (storedToken) {
     return {
       Authorization: `Bearer ${storedToken}`,
@@ -124,6 +90,7 @@ function getAuthHeaders(): Record<string, string> {
 function isSameSession(left: RequestSession, right: RequestSession): boolean {
   return (
     left.generation === right.generation &&
+    left.sessionEpoch === right.sessionEpoch &&
     left.userId === right.userId
   );
 }
@@ -198,14 +165,14 @@ async function apiClientInternal<TResponse, TBody>(
   const authHeaders = withAuth
     ? retryAccessToken
       ? { Authorization: `Bearer ${retryAccessToken}` }
-      : getAuthHeaders()
+      : getAuthHeaders(initiatingSession)
     : {};
   const hasBearerAuth =
     withAuth && typeof authHeaders.Authorization === "string";
 
   const init: RequestInit = {
     method,
-    signal,
+    signal: hasBearerAuth ? authenticatedRequestSignal(signal) : signal,
     headers: {
       "Content-Type": JSON_CONTENT_TYPE,
       ...headers,
@@ -225,6 +192,7 @@ async function apiClientInternal<TResponse, TBody>(
   try {
     response = await fetch(url, init);
   } catch (error) {
+    assertRequestSession(initiatingSession, hasBearerAuth);
     logApiError(method, url, 0, error);
     throw new ApiError(
       "Server is unavailable. Please check that the backend API is running.",
