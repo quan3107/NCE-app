@@ -102,3 +102,27 @@ test("storage denial cannot prevent login or server logout", async ({
   );
   await context.close();
 });
+
+test("sessionStorage denial without an OAuth lease still reaches logout", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      get() {
+        throw new DOMException("Storage denied", "SecurityError");
+      },
+    });
+  });
+  const page = await context.newPage();
+  await page.goto("/e2e/auth-cookie-race.html");
+
+  await page.getByRole("button", { name: "Login A" }).click();
+  await expect(page.getByTestId("current-user")).toHaveText("user-a");
+  const logoutResponse = page.waitForResponse("**/api/v1/auth/logout");
+  await page.getByRole("button", { name: "Logout" }).click();
+  expect((await logoutResponse).status()).toBe(204);
+  await expect(page.getByTestId("current-user")).toHaveText("guest");
+  await context.close();
+});
