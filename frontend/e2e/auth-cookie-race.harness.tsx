@@ -42,6 +42,7 @@ function Harness() {
       <button onClick={() => auth.login('b@example.com', 'password')}>
         Login B
       </button>
+      <button onClick={() => auth.logout()}>Logout</button>
       <button onClick={startProtectedRequest}>Start protected request</button>
       <button onClick={switchToB}>Switch to B</button>
       <button onClick={restore}>Restore B session</button>
