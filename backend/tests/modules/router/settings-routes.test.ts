@@ -18,6 +18,7 @@ const { app } = await import("../../../src/app.js");
 const updateFileUploadLimits = vi.mocked(
   settingsService.updateFileUploadLimits,
 );
+const getFileUploadLimits = vi.mocked(settingsService.getFileUploadLimits);
 const userId = "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2";
 
 const headersFor = (role: "admin" | "teacher") => ({
@@ -87,5 +88,22 @@ describe("modules.router settings routes", () => {
     expect(response.status).toBe(200);
     expect(updateFileUploadLimits).toHaveBeenCalledWith(requestPayload, userId);
     expect(response.body).toEqual(responsePayload);
+  });
+
+  it("passes the authenticated actor to the authoritative GET check", async () => {
+    getFileUploadLimits.mockResolvedValueOnce({
+      limits: [
+        { role: "student", maxFileSizeMib: 10 },
+        { role: "teacher", maxFileSizeMib: 25 },
+        { role: "admin", maxFileSizeMib: 50 },
+      ],
+    });
+
+    const response = await request(app)
+      .get("/api/v1/settings/file-upload-limits")
+      .set(headersFor("admin"));
+
+    expect(response.status).toBe(200);
+    expect(getFileUploadLimits).toHaveBeenCalledWith(userId);
   });
 });
