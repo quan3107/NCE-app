@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-31:** Made upload-policy database actors supply Prisma-managed UUID and update timestamps during raw-SQL fixture creation.
+
 - **2026-07-31:** Corrected upload-policy administrator authorization and its database fixtures to use the quoted physical `users."deletedAt"` column.
 
 - **2026-07-31:** Locked upload-policy writes to the active, non-deleted database administrator row and made display-name responses tolerate legacy stored values while retaining canonical write contracts.
