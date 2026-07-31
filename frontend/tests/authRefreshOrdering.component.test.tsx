@@ -125,3 +125,33 @@ test("a delayed same-user refresh preserves a newer successful save", async () =
   assert.match(persisted, /"token":"token-b"/);
   assert.match(persisted, /"name":"Saved Name"/);
 });
+
+test("unmount cancellation does not erase the persisted session", async () => {
+  let refreshSignal: AbortSignal | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      refreshSignal = init?.signal ?? undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    }),
+  );
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const view = renderHook(() => useAuth(), { wrapper });
+  await waitFor(() => assert.equal(Boolean(refreshSignal), true));
+
+  view.unmount();
+  await waitFor(() => assert.equal(refreshSignal?.aborted, true));
+
+  assert.match(
+    window.localStorage.getItem("currentUser") ?? "",
+    /"token":"token-a"/,
+  );
+});
