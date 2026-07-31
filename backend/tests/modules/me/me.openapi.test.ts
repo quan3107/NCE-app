@@ -30,22 +30,35 @@ const path = readFileSync(
 );
 
 describe("profile OpenAPI contract", () => {
-  it("shares a safe canonical display-name contract across write APIs", () => {
+  it("separates normalized request names from canonical profile writes", () => {
     expect(commonSchema).toContain("minLength: 2");
     expect(commonSchema).toContain("maxLength: 100");
     expect(commonSchema).toContain("Unicode code points");
     expect(commonSchema).toContain("PostgreSQL-safe Unicode scalar values");
     expect(commonSchema).toContain("non-printing and bidirectional controls");
     expect(meSchema).toContain("$ref: './common.yaml#/DisplayName'");
-    expect(authSchema).toContain("$ref: './common.yaml#/DisplayName'");
+    expect(authSchema).toContain(
+      "$ref: './common.yaml#/NormalizedDisplayNameInput'",
+    );
     expect(
-      usersSchema.match(/\$ref: '\.\/common\.yaml#\/DisplayName'/g) ?? [],
+      usersSchema.match(
+        /\$ref: '\.\/common\.yaml#\/NormalizedDisplayNameInput'/g,
+      ) ?? [],
     ).toHaveLength(2);
+    expect(commonSchema).toMatch(
+      /NormalizedDisplayNameInput:[\s\S]*trimmed[\s\S]*DisplayName/i,
+    );
 
-    const documentedPattern = commonSchema.match(/pattern: '([^']+)'/)?.[1];
+    const displayNameFragment =
+      commonSchema.match(
+        /^DisplayName:[\s\S]*?(?=^[A-Za-z][A-Za-z0-9]*:)/m,
+      )?.[0] ?? "";
+    const documentedPattern = displayNameFragment.match(
+      /pattern: '([^']+)'/,
+    )?.[1];
     expect(documentedPattern).toBeDefined();
     const fullNamePattern = new RegExp(documentedPattern ?? "", "u");
-    expect(fullNamePattern.test("Ada 😀 Lovelace")).toBe(true);
+    expect(fullNamePattern.test("Ada ðŸ˜€ Lovelace")).toBe(true);
     expect(fullNamePattern.test("Ada\u0000Lovelace")).toBe(false);
     expect(fullNamePattern.test("Ada\uD800Lovelace")).toBe(false);
     expect(fullNamePattern.test("Ada\uDC00Lovelace")).toBe(false);
