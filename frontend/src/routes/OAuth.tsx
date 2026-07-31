@@ -16,7 +16,7 @@ import { useRouter } from '@lib/router';
 type OAuthStatus = 'working' | 'success' | 'error';
 
 export function OAuthRoute() {
-  const { completeGoogleLogin, currentUser } = useAuthStore();
+  const { cancelGoogleLogin, completeGoogleLogin, currentUser } = useAuthStore();
   const { navigate } = useRouter();
   const [status, setStatus] = useState<OAuthStatus>('working');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -34,6 +34,7 @@ export function OAuthRoute() {
 
   useEffect(() => {
     if (googleStatus === 'error') {
+      cancelGoogleLogin();
       setStatus('error');
       setErrorMessage(
         googleMessage ?? 'Google sign-in was cancelled or could not be completed.',
@@ -58,6 +59,7 @@ export function OAuthRoute() {
           window.history.replaceState({}, '', url.toString());
         }
       } catch (error) {
+        cancelGoogleLogin();
         const message =
           error instanceof ApiError
             ? error.message
@@ -66,7 +68,12 @@ export function OAuthRoute() {
         setStatus('error');
       }
     })();
-  }, [completeGoogleLogin, googleMessage, googleStatus]);
+  }, [
+    cancelGoogleLogin,
+    completeGoogleLogin,
+    googleMessage,
+    googleStatus,
+  ]);
 
   useEffect(() => {
     if (status !== 'success' || !currentUser) {
