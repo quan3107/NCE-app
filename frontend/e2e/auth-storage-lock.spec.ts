@@ -6,7 +6,7 @@
 
 import { expect, test, type Browser } from "@playwright/test";
 
-type StorageFailureMode = "access" | "write";
+type StorageFailureMode = "access" | "enumeration" | "read" | "write";
 
 async function expectSerializedOperations(
   browser: Browser,
@@ -27,9 +27,41 @@ async function expectSerializedOperations(
       });
       return;
     }
-    Storage.prototype.setItem = () => {
-      throw new DOMException("Storage write denied", "QuotaExceededError");
-    };
+    if (mode === "read") {
+      Storage.prototype.getItem = () => {
+        throw new DOMException("Storage read denied", "SecurityError");
+      };
+      return;
+    }
+    if (mode === "enumeration") {
+      const storage = window.localStorage;
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: new Proxy(storage, {
+          get(target, property) {
+            const value = Reflect.get(target, property, target);
+            return typeof value === "function"
+              ? value.bind(target)
+              : value;
+          },
+          ownKeys() {
+            throw new DOMException(
+              "Storage enumeration denied",
+              "SecurityError",
+            );
+          },
+        }),
+      });
+      return;
+    }
+    if (mode === "write") {
+      Storage.prototype.setItem = () => {
+        throw new DOMException(
+          "Storage write denied",
+          "QuotaExceededError",
+        );
+      };
+    }
   }, failureMode);
   const firstPage = await context.newPage();
   const secondPage = await context.newPage();
@@ -129,4 +161,14 @@ test("serializes tabs when localStorage access is denied", async ({
 
 test("serializes tabs when localStorage writes fail", async ({ browser }) => {
   await expectSerializedOperations(browser, "write");
+});
+
+test("serializes tabs when localStorage reads fail", async ({ browser }) => {
+  await expectSerializedOperations(browser, "read");
+});
+
+test("serializes tabs when localStorage enumeration fails", async ({
+  browser,
+}) => {
+  await expectSerializedOperations(browser, "enumeration");
 });
