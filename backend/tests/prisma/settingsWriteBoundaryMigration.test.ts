@@ -29,6 +29,13 @@ const repairMigration = readFileSync(
   ),
   "utf8",
 );
+const actorAuthorizationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/prisma/migrations/20260731160000_lock_upload_policy_admin_actor/migration.sql",
+  ),
+  "utf8",
+);
 
 describe("secure file upload policy update migration", () => {
   it("uses an admin-checked security-definer function", () => {
@@ -74,6 +81,18 @@ describe("secure file upload policy update migration", () => {
     expect(constraint).toBeGreaterThan(normalization);
     expect(repairMigration).toMatch(
       /CHECK\s*\([\s\S]*max_file_size BETWEEN 1048576 AND 104857600[\s\S]*max_file_size % 1048576 = 0/i,
+    );
+  });
+
+  it("locks and authorizes the persisted active administrator", () => {
+    expect(actorAuthorizationMigration).toContain(
+      "current_setting('app.current_user_id', true)",
+    );
+    expect(actorAuthorizationMigration).toMatch(
+      /FROM public\.users[\s\S]*role = 'admin'[\s\S]*status = 'active'[\s\S]*deleted_at IS NULL[\s\S]*FOR SHARE/i,
+    );
+    expect(actorAuthorizationMigration).not.toContain(
+      "current_setting('app.current_user_role'",
     );
   });
 });
