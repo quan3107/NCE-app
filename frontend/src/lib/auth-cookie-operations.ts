@@ -24,6 +24,7 @@ export type AuthCookieOperations = {
   runOAuthCompletion: <T>(
     operation: (signal: AbortSignal) => Promise<T>,
   ) => Promise<T>;
+  releaseOAuthLease: () => void;
   hasOwnedOAuthLease: () => boolean;
   cancelRefreshes: () => void;
 };
@@ -98,6 +99,7 @@ export function createAuthCookieOperations(
   function run<T>(
     operation: (signal: AbortSignal) => Promise<T>,
   ): Promise<T> {
+    clearOwnedOAuthLease();
     return enqueue(operation, operationTimeoutMs);
   }
 
@@ -127,6 +129,9 @@ export function createAuthCookieOperations(
       return enqueue(operation, operationTimeoutMs, undefined, true).finally(
         clearOwnedOAuthLease,
       );
+    },
+    releaseOAuthLease() {
+      clearOwnedOAuthLease();
     },
     hasOwnedOAuthLease() {
       return hasOwnedOAuthLease();
