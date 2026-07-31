@@ -122,4 +122,28 @@ describe("file-upload-config.service", () => {
       "Using fallback file upload policy",
     );
   });
+
+  it("preserves persisted limits when allowed types are missing", async () => {
+    prisma.fileUploadPolicy.findUnique.mockResolvedValue({
+      id: "policy-1",
+      role: "student",
+      maxFileSize: 1 * 1024 * 1024,
+      maxTotalSize: 4 * 1024 * 1024,
+      maxFilesPerUpload: 2,
+      allowedTypes: [],
+    });
+
+    const config = await getRoleFileUploadConfig("student");
+
+    expect(config.limits).toEqual({
+      max_file_size: 1 * 1024 * 1024,
+      max_total_size: 4 * 1024 * 1024,
+      max_files_per_upload: 2,
+    });
+    expect(config.accept).toBe(".pdf,.doc,.docx,audio/*,image/*");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ role: "student", reason: "allowed_types_missing" }),
+      "Using fallback file upload types",
+    );
+  });
 });
