@@ -93,7 +93,7 @@ describe('test environment defaults', () => {
       expect(process.env.BREVO_SENDER_NAME).toBe('NCE Test Mailer')
       expect(process.env.BREVO_SENDER_EMAIL).toBe('noreply.test@example.com')
       expect(process.env.CORS_ALLOWED_ORIGINS).toBe(
-        'http://localhost:5173,http://127.0.0.1:5173',
+        'http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:3010',
       )
       expect(process.env.AUTH_PASSWORD_LOGIN_MAX_FAILURES).toBe('3')
       expect(process.env.AUTH_PASSWORD_LOGIN_WINDOW_MS).toBe('60000')
@@ -153,6 +153,7 @@ describe('test environment defaults', () => {
     expect(config.cors.allowedOrigins).toEqual([
       'http://localhost:5173',
       'http://127.0.0.1:5173',
+      'http://127.0.0.1:3010',
     ])
     expect(config.authRateLimit).toEqual({
       passwordLogin: {
