@@ -1,7 +1,7 @@
 /**
  * File: tests/modules/me/me.openapi.test.ts
- * Purpose: Lock canonical Unicode profile-name rules in OpenAPI.
- * Why: Documentation and runtime must measure the same submitted representation.
+ * Purpose: Lock upgrade-safe response names and canonical write rules in OpenAPI.
+ * Why: Legacy stored names remain readable while new writes use the safe contract.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -30,13 +30,32 @@ const path = readFileSync(
 );
 
 describe("profile OpenAPI contract", () => {
-  it("separates normalized request names from canonical profile writes", () => {
-    expect(commonSchema).toContain("minLength: 2");
-    expect(commonSchema).toContain("maxLength: 100");
-    expect(commonSchema).toContain("Unicode code points");
-    expect(commonSchema).toContain("PostgreSQL-safe Unicode scalar values");
-    expect(commonSchema).toContain("non-printing and bidirectional controls");
-    expect(meSchema).toContain("$ref: './common.yaml#/DisplayName'");
+  it("separates legacy responses from canonical profile writes", () => {
+    const storedDisplayName =
+      commonSchema.match(
+        /^DisplayName:[\s\S]*?(?=^[A-Za-z][A-Za-z0-9]*:)/m,
+      )?.[0] ?? "";
+    const canonicalDisplayName =
+      commonSchema.match(
+        /^CanonicalDisplayName:[\s\S]*?(?=^[A-Za-z][A-Za-z0-9]*:)/m,
+      )?.[0] ?? "";
+
+    expect(storedDisplayName).toContain("minLength: 1");
+    expect(storedDisplayName).toMatch(/legacy/i);
+    expect(storedDisplayName).not.toContain("maxLength:");
+    expect(storedDisplayName).not.toContain("pattern:");
+    expect(canonicalDisplayName).toContain("minLength: 2");
+    expect(canonicalDisplayName).toContain("maxLength: 100");
+    expect(canonicalDisplayName).toContain("Unicode code points");
+    expect(canonicalDisplayName).toContain(
+      "PostgreSQL-safe Unicode scalar values",
+    );
+    expect(canonicalDisplayName).toContain(
+      "non-printing and bidirectional controls",
+    );
+    expect(meSchema).toMatch(
+      /MeProfile:[\s\S]*common\.yaml#\/DisplayName[\s\S]*UpdateMeProfileRequest:[\s\S]*common\.yaml#\/CanonicalDisplayName/,
+    );
     expect(authSchema).toContain(
       "$ref: './common.yaml#/NormalizedDisplayNameInput'",
     );
@@ -46,16 +65,11 @@ describe("profile OpenAPI contract", () => {
       ) ?? [],
     ).toHaveLength(2);
     expect(commonSchema).toMatch(
-      /NormalizedDisplayNameInput:[\s\S]*trimmed[\s\S]*DisplayName/i,
+      /NormalizedDisplayNameInput:[\s\S]*trimmed[\s\S]*CanonicalDisplayName/i,
     );
 
-    const displayNameFragment =
-      commonSchema.match(
-        /^DisplayName:[\s\S]*?(?=^[A-Za-z][A-Za-z0-9]*:)/m,
-      )?.[0] ?? "";
-    const documentedPattern = displayNameFragment.match(
-      /pattern: '([^']+)'/,
-    )?.[1];
+    const documentedPattern =
+      canonicalDisplayName.match(/pattern: '([^']+)'/)?.[1];
     expect(documentedPattern).toBeDefined();
     const fullNamePattern = new RegExp(documentedPattern ?? "", "u");
     expect(fullNamePattern.test("Ada ðŸ˜€ Lovelace")).toBe(true);
