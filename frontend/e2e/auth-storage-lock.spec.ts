@@ -172,3 +172,87 @@ test("serializes tabs when localStorage enumeration fails", async ({
 }) => {
   await expectSerializedOperations(browser, "enumeration");
 });
+
+test("holds the OAuth reservation when localStorage reads fail", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, "locks", {
+      configurable: true,
+      value: undefined,
+    });
+    const storage = window.localStorage;
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: new Proxy(storage, {
+        get(target, property) {
+          if (property === "getItem") {
+            return () => {
+              throw new DOMException(
+                "Storage read denied",
+                "SecurityError",
+              );
+            };
+          }
+          const value = Reflect.get(target, property, target);
+          return typeof value === "function"
+            ? value.bind(target)
+            : value;
+        },
+      }),
+    });
+  });
+  const oauthPage = await context.newPage();
+  const otherPage = await context.newPage();
+  await Promise.all([
+    oauthPage.goto("/e2e/auth-cookie-race.html"),
+    otherPage.goto("/e2e/auth-cookie-race.html"),
+  ]);
+
+  await oauthPage.evaluate(async () => {
+    const { createAuthCookieOperations } = await import(
+      "/src/lib/auth-cookie-operations.ts"
+    );
+    await createAuthCookieOperations().runOAuthStart(
+      async () => "authorization-url",
+    );
+  });
+  await otherPage.evaluate(async () => {
+    const { createAuthCookieOperations } = await import(
+      "/src/lib/auth-cookie-operations.ts"
+    );
+    const state = (window as Window & { authOperationDone?: boolean });
+    state.authOperationDone = false;
+    void createAuthCookieOperations().run(async () => {
+      state.authOperationDone = true;
+    });
+  });
+  await otherPage.waitForTimeout(100);
+  expect(
+    await otherPage.evaluate(
+      () =>
+        (window as Window & { authOperationDone?: boolean })
+          .authOperationDone,
+    ),
+  ).toBe(false);
+
+  await oauthPage.evaluate(async () => {
+    const { createAuthCookieOperations } = await import(
+      "/src/lib/auth-cookie-operations.ts"
+    );
+    await createAuthCookieOperations().runOAuthCompletion(
+      async () => undefined,
+    );
+  });
+  await expect
+    .poll(() =>
+      otherPage.evaluate(
+        () =>
+          (window as Window & { authOperationDone?: boolean })
+            .authOperationDone,
+      ),
+    )
+    .toBe(true);
+  await context.close();
+});
