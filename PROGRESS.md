@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-07-31:** No backend files changed for the IndexedDB-backed OAuth reservation correction.
+
 - **2026-07-31:** No backend files changed for the consistent cross-tab authentication lock-boundary correction.
 
 - **2026-07-31:** Added machine-checkable OpenAPI constraints for whitespace-normalized display-name inputs, including Unicode scalar, control-character, and post-trim length boundaries.
@@ -90,6 +92,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-07-31:** Moved OAuth reservations into the authoritative IndexedDB coordination database, so unreadable localStorage cannot make another tab bypass an active OAuth flow.
 
 - **2026-07-31:** Routed every no-Web-Locks auth-cookie operation through one IndexedDB lease boundary, preventing readable, unreadable, and non-enumerable localStorage states from splitting cross-tab coordination.
 
