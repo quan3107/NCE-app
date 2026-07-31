@@ -8,6 +8,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
     $transaction: vi.fn(),
+    user: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -16,7 +19,7 @@ const prisma = vi.mocked(prismaModule.prisma, true);
 const transactionUserUpdateMany = vi.fn();
 const transactionUserFindFirst = vi.fn();
 const transactionAuditCreate = vi.fn();
-const { updateMeProfile } = await import(
+const { getMe, updateMeProfile } = await import(
   "../../../src/modules/me/me.service.js"
 );
 
@@ -127,5 +130,23 @@ describe("me.service profile updates", () => {
     ).rejects.toMatchObject({ statusCode: 403 });
 
     expect(transactionAuditCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("me.service reads", () => {
+  it("rejects a suspended database user before returning account data", async () => {
+    prisma.user.findFirst.mockResolvedValueOnce({
+      id: userId,
+      email: "student@example.com",
+      fullName: "Suspended Student",
+      role: "student",
+      status: "suspended",
+      enrollments: [],
+    } as never);
+
+    await expect(getMe(userId)).rejects.toMatchObject({
+      statusCode: 403,
+      message: "Active account required.",
+    });
   });
 });
