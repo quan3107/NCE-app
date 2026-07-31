@@ -6,8 +6,12 @@
 import assert from "node:assert/strict";
 import type { PropsWithChildren } from "react";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import {
+  focusManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, test, vi } from "vitest";
 
 const authState = vi.hoisted(() => ({
@@ -29,6 +33,8 @@ const { useFileUploadConfig } = await import(
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
+  focusManager.setFocused(undefined);
 });
 
 test("account switch aborts the old policy and fetches the new role policy", async () => {
@@ -104,4 +110,67 @@ test("account switch aborts the old policy and fetches the new role policy", asy
   await Promise.resolve();
   assert.equal(view.result.current.data?.limits.maxFileSize, 52_428_800);
   assert.equal(requestNumber, 4);
+});
+
+test("independent mounted clients revalidate persisted upload limits", async () => {
+  let maxFileSize = 1_048_576;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url.endsWith("/config/file-upload-limits")) {
+        return Response.json({
+          limits: {
+            max_file_size: maxFileSize,
+            max_total_size: maxFileSize * 2,
+            max_files_per_upload: 2,
+          },
+        });
+      }
+      return Response.json({
+        allowed_types: [],
+        accept: "",
+        type_label: "Files",
+      });
+    }),
+  );
+  const firstClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const secondClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const first = renderHook(() => useFileUploadConfig(), {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={firstClient}>{children}</QueryClientProvider>
+    ),
+  });
+  const second = renderHook(() => useFileUploadConfig(), {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={secondClient}>{children}</QueryClientProvider>
+    ),
+  });
+  await waitFor(() => {
+    assert.equal(first.result.current.data?.limits.maxFileSize, 1_048_576);
+    assert.equal(second.result.current.data?.limits.maxFileSize, 1_048_576);
+  });
+  assert.equal(
+    firstClient.getQueryCache().getAll()[0]?.options.refetchInterval,
+    60_000,
+  );
+  assert.equal(
+    secondClient.getQueryCache().getAll()[0]?.options.refetchInterval,
+    60_000,
+  );
+
+  maxFileSize = 5_242_880;
+  act(() => {
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+  });
+
+  await waitFor(() => {
+    assert.equal(first.result.current.data?.limits.maxFileSize, 5_242_880);
+    assert.equal(second.result.current.data?.limits.maxFileSize, 5_242_880);
+  });
 });
