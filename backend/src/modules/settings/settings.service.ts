@@ -3,6 +3,8 @@
  * Purpose: Read and update admin-managed runtime settings.
  * Why: The settings UI must persist values consumed by upload enforcement.
  */
+import { Prisma, UserRole, UserStatus } from "../../prisma/index.js";
+
 import { prisma } from "../../prisma/client.js";
 import { createHttpError } from "../../utils/httpError.js";
 import { writeAuditLog } from "../audit-logs/audit-logs.service.js";
@@ -14,6 +16,39 @@ import type {
 
 const BYTES_PER_MEBIBYTE = 1024 * 1024;
 const UPDATE_ORDER: UploadLimitRole[] = ["student", "teacher", "admin"];
+
+type AuthorizationClient = Pick<
+  Prisma.TransactionClient,
+  "$queryRaw" | "user"
+>;
+
+async function assertActiveAdmin(
+  actorId: string,
+  client: AuthorizationClient,
+  lockActor: boolean,
+): Promise<void> {
+  if (lockActor) {
+    // Serialize demotion/suspension with the entire settings write and audit.
+    await client.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "users"
+      WHERE "id" = ${actorId}::uuid
+      FOR UPDATE
+    `);
+  }
+  const actor = await client.user.findFirst({
+    where: {
+      id: actorId,
+      role: UserRole.admin,
+      status: UserStatus.active,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (!actor) {
+    throw createHttpError(403, "Active administrator account required.");
+  }
+}
 
 const toPayload = (
   limits: Array<{ role: "admin" | "student" | "teacher"; maxFileSize: number }>,
@@ -45,7 +80,10 @@ const toPayload = (
   };
 };
 
-export async function getFileUploadLimits(): Promise<FileUploadLimitsPayload> {
+export async function getFileUploadLimits(
+  actorId: string,
+): Promise<FileUploadLimitsPayload> {
+  await assertActiveAdmin(actorId, prisma, false);
   const limits = await prisma.fileUploadPolicy.findMany({
     select: { role: true, maxFileSize: true },
     orderBy: { role: "asc" },
@@ -59,6 +97,7 @@ export async function updateFileUploadLimits(
   actorId: string,
 ): Promise<FileUploadLimitsPayload> {
   const limits = await prisma.$transaction(async (transaction) => {
+    await assertActiveAdmin(actorId, transaction, true);
     const changedRoles: UploadLimitRole[] = [];
 
     for (const role of UPDATE_ORDER) {
