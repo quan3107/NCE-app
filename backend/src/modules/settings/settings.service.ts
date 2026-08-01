@@ -105,29 +105,45 @@ export async function updateFileUploadLimits(
 
     for (const role of UPDATE_ORDER) {
       const update = input.updates[role];
-      if (!update || update.expectedMaxFileSizeMib === update.maxFileSizeMib) {
+      if (!update) {
         continue;
       }
 
       const expectedMaxFileSize =
         update.expectedMaxFileSizeMib * BYTES_PER_MEBIBYTE;
       const maxFileSize = update.maxFileSizeMib * BYTES_PER_MEBIBYTE;
-      const [result] = await transaction.$queryRaw<Array<{ updated: boolean }>>`
-        SELECT app.update_file_upload_policy(
-          ${role},
-          ${expectedMaxFileSize},
-          ${maxFileSize}
-        ) AS updated
-      `;
+      const changesValue = expectedMaxFileSize !== maxFileSize;
+      let matchedExpectedValue: boolean;
+      if (changesValue) {
+        const [result] = await transaction.$queryRaw<Array<{ updated: boolean }>>`
+          SELECT app.update_file_upload_policy(
+            ${role},
+            ${expectedMaxFileSize},
+            ${maxFileSize}
+          ) AS updated
+        `;
+        matchedExpectedValue = Boolean(result?.updated);
+      } else {
+        const [result] = await transaction.$queryRaw<Array<{ matched: boolean }>>`
+          SELECT TRUE AS matched
+          FROM public.file_upload_policies
+          WHERE role = ${role}::public."UserRole"
+            AND max_file_size = ${expectedMaxFileSize}
+          FOR SHARE
+        `;
+        matchedExpectedValue = Boolean(result?.matched);
+      }
 
-      if (!result?.updated) {
+      if (!matchedExpectedValue) {
         throw createHttpError(
           409,
           "File upload limits changed; reload before saving.",
           { role },
         );
       }
-      changedRoles.push(role);
+      if (changesValue) {
+        changedRoles.push(role);
+      }
     }
 
     if (changedRoles.length > 0) {
