@@ -55,6 +55,7 @@
     "recharts": "^2.15.2",
     "sonner": "^2.0.3",
     "tailwind-merge": "*",
+    "unicode-segmenter": "^0.17.3",
     "vaul": "^1.1.2"
   },
   "devDependencies": {
