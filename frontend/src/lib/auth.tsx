@@ -46,15 +46,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     completeOAuthSession,
     isRestoringSession,
     restoreLiveSession,
-    getSessionVersion,
+    getAdmissionSessionVersion,
   } = useAuthRuntime();
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const initiatingVersion = getSessionVersion();
       cookieOperations.cancelRefreshes();
       try {
         const committed = await cookieOperations.run(async (signal) => {
+          // The operation admitted last owns the final cookie and UI intent.
+          const admissionVersion = getAdmissionSessionVersion();
           const result = await apiClient<AuthSuccessResponse>('/auth/login', {
             method: 'POST',
             withAuth: false,
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (signal.aborted) {
             throw new ApiError('Login request timed out.', 0);
           }
-          return applyLiveSession(result, initiatingVersion);
+          return applyLiveSession(result, admissionVersion);
         });
         return committed ? 'live' : null;
       } catch (error) {
@@ -79,14 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [applyLiveSession, cookieOperations, getSessionVersion],
+    [applyLiveSession, cookieOperations, getAdmissionSessionVersion],
   );
 
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
-      const initiatingVersion = getSessionVersion();
       cookieOperations.cancelRefreshes();
       return cookieOperations.run(async (signal) => {
+        // Queued registration follows the same last-admitted cookie intent.
+        const admissionVersion = getAdmissionSessionVersion();
         const result = await apiClient<
           AuthSuccessResponse | AuthPendingApprovalResponse
         >('/auth/register', {
@@ -107,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (signal.aborted) {
           throw new ApiError('Registration request timed out.', 0);
         }
-        if (!applyLiveSession(result, initiatingVersion)) {
+        if (!applyLiveSession(result, admissionVersion)) {
           throw new ApiError(
             'Registration was cancelled by a newer session change.',
             0,
@@ -116,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return 'live';
       });
     },
-    [applyLiveSession, cookieOperations, getSessionVersion],
+    [applyLiveSession, cookieOperations, getAdmissionSessionVersion],
   );
 
   const loginWithGoogle = useCallback(async () => {
