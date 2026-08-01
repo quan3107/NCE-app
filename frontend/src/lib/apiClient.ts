@@ -8,7 +8,7 @@ import { authBridge } from "./authBridge";
 import { API_BASE_URL } from "./apiBaseUrl";
 import {
   authenticatedRequestSignal,
-  readSharedBearerToken,
+  loadSharedAuthSnapshot,
 } from "./shared-auth-session";
 type Primitive = string | number | boolean;
 export type ApiClientOptions<TBody = unknown> = {
@@ -70,6 +70,10 @@ function buildUrl(endpoint: string, params?: ApiClientOptions["params"]) {
 }
 
 function getAuthHeaders(session: RequestSession): Record<string, string> {
+  const sharedSession = loadSharedAuthSnapshot();
+  if (sharedSession.sessionEpoch > session.sessionEpoch) {
+    throw sessionChangedError();
+  }
   const token = authBridge.getAccessToken();
   if (typeof token === "string" && token.length > 0) {
     return {
@@ -77,7 +81,10 @@ function getAuthHeaders(session: RequestSession): Record<string, string> {
     };
   }
 
-  const storedToken = readSharedBearerToken(session.sessionEpoch);
+  const storedToken =
+    sharedSession.sessionEpoch === session.sessionEpoch && sharedSession.liveUser
+      ? sharedSession.token
+      : null;
   if (storedToken) {
     return {
       Authorization: `Bearer ${storedToken}`,
@@ -85,6 +92,13 @@ function getAuthHeaders(session: RequestSession): Record<string, string> {
   }
 
   return {};
+}
+
+function sessionChangedError(): ApiError {
+  return new ApiError(
+    "Authentication session changed while the request was in flight.",
+    0,
+  );
 }
 
 function isSameSession(left: RequestSession, right: RequestSession): boolean {
@@ -103,10 +117,7 @@ function assertRequestSession(
     hasBearerAuth &&
     !isSameSession(initiatingSession, authBridge.getSessionVersion())
   ) {
-    throw new ApiError(
-      "Authentication session changed while the request was in flight.",
-      0,
-    );
+    throw sessionChangedError();
   }
 }
 
