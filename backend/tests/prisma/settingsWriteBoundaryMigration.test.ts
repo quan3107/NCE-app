@@ -36,6 +36,13 @@ const actorAuthorizationMigration = readFileSync(
   ),
   "utf8",
 );
+const equalValueMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/prisma/migrations/20260801170000_preserve_equal_upload_policy_cas/migration.sql",
+  ),
+  "utf8",
+);
 
 describe("secure file upload policy update migration", () => {
   it("uses an admin-checked security-definer function", () => {
@@ -102,5 +109,18 @@ describe("secure file upload policy update migration", () => {
       /users\.id\s*=\s*current_setting\('app\.current_user_id', true\)::UUID/i,
     );
     expect(actorAuthorizationMigration).not.toMatch(/users\.id::TEXT/i);
+  });
+
+  it("checks equal values inside the security-definer boundary", () => {
+    expect(equalValueMigration).toContain("SECURITY DEFINER");
+    expect(equalValueMigration).toMatch(
+      /IF p_expected_max_file_size = p_max_file_size[\s\S]*PERFORM 1[\s\S]*FOR SHARE[\s\S]*RETURN FOUND/i,
+    );
+    expect(equalValueMigration).toMatch(
+      /GRANT EXECUTE ON FUNCTION app\.update_file_upload_policy[\s\S]*TO nce_app_authenticated;/,
+    );
+    expect(equalValueMigration).not.toMatch(
+      /GRANT\s+UPDATE\s+ON\s+public\.file_upload_policies/i,
+    );
   });
 });
