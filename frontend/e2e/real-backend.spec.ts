@@ -12,14 +12,9 @@ type AuthResponse = {
   accessToken: string;
   user: {
     email: string;
+    fullName: string;
     id: string;
     role: TestRole;
-  };
-};
-
-type MeResponse = {
-  profile: AuthResponse['user'] & {
-    status: string;
   };
 };
 
@@ -83,6 +78,7 @@ test.beforeAll(async ({ request }) => {
 for (const account of accounts) {
   test(`${account.role} test account reaches its live session`, async ({ page }) => {
     let auth: AuthResponse | undefined;
+    let loggedOut = false;
 
     try {
       const loginResponsePromise = page.waitForResponse(
@@ -105,22 +101,55 @@ for (const account of accounts) {
       expect(auth.user).toMatchObject({ email: account.email, role: account.role });
       await expect(page).toHaveURL(new RegExp(`${account.landingPath}$`));
 
-      const profileResponse = await page.request.get(`${apiBaseURL}/me`, {
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+      const restoredResponse = page.waitForResponse(
+        (response) => response.url() === `${apiBaseURL}/auth/refresh`,
+      );
+      await page.reload();
+      expect((await restoredResponse).ok()).toBeTruthy();
+      await expect(page).toHaveURL(new RegExp(`${account.landingPath}$`));
+
+      const profileResponse = await page.request.get(`${apiBaseURL}/me`);
+      expect(profileResponse.status()).toBe(401);
+      const cookieRefresh = await page.request.post(`${apiBaseURL}/auth/refresh`, {
+        data: {},
       });
       expect(
-        profileResponse.ok(),
-        `Profile returned ${profileResponse.status()} ${profileResponse.statusText()}`,
+        cookieRefresh.ok(),
+        `Cookie refresh returned ${cookieRefresh.status()} ${cookieRefresh.statusText()}`,
       ).toBeTruthy();
-      const me = (await profileResponse.json()) as MeResponse;
-      expect(me.profile).toMatchObject({
+      const refreshed = (await cookieRefresh.json()) as AuthResponse;
+      expect(refreshed.user).toMatchObject({
         id: auth.user.id,
         email: account.email,
         role: account.role,
-        status: 'active',
       });
+
+      const rotatedRestore = page.waitForResponse(
+        (response) => response.url() === `${apiBaseURL}/auth/refresh`,
+      );
+      await page.reload();
+      expect((await rotatedRestore).ok()).toBeTruthy();
+      await expect(page).toHaveURL(new RegExp(`${account.landingPath}$`));
+
+      const logoutResponse = page.waitForResponse(
+        (response) => response.url() === `${apiBaseURL}/auth/logout`,
+      );
+      await page
+        .locator('header button')
+        .filter({ has: page.locator('[data-slot="avatar"]') })
+        .click();
+      await page.getByRole('menuitem', { name: 'Logout' }).click();
+      expect((await logoutResponse).status()).toBe(204);
+      loggedOut = true;
+      await expect(page).toHaveURL(/\/login$/);
+
+      const postLogoutRefresh = await page.request.post(
+        `${apiBaseURL}/auth/refresh`,
+        { data: {} },
+      );
+      expect(postLogoutRefresh.status()).toBe(401);
     } finally {
-      if (auth) {
+      if (auth && !loggedOut) {
         await page.request.post(`${apiBaseURL}/auth/logout`, { data: {} });
       }
     }
