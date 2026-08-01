@@ -71,9 +71,6 @@ function buildUrl(endpoint: string, params?: ApiClientOptions["params"]) {
 
 function getAuthHeaders(session: RequestSession): Record<string, string> {
   const sharedSession = loadSharedAuthSnapshot();
-  if (sharedSession.sessionEpoch > session.sessionEpoch) {
-    throw sessionChangedError();
-  }
   const token = authBridge.getAccessToken();
   if (typeof token === "string" && token.length > 0) {
     return {
@@ -115,7 +112,8 @@ function assertRequestSession(
 ): void {
   if (
     hasBearerAuth &&
-    !isSameSession(initiatingSession, authBridge.getSessionVersion())
+    (loadSharedAuthSnapshot().sessionEpoch > initiatingSession.sessionEpoch ||
+      !isSameSession(initiatingSession, authBridge.getSessionVersion()))
   ) {
     throw sessionChangedError();
   }
@@ -180,6 +178,7 @@ async function apiClientInternal<TResponse, TBody>(
     : {};
   const hasBearerAuth =
     withAuth && typeof authHeaders.Authorization === "string";
+  assertRequestSession(initiatingSession, hasBearerAuth);
 
   const init: RequestInit = {
     method,
@@ -211,6 +210,7 @@ async function apiClientInternal<TResponse, TBody>(
       error,
     );
   }
+  assertRequestSession(initiatingSession, hasBearerAuth);
 
   if (response.status === 401 && withAuth && hasBearerAuth && !hasRetried) {
     if (isSameSession(initiatingSession, authBridge.getSessionVersion())) {
@@ -233,6 +233,7 @@ async function apiClientInternal<TResponse, TBody>(
 
   if (!response.ok) {
     const errorPayload = await parseErrorPayload(response);
+    assertRequestSession(initiatingSession, hasBearerAuth);
     logApiError(method, url, response.status, errorPayload);
     const message =
       (typeof errorPayload === "object" &&
