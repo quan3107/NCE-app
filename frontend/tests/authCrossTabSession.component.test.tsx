@@ -126,6 +126,81 @@ test("a newer stored epoch blocks bearer mutation before event delivery", async 
   assert.equal(result.current.tokenRef.current, "token-a");
 });
 
+test("a newer stored epoch rejects an in-flight bearer response", async () => {
+  const { result } = renderHook(() => useAuthSession());
+  act(() => result.current.applyLiveSession(liveSession));
+  authBridge.configure({
+    getAccessToken: () => result.current.tokenRef.current,
+    getSessionVersion: result.current.getSessionVersion,
+  });
+  let resolveResponse!: (response: Response) => void;
+  let markRequestStarted = () => undefined;
+  const requestStarted = new Promise<void>((resolve) => {
+    markRequestStarted = resolve;
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveResponse = resolve;
+          markRequestStarted();
+        }),
+    ),
+  );
+
+  const pendingRequest = apiClient("/me/profile", { method: "PATCH" });
+  await requestStarted;
+  window.localStorage.setItem(
+    "currentUser",
+    JSON.stringify({
+      sessionEpoch: result.current.getSessionVersion().sessionEpoch + 1,
+      token: null,
+      liveUser: null,
+    }),
+  );
+  resolveResponse(Response.json({ updated: true }));
+
+  await assert.rejects(pendingRequest, /session changed/i);
+  assert.equal(result.current.liveUser?.id, "user-a");
+});
+
+test("a newer stored epoch blocks retry admission after refresh", async () => {
+  const { result } = renderHook(() => useAuthSession());
+  act(() => result.current.applyLiveSession(liveSession));
+  let requestCount = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => {
+      requestCount += 1;
+      return requestCount === 1
+        ? new Response("", { status: 401 })
+        : Response.json({ updated: true });
+    }),
+  );
+  authBridge.configure({
+    getAccessToken: () => result.current.tokenRef.current,
+    getSessionVersion: result.current.getSessionVersion,
+    refreshAccessToken: async () => {
+      window.localStorage.setItem(
+        "currentUser",
+        JSON.stringify({
+          sessionEpoch: result.current.getSessionVersion().sessionEpoch + 1,
+          token: null,
+          liveUser: null,
+        }),
+      );
+      return { status: "refreshed", accessToken: "retry-token" };
+    },
+  });
+
+  await assert.rejects(
+    apiClient("/me/profile", { method: "PATCH" }),
+    /session changed/i,
+  );
+  assert.equal(requestCount, 1);
+});
+
 test("a late same-session refresh cannot overwrite a newer stored epoch", () => {
   const { result } = renderHook(() => useAuthSession());
   act(() => result.current.applyLiveSession(liveSession));
