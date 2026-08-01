@@ -12,7 +12,6 @@ import {
 import {
   readIndexedDbAuthLease,
   removeIndexedDbAuthLease,
-  runWithIndexedDbAuthLock,
   writeIndexedDbAuthLease,
 } from "./auth-cookie-indexeddb-lock";
 
@@ -112,45 +111,28 @@ async function waitForOAuthLease(
   }
 }
 
-async function runWithIndexedDbLock<T>(
-  signal: AbortSignal,
-  allowOwnedLease: boolean,
-  leaseMs: number,
-  operation: (signal: AbortSignal) => Promise<T>,
-): Promise<T | typeof RETRY_LOCK> {
-  return runWithIndexedDbAuthLock(signal, leaseMs, async (leaseSignal) =>
-    (await isOAuthLeaseAvailable(allowOwnedLease, leaseSignal))
-      ? operation(leaseSignal)
-      : RETRY_LOCK,
-  );
-}
-
 export async function runWithCrossTabAuthLock<T>(
   signal: AbortSignal,
   allowOwnedLease: boolean,
-  leaseMs: number,
+  ignoredLeaseMs: number,
   operation: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   if (typeof window === 'undefined') {
     return operation(signal);
   }
+  if (!navigator.locks) {
+    throw coordinationUnavailableError();
+  }
   while (true) {
     await waitForOAuthLease(signal, allowOwnedLease);
-    const result = navigator.locks
-      ? await navigator.locks.request(
-          AUTH_COOKIE_LOCK_NAME,
-          { mode: 'exclusive', signal },
-          async () =>
-            (await isOAuthLeaseAvailable(allowOwnedLease, signal))
-              ? operation(signal)
-              : RETRY_LOCK,
-        )
-      : await runWithIndexedDbLock(
-          signal,
-          allowOwnedLease,
-          leaseMs,
-          operation,
-        );
+    const result = await navigator.locks.request(
+      AUTH_COOKIE_LOCK_NAME,
+      { mode: 'exclusive', signal },
+      async () =>
+        (await isOAuthLeaseAvailable(allowOwnedLease, signal))
+          ? operation(signal)
+          : RETRY_LOCK,
+    );
     if (result !== RETRY_LOCK) {
       return result;
     }
