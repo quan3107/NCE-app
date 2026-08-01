@@ -12,6 +12,13 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3010';
 const apiBaseURL =
   process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:4000/api/v1';
 const backendCommand = process.env.PLAYWRIGHT_BACKEND_COMMAND;
+const backendEnvironment = process.env.CI
+  ? {
+      // Two workers exceed the test backend's three-attempt refresh allowance.
+      AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS:
+        process.env.AUTH_IP_RATE_LIMIT_MAX_ATTEMPTS ?? '100',
+    }
+  : undefined;
 const reuseExistingServer = !process.env.CI;
 
 const webServer = [
@@ -23,6 +30,7 @@ const webServer = [
           url:
             process.env.PLAYWRIGHT_BACKEND_HEALTH_URL ??
             'http://127.0.0.1:4000/health',
+          env: backendEnvironment,
           reuseExistingServer,
           timeout: 120_000,
         },
