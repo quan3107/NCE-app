@@ -154,8 +154,7 @@ describe("settings.service upload limits", () => {
   });
 
   it("authorizes and locks the database actor before a no-op update", async () => {
-    transactionQueryRaw.mockResolvedValueOnce([{ id: actorId }]);
-    transactionUserFindFirst.mockResolvedValueOnce(null);
+    transactionQueryRaw.mockResolvedValueOnce([]);
 
     await expect(
       updateFileUploadLimits(
@@ -174,13 +173,14 @@ describe("settings.service upload limits", () => {
   });
 
   it("rejects a stale demoted admin claim on GET", async () => {
-    prisma.user = {
-      findFirst: vi.fn().mockResolvedValue(null),
-    } as never;
+    transactionQueryRaw.mockResolvedValueOnce([]);
 
     await expect(getFileUploadLimits(actorId)).rejects.toMatchObject({
       statusCode: 403,
     });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transactionPolicyFindMany).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -216,17 +216,16 @@ describe("settings.service upload limits", () => {
       ],
     ],
   ])("rejects stored upload limits with %s", async (_case, limits) => {
-    prisma.fileUploadPolicy = {
-      findMany: vi.fn().mockResolvedValue(limits),
-    } as never;
-
-    prisma.user = {
-      findFirst: vi.fn().mockResolvedValue({ id: actorId }),
-    } as never;
+    transactionQueryRaw.mockResolvedValueOnce([{ id: actorId }]);
+    transactionPolicyFindMany.mockResolvedValueOnce(limits);
 
     await expect(getFileUploadLimits(actorId)).rejects.toMatchObject({
       statusCode: 500,
       message: "Stored file upload policies are not canonical.",
     });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transactionQueryRaw).toHaveBeenCalledTimes(1);
+    expect(transactionPolicyFindMany).toHaveBeenCalledTimes(1);
   });
 });
