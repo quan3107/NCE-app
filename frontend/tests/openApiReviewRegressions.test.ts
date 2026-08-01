@@ -143,9 +143,13 @@ test('normalized name inputs and course-tab filtering are documented', async () 
 
   assert.match(invite, /additionalProperties: true/);
   assert.match(invite, /common\.yaml#\/NormalizedDisplayNameInput/);
-  assert.match(storedDisplayName, /minLength: 1/);
-  assert.match(storedDisplayName, /legacy/i);
-  assert.doesNotMatch(storedDisplayName, /maxLength:|pattern:/);
+  assert.match(storedDisplayName, /minLength: 2/);
+  assert.match(storedDisplayName, /maxLength: 100/);
+  assert.match(
+    storedDisplayName,
+    /\p\{Cc\}.*\p\{Cf\}.*\p\{Zl\}.*\p\{Zp\}/,
+  );
+  assert.doesNotMatch(storedDisplayName, /legacy/i);
   assert.match(canonicalDisplayName, /minLength: 2/);
   assert.match(
     canonicalDisplayName,
