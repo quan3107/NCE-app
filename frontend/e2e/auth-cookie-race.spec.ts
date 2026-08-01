@@ -15,17 +15,8 @@ test.beforeEach(async ({ request }) => {
 async function verifyDelayedCrossTabSwitch(
   browser: Browser,
   request: APIRequestContext,
-  disableWebLocks = false,
 ) {
   const context = await browser.newContext();
-  if (disableWebLocks) {
-    await context.addInitScript(() => {
-      Object.defineProperty(navigator, 'locks', {
-        configurable: true,
-        value: undefined,
-      });
-    });
-  }
   const pageA = await context.newPage();
   const pageB = await context.newPage();
   try {
@@ -63,11 +54,58 @@ test('serializes a delayed refresh and account switch across two pages', async (
   await verifyDelayedCrossTabSwitch(browser, request);
 });
 
-test('serializes cross-tab cookie writes without Web Locks', async ({
+test('refuses cookie writes without Web Locks', async ({
   browser,
-  request,
 }) => {
-  await verifyDelayedCrossTabSwitch(browser, request, true);
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  const page = await context.newPage();
+  await page.goto('/e2e/auth-cookie-race.html');
+
+  const result = await page.evaluate(async () => {
+    const { createAuthCookieOperations } = await import(
+      '/src/lib/auth-cookie-operations.ts'
+    );
+    let requestStarted = false;
+    try {
+      await createAuthCookieOperations().run(async () => {
+        requestStarted = true;
+        return fetch('http://127.0.0.1:4010/api/v1/auth/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'a@example.com',
+            password: 'password',
+          }),
+        });
+      });
+      return { errorName: null, requestStarted };
+    } catch (error) {
+      return {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+        requestStarted,
+      };
+    }
+  });
+
+  expect(result).toEqual({
+    errorName: 'AuthCoordinationUnavailableError',
+    requestStarted: false,
+  });
+  const refreshStatus = await page.evaluate(async () =>
+    fetch('http://127.0.0.1:4010/api/v1/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    }).then((response) => response.status),
+  );
+  expect(refreshStatus).toBe(401);
+  await context.close();
 });
 
 test('refresh reconciles a tab to the shared cookie identity', async ({
@@ -190,13 +228,13 @@ test('timed-out login cannot overwrite a later account cookie', async ({
         }),
       );
     const delayedA = login('delayed-a@example.com');
-    const loginB = login('b@example.com');
     let timedOut = false;
     try {
       await delayedA;
     } catch (error) {
       timedOut = error instanceof Error && error.name === 'AbortError';
     }
+    const loginB = login('b@example.com');
     const responseB = await loginB;
     return { timedOut, loginBStatus: responseB.status };
   });
@@ -241,16 +279,16 @@ test('timed-out logout cannot clear a later account cookie', async ({
       password: 'password',
     });
     const delayedLogout = authRequest('logout?delay=true');
-    const loginB = authRequest('login', {
-      email: 'b@example.com',
-      password: 'password',
-    });
     let timedOut = false;
     try {
       await delayedLogout;
     } catch (error) {
       timedOut = error instanceof Error && error.name === 'AbortError';
     }
+    const loginB = authRequest('login', {
+      email: 'b@example.com',
+      password: 'password',
+    });
     const responseB = await loginB;
     return { timedOut, loginBStatus: responseB.status };
   });
