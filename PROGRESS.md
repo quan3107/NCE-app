@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-01:** Raised the authentication route-attempt allowance only for the seeded live-browser CI server so concurrent cookie restoration and rotation checks do not exhaust the three-attempt test default; runtime defaults remain unchanged.
+
 - **2026-08-01:** Made settings reads lock and authorize administrators in one transaction, restored UUID primary-key actor lookups, quarantined unsafe historical identity names during upgrade, and added PostgreSQL concurrency, plan, role-state, and migration probes.
 
 - **2026-08-01:** Removed fabricated upload-policy limits and file types; absent policy rows or empty allowed-type sets now stop configuration and signing flows with an internal configuration error.
@@ -110,6 +112,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-01:** Stabilized the two-worker live-backend browser gate by provisioning enough local test-server refresh attempts for startup restoration and explicit cookie lifecycle coverage; no frontend runtime behavior changed.
 
 - **2026-08-01:** Bound refresh retries to committed cross-tab snapshots, applied last-admitted login intent, ended terminal profile sessions, preserved grapheme initials, split oversized race suites, and expanded real-backend cookie/logout ordering coverage.
 
