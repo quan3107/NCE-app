@@ -14,7 +14,6 @@ import { createAuthCookieOperations } from "../src/lib/auth-cookie-operations";
 import {
   readIndexedDbAuthLease,
   removeIndexedDbAuthLease,
-  runWithIndexedDbAuthLock,
   writeIndexedDbAuthLease,
 } from "../src/lib/auth-cookie-indexeddb-lock";
 import { authBridge } from "../src/lib/authBridge";
@@ -46,6 +45,16 @@ beforeEach(() => {
       getItem: (key: string) => values.get(key) ?? null,
       removeItem: (key: string) => values.delete(key),
       setItem: (key: string, value: string) => values.set(key, value),
+    },
+  });
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: {
+      request: async (
+        _name: string,
+        _options: LockOptions,
+        callback: () => Promise<unknown>,
+      ) => callback(),
     },
   });
 });
@@ -109,6 +118,23 @@ test("fails closed when every cross-tab lock boundary is unavailable", async () 
   await expect(operations.run(async () => "complete")).rejects.toMatchObject({
     name: "AuthCoordinationUnavailableError",
   });
+});
+
+test("never starts a cookie request without Web Locks", async () => {
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: undefined,
+  });
+  const operations = createAuthCookieOperations();
+  let requestStarted = false;
+
+  await expect(
+    operations.run(async () => {
+      requestStarted = true;
+      return "unsafe-response";
+    }),
+  ).rejects.toMatchObject({ name: "AuthCoordinationUnavailableError" });
+  assert.equal(requestStarted, false);
 });
 
 test("fails closed when an active OAuth lease has unreadable ownership", async () => {
@@ -257,75 +283,6 @@ test("cancellation interrupts an IndexedDB open that never completes", async () 
       ),
     ]),
   ).rejects.toMatchObject({ name: "AbortError" });
-});
-
-test("an active IndexedDB writer renews its lease", async () => {
-  let now = Date.now();
-  vi.spyOn(Date, "now").mockImplementation(() => now);
-  let releaseWriter!: () => void;
-  let writerStarted = false;
-  const writer = runWithIndexedDbAuthLock(
-    new AbortController().signal,
-    60_000,
-    async () => {
-      writerStarted = true;
-      await new Promise<void>((resolve) => {
-        releaseWriter = resolve;
-      });
-      return "writer-complete";
-    },
-  );
-  await waitFor(() => assert.equal(writerStarted, true));
-
-  now += 61_000;
-  await new Promise((resolve) => setTimeout(resolve, 1_100));
-  let secondWriterStarted = false;
-  const secondWriter = runWithIndexedDbAuthLock(
-    new AbortController().signal,
-    60_000,
-    async () => {
-      secondWriterStarted = true;
-      return "second-complete";
-    },
-  );
-
-  try {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(secondWriterStarted, false);
-  } finally {
-    releaseWriter();
-  }
-  await expect(writer).resolves.toBe("writer-complete");
-  await expect(secondWriter).resolves.toBe("second-complete");
-});
-
-test("an IndexedDB writer rejects a result after losing its fence", async () => {
-  let releaseWriter!: () => void;
-  let writerStarted = false;
-  const writer = runWithIndexedDbAuthLock(
-    new AbortController().signal,
-    60_000,
-    async () => {
-      writerStarted = true;
-      await new Promise<void>((resolve) => {
-        releaseWriter = resolve;
-      });
-      return "stale-result";
-    },
-  );
-  await waitFor(() => assert.equal(writerStarted, true));
-  await writeIndexedDbAuthLease({
-    name: "auth-cookie-operations",
-    ownerId: "new-owner",
-    expiresAt: Date.now() + 60_000,
-  });
-  releaseWriter();
-
-  try {
-    await expect(writer).rejects.toMatchObject({ name: "AbortError" });
-  } finally {
-    await removeIndexedDbAuthLease("auth-cookie-operations", "new-owner");
-  }
 });
 
 test("mount cleanup releases an abandoned OAuth lease before restoring", async () => {
