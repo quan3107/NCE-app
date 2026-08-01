@@ -68,14 +68,14 @@ cp backend/.env.local.example backend/.env.local
 ```
 
 Use dedicated runtime-role values in `backend/.env` and keep the owner settings
-only in the gitignored `backend/.env.local`. For the current Vite setup, make sure
-CORS points at port `3000`:
+only in the gitignored `backend/.env.local`. For the current Vite app and the
+default real-backend browser suite, allow ports `3000` and `3010`:
 
 ```dotenv
 DATABASE_URL=postgres://nce_runtime:nce_runtime@localhost:5432/nce_app
 JOB_DATABASE_URL=postgres://nce_job_runner:nce_job_runner@localhost:5432/nce_app
 GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:3010
 ```
 
 `backend/.env.local` contains owner settings for short-lived database jobs; hosted commands also require an absolute path to the project Server root certificate:
@@ -85,7 +85,7 @@ DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
 # DIRECT_DATABASE_CA_CERT_PATH=/absolute/path/to/prod-ca-2021.crt
 ```
 
-`backend/.env.example` already uses the project's frontend port, `3000`.
+`backend/.env.example` already includes the app and Playwright browser origins.
 
 Create stable local JWT keys:
 
