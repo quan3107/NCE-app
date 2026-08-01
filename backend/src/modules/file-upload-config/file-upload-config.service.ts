@@ -31,45 +31,6 @@ export type RoleFileUploadConfig = {
   allowedExtensions: Set<string>;
 };
 
-const FALLBACK_LIMITS: FileUploadLimits = {
-  max_file_size: 25 * 1024 * 1024,
-  max_total_size: 100 * 1024 * 1024,
-  max_files_per_upload: 5,
-};
-
-const FALLBACK_ALLOWED_TYPES: AllowedFileType[] = [
-  {
-    mime_type: "application/pdf",
-    extensions: [".pdf"],
-    label: "PDF Document",
-    accept_token: ".pdf",
-  },
-  {
-    mime_type: "application/msword",
-    extensions: [".doc"],
-    label: "Word Document",
-    accept_token: ".doc",
-  },
-  {
-    mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    extensions: [".docx"],
-    label: "Word Document",
-    accept_token: ".docx",
-  },
-  {
-    mime_type: "audio/*",
-    extensions: [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".webm"],
-    label: "Audio Files",
-    accept_token: "audio/*",
-  },
-  {
-    mime_type: "image/*",
-    extensions: [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"],
-    label: "Image Files",
-    accept_token: "image/*",
-  },
-];
-
 function normalizeExtension(value: string): string {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) {
@@ -149,9 +110,11 @@ function buildRoleConfig(
   };
 }
 
-function buildFallbackConfig(role: UserRole, reason: string): RoleFileUploadConfig {
-  logger.warn({ role, reason }, "Using fallback file upload policy");
-  return buildRoleConfig(role, FALLBACK_LIMITS, FALLBACK_ALLOWED_TYPES);
+function throwUnavailablePolicy(role: UserRole, reason: string): never {
+  logger.error({ role, reason }, "File upload policy unavailable");
+  const error = new Error("File upload policy is unavailable.");
+  error.name = "FileUploadPolicyUnavailableError";
+  throw error;
 }
 
 export async function getRoleFileUploadConfig(role: UserRole): Promise<RoleFileUploadConfig> {
@@ -165,23 +128,11 @@ export async function getRoleFileUploadConfig(role: UserRole): Promise<RoleFileU
   });
 
   if (!policy) {
-    return buildFallbackConfig(role, "policy_not_found");
+    return throwUnavailablePolicy(role, "policy_not_found");
   }
 
   if (policy.allowedTypes.length === 0) {
-    logger.warn(
-      { role, reason: "allowed_types_missing" },
-      "Using fallback file upload types",
-    );
-    return buildRoleConfig(
-      role,
-      {
-        max_file_size: policy.maxFileSize,
-        max_total_size: policy.maxTotalSize,
-        max_files_per_upload: policy.maxFilesPerUpload,
-      },
-      FALLBACK_ALLOWED_TYPES,
-    );
+    return throwUnavailablePolicy(role, "allowed_types_missing");
   }
 
   return buildRoleConfig(
