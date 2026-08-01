@@ -32,6 +32,45 @@ const updateAsStudent = (userId: string, fullName: string) =>
   );
 
 databaseDescribe("atomic profile updates", () => {
+  it("returns terminal profile states for every authenticated role", async () => {
+    const pool = createDatabaseTestOwnerPool();
+    const owner = new PrismaClient({ adapter: new PrismaPg(pool) });
+    const userIds: string[] = [];
+
+    try {
+      for (const role of ["admin", "teacher", "student"] as const) {
+        for (const terminalState of ["suspended", "deleted"] as const) {
+          const userId = randomUUID();
+          userIds.push(userId);
+          await owner.user.create({
+            data: {
+              id: userId,
+              email: `profile-${role}-${terminalState}-${userId}@example.test`,
+              fullName: `${role} ${terminalState}`,
+              role,
+              status: terminalState === "suspended" ? "suspended" : "active",
+              deletedAt: terminalState === "deleted" ? new Date() : null,
+            },
+          });
+
+          const response = await request(app)
+            .get("/api/v1/me")
+            .set({
+              "x-user-id": userId,
+              "x-user-role": role,
+              "x-user-status": "active",
+            });
+          expect(response.status).toBe(terminalState === "suspended" ? 403 : 404);
+        }
+      }
+    } finally {
+      await owner.auditLog.deleteMany({ where: { actorId: { in: userIds } } });
+      await owner.user.deleteMany({ where: { id: { in: userIds } } });
+      await owner.$disconnect();
+      await pool.end();
+    }
+  });
+
   it("persists PostgreSQL-safe astral names exactly", async () => {
     const pool = createDatabaseTestOwnerPool();
     const owner = new PrismaClient({ adapter: new PrismaPg(pool) });
