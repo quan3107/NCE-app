@@ -24,7 +24,7 @@ BEGIN
   SELECT users.id
   INTO v_admin_id
   FROM public.users AS users
-  WHERE users.id::TEXT = current_setting('app.current_user_id', true)
+  WHERE users.id = current_setting('app.current_user_id', true)::UUID
     AND users.role = 'admin'
     AND users.status = 'active'
     AND users."deletedAt" IS NULL
