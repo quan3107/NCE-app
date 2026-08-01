@@ -17,6 +17,15 @@ import { MemoryRouter } from "react-router-dom";
 import { ApiError } from "../src/lib/apiClient";
 
 const saveSettings = vi.hoisted(() => vi.fn());
+const authState = vi.hoisted(() => ({
+  currentUser: {
+    id: "admin-a",
+    email: "admin-a@example.com",
+    name: "Admin A",
+    role: "admin" as const,
+  },
+  sessionGeneration: 1,
+}));
 const settingsState = vi.hoisted(() => ({
   data: {
     limits: [
@@ -25,6 +34,10 @@ const settingsState = vi.hoisted(() => ({
       { role: "admin" as const, maxFileSizeMib: 25 },
     ],
   },
+}));
+
+vi.mock("@store/authStore", () => ({
+  useAuthStore: () => authState,
 }));
 
 vi.mock("@features/admin/settingsApi", () => ({
@@ -45,6 +58,13 @@ const { AdminSettingsPage } = await import(
 );
 
 beforeEach(() => {
+  authState.currentUser = {
+    id: "admin-a",
+    email: "admin-a@example.com",
+    name: "Admin A",
+    role: "admin",
+  };
+  authState.sessionGeneration = 1;
   settingsState.data = {
     limits: [
       { role: "student", maxFileSizeMib: 25 },
@@ -181,4 +201,37 @@ test("preserves dirty roles and their baseline during background refresh", async
       },
     });
   });
+});
+
+test("discards a dirty draft when the authenticated account changes", async () => {
+  const view = render(
+    <MemoryRouter>
+      <AdminSettingsPage />
+    </MemoryRouter>,
+  );
+  const studentLimit = await screen.findByLabelText(
+    "Student max file size (MiB)",
+  );
+  fireEvent.change(studentLimit, { target: { value: "12" } });
+
+  authState.currentUser = {
+    id: "admin-b",
+    email: "admin-b@example.com",
+    name: "Admin B",
+    role: "admin",
+  };
+  authState.sessionGeneration = 2;
+  view.rerender(
+    <MemoryRouter>
+      <AdminSettingsPage />
+    </MemoryRouter>,
+  );
+
+  assert.equal(
+    (screen.getByLabelText("Student max file size (MiB)") as HTMLInputElement)
+      .value,
+    "25",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
+  assert.equal(saveSettings.mock.calls.length, 0);
 });
