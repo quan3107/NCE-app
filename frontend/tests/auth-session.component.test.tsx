@@ -160,6 +160,10 @@ test("synchronizes an independently stale profile cache on same-user refresh", (
 test("cancels an older profile fetch before synchronizing refreshed auth", async () => {
   const { result } = renderHook(() => useAuthSession());
   act(() => result.current.applyLiveSession(session("user-a", "Old Name", "token-a")));
+  authBridge.configure({
+    getAccessToken: () => result.current.tokenRef.current,
+    getSessionVersion: result.current.getSessionVersion,
+  });
   const queryKey = meProfileQueryKey("user-a");
   queryClient.setQueryData(queryKey, {
     id: "user-a",
@@ -254,6 +258,7 @@ test("accepts a PATCH retry after a 401 refreshes the same user", async () => {
   );
   authBridge.configure({
     getAccessToken: () => result.current.tokenRef.current,
+    getSessionVersion: result.current.getSessionVersion,
     refreshAccessToken: async () => {
       act(() => {
         result.current.applyLiveSession(session("user-a", "User A", "token-b"));
