@@ -13,9 +13,9 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
-
 const saveProfile = vi.hoisted(() => vi.fn());
 const commitCurrentProfile = vi.hoisted(() => vi.fn());
+const logout = vi.hoisted(() => vi.fn(async () => undefined));
 const authState = vi.hoisted(() => ({
   currentUser: {
     id: "user-1",
@@ -31,6 +31,7 @@ vi.mock("@store/authStore", () => ({
     currentUser: authState.currentUser,
     sessionGeneration: authState.sessionGeneration,
     commitCurrentProfile,
+    logout,
   }),
 }));
 
