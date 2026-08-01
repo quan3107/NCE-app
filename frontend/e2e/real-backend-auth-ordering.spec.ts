@@ -128,7 +128,8 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
   const refreshReady = new Promise<void>((resolve) => {
     markRefreshReady = resolve;
   });
-  let meRequests = 0;
+  const invalidAccessToken = 'e2e-invalid-access-token';
+  const realUnauthorizedStatuses: number[] = [];
 
   try {
     await Promise.all([pageA.goto('/login'), pageB.goto('/login')]);
@@ -143,9 +144,14 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
       )
       .toBe(student.email);
 
-    await pageA.route(`${apiBaseURL}/me`, async (route) => {
-      meRequests += 1;
-      await route.fulfill({ status: 401, body: 'Unauthorized' });
+    pageA.on('response', (response) => {
+      const request = response.request();
+      if (
+        response.url() === `${apiBaseURL}/me` &&
+        request.headers().authorization === `Bearer ${invalidAccessToken}`
+      ) {
+        realUnauthorizedStatuses.push(response.status());
+      }
     });
     await pageA.route(`${apiBaseURL}/auth/refresh`, async (route) => {
       const response = await route.fetch();
@@ -153,8 +159,10 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
       await refreshGate;
       await route.fulfill({ response });
     });
-    const protectedResult = pageA.evaluate(async () => {
+    const protectedResult = pageA.evaluate(async (invalidBearer) => {
+      const { authBridge } = await import('/src/lib/authBridge.ts');
       const { apiClient } = await import('/src/lib/apiClient.ts');
+      authBridge.configure({ getAccessToken: () => invalidBearer });
       try {
         await apiClient('/me');
         return { status: -1, message: 'unexpected success' };
@@ -166,7 +174,7 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
           message: error instanceof Error ? error.message : String(error),
         };
       }
-    });
+    }, invalidAccessToken);
     await refreshReady;
 
     const logoutResponse = pageB.waitForResponse(
@@ -185,7 +193,7 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
     const result = await protectedResult;
     expect(result.status).toBe(0);
     expect(result.message).toMatch(/session changed/i);
-    expect(meRequests).toBe(1);
+    expect(realUnauthorizedStatuses).toEqual([401]);
     expect((await logoutResponse).status()).toBe(204);
     const postLogoutRefresh = await context.request.post(
       `${apiBaseURL}/auth/refresh`,
