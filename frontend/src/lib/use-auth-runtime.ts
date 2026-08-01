@@ -74,7 +74,9 @@ export function useAuthRuntime() {
           ) {
             return { status: 'stale' };
           }
-          applyLiveSession(result, sessionVersionAtRefreshStart);
+          if (!applyLiveSession(result, sessionVersionAtRefreshStart)) {
+            return { status: 'stale' };
+          }
           return { status: 'refreshed', accessToken: result.accessToken };
         },
       )
