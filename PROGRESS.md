@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-01:** Moved equal-value upload-limit CAS locking into the security-definer database function so the least-privilege runtime role needs no direct UPDATE grant.
+
 - **2026-08-01:** Enforced optimistic concurrency for equal-value upload-limit submissions with a locked expected-value read, and corrected the documented live-browser CORS allowlist.
 
 - **2026-08-01:** Kept backend behavior unchanged while isolating the real `/me` response asserted by the frontend cross-tab logout ordering regression from concurrent app-owned profile requests.
@@ -122,6 +124,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-01:** Extended shared-epoch validation across bearer response acceptance and refresh retry admission, closing the event-delivery window after initial request admission.
 
 - **2026-08-01:** Blocked bearer requests when storage already carries a newer cross-tab epoch and reset administrator settings drafts on authenticated session-generation changes.
 
