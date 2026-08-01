@@ -3,7 +3,7 @@
  * Purpose: Read and update admin-managed runtime settings.
  * Why: The settings UI must persist values consumed by upload enforcement.
  */
-import { Prisma, UserRole, UserStatus } from "../../prisma/index.js";
+import { Prisma } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
 import { createHttpError } from "../../utils/httpError.js";
@@ -17,35 +17,36 @@ import type {
 const BYTES_PER_MEBIBYTE = 1024 * 1024;
 const UPDATE_ORDER: UploadLimitRole[] = ["student", "teacher", "admin"];
 
-type AuthorizationClient = Pick<
-  Prisma.TransactionClient,
-  "$queryRaw" | "user"
->;
+type AuthorizationClient = Pick<Prisma.TransactionClient, "$queryRaw">;
 
 async function assertActiveAdmin(
   actorId: string,
   client: AuthorizationClient,
-  lockActor: boolean,
+  lockMode: "share" | "update",
 ): Promise<void> {
-  if (lockActor) {
-    // Serialize demotion/suspension with the entire settings write and audit.
-    await client.$queryRaw(Prisma.sql`
+  // Keep authorization and row locking in one statement so a concurrent
+  // demotion, suspension, or deletion cannot pass between check and use.
+  const actors =
+    lockMode === "update"
+      ? await client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT "id"
       FROM "users"
       WHERE "id" = ${actorId}::uuid
+        AND "role" = 'admin'::"UserRole"
+        AND "status" = 'active'::"UserStatus"
+        AND "deletedAt" IS NULL
       FOR UPDATE
+    `)
+      : await client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id"
+      FROM "users"
+      WHERE "id" = ${actorId}::uuid
+        AND "role" = 'admin'::"UserRole"
+        AND "status" = 'active'::"UserStatus"
+        AND "deletedAt" IS NULL
+      FOR SHARE
     `);
-  }
-  const actor = await client.user.findFirst({
-    where: {
-      id: actorId,
-      role: UserRole.admin,
-      status: UserStatus.active,
-      deletedAt: null,
-    },
-    select: { id: true },
-  });
-  if (!actor) {
+  if (!actors[0]) {
     throw createHttpError(403, "Active administrator account required.");
   }
 }
@@ -83,10 +84,12 @@ const toPayload = (
 export async function getFileUploadLimits(
   actorId: string,
 ): Promise<FileUploadLimitsPayload> {
-  await assertActiveAdmin(actorId, prisma, false);
-  const limits = await prisma.fileUploadPolicy.findMany({
-    select: { role: true, maxFileSize: true },
-    orderBy: { role: "asc" },
+  const limits = await prisma.$transaction(async (transaction) => {
+    await assertActiveAdmin(actorId, transaction, "share");
+    return transaction.fileUploadPolicy.findMany({
+      select: { role: true, maxFileSize: true },
+      orderBy: { role: "asc" },
+    });
   });
 
   return toPayload(limits);
@@ -97,7 +100,7 @@ export async function updateFileUploadLimits(
   actorId: string,
 ): Promise<FileUploadLimitsPayload> {
   const limits = await prisma.$transaction(async (transaction) => {
-    await assertActiveAdmin(actorId, transaction, true);
+    await assertActiveAdmin(actorId, transaction, "update");
     const changedRoles: UploadLimitRole[] = [];
 
     for (const role of UPDATE_ORDER) {
