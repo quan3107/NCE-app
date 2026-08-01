@@ -19,3 +19,8 @@ test("extracts astral initials without splitting surrogate pairs", () => {
     `${grin}${rocket}A`,
   );
 });
+
+test("preserves flag and decomposed grapheme clusters", () => {
+  assert.equal(getProfileInitials("🇻🇳 Nguyễn"), "🇻🇳N");
+  assert.equal(getProfileInitials("N\u0303guyen Van"), "N\u0303V");
+});
