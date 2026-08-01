@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-01:** No backend files changed while stabilizing the frontend cookie-queue deadline regression under coverage instrumentation.
+
 - **2026-08-01:** No backend files changed while replacing the frontend initials fallback with complete Unicode grapheme segmentation.
 
 - **2026-08-01:** Kept backend runtime behavior unchanged while making the cross-tab logout browser regression obtain and assert its triggering 401 from the real authenticated `/me` boundary.
@@ -116,6 +118,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-01:** Made cookie-queue deadline coverage deterministic by synchronizing a long-lived blocker before enqueuing a separately configured short-deadline operation.
 
 - **2026-08-01:** Replaced the partial initials fallback with deterministic Unicode 17 UAX #29 segmentation, preserving Indic conjuncts, Hangul Jamo syllables, and Prepend sequences even without `Intl.Segmenter`.
 
