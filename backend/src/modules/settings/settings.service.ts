@@ -113,28 +113,15 @@ export async function updateFileUploadLimits(
         update.expectedMaxFileSizeMib * BYTES_PER_MEBIBYTE;
       const maxFileSize = update.maxFileSizeMib * BYTES_PER_MEBIBYTE;
       const changesValue = expectedMaxFileSize !== maxFileSize;
-      let matchedExpectedValue: boolean;
-      if (changesValue) {
-        const [result] = await transaction.$queryRaw<Array<{ updated: boolean }>>`
-          SELECT app.update_file_upload_policy(
-            ${role},
-            ${expectedMaxFileSize},
-            ${maxFileSize}
-          ) AS updated
-        `;
-        matchedExpectedValue = Boolean(result?.updated);
-      } else {
-        const [result] = await transaction.$queryRaw<Array<{ matched: boolean }>>`
-          SELECT TRUE AS matched
-          FROM public.file_upload_policies
-          WHERE role = ${role}::public."UserRole"
-            AND max_file_size = ${expectedMaxFileSize}
-          FOR SHARE
-        `;
-        matchedExpectedValue = Boolean(result?.matched);
-      }
+      const [result] = await transaction.$queryRaw<Array<{ updated: boolean }>>`
+        SELECT app.update_file_upload_policy(
+          ${role},
+          ${expectedMaxFileSize},
+          ${maxFileSize}
+        ) AS updated
+      `;
 
-      if (!matchedExpectedValue) {
+      if (!result?.updated) {
         throw createHttpError(
           409,
           "File upload limits changed; reload before saving.",
