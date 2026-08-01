@@ -139,10 +139,3 @@ export function authenticatedRequestSignal(
     ? AbortSignal.any([callerSignal, requestController.signal])
     : requestController.signal;
 }
-
-export function readSharedBearerToken(expectedEpoch: number): string | null {
-  const snapshot = loadSharedAuthSnapshot();
-  return snapshot.sessionEpoch === expectedEpoch && snapshot.liveUser
-    ? snapshot.token
-    : null;
-}
