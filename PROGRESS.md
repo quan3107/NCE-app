@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-01:** Made settings reads lock and authorize administrators in one transaction, restored UUID primary-key actor lookups, quarantined unsafe historical identity names during upgrade, and added PostgreSQL concurrency, plan, role-state, and migration probes.
+
 - **2026-08-01:** Removed fabricated upload-policy limits and file types; absent policy rows or empty allowed-type sets now stop configuration and signing flows with an internal configuration error.
 
 - **2026-07-31:** Preserved persisted upload byte/count limits when type rows are corrupt, allowed the real-browser origin under repository defaults, and added seeded live-backend browser coverage to CI.
@@ -108,6 +110,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-01:** Bound refresh retries to committed cross-tab snapshots, applied last-admitted login intent, ended terminal profile sessions, preserved grapheme initials, split oversized race suites, and expanded real-backend cookie/logout ordering coverage.
 
 - **2026-08-01:** Removed the unsafe IndexedDB cookie-writer fallback and made refresh-cookie operations fail closed without Web Locks, with browser coverage proving no request starts and no cookie session is created.
 
