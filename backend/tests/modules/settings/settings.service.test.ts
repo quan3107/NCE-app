@@ -131,8 +131,10 @@ describe("settings.service upload limits", () => {
     expect(transactionAuditCreate).not.toHaveBeenCalled();
   });
 
-  it("does not write or audit an unchanged dirty value", async () => {
-    transactionQueryRaw.mockResolvedValueOnce([{ id: actorId }]);
+  it("checks but does not audit an unchanged current value", async () => {
+    transactionQueryRaw
+      .mockResolvedValueOnce([{ id: actorId }])
+      .mockResolvedValueOnce([{ matched: true }]);
     transactionUserFindFirst.mockResolvedValueOnce({ id: actorId });
     transactionPolicyFindMany.mockResolvedValue([
       { role: "admin", maxFileSize: 50 * 1024 * 1024 },
@@ -149,7 +151,31 @@ describe("settings.service upload limits", () => {
       actorId,
     );
 
-    expect(transactionQueryRaw).toHaveBeenCalledTimes(1);
+    expect(transactionQueryRaw).toHaveBeenCalledTimes(2);
+    expect(transactionAuditCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when an equal-value update has a stale baseline", async () => {
+    transactionQueryRaw
+      .mockResolvedValueOnce([{ id: actorId }])
+      .mockResolvedValueOnce([]);
+    transactionUserFindFirst.mockResolvedValueOnce({ id: actorId });
+
+    await expect(
+      updateFileUploadLimits(
+        {
+          updates: {
+            teacher: { expectedMaxFileSizeMib: 25, maxFileSizeMib: 25 },
+          },
+        },
+        actorId,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "File upload limits changed; reload before saving.",
+    });
+
+    expect(transactionPolicyFindMany).not.toHaveBeenCalled();
     expect(transactionAuditCreate).not.toHaveBeenCalled();
   });
 
