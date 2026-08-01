@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-01:** No backend files changed while replacing the frontend initials fallback with complete Unicode grapheme segmentation.
+
 - **2026-08-01:** Kept backend runtime behavior unchanged while making the cross-tab logout browser regression obtain and assert its triggering 401 from the real authenticated `/me` boundary.
 
 - **2026-08-01:** Raised the authentication route-attempt allowance only for the seeded live-browser CI server so concurrent cookie restoration and rotation checks do not exhaust the three-attempt test default; runtime defaults remain unchanged.
@@ -114,6 +116,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-01:** Replaced the partial initials fallback with deterministic Unicode 17 UAX #29 segmentation, preserving Indic conjuncts, Hangul Jamo syllables, and Prepend sequences even without `Intl.Segmenter`.
 
 - **2026-08-01:** Replaced the synthetic `/me` denial in live cross-tab ordering coverage with an invalid-bearer request to the real API, and added a grapheme-preserving initials fallback for browsers without `Intl.Segmenter`.
 
