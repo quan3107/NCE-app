@@ -129,6 +129,9 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
     markRefreshReady = resolve;
   });
   const invalidAccessToken = 'e2e-invalid-access-token';
+  const protectedRequestMarker = 'cross-tab-stale-refresh';
+  const protectedRequestURL = new URL(`${apiBaseURL}/me`);
+  protectedRequestURL.searchParams.set('e2eCase', protectedRequestMarker);
   const realUnauthorizedStatuses: number[] = [];
 
   try {
@@ -147,7 +150,7 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
     pageA.on('response', (response) => {
       const request = response.request();
       if (
-        response.url() === `${apiBaseURL}/me` &&
+        response.url() === protectedRequestURL.toString() &&
         request.headers().authorization === `Bearer ${invalidAccessToken}`
       ) {
         realUnauthorizedStatuses.push(response.status());
@@ -159,12 +162,14 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
       await refreshGate;
       await route.fulfill({ response });
     });
-    const protectedResult = pageA.evaluate(async (invalidBearer) => {
+    const protectedResult = pageA.evaluate(async ({ invalidBearer, requestMarker }) => {
       const { authBridge } = await import('/src/lib/authBridge.ts');
       const { apiClient } = await import('/src/lib/apiClient.ts');
       authBridge.configure({ getAccessToken: () => invalidBearer });
       try {
-        await apiClient('/me');
+        await apiClient('/me', {
+          params: { e2eCase: requestMarker },
+        });
         return { status: -1, message: 'unexpected success' };
       } catch (error) {
         return {
@@ -174,7 +179,10 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
           message: error instanceof Error ? error.message : String(error),
         };
       }
-    }, invalidAccessToken);
+    }, {
+      invalidBearer: invalidAccessToken,
+      requestMarker: protectedRequestMarker,
+    });
     await refreshReady;
 
     const logoutResponse = pageB.waitForResponse(
