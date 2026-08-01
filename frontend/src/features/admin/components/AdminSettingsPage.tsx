@@ -16,6 +16,7 @@ import {
   useUpdateAdminUploadLimitsMutation,
 } from "@features/admin/settingsApi";
 import { ApiError } from "@lib/apiClient";
+import { useAuthStore } from "@store/authStore";
 
 const ROLES: UploadLimitRole[] = ["student", "teacher", "admin"];
 const LIMIT_ERROR = "Enter a whole number from 1 to 100 MiB.";
@@ -34,6 +35,13 @@ const emptyValues = (): FormValues => ({
 });
 
 export function AdminSettingsPage() {
+  const { currentUser, sessionGeneration } = useAuthStore();
+  return (
+    <AdminSettingsForm key={`${currentUser.id}:${sessionGeneration}`} />
+  );
+}
+
+function AdminSettingsForm() {
   const limitsQuery = useAdminUploadLimitsQuery();
   const updateLimits = useUpdateAdminUploadLimitsMutation();
   const [form, setForm] = useState<FormState>(() => ({
