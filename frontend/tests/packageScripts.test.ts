@@ -82,20 +82,27 @@ test('Playwright separates actual-backend, mocked, and synthetic configurations'
     import.meta.dirname,
     '../e2e/real-backend.spec.ts',
   );
+  const realBackendOrderingPath = path.resolve(
+    import.meta.dirname,
+    '../e2e/real-backend-auth-ordering.spec.ts',
+  );
   const actual = await readFile(actualPath, 'utf8');
   const mocked = await readFile(mockedPath, 'utf8');
   const synthetic = await readFile(syntheticPath, 'utf8');
   const realBackendSpec = await readFile(realBackendSpecPath, 'utf8');
+  const realBackendOrdering = await readFile(realBackendOrderingPath, 'utf8');
 
   assert.match(actual, /PLAYWRIGHT_API_BASE_URL/);
   assert.match(actual, /VITE_API_BASE_URL:\s*apiBaseURL/);
-  assert.match(actual, /testMatch:\s*['"]real-backend\.spec\.ts['"]/);
+  assert.match(actual, /real-backend\.spec\.ts/);
+  assert.match(actual, /real-backend-auth-ordering\.spec\.ts/);
   assert.doesNotMatch(actual, /classroom-workflow\.spec/);
   assert.doesNotMatch(actual, /profile-layout\.visual\.spec/);
   assert.match(mocked, /classroom-workflow\.spec\.ts/);
   assert.match(mocked, /profile-layout\.visual\.spec\.ts/);
   assert.doesNotMatch(mocked, /auth-cookie-race\.server/);
   assert.match(synthetic, /auth-cookie-race\.server/);
+  assert.match(synthetic, /auth-cookie-timeout\.spec\.ts/);
   assert.match(synthetic, /127\.0\.0\.1:4010/);
   assert.match(synthetic, /reuseExistingServer:\s*false/g);
   assert.match(realBackendSpec, /PLAYWRIGHT_API_BASE_URL/);
@@ -103,6 +110,9 @@ test('Playwright separates actual-backend, mocked, and synthetic configurations'
   assert.match(realBackendSpec, /\/auth\/login/);
   assert.match(realBackendSpec, /\/me/);
   assert.doesNotMatch(realBackendSpec, /\.route\(/);
+  assert.match(realBackendOrdering, /browser\.newContext/);
+  assert.match(realBackendOrdering, /\/auth\/refresh/);
+  assert.match(realBackendOrdering, /\/auth\/logout/);
   assert.doesNotMatch(
     realBackendSpec,
     /(?:localPassword|password:\s*['"])/,
