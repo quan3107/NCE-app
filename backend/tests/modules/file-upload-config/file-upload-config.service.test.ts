@@ -1,7 +1,7 @@
 /**
  * File: tests/modules/file-upload-config/file-upload-config.service.test.ts
- * Purpose: Validate file upload config mapping and fallback behavior.
- * Why: Ensures config endpoints return a stable payload even when DB rows are missing.
+ * Purpose: Validate file upload config mapping and fail-closed behavior.
+ * Why: Missing policy data must never fabricate upload permissions.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ vi.mock("../../../src/prisma/client.js", () => ({
 
 vi.mock("../../../src/config/logger.js", () => ({
   logger: {
+    error: vi.fn(),
     warn: vi.fn(),
   },
 }));
@@ -101,29 +102,20 @@ describe("file-upload-config.service", () => {
     });
   });
 
-  it("returns fallback defaults when role policy is missing", async () => {
+  it("fails closed when the role policy is missing", async () => {
     prisma.fileUploadPolicy.findUnique.mockResolvedValue(null);
 
-    const limits = await getFileUploadLimitsForRole("teacher");
-    const allowedTypes = await getAllowedFileTypesForRole("teacher");
-
-    expect(limits).toEqual({
-      limits: {
-        max_file_size: 25 * 1024 * 1024,
-        max_total_size: 100 * 1024 * 1024,
-        max_files_per_upload: 5,
-      },
+    await expect(getFileUploadLimitsForRole("teacher")).rejects.toMatchObject({
+      name: "FileUploadPolicyUnavailableError",
+      message: "File upload policy is unavailable.",
     });
-
-    expect(allowedTypes.accept).toBe(".pdf,.doc,.docx,audio/*,image/*");
-    expect(allowedTypes.type_label).toBe("PDF, DOC, DOCX, audio, or image files");
-    expect(logger.warn).toHaveBeenCalledWith(
+    expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ role: "teacher", reason: "policy_not_found" }),
-      "Using fallback file upload policy",
+      "File upload policy unavailable",
     );
   });
 
-  it("preserves persisted limits when allowed types are missing", async () => {
+  it("fails closed when allowed type rows are missing", async () => {
     prisma.fileUploadPolicy.findUnique.mockResolvedValue({
       id: "policy-1",
       role: "student",
@@ -133,17 +125,13 @@ describe("file-upload-config.service", () => {
       allowedTypes: [],
     });
 
-    const config = await getRoleFileUploadConfig("student");
-
-    expect(config.limits).toEqual({
-      max_file_size: 1 * 1024 * 1024,
-      max_total_size: 4 * 1024 * 1024,
-      max_files_per_upload: 2,
+    await expect(getAllowedFileTypesForRole("student")).rejects.toMatchObject({
+      name: "FileUploadPolicyUnavailableError",
+      message: "File upload policy is unavailable.",
     });
-    expect(config.accept).toBe(".pdf,.doc,.docx,audio/*,image/*");
-    expect(logger.warn).toHaveBeenCalledWith(
+    expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ role: "student", reason: "allowed_types_missing" }),
-      "Using fallback file upload types",
+      "File upload policy unavailable",
     );
   });
 });
