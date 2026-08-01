@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-01:** Enforced optimistic concurrency for equal-value upload-limit submissions with a locked expected-value read, and corrected the documented live-browser CORS allowlist.
+
 - **2026-08-01:** Kept backend behavior unchanged while isolating the real `/me` response asserted by the frontend cross-tab logout ordering regression from concurrent app-owned profile requests.
 
 - **2026-08-01:** No backend files changed while stabilizing the frontend cookie-queue deadline regression under coverage instrumentation.
@@ -120,6 +122,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-01:** Blocked bearer requests when storage already carries a newer cross-tab epoch and reset administrator settings drafts on authenticated session-generation changes.
 
 - **2026-08-01:** Scoped the live cross-tab logout assertion to its marked invalid-bearer `/me` request so concurrent navigation/profile fetches cannot inflate the real 401 count.
 
