@@ -134,7 +134,7 @@ describe("settings.service upload limits", () => {
   it("checks but does not audit an unchanged current value", async () => {
     transactionQueryRaw
       .mockResolvedValueOnce([{ id: actorId }])
-      .mockResolvedValueOnce([{ matched: true }]);
+      .mockResolvedValueOnce([{ updated: true }]);
     transactionUserFindFirst.mockResolvedValueOnce({ id: actorId });
     transactionPolicyFindMany.mockResolvedValue([
       { role: "admin", maxFileSize: 50 * 1024 * 1024 },
@@ -152,13 +152,16 @@ describe("settings.service upload limits", () => {
     );
 
     expect(transactionQueryRaw).toHaveBeenCalledTimes(2);
+    expect(String(transactionQueryRaw.mock.calls[1]?.[0])).toContain(
+      "app.update_file_upload_policy",
+    );
     expect(transactionAuditCreate).not.toHaveBeenCalled();
   });
 
   it("returns 409 when an equal-value update has a stale baseline", async () => {
     transactionQueryRaw
       .mockResolvedValueOnce([{ id: actorId }])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce([{ updated: false }]);
     transactionUserFindFirst.mockResolvedValueOnce({ id: actorId });
 
     await expect(
