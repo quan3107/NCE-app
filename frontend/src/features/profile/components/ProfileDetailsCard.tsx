@@ -3,7 +3,7 @@
  * Purpose: Render the shared controlled profile editor for authenticated roles.
  * Why: Student, teacher, and admin profile routes should share persistence and validation.
  */
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Edit } from "lucide-react";
 
 import { Button } from "@components/ui/button";
@@ -25,16 +25,26 @@ import {
   profileNameFieldError,
   validateProfileDisplayName,
 } from "@features/profile/profileValidation";
+import { ApiError } from "@lib/apiClient";
 import { useAuthStore } from "@store/authStore";
 
+const TERMINAL_PROFILE_MESSAGE =
+  "This account is no longer available. Please sign in again.";
+
+const isTerminalProfileError = (error: unknown): boolean =>
+  error instanceof ApiError && (error.status === 403 || error.status === 404);
+
 export function ProfileDetailsCard() {
-  const { currentUser, sessionGeneration, commitCurrentProfile } = useAuthStore();
+  const { currentUser, sessionGeneration, commitCurrentProfile, logout } =
+    useAuthStore();
   const profileQuery = useMeProfileQuery(currentUser.id);
   const updateProfile = useUpdateMeProfileMutation();
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState(currentUser.name);
   const [nameError, setNameError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [terminalProfileState, setTerminalProfileState] = useState(false);
+  const terminalLogoutStarted = useRef(false);
   const latestIdentity = useRef({
     userId: currentUser.id,
     generation: sessionGeneration,
@@ -50,12 +60,26 @@ export function ProfileDetailsCard() {
       ? profileQuery.data.fullName
       : currentUser.name;
 
+  const endTerminalProfileSession = useCallback(() => {
+    requestSequence.current += 1;
+    setEditing(false);
+    setNameError(null);
+    setSaveError(TERMINAL_PROFILE_MESSAGE);
+    setTerminalProfileState(true);
+    if (!terminalLogoutStarted.current) {
+      terminalLogoutStarted.current = true;
+      void logout();
+    }
+  }, [logout]);
+
   useEffect(() => {
     if (previousUserId.current !== currentUser.id) {
       previousUserId.current = currentUser.id;
       setEditing(false);
       setNameError(null);
       setSaveError(null);
+      setTerminalProfileState(false);
+      terminalLogoutStarted.current = false;
       setFullName(authoritativeName);
       return;
     }
@@ -64,6 +88,12 @@ export function ProfileDetailsCard() {
       setFullName(authoritativeName);
     }
   }, [authoritativeName, currentUser.id, editing]);
+
+  useEffect(() => {
+    if (isTerminalProfileError(profileQuery.error)) {
+      endTerminalProfileSession();
+    }
+  }, [endTerminalProfileSession, profileQuery.error]);
 
   useEffect(() => {
     const profile = profileQuery.data;
@@ -95,6 +125,9 @@ export function ProfileDetailsCard() {
   };
 
   const startEditing = () => {
+    if (terminalProfileState) {
+      return;
+    }
     setFullName(authoritativeName);
     setNameError(null);
     setSaveError(null);
@@ -131,6 +164,10 @@ export function ProfileDetailsCard() {
         latestIdentity.current.userId === initiatingIdentity.userId &&
         latestIdentity.current.generation === initiatingIdentity.generation;
       if (requestSequence.current === requestId && identityStillCurrent) {
+        if (isTerminalProfileError(error)) {
+          endTerminalProfileSession();
+          return;
+        }
         const fieldError = profileNameFieldError(error);
         if (fieldError) {
           setNameError(fieldError);
@@ -151,6 +188,7 @@ export function ProfileDetailsCard() {
           <Button
             type="button"
             variant="outline"
+            disabled={terminalProfileState}
             onClick={() => (editing ? cancelEditing() : startEditing())}
           >
             <Edit className="mr-2 size-4" />
@@ -175,7 +213,9 @@ export function ProfileDetailsCard() {
                 setFullName(event.target.value);
                 setNameError(null);
               }}
-              disabled={!editing || updateProfile.isPending}
+              disabled={
+                terminalProfileState || !editing || updateProfile.isPending
+              }
               aria-invalid={Boolean(nameError)}
               aria-describedby={nameError ? "profile-name-error" : undefined}
             />
@@ -207,7 +247,11 @@ export function ProfileDetailsCard() {
             </p>
           )}
           {editing && (
-            <Button type="submit" className="w-full" disabled={updateProfile.isPending}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={terminalProfileState || updateProfile.isPending}
+            >
               {updateProfile.isPending ? "Saving..." : "Save Changes"}
             </Button>
           )}
