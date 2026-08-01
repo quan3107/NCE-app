@@ -96,4 +96,11 @@ describe("secure file upload policy update migration", () => {
       "current_setting('app.current_user_role'",
     );
   });
+
+  it("keeps the administrator lookup on the UUID primary key", () => {
+    expect(actorAuthorizationMigration).toMatch(
+      /users\.id\s*=\s*current_setting\('app\.current_user_id', true\)::UUID/i,
+    );
+    expect(actorAuthorizationMigration).not.toMatch(/users\.id::TEXT/i);
+  });
 });
