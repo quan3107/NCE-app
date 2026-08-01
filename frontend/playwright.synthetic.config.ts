@@ -10,6 +10,7 @@ export default defineConfig({
   testDir: './e2e',
   testMatch: [
     'auth-cookie-race.spec.ts',
+    'auth-cookie-timeout.spec.ts',
     'auth-recovery.spec.ts',
     'auth-storage-lock.spec.ts',
   ],
