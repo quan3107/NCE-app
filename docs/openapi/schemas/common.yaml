@@ -23,8 +23,10 @@ UserStatus:
 
 DisplayName:
   type: string
-  minLength: 1
-  description: Persisted display name returned without rewriting legacy user data. Historical records may contain whitespace, controls, or values outside the canonical write bounds; new writes use CanonicalDisplayName.
+  minLength: 2
+  maxLength: 100
+  pattern: '^(?=\S(?:[\s\S]*\S)?$)(?![\s\S]*[\p{Cc}\p{Cf}\p{Zl}\p{Zp}])(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$'
+  description: Presentation-safe persisted display name after upgrade quarantine, measured as 2-100 Unicode code points and excluding non-printing and bidirectional controls.
 
 CanonicalDisplayName:
   type: string
