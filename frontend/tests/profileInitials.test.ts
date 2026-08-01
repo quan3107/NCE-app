@@ -46,6 +46,9 @@ test("preserves graphemes when Intl.Segmenter is unavailable", async () => {
       fallbackModule.getProfileInitials("N\u0303guyen 👩‍💻"),
       "N\u0303👩‍💻",
     );
+    assert.equal(fallbackModule.getProfileInitials("क्ष"), "क्ष");
+    assert.equal(fallbackModule.getProfileInitials("가"), "가");
+    assert.equal(fallbackModule.getProfileInitials("؀A"), "؀A");
   } finally {
     if (descriptor) {
       Object.defineProperty(Intl, "Segmenter", descriptor);
