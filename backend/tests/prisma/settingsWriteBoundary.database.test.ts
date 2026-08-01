@@ -48,6 +48,33 @@ databaseDescribe("file upload policy runtime write boundary", () => {
     }
   });
 
+  it("checks equal values without granting direct runtime updates", async () => {
+    const { client, pool } = await connectRuntimeClient();
+    try {
+      await client.query("BEGIN");
+      const actorId = await createActor({ role: "admin" });
+      await setAuthenticatedRole(client, "admin", actorId);
+      const current = await readLimit(client, "student");
+
+      const currentResult = await client.query<{ updated: boolean }>(
+        "SELECT app.update_file_upload_policy($1, $2, $3) AS updated",
+        ["student", current, current],
+      );
+      const stale = differentLimit(current);
+      const staleResult = await client.query<{ updated: boolean }>(
+        "SELECT app.update_file_upload_policy($1, $2, $3) AS updated",
+        ["student", stale, stale],
+      );
+
+      expect(currentResult.rows[0]?.updated).toBe(true);
+      expect(staleResult.rows[0]?.updated).toBe(false);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+      await pool.end();
+    }
+  });
+
   it.each(["student", "teacher"] as const)(
     "rejects a %s-scoped runtime transaction",
     async (userRole) => {
