@@ -75,10 +75,6 @@ test("storage denial cannot prevent login or server logout", async ({
 }) => {
   const context = await browser.newContext();
   await context.addInitScript(() => {
-    Object.defineProperty(navigator, "locks", {
-      configurable: true,
-      value: undefined,
-    });
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       get() {
