@@ -12,6 +12,10 @@ export type SharedAuthSnapshot = PersistSnapshot & {
   sessionEpoch: number;
 };
 
+export type SharedAuthPersistResult =
+  | { status: 'committed'; snapshot: SharedAuthSnapshot }
+  | { status: 'stale'; snapshot: SharedAuthSnapshot };
+
 const CHANNEL_NAME = 'nce-auth-session';
 let requestController = new AbortController();
 let channel: BroadcastChannel | null | undefined;
@@ -75,18 +79,18 @@ export function persistSharedAuthSnapshot(
   snapshot: PersistSnapshot,
   currentEpoch: number,
   advanceEpoch: boolean,
-): number {
+): SharedAuthPersistResult {
   const storage = localStorageOrNull();
-  const storedEpoch = storage
-    ? (parseSnapshot(storageGet(storage, STORAGE_KEYS.currentUser))
-        ?.sessionEpoch ?? 0)
-    : 0;
+  const storedSnapshot = storage
+    ? parseSnapshot(storageGet(storage, STORAGE_KEYS.currentUser))
+    : null;
+  const storedEpoch = storedSnapshot?.sessionEpoch ?? 0;
   const sessionEpoch = advanceEpoch
     ? Math.max(currentEpoch, storedEpoch, Date.now()) + 1
     : currentEpoch;
-  if (!advanceEpoch && storedEpoch > currentEpoch) {
+  if (!advanceEpoch && storedSnapshot && storedEpoch > currentEpoch) {
     // A late same-session refresh must not overwrite a newer tab transition.
-    return currentEpoch;
+    return { status: 'stale', snapshot: storedSnapshot };
   }
   const shared = { ...snapshot, sessionEpoch } satisfies SharedAuthSnapshot;
   if (storage) {
@@ -96,7 +100,7 @@ export function persistSharedAuthSnapshot(
     abortAuthenticatedRequests();
     sharedChannel()?.postMessage(shared);
   }
-  return sessionEpoch;
+  return { status: 'committed', snapshot: shared };
 }
 
 export function subscribeToSharedAuth(
