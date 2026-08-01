@@ -94,6 +94,38 @@ test("a newer cross-tab logout aborts bearer work and clears scoped state", asyn
   );
 });
 
+test("a newer stored epoch blocks bearer mutation before event delivery", async () => {
+  const { result } = renderHook(() => useAuthSession());
+  act(() => result.current.applyLiveSession(liveSession));
+  authBridge.configure({
+    getAccessToken: () => result.current.tokenRef.current,
+    getSessionVersion: result.current.getSessionVersion,
+  });
+  const fetchMock = vi.fn(async () => Response.json({ updated: true }));
+  vi.stubGlobal("fetch", fetchMock);
+  const nextEpoch = result.current.getSessionVersion().sessionEpoch + 1;
+  window.localStorage.setItem(
+    "currentUser",
+    JSON.stringify({
+      sessionEpoch: nextEpoch,
+      token: null,
+      liveUser: null,
+    }),
+  );
+
+  await assert.rejects(
+    apiClient("/me/profile", {
+      method: "PATCH",
+      body: { fullName: "Stale account mutation" },
+    }),
+    /session changed/i,
+  );
+
+  assert.equal(fetchMock.mock.calls.length, 0);
+  assert.equal(result.current.liveUser?.id, "user-a");
+  assert.equal(result.current.tokenRef.current, "token-a");
+});
+
 test("a late same-session refresh cannot overwrite a newer stored epoch", () => {
   const { result } = renderHook(() => useAuthSession());
   act(() => result.current.applyLiveSession(liveSession));
