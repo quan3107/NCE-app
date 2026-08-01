@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-01:** Kept backend behavior unchanged while isolating the real `/me` response asserted by the frontend cross-tab logout ordering regression from concurrent app-owned profile requests.
+
 - **2026-08-01:** No backend files changed while stabilizing the frontend cookie-queue deadline regression under coverage instrumentation.
 
 - **2026-08-01:** No backend files changed while replacing the frontend initials fallback with complete Unicode grapheme segmentation.
@@ -118,6 +120,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-01:** Scoped the live cross-tab logout assertion to its marked invalid-bearer `/me` request so concurrent navigation/profile fetches cannot inflate the real 401 count.
 
 - **2026-08-01:** Made cookie-queue deadline coverage deterministic by synchronizing a long-lived blocker before enqueuing a separately configured short-deadline operation.
 
