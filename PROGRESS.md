@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-01:** Removed fabricated upload-policy limits and file types; absent policy rows or empty allowed-type sets now stop configuration and signing flows with an internal configuration error.
+
 - **2026-07-31:** Preserved persisted upload byte/count limits when type rows are corrupt, allowed the real-browser origin under repository defaults, and added seeded live-backend browser coverage to CI.
 
 - **2026-07-31:** No backend files changed while making the default browser suite require a live backend and dedicated active test accounts.
@@ -106,6 +108,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-01:** Removed the unsafe IndexedDB cookie-writer fallback and made refresh-cookie operations fail closed without Web Locks, with browser coverage proving no request starts and no cookie session is created.
 
 - **2026-07-31:** Bounded complete auth-cookie lifecycles, renewed and fenced IndexedDB writers, suppressed stale login/registration commits, reused display-name validation across registration and admin creation, and exercised seeded real-backend sessions in CI.
 
