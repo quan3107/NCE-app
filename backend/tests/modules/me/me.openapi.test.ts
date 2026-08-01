@@ -1,7 +1,7 @@
 /**
  * File: tests/modules/me/me.openapi.test.ts
- * Purpose: Lock upgrade-safe response names and canonical write rules in OpenAPI.
- * Why: Legacy stored names remain readable while new writes use the safe contract.
+ * Purpose: Lock presentation-safe response names and canonical write rules in OpenAPI.
+ * Why: Upgraded stored names and new writes must share the safe identity contract.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -30,7 +30,7 @@ const path = readFileSync(
 );
 
 describe("profile OpenAPI contract", () => {
-  it("separates legacy responses from canonical profile writes", () => {
+  it("documents safe persisted responses and canonical profile writes", () => {
     const storedDisplayName =
       commonSchema.match(
         /^DisplayName:[\s\S]*?(?=^[A-Za-z][A-Za-z0-9]*:)/m,
@@ -40,10 +40,9 @@ describe("profile OpenAPI contract", () => {
         /^CanonicalDisplayName:[\s\S]*?(?=^[A-Za-z][A-Za-z0-9]*:)/m,
       )?.[0] ?? "";
 
-    expect(storedDisplayName).toContain("minLength: 1");
-    expect(storedDisplayName).toMatch(/legacy/i);
-    expect(storedDisplayName).not.toContain("maxLength:");
-    expect(storedDisplayName).not.toContain("pattern:");
+    expect(storedDisplayName).toContain("minLength: 2");
+    expect(storedDisplayName).toContain("maxLength: 100");
+    expect(storedDisplayName).toContain("non-printing and bidirectional controls");
     expect(canonicalDisplayName).toContain("minLength: 2");
     expect(canonicalDisplayName).toContain("maxLength: 100");
     expect(canonicalDisplayName).toContain("Unicode code points");
