@@ -19,6 +19,7 @@ const migration = readFileSync(
 describe("upload policy type integrity migration", () => {
   it("normalizes repairable rows and removes invalid rows", () => {
     expect(migration).toMatch(/ROW_NUMBER\(\)[\s\S]*duplicate_rank > 1/);
+    expect(migration).toMatch(/ORDER BY\s+is_valid DESC/);
     expect(migration).toMatch(
       /UPDATE public\.file_upload_allowed_types[\s\S]*LOWER\(BTRIM\(mime_type\)\)/,
     );
