@@ -99,6 +99,17 @@ for (const account of accounts) {
       ).toBeTruthy();
       auth = (await loginResponse.json()) as AuthResponse;
       expect(auth.user).toMatchObject({ email: account.email, role: account.role });
+      const authenticatedProfile = await page.request.get(`${apiBaseURL}/me`, {
+        headers: { authorization: `Bearer ${auth.accessToken}` },
+      });
+      expect(authenticatedProfile.status()).toBe(200);
+      expect(await authenticatedProfile.json()).toMatchObject({
+        profile: {
+          id: auth.user.id,
+          email: account.email,
+          role: account.role,
+        },
+      });
       await expect(page).toHaveURL(new RegExp(`${account.landingPath}$`));
 
       const restoredResponse = page.waitForResponse(
