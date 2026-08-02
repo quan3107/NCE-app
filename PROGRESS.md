@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-02:** Added a follow-up upload-policy migration that validates extension arrays by dimension, nullability, and individual canonical tokens, with live PostgreSQL regressions for comma-packed, null, and multidimensional inputs.
+
 - **2026-08-02:** Removed a redundant raw-token duplicate from the upload-policy migration fixture so the live database regression reaches canonical valid-winner repair without failing the preexisting unique constraint.
 
 - **2026-08-02:** Preserved valid upload-type winners during canonical duplicate repair, aligned normalized display-name OpenAPI inputs with runtime trimming, and enforced audit registry/document inventory parity including strict upload-limit settings events.
@@ -136,6 +138,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-02:** Revoked cookies from rejected live logins, fenced failed refreshes against complete stored session versions, propagated same-session profile revisions despite storage failure, and made the live backend gates verify cookie revocation plus bearer-authenticated profile identity.
 
 - **2026-08-02:** Cancelled unfinished OAuth completion from the callback route's actual unmount lifecycle and added a route-departure regression alongside the lower-level cancellation check.
 
