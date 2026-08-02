@@ -94,3 +94,37 @@ test("OAuth completion replaces the initiating account and clears its lease", as
   assert.equal(result.current.currentUser.id, "user-b");
   assert.equal(await readIndexedDbAuthLease("oauth-reservation"), null);
 });
+
+test("leaving the callback cancels an unfinished OAuth completion", async () => {
+  const expiresAt = Date.now() + 60_000;
+  window.sessionStorage.setItem(
+    "nce:auth-cookie-oauth-owner",
+    JSON.stringify({ ownerId: "oauth-owner", expiresAt }),
+  );
+  await writeIndexedDbAuthLease({
+    name: "oauth-reservation",
+    ownerId: "oauth-owner",
+    expiresAt,
+  });
+  let refreshStarted!: () => void;
+  const started = new Promise<void>((resolve) => { refreshStarted = resolve; });
+  vi.stubGlobal("fetch", vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+    refreshStarted();
+    return new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
+        once: true,
+      });
+    });
+  }));
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const view = renderHook(() => useAuth(), { wrapper });
+  const completion = view.result.current.completeGoogleLogin();
+  await started;
+
+  act(() => view.result.current.cancelGoogleLogin());
+
+  await assert.rejects(completion);
+  assert.equal(view.result.current.isAuthenticated, false);
+});
