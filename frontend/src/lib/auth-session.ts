@@ -81,8 +81,8 @@ export const useAuthSession = () => {
         sessionEpochRef.current,
         advanceEpoch,
       );
-      if (result.status === 'stale') {
-        consumeSharedSession(result.snapshot);
+      if (result.status !== 'committed' && result.status !== 'fallback') {
+        if (result.status === 'stale') consumeSharedSession(result.snapshot);
         return false;
       }
       sessionEpochRef.current = result.snapshot.sessionEpoch;
