@@ -156,10 +156,10 @@ export function useAuthRuntime() {
     };
   }, [clearSession, getSessionVersion, refreshAccessToken, tokenRef]);
 
-  useEffect(
-    () => () => cookieOperations.cancelRefreshes(),
-    [cookieOperations],
-  );
+  useEffect(() => () => {
+    cookieOperations.cancelRefreshes();
+    cookieOperations.cancelOAuthCompletions();
+  }, [cookieOperations]);
 
   useEffect(() => {
     let cancelled = false;
