@@ -83,7 +83,7 @@ test("unavailable persistence publishes only reducing transitions", async () => 
     { token: null, liveUser: null },
   );
 
-  assert.equal(logoutResult.status, "unavailable");
+  assert.equal(logoutResult.status, "volatile");
   assert.equal(loginSignal.aborted, true);
   assert.deepEqual(posted, [logoutResult.snapshot]);
 
@@ -112,7 +112,7 @@ test("unavailable persistence publishes only reducing transitions", async () => 
     previousAdmin,
   );
 
-  assert.equal(downgradeResult.status, "unavailable");
+  assert.equal(downgradeResult.status, "volatile");
   assert.equal(downgradeSignal.aborted, true);
   assert.deepEqual(posted, [logoutResult.snapshot, downgradeResult.snapshot]);
 });
