@@ -134,4 +134,41 @@ describe("file-upload-config.service", () => {
       "File upload policy unavailable",
     );
   });
+
+  it.each([
+    ["mime_type_blank", { mimeType: "   " }],
+    ["extensions_missing", { extensions: [" ", "."] }],
+    ["label_blank", { label: "  " }],
+    ["accept_token_blank", { acceptToken: "  " }],
+  ])(
+    "fails closed when a normalized allowed type is %s",
+    async (reason, invalid) => {
+      prisma.fileUploadPolicy.findUnique.mockResolvedValue({
+        id: "policy-1",
+        role: "student",
+        maxFileSize: 1 * 1024 * 1024,
+        maxTotalSize: 4 * 1024 * 1024,
+        maxFilesPerUpload: 2,
+        allowedTypes: [
+          {
+            mimeType: "application/pdf",
+            extensions: [".pdf"],
+            label: "PDF Document",
+            acceptToken: ".pdf",
+            sortOrder: 1,
+            createdAt: new Date("2026-02-06T00:00:00.000Z"),
+            ...invalid,
+          },
+        ],
+      });
+
+      await expect(getRoleFileUploadConfig("student")).rejects.toMatchObject({
+        name: "FileUploadPolicyUnavailableError",
+      });
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ role: "student", reason }),
+        "File upload policy unavailable",
+      );
+    },
+  );
 });
