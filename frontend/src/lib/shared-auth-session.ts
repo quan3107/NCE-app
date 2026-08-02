@@ -40,9 +40,8 @@ function reducesAuthority(
   next: PersistSnapshot,
 ): boolean {
   if (!next.token || !next.liveUser) return true;
-  if (!previous.liveUser || previous.liveUser.id !== next.liveUser.id) {
-    return false;
-  }
+  if (!previous.liveUser) return false;
+  if (previous.liveUser.id !== next.liveUser.id) return true;
   return (
     ROLE_AUTHORITY[next.liveUser.role] <
     ROLE_AUTHORITY[previous.liveUser.role]
