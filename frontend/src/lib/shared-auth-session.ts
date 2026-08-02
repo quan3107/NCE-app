@@ -21,6 +21,7 @@ export type SharedAuthSnapshot = PersistSnapshot & {
 export type SharedAuthPersistResult =
   | { status: 'committed'; snapshot: SharedAuthSnapshot }
   | { status: 'fallback'; snapshot: SharedAuthSnapshot }
+  | { status: 'volatile'; snapshot: SharedAuthSnapshot }
   | { status: 'unavailable'; snapshot: SharedAuthSnapshot }
   | { status: 'stale'; snapshot: SharedAuthSnapshot };
 
@@ -141,15 +142,23 @@ export function persistSharedAuthSnapshot(
       ? storageSet(fallbackStorage, STORAGE_KEYS.currentUser, serialized)
       : false;
   const unavailable = !committed && !fallbackCommitted;
-  if (
+  const authorityReduced =
     advanceEpoch &&
-    (!unavailable || reducesAuthority(previousSnapshot ?? storedSnapshot, shared))
-  ) {
+    reducesAuthority(previousSnapshot ?? storedSnapshot, shared);
+  if (unavailable && authorityReduced) {
+    // Never leave a durable higher-authority bearer behind a volatile downgrade.
+    if (sharedStorage) storageRemove(sharedStorage, STORAGE_KEYS.currentUser);
+    if (fallbackStorage) storageRemove(fallbackStorage, STORAGE_KEYS.currentUser);
+  }
+  if (advanceEpoch && (!unavailable || authorityReduced)) {
     abortAuthenticatedRequests();
     sharedChannel()?.postMessage(shared);
   }
   if (unavailable) {
-    return { status: 'unavailable', snapshot: shared };
+    return {
+      status: authorityReduced ? 'volatile' : 'unavailable',
+      snapshot: shared,
+    };
   }
   return {
     status: committed ? 'committed' : 'fallback',
