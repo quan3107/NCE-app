@@ -39,6 +39,18 @@ export type RefreshAccessTokenResult =
   | { status: 'stale' }
   | { status: 'failed' };
 
+export type SessionVersion = {
+  generation: number;
+  sessionEpoch: number;
+  userRevision: number;
+  userId: string | null;
+};
+
+export type RefreshPromiseSlot = {
+  generation: number;
+  promise: Promise<RefreshAccessTokenResult>;
+};
+
 export type SessionIdentity = {
   userId: string;
   generation: number;
@@ -92,4 +104,7 @@ export type PersistSnapshot = {
 };
 
 export type InitialSnapshot = PersistSnapshot;
-export type InitialAuthSnapshot = PersistSnapshot & { sessionEpoch: number };
+export type InitialAuthSnapshot = PersistSnapshot & {
+  sessionEpoch: number;
+  profileRevision: number;
+};
