@@ -157,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [completeOAuthSession]);
 
   const cancelGoogleLogin = useCallback(() => {
+    cookieOperations.cancelOAuthCompletions();
     void cookieOperations.releaseOAuthLease().catch(() => undefined);
   }, [cookieOperations]);
 
@@ -166,18 +167,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await cookieOperations.run(async (signal) => {
       // An earlier queued login may have restored identity after the immediate clear.
       clearSession();
-      try {
-        await apiClient('/auth/logout', {
-          method: 'POST',
-          withAuth: false,
-          credentials: 'include',
-          parseJson: false,
-          signal,
-        });
-      } catch {
-        // Ignore logout errors; we still clear the local session.
-      }
-    }).catch(() => undefined);
+      await apiClient('/auth/logout', {
+        method: 'POST',
+        withAuth: false,
+        credentials: 'include',
+        parseJson: false,
+        signal,
+      });
+    });
   }, [clearSession, cookieOperations]);
 
   const currentUser = liveUser ?? PUBLIC_USER;
