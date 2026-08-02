@@ -145,23 +145,22 @@ test('normalized name inputs and course-tab filtering are documented', async () 
   assert.match(invite, /common\.yaml#\/NormalizedDisplayNameInput/);
   assert.match(storedDisplayName, /minLength: 2/);
   assert.match(storedDisplayName, /maxLength: 100/);
-  assert.match(
-    storedDisplayName,
-    /\p\{Cc\}.*\p\{Cf\}.*\p\{Zl\}.*\p\{Zp\}/,
-  );
+  assert.doesNotMatch(storedDisplayName, /\\p\{/);
   assert.doesNotMatch(storedDisplayName, /legacy/i);
   assert.match(canonicalDisplayName, /minLength: 2/);
-  assert.match(
-    canonicalDisplayName,
-    /\\p\{Cc\}.*\\p\{Cf\}.*\\p\{Zl\}.*\\p\{Zp\}/,
-  );
+  assert.doesNotMatch(canonicalDisplayName, /\\p\{/);
   assert.match(normalizedInput, /trimmed[\s\S]*CanonicalDisplayName/i);
   assert.match(normalizedInput, /minLength: 2/);
+  for (const schema of [storedDisplayName, canonicalDisplayName]) {
+    const pattern = schema.match(/^\s*pattern: '(.+)'$/m)?.[1];
+    assert.ok(pattern, 'display-name schema must define a pattern');
+    assert.match('Ada Lovelace', new RegExp(pattern));
+  }
   const normalizedPattern = normalizedInput.match(
     /^\s*pattern: '(.+)'$/m,
   )?.[1];
   assert.ok(normalizedPattern, 'normalized input must define a pattern');
-  const acceptsNormalizedInput = new RegExp(normalizedPattern, 'u');
+  const acceptsNormalizedInput = new RegExp(normalizedPattern);
   assert.match('  Ada 😀  ', acceptsNormalizedInput);
   assert.doesNotMatch(' A ', acceptsNormalizedInput);
   assert.doesNotMatch(` Ada\u202eLovelace `, acceptsNormalizedInput);
