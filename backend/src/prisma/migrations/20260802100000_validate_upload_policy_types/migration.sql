@@ -8,14 +8,43 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 
 -- Canonical token collisions can exist because the old unique key was case-sensitive.
-WITH ranked_tokens AS (
+-- Keep a candidate that will survive normalization and validation whenever one exists.
+WITH normalized_candidates AS (
+  SELECT
+    allowed_type.id,
+    allowed_type.policy_id,
+    allowed_type.sort_order,
+    allowed_type.created_at,
+    LOWER(BTRIM(allowed_type.accept_token)) AS canonical_accept_token,
+    (
+      LOWER(BTRIM(allowed_type.mime_type))
+        ~ '^[a-z0-9!#$&^_.+-]+/([a-z0-9!#$&^_.+-]+|[*])$'
+      AND COALESCE(
+        array_to_string(
+          ARRAY(
+            SELECT DISTINCT LOWER(BTRIM(extension))
+            FROM UNNEST(allowed_type.extensions) AS extension
+            WHERE LOWER(BTRIM(extension)) ~ '^[.][a-z0-9]+$'
+            ORDER BY 1
+          ),
+          ','
+        ),
+        ''
+      ) ~ '^([.][a-z0-9]+)(,[.][a-z0-9]+)*$'
+      AND BTRIM(allowed_type.label) <> ''
+      AND LOWER(BTRIM(allowed_type.accept_token))
+        ~ '^([.][a-z0-9]+|[a-z0-9!#$&^_.+-]+/([a-z0-9!#$&^_.+-]+|[*]))$'
+    ) AS is_valid
+  FROM public.file_upload_allowed_types AS allowed_type
+),
+ranked_tokens AS (
   SELECT
     id,
     ROW_NUMBER() OVER (
-      PARTITION BY policy_id, LOWER(BTRIM(accept_token))
-      ORDER BY sort_order, created_at, id
+      PARTITION BY policy_id, canonical_accept_token
+      ORDER BY is_valid DESC NULLS LAST, sort_order, created_at, id
     ) AS duplicate_rank
-  FROM public.file_upload_allowed_types
+  FROM normalized_candidates
 )
 DELETE FROM public.file_upload_allowed_types AS allowed_type
 USING ranked_tokens
