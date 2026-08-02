@@ -92,4 +92,16 @@ describe('audit event registry', () => {
       /\| `user\.profile_updated` \| `user` \| `fullNameChanged` \| Strict \|/,
     )
   })
+
+  it('documents every registered audit action exactly once', () => {
+    const contracts = readFileSync(
+      resolve(process.cwd(), '../docs/audit-event-contracts.md'),
+      'utf8',
+    )
+    const documentedActions = [...contracts.matchAll(/^\| `([^`]+)` \|/gm)]
+      .map((match) => match[1])
+      .sort()
+
+    expect(documentedActions).toEqual(reviewedActions)
+  })
 })
