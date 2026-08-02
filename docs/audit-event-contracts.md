@@ -20,6 +20,7 @@ incorrect entities, missing fields, and unknown properties fail before Prisma.
 | `auth.session_revoked` | `auth_session` | `sessionRevoked` | Failure-safe |
 | `user.created` | `user` | `role`, `status` | Failure-safe |
 | `user.invited` | `user` | `role`, `status` | Failure-safe |
+| `user.profile_updated` | `user` | `fullNameChanged` | Strict |
 | `user.teacher_approved` | `user` | `previousStatus`, `status` | Failure-safe |
 | `user.teacher_rejected` | `user` | `previousStatus`, `status` | Failure-safe |
 | `course.created` | `course` | `ownerTeacherId` | Failure-safe |
