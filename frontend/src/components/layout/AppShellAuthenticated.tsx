@@ -6,6 +6,7 @@
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { AlertCircle, BookOpen, Bell, GraduationCap, Info, LogOut, Menu, Settings, User, X } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import {
@@ -68,7 +69,12 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
   };
 
   const handleLogout = () => {
-    void logout();
+    void logout().catch(() => {
+      toast.error('Server logout could not be confirmed.', {
+        description: 'Retry to prevent the session from being restored.',
+        action: { label: 'Retry', onClick: handleLogout },
+      });
+    });
   };
 
   return (
