@@ -5,6 +5,7 @@
  */
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Edit } from "lucide-react";
+import { toast } from "sonner@2.0.3";
 
 import { Button } from "@components/ui/button";
 import {
@@ -59,6 +60,11 @@ export function ProfileDetailsCard() {
     profileQuery.data?.id === currentUser.id
       ? profileQuery.data.fullName
       : currentUser.name;
+  const hasAuthoritativeProfile = Boolean(
+    profileQuery.data?.id === currentUser.id &&
+      !profileQuery.isPending &&
+      !profileQuery.error,
+  );
 
   const endTerminalProfileSession = useCallback(() => {
     requestSequence.current += 1;
@@ -68,7 +74,13 @@ export function ProfileDetailsCard() {
     setTerminalProfileState(true);
     if (!terminalLogoutStarted.current) {
       terminalLogoutStarted.current = true;
-      void logout();
+      void logout().catch(() => {
+        terminalLogoutStarted.current = false;
+        toast.error("Server logout could not be confirmed.", {
+          description: "Retry to prevent the session from being restored.",
+          action: { label: "Retry", onClick: endTerminalProfileSession },
+        });
+      });
     }
   }, [logout]);
 
@@ -125,7 +137,7 @@ export function ProfileDetailsCard() {
   };
 
   const startEditing = () => {
-    if (terminalProfileState) {
+    if (terminalProfileState || !hasAuthoritativeProfile) {
       return;
     }
     setFullName(authoritativeName);
@@ -188,7 +200,7 @@ export function ProfileDetailsCard() {
           <Button
             type="button"
             variant="outline"
-            disabled={terminalProfileState}
+            disabled={terminalProfileState || !hasAuthoritativeProfile}
             onClick={() => (editing ? cancelEditing() : startEditing())}
           >
             <Edit className="mr-2 size-4" />
