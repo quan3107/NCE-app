@@ -45,6 +45,14 @@ databaseDescribe("upload policy type integrity", () => {
         INSERT INTO public.file_upload_allowed_types (
           policy_id, mime_type, extensions, label, accept_token, sort_order
         )
+        SELECT id, ' ', ARRAY['.pdf'], 'Corrupt PDF', ' .PDF ', 0
+        FROM public.file_upload_policies
+        WHERE role = 'student'::"UserRole"
+      `);
+      await client.query(`
+        INSERT INTO public.file_upload_allowed_types (
+          policy_id, mime_type, extensions, label, accept_token, sort_order
+        )
         SELECT id, 'application/pdf', ARRAY['.pdf'], 'PDF duplicate', ' .PDF ', 99
         FROM public.file_upload_policies
         WHERE role = 'student'::"UserRole"
