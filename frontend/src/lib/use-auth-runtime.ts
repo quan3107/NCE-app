@@ -30,6 +30,7 @@ export function useAuthRuntime() {
     refreshPromiseRef,
     shouldRefreshOnMountRef,
     getSessionVersion,
+    getAdmissionSessionVersion,
     applyLiveSession,
     clearSession,
   } = session;
@@ -81,9 +82,11 @@ export function useAuthRuntime() {
         },
       )
         .catch((error): RefreshAccessTokenResult => {
-          const currentVersion = getSessionVersion();
+          const currentVersion = getAdmissionSessionVersion();
           if (
             currentVersion.generation !== sessionVersionAtRefreshStart.generation ||
+            currentVersion.sessionEpoch !== sessionVersionAtRefreshStart.sessionEpoch ||
+            currentVersion.userRevision !== sessionVersionAtRefreshStart.userRevision ||
             currentVersion.userId !== sessionVersionAtRefreshStart.userId
           ) {
             return { status: 'stale' };
@@ -113,7 +116,14 @@ export function useAuthRuntime() {
       };
       return refreshPromise;
     },
-    [applyLiveSession, clearSession, getSessionVersion, refreshPromiseRef, tokenRef],
+    [
+      applyLiveSession,
+      clearSession,
+      getAdmissionSessionVersion,
+      getSessionVersion,
+      refreshPromiseRef,
+      tokenRef,
+    ],
   );
 
   const refreshAccessToken = useCallback(
@@ -198,8 +208,8 @@ export function useAuthRuntime() {
 
   useEffect(
     () =>
-      subscribeToSharedAuth(getSessionVersion().sessionEpoch, () => {
-        cookieOperations.cancelRefreshes();
+      subscribeToSharedAuth(getSessionVersion().sessionEpoch, (_snapshot, sessionChanged) => {
+        if (sessionChanged) cookieOperations.cancelRefreshes();
       }),
     [cookieOperations, getSessionVersion],
   );
