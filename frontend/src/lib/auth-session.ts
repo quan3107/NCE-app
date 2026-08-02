@@ -82,7 +82,11 @@ export const useAuthSession = () => {
         advanceEpoch,
         { token: tokenRef.current, liveUser: liveUserRef.current },
       );
-      if (result.status !== 'committed' && result.status !== 'fallback') {
+      if (
+        result.status !== 'committed' &&
+        result.status !== 'fallback' &&
+        result.status !== 'volatile'
+      ) {
         if (result.status === 'stale') consumeSharedSession(result.snapshot);
         return false;
       }
