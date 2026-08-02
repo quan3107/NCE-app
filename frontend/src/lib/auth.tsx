@@ -33,6 +33,16 @@ function isPendingApprovalResponse(
   return 'status' in response && response.status === 'pending_approval';
 }
 
+async function revokeRejectedCookieSession(signal: AbortSignal): Promise<void> {
+  await apiClient('/auth/logout', {
+    method: 'POST',
+    withAuth: false,
+    credentials: 'include',
+    parseJson: false,
+    signal,
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     liveUser,
@@ -66,7 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (signal.aborted) {
             throw new ApiError('Login request timed out.', 0);
           }
-          return applyLiveSession(result, admissionVersion);
+          const applied = applyLiveSession(result, admissionVersion);
+          if (!applied) await revokeRejectedCookieSession(signal);
+          return applied;
         });
         return committed ? 'live' : null;
       } catch (error) {
@@ -110,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new ApiError('Registration request timed out.', 0);
         }
         if (!applyLiveSession(result, admissionVersion)) {
+          await revokeRejectedCookieSession(signal);
           throw new ApiError(
             'Registration was cancelled by a newer session change.',
             0,
