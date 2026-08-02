@@ -37,6 +37,7 @@ const originalIndexedDbDescriptor = Object.getOwnPropertyDescriptor(
 );
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   const values = new Map<string, string>();
   Object.defineProperty(window, "localStorage", {
     configurable: true,
