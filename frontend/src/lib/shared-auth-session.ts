@@ -25,8 +25,28 @@ export type SharedAuthPersistResult =
   | { status: 'stale'; snapshot: SharedAuthSnapshot };
 
 const CHANNEL_NAME = 'nce-auth-session';
+const ROLE_AUTHORITY: Record<LiveUser['role'], number> = {
+  public: 0,
+  student: 1,
+  teacher: 2,
+  admin: 3,
+};
 let requestController = new AbortController();
 let channel: BroadcastChannel | null | undefined;
+
+function reducesAuthority(
+  previous: PersistSnapshot,
+  next: PersistSnapshot,
+): boolean {
+  if (!next.token || !next.liveUser) return true;
+  if (!previous.liveUser || previous.liveUser.id !== next.liveUser.id) {
+    return false;
+  }
+  return (
+    ROLE_AUTHORITY[next.liveUser.role] <
+    ROLE_AUTHORITY[previous.liveUser.role]
+  );
+}
 
 function normalizeSnapshot(value: unknown): SharedAuthSnapshot | null {
   if (!value || typeof value !== 'object') {
@@ -95,6 +115,7 @@ export function persistSharedAuthSnapshot(
   snapshot: PersistSnapshot,
   currentEpoch: number,
   advanceEpoch: boolean,
+  previousSnapshot?: PersistSnapshot,
 ): SharedAuthPersistResult {
   const sharedStorage = localStorageOrNull();
   const fallbackStorage = sessionStorageOrNull();
@@ -119,11 +140,15 @@ export function persistSharedAuthSnapshot(
     !committed && fallbackStorage
       ? storageSet(fallbackStorage, STORAGE_KEYS.currentUser, serialized)
       : false;
-  if (advanceEpoch) {
+  const unavailable = !committed && !fallbackCommitted;
+  if (
+    advanceEpoch &&
+    (!unavailable || reducesAuthority(previousSnapshot ?? storedSnapshot, shared))
+  ) {
     abortAuthenticatedRequests();
     sharedChannel()?.postMessage(shared);
   }
-  if (!committed && !fallbackCommitted) {
+  if (unavailable) {
     return { status: 'unavailable', snapshot: shared };
   }
   return {
