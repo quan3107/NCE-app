@@ -96,3 +96,49 @@ test('an unavailable role downgrade replaces the initiating bearer before return
     },
   ]);
 });
+
+test('an unavailable account switch retires the previous bearer', () => {
+  let storedAdmin: string | null = JSON.stringify(adminSnapshot);
+  const rejectedStorage = (read: () => string | null, remove: () => void) => ({
+    getItem: read,
+    removeItem: remove,
+    setItem: () => {
+      throw new DOMException('Storage write denied', 'QuotaExceededError');
+    },
+  });
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: rejectedStorage(() => storedAdmin, () => { storedAdmin = null; }),
+  });
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    value: rejectedStorage(() => null, () => undefined),
+  });
+  vi.stubGlobal('BroadcastChannel', class {
+    addEventListener() {}
+    close() {}
+    postMessage() {}
+    removeEventListener() {}
+  });
+  const view = renderHook(() => useAuthSession());
+  const requestSignal = authenticatedRequestSignal();
+  let accepted = true;
+
+  act(() => {
+    accepted = view.result.current.applyLiveSession({
+      accessToken: 'user-b-token',
+      user: {
+        id: 'user-b',
+        email: 'user-b@example.com',
+        fullName: 'User B',
+        role: 'student',
+      },
+    });
+  });
+
+  assert.equal(accepted, true);
+  assert.equal(view.result.current.liveUser?.id, 'user-b');
+  assert.equal(view.result.current.tokenRef.current, 'user-b-token');
+  assert.equal(storedAdmin, null);
+  assert.equal(requestSignal.aborted, true);
+});
