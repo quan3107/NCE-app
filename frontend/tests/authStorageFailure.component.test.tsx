@@ -138,6 +138,41 @@ test("server logout still runs when cleared-session persistence fails", async ()
   assert.equal(view.result.current.isAuthenticated, false);
 });
 
+test("logout rejects when coordination prevents server revocation", async () => {
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: undefined,
+  });
+  const fetchSpy = vi.fn();
+  vi.stubGlobal("fetch", fetchSpy);
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const view = renderHook(() => useAuth(), { wrapper });
+
+  await expect(view.result.current.logout()).rejects.toMatchObject({
+    name: "AuthCoordinationUnavailableError",
+  });
+  assert.equal(fetchSpy.mock.calls.length, 0);
+  assert.equal(view.result.current.isAuthenticated, false);
+});
+
+test("logout rejects when the revocation request fails", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    throw new TypeError("Network unavailable");
+  }));
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const view = renderHook(() => useAuth(), { wrapper });
+
+  await expect(view.result.current.logout()).rejects.toMatchObject({
+    name: "ApiError",
+    status: 0,
+  });
+  assert.equal(view.result.current.isAuthenticated, false);
+});
+
 test("an owned OAuth lease can be released on a terminal cancellation", async () => {
   const operations = createAuthCookieOperations();
   await operations.runOAuthStart(async () => "started");
