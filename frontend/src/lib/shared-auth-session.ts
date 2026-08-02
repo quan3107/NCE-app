@@ -119,12 +119,12 @@ export function persistSharedAuthSnapshot(
     !committed && fallbackStorage
       ? storageSet(fallbackStorage, STORAGE_KEYS.currentUser, serialized)
       : false;
-  if (!committed && !fallbackCommitted) {
-    return { status: 'unavailable', snapshot: shared };
-  }
   if (advanceEpoch) {
     abortAuthenticatedRequests();
     sharedChannel()?.postMessage(shared);
+  }
+  if (!committed && !fallbackCommitted) {
+    return { status: 'unavailable', snapshot: shared };
   }
   return {
     status: committed ? 'committed' : 'fallback',
