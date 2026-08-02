@@ -4,7 +4,13 @@
  * Why: Every tab must stop using bearer state as soon as identity or authority changes.
  */
 
-import { localStorageOrNull, storageGet, storageSet } from './browser-storage';
+import {
+  localStorageOrNull,
+  sessionStorageOrNull,
+  storageGet,
+  storageRemove,
+  storageSet,
+} from './browser-storage';
 import { STORAGE_KEYS } from './constants';
 import type { LiveUser, PersistSnapshot } from './auth-types';
 
@@ -14,6 +20,8 @@ export type SharedAuthSnapshot = PersistSnapshot & {
 
 export type SharedAuthPersistResult =
   | { status: 'committed'; snapshot: SharedAuthSnapshot }
+  | { status: 'fallback'; snapshot: SharedAuthSnapshot }
+  | { status: 'unavailable'; snapshot: SharedAuthSnapshot }
   | { status: 'stale'; snapshot: SharedAuthSnapshot };
 
 const CHANNEL_NAME = 'nce-auth-session';
@@ -67,12 +75,20 @@ function abortAuthenticatedRequests(): void {
 }
 
 export function loadSharedAuthSnapshot(): SharedAuthSnapshot {
-  const storage = localStorageOrNull();
-  return (
-    parseSnapshot(
-      storage ? storageGet(storage, STORAGE_KEYS.currentUser) : null,
-    ) ?? { sessionEpoch: 0, token: null, liveUser: null }
+  const sharedStorage = localStorageOrNull();
+  const fallbackStorage = sessionStorageOrNull();
+  const shared = parseSnapshot(
+    sharedStorage ? storageGet(sharedStorage, STORAGE_KEYS.currentUser) : null,
   );
+  const fallback = parseSnapshot(
+    fallbackStorage
+      ? storageGet(fallbackStorage, STORAGE_KEYS.currentUser)
+      : null,
+  );
+  if (fallback && (!shared || fallback.sessionEpoch >= shared.sessionEpoch)) {
+    return fallback;
+  }
+  return shared ?? { sessionEpoch: 0, token: null, liveUser: null };
 }
 
 export function persistSharedAuthSnapshot(
@@ -80,10 +96,9 @@ export function persistSharedAuthSnapshot(
   currentEpoch: number,
   advanceEpoch: boolean,
 ): SharedAuthPersistResult {
-  const storage = localStorageOrNull();
-  const storedSnapshot = storage
-    ? parseSnapshot(storageGet(storage, STORAGE_KEYS.currentUser))
-    : null;
+  const sharedStorage = localStorageOrNull();
+  const fallbackStorage = sessionStorageOrNull();
+  const storedSnapshot = loadSharedAuthSnapshot();
   const storedEpoch = storedSnapshot?.sessionEpoch ?? 0;
   const sessionEpoch = advanceEpoch
     ? Math.max(currentEpoch, storedEpoch, Date.now()) + 1
@@ -93,14 +108,28 @@ export function persistSharedAuthSnapshot(
     return { status: 'stale', snapshot: storedSnapshot };
   }
   const shared = { ...snapshot, sessionEpoch } satisfies SharedAuthSnapshot;
-  if (storage) {
-    storageSet(storage, STORAGE_KEYS.currentUser, JSON.stringify(shared));
+  const serialized = JSON.stringify(shared);
+  const committed = sharedStorage
+    ? storageSet(sharedStorage, STORAGE_KEYS.currentUser, serialized)
+    : false;
+  if (committed && fallbackStorage) {
+    storageRemove(fallbackStorage, STORAGE_KEYS.currentUser);
+  }
+  const fallbackCommitted =
+    !committed && fallbackStorage
+      ? storageSet(fallbackStorage, STORAGE_KEYS.currentUser, serialized)
+      : false;
+  if (!committed && !fallbackCommitted) {
+    return { status: 'unavailable', snapshot: shared };
   }
   if (advanceEpoch) {
     abortAuthenticatedRequests();
     sharedChannel()?.postMessage(shared);
   }
-  return { status: 'committed', snapshot: shared };
+  return {
+    status: committed ? 'committed' : 'fallback',
+    snapshot: shared,
+  };
 }
 
 export function subscribeToSharedAuth(
