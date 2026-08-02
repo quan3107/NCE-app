@@ -27,6 +27,7 @@ export type AuthCookieOperations = {
   releaseOAuthLease: () => Promise<void>;
   hasOwnedOAuthLease: () => boolean;
   cancelRefreshes: () => void;
+  cancelOAuthCompletions: () => void;
 };
 
 type AuthCookieOperationOptions = {
@@ -38,6 +39,7 @@ const DEFAULT_OPERATION_TIMEOUT_MS = 10_000;
 const DEFAULT_REFRESH_TIMEOUT_MS = 10_000;
 let inRealmTail: Promise<void> = Promise.resolve();
 const inRealmRefreshControllers = new Set<AbortController>();
+const inRealmOAuthCompletionControllers = new Set<AbortController>();
 
 function abortError(): Error {
   const error = new Error('Authentication cookie operation was aborted.');
@@ -142,16 +144,26 @@ export function createAuthCookieOperations(
         } finally {
           await clearOwnedOAuthLease(signal);
         }
-      }, operationTimeoutMs, undefined, true);
+      }, operationTimeoutMs, inRealmOAuthCompletionControllers, true);
     },
     releaseOAuthLease() {
-      return clearOwnedOAuthLease();
+      return enqueue(
+        (signal) => clearOwnedOAuthLease(signal),
+        operationTimeoutMs,
+        undefined,
+        true,
+      );
     },
     hasOwnedOAuthLease() {
       return hasOwnedOAuthLease();
     },
     cancelRefreshes() {
       inRealmRefreshControllers.forEach((controller) => controller.abort());
+    },
+    cancelOAuthCompletions() {
+      inRealmOAuthCompletionControllers.forEach((controller) =>
+        controller.abort(),
+      );
     },
   };
 }
