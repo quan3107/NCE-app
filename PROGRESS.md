@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-02:** Matched portable display-name patterns exactly to runtime Unicode control validation and added exhaustive all-scalar contract parity coverage.
+
 - **2026-08-02:** Rejected blank upload MIME requests and malformed normalized allow-list rows, added a repair-and-constraint migration for persisted type data, made display-name OpenAPI patterns portable to default JavaScript regex consumers, and documented strict profile-update audits.
 
 - **2026-08-01:** Moved equal-value upload-limit CAS locking into the security-definer database function so the least-privilege runtime role needs no direct UPDATE grant.
@@ -126,6 +128,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-02:** Kept logout request fencing and cross-tab broadcasts active when both auth snapshot stores reject writes, with boundary and real-backend two-page regressions.
 
 - **2026-08-02:** Preserved reload restoration through a per-tab auth snapshot when shared `localStorage` writes fail, while reporting that fallback distinctly from a shared commit.
 
