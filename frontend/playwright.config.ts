@@ -48,7 +48,11 @@ const webServer = [
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['real-backend.spec.ts', 'real-backend-auth-ordering.spec.ts'],
+  testMatch: [
+    'real-backend.spec.ts',
+    'real-backend-auth-ordering.spec.ts',
+    'real-backend-auth-storage-failure.spec.ts',
+  ],
   timeout: 60_000,
   expect: {
     timeout: 10_000,
