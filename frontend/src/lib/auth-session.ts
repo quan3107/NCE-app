@@ -6,8 +6,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { queryClient } from './queryClient';
 import { setAuthenticatedQueryScope } from './authenticated-query-scope';
+import { useCommitLiveProfile } from './auth-profile-session';
 import {
   clearAuthenticatedQueries,
   synchronizeProfileCache,
@@ -15,11 +15,11 @@ import {
 import { loadInitialState, mapBackendUser } from './auth-state';
 import type {
   AuthSuccessResponse,
-  CurrentProfile,
   LiveUser,
   PersistSnapshot,
-  RefreshAccessTokenResult,
+  RefreshPromiseSlot,
   SessionIdentity,
+  SessionVersion,
 } from './auth-types';
 import {
   loadSharedAuthSnapshot,
@@ -28,24 +28,13 @@ import {
   type SharedAuthSnapshot,
 } from './shared-auth-session';
 
-type SessionVersion = {
-  generation: number;
-  sessionEpoch: number;
-  userRevision: number;
-  userId: string | null;
-};
-
-type RefreshPromiseSlot = {
-  generation: number;
-  promise: Promise<RefreshAccessTokenResult>;
-};
-
 export const useAuthSession = () => {
   const initial = useMemo(loadInitialState, []);
   const [liveUser, setLiveUser] = useState<LiveUser | null>(initial.liveUser);
   const liveUserRef = useRef<LiveUser | null>(initial.liveUser);
   const sessionGenerationRef = useRef(initial.liveUser ? 1 : 0);
   const sessionEpochRef = useRef(initial.sessionEpoch);
+  const profileRevisionRef = useRef(initial.profileRevision);
   const userRevisionRef = useRef(initial.liveUser ? 1 : 0);
   const profileCommitSequenceRef = useRef(new Map<string, number>());
   const tokenRef = useRef<string | null>(initial.token);
@@ -59,7 +48,21 @@ export const useAuthSession = () => {
   });
 
   const consumeSharedSession = useCallback((snapshot: SharedAuthSnapshot) => {
+    const isProfileRevision =
+      snapshot.sessionEpoch === sessionEpochRef.current &&
+      snapshot.profileRevision > profileRevisionRef.current &&
+      snapshot.liveUser?.id === liveUserRef.current?.id &&
+      snapshot.liveUser?.role === liveUserRef.current?.role;
     sessionEpochRef.current = snapshot.sessionEpoch;
+    profileRevisionRef.current = snapshot.profileRevision;
+    if (isProfileRevision && snapshot.liveUser) {
+      userRevisionRef.current += 1;
+      tokenRef.current = snapshot.token;
+      liveUserRef.current = snapshot.liveUser;
+      setLiveUser(snapshot.liveUser);
+      synchronizeProfileCache(snapshot.liveUser);
+      return;
+    }
     sessionGenerationRef.current += 1;
     userRevisionRef.current += 1;
     tokenRef.current = snapshot.token;
@@ -81,6 +84,8 @@ export const useAuthSession = () => {
         sessionEpochRef.current,
         advanceEpoch,
         { token: tokenRef.current, liveUser: liveUserRef.current },
+        profileRevisionRef.current,
+        false,
       );
       if (
         result.status !== 'committed' &&
@@ -91,6 +96,28 @@ export const useAuthSession = () => {
         return false;
       }
       sessionEpochRef.current = result.snapshot.sessionEpoch;
+      profileRevisionRef.current = result.snapshot.profileRevision;
+      return true;
+    },
+    [consumeSharedSession],
+  );
+
+  const persistProfileState = useCallback(
+    (snapshot: PersistSnapshot) => {
+      const result = persistSharedAuthSnapshot(
+        snapshot,
+        sessionEpochRef.current,
+        false,
+        { token: tokenRef.current, liveUser: liveUserRef.current },
+        profileRevisionRef.current,
+        true,
+      );
+      if (result.status === 'stale') {
+        consumeSharedSession(result.snapshot);
+        return false;
+      }
+      sessionEpochRef.current = result.snapshot.sessionEpoch;
+      profileRevisionRef.current = result.snapshot.profileRevision;
       return true;
     },
     [consumeSharedSession],
@@ -130,7 +157,11 @@ export const useAuthSession = () => {
 
   const getAdmissionSessionVersion = useCallback((): SessionVersion => {
     const shared = loadSharedAuthSnapshot();
-    if (shared.sessionEpoch > sessionEpochRef.current) {
+    if (
+      shared.sessionEpoch > sessionEpochRef.current ||
+      (shared.sessionEpoch === sessionEpochRef.current &&
+        shared.profileRevision > profileRevisionRef.current)
+    ) {
       consumeSharedSession(shared);
     }
     return {
@@ -210,7 +241,7 @@ export const useAuthSession = () => {
       }
 
       const nextUser = { ...current, ...updates };
-      if (!persistState({ token: tokenRef.current, liveUser: nextUser })) {
+      if (!persistProfileState({ token: tokenRef.current, liveUser: nextUser })) {
         return false;
       }
       userRevisionRef.current += 1;
@@ -218,72 +249,27 @@ export const useAuthSession = () => {
       setLiveUser(nextUser);
       return true;
     },
-    [persistState],
+    [persistProfileState],
   );
 
-  const commitLiveProfile = useCallback(
-    async (
-      expected: SessionIdentity,
-      profile: CurrentProfile,
-    ): Promise<boolean> => {
-      const currentAtStart = liveUserRef.current;
-      if (
-        !currentAtStart ||
-        currentAtStart.id !== expected.userId ||
-        profile.id !== expected.userId ||
-        sessionGenerationRef.current !== expected.generation
-      ) {
-        return false;
-      }
-      if (profile.role !== currentAtStart.role || profile.status !== 'active') {
-        clearSession();
-        return false;
-      }
-
-      const sequenceKey = `${expected.generation}:${expected.userId}`;
-      const commitSequence =
-        (profileCommitSequenceRef.current.get(sequenceKey) ?? 0) + 1;
-      profileCommitSequenceRef.current.set(sequenceKey, commitSequence);
-      const queryKey = ['identity', expected.userId, 'profile'] as const;
-      await queryClient.cancelQueries({ queryKey, exact: true });
-
-      const current = liveUserRef.current;
-      if (
-        commitSequence !== profileCommitSequenceRef.current.get(sequenceKey) ||
-        !current ||
-        current.id !== expected.userId ||
-        profile.id !== expected.userId ||
-        sessionGenerationRef.current !== expected.generation
-      ) {
-        return false;
-      }
-
-      const nextUser = {
-        ...current,
-        name: profile.fullName,
-        email: profile.email,
-        role: profile.role,
-      };
-      const identityChanged =
-        nextUser.name !== current.name ||
-        nextUser.email !== current.email ||
-        nextUser.role !== current.role;
-      if (!persistState({ token: tokenRef.current, liveUser: nextUser })) {
-        return false;
-      }
-      queryClient.setQueryData(queryKey, profile);
-      if (identityChanged) {
-        userRevisionRef.current += 1;
-        liveUserRef.current = nextUser;
-        setLiveUser(nextUser);
-      }
-      return true;
-    },
-    [clearSession, persistState],
-  );
+  const commitLiveProfile = useCommitLiveProfile({
+    clearSession,
+    liveUserRef,
+    persistProfileState,
+    profileCommitSequenceRef,
+    sessionGenerationRef,
+    setLiveUser,
+    tokenRef,
+    userRevisionRef,
+  });
 
   useEffect(
-    () => subscribeToSharedAuth(sessionEpochRef.current, consumeSharedSession),
+    () =>
+      subscribeToSharedAuth(
+        sessionEpochRef.current,
+        consumeSharedSession,
+        profileRevisionRef.current,
+      ),
     [consumeSharedSession],
   );
 
