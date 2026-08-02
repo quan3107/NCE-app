@@ -27,7 +27,7 @@ afterEach(() => {
   }
 });
 
-test("unavailable logout persistence still aborts and broadcasts", async () => {
+test("unavailable persistence publishes only reducing transitions", async () => {
   const rejectedStorage = {
     getItem: () => null,
     removeItem: () => undefined,
@@ -55,15 +55,64 @@ test("unavailable logout persistence still aborts and broadcasts", async () => {
   vi.stubGlobal("BroadcastChannel", TestBroadcastChannel);
   const { authenticatedRequestSignal, persistSharedAuthSnapshot } =
     await import("../src/lib/shared-auth-session");
-  const requestSignal = authenticatedRequestSignal();
+  const loginSignal = authenticatedRequestSignal();
 
-  const result = persistSharedAuthSnapshot(
+  const loginResult = persistSharedAuthSnapshot(
+    {
+      token: "login-token",
+      liveUser: {
+        id: "user-a",
+        name: "User A",
+        email: "user-a@example.com",
+        role: "student",
+      },
+    },
+    0,
+    true,
+    { token: null, liveUser: null },
+  );
+
+  assert.equal(loginResult.status, "unavailable");
+  assert.equal(loginSignal.aborted, false);
+  assert.deepEqual(posted, []);
+
+  const logoutResult = persistSharedAuthSnapshot(
     { token: null, liveUser: null },
     7,
     true,
+    { token: null, liveUser: null },
   );
 
-  assert.equal(result.status, "unavailable");
-  assert.equal(requestSignal.aborted, true);
-  assert.deepEqual(posted, [result.snapshot]);
+  assert.equal(logoutResult.status, "unavailable");
+  assert.equal(loginSignal.aborted, true);
+  assert.deepEqual(posted, [logoutResult.snapshot]);
+
+  const previousAdmin = {
+    token: "admin-token",
+    liveUser: {
+      id: "user-a",
+      name: "User A",
+      email: "user-a@example.com",
+      role: "admin",
+    },
+  } as const;
+  const downgradeSignal = authenticatedRequestSignal();
+  const downgradeResult = persistSharedAuthSnapshot(
+    {
+      token: "student-token",
+      liveUser: {
+        id: "user-a",
+        name: "User A",
+        email: "user-a@example.com",
+        role: "student",
+      },
+    },
+    20,
+    true,
+    previousAdmin,
+  );
+
+  assert.equal(downgradeResult.status, "unavailable");
+  assert.equal(downgradeSignal.aborted, true);
+  assert.deepEqual(posted, [logoutResult.snapshot, downgradeResult.snapshot]);
 });
