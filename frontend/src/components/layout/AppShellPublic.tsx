@@ -6,6 +6,7 @@
 
 import type { ReactNode } from 'react';
 import { GraduationCap, LayoutDashboard, LogOut, User } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import {
@@ -92,7 +93,12 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
   const profilePath = resolveProfilePath(currentUser.role);
 
   const handleLogout = () => {
-    void logout();
+    void logout().catch(() => {
+      toast.error('Server logout could not be confirmed.', {
+        description: 'Retry to prevent the session from being restored.',
+        action: { label: 'Retry', onClick: handleLogout },
+      });
+    });
     navigate('/');
   };
 
