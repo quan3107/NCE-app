@@ -161,6 +161,9 @@ test('normalized name inputs and course-tab filtering are documented', async () 
   )?.[1];
   assert.ok(normalizedPattern, 'normalized input must define a pattern');
   const acceptsNormalizedInput = new RegExp(normalizedPattern);
+  for (const suffix of ['\t', '\n', '\uFEFF']) {
+    assert.match(`Ada Lovelace${suffix}`, acceptsNormalizedInput);
+  }
   assert.match('  Ada 😀  ', acceptsNormalizedInput);
   assert.doesNotMatch(' A ', acceptsNormalizedInput);
   assert.doesNotMatch(` Ada\u202eLovelace `, acceptsNormalizedInput);
