@@ -69,3 +69,16 @@ test("OAuth completion failure releases the owned lease", async () => {
     assert.equal(authState.cancelGoogleLogin.mock.calls.length, 1),
   );
 });
+
+test("leaving the OAuth callback cancels unfinished completion", async () => {
+  authState.completeGoogleLogin.mockReturnValueOnce(new Promise(() => undefined));
+  window.history.replaceState({}, "", "/auth/oauth");
+  const view = render(<OAuthRoute />);
+  await waitFor(() =>
+    assert.equal(authState.completeGoogleLogin.mock.calls.length, 1),
+  );
+
+  view.unmount();
+
+  assert.equal(authState.cancelGoogleLogin.mock.calls.length, 1);
+});
