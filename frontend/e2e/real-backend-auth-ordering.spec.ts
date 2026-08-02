@@ -214,3 +214,60 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
     await context.close();
   }
 });
+
+test('logout fences the other tab when both storage writes fail', async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const pageA = await context.newPage();
+  const pageB = await context.newPage();
+
+  try {
+    await Promise.all([pageA.goto('/login'), pageB.goto('/login')]);
+    await fillLogin(pageA, student);
+    await pageA.getByRole('button', { name: 'Sign In' }).click();
+    await expect(pageA).toHaveURL(new RegExp(`${student.landingPath}$`));
+    await expect
+      .poll(() =>
+        pageB.evaluate(() =>
+          JSON.parse(localStorage.getItem('currentUser') ?? '{}').liveUser?.email,
+        ),
+      )
+      .toBe(student.email);
+
+    await pageB.evaluate(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException('Storage write denied', 'QuotaExceededError');
+      };
+    });
+    const logoutResponse = pageB.waitForResponse(
+      (response) => response.url() === `${apiBaseURL}/auth/logout`,
+    );
+    await openLogout(pageB);
+
+    expect((await logoutResponse).status()).toBe(204);
+    await expect
+      .poll(() =>
+        pageA.evaluate(async () => {
+          const { authBridge } = await import('/src/lib/authBridge.ts');
+          return authBridge.getAccessToken();
+        }),
+      )
+      .toBeNull();
+    const profileStatus = await pageA.evaluate(async () => {
+      const { apiClient } = await import('/src/lib/apiClient.ts');
+      try {
+        await apiClient('/me');
+        return 200;
+      } catch (error) {
+        return error instanceof Error && 'status' in error
+          ? Number(error.status)
+          : -1;
+      }
+    });
+    expect(profileStatus).toBe(401);
+  } finally {
+    await context.request.post(`${apiBaseURL}/auth/logout`, { data: {} });
+    await context.close();
+  }
+});
