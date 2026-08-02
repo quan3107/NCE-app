@@ -86,6 +86,7 @@ test('an unavailable role downgrade replaces the initiating bearer before return
   assert.deepEqual(posted, [
     {
       sessionEpoch: posted[0]?.sessionEpoch,
+      profileRevision: 0,
       token: 'student-token',
       liveUser: {
         id: 'same-user',
