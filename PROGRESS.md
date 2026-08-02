@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-02:** Preserved valid upload-type winners during canonical duplicate repair, aligned normalized display-name OpenAPI inputs with runtime trimming, and enforced audit registry/document inventory parity including strict upload-limit settings events.
+
 - **2026-08-02:** No backend files changed while making unavailable-storage authority reductions locally authoritative and removing superseded stronger browser snapshots.
 
 - **2026-08-02:** No backend files changed while separating rejected live-session publication from unavailable-storage logout and role-reduction fencing.
@@ -132,6 +134,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-02:** Retired prior actors on unpersistable account switches, surfaced retryable server-logout failures, required authoritative profile baselines for editing, and made OAuth completion and abandoned-lease cleanup lifecycle-cancellable and deadline-bounded.
 
 - **2026-08-02:** Applied volatile same-user role reductions to the initiating session as well as peers, aborted older bearer work, and removed persisted higher-authority snapshots when replacement writes fail.
 
