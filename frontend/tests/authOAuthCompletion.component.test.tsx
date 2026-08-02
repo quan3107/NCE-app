@@ -95,7 +95,7 @@ test("OAuth completion replaces the initiating account and clears its lease", as
   assert.equal(await readIndexedDbAuthLease("oauth-reservation"), null);
 });
 
-test("leaving the callback cancels an unfinished OAuth completion", async () => {
+test("cancelling Google login aborts an unfinished OAuth completion", async () => {
   const expiresAt = Date.now() + 60_000;
   window.sessionStorage.setItem(
     "nce:auth-cookie-oauth-owner",
