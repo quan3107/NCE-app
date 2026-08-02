@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-02:** Removed a redundant raw-token duplicate from the upload-policy migration fixture so the live database regression reaches canonical valid-winner repair without failing the preexisting unique constraint.
+
 - **2026-08-02:** Preserved valid upload-type winners during canonical duplicate repair, aligned normalized display-name OpenAPI inputs with runtime trimming, and enforced audit registry/document inventory parity including strict upload-limit settings events.
 
 - **2026-08-02:** No backend files changed while making unavailable-storage authority reductions locally authoritative and removing superseded stronger browser snapshots.
@@ -134,6 +136,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-02:** Cancelled unfinished OAuth completion from the callback route's actual unmount lifecycle and added a route-departure regression alongside the lower-level cancellation check.
 
 - **2026-08-02:** Retired prior actors on unpersistable account switches, surfaced retryable server-logout failures, required authoritative profile baselines for editing, and made OAuth completion and abandoned-lease cleanup lifecycle-cancellable and deadline-bounded.
 
