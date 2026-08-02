@@ -70,7 +70,7 @@ describe("profile OpenAPI contract", () => {
     const documentedPattern =
       canonicalDisplayName.match(/pattern: '([^']+)'/)?.[1];
     expect(documentedPattern).toBeDefined();
-    const fullNamePattern = new RegExp(documentedPattern ?? "", "u");
+    const fullNamePattern = new RegExp(documentedPattern ?? "");
     expect(fullNamePattern.test("Ada ðŸ˜€ Lovelace")).toBe(true);
     expect(fullNamePattern.test("Ada\u0000Lovelace")).toBe(false);
     expect(fullNamePattern.test("Ada\uD800Lovelace")).toBe(false);
