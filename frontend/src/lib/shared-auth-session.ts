@@ -16,6 +16,7 @@ import type { LiveUser, PersistSnapshot } from './auth-types';
 
 export type SharedAuthSnapshot = PersistSnapshot & {
   sessionEpoch: number;
+  profileRevision: number;
 };
 
 export type SharedAuthPersistResult =
@@ -59,12 +60,23 @@ function normalizeSnapshot(value: unknown): SharedAuthSnapshot | null {
     parsed.sessionEpoch >= 0
       ? parsed.sessionEpoch
       : 0;
+  const profileRevision =
+    typeof parsed.profileRevision === 'number' &&
+    Number.isSafeInteger(parsed.profileRevision) &&
+    parsed.profileRevision >= 0
+      ? parsed.profileRevision
+      : 0;
   const liveUser = parsed.liveUser ?? null;
   const token =
     liveUser && typeof parsed.token === 'string' && parsed.token.length > 0
       ? parsed.token
       : null;
-  return { sessionEpoch, token, liveUser: liveUser as LiveUser | null };
+  return {
+    sessionEpoch,
+    profileRevision,
+    token,
+    liveUser: liveUser as LiveUser | null,
+  };
 }
 
 function parseSnapshot(raw: string | null): SharedAuthSnapshot | null {
@@ -105,10 +117,21 @@ export function loadSharedAuthSnapshot(): SharedAuthSnapshot {
       ? storageGet(fallbackStorage, STORAGE_KEYS.currentUser)
       : null,
   );
-  if (fallback && (!shared || fallback.sessionEpoch >= shared.sessionEpoch)) {
+  if (
+    fallback &&
+    (!shared ||
+      fallback.sessionEpoch > shared.sessionEpoch ||
+      (fallback.sessionEpoch === shared.sessionEpoch &&
+        fallback.profileRevision >= shared.profileRevision))
+  ) {
     return fallback;
   }
-  return shared ?? { sessionEpoch: 0, token: null, liveUser: null };
+  return shared ?? {
+    sessionEpoch: 0,
+    profileRevision: 0,
+    token: null,
+    liveUser: null,
+  };
 }
 
 export function persistSharedAuthSnapshot(
@@ -116,6 +139,8 @@ export function persistSharedAuthSnapshot(
   currentEpoch: number,
   advanceEpoch: boolean,
   previousSnapshot?: PersistSnapshot,
+  currentProfileRevision = 0,
+  advanceProfileRevision = false,
 ): SharedAuthPersistResult {
   const sharedStorage = localStorageOrNull();
   const fallbackStorage = sessionStorageOrNull();
@@ -124,11 +149,26 @@ export function persistSharedAuthSnapshot(
   const sessionEpoch = advanceEpoch
     ? Math.max(currentEpoch, storedEpoch, Date.now()) + 1
     : currentEpoch;
-  if (!advanceEpoch && storedSnapshot && storedEpoch > currentEpoch) {
+  if (
+    !advanceEpoch &&
+    (storedEpoch > currentEpoch ||
+      (!advanceProfileRevision &&
+        storedEpoch === currentEpoch &&
+        storedSnapshot.profileRevision > currentProfileRevision))
+  ) {
     // A late same-session refresh must not overwrite a newer tab transition.
     return { status: 'stale', snapshot: storedSnapshot };
   }
-  const shared = { ...snapshot, sessionEpoch } satisfies SharedAuthSnapshot;
+  const profileRevision = advanceEpoch
+    ? 0
+    : advanceProfileRevision
+      ? Math.max(currentProfileRevision, storedSnapshot.profileRevision) + 1
+      : currentProfileRevision;
+  const shared = {
+    ...snapshot,
+    sessionEpoch,
+    profileRevision,
+  } satisfies SharedAuthSnapshot;
   const serialized = JSON.stringify(shared);
   const committed = sharedStorage
     ? storageSet(sharedStorage, STORAGE_KEYS.currentUser, serialized)
@@ -149,8 +189,11 @@ export function persistSharedAuthSnapshot(
     if (sharedStorage) storageRemove(sharedStorage, STORAGE_KEYS.currentUser);
     if (fallbackStorage) storageRemove(fallbackStorage, STORAGE_KEYS.currentUser);
   }
-  if (advanceEpoch && (!unavailable || authorityReduced)) {
-    abortAuthenticatedRequests();
+  if (
+    (advanceEpoch && (!unavailable || authorityReduced)) ||
+    advanceProfileRevision
+  ) {
+    if (advanceEpoch) abortAuthenticatedRequests();
     sharedChannel()?.postMessage(shared);
   }
   if (unavailable) {
@@ -167,16 +210,25 @@ export function persistSharedAuthSnapshot(
 
 export function subscribeToSharedAuth(
   initialEpoch: number,
-  consume: (snapshot: SharedAuthSnapshot) => void,
+  consume: (snapshot: SharedAuthSnapshot, sessionChanged: boolean) => void,
+  initialProfileRevision = 0,
 ): () => void {
   let observedEpoch = initialEpoch;
+  let observedProfileRevision = initialProfileRevision;
   const accept = (candidate: SharedAuthSnapshot | null) => {
-    if (!candidate || candidate.sessionEpoch <= observedEpoch) {
+    if (
+      !candidate ||
+      candidate.sessionEpoch < observedEpoch ||
+      (candidate.sessionEpoch === observedEpoch &&
+        candidate.profileRevision <= observedProfileRevision)
+    ) {
       return;
     }
+    const sessionChanged = candidate.sessionEpoch > observedEpoch;
     observedEpoch = candidate.sessionEpoch;
-    abortAuthenticatedRequests();
-    consume(candidate);
+    observedProfileRevision = candidate.profileRevision;
+    if (sessionChanged) abortAuthenticatedRequests();
+    consume(candidate, sessionChanged);
   };
   const onStorage = (event: StorageEvent) => {
     if (event.key === STORAGE_KEYS.currentUser) {
