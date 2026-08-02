@@ -8,6 +8,8 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { displayNameSchema } from "../../../src/utils/displayNameValidation.js";
+
 const meSchema = readFileSync(
   resolve(process.cwd(), "../docs/openapi/schemas/me.yaml"),
   "utf8",
@@ -87,5 +89,28 @@ describe("profile OpenAPI contract", () => {
     expect(path).toMatch(
       /get:[\s\S]*'403':[\s\S]*patch:[\s\S]*'403':/,
     );
+  });
+
+  it("matches runtime validation for every Unicode scalar", () => {
+    const canonicalDisplayName =
+      commonSchema.match(
+        /^CanonicalDisplayName:[\s\S]*?(?=^[A-Za-z][A-Za-z0-9]*:)/m,
+      )?.[0] ?? "";
+    const documentedPattern =
+      canonicalDisplayName.match(/pattern: '([^']+)'/)?.[1] ?? "";
+    const contractPattern = new RegExp(documentedPattern);
+    const mismatches: string[] = [];
+
+    for (let codePoint = 0; codePoint <= 0x10ffff; codePoint += 1) {
+      if (codePoint >= 0xd800 && codePoint <= 0xdfff) continue;
+      const candidate = `A${String.fromCodePoint(codePoint)}A`;
+      const runtimeAccepts = displayNameSchema.safeParse(candidate).success;
+      const contractAccepts = contractPattern.test(candidate);
+      if (runtimeAccepts !== contractAccepts) {
+        mismatches.push(`U+${codePoint.toString(16).toUpperCase()}`);
+      }
+    }
+
+    expect(mismatches).toEqual([]);
   });
 });
