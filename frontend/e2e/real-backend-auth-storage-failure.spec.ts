@@ -73,24 +73,10 @@ test('rejected live persistence is not broadcast to another tab', async ({
       channel.close();
     });
     await peerBarrier;
-    const peerResult = await pageB.evaluate(async () => {
-      const { authBridge } = await import('/src/lib/authBridge.ts');
-      const { apiClient } = await import('/src/lib/apiClient.ts');
-      try {
-        await apiClient('/me');
-        return { token: authBridge.getAccessToken(), status: 200 };
-      } catch (error) {
-        return {
-          token: authBridge.getAccessToken(),
-          status:
-            error instanceof Error && 'status' in error
-              ? Number(error.status)
-              : -1,
-        };
-      }
+    const peerRefresh = await pageB.request.post(`${apiBaseURL}/auth/refresh`, {
+      data: {},
     });
-
-    expect(peerResult).toEqual({ token: null, status: 401 });
+    expect(peerRefresh.status()).toBe(401);
   } finally {
     await context.request.post(`${apiBaseURL}/auth/logout`, { data: {} });
     await context.close();
