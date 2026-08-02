@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-02:** No backend files changed while making unavailable-storage authority reductions locally authoritative and removing superseded stronger browser snapshots.
+
 - **2026-08-02:** No backend files changed while separating rejected live-session publication from unavailable-storage logout and role-reduction fencing.
 
 - **2026-08-02:** Matched portable display-name patterns exactly to runtime Unicode control validation and added exhaustive all-scalar contract parity coverage.
@@ -130,6 +132,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-02:** Applied volatile same-user role reductions to the initiating session as well as peers, aborted older bearer work, and removed persisted higher-authority snapshots when replacement writes fail.
 
 - **2026-08-02:** Stopped unavailable-storage live logins from broadcasting sessions their initiating tab rejects, while retaining cross-tab fencing for logout and same-identity role downgrades.
 
