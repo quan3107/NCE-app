@@ -30,14 +30,14 @@ import {
 
 export const useAuthSession = () => {
   const initial = useMemo(loadInitialState, []);
-  const [liveUser, setLiveUser] = useState<LiveUser | null>(initial.liveUser);
-  const liveUserRef = useRef<LiveUser | null>(initial.liveUser);
-  const sessionGenerationRef = useRef(initial.liveUser ? 1 : 0);
+  const [liveUser, setLiveUser] = useState<LiveUser | null>(null);
+  const liveUserRef = useRef<LiveUser | null>(null);
+  const sessionGenerationRef = useRef(0);
   const sessionEpochRef = useRef(initial.sessionEpoch);
   const profileRevisionRef = useRef(initial.profileRevision);
-  const userRevisionRef = useRef(initial.liveUser ? 1 : 0);
+  const userRevisionRef = useRef(0);
   const profileCommitSequenceRef = useRef(new Map<string, number>());
-  const tokenRef = useRef<string | null>(initial.token);
+  const tokenRef = useRef<string | null>(null);
   const refreshPromiseRef = useRef<RefreshPromiseSlot | null>(null);
   const shouldRefreshOnMountRef = useRef(
     Boolean(initial.token || initial.liveUser),
@@ -196,6 +196,8 @@ export const useAuthSession = () => {
           : nextUser;
       const replacesAuthorization =
         replacesIdentity || previousUser?.role !== resolvedNextUser.role;
+      const epochBeforePersist = sessionEpochRef.current;
+      const profileRevisionBeforePersist = profileRevisionRef.current;
 
       if (
         !persistState(
@@ -203,6 +205,13 @@ export const useAuthSession = () => {
           replacesAuthorization,
         )
       ) {
+        if (
+          replacesAuthorization &&
+          sessionEpochRef.current === epochBeforePersist &&
+          profileRevisionRef.current === profileRevisionBeforePersist
+        ) {
+          clearSession();
+        }
         return false;
       }
 
@@ -223,7 +232,7 @@ export const useAuthSession = () => {
       setLiveUser(resolvedNextUser);
       return true;
     },
-    [persistState],
+    [clearSession, persistState],
   );
 
   const updateLiveUser = useCallback(
