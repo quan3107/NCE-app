@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-03:** No backend files changed while compensating rejected browser auth persistence and replacing client-ordered profile propagation with authoritative refetches.
+
 - **2026-08-02:** Added a follow-up upload-policy migration that validates extension arrays by dimension, nullability, and individual canonical tokens, with live PostgreSQL regressions for comma-packed, null, and multidimensional inputs.
 
 - **2026-08-02:** Removed a redundant raw-token duplicate from the upload-policy migration fixture so the live database regression reaches canonical valid-winner repair without failing the preexisting unique constraint.
@@ -138,6 +140,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-03:** Revoked refresh cookies with fresh cleanup deadlines after rejected login, registration, refresh, or OAuth persistence, and replaced client-ordered profile response broadcasts with cross-tab invalidation plus guarded authoritative `/me` refetches.
 
 - **2026-08-02:** Revoked cookies from rejected live logins, fenced failed refreshes against complete stored session versions, propagated same-session profile revisions despite storage failure, and made the live backend gates verify cookie revocation plus bearer-authenticated profile identity.
 
