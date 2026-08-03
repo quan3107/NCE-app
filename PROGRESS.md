@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-03:** No backend files changed while making profile invalidation dual-publish across BroadcastChannel and localStorage with deduplicated peer consumption.
+
 - **2026-08-03:** No backend files changed while disabling automatic browser launches for frontend development servers.
 
 - **2026-08-03:** No backend files changed while compensating rejected browser auth persistence and replacing client-ordered profile propagation with authoritative refetches.
@@ -142,6 +144,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-03:** Published every profile invalidation through BroadcastChannel and localStorage, deduplicating shared publication IDs so mixed-capability peer tabs refetch exactly once.
 
 - **2026-08-03:** Disabled Vite's automatic browser launch so repeated development-server starts remain in the terminal without stealing focus.
 
