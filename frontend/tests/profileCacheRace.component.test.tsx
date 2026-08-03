@@ -18,6 +18,7 @@ import { queryClient } from "../src/lib/queryClient";
 
 const saveProfile = vi.hoisted(() => vi.fn());
 const commitCurrentProfile = vi.hoisted(() => vi.fn());
+const refreshCurrentProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("@store/authStore", () => ({
   useAuthStore: () => ({
@@ -29,6 +30,7 @@ vi.mock("@store/authStore", () => ({
     },
     sessionGeneration: 1,
     commitCurrentProfile,
+    refreshCurrentProfile,
   }),
 }));
 
@@ -66,6 +68,11 @@ beforeEach(() => {
     fullName: "Saved Name",
     role: "student",
     status: "active",
+  });
+  refreshCurrentProfile.mockImplementation(async (expected) => {
+    const profile = await saveProfile.mock.results.at(-1)?.value;
+    await commitCurrentProfile(expected, profile);
+    return profile;
   });
 });
 
