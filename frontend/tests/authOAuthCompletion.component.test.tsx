@@ -128,6 +128,10 @@ test("cancelling Google login aborts an unfinished OAuth completion", async () =
   await assert.rejects(completion);
   await waitFor(async () => {
     assert.equal(await readIndexedDbAuthLease("oauth-reservation"), null);
+    assert.equal(
+      window.sessionStorage.getItem("nce:auth-cookie-oauth-owner"),
+      null,
+    );
   });
   assert.equal(view.result.current.isAuthenticated, false);
 });
