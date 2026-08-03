@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-03:** No backend files changed while namespacing fallback profile publication IDs with stable per-tab entropy.
+
 - **2026-08-03:** No backend files changed while making profile invalidation dual-publish across BroadcastChannel and localStorage with deduplicated peer consumption.
 
 - **2026-08-03:** No backend files changed while disabling automatic browser launches for frontend development servers.
@@ -144,6 +146,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-03:** Namespaced fallback profile invalidation IDs with a stable random publisher identity per tab, preventing cross-tab deduplication collisions when `randomUUID` is unavailable.
 
 - **2026-08-03:** Published every profile invalidation through BroadcastChannel and localStorage, deduplicating shared publication IDs so mixed-capability peer tabs refetch exactly once.
 
