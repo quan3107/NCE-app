@@ -94,11 +94,30 @@ function sharedChannel(): BroadcastChannel | null {
   if (channel !== undefined) {
     return channel;
   }
-  channel =
-    typeof BroadcastChannel === 'undefined'
-      ? null
-      : new BroadcastChannel(CHANNEL_NAME);
+  try {
+    channel =
+      typeof BroadcastChannel === 'undefined'
+        ? null
+        : new BroadcastChannel(CHANNEL_NAME);
+  } catch {
+    channel = null;
+  }
   return channel;
+}
+
+function publishSharedSnapshot(snapshot: SharedAuthSnapshot): void {
+  const activeChannel = sharedChannel();
+  if (!activeChannel) return;
+  try {
+    activeChannel.postMessage(snapshot);
+  } catch {
+    try {
+      activeChannel.close();
+    } catch {
+      // The failed optional transport may already be closed.
+    }
+    channel = null;
+  }
 }
 
 function abortAuthenticatedRequests(): void {
@@ -184,21 +203,30 @@ export function persistSharedAuthSnapshot(
   const authorityReduced =
     advanceEpoch &&
     reducesAuthority(previousSnapshot ?? storedSnapshot, shared);
+  let durableAuthorityRetired = false;
   if (unavailable && authorityReduced) {
     // Never leave a durable higher-authority bearer behind a volatile downgrade.
-    if (sharedStorage) storageRemove(sharedStorage, STORAGE_KEYS.currentUser);
-    if (fallbackStorage) storageRemove(fallbackStorage, STORAGE_KEYS.currentUser);
+    const sharedRetired = Boolean(
+      sharedStorage && storageRemove(sharedStorage, STORAGE_KEYS.currentUser),
+    );
+    const fallbackRetired = Boolean(
+      fallbackStorage && storageRemove(fallbackStorage, STORAGE_KEYS.currentUser),
+    );
+    durableAuthorityRetired = sharedRetired && fallbackRetired;
   }
   if (
     (advanceEpoch && (!unavailable || authorityReduced)) ||
     advanceProfileRevision
   ) {
     if (advanceEpoch) abortAuthenticatedRequests();
-    sharedChannel()?.postMessage(shared);
+    publishSharedSnapshot(shared);
   }
   if (unavailable) {
     return {
-      status: authorityReduced ? 'volatile' : 'unavailable',
+      status:
+        authorityReduced && durableAuthorityRetired
+          ? 'volatile'
+          : 'unavailable',
       snapshot: shared,
     };
   }
