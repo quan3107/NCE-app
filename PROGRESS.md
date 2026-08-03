@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-03:** No backend files changed while extending the live-backend browser gate to restore profile and upload-policy mutations after authoritative round-trip checks.
+
 - **2026-08-03:** No backend files changed while namespacing fallback profile publication IDs with stable per-tab entropy.
 
 - **2026-08-03:** No backend files changed while making profile invalidation dual-publish across BroadcastChannel and localStorage with deduplicated peer consumption.
@@ -146,6 +148,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-03:** Verified destructive auth snapshot removal, kept restored bearers provisional until refresh, made BroadcastChannel notifications exception-safe, derived the Playwright server address from its configured URL, added restorable live profile/settings mutations, and split oversized profile validation coverage.
 
 - **2026-08-03:** Made OAuth cancellation coverage await complete lease cleanup, preventing stale asynchronous teardown from making the following persistence-rejection regression flaky in CI.
 
