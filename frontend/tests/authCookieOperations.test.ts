@@ -82,3 +82,23 @@ test("operation timeout includes time spent in the local queue", async () => {
   assert.equal(queuedOperationStarted, false);
   await assert.rejects(withDeadline(stalledLogin), { name: "AbortError" });
 });
+
+test("cookie compensation gets a fresh deadline after the operation expires", async () => {
+  const operations = createAuthCookieOperations({ operationTimeoutMs: 10 });
+  let markCompensated = () => undefined;
+  const compensated = new Promise<void>((resolve) => {
+    markCompensated = resolve;
+  });
+  const operation = operations.run(async (signal, compensate) => {
+    await new Promise<void>((resolve) => {
+      signal.addEventListener("abort", () => resolve(), { once: true });
+    });
+    await compensate(async (compensationSignal) => {
+      assert.equal(compensationSignal.aborted, false);
+      markCompensated();
+    });
+  });
+
+  await assert.rejects(withDeadline(operation), { name: "AbortError" });
+  await withDeadline(compensated);
+});
