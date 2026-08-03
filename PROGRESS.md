@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-03:** No backend files changed while disabling automatic browser launches for frontend development servers.
+
 - **2026-08-03:** No backend files changed while compensating rejected browser auth persistence and replacing client-ordered profile propagation with authoritative refetches.
 
 - **2026-08-02:** Added a follow-up upload-policy migration that validates extension arrays by dimension, nullability, and individual canonical tokens, with live PostgreSQL regressions for comma-packed, null, and multidimensional inputs.
@@ -140,6 +142,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-03:** Disabled Vite's automatic browser launch so repeated development-server starts remain in the terminal without stealing focus.
 
 - **2026-08-03:** Revoked refresh cookies with fresh cleanup deadlines after rejected login, registration, refresh, or OAuth persistence, and replaced client-ordered profile response broadcasts with cross-tab invalidation plus guarded authoritative `/me` refetches.
 
