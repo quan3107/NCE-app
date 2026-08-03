@@ -36,8 +36,13 @@ const isTerminalProfileError = (error: unknown): boolean =>
   error instanceof ApiError && (error.status === 403 || error.status === 404);
 
 export function ProfileDetailsCard() {
-  const { currentUser, sessionGeneration, commitCurrentProfile, logout } =
-    useAuthStore();
+  const {
+    currentUser,
+    sessionGeneration,
+    commitCurrentProfile,
+    refreshCurrentProfile,
+    logout,
+  } = useAuthStore();
   const profileQuery = useMeProfileQuery(currentUser.id);
   const updateProfile = useUpdateMeProfileMutation();
   const [editing, setEditing] = useState(false);
@@ -160,12 +165,15 @@ export function ProfileDetailsCard() {
     const requestId = requestSequence.current + 1;
     requestSequence.current = requestId;
     try {
-      const profile = await updateProfile.mutateAsync({
+      await updateProfile.mutateAsync({
         fullName: validation.normalizedName,
       });
+      const profile = await refreshCurrentProfile(initiatingIdentity);
       if (
+        !profile ||
         requestSequence.current !== requestId ||
-        !(await commitCurrentProfile(initiatingIdentity, profile))
+        latestIdentity.current.userId !== initiatingIdentity.userId ||
+        latestIdentity.current.generation !== initiatingIdentity.generation
       ) {
         return;
       }
