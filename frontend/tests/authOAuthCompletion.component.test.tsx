@@ -85,7 +85,8 @@ test("OAuth completion replaces the initiating account and clears its lease", as
     <AuthProvider>{children}</AuthProvider>
   );
   const { result } = renderHook(() => useAuth(), { wrapper });
-  assert.equal(result.current.currentUser.id, "user-a");
+  assert.equal(result.current.currentUser.id, "");
+  assert.equal(result.current.isAuthenticated, false);
 
   await act(async () => {
     assert.equal(await result.current.completeGoogleLogin(), "live");
