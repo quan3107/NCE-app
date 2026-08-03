@@ -13,7 +13,7 @@ and
 
 ## Backend
 
-- **2026-08-03:** No backend files changed while assigning OAuth lease cleanup to exactly one frontend cancellation path.
+- **2026-08-03:** No backend files changed while assigning OAuth lease cleanup to exactly one frontend cancellation path and making peers consume ordered logout tombstones from failed-persistence snapshot removals.
 
 - **2026-08-03:** No backend files changed while extending the live-backend browser gate to restore profile and upload-policy mutations after authoritative round-trip checks.
 
@@ -151,7 +151,7 @@ and
 
 ## Frontend
 
-- **2026-08-03:** Made OAuth cancellation detect when an active completion owns lease cleanup, preventing a competing release operation from stalling the next authentication transition.
+- **2026-08-03:** Assigned OAuth cancellation cleanup to one owner and converted authenticated storage removals into ordered logout tombstones, preventing competing lease release and stale peer authority when notification publication fails.
 
 - **2026-08-03:** Verified destructive auth snapshot removal, kept restored bearers provisional until refresh, made BroadcastChannel notifications exception-safe, derived the Playwright server address from its configured URL, added restorable live profile/settings mutations, and split oversized profile validation coverage.
 
