@@ -1,7 +1,7 @@
 /**
  * Location: tests/authCookieOperations.test.ts
- * Purpose: Verify hung refresh work cannot hold the cookie operation queue.
- * Why: Logout and account changes need a bounded path past stalled requests.
+ * Purpose: Verify cookie-operation timeouts, queue release, and cancellation ownership.
+ * Why: Logout and account changes need bounded, single-owner cleanup paths.
  */
 
 import assert from "node:assert/strict";
@@ -101,4 +101,26 @@ test("cookie compensation gets a fresh deadline after the operation expires", as
 
   await assert.rejects(withDeadline(operation), { name: "AbortError" });
   await withDeadline(compensated);
+});
+
+test("OAuth cancellation reports when active completion owns cleanup", async () => {
+  const operations = createAuthCookieOperations();
+  let markStarted = () => undefined;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  const completion = operations.runOAuthCompletion(async (signal) => {
+    markStarted();
+    await new Promise<void>((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(signal.reason), {
+        once: true,
+      });
+    });
+    return "unreachable";
+  });
+  await started;
+
+  assert.equal(operations.cancelOAuthCompletions(), true);
+  await assert.rejects(withDeadline(completion), { name: "AbortError" });
+  assert.equal(operations.cancelOAuthCompletions(), false);
 });
