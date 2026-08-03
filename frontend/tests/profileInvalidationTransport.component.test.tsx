@@ -102,6 +102,8 @@ test("a storage event refetches peers when BroadcastChannel is unavailable", asy
   const primary = renderHook(() => useAuthSession());
   act(() => primary.result.current.applyLiveSession(liveSession));
   const peer = renderHook(() => useAuthSession());
+  act(() => peer.result.current.applyLiveSession(liveSession));
+  act(() => primary.result.current.applyLiveSession(liveSession));
 
   await act(async () => {
     await primary.result.current.refreshLiveProfile({
@@ -140,6 +142,8 @@ test("mixed-capability peers receive one refetch through both transports", async
   const primary = renderHook(() => useAuthSession());
   act(() => primary.result.current.applyLiveSession(liveSession));
   const peer = renderHook(() => useAuthSession());
+  act(() => peer.result.current.applyLiveSession(liveSession));
+  act(() => primary.result.current.applyLiveSession(liveSession));
 
   await act(async () => {
     await primary.result.current.refreshLiveProfile({
