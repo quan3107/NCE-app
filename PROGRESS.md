@@ -147,6 +147,8 @@ and
 
 ## Frontend
 
+- **2026-08-03:** Made OAuth cancellation coverage await complete lease cleanup, preventing stale asynchronous teardown from making the following persistence-rejection regression flaky in CI.
+
 - **2026-08-03:** Namespaced fallback profile invalidation IDs with a stable random publisher identity per tab, preventing cross-tab deduplication collisions when `randomUUID` is unavailable.
 
 - **2026-08-03:** Published every profile invalidation through BroadcastChannel and localStorage, deduplicating shared publication IDs so mixed-capability peer tabs refetch exactly once.
