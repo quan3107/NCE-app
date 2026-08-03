@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import type { PropsWithChildren } from "react";
 
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
 
 import {
@@ -126,5 +126,63 @@ test("cancelling Google login aborts an unfinished OAuth completion", async () =
   act(() => view.result.current.cancelGoogleLogin());
 
   await assert.rejects(completion);
+  await waitFor(async () => {
+    assert.equal(await readIndexedDbAuthLease("oauth-reservation"), null);
+  });
+  assert.equal(view.result.current.isAuthenticated, false);
+});
+
+test("OAuth completion revokes its cookie when live persistence is rejected", async () => {
+  const values = new Map<string, string>();
+  const expiresAt = Date.now() + 60_000;
+  values.set(
+    "nce:auth-cookie-oauth-owner",
+    JSON.stringify({ ownerId: "oauth-owner", expiresAt }),
+  );
+  const storage = {
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    removeItem: (key: string) => values.delete(key),
+    setItem: (key: string, value: string) => {
+      if (key === "currentUser") {
+        throw new DOMException("Storage write denied", "QuotaExceededError");
+      }
+      values.set(key, value);
+    },
+  };
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: storage,
+  });
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: storage,
+  });
+  await writeIndexedDbAuthLease({
+    name: "oauth-reservation",
+    ownerId: "oauth-owner",
+    expiresAt,
+  });
+  const requests: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      requests.push(path);
+      if (path.endsWith("/auth/refresh")) return Response.json(authResponse);
+      if (path.endsWith("/auth/logout")) {
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const view = renderHook(() => useAuth(), { wrapper });
+
+  await assert.rejects(view.result.current.completeGoogleLogin());
+
+  assert.deepEqual(requests, ["/api/v1/auth/refresh", "/api/v1/auth/logout"]);
   assert.equal(view.result.current.isAuthenticated, false);
 });
