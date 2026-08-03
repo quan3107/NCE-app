@@ -80,14 +80,24 @@ function normalizeSnapshot(value: unknown): SharedAuthSnapshot | null {
 }
 
 function parseSnapshot(raw: string | null): SharedAuthSnapshot | null {
-  if (!raw) {
-    return null;
-  }
+  if (!raw) return null;
   try {
     return normalizeSnapshot(JSON.parse(raw));
   } catch {
     return null;
   }
+}
+
+function removalTombstone(raw: string | null): SharedAuthSnapshot | null {
+  const removed = parseSnapshot(raw);
+  if (!removed?.token || !removed.liveUser) return null;
+  if (removed.sessionEpoch >= Number.MAX_SAFE_INTEGER) return null;
+  return {
+    sessionEpoch: removed.sessionEpoch + 1,
+    profileRevision: 0,
+    token: null,
+    liveUser: null,
+  };
 }
 
 function sharedChannel(): BroadcastChannel | null {
@@ -260,7 +270,13 @@ export function subscribeToSharedAuth(
   };
   const onStorage = (event: StorageEvent) => {
     if (event.key === STORAGE_KEYS.currentUser) {
-      accept(parseSnapshot(event.newValue));
+      // A failed replacement can still remove the old durable bearer. Preserve
+      // that authority reduction as an ordered peer-consumable logout.
+      accept(
+        event.newValue === null
+          ? removalTombstone(event.oldValue)
+          : parseSnapshot(event.newValue),
+      );
     }
   };
   const onBroadcast = (event: MessageEvent<unknown>) => {
