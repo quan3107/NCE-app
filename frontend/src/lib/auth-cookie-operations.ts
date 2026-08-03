@@ -28,7 +28,7 @@ export type AuthCookieOperations = {
   releaseOAuthLease: () => Promise<void>;
   hasOwnedOAuthLease: () => boolean;
   cancelRefreshes: () => void;
-  cancelOAuthCompletions: () => void;
+  cancelOAuthCompletions: () => boolean;
 };
 
 type AuthCookieOperationOptions = {
@@ -41,6 +41,8 @@ const DEFAULT_REFRESH_TIMEOUT_MS = 10_000;
 let inRealmTail: Promise<void> = Promise.resolve();
 const inRealmRefreshControllers = new Set<AbortController>();
 const inRealmOAuthCompletionControllers = new Set<AbortController>();
+// Once coordinated work starts, its finally block is the sole lease-cleanup owner.
+const inRealmOAuthCompletionCleanupOwners = new Set<AbortController>();
 
 function abortError(): Error {
   const error = new Error('Authentication cookie operation was aborted.');
@@ -73,6 +75,7 @@ export function createAuthCookieOperations(
     trackedControllers?: Set<AbortController>,
     allowOwnedLease = false,
     prepare?: (signal: AbortSignal) => Promise<void>,
+    cleanupOwners?: Set<AbortController>,
   ): Promise<T> {
     const cancellationController = new AbortController();
     trackedControllers?.add(cancellationController);
@@ -89,6 +92,7 @@ export function createAuthCookieOperations(
         timeoutMs,
         (coordinatedSignal) => {
           if (Date.now() >= deadline) throw abortError();
+          cleanupOwners?.add(cancellationController);
           const compensate: CookieCompensate = async (compensation) => {
             const controller = new AbortController();
             const compensationTimeout = setTimeout(
@@ -113,6 +117,7 @@ export function createAuthCookieOperations(
     return result.finally(() => {
       clearTimeout(timeout);
       trackedControllers?.delete(cancellationController);
+      cleanupOwners?.delete(cancellationController);
     });
   }
 
@@ -151,17 +156,24 @@ export function createAuthCookieOperations(
     runOAuthCompletion<T>(
       operation: CookieOperation<T>,
     ): Promise<T> {
-      return enqueue(async (signal, compensate) => {
-        try {
-          return await operation(signal, compensate);
-        } finally {
-          if (signal.aborted) {
-            await compensate(clearOwnedOAuthLease);
-          } else {
-            await clearOwnedOAuthLease(signal);
+      return enqueue(
+        async (signal, compensate) => {
+          try {
+            return await operation(signal, compensate);
+          } finally {
+            if (signal.aborted) {
+              await compensate(clearOwnedOAuthLease);
+            } else {
+              await clearOwnedOAuthLease(signal);
+            }
           }
-        }
-      }, operationTimeoutMs, inRealmOAuthCompletionControllers, true);
+        },
+        operationTimeoutMs,
+        inRealmOAuthCompletionControllers,
+        true,
+        undefined,
+        inRealmOAuthCompletionCleanupOwners,
+      );
     },
     releaseOAuthLease() {
       return enqueue(
@@ -178,9 +190,12 @@ export function createAuthCookieOperations(
       inRealmRefreshControllers.forEach((controller) => controller.abort());
     },
     cancelOAuthCompletions() {
+      const completionOwnsCleanup =
+        inRealmOAuthCompletionCleanupOwners.size > 0;
       inRealmOAuthCompletionControllers.forEach((controller) =>
         controller.abort(),
       );
+      return completionOwnsCleanup;
     },
   };
 }
