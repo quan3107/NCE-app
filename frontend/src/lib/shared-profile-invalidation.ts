@@ -20,12 +20,25 @@ export type ProfileInvalidation = {
 let channel: BroadcastChannel | null | undefined;
 let publicationSequence = 0;
 
-function nextPublicationId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
+function createPublisherId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    try {
+      const entropy = crypto.getRandomValues(new Uint32Array(4));
+      return Array.from(entropy, (value) =>
+        value.toString(16).padStart(8, '0'),
+      ).join('');
+    } catch {
+      // Fall through when browser entropy is unavailable or blocked.
+    }
   }
+  return `${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`;
+}
+
+const publisherId = createPublisherId();
+
+function nextPublicationId(): string {
   publicationSequence += 1;
-  return `${Date.now()}:${publicationSequence}`;
+  return `${publisherId}:${publicationSequence}`;
 }
 
 function sharedChannel(): BroadcastChannel | null {
