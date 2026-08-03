@@ -132,6 +132,7 @@ test("a profile invalidation refetches authoritative data in every tab", async (
   const primary = renderHook(() => useAuthSession());
   act(() => primary.result.current.applyLiveSession(liveSession));
   const peer = renderHook(() => useAuthSession());
+  act(() => peer.result.current.applyLiveSession(liveSession));
   const peerGeneration = peer.result.current.sessionGeneration;
   const identity = {
     userId: "user-a",
