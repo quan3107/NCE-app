@@ -47,14 +47,28 @@ afterEach(() => {
 
 test("a delayed same-user refresh preserves a newer successful save", async () => {
   let resolveRefresh!: (response: Response) => void;
+  let refreshCount = 0;
   vi.stubGlobal(
     "fetch",
-    vi.fn(
-      () =>
-        new Promise<Response>((resolve) => {
-          resolveRefresh = resolve;
-        }),
-    ),
+    vi.fn(() => {
+      refreshCount += 1;
+      if (refreshCount === 1) {
+        return Promise.resolve(
+          Response.json({
+            accessToken: "token-b",
+            user: {
+              id: "user-a",
+              email: "user-a@example.com",
+              fullName: "Old Name",
+              role: "student",
+            },
+          }),
+        );
+      }
+      return new Promise<Response>((resolve) => {
+        resolveRefresh = resolve;
+      });
+    }),
   );
   const queryKey = ["identity", "user-a", "profile"] as const;
   queryClient.setQueryData(queryKey, {
@@ -77,6 +91,8 @@ test("a delayed same-user refresh preserves a newer successful save", async () =
     }),
     { wrapper },
   );
+  await waitFor(() => assert.equal(result.current.auth.isAuthenticated, true));
+  const delayedRefresh = result.current.auth.restoreLiveSession();
   await waitFor(() => assert.equal(typeof resolveRefresh, "function"));
   const initiatingIdentity = {
     userId: "user-a",
@@ -98,7 +114,7 @@ test("a delayed same-user refresh preserves a newer successful save", async () =
   resolveRefresh(
     new Response(
       JSON.stringify({
-        accessToken: "token-b",
+        accessToken: "token-c",
         user: {
           id: "user-a",
           email: "user-a@example.com",
@@ -113,6 +129,7 @@ test("a delayed same-user refresh preserves a newer successful save", async () =
     ),
   );
 
+  await delayedRefresh;
   await waitFor(() =>
     assert.equal(result.current.auth.isRestoringSession, false),
   );
@@ -122,7 +139,7 @@ test("a delayed same-user refresh preserves a newer successful save", async () =
     "Saved Name",
   );
   const persisted = window.localStorage.getItem("currentUser") ?? "";
-  assert.match(persisted, /"token":"token-b"/);
+  assert.match(persisted, /"token":"token-c"/);
   assert.match(persisted, /"name":"Saved Name"/);
 });
 
