@@ -47,11 +47,12 @@ export function storageSet(
   }
 }
 
-export function storageRemove(storage: Storage, key: string): void {
+export function storageRemove(storage: Storage, key: string): boolean {
   try {
     storage.removeItem(key);
+    return storage.getItem(key) === null;
   } catch {
-    // Removal is best-effort when browser persistence is unavailable.
+    return false;
   }
 }
 
