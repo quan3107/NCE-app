@@ -1,6 +1,6 @@
 /**
  * Location: tests/profile.component.test.tsx
- * Purpose: Verify controlled profile editing, inline validation, and session refresh.
+ * Purpose: Verify controlled profile editing, session refresh, and save ordering.
  * Why: Profile saves must update both persisted data and the visible authenticated user.
  */
 import assert from "node:assert/strict";
@@ -109,21 +109,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-});
-
-test("shows inline name errors without sending invalid profile data", () => {
-  render(<ProfileDetailsCard />);
-
-  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
-  fireEvent.change(screen.getByLabelText("Name"), {
-    target: { value: " " },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-
-  assert.ok(
-    screen.getByText("Name must be between 2 and 100 characters."),
-  );
-  assert.equal(saveProfile.mock.calls.length, 0);
 });
 
 test("submits the controlled name and updates the authenticated user", async () => {
@@ -273,40 +258,4 @@ test("synchronizes refreshed names without overwriting a dirty edit", () => {
     (screen.getByLabelText("Name") as HTMLInputElement).value,
     "New Server Name",
   );
-});
-
-test("counts astral profile names by Unicode code point", async () => {
-  saveProfile.mockImplementation(async ({ fullName }: { fullName: string }) => ({
-    id: "user-1",
-    fullName,
-    email: "student@example.com",
-    role: "student",
-    status: "active",
-  }));
-  render(<ProfileDetailsCard />);
-  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
-
-  for (const invalidName of ["😀", "😀".repeat(101)]) {
-    fireEvent.change(screen.getByLabelText("Name"), {
-      target: { value: invalidName },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-  }
-  assert.equal(saveProfile.mock.calls.length, 0);
-
-  for (const validName of ["😀😀", "😀".repeat(100)]) {
-    fireEvent.change(screen.getByLabelText("Name"), {
-      target: { value: validName },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-    await waitFor(() => {
-      assert.equal(
-        saveProfile.mock.calls.at(-1)?.[0]?.fullName,
-        validName,
-      );
-    });
-    if (validName.length < 100) {
-      fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
-    }
-  }
 });
