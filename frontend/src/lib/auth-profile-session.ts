@@ -9,8 +9,11 @@ import {
   type MutableRefObject,
   type SetStateAction,
   useCallback,
+  useEffect,
+  useRef,
 } from 'react';
 
+import { apiClient } from './apiClient';
 import type {
   CurrentProfile,
   LiveUser,
@@ -18,29 +21,36 @@ import type {
   SessionIdentity,
 } from './auth-types';
 import { queryClient } from './queryClient';
+import {
+  publishProfileInvalidation,
+  subscribeToProfileInvalidation,
+} from './shared-profile-invalidation';
 
 type ProfileSessionContext = {
   clearSession: () => void;
   liveUserRef: MutableRefObject<LiveUser | null>;
   persistProfileState: (snapshot: PersistSnapshot) => boolean;
   profileCommitSequenceRef: MutableRefObject<Map<string, number>>;
+  sessionEpochRef: MutableRefObject<number>;
   sessionGenerationRef: MutableRefObject<number>;
   setLiveUser: Dispatch<SetStateAction<LiveUser | null>>;
   tokenRef: MutableRefObject<string | null>;
   userRevisionRef: MutableRefObject<number>;
 };
 
-export function useCommitLiveProfile({
+export function useAuthProfileSession({
   clearSession,
   liveUserRef,
   persistProfileState,
   profileCommitSequenceRef,
+  sessionEpochRef,
   sessionGenerationRef,
   setLiveUser,
   tokenRef,
   userRevisionRef,
 }: ProfileSessionContext) {
-  return useCallback(
+  const refreshSequenceRef = useRef(0);
+  const commitLiveProfile = useCallback(
     async (
       expected: SessionIdentity,
       profile: CurrentProfile,
@@ -100,4 +110,63 @@ export function useCommitLiveProfile({
     },
     [clearSession, persistProfileState],
   );
+
+  const refreshLiveProfile = useCallback(
+    async (
+      expected: SessionIdentity,
+      announce = true,
+    ): Promise<CurrentProfile | null> => {
+      const current = liveUserRef.current;
+      if (
+        !current ||
+        current.id !== expected.userId ||
+        sessionGenerationRef.current !== expected.generation
+      ) {
+        return null;
+      }
+      const refreshSequence = refreshSequenceRef.current + 1;
+      refreshSequenceRef.current = refreshSequence;
+      if (announce) {
+        publishProfileInvalidation({
+          userId: expected.userId,
+          sessionEpoch: sessionEpochRef.current,
+        });
+      }
+      const response = await apiClient<{ profile: CurrentProfile }>(
+        '/api/v1/me',
+      );
+      if (
+        refreshSequence !== refreshSequenceRef.current ||
+        !(await commitLiveProfile(expected, response.profile))
+      ) {
+        return null;
+      }
+      return response.profile;
+    },
+    [commitLiveProfile],
+  );
+
+  useEffect(
+    () =>
+      subscribeToProfileInvalidation((invalidation) => {
+        const current = liveUserRef.current;
+        if (
+          !current ||
+          current.id !== invalidation.userId ||
+          sessionEpochRef.current !== invalidation.sessionEpoch
+        ) {
+          return;
+        }
+        void refreshLiveProfile(
+          {
+            userId: current.id,
+            generation: sessionGenerationRef.current,
+          },
+          false,
+        ).catch(() => undefined);
+      }),
+    [refreshLiveProfile],
+  );
+
+  return { commitLiveProfile, refreshLiveProfile };
 }
