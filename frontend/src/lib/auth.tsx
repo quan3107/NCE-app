@@ -177,8 +177,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [completeOAuthSession]);
 
   const cancelGoogleLogin = useCallback(() => {
-    cookieOperations.cancelOAuthCompletions();
-    void cookieOperations.releaseOAuthLease().catch(() => undefined);
+    const completionOwnsCleanup = cookieOperations.cancelOAuthCompletions();
+    if (!completionOwnsCleanup) {
+      void cookieOperations.releaseOAuthLease().catch(() => undefined);
+    }
   }, [cookieOperations]);
 
   const logout = useCallback(async () => {
