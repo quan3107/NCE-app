@@ -87,6 +87,9 @@ export type AuthContextType = {
     expected: SessionIdentity,
     profile: CurrentProfile,
   ) => Promise<boolean>;
+  refreshCurrentProfile: (
+    expected: SessionIdentity,
+  ) => Promise<CurrentProfile | null>;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
   login: (email: string, password: string) => Promise<'live' | null>;
