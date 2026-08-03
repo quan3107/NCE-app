@@ -11,6 +11,7 @@ import { authBridge } from './authBridge';
 import {
   createAuthCookieOperations,
   type AuthCookieOperations,
+  type CookieCompensate,
 } from './auth-cookie-operations';
 import { shouldClearSessionAfterRefreshFailure } from './auth-refresh';
 import { useAuthSession } from './auth-session';
@@ -22,6 +23,23 @@ import { subscribeToSharedAuth } from './shared-auth-session';
 
 const isAbortError = (error: unknown): boolean =>
   error instanceof Error && error.name === 'AbortError';
+
+const abortError = (): Error => {
+  const error = new Error('Authentication refresh was aborted.');
+  error.name = 'AbortError';
+  return error;
+};
+
+const revokeRotatedCookie = (compensate: CookieCompensate): Promise<unknown> =>
+  compensate((signal) =>
+    apiClient('/auth/logout', {
+      method: 'POST',
+      withAuth: false,
+      credentials: 'include',
+      parseJson: false,
+      signal,
+    }),
+  );
 
 export function useAuthRuntime() {
   const session = useAuthSession();
@@ -54,7 +72,7 @@ export function useAuthRuntime() {
       const tokenAtRefreshStart = tokenRef.current;
       let refreshPromise!: Promise<RefreshAccessTokenResult>;
       refreshPromise = runCookieOperation(
-        async (signal): Promise<RefreshAccessTokenResult> => {
+        async (signal, compensate): Promise<RefreshAccessTokenResult> => {
           const versionBeforeRequest = getSessionVersion();
           if (
             versionBeforeRequest.generation !== sessionVersionAtRefreshStart.generation ||
@@ -68,14 +86,20 @@ export function useAuthRuntime() {
             credentials: 'include',
             signal,
           });
+          if (signal.aborted) {
+            await revokeRotatedCookie(compensate);
+            throw abortError();
+          }
           const currentVersion = getSessionVersion();
           if (
             currentVersion.generation !== sessionVersionAtRefreshStart.generation ||
             currentVersion.userId !== sessionVersionAtRefreshStart.userId
           ) {
+            await revokeRotatedCookie(compensate);
             return { status: 'stale' };
           }
           if (!applyLiveSession(result, sessionVersionAtRefreshStart)) {
+            await revokeRotatedCookie(compensate);
             return { status: 'stale' };
           }
           return { status: 'refreshed', accessToken: result.accessToken };
