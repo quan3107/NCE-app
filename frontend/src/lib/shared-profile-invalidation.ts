@@ -8,6 +8,7 @@ import { localStorageOrNull, storageSet } from './browser-storage';
 
 const CHANNEL_NAME = 'nce-auth-profile-invalidation';
 const STORAGE_KEY = 'nce:auth-profile-invalidation';
+const MAX_OBSERVED_PUBLICATIONS = 100;
 
 export type ProfileInvalidation = {
   type: 'profile-invalidated';
@@ -75,7 +76,6 @@ export function publishProfileInvalidation(
     const activeChannel = sharedChannel();
     if (activeChannel) {
       activeChannel.postMessage(message);
-      return;
     }
   } catch {
     channel = null;
@@ -88,8 +88,17 @@ export function subscribeToProfileInvalidation(
   listener: (invalidation: ProfileInvalidation) => void,
 ): () => void {
   const activeChannel = sharedChannel();
+  const observedPublicationIds = new Set<string>();
   const accept = (candidate: ProfileInvalidation | null) => {
-    if (candidate) listener(candidate);
+    if (!candidate || observedPublicationIds.has(candidate.publicationId)) {
+      return;
+    }
+    observedPublicationIds.add(candidate.publicationId);
+    if (observedPublicationIds.size > MAX_OBSERVED_PUBLICATIONS) {
+      const oldest = observedPublicationIds.values().next().value;
+      if (oldest) observedPublicationIds.delete(oldest);
+    }
+    listener(candidate);
   };
   const onMessage = (event: MessageEvent<unknown>) => {
     accept(isProfileInvalidation(event.data) ? event.data : null);
