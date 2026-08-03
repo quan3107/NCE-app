@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { setAuthenticatedQueryScope } from './authenticated-query-scope';
-import { useCommitLiveProfile } from './auth-profile-session';
+import { useAuthProfileSession } from './auth-profile-session';
 import {
   clearAuthenticatedQueries,
   synchronizeProfileCache,
@@ -110,7 +110,7 @@ export const useAuthSession = () => {
         false,
         { token: tokenRef.current, liveUser: liveUserRef.current },
         profileRevisionRef.current,
-        true,
+        false,
       );
       if (result.status === 'stale') {
         consumeSharedSession(result.snapshot);
@@ -252,12 +252,13 @@ export const useAuthSession = () => {
     [persistProfileState],
   );
 
-  const commitLiveProfile = useCommitLiveProfile({
+  const { commitLiveProfile, refreshLiveProfile } = useAuthProfileSession({
     clearSession,
     liveUserRef,
     persistProfileState,
     profileCommitSequenceRef,
     sessionGenerationRef,
+    sessionEpochRef,
     setLiveUser,
     tokenRef,
     userRevisionRef,
@@ -284,6 +285,7 @@ export const useAuthSession = () => {
     applyLiveSession,
     updateLiveUser,
     commitLiveProfile,
+    refreshLiveProfile,
     clearSession,
   };
 };
