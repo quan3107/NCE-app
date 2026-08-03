@@ -9,6 +9,12 @@ import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3010';
+const frontendURL = new URL(baseURL);
+if (frontendURL.protocol !== 'http:') {
+  throw new Error('PLAYWRIGHT_BASE_URL must use http for the local Vite server.');
+}
+const frontendHost = frontendURL.hostname.replace(/^\[(.*)\]$/, '$1');
+const frontendPort = frontendURL.port || '80';
 const apiBaseURL =
   process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:4000/api/v1';
 const backendCommand = process.env.PLAYWRIGHT_BACKEND_COMMAND;
@@ -37,7 +43,7 @@ const webServer = [
       ]
     : []),
   {
-    command: 'npm run dev -- --host 127.0.0.1 --port 3010 --strictPort',
+    command: `npm run dev -- --host ${frontendHost} --port ${frontendPort} --strictPort`,
     cwd: __dirname,
     env: { VITE_API_BASE_URL: apiBaseURL },
     url: baseURL,
@@ -52,6 +58,7 @@ export default defineConfig({
     'real-backend.spec.ts',
     'real-backend-auth-ordering.spec.ts',
     'real-backend-auth-storage-failure.spec.ts',
+    'real-backend-mutations.spec.ts',
   ],
   timeout: 60_000,
   expect: {
