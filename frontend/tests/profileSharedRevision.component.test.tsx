@@ -69,6 +69,56 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test("a storage event refetches peers when BroadcastChannel is unavailable", async () => {
+  vi.stubGlobal("BroadcastChannel", undefined);
+  const values = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      clear: () => values.clear(),
+      getItem: (key: string) => values.get(key) ?? null,
+      removeItem: (key: string) => values.delete(key),
+      setItem: (key: string, value: string) => {
+        values.set(key, value);
+        if (key === "nce:auth-profile-invalidation") {
+          window.dispatchEvent(
+            new StorageEvent("storage", { key, newValue: value }),
+          );
+        }
+      },
+    },
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({
+        profile: {
+          id: "user-a",
+          email: "user-a@example.com",
+          fullName: "Fallback Name",
+          role: "student",
+          status: "active",
+        },
+      }),
+    ),
+  );
+  const primary = renderHook(() => useAuthSession());
+  act(() => primary.result.current.applyLiveSession(liveSession));
+  const peer = renderHook(() => useAuthSession());
+  const identity = {
+    userId: "user-a",
+    generation: primary.result.current.sessionGeneration,
+  };
+
+  await act(async () => {
+    await primary.result.current.refreshLiveProfile(identity);
+  });
+
+  await waitFor(() => {
+    assert.equal(peer.result.current.liveUser?.name, "Fallback Name");
+  });
+});
+
 test("a saved profile updates memory and cache when both stores reject writes", async () => {
   const view = renderHook(() => useAuthSession());
   act(() => view.result.current.applyLiveSession(liveSession));
@@ -130,8 +180,8 @@ test("a profile invalidation refetches authoritative data in every tab", async (
     ),
   );
   const primary = renderHook(() => useAuthSession());
-  const peer = renderHook(() => useAuthSession());
   act(() => primary.result.current.applyLiveSession(liveSession));
+  const peer = renderHook(() => useAuthSession());
   const peerGeneration = peer.result.current.sessionGeneration;
   const identity = {
     userId: "user-a",
