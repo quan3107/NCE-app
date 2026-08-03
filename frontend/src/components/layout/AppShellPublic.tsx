@@ -6,6 +6,7 @@
 
 import type { ReactNode } from 'react';
 import { GraduationCap, LayoutDashboard, LogOut, User } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@components/ui/dropdown-menu';
 import type { NavigationItem } from '@features/navigation/types';
 import { getIcon } from '@features/navigation/utils/iconMap';
+import { getProfileInitials } from '@features/profile/profileInitials';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
@@ -91,7 +93,12 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
   const profilePath = resolveProfilePath(currentUser.role);
 
   const handleLogout = () => {
-    void logout();
+    void logout().catch(() => {
+      toast.error('Server logout could not be confirmed.', {
+        description: 'Retry to prevent the session from being restored.',
+        action: { label: 'Retry', onClick: handleLogout },
+      });
+    });
     navigate('/');
   };
 
@@ -145,7 +152,7 @@ export function AppShellPublic({ children }: AppShellPublicProps) {
                     >
                       <Avatar className="size-9">
                         <AvatarFallback>
-                          {currentUser.name.substring(0, 2).toUpperCase()}
+                          {getProfileInitials(currentUser.name)}
                         </AvatarFallback>
                       </Avatar>
                     </button>

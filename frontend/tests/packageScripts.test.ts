@@ -33,7 +33,17 @@ test('frontend test scripts use CI-expandable globs and bounded concurrency', as
   assert.equal(
     packageJson.scripts?.e2e,
     'playwright test',
-    'frontend e2e script should run the Playwright classroom workflow',
+    'frontend e2e script should run against the actual backend by default',
+  );
+  assert.equal(
+    packageJson.scripts?.['e2e:mocked'],
+    'playwright test --config playwright.mocked.config.ts',
+    'API-intercepting browser checks should require an explicit mocked command',
+  );
+  assert.equal(
+    packageJson.scripts?.['e2e:synthetic'],
+    'playwright test --config playwright.synthetic.config.ts',
+    'synthetic cookie races should require an explicit harness command',
   );
 });
 
@@ -45,5 +55,92 @@ test('frontend component tests cap memory-heavy jsdom workers', async () => {
     vitestConfig,
     /maxWorkers:\s*2/,
     'component tests should not create one jsdom worker per test file',
+  );
+  assert.match(
+    vitestConfig,
+    /pool:\s*['"]forks['"]/,
+    'component tests should isolate process-wide state such as timezone changes',
+  );
+  assert.match(
+    vitestConfig,
+    /execArgv:\s*\[['"]--max-old-space-size=512['"]\]/,
+    'component workers should have a hard heap bound if a run is interrupted',
+  );
+});
+
+test('Playwright separates actual-backend, mocked, and synthetic configurations', async () => {
+  const actualPath = path.resolve(import.meta.dirname, '../playwright.config.ts');
+  const mockedPath = path.resolve(
+    import.meta.dirname,
+    '../playwright.mocked.config.ts',
+  );
+  const syntheticPath = path.resolve(
+    import.meta.dirname,
+    '../playwright.synthetic.config.ts',
+  );
+  const realBackendSpecPath = path.resolve(
+    import.meta.dirname,
+    '../e2e/real-backend.spec.ts',
+  );
+  const realBackendOrderingPath = path.resolve(
+    import.meta.dirname,
+    '../e2e/real-backend-auth-ordering.spec.ts',
+  );
+  const realBackendStorageFailurePath = path.resolve(
+    import.meta.dirname,
+    '../e2e/real-backend-auth-storage-failure.spec.ts',
+  );
+  const realBackendMutationsPath = path.resolve(
+    import.meta.dirname,
+    '../e2e/real-backend-mutations.spec.ts',
+  );
+  const actual = await readFile(actualPath, 'utf8');
+  const mocked = await readFile(mockedPath, 'utf8');
+  const synthetic = await readFile(syntheticPath, 'utf8');
+  const realBackendSpec = await readFile(realBackendSpecPath, 'utf8');
+  const realBackendOrdering = await readFile(realBackendOrderingPath, 'utf8');
+  const realBackendStorageFailure = await readFile(
+    realBackendStorageFailurePath,
+    'utf8',
+  );
+  const realBackendMutations = await readFile(realBackendMutationsPath, 'utf8');
+
+  assert.match(actual, /PLAYWRIGHT_API_BASE_URL/);
+  assert.match(actual, /VITE_API_BASE_URL:\s*apiBaseURL/);
+  assert.match(actual, /real-backend\.spec\.ts/);
+  assert.match(actual, /real-backend-auth-ordering\.spec\.ts/);
+  assert.match(actual, /real-backend-auth-storage-failure\.spec\.ts/);
+  assert.match(actual, /real-backend-mutations\.spec\.ts/);
+  assert.match(actual, /frontendURL\.hostname/);
+  assert.match(actual, /frontendURL\.port/);
+  assert.doesNotMatch(actual, /classroom-workflow\.spec/);
+  assert.doesNotMatch(actual, /profile-layout\.visual\.spec/);
+  assert.match(mocked, /classroom-workflow\.spec\.ts/);
+  assert.match(mocked, /profile-layout\.visual\.spec\.ts/);
+  assert.doesNotMatch(mocked, /auth-cookie-race\.server/);
+  assert.match(synthetic, /auth-cookie-race\.server/);
+  assert.match(synthetic, /auth-cookie-timeout\.spec\.ts/);
+  assert.match(synthetic, /127\.0\.0\.1:4010/);
+  assert.match(synthetic, /reuseExistingServer:\s*false/g);
+  assert.match(realBackendSpec, /PLAYWRIGHT_API_BASE_URL/);
+  assert.match(realBackendSpec, /PLAYWRIGHT_TEST_PASSWORD/);
+  assert.match(realBackendSpec, /\/auth\/login/);
+  assert.match(realBackendStorageFailure, /Storage\.prototype\.setItem/);
+  assert.match(realBackendStorageFailure, /pageB\.request\.post/);
+  assert.match(realBackendStorageFailure, /\/auth\/refresh/);
+  assert.match(realBackendStorageFailure, /peerRefresh\.status\(\).*401/);
+  assert.match(realBackendSpec, /\/me/);
+  assert.match(realBackendSpec, /Bearer \$\{auth\.accessToken\}/);
+  assert.match(realBackendMutations, /\/me/);
+  assert.match(realBackendMutations, /\/settings\/file-upload-limits/);
+  assert.match(realBackendMutations, /finally/);
+  assert.doesNotMatch(realBackendSpec, /\.route\(/);
+  assert.match(realBackendOrdering, /browser\.newContext/);
+  assert.match(realBackendOrdering, /\/auth\/refresh/);
+  assert.match(realBackendOrdering, /\/auth\/logout/);
+  assert.doesNotMatch(
+    realBackendSpec,
+    /(?:localPassword|password:\s*['"])/,
+    'real-backend credentials must come from the environment',
   );
 });

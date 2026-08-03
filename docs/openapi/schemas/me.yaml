@@ -2,25 +2,36 @@
 # Purpose: Define the /me response schema for the API.
 # Why: Documents authenticated profile and enrollment payloads.
 
+MeProfile:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    email:
+      type: string
+      format: email
+    fullName:
+      $ref: './common.yaml#/DisplayName'
+    role:
+      $ref: './common.yaml#/UserRole'
+    status:
+      $ref: './common.yaml#/UserStatus'
+  required: [id, email, fullName, role, status]
+
+UpdateMeProfileRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    fullName:
+      $ref: './common.yaml#/CanonicalDisplayName'
+  required: [fullName]
+
 MeResponse:
   type: object
   properties:
     profile:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        fullName:
-          type: string
-        role:
-          $ref: './common.yaml#/UserRole'
-        status:
-          $ref: './common.yaml#/UserStatus'
-      required: [id, email, fullName, role, status]
+      $ref: '#/MeProfile'
     roles:
       type: object
       properties:

@@ -8,7 +8,7 @@ import { z } from "zod";
 export const fileSignSchema = z
   .object({
     fileName: z.string().min(1),
-    mime: z.string().min(1),
+    mime: z.string().trim().min(1),
     size: z.number().int().positive(),
     checksum: z.string().min(1).optional(),
   })
@@ -18,7 +18,7 @@ export const fileCompleteSchema = z
   .object({
     bucket: z.string().min(1),
     objectKey: z.string().min(1),
-    mime: z.string().min(1),
+    mime: z.string().trim().min(1),
     size: z.number().int().positive(),
     checksum: z.string().min(1),
   })

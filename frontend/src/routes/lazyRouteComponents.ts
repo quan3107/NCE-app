@@ -20,6 +20,9 @@ export const AdminDashboardPage = lazy(() =>
 export const AdminEnrollmentsPage = lazy(() =>
   import('@features/admin/components/AdminEnrollmentsPage').then((module) => ({ default: module.AdminEnrollmentsPage })),
 );
+export const AdminProfilePage = lazy(() =>
+  import('@features/profile/components/AdminProfilePage').then((module) => ({ default: module.AdminProfilePage })),
+);
 export const AdminSettingsPage = lazy(() =>
   import('@features/admin/components/AdminSettingsPage').then((module) => ({ default: module.AdminSettingsPage })),
 );

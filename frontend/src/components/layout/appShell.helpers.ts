@@ -25,6 +25,10 @@ export const resolveProfilePath = (role: Role): string | null => {
     return '/teacher/profile';
   }
 
+  if (role === 'admin') {
+    return '/admin/profile';
+  }
+
   return null;
 };
 

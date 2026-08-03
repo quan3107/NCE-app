@@ -29,6 +29,7 @@ tags:
   - name: navigation
   - name: dashboard-config
   - name: file-upload-config
+  - name: settings
   - name: course-management-tabs
   - name: ielts-config
   - name: ai-feedback
@@ -55,6 +56,8 @@ paths:
     $ref: './paths/me.yaml#/Me'
   /api/v1/me/notification-preferences:
     $ref: './paths/notification-preferences.yaml#/MeNotificationPreferences'
+  /api/v1/settings/file-upload-limits:
+    $ref: './paths/settings.yaml#/FileUploadLimits'
 
   /api/v1/navigation:
     $ref: './paths/navigation.yaml#/Navigation'

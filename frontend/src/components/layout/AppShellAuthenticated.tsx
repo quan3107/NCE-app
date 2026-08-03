@@ -6,6 +6,7 @@
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { AlertCircle, BookOpen, Bell, GraduationCap, Info, LogOut, Menu, Settings, User, X } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import {
@@ -18,6 +19,7 @@ import {
 } from '@components/ui/dropdown-menu';
 import { useNavigationContext } from '@features/navigation';
 import { NavigationItem as NavigationItemRow } from '@features/navigation/components/NavigationItem';
+import { getProfileInitials } from '@features/profile/profileInitials';
 import { useRouter } from '@lib/router';
 import { useAuthStore } from '@store/authStore';
 
@@ -67,7 +69,12 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
   };
 
   const handleLogout = () => {
-    void logout();
+    void logout().catch(() => {
+      toast.error('Server logout could not be confirmed.', {
+        description: 'Retry to prevent the session from being restored.',
+        action: { label: 'Retry', onClick: handleLogout },
+      });
+    });
   };
 
   return (
@@ -111,7 +118,7 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
           <DropdownMenuTrigger asChild>
             <button className="inline-flex items-center gap-2 rounded-md px-3 py-2 hover:bg-accent transition-colors" type="button">
               <Avatar className="size-8">
-                <AvatarFallback>{currentUser.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{getProfileInitials(currentUser.name)}</AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start">
                 <span className="text-sm">{currentUser.name}</span>

@@ -127,15 +127,47 @@ test('IELTS operations distinguish controller errors from global 500 errors', as
   assertCommonResponse(fragment(paths, 'QuestionOptions'), 500);
 });
 
-test('invite normalization and course-tab filtering are documented', async () => {
-  const [userSchemas, tabPaths] = await Promise.all([
+test('normalized name inputs and course-tab filtering are documented', async () => {
+  const [userSchemas, commonSchemas, tabPaths] = await Promise.all([
     readRepositoryFile('docs/openapi/schemas/users.yaml'),
+    readRepositoryFile('docs/openapi/schemas/common.yaml'),
     readRepositoryFile('docs/openapi/paths/course-management-tabs.yaml'),
   ]);
   const invite = fragment(userSchemas, 'InviteUserRequest');
+  const storedDisplayName = fragment(commonSchemas, 'DisplayName');
+  const canonicalDisplayName = fragment(commonSchemas, 'CanonicalDisplayName');
+  const normalizedInput = fragment(
+    commonSchemas,
+    'NormalizedDisplayNameInput',
+  );
 
   assert.match(invite, /additionalProperties: true/);
-  assert.match(invite, /pattern: ['"]?\\S/);
+  assert.match(invite, /common\.yaml#\/NormalizedDisplayNameInput/);
+  assert.match(storedDisplayName, /minLength: 2/);
+  assert.match(storedDisplayName, /maxLength: 100/);
+  assert.doesNotMatch(storedDisplayName, /\\p\{/);
+  assert.doesNotMatch(storedDisplayName, /legacy/i);
+  assert.match(canonicalDisplayName, /minLength: 2/);
+  assert.doesNotMatch(canonicalDisplayName, /\\p\{/);
+  assert.match(normalizedInput, /trimmed[\s\S]*CanonicalDisplayName/i);
+  assert.match(normalizedInput, /minLength: 2/);
+  for (const schema of [storedDisplayName, canonicalDisplayName]) {
+    const pattern = schema.match(/^\s*pattern: '(.+)'$/m)?.[1];
+    assert.ok(pattern, 'display-name schema must define a pattern');
+    assert.match('Ada Lovelace', new RegExp(pattern));
+  }
+  const normalizedPattern = normalizedInput.match(
+    /^\s*pattern: '(.+)'$/m,
+  )?.[1];
+  assert.ok(normalizedPattern, 'normalized input must define a pattern');
+  const acceptsNormalizedInput = new RegExp(normalizedPattern);
+  for (const suffix of ['\t', '\n', '\uFEFF']) {
+    assert.match(`Ada Lovelace${suffix}`, acceptsNormalizedInput);
+  }
+  assert.match('  Ada 😀  ', acceptsNormalizedInput);
+  assert.doesNotMatch(' A ', acceptsNormalizedInput);
+  assert.doesNotMatch(` Ada\u202eLovelace `, acceptsNormalizedInput);
+  assert.doesNotMatch(` ${'A'.repeat(101)} `, acceptsNormalizedInput);
   assert.match(invite, /clients[\s\S]*normalize[\s\S]*before[\s\S]*validation/i);
   assert.match(invite, /unknown properties[\s\S]*discarded/i);
   assert.doesNotMatch(invite, /example: ['"]\s/);

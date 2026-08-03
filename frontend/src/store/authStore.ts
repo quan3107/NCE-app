@@ -9,11 +9,16 @@ import { useAuth } from '../lib/auth';
 export function useAuthStore() {
   const {
     currentUser,
+    sessionGeneration,
+    updateCurrentUser,
+    commitCurrentProfile,
+    refreshCurrentProfile,
     isAuthenticated,
     isRestoringSession,
     login,
     register,
     loginWithGoogle,
+    cancelGoogleLogin,
     completeGoogleLogin,
     restoreLiveSession,
     logout,
@@ -21,11 +26,16 @@ export function useAuthStore() {
 
   return {
     currentUser,
+    sessionGeneration,
+    updateCurrentUser,
+    commitCurrentProfile,
+    refreshCurrentProfile,
     isAuthenticated,
     isRestoringSession,
     login,
     register,
     loginWithGoogle,
+    cancelGoogleLogin,
     completeGoogleLogin,
     restoreLiveSession,
     logout,

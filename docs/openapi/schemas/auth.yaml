@@ -17,7 +17,7 @@ RegisterAccountRequest:
   type: object
   properties:
     fullName:
-      type: string
+      $ref: './common.yaml#/NormalizedDisplayNameInput'
     email:
       type: string
       format: email
@@ -52,7 +52,7 @@ AuthUser:
       type: string
       format: email
     fullName:
-      type: string
+      $ref: './common.yaml#/DisplayName'
     role:
       $ref: './common.yaml#/UserRole'
   required: [id, email, fullName, role]

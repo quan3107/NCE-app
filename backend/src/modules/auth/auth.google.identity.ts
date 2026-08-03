@@ -6,6 +6,7 @@
 import { IdentityProvider, UserRole, UserStatus } from "../../prisma/index.js";
 
 import { prisma } from "../../config/prismaClient.js";
+import { normalizedDisplayNameSchema } from "../../utils/displayNameValidation.js";
 import { createAuthError, isUniqueConstraintError } from "./auth.errors.js";
 import { assertUserIsActive, type ActiveUserRecord } from "./auth.users.js";
 import type { GoogleProfile } from "./auth.google.profile.js";
@@ -104,12 +105,19 @@ export async function findOrCreateGoogleIdentity(
       }
     } else {
       // No prior record exists, so create a new active student linked to the Google identity.
+      const parsedFullName = normalizedDisplayNameSchema.safeParse(fullName);
+      if (!parsedFullName.success) {
+        throw createAuthError(
+          400,
+          "Google account name does not meet display-name requirements. Update your Google profile and try again.",
+        );
+      }
       try {
         identityRecord = await prisma.$transaction(async (tx) => {
           const createdUser = await tx.user.create({
             data: {
               email: normalizedEmail,
-              fullName,
+              fullName: parsedFullName.data,
               password: null,
               role: UserRole.student,
               status: UserStatus.active,

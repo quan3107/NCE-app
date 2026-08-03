@@ -5,6 +5,7 @@
  */
 
 import type { Role, User } from '@domain';
+import type { UserStatus } from './backend-schema';
 
 export type SupportedRole = Exclude<Role, 'public'>;
 
@@ -33,6 +34,36 @@ export type AuthPendingApprovalResponse = {
 export type RegisterRole = Exclude<SupportedRole, 'admin'>;
 export type RegisterResult = 'live' | 'pending_approval';
 
+export type RefreshAccessTokenResult =
+  | { status: 'refreshed'; accessToken: string }
+  | { status: 'stale' }
+  | { status: 'failed' };
+
+export type SessionVersion = {
+  generation: number;
+  sessionEpoch: number;
+  userRevision: number;
+  userId: string | null;
+};
+
+export type RefreshPromiseSlot = {
+  generation: number;
+  promise: Promise<RefreshAccessTokenResult>;
+};
+
+export type SessionIdentity = {
+  userId: string;
+  generation: number;
+};
+
+export type CurrentProfile = {
+  id: string;
+  email: string;
+  fullName: string;
+  role: SupportedRole;
+  status: UserStatus;
+};
+
 export type RegisterPayload = {
   fullName: string;
   email: string;
@@ -47,11 +78,24 @@ export type StoredAuthPayload = {
 
 export type AuthContextType = {
   currentUser: User;
+  sessionGeneration: number;
+  updateCurrentUser: (
+    expected: SessionIdentity,
+    updates: Partial<Pick<User, 'name'>>,
+  ) => boolean;
+  commitCurrentProfile: (
+    expected: SessionIdentity,
+    profile: CurrentProfile,
+  ) => Promise<boolean>;
+  refreshCurrentProfile: (
+    expected: SessionIdentity,
+  ) => Promise<CurrentProfile | null>;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
   login: (email: string, password: string) => Promise<'live' | null>;
   register: (payload: RegisterPayload) => Promise<RegisterResult>;
   loginWithGoogle: () => Promise<void>;
+  cancelGoogleLogin: () => void;
   completeGoogleLogin: () => Promise<'live'>;
   restoreLiveSession: () => Promise<boolean>;
   logout: () => Promise<void>;
@@ -63,3 +107,7 @@ export type PersistSnapshot = {
 };
 
 export type InitialSnapshot = PersistSnapshot;
+export type InitialAuthSnapshot = PersistSnapshot & {
+  sessionEpoch: number;
+  profileRevision: number;
+};

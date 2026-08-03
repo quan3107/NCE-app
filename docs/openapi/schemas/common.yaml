@@ -21,6 +21,26 @@ UserStatus:
   type: string
   enum: [active, pending, invited, suspended]
 
+DisplayName:
+  type: string
+  minLength: 2
+  maxLength: 100
+  pattern: '^(?=\S(?:[\s\S]*\S)?$)(?![\s\S]*[\u0000-\u001F\u007F-\u009F\u00AD\u0600-\u0605\u061C\u06DD\u070F\u0890-\u0891\u08E2\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u206F\uFEFF\uFFF9-\uFFFB])(?![\s\S]*(?:\uD804[\uDCBD\uDCCD]|\uD80D[\uDC30-\uDC3F]|\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|\uDB40[\uDC01\uDC20-\uDC7F]))(?:[^\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$'
+  description: Presentation-safe persisted display name after upgrade quarantine, measured as 2-100 Unicode code points and excluding non-printing and bidirectional controls.
+
+CanonicalDisplayName:
+  type: string
+  minLength: 2
+  maxLength: 100
+  pattern: '^(?=\S(?:[\s\S]*\S)?$)(?![\s\S]*[\u0000-\u001F\u007F-\u009F\u00AD\u0600-\u0605\u061C\u06DD\u070F\u0890-\u0891\u08E2\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u206F\uFEFF\uFFF9-\uFFFB])(?![\s\S]*(?:\uD804[\uDCBD\uDCCD]|\uD80D[\uDC30-\uDC3F]|\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|\uDB40[\uDC01\uDC20-\uDC7F]))(?:[^\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$'
+  description: Canonical display name with no surrounding whitespace, measured as 2-100 Unicode code points, restricted to PostgreSQL-safe Unicode scalar values, and excluding non-printing and bidirectional controls.
+
+NormalizedDisplayNameInput:
+  type: string
+  minLength: 2
+  pattern: '^[\s\uFEFF]*(?![\s\S]*(?:\uD804[\uDCBD\uDCCD]|\uD80D[\uDC30-\uDC3F]|\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|\uDB40[\uDC01\uDC20-\uDC7F]))(?!(?:\s|\uFEFF|[\u0000-\u001F\u007F-\u009F\u00AD\u0600-\u0605\u061C\u06DD\u070F\u0890-\u0891\u08E2\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u206F\uFFF9-\uFFFB]))(?:[^\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])(?:(?![\u0000-\u001F\u007F-\u009F\u00AD\u0600-\u0605\u061C\u06DD\u070F\u0890-\u0891\u08E2\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u206F\uFEFF\uFFF9-\uFFFB])(?:[^\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])){0,98}(?!(?:\s|\uFEFF|[\u0000-\u001F\u007F-\u009F\u00AD\u0600-\u0605\u061C\u06DD\u070F\u0890-\u0891\u08E2\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u206F\uFFF9-\uFFFB]))(?:[^\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])[\s\uFEFF]*$'
+  description: Raw display-name request accepted by normalization entry points. The value is trimmed of surrounding whitespace, then the resulting canonical value is validated against CanonicalDisplayName.
+
 EnrollmentRole:
   type: string
   enum: [teacher, student]

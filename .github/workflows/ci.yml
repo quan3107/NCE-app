@@ -90,8 +90,8 @@ jobs:
         run: npm run build
         working-directory: frontend
 
-      - name: Test frontend classroom workflow
-        run: npm run e2e
+      - name: Test mocked frontend classroom workflow
+        run: npm run e2e:mocked
         working-directory: frontend
 
   backend:
@@ -126,6 +126,7 @@ jobs:
       BREVO_SENDER_EMAIL: tests@example.com
       LOG_LEVEL: silent
       LOG_PRETTY: "false"
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:3010
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -373,3 +374,37 @@ jobs:
       - name: Test backend
         run: npm test
         working-directory: backend
+
+      - name: Generate runtime JWT signing keys
+        run: |
+          mkdir -p tests/runtime
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out tests/runtime/generated-jwt-private.pem
+          openssl pkey -in tests/runtime/generated-jwt-private.pem -pubout \
+            -out tests/runtime/generated-jwt-public.pem
+        working-directory: backend
+
+      - name: Seed real-backend browser accounts
+        run: npm run seed:demo
+        working-directory: backend
+        env:
+          DEMO_SEED_CONFIRM_DATABASE: nce_test
+
+      - name: Load ephemeral browser account password
+        run: |
+          demo_password="$(awk -F '\`' '/^\| Admin/{print $4; exit}' README.md)"
+          test -n "$demo_password"
+          echo "::add-mask::$demo_password"
+          echo "PLAYWRIGHT_TEST_PASSWORD=$demo_password" >> "$GITHUB_ENV"
+
+      - name: Install frontend browser dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Test seeded real-backend browser sessions
+        run: npm run e2e
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BACKEND_COMMAND: npm start

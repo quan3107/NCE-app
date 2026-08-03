@@ -38,8 +38,13 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/*.component.test.tsx'],
+    setupFiles: ['tests/setup-component.ts'],
     // Each isolated jsdom worker is large; two retain parallelism without multi-GB spikes.
     maxWorkers: 2,
+    // Process isolation is required by tests that temporarily change global state such as TZ.
+    pool: 'forks',
+    // Bound even an orphaned or runaway worker instead of allowing multi-GB heap growth.
+    execArgv: ['--max-old-space-size=512'],
     env: {
       VITE_API_BASE_URL: 'http://localhost:4000/api/v1',
     },

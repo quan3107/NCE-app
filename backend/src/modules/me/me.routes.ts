@@ -6,10 +6,11 @@
 import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
-import { getMe } from "./me.controller.js";
+import { getMe, updateMe } from "./me.controller.js";
 
 export const meRouter = Router();
 
 meRouter.use(authGuard);
 
 meRouter.get("/", getMe);
+meRouter.patch("/", updateMe);

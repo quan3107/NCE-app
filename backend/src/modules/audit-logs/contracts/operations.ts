@@ -66,6 +66,12 @@ export const operationsAuditContracts = {
       widgetCount: z.number().int().nonnegative(),
     }),
   },
+  'settings.file_upload_limits_updated': {
+    entity: 'file_upload_policy',
+    schema: z.strictObject({
+      changedRoles: z.array(userRoleSchema).min(1).max(3),
+    }),
+  },
   'cleanup.retention_executed': {
     entity: 'maintenance_job',
     schema: z.strictObject({

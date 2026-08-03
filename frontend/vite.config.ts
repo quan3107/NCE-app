@@ -69,6 +69,7 @@ export default defineConfig({
     },
     server: {
       port: 3000,
-      open: true,
+      // Keep repeated local or automated dev-server starts from stealing focus.
+      open: false,
     },
   });
