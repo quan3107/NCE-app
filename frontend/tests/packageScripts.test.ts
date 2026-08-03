@@ -90,6 +90,10 @@ test('Playwright separates actual-backend, mocked, and synthetic configurations'
     import.meta.dirname,
     '../e2e/real-backend-auth-storage-failure.spec.ts',
   );
+  const realBackendMutationsPath = path.resolve(
+    import.meta.dirname,
+    '../e2e/real-backend-mutations.spec.ts',
+  );
   const actual = await readFile(actualPath, 'utf8');
   const mocked = await readFile(mockedPath, 'utf8');
   const synthetic = await readFile(syntheticPath, 'utf8');
@@ -99,12 +103,16 @@ test('Playwright separates actual-backend, mocked, and synthetic configurations'
     realBackendStorageFailurePath,
     'utf8',
   );
+  const realBackendMutations = await readFile(realBackendMutationsPath, 'utf8');
 
   assert.match(actual, /PLAYWRIGHT_API_BASE_URL/);
   assert.match(actual, /VITE_API_BASE_URL:\s*apiBaseURL/);
   assert.match(actual, /real-backend\.spec\.ts/);
   assert.match(actual, /real-backend-auth-ordering\.spec\.ts/);
   assert.match(actual, /real-backend-auth-storage-failure\.spec\.ts/);
+  assert.match(actual, /real-backend-mutations\.spec\.ts/);
+  assert.match(actual, /frontendURL\.hostname/);
+  assert.match(actual, /frontendURL\.port/);
   assert.doesNotMatch(actual, /classroom-workflow\.spec/);
   assert.doesNotMatch(actual, /profile-layout\.visual\.spec/);
   assert.match(mocked, /classroom-workflow\.spec\.ts/);
@@ -123,6 +131,9 @@ test('Playwright separates actual-backend, mocked, and synthetic configurations'
   assert.match(realBackendStorageFailure, /peerRefresh\.status\(\).*401/);
   assert.match(realBackendSpec, /\/me/);
   assert.match(realBackendSpec, /Bearer \$\{auth\.accessToken\}/);
+  assert.match(realBackendMutations, /\/me/);
+  assert.match(realBackendMutations, /\/settings\/file-upload-limits/);
+  assert.match(realBackendMutations, /finally/);
   assert.doesNotMatch(realBackendSpec, /\.route\(/);
   assert.match(realBackendOrdering, /browser\.newContext/);
   assert.match(realBackendOrdering, /\/auth\/refresh/);
