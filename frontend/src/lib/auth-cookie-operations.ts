@@ -11,19 +11,20 @@ import {
   runWithCrossTabAuthLock,
 } from './auth-cookie-coordination';
 
+export type CookieCompensate = <T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+) => Promise<T>;
+
+type CookieOperation<T> = (
+  signal: AbortSignal,
+  compensate: CookieCompensate,
+) => Promise<T>;
+
 export type AuthCookieOperations = {
-  run: <T>(
-    operation: (signal: AbortSignal) => Promise<T>,
-  ) => Promise<T>;
-  runRefresh: <T>(
-    operation: (signal: AbortSignal) => Promise<T>,
-  ) => Promise<T>;
-  runOAuthStart: <T>(
-    operation: (signal: AbortSignal) => Promise<T>,
-  ) => Promise<T>;
-  runOAuthCompletion: <T>(
-    operation: (signal: AbortSignal) => Promise<T>,
-  ) => Promise<T>;
+  run: <T>(operation: CookieOperation<T>) => Promise<T>;
+  runRefresh: <T>(operation: CookieOperation<T>) => Promise<T>;
+  runOAuthStart: <T>(operation: CookieOperation<T>) => Promise<T>;
+  runOAuthCompletion: <T>(operation: CookieOperation<T>) => Promise<T>;
   releaseOAuthLease: () => Promise<void>;
   hasOwnedOAuthLease: () => boolean;
   cancelRefreshes: () => void;
@@ -67,7 +68,7 @@ export function createAuthCookieOperations(
     options.refreshTimeoutMs ?? DEFAULT_REFRESH_TIMEOUT_MS;
 
   function enqueue<T>(
-    operation: (signal: AbortSignal) => Promise<T>,
+    operation: CookieOperation<T>,
     timeoutMs: number,
     trackedControllers?: Set<AbortController>,
     allowOwnedLease = false,
@@ -88,7 +89,19 @@ export function createAuthCookieOperations(
         timeoutMs,
         (coordinatedSignal) => {
           if (Date.now() >= deadline) throw abortError();
-          return operation(coordinatedSignal);
+          const compensate: CookieCompensate = async (compensation) => {
+            const controller = new AbortController();
+            const compensationTimeout = setTimeout(
+              () => controller.abort(),
+              operationTimeoutMs,
+            );
+            try {
+              return await compensation(controller.signal);
+            } finally {
+              clearTimeout(compensationTimeout);
+            }
+          };
+          return operation(coordinatedSignal, compensate);
         },
       );
     });
@@ -104,7 +117,7 @@ export function createAuthCookieOperations(
   }
 
   function run<T>(
-    operation: (signal: AbortSignal) => Promise<T>,
+    operation: CookieOperation<T>,
   ): Promise<T> {
     return enqueue(
       operation,
@@ -118,7 +131,7 @@ export function createAuthCookieOperations(
   return {
     run,
     runRefresh<T>(
-      operation: (signal: AbortSignal) => Promise<T>,
+      operation: CookieOperation<T>,
     ): Promise<T> {
       return enqueue(
         operation,
@@ -127,22 +140,26 @@ export function createAuthCookieOperations(
       );
     },
     async runOAuthStart<T>(
-      operation: (signal: AbortSignal) => Promise<T>,
+      operation: CookieOperation<T>,
     ): Promise<T> {
-      return enqueue(async (signal) => {
-        const result = await operation(signal);
+      return enqueue(async (signal, compensate) => {
+        const result = await operation(signal, compensate);
         await createOAuthLease(signal);
         return result;
       }, operationTimeoutMs);
     },
     runOAuthCompletion<T>(
-      operation: (signal: AbortSignal) => Promise<T>,
+      operation: CookieOperation<T>,
     ): Promise<T> {
-      return enqueue(async (signal) => {
+      return enqueue(async (signal, compensate) => {
         try {
-          return await operation(signal);
+          return await operation(signal, compensate);
         } finally {
-          await clearOwnedOAuthLease(signal);
+          if (signal.aborted) {
+            await compensate(clearOwnedOAuthLease);
+          } else {
+            await clearOwnedOAuthLease(signal);
+          }
         }
       }, operationTimeoutMs, inRealmOAuthCompletionControllers, true);
     },
