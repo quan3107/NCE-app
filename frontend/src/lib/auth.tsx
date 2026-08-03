@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { ApiError, apiClient } from './apiClient';
+import type { CookieCompensate } from './auth-cookie-operations';
 import { PUBLIC_USER } from './auth-state';
 import { useAuthRuntime } from './use-auth-runtime';
 import type {
@@ -33,15 +34,18 @@ function isPendingApprovalResponse(
   return 'status' in response && response.status === 'pending_approval';
 }
 
-async function revokeRejectedCookieSession(signal: AbortSignal): Promise<void> {
-  await apiClient('/auth/logout', {
-    method: 'POST',
-    withAuth: false,
-    credentials: 'include',
-    parseJson: false,
-    signal,
-  });
-}
+const revokeRejectedCookieSession = (
+  compensate: CookieCompensate,
+): Promise<unknown> =>
+  compensate((signal) =>
+    apiClient('/auth/logout', {
+      method: 'POST',
+      withAuth: false,
+      credentials: 'include',
+      parseJson: false,
+      signal,
+    }),
+  );
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const {
@@ -51,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyLiveSession,
     updateLiveUser,
     commitLiveProfile,
+    refreshLiveProfile,
     clearSession,
     cookieOperations,
     completeOAuthSession,
@@ -63,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       cookieOperations.cancelRefreshes();
       try {
-        const committed = await cookieOperations.run(async (signal) => {
+        const committed = await cookieOperations.run(async (signal, compensate) => {
           // The operation admitted last owns the final cookie and UI intent.
           const admissionVersion = getAdmissionSessionVersion();
           const result = await apiClient<AuthSuccessResponse>('/auth/login', {
@@ -74,10 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             signal,
           });
           if (signal.aborted) {
+            await revokeRejectedCookieSession(compensate);
             throw new ApiError('Login request timed out.', 0);
           }
           const applied = applyLiveSession(result, admissionVersion);
-          if (!applied) await revokeRejectedCookieSession(signal);
+          if (!applied) await revokeRejectedCookieSession(compensate);
           return applied;
         });
         return committed ? 'live' : null;
@@ -98,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
       cookieOperations.cancelRefreshes();
-      return cookieOperations.run(async (signal) => {
+      return cookieOperations.run(async (signal, compensate) => {
         // Queued registration follows the same last-admitted cookie intent.
         const admissionVersion = getAdmissionSessionVersion();
         const result = await apiClient<
@@ -119,10 +125,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return 'pending_approval';
         }
         if (signal.aborted) {
+          await revokeRejectedCookieSession(compensate);
           throw new ApiError('Registration request timed out.', 0);
         }
         if (!applyLiveSession(result, admissionVersion)) {
-          await revokeRejectedCookieSession(signal);
+          await revokeRejectedCookieSession(compensate);
           throw new ApiError(
             'Registration was cancelled by a newer session change.',
             0,
@@ -199,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionGeneration,
       updateCurrentUser: updateLiveUser,
       commitCurrentProfile: commitLiveProfile,
+      refreshCurrentProfile: refreshLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
@@ -214,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionGeneration,
       updateLiveUser,
       commitLiveProfile,
+      refreshLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
