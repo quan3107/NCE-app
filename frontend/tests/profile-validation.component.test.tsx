@@ -18,6 +18,7 @@ import { ApiError } from "../src/lib/apiClient";
 
 const saveProfile = vi.hoisted(() => vi.fn());
 const commitCurrentProfile = vi.hoisted(() => vi.fn(async () => true));
+const refreshCurrentProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("@store/authStore", () => ({
   useAuthStore: () => ({
@@ -29,6 +30,7 @@ vi.mock("@store/authStore", () => ({
     },
     sessionGeneration: 1,
     commitCurrentProfile,
+    refreshCurrentProfile,
   }),
 }));
 
@@ -54,6 +56,10 @@ const { ProfileDetailsCard } =
 beforeEach(() => {
   saveProfile.mockReset();
   commitCurrentProfile.mockClear();
+  refreshCurrentProfile.mockReset();
+  refreshCurrentProfile.mockImplementation(async () =>
+    saveProfile.mock.results.at(-1)?.value,
+  );
 });
 
 afterEach(() => {
@@ -78,6 +84,38 @@ test("rejects backend-forbidden display controls before sending", () => {
     ),
   );
   assert.equal(saveProfile.mock.calls.length, 0);
+});
+
+test("shows inline length errors without sending invalid profile data", () => {
+  editAndSave(" ");
+
+  assert.ok(screen.getByText("Name must be between 2 and 100 characters."));
+  assert.equal(saveProfile.mock.calls.length, 0);
+});
+
+test("counts astral profile names by Unicode code point", async () => {
+  const emoji = "\u{1F600}";
+  saveProfile.mockImplementation(async ({ fullName }: { fullName: string }) => ({
+    id: "profile-validation-user",
+    fullName,
+    email: "profile@example.com",
+    role: "student",
+    status: "active",
+  }));
+
+  for (const invalidName of [emoji, emoji.repeat(101)]) {
+    cleanup();
+    editAndSave(invalidName);
+  }
+  assert.equal(saveProfile.mock.calls.length, 0);
+
+  for (const validName of [emoji.repeat(2), emoji.repeat(100)]) {
+    cleanup();
+    editAndSave(validName);
+    await waitFor(() => {
+      assert.equal(saveProfile.mock.calls.at(-1)?.[0]?.fullName, validName);
+    });
+  }
 });
 
 test("surfaces backend fullName field errors at the name input", async () => {
