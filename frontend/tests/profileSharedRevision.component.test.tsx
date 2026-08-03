@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
 
 import { meProfileQueryKey } from "../src/features/profile/api";
@@ -23,18 +23,26 @@ const liveSession = {
 };
 
 type Listener = (event: MessageEvent<unknown>) => void;
-const listeners = new Set<Listener>();
+const listeners = new Map<string, Set<Listener>>();
 
 class TestBroadcastChannel {
+  readonly name: string;
+  constructor(name: string) {
+    this.name = name;
+  }
   addEventListener(_type: string, listener: Listener) {
-    listeners.add(listener);
+    const channelListeners = listeners.get(this.name) ?? new Set<Listener>();
+    channelListeners.add(listener);
+    listeners.set(this.name, channelListeners);
   }
   close() {}
   postMessage(data: unknown) {
-    for (const listener of listeners) listener({ data } as MessageEvent);
+    for (const listener of listeners.get(this.name) ?? []) {
+      listener({ data } as MessageEvent);
+    }
   }
   removeEventListener(_type: string, listener: Listener) {
-    listeners.delete(listener);
+    listeners.get(this.name)?.delete(listener);
   }
 }
 
@@ -106,7 +114,21 @@ test("a saved profile updates memory and cache when both stores reject writes", 
   );
 });
 
-test("a same-session profile revision updates a subscribed peer", async () => {
+test("a profile invalidation refetches authoritative data in every tab", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({
+        profile: {
+          id: "user-a",
+          email: "user-a@example.com",
+          fullName: "Shared Name",
+          role: "student",
+          status: "active",
+        },
+      }),
+    ),
+  );
   const primary = renderHook(() => useAuthSession());
   const peer = renderHook(() => useAuthSession());
   act(() => primary.result.current.applyLiveSession(liveSession));
@@ -117,17 +139,62 @@ test("a same-session profile revision updates a subscribed peer", async () => {
   };
 
   await act(async () => {
-    await primary.result.current.commitLiveProfile(identity, {
-      id: "user-a",
-      email: "user-a@example.com",
-      fullName: "Shared Name",
-      role: "student",
-      status: "active",
-    });
+    await primary.result.current.refreshLiveProfile(identity);
   });
 
-  assert.equal(peer.result.current.liveUser?.name, "Shared Name");
+  await waitFor(() => {
+    assert.equal(peer.result.current.liveUser?.name, "Shared Name");
+  });
+  assert.equal(primary.result.current.liveUser?.name, "Shared Name");
   assert.equal(peer.result.current.sessionGeneration, peerGeneration);
+});
+
+test("an older authoritative refetch cannot overwrite a newer one", async () => {
+  const resolvers: Array<(response: Response) => void> = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolvers.push(resolve);
+        }),
+    ),
+  );
+  const view = renderHook(() => useAuthSession());
+  act(() => view.result.current.applyLiveSession(liveSession));
+  const identity = {
+    userId: "user-a",
+    generation: view.result.current.sessionGeneration,
+  };
+  const first = view.result.current.refreshLiveProfile(identity, false);
+  const second = view.result.current.refreshLiveProfile(identity, false);
+
+  resolvers[1]?.(
+    Response.json({
+      profile: {
+        id: "user-a",
+        email: "user-a@example.com",
+        fullName: "Database Winner",
+        role: "student",
+        status: "active",
+      },
+    }),
+  );
+  await act(async () => void (await second));
+  resolvers[0]?.(
+    Response.json({
+      profile: {
+        id: "user-a",
+        email: "user-a@example.com",
+        fullName: "Older Snapshot",
+        role: "student",
+        status: "active",
+      },
+    }),
+  );
+  await act(async () => void (await first));
+
+  assert.equal(view.result.current.liveUser?.name, "Database Winner");
 });
 
 test("a late profile commit cannot replace a newer stored account", async () => {
