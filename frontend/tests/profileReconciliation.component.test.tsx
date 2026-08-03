@@ -17,6 +17,7 @@ import { afterEach, beforeEach, test, vi } from "vitest";
 
 const saveProfile = vi.hoisted(() => vi.fn());
 const commitCurrentProfile = vi.hoisted(() => vi.fn());
+const refreshCurrentProfile = vi.hoisted(() => vi.fn());
 const state = vi.hoisted(() => ({
   currentUser: {
     id: "user-1",
@@ -39,6 +40,7 @@ vi.mock("@store/authStore", () => ({
     currentUser: state.currentUser,
     sessionGeneration: state.generation,
     commitCurrentProfile,
+    refreshCurrentProfile,
   }),
 }));
 
@@ -88,6 +90,19 @@ beforeEach(() => {
       return true;
     },
   );
+  refreshCurrentProfile.mockImplementation(
+    async (expected: { userId: string; generation: number }) => {
+      if (
+        expected.userId !== state.currentUser.id ||
+        expected.generation !== state.generation ||
+        state.profile.id !== state.currentUser.id
+      ) {
+        return null;
+      }
+      await commitCurrentProfile(expected, state.profile);
+      return state.profile;
+    },
+  );
 });
 
 afterEach(() => {
@@ -127,6 +142,7 @@ test("cancel during save does not discard the authoritative PATCH response", asy
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
   await act(async () => {
+    state.profile = { ...state.profile, fullName: "Saved Name" };
     resolveSave({ ...state.profile, fullName: "Saved Name" });
   });
 
@@ -182,13 +198,6 @@ test("rejects a PATCH response after the account switches", async () => {
     });
   });
 
-  const staleCallIndex = commitCurrentProfile.mock.calls.findIndex(
-    (call) => call[1]?.id === "user-1" && call[1]?.fullName === "User A Name",
-  );
-  assert.notEqual(staleCallIndex, -1);
-  assert.equal(
-    await commitCurrentProfile.mock.results[staleCallIndex]?.value,
-    false,
-  );
+  assert.equal(await refreshCurrentProfile.mock.results.at(-1)?.value, null);
   assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "User B");
 });
