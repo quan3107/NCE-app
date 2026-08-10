@@ -1,115 +1,66 @@
 /**
  * Location: tests/profileCacheRace.component.test.tsx
- * Purpose: Verify authoritative profile saves cancel older profile fetches.
- * Why: A response started before a save must not restore stale identity data.
+ * Purpose: Verify profile PATCH success cancels and supersedes older /me reads.
+ * Why: A delayed response started before a save must not revert the authoritative cache.
  */
+
 import assert from "node:assert/strict";
+import type { PropsWithChildren } from "react";
+
+import { QueryClientProvider } from "@tanstack/react-query";
+import { act, cleanup, renderHook } from "@testing-library/react";
+import { afterEach, test, vi } from "vitest";
 
 import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, beforeEach, test, vi } from "vitest";
-
+  meProfileQueryKey,
+  useUpdateMeProfileMutation,
+} from "../src/features/profile/api";
 import { queryClient } from "../src/lib/queryClient";
-
-const saveProfile = vi.hoisted(() => vi.fn());
-const commitCurrentProfile = vi.hoisted(() => vi.fn());
-const refreshCurrentProfile = vi.hoisted(() => vi.fn());
-
-vi.mock("@store/authStore", () => ({
-  useAuthStore: () => ({
-    currentUser: {
-      id: "user-1",
-      name: "Old Name",
-      email: "student@example.com",
-      role: "student",
-    },
-    sessionGeneration: 1,
-    commitCurrentProfile,
-    refreshCurrentProfile,
-  }),
-}));
-
-vi.mock("@features/profile/api", () => ({
-  meProfileQueryKey: (userId: string) => ["identity", userId, "profile"],
-  useMeProfileQuery: () => ({
-    data: {
-      id: "user-1",
-      email: "student@example.com",
-      fullName: "Old Name",
-      role: "student",
-      status: "active",
-    },
-  }),
-  useUpdateMeProfileMutation: () => ({
-    mutateAsync: saveProfile,
-    isPending: false,
-  }),
-}));
-
-const { ProfileDetailsCard } = await import(
-  "../src/features/profile/components/ProfileDetailsCard"
-);
-
-beforeEach(() => {
-  commitCurrentProfile.mockImplementation(async (_expected, profile) => {
-    const queryKey = ["identity", "user-1", "profile"] as const;
-    await queryClient.cancelQueries({ queryKey, exact: true });
-    queryClient.setQueryData(queryKey, profile);
-    return true;
-  });
-  saveProfile.mockResolvedValue({
-    id: "user-1",
-    email: "student@example.com",
-    fullName: "Saved Name",
-    role: "student",
-    status: "active",
-  });
-  refreshCurrentProfile.mockImplementation(async (expected) => {
-    const profile = await saveProfile.mock.results.at(-1)?.value;
-    await commitCurrentProfile(expected, profile);
-    return profile;
-  });
-});
 
 afterEach(() => {
   cleanup();
   queryClient.clear();
-  vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 test("an older profile fetch cannot overwrite a successful save", async () => {
-  const queryKey = ["identity", "user-1", "profile"] as const;
-  queryClient.setQueryData(queryKey, {
-    id: "user-1",
-    fullName: "Old Name",
-  });
+  const queryKey = meProfileQueryKey("user-1");
   let requestSignal: AbortSignal | undefined;
-  let resolveRequest!: (profile: { id: string; fullName: string }) => void;
+  let resolveOldRequest!: (profile: { id: string; fullName: string }) => void;
   const oldRequest = queryClient.fetchQuery({
     queryKey,
     queryFn: ({ signal }) =>
       new Promise<{ id: string; fullName: string }>((resolve) => {
         requestSignal = signal;
-        resolveRequest = resolve;
+        resolveOldRequest = resolve;
       }),
   });
   const settledOldRequest = oldRequest.catch(() => undefined);
-  render(<ProfileDetailsCard />);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({
+        id: "user-1",
+        email: "student@example.com",
+        fullName: "Saved Name",
+        role: "student",
+        status: "active",
+      }),
+    ),
+  );
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  const mutation = renderHook(
+    () => useUpdateMeProfileMutation("user-1"),
+    { wrapper },
+  );
 
-  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
-  fireEvent.change(screen.getByLabelText("Name"), {
-    target: { value: "Saved Name" },
+  await act(async () => {
+    await mutation.result.current.mutateAsync({ fullName: "Saved Name" });
   });
-  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-
-  await waitFor(() => assert.equal(saveProfile.mock.calls.length, 1));
   assert.equal(requestSignal?.aborted, true);
-  resolveRequest({ id: "user-1", fullName: "Old Name" });
+  resolveOldRequest({ id: "user-1", fullName: "Old Name" });
   await settledOldRequest;
 
   assert.equal(
