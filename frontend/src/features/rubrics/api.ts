@@ -85,7 +85,9 @@ const rubricTemplatesKey = (
 ) => ['rubrics', 'templates', courseId, context ?? 'all'] as const;
 
 const fetchRubrics = async (courseId: string): Promise<Rubric[]> => {
-  return apiClient<Rubric[]>(`/api/v1/courses/${courseId}/rubrics`);
+  return apiClient<Rubric[]>(`/api/v1/courses/${courseId}/rubrics`, {
+    auth: 'required',
+  });
 };
 
 const createRubric = async (
@@ -95,6 +97,7 @@ const createRubric = async (
   return apiClient<Rubric, CreateRubricRequest>(
     `/api/v1/courses/${courseId}/rubrics`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload,
     },
@@ -109,7 +112,9 @@ const fetchDefaultRubrics = async (
   if (assignmentType) {
     params.set('assignmentType', assignmentType);
   }
-  return apiClient<RubricTemplatesResponse>(`/api/v1/config/default-rubrics?${params.toString()}`);
+  return apiClient<RubricTemplatesResponse>(`/api/v1/config/default-rubrics?${params.toString()}`, {
+    auth: 'required',
+  });
 };
 
 const fetchCourseDefaultRubricTemplate = async (
@@ -117,6 +122,7 @@ const fetchCourseDefaultRubricTemplate = async (
 ): Promise<CourseDefaultRubricTemplateResponse> => {
   return apiClient<CourseDefaultRubricTemplateResponse>(
     `/api/v1/courses/${courseId}/default-rubric-template`,
+    { auth: 'required' },
   );
 };
 
@@ -128,7 +134,9 @@ const fetchRubricTemplates = async (
   if (context) {
     params.set('context', context);
   }
-  return apiClient<RubricTemplatesResponse>(`/api/v1/rubrics/templates?${params.toString()}`);
+  return apiClient<RubricTemplatesResponse>(`/api/v1/rubrics/templates?${params.toString()}`, {
+    auth: 'required',
+  });
 };
 
 export function useCourseRubricsQuery(courseId: string) {
