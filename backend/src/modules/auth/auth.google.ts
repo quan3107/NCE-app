@@ -90,6 +90,7 @@ export async function completeGoogleAuthorization(
 
   const accessToken = signAccessToken({
     userId: finalUser.id,
+    familyId: session.familyId,
     role: finalUser.role,
     status: finalUser.status,
   })
