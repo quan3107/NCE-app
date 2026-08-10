@@ -254,7 +254,20 @@ export async function apiClient<TResponse = unknown, TBody = unknown>(
 ): Promise<TResponse> {
   const auth = options.auth;
   if (auth !== "none") await authBridge.waitUntilReady();
-  const admission = auth === "none" ? null : authBridge.admit(auth);
+  let admission: AuthAdmission | null = null;
+  try {
+    admission = auth === "none" ? null : authBridge.admit(auth);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (
+      error instanceof Error &&
+      "status" in error &&
+      typeof error.status === "number"
+    ) {
+      throw new ApiError(error.message, error.status, error);
+    }
+    throw error;
+  }
   return apiClientInternal<TResponse, TBody>(
     endpoint,
     { ...options, auth },
