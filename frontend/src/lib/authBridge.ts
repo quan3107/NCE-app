@@ -4,81 +4,81 @@
  * Why: Allows fetch utilities to retrieve/refresh tokens while the provider controls session state.
  */
 
+import type {
+  AuthAdmission,
+  AuthMode,
+} from './auth-coordinator';
+import type { AuthMachineState } from './auth-machine';
 import type { RefreshAccessTokenResult } from './auth-types';
 
-type AccessTokenGetter = () => string | null;
 type RefreshInvoker = () => Promise<RefreshAccessTokenResult>;
-type SessionClearer = () => void;
-type SessionVersion = {
-  generation: number;
-  sessionEpoch: number;
-  userId: string | null;
-};
-type SessionVersionGetter = () => SessionVersion;
 type ReadinessWaiter = () => Promise<void>;
-type RequestSignalGetter = (callerSignal?: AbortSignal) => AbortSignal;
+type AdmissionGetter = (mode: Exclude<AuthMode, 'none'>) => AuthAdmission;
+type AdmissionChecker = (admission: AuthAdmission) => boolean;
+type SnapshotGetter = () => AuthMachineState;
+
+const defaultController = new AbortController();
 
 const defaultHandlers = {
-  getAccessToken: (): string | null => null,
   refreshAccessToken: async (): Promise<RefreshAccessTokenResult> => ({
     status: 'failed',
   }),
-  clearSession: (): void => {},
-  getSessionVersion: (): SessionVersion => ({
-    generation: 0,
-    sessionEpoch: 0,
-    userId: null,
-  }),
   waitUntilReady: async (): Promise<void> => {},
-  getRequestSignal: (callerSignal?: AbortSignal): AbortSignal =>
-    callerSignal ?? new AbortController().signal,
+  admit: (mode: Exclude<AuthMode, 'none'>): AuthAdmission => {
+    if (mode === 'required') {
+      throw Object.assign(new Error('Authentication is required.'), {
+        status: 401,
+      });
+    }
+    return {
+      accessToken: null,
+      actorId: null,
+      revision: 0,
+      signal: defaultController.signal,
+    };
+  },
+  isCurrent: (): boolean => true,
+  getSnapshot: (): AuthMachineState => ({ status: 'booting', revision: 0 }),
 };
 
 let handlers: {
-  getAccessToken: AccessTokenGetter;
   refreshAccessToken: RefreshInvoker;
-  clearSession: SessionClearer;
-  getSessionVersion: SessionVersionGetter;
   waitUntilReady: ReadinessWaiter;
-  getRequestSignal: RequestSignalGetter;
+  admit: AdmissionGetter;
+  isCurrent: AdmissionChecker;
+  getSnapshot: SnapshotGetter;
 } = { ...defaultHandlers };
 
 export const authBridge = {
-  getAccessToken(): string | null {
-    return handlers.getAccessToken();
-  },
   async refreshAccessToken(): Promise<RefreshAccessTokenResult> {
     return handlers.refreshAccessToken();
-  },
-  clearSession(): void {
-    handlers.clearSession();
-  },
-  getSessionVersion(): SessionVersion {
-    return handlers.getSessionVersion();
   },
   waitUntilReady(): Promise<void> {
     return handlers.waitUntilReady();
   },
-  getRequestSignal(callerSignal?: AbortSignal): AbortSignal {
-    return handlers.getRequestSignal(callerSignal);
+  admit(mode: Exclude<AuthMode, 'none'>): AuthAdmission {
+    return handlers.admit(mode);
+  },
+  isCurrent(admission: AuthAdmission): boolean {
+    return handlers.isCurrent(admission);
+  },
+  getSnapshot(): AuthMachineState {
+    return handlers.getSnapshot();
   },
   configure(next: {
-    getAccessToken?: AccessTokenGetter;
     refreshAccessToken?: RefreshInvoker;
-    clearSession?: SessionClearer;
-    getSessionVersion?: SessionVersionGetter;
     waitUntilReady?: ReadinessWaiter;
-    getRequestSignal?: RequestSignalGetter;
+    admit?: AdmissionGetter;
+    isCurrent?: AdmissionChecker;
+    getSnapshot?: SnapshotGetter;
   }): void {
     handlers = {
-      getAccessToken: next.getAccessToken ?? handlers.getAccessToken,
       refreshAccessToken:
         next.refreshAccessToken ?? handlers.refreshAccessToken,
-      clearSession: next.clearSession ?? handlers.clearSession,
-      getSessionVersion:
-        next.getSessionVersion ?? handlers.getSessionVersion,
       waitUntilReady: next.waitUntilReady ?? handlers.waitUntilReady,
-      getRequestSignal: next.getRequestSignal ?? handlers.getRequestSignal,
+      admit: next.admit ?? handlers.admit,
+      isCurrent: next.isCurrent ?? handlers.isCurrent,
+      getSnapshot: next.getSnapshot ?? handlers.getSnapshot,
     };
   },
   reset(): void {
