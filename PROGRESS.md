@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** No backend files changed while extracting the frontend authentication restoration baseline and profile-save lifecycle into focused modules for file-size compliance.
+
 - **2026-08-10:** Refreshed dependency resolutions for patched brace expansion, URI parsing, and Nano ID releases after newly published high-severity advisories failed the backend audit gate.
 
 - **2026-08-10:** No backend files changed while correcting frontend reload identity fencing and profile write/reconciliation lifecycle reporting.
@@ -154,6 +156,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Extracted authentication restoration-baseline and profile-save lifecycle state into focused hooks, returning both consuming files below 300 lines and adding a regression that enforces the limit.
 
 - **2026-08-10:** Refreshed dependency resolutions for patched brace expansion, Nano ID, HTTP client, and DOM sanitization releases after newly published advisories failed the frontend audit gate; retained the React Router 6 line pending a separate major-version migration.
 
