@@ -21,19 +21,6 @@ export function backendUserToLiveUser(user: BackendAuthUser): LiveUser {
   };
 }
 
-export function seedProfileForNewActor(user: BackendAuthUser): void {
-  const key = profileQueryKey(user.id);
-  if (queryClient.getQueryData(key) !== undefined) return;
-  const profile: CurrentProfile = {
-    id: user.id,
-    email: user.email,
-    fullName: user.fullName,
-    role: user.role,
-    status: 'active',
-  };
-  queryClient.setQueryData(key, profile);
-}
-
 export function enterActorScope(
   previous: AuthMachineState,
   next: AuthMachineState,
