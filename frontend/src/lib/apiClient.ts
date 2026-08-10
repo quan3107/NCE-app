@@ -83,11 +83,8 @@ function sessionChangedError(): ApiError {
   );
 }
 
-function assertRequestSession(
-  admission: AuthAdmission | null,
-  hasBearerAuth: boolean,
-): void {
-  if (hasBearerAuth && admission && !authBridge.isCurrent(admission)) {
+function assertRequestSession(admission: AuthAdmission | null): void {
+  if (admission && !authBridge.isCurrent(admission)) {
     throw sessionChangedError();
   }
 }
@@ -154,12 +151,12 @@ async function apiClientInternal<TResponse, TBody>(
   if (auth === "required" && !hasBearerAuth) {
     throw new ApiError("Authentication is required.", 401);
   }
-  assertRequestSession(admission, hasBearerAuth);
+  assertRequestSession(admission);
 
   const init: RequestInit = {
     method,
     signal:
-      hasBearerAuth && admission
+      admission
         ? signal
           ? AbortSignal.any([signal, admission.signal])
           : admission.signal
@@ -183,7 +180,7 @@ async function apiClientInternal<TResponse, TBody>(
   try {
     response = await fetch(url, init);
   } catch (error) {
-    assertRequestSession(admission, hasBearerAuth);
+    assertRequestSession(admission);
     logApiError(method, url, 0, error);
     throw new ApiError(
       "Server is unavailable. Please check that the backend API is running.",
@@ -191,7 +188,7 @@ async function apiClientInternal<TResponse, TBody>(
       error,
     );
   }
-  assertRequestSession(admission, hasBearerAuth);
+  assertRequestSession(admission);
 
   if (response.status === 401 && auth !== "none" && hasBearerAuth && !hasRetried) {
     if (admission && authBridge.isCurrent(admission)) {
@@ -210,11 +207,11 @@ async function apiClientInternal<TResponse, TBody>(
       }
     }
   }
-  assertRequestSession(admission, hasBearerAuth);
+  assertRequestSession(admission);
 
   if (!response.ok) {
     const errorPayload = await parseErrorPayload(response);
-    assertRequestSession(admission, hasBearerAuth);
+    assertRequestSession(admission);
     logApiError(method, url, response.status, errorPayload);
     const message =
       (typeof errorPayload === "object" &&
@@ -234,17 +231,17 @@ async function apiClientInternal<TResponse, TBody>(
 
   if (responseType === "blob") {
     const payload = await response.blob();
-    assertRequestSession(admission, hasBearerAuth);
+    assertRequestSession(admission);
     return payload as TResponse;
   }
   if (responseType === "text") {
     const payload = await response.text();
-    assertRequestSession(admission, hasBearerAuth);
+    assertRequestSession(admission);
     return payload as TResponse;
   }
 
   const payload = await response.json();
-  assertRequestSession(admission, hasBearerAuth);
+  assertRequestSession(admission);
   return payload as TResponse;
 }
 
