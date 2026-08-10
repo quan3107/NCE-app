@@ -3,7 +3,7 @@
  * Purpose: Render the shared controlled profile editor for authenticated roles.
  * Why: Student, teacher, and admin profile routes should share persistence and validation.
  */
-import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Edit } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 
@@ -17,25 +17,16 @@ import {
 } from "@components/ui/card";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
+import { useMeProfileQuery } from "@features/profile/api";
 import {
-  useMeProfileQuery,
-  useUpdateMeProfileMutation,
-} from "@features/profile/api";
+  isTerminalProfileError,
+  useProfileSaveLifecycle,
+} from "@features/profile/hooks/useProfileSaveLifecycle";
 import { getProfileInitials } from "@features/profile/profileInitials";
-import {
-  profileNameFieldError,
-  validateProfileDisplayName,
-} from "@features/profile/profileValidation";
-import { ApiError } from "@lib/apiClient";
 import { useAuthStore } from "@store/authStore";
 
 const TERMINAL_PROFILE_MESSAGE =
   "This account is no longer available. Please sign in again.";
-const PROFILE_SYNC_MESSAGE =
-  "Changes saved, but the latest profile could not be synchronized. Refresh to verify.";
-
-const isTerminalProfileError = (error: unknown): boolean =>
-  error instanceof ApiError && (error.status === 403 || error.status === 404);
 
 export function ProfileDetailsCard() {
   const {
@@ -46,7 +37,6 @@ export function ProfileDetailsCard() {
     logout,
   } = useAuthStore();
   const profileQuery = useMeProfileQuery(currentUser.id);
-  const updateProfile = useUpdateMeProfileMutation();
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState(currentUser.name);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -59,7 +49,6 @@ export function ProfileDetailsCard() {
   });
   const previousUserId = useRef(currentUser.id);
   const requestSequence = useRef(0);
-  const draftRevision = useRef(0);
   latestIdentity.current = {
     userId: currentUser.id,
     generation: sessionGeneration,
@@ -91,6 +80,20 @@ export function ProfileDetailsCard() {
       });
     }
   }, [logout]);
+
+  const { isSaving, recordDraftChange, submitProfile } =
+    useProfileSaveLifecycle({
+      commitCurrentProfile,
+      endTerminalProfileSession,
+      fullName,
+      latestIdentity,
+      refreshCurrentProfile,
+      requestSequence,
+      setEditing,
+      setFullName,
+      setNameError,
+      setSaveError,
+    });
 
   useEffect(() => {
     if (previousUserId.current !== currentUser.id) {
@@ -154,78 +157,6 @@ export function ProfileDetailsCard() {
     setEditing(true);
   };
 
-  const submitProfile = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const validation = validateProfileDisplayName(fullName);
-    if (validation.error) {
-      setNameError(validation.error);
-      return;
-    }
-
-    setNameError(null);
-    setSaveError(null);
-    const initiatingIdentity = { ...latestIdentity.current };
-    const requestId = requestSequence.current + 1;
-    requestSequence.current = requestId;
-    const submittedDraftRevision = draftRevision.current;
-    const isCurrentSave = () =>
-      requestSequence.current === requestId &&
-      latestIdentity.current.userId === initiatingIdentity.userId &&
-      latestIdentity.current.generation === initiatingIdentity.generation;
-    let savedProfile;
-    try {
-      savedProfile = await updateProfile.mutateAsync({
-        fullName: validation.normalizedName,
-      });
-    } catch (error) {
-      if (isCurrentSave()) {
-        if (isTerminalProfileError(error)) {
-          endTerminalProfileSession();
-          return;
-        }
-        const fieldError = profileNameFieldError(error);
-        if (fieldError) {
-          setNameError(fieldError);
-        } else {
-          setSaveError("Unable to save your profile. Please try again.");
-        }
-      }
-      return;
-    }
-
-    if (!isCurrentSave()) return;
-    try {
-      const committed = await commitCurrentProfile(
-        initiatingIdentity,
-        savedProfile,
-      );
-      if (!isCurrentSave()) return;
-      if (!committed) {
-        setSaveError(PROFILE_SYNC_MESSAGE);
-        return;
-      }
-      if (draftRevision.current === submittedDraftRevision) {
-        setFullName(savedProfile.fullName);
-        setEditing(false);
-      }
-      const profile = await refreshCurrentProfile(initiatingIdentity);
-      if (
-        profile &&
-        isCurrentSave() &&
-        draftRevision.current === submittedDraftRevision
-      ) {
-        setFullName(profile.fullName);
-      }
-    } catch (error) {
-      if (!isCurrentSave()) return;
-      if (isTerminalProfileError(error)) {
-        endTerminalProfileSession();
-        return;
-      }
-      setSaveError(PROFILE_SYNC_MESSAGE);
-    }
-  };
-
   const initials = getProfileInitials(currentUser.name);
 
   return (
@@ -258,12 +189,12 @@ export function ProfileDetailsCard() {
               id="profile-name"
               value={fullName}
               onChange={(event) => {
-                draftRevision.current += 1;
+                recordDraftChange();
                 setFullName(event.target.value);
                 setNameError(null);
               }}
               disabled={
-                terminalProfileState || !editing || updateProfile.isPending
+                terminalProfileState || !editing || isSaving
               }
               aria-invalid={Boolean(nameError)}
               aria-describedby={nameError ? "profile-name-error" : undefined}
@@ -299,9 +230,9 @@ export function ProfileDetailsCard() {
             <Button
               type="submit"
               className="w-full"
-              disabled={terminalProfileState || updateProfile.isPending}
+              disabled={terminalProfileState || isSaving}
             >
-              {updateProfile.isPending ? "Saving..." : "Save Changes"}
+              {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           )}
         </form>
