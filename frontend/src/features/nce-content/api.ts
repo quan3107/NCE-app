@@ -47,7 +47,7 @@ export const fetchNceBooks = (
 ) =>
   apiClient<NceBookListResponse>('/nce/books', {
     params: queryParams(query),
-    withAuth: shouldUseAuth(query),
+    auth: shouldUseAuth(query) ? 'required' : 'none',
   });
 
 export const fetchNceUnits = (
@@ -56,7 +56,7 @@ export const fetchNceUnits = (
 ) =>
   apiClient<NceUnitListResponse>(`/nce/books/${bookId}/units`, {
     params: queryParams(query),
-    withAuth: shouldUseAuth(query),
+    auth: shouldUseAuth(query) ? 'required' : 'none',
   });
 
 export const fetchNceLessons = (
@@ -65,7 +65,7 @@ export const fetchNceLessons = (
 ) =>
   apiClient<NceLessonListResponse>(`/nce/units/${unitId}/lessons`, {
     params: queryParams(query),
-    withAuth: shouldUseAuth(query),
+    auth: shouldUseAuth(query) ? 'required' : 'none',
   });
 
 export const fetchNceLesson = (
@@ -74,7 +74,7 @@ export const fetchNceLesson = (
 ) =>
   apiClient<NceLesson>(`/nce/lessons/${lessonId}`, {
     params: queryParams(query),
-    withAuth: shouldUseAuth(query),
+    auth: shouldUseAuth(query) ? 'required' : 'none',
   });
 
 export const fetchCourseNceLessons = (
@@ -82,6 +82,7 @@ export const fetchCourseNceLessons = (
   query: Omit<NceReadQuery, 'courseId'> = {},
 ) =>
   apiClient<CourseNceLessonListResponse>(`/courses/${courseId}/nce-lessons`, {
+    auth: 'required',
     params: queryParams(query),
   });
 
@@ -94,6 +95,7 @@ export const createNceLesson = async (
   courseId?: string,
 ) => {
   const lesson = await apiClient<NceLesson, NceLessonWritePayload>('/nce/lessons', {
+    auth: 'required',
     method: 'POST',
     body: payload,
     params: courseId ? { courseId } : undefined,
@@ -111,6 +113,7 @@ export const patchNceLesson = async (
   const lesson = await apiClient<NceLesson, NceLessonPatchPayload>(
     `/nce/lessons/${lessonId}`,
     {
+      auth: 'required',
       method: 'PATCH',
       body: payload,
       params: courseId ? { courseId } : undefined,
@@ -123,6 +126,7 @@ export const patchNceLesson = async (
 
 export const publishNceLesson = async (lessonId: string, courseId?: string) => {
   const lesson = await apiClient<NceLesson>(`/nce/lessons/${lessonId}/publish`, {
+    auth: 'required',
     method: 'POST',
     params: courseId ? { courseId } : undefined,
   });
@@ -133,6 +137,7 @@ export const publishNceLesson = async (lessonId: string, courseId?: string) => {
 
 export const unpublishNceLesson = async (lessonId: string, courseId?: string) => {
   const lesson = await apiClient<NceLesson>(`/nce/lessons/${lessonId}/unpublish`, {
+    auth: 'required',
     method: 'POST',
     params: courseId ? { courseId } : undefined,
   });
@@ -149,6 +154,7 @@ export const assignCourseNceLessons = async (
     CourseNceLessonAssignmentResponse,
     CourseNceLessonAssignmentPayload
   >(`/courses/${courseId}/nce-lessons`, {
+    auth: 'required',
     method: 'PUT',
     body: payload,
   });
