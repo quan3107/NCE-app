@@ -7,12 +7,20 @@
 import "fake-indexeddb/auto";
 import { authBridge } from "../src/lib/authBridge";
 
+const controller = new AbortController();
 authBridge.configure({
-  getAccessToken: () => "component-test-access-token",
-  getSessionVersion: () => ({
-    generation: 1,
-    sessionEpoch: 1,
-    userId: "component-test-user",
+  admit: () => ({
+    accessToken: "component-test-access-token",
+    actorId: "component-test-user",
+    revision: 1,
+    signal: controller.signal,
+  }),
+  isCurrent: () => true,
+  getSnapshot: () => ({
+    status: "authenticated",
+    revision: 1,
+    accessToken: "component-test-access-token",
+    actor: { id: "component-test-user", role: "student" },
   }),
 });
 
