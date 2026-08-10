@@ -17,12 +17,12 @@ test('frontend test scripts use CI-expandable globs and bounded concurrency', as
 
   assert.equal(
     packageJson.scripts?.test,
-    'tsx --test --test-concurrency=2 tests/*.test.ts',
+    'tsx --test --import ./tests/setup-node.ts --test-concurrency=2 tests/*.test.ts',
     'frontend tests should expand in CI without spawning an unbounded process pool',
   );
   assert.equal(
     packageJson.scripts?.['test:coverage'],
-    'node --import tsx --test --test-concurrency=2 --experimental-test-coverage tests/*.test.ts',
+    'node --import tsx --import ./tests/setup-node.ts --test --test-concurrency=2 --experimental-test-coverage tests/*.test.ts',
     'frontend coverage should expand in CI without spawning an unbounded process pool',
   );
   assert.equal(
