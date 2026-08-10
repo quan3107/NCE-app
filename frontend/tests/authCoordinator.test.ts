@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { AuthCoordinator } from '../src/lib/auth-coordinator';
+import type { RefreshAccessTokenResult } from '../src/lib/auth-types';
 
 test('bootstrap is the only path from booting to anonymous', async () => {
   const coordinator = new AuthCoordinator();
@@ -64,4 +65,31 @@ test('same-actor session replacement aborts older admitted work', () => {
 
   assert.equal(admission.signal.aborted, true);
   assert.equal(coordinator.getSnapshot().revision, revision + 1);
+});
+
+test('a newer revision starts a fresh refresh instead of joining stale work', async () => {
+  const coordinator = new AuthCoordinator();
+  const resolvers: Array<(result: RefreshAccessTokenResult) => void> = [];
+  let refreshCalls = 0;
+  coordinator.setRefreshHandler(
+    () =>
+      new Promise((resolve) => {
+        refreshCalls += 1;
+        resolvers.push(resolve);
+      }),
+  );
+
+  const staleRefresh = coordinator.refresh();
+  coordinator.clear();
+  const currentRefresh = coordinator.refresh();
+
+  assert.notEqual(currentRefresh, staleRefresh);
+  assert.equal(refreshCalls, 2);
+  resolvers[1]?.({ status: 'refreshed', accessToken: 'current-token' });
+  assert.deepEqual(await currentRefresh, {
+    status: 'refreshed',
+    accessToken: 'current-token',
+  });
+  resolvers[0]?.({ status: 'stale' });
+  await staleRefresh;
 });
