@@ -13,6 +13,10 @@ import {
   type SecurityActor,
 } from './auth-machine';
 import type { RefreshAccessTokenResult } from './auth-types';
+import {
+  loadAuthInvalidation,
+  type AuthInvalidation,
+} from './shared-auth-session';
 
 export type AuthMode = 'none' | 'optional' | 'required';
 
@@ -25,6 +29,7 @@ export type AuthAdmission = {
 
 type RefreshHandler = () => Promise<RefreshAccessTokenResult>;
 type Listener = (state: AuthMachineState) => void;
+const MAX_ACKNOWLEDGED_INVALIDATIONS = 100;
 
 function admissionError(message: string, status: number): Error {
   return Object.assign(new Error(message), { status });
@@ -40,9 +45,18 @@ export class AuthCoordinator {
     promise: Promise<RefreshAccessTokenResult>;
   } | null = null;
   private resolveReadiness!: () => void;
+  private acknowledgedInvalidationEpoch = 0;
+  private acknowledgedInvalidationNonces = new Set<string>();
   private readiness = new Promise<void>((resolve) => {
     this.resolveReadiness = resolve;
   });
+
+  constructor() {
+    const initialInvalidation = loadAuthInvalidation();
+    if (initialInvalidation) {
+      this.acknowledgeAuthInvalidation(initialInvalidation);
+    }
+  }
 
   getSnapshot(): AuthMachineState {
     return this.state;
@@ -55,6 +69,22 @@ export class AuthCoordinator {
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  acknowledgeAuthInvalidation(invalidation: AuthInvalidation): void {
+    if (invalidation.epoch < this.acknowledgedInvalidationEpoch) return;
+    if (invalidation.epoch > this.acknowledgedInvalidationEpoch) {
+      this.acknowledgedInvalidationEpoch = invalidation.epoch;
+      this.acknowledgedInvalidationNonces.clear();
+    }
+    this.acknowledgedInvalidationNonces.add(invalidation.nonce);
+    if (
+      this.acknowledgedInvalidationNonces.size >
+      MAX_ACKNOWLEDGED_INVALIDATIONS
+    ) {
+      const oldest = this.acknowledgedInvalidationNonces.values().next().value;
+      if (oldest) this.acknowledgedInvalidationNonces.delete(oldest);
+    }
   }
 
   finishBootstrap(): void {
@@ -92,6 +122,10 @@ export class AuthCoordinator {
   }
 
   admit(mode: Exclude<AuthMode, 'none'>): AuthAdmission {
+    if (this.hasUnacknowledgedSharedInvalidation()) {
+      this.abortAuthenticatedRequests();
+      throw admissionError('Authentication session changed in another tab.', 0);
+    }
     if (this.state.status === 'booting') {
       throw admissionError('Authentication bootstrap is incomplete.', 0);
     }
@@ -115,6 +149,10 @@ export class AuthCoordinator {
   }
 
   isCurrent(admission: AuthAdmission): boolean {
+    if (this.hasUnacknowledgedSharedInvalidation()) {
+      this.abortAuthenticatedRequests();
+      return false;
+    }
     const actorId =
       this.state.status === 'authenticated' ? this.state.actor.id : null;
     return (
@@ -146,5 +184,16 @@ export class AuthCoordinator {
   private abortAuthenticatedRequests(): void {
     this.requestController.abort();
     this.requestController = new AbortController();
+  }
+
+  private hasUnacknowledgedSharedInvalidation(): boolean {
+    const shared = loadAuthInvalidation();
+    if (!shared || shared.epoch < this.acknowledgedInvalidationEpoch) {
+      return false;
+    }
+    return (
+      shared.epoch > this.acknowledgedInvalidationEpoch ||
+      !this.acknowledgedInvalidationNonces.has(shared.nonce)
+    );
   }
 }
