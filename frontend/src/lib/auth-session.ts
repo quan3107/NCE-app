@@ -8,10 +8,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { setAuthenticatedQueryScope } from './authenticated-query-scope';
 import { useAuthProfileSession } from './auth-profile-session';
-import {
-  clearAuthenticatedQueries,
-  synchronizeProfileCache,
-} from './auth-query-session';
+import { clearAuthenticatedQueries, synchronizeProfileCache } from './auth-query-session';
+import { useAuthRestorationBaseline } from './auth-restoration-baseline';
 import { loadInitialState, mapBackendUser } from './auth-state';
 import type {
   AuthSuccessResponse,
@@ -32,7 +30,7 @@ export const useAuthSession = () => {
   const initial = useMemo(loadInitialState, []);
   const [liveUser, setLiveUser] = useState<LiveUser | null>(null);
   const liveUserRef = useRef<LiveUser | null>(null);
-  const restoringUserRef = useRef<LiveUser | null>(initial.liveUser);
+  const restorationBaseline = useAuthRestorationBaseline(initial.liveUser);
   const sessionGenerationRef = useRef(0);
   const sessionEpochRef = useRef(initial.sessionEpoch);
   const profileRevisionRef = useRef(initial.profileRevision);
@@ -40,28 +38,20 @@ export const useAuthSession = () => {
   const profileCommitSequenceRef = useRef(new Map<string, number>());
   const tokenRef = useRef<string | null>(null);
   const refreshPromiseRef = useRef<RefreshPromiseSlot | null>(null);
-  const shouldRefreshOnMountRef = useRef(
-    Boolean(initial.token || initial.liveUser),
-  );
+  const shouldRefreshOnMountRef = useRef(Boolean(initial.token || initial.liveUser));
   setAuthenticatedQueryScope({
     generation: sessionGenerationRef.current,
     userId: liveUserRef.current?.id ?? null,
   });
 
   const consumeSharedSession = useCallback((snapshot: SharedAuthSnapshot) => {
-    const currentUser = liveUserRef.current ?? restoringUserRef.current;
-    const isProfileRevision =
-      snapshot.sessionEpoch === sessionEpochRef.current &&
-      snapshot.profileRevision > profileRevisionRef.current &&
-      snapshot.liveUser?.id === currentUser?.id &&
-      snapshot.liveUser?.role === currentUser?.role;
+    const profileRevisionKind = restorationBaseline.classifyProfileRevision(
+      snapshot, sessionEpochRef.current, profileRevisionRef.current, liveUserRef.current,
+    );
     sessionEpochRef.current = snapshot.sessionEpoch;
     profileRevisionRef.current = snapshot.profileRevision;
-    if (isProfileRevision && snapshot.liveUser) {
-      if (!liveUserRef.current) {
-        restoringUserRef.current = snapshot.liveUser;
-        return;
-      }
+    if (profileRevisionKind === 'restoring') return;
+    if (profileRevisionKind === 'live' && snapshot.liveUser) {
       userRevisionRef.current += 1;
       tokenRef.current = snapshot.token;
       liveUserRef.current = snapshot.liveUser;
@@ -69,7 +59,7 @@ export const useAuthSession = () => {
       synchronizeProfileCache(snapshot.liveUser);
       return;
     }
-    restoringUserRef.current = null;
+    restorationBaseline.clear();
     sessionGenerationRef.current += 1;
     userRevisionRef.current += 1;
     tokenRef.current = snapshot.token;
@@ -82,7 +72,7 @@ export const useAuthSession = () => {
     });
     setLiveUser(snapshot.liveUser);
     clearAuthenticatedQueries();
-  }, []);
+  }, [restorationBaseline]);
 
   const persistState = useCallback(
     (snapshot: PersistSnapshot, advanceEpoch = false) => {
@@ -90,10 +80,7 @@ export const useAuthSession = () => {
         snapshot,
         sessionEpochRef.current,
         advanceEpoch,
-        {
-          token: tokenRef.current,
-          liveUser: liveUserRef.current ?? restoringUserRef.current,
-        },
+        restorationBaseline.previousSnapshot(tokenRef.current, liveUserRef.current),
         profileRevisionRef.current,
         false,
       );
@@ -109,7 +96,7 @@ export const useAuthSession = () => {
       profileRevisionRef.current = result.snapshot.profileRevision;
       return true;
     },
-    [consumeSharedSession],
+    [consumeSharedSession, restorationBaseline],
   );
 
   const persistProfileState = useCallback(
@@ -134,18 +121,12 @@ export const useAuthSession = () => {
   );
 
   const clearSession = useCallback(() => {
-    persistState(
-      {
-        token: null,
-        liveUser: null,
-      },
-      true,
-    );
+    persistState({ token: null, liveUser: null }, true);
     sessionGenerationRef.current += 1;
     userRevisionRef.current += 1;
     tokenRef.current = null;
     liveUserRef.current = null;
-    restoringUserRef.current = null;
+    restorationBaseline.clear();
     refreshPromiseRef.current = null;
     profileCommitSequenceRef.current.clear();
     setAuthenticatedQueryScope({
@@ -154,7 +135,7 @@ export const useAuthSession = () => {
     });
     setLiveUser(null);
     clearAuthenticatedQueries();
-  }, [persistState]);
+  }, [persistState, restorationBaseline]);
 
   const getSessionVersion = useCallback(
     (): SessionVersion => ({
@@ -187,7 +168,6 @@ export const useAuthSession = () => {
     (payload: AuthSuccessResponse, expectedVersion?: SessionVersion) => {
       const nextUser = mapBackendUser(payload.user);
       const previousUser = liveUserRef.current;
-      const previousAuthorization = previousUser ?? restoringUserRef.current;
       if (
         expectedVersion &&
         (expectedVersion.generation !== sessionGenerationRef.current ||
@@ -197,7 +177,7 @@ export const useAuthSession = () => {
         return false;
       }
 
-      const replacesIdentity = previousAuthorization?.id !== nextUser.id;
+      const replacesIdentity = restorationBaseline.replacesIdentity(previousUser, nextUser);
       const userChangedSinceRequest =
         expectedVersion &&
         !replacesIdentity &&
@@ -206,9 +186,9 @@ export const useAuthSession = () => {
         userChangedSinceRequest && previousUser
           ? { ...nextUser, name: previousUser.name }
           : nextUser;
-      const replacesAuthorization =
-        replacesIdentity ||
-        previousAuthorization?.role !== resolvedNextUser.role;
+      const replacesAuthorization = restorationBaseline.replacesAuthorization(
+        previousUser, resolvedNextUser,
+      );
       const epochBeforePersist = sessionEpochRef.current;
       const profileRevisionBeforePersist = profileRevisionRef.current;
 
@@ -242,11 +222,11 @@ export const useAuthSession = () => {
       userRevisionRef.current += 1;
       tokenRef.current = payload.accessToken;
       liveUserRef.current = resolvedNextUser;
-      restoringUserRef.current = null;
+      restorationBaseline.clear();
       setLiveUser(resolvedNextUser);
       return true;
     },
-    [clearSession, persistState],
+    [clearSession, persistState, restorationBaseline],
   );
 
   const updateLiveUser = useCallback(
