@@ -65,6 +65,8 @@ export function useAuthRuntime() {
   const [fallbackUser, setFallbackUser] = useState<LiveUser | null>(null);
   const activeUserId =
     snapshot.status === 'authenticated' ? snapshot.actor.id : '';
+  const activeUserRole =
+    snapshot.status === 'authenticated' ? snapshot.actor.role : '';
 
   const applyLiveSession = useCallback(
     (
@@ -211,7 +213,7 @@ export function useAuthRuntime() {
         )
         .catch(() => undefined);
     });
-  }, [activeUserId, clearSession, cookieOperations]);
+  }, [activeUserId, activeUserRole, clearSession, cookieOperations]);
 
   useEffect(() => {
     let mounted = true;
