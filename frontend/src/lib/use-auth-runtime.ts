@@ -135,6 +135,14 @@ export function useAuthRuntime() {
       const expected = coordinator.getSnapshot();
       try {
         return await runner(async (signal, compensate) => {
+          const admitted = coordinator.getSnapshot();
+          if (
+            signal.aborted ||
+            admitted.revision !== expected.revision ||
+            actorId(admitted) !== actorId(expected)
+          ) {
+            return { status: 'stale' };
+          }
           const payload = await apiClient<AuthSuccessResponse>('/auth/refresh', {
             auth: 'none',
             method: 'POST',
