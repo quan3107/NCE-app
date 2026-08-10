@@ -13,6 +13,7 @@ const limitedFiles = [
   "src/lib/auth-session.ts",
   "src/lib/auth-machine.ts",
   "src/lib/auth-coordinator.ts",
+  "src/lib/active-profile-session.ts",
   "src/lib/use-auth-runtime.ts",
   "src/features/profile/components/ProfileDetailsCard.tsx",
   "src/features/profile/hooks/useProfileSaveLifecycle.ts",
