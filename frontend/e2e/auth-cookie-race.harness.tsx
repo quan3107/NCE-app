@@ -16,7 +16,10 @@ function Harness() {
   const [restoreStatus, setRestoreStatus] = useState('idle');
 
   const startProtectedRequest = () => {
-    void apiClient('/race-protected', { method: 'POST' }).catch(() => undefined);
+    void apiClient('/race-protected', {
+      auth: 'required',
+      method: 'POST',
+    }).catch(() => undefined);
   };
 
   const switchToB = async () => {
