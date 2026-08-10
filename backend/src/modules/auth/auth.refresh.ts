@@ -130,6 +130,7 @@ export async function handleSessionRefresh(
 
   const accessToken = signAccessToken({
     userId: user.id,
+    familyId: rotated.familyId,
     role: user.role,
     status: user.status,
   })
@@ -189,7 +190,7 @@ export async function handleLogout(
 
       const revokeResult = await prisma.authSession.updateMany({
         where: {
-          refreshTokenHash,
+          familyId: session.familyId,
           revokedAt: null,
         },
         data: {
@@ -197,7 +198,7 @@ export async function handleLogout(
         },
       })
 
-      if (revokeResult.count !== 1) {
+      if (revokeResult.count === 0) {
         return null
       }
 
