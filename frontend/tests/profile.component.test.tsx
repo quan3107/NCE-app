@@ -178,7 +178,7 @@ test("ignores a late save after the authenticated account changes", async () => 
     });
   });
 
-  assert.equal(await refreshCurrentProfile.mock.results.at(-1)?.value, null);
+  assert.equal(refreshCurrentProfile.mock.calls.length, 0);
   assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "User B");
 });
 
@@ -229,7 +229,8 @@ test("ignores an older completion when saves resolve in reverse order", async ()
     });
   });
 
-  assert.equal(refreshCurrentProfile.mock.calls.length, 2);
+  assert.equal(refreshCurrentProfile.mock.calls.length, 1);
+  assert.equal(commitCurrentProfile.mock.calls.at(-1)?.[1]?.fullName, "Second Save");
   assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "Second Save");
 });
 
