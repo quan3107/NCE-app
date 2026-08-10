@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { apiClient } from './apiClient';
+import { startActiveProfileSession } from './active-profile-session';
 import { AuthCoordinator } from './auth-coordinator';
 import type { AuthMachineState } from './auth-machine';
 import { authBridge } from './authBridge';
@@ -62,6 +63,8 @@ export function useAuthRuntime() {
   const cookieOperations = useMemo(createAuthCookieOperations, []);
   const [snapshot, setSnapshot] = useState(coordinator.getSnapshot());
   const [fallbackUser, setFallbackUser] = useState<LiveUser | null>(null);
+  const activeUserId =
+    snapshot.status === 'authenticated' ? snapshot.actor.id : '';
 
   const applyLiveSession = useCallback(
     (
@@ -182,25 +185,33 @@ export function useAuthRuntime() {
   );
 
   authBridge.configure({
-    getAccessToken: () => {
-      const current = coordinator.getSnapshot();
-      return current.status === 'authenticated' ? current.accessToken : null;
-    },
     refreshAccessToken: () => coordinator.refresh(),
-    clearSession: () => clearSession(),
-    getSessionVersion: () => {
-      const current = coordinator.getSnapshot();
-      return {
-        generation: current.revision,
-        sessionEpoch: current.revision,
-        userId: actorId(current),
-      };
-    },
     waitUntilReady: () => coordinator.waitUntilReady(),
-    getRequestSignal: (signal) => coordinator.requestSignal(signal),
+    admit: (mode) => coordinator.admit(mode),
+    isCurrent: (admission) => coordinator.isCurrent(admission),
+    getSnapshot: () => coordinator.getSnapshot(),
   });
 
   useEffect(() => coordinator.subscribe(setSnapshot), [coordinator]);
+
+  useEffect(() => {
+    if (!activeUserId) return;
+    return startActiveProfileSession(activeUserId, () => {
+      cookieOperations.cancelRefreshes();
+      clearSession('logout');
+      void cookieOperations
+        .run((signal) =>
+          apiClient('/auth/logout', {
+            auth: 'none',
+            method: 'POST',
+            credentials: 'include',
+            parseJson: false,
+            signal,
+          }),
+        )
+        .catch(() => undefined);
+    });
+  }, [activeUserId, clearSession, cookieOperations]);
 
   useEffect(() => {
     let mounted = true;
@@ -239,8 +250,6 @@ export function useAuthRuntime() {
     };
   }, [clearSession, cookieOperations, coordinator]);
 
-  const activeUserId =
-    snapshot.status === 'authenticated' ? snapshot.actor.id : '';
   const subscribeToProfile = useCallback(
     (listener: () => void) => queryClient.getQueryCache().subscribe(listener),
     [],
