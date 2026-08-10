@@ -123,3 +123,30 @@ test("storage and notification failures never create authority", () => {
   assert.equal(coordinator.getSnapshot().status, "anonymous");
   assert.doesNotMatch(JSON.stringify(invalidation), /token|liveUser|profile/i);
 });
+
+test("distinct same-epoch invalidations survive duplicate transport delivery", () => {
+  const observed: string[] = [];
+  const unsubscribe = subscribeToAuthInvalidation((value) => {
+    observed.push(value.nonce);
+  });
+  const dispatch = (epoch: number, nonce: string) =>
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "nce:auth-invalidation",
+        newValue: JSON.stringify({
+          schemaVersion: 1,
+          epoch,
+          reason: "server-revalidate",
+          nonce,
+        }),
+      }),
+    );
+
+  dispatch(90, "publisher-a:1");
+  dispatch(90, "publisher-a:1");
+  dispatch(90, "publisher-b:1");
+  dispatch(89, "publisher-c:1");
+  unsubscribe();
+
+  assert.deepEqual(observed, ["publisher-a:1", "publisher-b:1"]);
+});
