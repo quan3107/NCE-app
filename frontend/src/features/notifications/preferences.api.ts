@@ -83,6 +83,7 @@ function mapMyNotificationPreferencesResponse(
 export async function fetchMyNotificationPreferences(): Promise<MyNotificationPreferencesResponse> {
   const payload = await apiClient<ApiMyNotificationPreferencesResponse>(
     '/api/v1/me/notification-preferences',
+    { auth: 'required' },
   );
   return mapMyNotificationPreferencesResponse(payload);
 }
@@ -94,6 +95,7 @@ export async function saveMyNotificationPreferences(
     ApiMyNotificationPreferencesResponse,
     UpdateMyNotificationPreferencesRequest
   >('/api/v1/me/notification-preferences', {
+    auth: 'required',
     method: 'PUT',
     body: request,
   });
@@ -102,6 +104,7 @@ export async function saveMyNotificationPreferences(
 
 export async function resetMyNotificationPreferences(): Promise<void> {
   await apiClient('/api/v1/me/notification-preferences', {
+    auth: 'required',
     method: 'DELETE',
     parseJson: false,
   });
