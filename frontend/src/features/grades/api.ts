@@ -260,6 +260,7 @@ const fetchGrades = async (
       try {
         const grade = await apiClient<ApiGrade>(
           `/api/v1/submissions/${submission.id}/grade`,
+          { auth: 'required' },
         );
         return toGrade(grade, submission, assignmentMap);
       } catch (error) {
@@ -282,6 +283,7 @@ const upsertGrade = async (
   return apiClient<ApiGrade, UpsertGradeRequest>(
     `/api/v1/submissions/${submissionId}/grade`,
     {
+      auth: 'required',
       method: 'PUT',
       body: payload,
     },
@@ -296,7 +298,7 @@ const objectiveExplanationEndpoint = (
 
 const readObjectiveExplanation = async (
   endpoint: string,
-  options: ApiClientOptions = {},
+  options: ApiClientOptions = { auth: 'required' },
 ): Promise<ObjectiveExplanationResponse> => {
   try {
     return await apiClient<ObjectiveExplanationResponse>(endpoint, options);
@@ -318,6 +320,7 @@ export const requestObjectiveExplanation = (
   readObjectiveExplanation(
     objectiveExplanationEndpoint(submissionId, questionId),
     {
+      auth: 'required',
       method: 'POST',
     },
   );
