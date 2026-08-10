@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** Refreshed dependency resolutions for patched brace expansion, URI parsing, and Nano ID releases after newly published high-severity advisories failed the backend audit gate.
+
 - **2026-08-10:** No backend files changed while correcting frontend reload identity fencing and profile write/reconciliation lifecycle reporting.
 
 - **2026-08-03:** No backend files changed while assigning OAuth lease cleanup to exactly one frontend cancellation path and making peers consume ordered logout tombstones from failed-persistence snapshot removals.
@@ -152,6 +154,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Refreshed dependency resolutions for patched brace expansion, Nano ID, HTTP client, and DOM sanitization releases after newly published advisories failed the frontend audit gate; retained the React Router 6 line pending a separate major-version migration.
 
 - **2026-08-10:** Preserved validated provisional identity/role baselines across reload restoration so same-user refreshes keep peer requests alive, while real account or role changes still advance the shared epoch; committed confirmed profile PATCH responses before guarded reconciliation so GET failures report synchronization issues and late responses preserve newer drafts.
 
