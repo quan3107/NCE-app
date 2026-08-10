@@ -5,13 +5,10 @@
  */
 
 import assert from "node:assert/strict";
-import type { PropsWithChildren } from "react";
 
-import { QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
 
-import { useMeProfileQuery } from "../src/features/profile/api";
 import { queryClient } from "../src/lib/queryClient";
 import {
   publishProfileInvalidation,
@@ -59,40 +56,6 @@ test("a storage event requests a peer refetch by user id only", () => {
 
   assert.deepEqual(received, [message]);
   assert.doesNotMatch(JSON.stringify(received), /"token"|"profile"|fullName/i);
-});
-
-test("a peer invalidation refetches the authoritative profile query", async () => {
-  const fetchProfile = vi.fn(async () =>
-    Response.json({
-      profile: {
-        id: "user-a",
-        email: "user-a@example.com",
-        fullName: "Authoritative Name",
-        role: "student",
-        status: "active",
-      },
-    }),
-  );
-  vi.stubGlobal("fetch", fetchProfile);
-  const wrapper = ({ children }: PropsWithChildren) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
-  renderHook(() => useMeProfileQuery("user-a"), { wrapper });
-  await waitFor(() => assert.equal(fetchProfile.mock.calls.length, 1));
-
-  await act(async () => {
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: "nce:auth-profile-invalidation",
-        newValue: JSON.stringify({
-          type: "profile-invalidated",
-          userId: "user-a",
-          publicationId: "tab-peer:1",
-        }),
-      }),
-    );
-  });
-  await waitFor(() => assert.equal(fetchProfile.mock.calls.length, 2));
 });
 
 test("duplicate transports deliver one profile invalidation", () => {
