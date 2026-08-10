@@ -33,9 +33,9 @@ async function verifyDelayedCrossTabSwitch(
     await refreshStarted;
 
     await pageB.getByRole('button', { name: 'Login B' }).click();
-    // The shared epoch has already reconciled this tab to A while B waits
-    // behind A's delayed cookie refresh.
-    await expect(pageB.getByTestId('current-user')).toHaveText('user-a');
+    // Peer notification cannot grant A's authority while B waits behind the
+    // delayed cookie refresh; only the server response may authenticate it.
+    await expect(pageB.getByTestId('current-user')).toHaveText('guest');
 
     await request.post(`${TEST_SERVER}/test/release-refresh`);
     await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
