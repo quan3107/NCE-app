@@ -3,16 +3,12 @@
  * Purpose: Persist the authenticated user's editable profile fields.
  * Why: Profile pages need one mutation contract and a synchronized query cache.
  */
-import { useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "@lib/apiClient";
 import type { CurrentProfile } from "@lib/auth-types";
 import { queryClient } from "@lib/queryClient";
-import {
-  publishProfileInvalidation,
-  subscribeToProfileInvalidation,
-} from "@lib/shared-profile-invalidation";
+import { publishProfileInvalidation } from "@lib/shared-profile-invalidation";
 
 export type MeProfile = CurrentProfile;
 
@@ -47,19 +43,11 @@ export const updateMeProfile = async (
   });
 
 export function useMeProfileQuery(userId: string) {
-  const query = useQuery({
+  return useQuery({
     queryKey: meProfileQueryKey(userId),
     queryFn: ({ signal }) => fetchMeProfile(signal),
     enabled: Boolean(userId),
   });
-  useEffect(
-    () =>
-      subscribeToProfileInvalidation((invalidation) => {
-        if (invalidation.userId === userId) void query.refetch();
-      }),
-    [query.refetch, userId],
-  );
-  return query;
 }
 
 export function useUpdateMeProfileMutation(userId: string) {
