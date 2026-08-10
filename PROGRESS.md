@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** No backend files changed while fixing frontend role-scope profile ownership and the local required-auth error contract.
+
 - **2026-08-10:** No backend files changed while closing frontend auth release gaps; real-backend scenarios were migrated to the existing server cookie and `/me` contracts.
 
 - **2026-08-10:** No backend files changed for the frontend auth/session architecture correction; existing API and HttpOnly refresh-cookie contracts remain unchanged.
@@ -160,6 +162,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Restarted active `/me` ownership when the same user changes role without restarting for token rotation, and restored `ApiError` wrapping for anonymous required requests.
 
 - **2026-08-10:** Scoped refresh single-flight to auth revisions, made active `/me` globally observed across routes, hardened auth invalidation publication identity/deduplication, simplified coordinator admission, and migrated Playwright auth setup away from legacy storage authority.
 
