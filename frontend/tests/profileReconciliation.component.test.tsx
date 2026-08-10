@@ -160,6 +160,77 @@ test("cancel during save does not discard the authoritative PATCH response", asy
   });
 });
 
+test("reports a failed reconciliation as a synchronization problem", async () => {
+  saveProfile.mockResolvedValueOnce({
+    ...state.profile,
+    fullName: "Saved Name",
+  });
+  refreshCurrentProfile.mockRejectedValueOnce(new TypeError("GET failed"));
+  render(<ProfileDetailsCard />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Saved Name" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+  await waitFor(() => {
+    assert.equal(
+      (screen.getByLabelText("Name") as HTMLInputElement).value,
+      "Saved Name",
+    );
+    assert.match(screen.getByRole("alert").textContent ?? "", /saved.*synchron/i);
+  });
+  assert.equal(
+    commitCurrentProfile.mock.calls.some(
+      (call) => call[1]?.fullName === "Saved Name",
+    ),
+    true,
+  );
+  assert.ok(screen.getByRole("button", { name: "Edit Profile" }));
+});
+
+test("delayed reconciliation and peer updates preserve a newer draft", async () => {
+  let resolveRefresh!: (profile: typeof state.profile) => void;
+  saveProfile.mockResolvedValueOnce({
+    ...state.profile,
+    fullName: "Saved Name",
+  });
+  refreshCurrentProfile.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveRefresh = resolve;
+    }),
+  );
+  const view = render(<ProfileDetailsCard />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Saved Name" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+  await waitFor(() =>
+    assert.ok(screen.getByRole("button", { name: "Edit Profile" })),
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Newer Draft" },
+  });
+  state.profile = { ...state.profile, fullName: "Peer Name" };
+  state.currentUser = { ...state.currentUser, name: "Peer Name" };
+  view.rerender(<ProfileDetailsCard />);
+
+  await act(async () => {
+    resolveRefresh({ ...state.profile, fullName: "Reconciled Name" });
+  });
+
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "Newer Draft",
+  );
+  assert.ok(screen.getByRole("button", { name: "Save Changes" }));
+});
+
 test("rejects a PATCH response after the account switches", async () => {
   let resolveSave!: (profile: typeof state.profile) => void;
   saveProfile.mockReturnValueOnce(
@@ -198,6 +269,6 @@ test("rejects a PATCH response after the account switches", async () => {
     });
   });
 
-  assert.equal(await refreshCurrentProfile.mock.results.at(-1)?.value, null);
+  assert.equal(refreshCurrentProfile.mock.calls.length, 0);
   assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "User B");
 });
