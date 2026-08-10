@@ -20,6 +20,7 @@ incorrect entities, missing fields, and unknown properties fail before Prisma.
 | `auth.session_revoked` | `auth_session` | `sessionRevoked` | Failure-safe |
 | `user.created` | `user` | `role`, `status` | Failure-safe |
 | `user.invited` | `user` | `role`, `status` | Failure-safe |
+| `user.profile_updated` | `user` | `fullNameChanged` | Strict |
 | `user.teacher_approved` | `user` | `previousStatus`, `status` | Failure-safe |
 | `user.teacher_rejected` | `user` | `previousStatus`, `status` | Failure-safe |
 | `course.created` | `course` | `ownerTeacherId` | Failure-safe |
@@ -45,6 +46,7 @@ incorrect entities, missing fields, and unknown properties fail before Prisma.
 | `cms.homepage_stats_refreshed` | `cms_page_content` | page/section keys, item count, sync marker | Failure-safe |
 | `dashboard_config.saved` | `user_dashboard_config` | `role`, widget and visible counts | Failure-safe |
 | `dashboard_config.reset` | `user_dashboard_config` | `role`, widget count | Failure-safe |
+| `settings.file_upload_limits_updated` | `file_upload_policy` | `changedRoles` | Strict |
 | `cleanup.retention_executed` | `maintenance_job` | deletion/batch counts, limits, cutoffs, limit markers | Failure-safe |
 | `ai_feedback.policy_changed` | `assignment` | assignment/course IDs and policy-field markers | Failure-safe |
 | `ai_feedback.writing_requested` | `ai_feedback_draft` | entity IDs, bounded route/provider, model/version, status/visibility, use markers | Strict |

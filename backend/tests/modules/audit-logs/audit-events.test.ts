@@ -3,6 +3,9 @@
  * Purpose: Lock the reviewed inventory of registered audit actions.
  * Why: Adding, removing, or renaming an action must be an explicit contract review.
  */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -48,11 +51,13 @@ const reviewedActions = [
   'enrollment.created',
   'enrollment.deleted',
   'grade.upserted',
+  'settings.file_upload_limits_updated',
   'submission.created',
   'submission.submitted',
   'submission.updated',
   'user.created',
   'user.invited',
+  'user.profile_updated',
   'user.teacher_approved',
   'user.teacher_rejected',
 ] as const
@@ -76,5 +81,27 @@ describe('audit event registry', () => {
         },
       }),
     ).not.toThrow()
+  })
+
+  it('documents the strict profile update contract', () => {
+    const contracts = readFileSync(
+      resolve(process.cwd(), '../docs/audit-event-contracts.md'),
+      'utf8',
+    )
+    expect(contracts).toMatch(
+      /\| `user\.profile_updated` \| `user` \| `fullNameChanged` \| Strict \|/,
+    )
+  })
+
+  it('documents every registered audit action exactly once', () => {
+    const contracts = readFileSync(
+      resolve(process.cwd(), '../docs/audit-event-contracts.md'),
+      'utf8',
+    )
+    const documentedActions = [...contracts.matchAll(/^\| `([^`]+)` \|/gm)]
+      .map((match) => match[1])
+      .sort()
+
+    expect(documentedActions).toEqual(reviewedActions)
   })
 })

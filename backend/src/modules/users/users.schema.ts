@@ -6,6 +6,7 @@
 import { z } from "zod";
 
 import { UserRole, UserStatus } from "../../prisma/index.js";
+import { normalizedDisplayNameSchema } from "../../utils/displayNameValidation.js";
 
 export const DEFAULT_USER_LIMIT = 50;
 const MAX_USER_LIMIT = 100;
@@ -31,13 +32,13 @@ export const userQuerySchema = z
 
 export const createUserSchema = z.object({
   email: z.string().email(),
-  fullName: z.string().min(1),
+  fullName: normalizedDisplayNameSchema,
   role: z.enum(USER_ROLES),
   status: z.enum(USER_STATUSES).default(UserStatus.invited),
 });
 
 export const inviteUserSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
-  fullName: z.string().trim().min(1),
+  fullName: normalizedDisplayNameSchema,
   role: z.enum(INVITABLE_USER_ROLES),
 });

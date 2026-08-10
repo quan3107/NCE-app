@@ -18,6 +18,7 @@ import {
   AdminCoursesPage,
   AdminDashboardPage,
   AdminEnrollmentsPage,
+  AdminProfilePage,
   AdminSettingsPage,
   AdminUsersPage,
   AuthRegister,
@@ -234,6 +235,7 @@ export function AppRoutes() {
           <Route path="admin/enrollments" element={<AdminEnrollmentsPage />} />
           <Route path="admin/logs" element={<AdminAuditLogsPage />} />
           <Route path="admin/content" element={<AdminCmsPage />} />
+          <Route path="admin/profile" element={<AdminProfilePage />} />
           <Route path="admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>

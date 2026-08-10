@@ -4,6 +4,7 @@
  * Why: Ensures request parsing is explicit and reusable once logic lands.
  */
 import { UserRole } from "../../prisma/index.js";
+import { normalizedDisplayNameSchema } from "../../utils/displayNameValidation.js";
 import { z } from "zod";
 
 const REGISTERABLE_ROLES = [
@@ -26,7 +27,7 @@ export const googleAuthCallbackSchema = z.object({
 });
 
 export const registerAccountSchema = z.object({
-  fullName: z.string().trim().min(1, "Full name is required"),
+  fullName: normalizedDisplayNameSchema,
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8),
   role: z.enum(REGISTERABLE_ROLES),

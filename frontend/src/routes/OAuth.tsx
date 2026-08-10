@@ -16,7 +16,7 @@ import { useRouter } from '@lib/router';
 type OAuthStatus = 'working' | 'success' | 'error';
 
 export function OAuthRoute() {
-  const { completeGoogleLogin, currentUser } = useAuthStore();
+  const { cancelGoogleLogin, completeGoogleLogin, currentUser } = useAuthStore();
   const { navigate } = useRouter();
   const [status, setStatus] = useState<OAuthStatus>('working');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -33,16 +33,30 @@ export function OAuthRoute() {
   const googleMessage = searchParams.get('googleAuthMessage');
 
   useEffect(() => {
+    let active = true;
+    let cancellationRequested = false;
+    const cancelCompletion = () => {
+      if (!cancellationRequested) {
+        cancellationRequested = true;
+        cancelGoogleLogin();
+      }
+    };
+    const cleanupCompletion = () => {
+      active = false;
+      cancelCompletion();
+    };
+
     if (googleStatus === 'error') {
+      cancelCompletion();
       setStatus('error');
       setErrorMessage(
         googleMessage ?? 'Google sign-in was cancelled or could not be completed.',
       );
-      return;
+      return cleanupCompletion;
     }
 
     if (hasAttemptedRef.current) {
-      return;
+      return cleanupCompletion;
     }
     hasAttemptedRef.current = true;
     setStatus('working');
@@ -50,6 +64,7 @@ export function OAuthRoute() {
     void (async () => {
       try {
         await completeGoogleLogin();
+        if (!active) return;
         setStatus('success');
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
@@ -58,6 +73,8 @@ export function OAuthRoute() {
           window.history.replaceState({}, '', url.toString());
         }
       } catch (error) {
+        if (!active) return;
+        cancelCompletion();
         const message =
           error instanceof ApiError
             ? error.message
@@ -66,7 +83,14 @@ export function OAuthRoute() {
         setStatus('error');
       }
     })();
-  }, [completeGoogleLogin, googleMessage, googleStatus]);
+
+    return cleanupCompletion;
+  }, [
+    cancelGoogleLogin,
+    completeGoogleLogin,
+    googleMessage,
+    googleStatus,
+  ]);
 
   useEffect(() => {
     if (status !== 'success' || !currentUser) {

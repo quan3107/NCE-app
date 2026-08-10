@@ -9,16 +9,13 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
 } from 'react';
 
 import { ApiError, apiClient } from './apiClient';
-import { authBridge } from './authBridge';
-import { shouldClearSessionAfterRefreshFailure } from './auth-refresh';
+import type { CookieCompensate } from './auth-cookie-operations';
 import { PUBLIC_USER } from './auth-state';
-import { useAuthSession } from './auth-session';
+import { useAuthRuntime } from './use-auth-runtime';
 import type {
   AuthContextType,
   AuthPendingApprovalResponse,
@@ -37,89 +34,59 @@ function isPendingApprovalResponse(
   return 'status' in response && response.status === 'pending_approval';
 }
 
+const revokeRejectedCookieSession = (
+  compensate: CookieCompensate,
+): Promise<unknown> =>
+  compensate((signal) =>
+    apiClient('/auth/logout', {
+      method: 'POST',
+      withAuth: false,
+      credentials: 'include',
+      parseJson: false,
+      signal,
+    }),
+  );
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     liveUser,
+    sessionGeneration,
     tokenRef,
-    refreshPromiseRef,
-    shouldRefreshOnMountRef,
     applyLiveSession,
+    updateLiveUser,
+    commitLiveProfile,
+    refreshLiveProfile,
     clearSession,
-  } = useAuthSession();
-  const [isRestoringSession, setIsRestoringSession] = useState(
-    shouldRefreshOnMountRef.current,
-  );
-
-  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    if (refreshPromiseRef.current) {
-      return refreshPromiseRef.current;
-    }
-
-    const tokenAtRefreshStart = tokenRef.current;
-    const refreshPromise = (async () => {
-      try {
-        const result = await apiClient<AuthSuccessResponse>('/auth/refresh', {
-          method: 'POST',
-          withAuth: false,
-          credentials: 'include',
-        });
-        applyLiveSession(result);
-        return tokenRef.current;
-      } catch {
-        if (shouldClearSessionAfterRefreshFailure(tokenAtRefreshStart, tokenRef.current)) {
-          clearSession();
-        }
-        return null;
-      } finally {
-        refreshPromiseRef.current = null;
-      }
-    })();
-
-    refreshPromiseRef.current = refreshPromise;
-    return refreshPromise;
-  }, [applyLiveSession, clearSession]);
-
-  const restoreLiveSession = useCallback(async (): Promise<boolean> => {
-    setIsRestoringSession(true);
-    try {
-      const token = await refreshAccessToken();
-      return Boolean(token);
-    } finally {
-      setIsRestoringSession(false);
-    }
-  }, [refreshAccessToken]);
-
-  useEffect(() => {
-    authBridge.configure({
-      getAccessToken: () => tokenRef.current,
-      refreshAccessToken,
-      clearSession,
-    });
-    return () => {
-      authBridge.reset();
-    };
-  }, [clearSession, refreshAccessToken]);
-
-  useEffect(() => {
-    if (!shouldRefreshOnMountRef.current) {
-      setIsRestoringSession(false);
-      return;
-    }
-    shouldRefreshOnMountRef.current = false;
-    void restoreLiveSession();
-  }, [restoreLiveSession, shouldRefreshOnMountRef]);
+    cookieOperations,
+    completeOAuthSession,
+    isRestoringSession,
+    restoreLiveSession,
+    getAdmissionSessionVersion,
+  } = useAuthRuntime();
 
   const login = useCallback(
     async (email: string, password: string) => {
+      cookieOperations.cancelRefreshes();
       try {
-        const result = await apiClient<AuthSuccessResponse>('/auth/login', {
-          method: 'POST',
-          withAuth: false,
-          credentials: 'include',
-          body: { email, password },
+        const committed = await cookieOperations.run(async (signal, compensate) => {
+          // The operation admitted last owns the final cookie and UI intent.
+          const admissionVersion = getAdmissionSessionVersion();
+          const result = await apiClient<AuthSuccessResponse>('/auth/login', {
+            method: 'POST',
+            withAuth: false,
+            credentials: 'include',
+            body: { email, password },
+            signal,
+          });
+          if (signal.aborted) {
+            await revokeRejectedCookieSession(compensate);
+            throw new ApiError('Login request timed out.', 0);
+          }
+          const applied = applyLiveSession(result, admissionVersion);
+          if (!applied) await revokeRejectedCookieSession(compensate);
+          return applied;
         });
-        applyLiveSession(result);
-        return 'live';
+        return committed ? 'live' : null;
       } catch (error) {
         if (error instanceof ApiError && error.status === 400) {
           // Bubble validation errors so the login UI can show field feedback.
@@ -131,31 +98,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [applyLiveSession],
+    [applyLiveSession, cookieOperations, getAdmissionSessionVersion],
   );
 
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
-      const result = await apiClient<
-        AuthSuccessResponse | AuthPendingApprovalResponse
-      >('/auth/register', {
-        method: 'POST',
-        withAuth: false,
-        credentials: 'include',
-        body: {
-          fullName: payload.fullName.trim(),
-          email: payload.email.trim(),
-          password: payload.password,
-          role: payload.role,
-        },
+      cookieOperations.cancelRefreshes();
+      return cookieOperations.run(async (signal, compensate) => {
+        // Queued registration follows the same last-admitted cookie intent.
+        const admissionVersion = getAdmissionSessionVersion();
+        const result = await apiClient<
+          AuthSuccessResponse | AuthPendingApprovalResponse
+        >('/auth/register', {
+          method: 'POST',
+          withAuth: false,
+          credentials: 'include',
+          signal,
+          body: {
+            fullName: payload.fullName.trim(),
+            email: payload.email.trim(),
+            password: payload.password,
+            role: payload.role,
+          },
+        });
+        if (isPendingApprovalResponse(result)) {
+          return 'pending_approval';
+        }
+        if (signal.aborted) {
+          await revokeRejectedCookieSession(compensate);
+          throw new ApiError('Registration request timed out.', 0);
+        }
+        if (!applyLiveSession(result, admissionVersion)) {
+          await revokeRejectedCookieSession(compensate);
+          throw new ApiError(
+            'Registration was cancelled by a newer session change.',
+            0,
+          );
+        }
+        return 'live';
       });
-      if (isPendingApprovalResponse(result)) {
-        return 'pending_approval';
-      }
-      applyLiveSession(result);
-      return 'live';
     },
-    [applyLiveSession],
+    [applyLiveSession, cookieOperations, getAdmissionSessionVersion],
   );
 
   const loginWithGoogle = useCallback(async () => {
@@ -164,13 +147,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const returnTo = `${window.location.origin}/auth/oauth`;
-      const result = await apiClient<{ authorizationUrl: string }>('/auth/google', {
-        withAuth: false,
-        credentials: 'include',
-        params: {
-          returnTo,
-        },
+      cookieOperations.cancelRefreshes();
+      const result = await cookieOperations.runOAuthStart(async (signal) => {
+        const returnTo = `${window.location.origin}/auth/oauth`;
+        return apiClient<{ authorizationUrl: string }>('/auth/google', {
+          withAuth: false,
+          credentials: 'include',
+          params: {
+            returnTo,
+          },
+          signal,
+        });
       });
       window.location.href = result.authorizationUrl;
     } catch (error) {
@@ -179,29 +166,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       throw new ApiError('Unable to start Google sign-in. Please try again.', 500);
     }
-  }, []);
+  }, [cookieOperations]);
 
   const completeGoogleLogin = useCallback(async (): Promise<'live'> => {
-    const token = await refreshAccessToken();
-    if (!token) {
+    const result = await completeOAuthSession();
+    if (result.status !== 'refreshed') {
       throw new ApiError('Unable to finalize Google sign-in. Please try again.', 401);
     }
     return 'live';
-  }, [refreshAccessToken]);
+  }, [completeOAuthSession]);
+
+  const cancelGoogleLogin = useCallback(() => {
+    const completionOwnsCleanup = cookieOperations.cancelOAuthCompletions();
+    if (!completionOwnsCleanup) {
+      void cookieOperations.releaseOAuthLease().catch(() => undefined);
+    }
+  }, [cookieOperations]);
 
   const logout = useCallback(async () => {
-    try {
+    cookieOperations.cancelRefreshes();
+    clearSession();
+    await cookieOperations.run(async (signal) => {
+      // An earlier queued login may have restored identity after the immediate clear.
+      clearSession();
       await apiClient('/auth/logout', {
         method: 'POST',
         withAuth: false,
         credentials: 'include',
         parseJson: false,
+        signal,
       });
-    } catch {
-      // Ignore logout errors; we still clear the local session.
-    }
-    clearSession();
-  }, [clearSession]);
+    });
+  }, [clearSession, cookieOperations]);
 
   const currentUser = liveUser ?? PUBLIC_USER;
   const isAuthenticated = Boolean(tokenRef.current && liveUser);
@@ -209,22 +205,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const contextValue = useMemo<AuthContextType>(
     () => ({
       currentUser,
+      sessionGeneration,
+      updateCurrentUser: updateLiveUser,
+      commitCurrentProfile: commitLiveProfile,
+      refreshCurrentProfile: refreshLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
       register,
       loginWithGoogle,
+      cancelGoogleLogin,
       completeGoogleLogin,
       restoreLiveSession,
       logout,
     }),
     [
       currentUser,
+      sessionGeneration,
+      updateLiveUser,
+      commitLiveProfile,
+      refreshLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
       register,
       loginWithGoogle,
+      cancelGoogleLogin,
       completeGoogleLogin,
       restoreLiveSession,
       logout,

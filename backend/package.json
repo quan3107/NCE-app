@@ -91,7 +91,7 @@
     "vitest": "^4.1.8"
   },
   "overrides": {
-    "brace-expansion": "5.0.8",
+    "brace-expansion": "5.0.9",
     "find-my-way": "9.7.0",
     "postcss": "8.5.23",
     "valibot": "1.4.2"

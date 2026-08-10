@@ -12,7 +12,7 @@ User:
       type: string
       format: email
     fullName:
-      type: string
+      $ref: './common.yaml#/DisplayName'
     role:
       $ref: './common.yaml#/UserRole'
     status:
@@ -36,7 +36,7 @@ CreateUserRequest:
       type: string
       format: email
     fullName:
-      type: string
+      $ref: './common.yaml#/NormalizedDisplayNameInput'
     role:
       $ref: './common.yaml#/UserRole'
     status:
@@ -54,11 +54,7 @@ InviteUserRequest:
       description: Supply a trimmed, lowercase value for contract validation; the server also trims and lowercases it.
       example: teacher@example.com
     fullName:
-      type: string
-      minLength: 1
-      pattern: '\S'
-      description: Supply a trimmed value for contract validation; the server also trims it and rejects whitespace-only names.
-      example: Invited Teacher
+      $ref: './common.yaml#/NormalizedDisplayNameInput'
     role:
       type: string
       enum: [teacher, student]

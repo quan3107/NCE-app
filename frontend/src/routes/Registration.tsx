@@ -11,13 +11,14 @@ import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Separator } from '@components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
-import { Checkbox } from '@components/ui/checkbox';
 import { useAuth } from '@lib/auth';
 import { ApiError } from '@lib/apiClient';
+import { profileNameFieldError, validateProfileDisplayName } from '@features/profile/profileValidation';
 import type { RegisterRole } from '@lib/auth-types';
 import { useRouter } from '@lib/router';
 import { GraduationCap, Mail, Lock, Chrome, User, UserCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { RegistrationInformation, RegistrationTerms } from './RegistrationDetails';
 
 export function AuthRegister() {
   const { currentUser, isAuthenticated, register, loginWithGoogle } = useAuth();
@@ -31,6 +32,7 @@ export function AuthRegister() {
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [fullNameError, setFullNameError] = useState<string | null>(null);
 
   // Navigate when user is already logged in
   useEffect(() => {
@@ -54,9 +56,9 @@ export function AuthRegister() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Validation
-    if (!formData.fullName.trim()) {
-      toast.error('Please enter your full name');
+    const validatedName = validateProfileDisplayName(formData.fullName);
+    setFullNameError(validatedName.error);
+    if (validatedName.error) {
       setIsLoading(false);
       return;
     }
@@ -87,7 +89,7 @@ export function AuthRegister() {
 
     try {
       const result = await register({
-        fullName: formData.fullName,
+        fullName: validatedName.normalizedName,
         email: formData.email,
         password: formData.password,
         role: formData.role as RegisterRole,
@@ -104,7 +106,10 @@ export function AuthRegister() {
       toast.success('Account created successfully!');
       navigate('/student/dashboard');
     } catch (error) {
-      if (error instanceof ApiError) {
+      const fieldError = profileNameFieldError(error);
+      if (fieldError) {
+        setFullNameError(fieldError);
+      } else if (error instanceof ApiError) {
         toast.error(error.message || 'Registration failed. Please try again.');
       } else {
         toast.error('Registration failed. Please try again.');
@@ -176,11 +181,21 @@ export function AuthRegister() {
                   type="text"
                   placeholder="John Doe"
                   value={formData.fullName}
-                  onChange={(e) => handleInputChange('fullName', e.target.value)}
+                  onChange={(e) => {
+                    setFullNameError(null);
+                    handleInputChange('fullName', e.target.value);
+                  }}
                   className="pl-10"
+                  aria-invalid={Boolean(fullNameError)}
+                  aria-describedby={fullNameError ? 'fullName-error' : undefined}
                   required
                 />
               </div>
+              {fullNameError && (
+                <p id="fullName-error" className="text-sm text-destructive">
+                  {fullNameError}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -254,34 +269,10 @@ export function AuthRegister() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="terms" 
-                checked={agreedToTerms}
-                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-              />
-              <label
-                htmlFor="terms"
-                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                I agree to the{' '}
-                <button 
-                  type="button"
-                  className="text-sm hover:underline"
-                  onClick={() => toast.info('Terms and Conditions would open here')}
-                >
-                  Terms and Conditions
-                </button>
-                {' '}and{' '}
-                <button 
-                  type="button"
-                  className="text-sm hover:underline"
-                  onClick={() => toast.info('Privacy Policy would open here')}
-                >
-                  Privacy Policy
-                </button>
-              </label>
-            </div>
+            <RegistrationTerms
+              checked={agreedToTerms}
+              onCheckedChange={setAgreedToTerms}
+            />
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Creating Account...' : 'Create Account'}
@@ -301,13 +292,7 @@ export function AuthRegister() {
             </button>
           </div>
 
-          {/* Info hint */}
-          <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Registration Information:</p>
-            <p>- Students can enroll in courses and submit assignments</p>
-            <p>- Teachers can create courses and grade submissions</p>
-            <p>- All data is securely encrypted</p>
-          </div>
+          <RegistrationInformation />
         </CardContent>
       </Card>
     </div>

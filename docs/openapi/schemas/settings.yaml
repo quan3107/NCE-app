@@ -1,0 +1,60 @@
+# File: docs/openapi/schemas/settings.yaml
+# Purpose: Define admin-managed runtime setting payloads.
+# Why: Documents only settings that directly affect backend upload enforcement.
+
+FileUploadLimit:
+  type: object
+  additionalProperties: false
+  properties:
+    role:
+      $ref: './common.yaml#/UserRole'
+    maxFileSizeMib:
+      type: integer
+      minimum: 1
+      maximum: 100
+  required: [role, maxFileSizeMib]
+
+FileUploadLimitsResponse:
+  type: object
+  additionalProperties: false
+  properties:
+    limits:
+      type: array
+      description: Contains student, teacher, and admin exactly once.
+      minItems: 3
+      maxItems: 3
+      items:
+        $ref: '#/FileUploadLimit'
+  required: [limits]
+
+FileUploadLimitUpdate:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedMaxFileSizeMib:
+      type: integer
+      minimum: 1
+      maximum: 100
+    maxFileSizeMib:
+      type: integer
+      minimum: 1
+      maximum: 100
+  required: [expectedMaxFileSizeMib, maxFileSizeMib]
+
+FileUploadLimitUpdates:
+  type: object
+  additionalProperties: false
+  properties:
+    updates:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      maxProperties: 3
+      properties:
+        student:
+          $ref: '#/FileUploadLimitUpdate'
+        teacher:
+          $ref: '#/FileUploadLimitUpdate'
+        admin:
+          $ref: '#/FileUploadLimitUpdate'
+  required: [updates]

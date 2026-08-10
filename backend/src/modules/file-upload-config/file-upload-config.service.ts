@@ -31,45 +31,6 @@ export type RoleFileUploadConfig = {
   allowedExtensions: Set<string>;
 };
 
-const FALLBACK_LIMITS: FileUploadLimits = {
-  max_file_size: 25 * 1024 * 1024,
-  max_total_size: 100 * 1024 * 1024,
-  max_files_per_upload: 5,
-};
-
-const FALLBACK_ALLOWED_TYPES: AllowedFileType[] = [
-  {
-    mime_type: "application/pdf",
-    extensions: [".pdf"],
-    label: "PDF Document",
-    accept_token: ".pdf",
-  },
-  {
-    mime_type: "application/msword",
-    extensions: [".doc"],
-    label: "Word Document",
-    accept_token: ".doc",
-  },
-  {
-    mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    extensions: [".docx"],
-    label: "Word Document",
-    accept_token: ".docx",
-  },
-  {
-    mime_type: "audio/*",
-    extensions: [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".webm"],
-    label: "Audio Files",
-    accept_token: "audio/*",
-  },
-  {
-    mime_type: "image/*",
-    extensions: [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"],
-    label: "Image Files",
-    accept_token: "image/*",
-  },
-];
-
 function normalizeExtension(value: string): string {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) {
@@ -89,6 +50,31 @@ function normalizeAllowedType(type: AllowedFileType): AllowedFileType {
   };
 }
 
+const MIME_TYPE_PATTERN = /^[a-z0-9!#$&^_.+-]+\/(?:[a-z0-9!#$&^_.+-]+|\*)$/;
+const EXTENSION_PATTERN = /^\.[a-z0-9]+$/;
+
+function invalidAllowedTypeReason(type: AllowedFileType): string | null {
+  if (!MIME_TYPE_PATTERN.test(type.mime_type)) {
+    return "mime_type_blank";
+  }
+  if (
+    type.extensions.length === 0 ||
+    type.extensions.some((extension) => !EXTENSION_PATTERN.test(extension))
+  ) {
+    return "extensions_missing";
+  }
+  if (!type.label) {
+    return "label_blank";
+  }
+  if (
+    !EXTENSION_PATTERN.test(type.accept_token) &&
+    !MIME_TYPE_PATTERN.test(type.accept_token)
+  ) {
+    return "accept_token_blank";
+  }
+  return null;
+}
+
 function toTypeToken(type: AllowedFileType): string {
   const token = type.accept_token;
   if (token.startsWith(".")) {
@@ -101,7 +87,9 @@ function toTypeToken(type: AllowedFileType): string {
 }
 
 function buildTypeLabel(allowedTypes: AllowedFileType[]): string {
-  const tokens = allowedTypes.map(toTypeToken).filter((token) => token.length > 0);
+  const tokens = allowedTypes
+    .map(toTypeToken)
+    .filter((token) => token.length > 0);
 
   if (tokens.length === 0) {
     return "files";
@@ -125,6 +113,12 @@ function buildRoleConfig(
   allowedTypesInput: AllowedFileType[],
 ): RoleFileUploadConfig {
   const allowedTypes = allowedTypesInput.map(normalizeAllowedType);
+  for (const type of allowedTypes) {
+    const invalidReason = invalidAllowedTypeReason(type);
+    if (invalidReason) {
+      return throwUnavailablePolicy(role, invalidReason);
+    }
+  }
   const accept = allowedTypes.map((type) => type.accept_token).join(",");
   const typeLabel = buildTypeLabel(allowedTypes);
 
@@ -149,12 +143,16 @@ function buildRoleConfig(
   };
 }
 
-function buildFallbackConfig(role: UserRole, reason: string): RoleFileUploadConfig {
-  logger.warn({ role, reason }, "Using fallback file upload policy");
-  return buildRoleConfig(role, FALLBACK_LIMITS, FALLBACK_ALLOWED_TYPES);
+function throwUnavailablePolicy(role: UserRole, reason: string): never {
+  logger.error({ role, reason }, "File upload policy unavailable");
+  const error = new Error("File upload policy is unavailable.");
+  error.name = "FileUploadPolicyUnavailableError";
+  throw error;
 }
 
-export async function getRoleFileUploadConfig(role: UserRole): Promise<RoleFileUploadConfig> {
+export async function getRoleFileUploadConfig(
+  role: UserRole,
+): Promise<RoleFileUploadConfig> {
   const policy = await prisma.fileUploadPolicy.findUnique({
     where: { role },
     include: {
@@ -165,11 +163,11 @@ export async function getRoleFileUploadConfig(role: UserRole): Promise<RoleFileU
   });
 
   if (!policy) {
-    return buildFallbackConfig(role, "policy_not_found");
+    return throwUnavailablePolicy(role, "policy_not_found");
   }
 
   if (policy.allowedTypes.length === 0) {
-    return buildFallbackConfig(role, "allowed_types_missing");
+    return throwUnavailablePolicy(role, "allowed_types_missing");
   }
 
   return buildRoleConfig(

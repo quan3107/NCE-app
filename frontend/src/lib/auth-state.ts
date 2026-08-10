@@ -4,8 +4,12 @@
  * Why: Separates storage compatibility logic from the React auth provider.
  */
 
-import type { LiveUser, BackendAuthUser, InitialSnapshot, StoredAuthPayload } from './auth-types';
-import { STORAGE_KEYS } from './constants';
+import type {
+  LiveUser,
+  BackendAuthUser,
+  InitialAuthSnapshot,
+} from './auth-types';
+import { loadSharedAuthSnapshot } from './shared-auth-session';
 
 export const PUBLIC_USER: LiveUser = {
   id: '',
@@ -21,38 +25,20 @@ export const mapBackendUser = (user: BackendAuthUser): LiveUser => ({
   role: user.role,
 });
 
-export const loadInitialState = (): InitialSnapshot => {
-  const defaultSnapshot: InitialSnapshot = {
-    token: null,
-    liveUser: null,
-  };
+const isRestorableLiveUser = (value: LiveUser | null): value is LiveUser =>
+  Boolean(
+    value &&
+      typeof value.id === 'string' &&
+      value.id.length > 0 &&
+      typeof value.name === 'string' &&
+      typeof value.email === 'string' &&
+      (value.role === 'student' ||
+        value.role === 'teacher' ||
+        value.role === 'admin'),
+  );
 
-  if (typeof window === 'undefined') {
-    return defaultSnapshot;
-  }
-
-  try {
-    const stored = localStorage.getItem(STORAGE_KEYS.currentUser);
-    if (!stored) {
-      return defaultSnapshot;
-    }
-
-    const parsed = JSON.parse(stored) as StoredAuthPayload;
-    if (!parsed || typeof parsed !== 'object') {
-      throw new Error('Invalid stored auth payload');
-    }
-
-    let parsedToken: string | null = null;
-    if ('token' in parsed && typeof parsed.token === 'string' && parsed.token.length > 0) {
-      parsedToken = parsed.token;
-    }
-    const liveUser = parsed.liveUser ?? null;
-
-    return {
-      token: liveUser ? parsedToken : null,
-      liveUser,
-    };
-  } catch {
-    return defaultSnapshot;
-  }
+export const loadInitialState = (): InitialAuthSnapshot => {
+  const snapshot = loadSharedAuthSnapshot();
+  if (isRestorableLiveUser(snapshot.liveUser)) return snapshot;
+  return { ...snapshot, token: null, liveUser: null };
 };

@@ -6,10 +6,11 @@
 
 import { authBridge } from "./authBridge";
 import { API_BASE_URL } from "./apiBaseUrl";
-import { STORAGE_KEYS } from "./constants";
-
+import {
+  authenticatedRequestSignal,
+  loadSharedAuthSnapshot,
+} from "./shared-auth-session";
 type Primitive = string | number | boolean;
-
 export type ApiClientOptions<TBody = unknown> = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: TBody;
@@ -21,7 +22,6 @@ export type ApiClientOptions<TBody = unknown> = {
   responseType?: "blob" | "json" | "text";
   credentials?: RequestCredentials;
 };
-
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -32,17 +32,8 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
-
 const JSON_CONTENT_TYPE = "application/json";
-
-type StoredAuthPayload = {
-  token?: string | null;
-  liveUser?: {
-    id?: string;
-    role?: string;
-  } | null;
-};
-
+type RequestSession = ReturnType<typeof authBridge.getSessionVersion>;
 const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
 const API_VERSION_PREFIX = "/api/v1";
 const SHOULD_LOG_API_ERRORS = import.meta.env?.DEV ?? false;
@@ -78,36 +69,8 @@ function buildUrl(endpoint: string, params?: ApiClientOptions["params"]) {
   return url;
 }
 
-function readStoredBearerToken(): string | null {
-  const storage = (globalThis as { localStorage?: Storage }).localStorage;
-  if (!storage) {
-    return null;
-  }
-
-  const stored = storage.getItem(STORAGE_KEYS.currentUser);
-  if (!stored) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(stored) as StoredAuthPayload;
-    if (!parsed || typeof parsed !== "object") {
-      throw new Error("Invalid stored auth payload");
-    }
-
-    if (!parsed.liveUser) {
-      return null;
-    }
-
-    return typeof parsed.token === "string" && parsed.token.length > 0
-      ? parsed.token
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(session: RequestSession): Record<string, string> {
+  const sharedSession = loadSharedAuthSnapshot();
   const token = authBridge.getAccessToken();
   if (typeof token === "string" && token.length > 0) {
     return {
@@ -115,7 +78,10 @@ function getAuthHeaders(): Record<string, string> {
     };
   }
 
-  const storedToken = readStoredBearerToken();
+  const storedToken =
+    sharedSession.sessionEpoch === session.sessionEpoch && sharedSession.liveUser
+      ? sharedSession.token
+      : null;
   if (storedToken) {
     return {
       Authorization: `Bearer ${storedToken}`,
@@ -123,6 +89,34 @@ function getAuthHeaders(): Record<string, string> {
   }
 
   return {};
+}
+
+function sessionChangedError(): ApiError {
+  return new ApiError(
+    "Authentication session changed while the request was in flight.",
+    0,
+  );
+}
+
+function isSameSession(left: RequestSession, right: RequestSession): boolean {
+  return (
+    left.generation === right.generation &&
+    left.sessionEpoch === right.sessionEpoch &&
+    left.userId === right.userId
+  );
+}
+
+function assertRequestSession(
+  initiatingSession: RequestSession,
+  hasBearerAuth: boolean,
+): void {
+  if (
+    hasBearerAuth &&
+    (loadSharedAuthSnapshot().sessionEpoch > initiatingSession.sessionEpoch ||
+      !isSameSession(initiatingSession, authBridge.getSessionVersion()))
+  ) {
+    throw sessionChangedError();
+  }
 }
 
 async function parseErrorPayload(response: Response) {
@@ -161,6 +155,8 @@ async function apiClientInternal<TResponse, TBody>(
   endpoint: string,
   options: ApiClientOptions<TBody>,
   hasRetried: boolean,
+  initiatingSession: RequestSession,
+  retryAccessToken?: string,
 ): Promise<TResponse> {
   const {
     method = "GET",
@@ -175,13 +171,18 @@ async function apiClientInternal<TResponse, TBody>(
   } = options;
 
   const url = buildUrl(endpoint, params);
-  const authHeaders = withAuth ? getAuthHeaders() : {};
+  const authHeaders = withAuth
+    ? retryAccessToken
+      ? { Authorization: `Bearer ${retryAccessToken}` }
+      : getAuthHeaders(initiatingSession)
+    : {};
   const hasBearerAuth =
     withAuth && typeof authHeaders.Authorization === "string";
+  assertRequestSession(initiatingSession, hasBearerAuth);
 
   const init: RequestInit = {
     method,
-    signal,
+    signal: hasBearerAuth ? authenticatedRequestSignal(signal) : signal,
     headers: {
       "Content-Type": JSON_CONTENT_TYPE,
       ...headers,
@@ -201,6 +202,7 @@ async function apiClientInternal<TResponse, TBody>(
   try {
     response = await fetch(url, init);
   } catch (error) {
+    assertRequestSession(initiatingSession, hasBearerAuth);
     logApiError(method, url, 0, error);
     throw new ApiError(
       "Server is unavailable. Please check that the backend API is running.",
@@ -208,17 +210,30 @@ async function apiClientInternal<TResponse, TBody>(
       error,
     );
   }
+  assertRequestSession(initiatingSession, hasBearerAuth);
 
   if (response.status === 401 && withAuth && hasBearerAuth && !hasRetried) {
-    const refreshed = await authBridge.refreshAccessToken();
-    if (refreshed) {
-      return apiClientInternal(endpoint, options, true);
+    if (isSameSession(initiatingSession, authBridge.getSessionVersion())) {
+      const refreshed = await authBridge.refreshAccessToken();
+      if (
+        refreshed.status === "refreshed" &&
+        isSameSession(initiatingSession, authBridge.getSessionVersion())
+      ) {
+        return apiClientInternal(
+          endpoint,
+          options,
+          true,
+          initiatingSession,
+          refreshed.accessToken,
+        );
+      }
     }
-    authBridge.clearSession();
   }
+  assertRequestSession(initiatingSession, hasBearerAuth);
 
   if (!response.ok) {
     const errorPayload = await parseErrorPayload(response);
+    assertRequestSession(initiatingSession, hasBearerAuth);
     logApiError(method, url, response.status, errorPayload);
     const message =
       (typeof errorPayload === "object" &&
@@ -237,18 +252,29 @@ async function apiClientInternal<TResponse, TBody>(
   }
 
   if (responseType === "blob") {
-    return (await response.blob()) as TResponse;
+    const payload = await response.blob();
+    assertRequestSession(initiatingSession, hasBearerAuth);
+    return payload as TResponse;
   }
   if (responseType === "text") {
-    return (await response.text()) as TResponse;
+    const payload = await response.text();
+    assertRequestSession(initiatingSession, hasBearerAuth);
+    return payload as TResponse;
   }
 
-  return (await response.json()) as TResponse;
+  const payload = await response.json();
+  assertRequestSession(initiatingSession, hasBearerAuth);
+  return payload as TResponse;
 }
 
 export async function apiClient<TResponse = unknown, TBody = unknown>(
   endpoint: string,
   options: ApiClientOptions<TBody> = {},
 ): Promise<TResponse> {
-  return apiClientInternal<TResponse, TBody>(endpoint, options, false);
+  return apiClientInternal<TResponse, TBody>(
+    endpoint,
+    options,
+    false,
+    authBridge.getSessionVersion(),
+  );
 }

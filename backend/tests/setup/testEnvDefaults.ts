@@ -16,7 +16,8 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.BREVO_API_KEY ??= 'test-brevo-api-key'
   process.env.BREVO_SENDER_NAME ??= 'NCE Test Mailer'
   process.env.BREVO_SENDER_EMAIL ??= 'noreply.test@example.com'
-  process.env.CORS_ALLOWED_ORIGINS ??= 'http://localhost:5173,http://127.0.0.1:5173'
+  process.env.CORS_ALLOWED_ORIGINS ??=
+    'http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:3010'
   process.env.AUTH_PASSWORD_LOGIN_MAX_FAILURES ??= '3'
   process.env.AUTH_PASSWORD_LOGIN_WINDOW_MS ??= '60000'
   process.env.AUTH_PASSWORD_LOGIN_LOCKOUT_MS ??= '60000'

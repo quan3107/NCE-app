@@ -68,14 +68,14 @@ cp backend/.env.local.example backend/.env.local
 ```
 
 Use dedicated runtime-role values in `backend/.env` and keep the owner settings
-only in the gitignored `backend/.env.local`. For the current Vite setup, make sure
-CORS points at port `3000`:
+only in the gitignored `backend/.env.local`. For the current Vite app and the
+default real-backend browser suite, allow ports `3000` and `3010`:
 
 ```dotenv
 DATABASE_URL=postgres://nce_runtime:nce_runtime@localhost:5432/nce_app
 JOB_DATABASE_URL=postgres://nce_job_runner:nce_job_runner@localhost:5432/nce_app
 GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:3010
 ```
 
 `backend/.env.local` contains owner settings for short-lived database jobs; hosted commands also require an absolute path to the project Server root certificate:
@@ -85,7 +85,7 @@ DIRECT_URL=postgres://postgres:postgres@localhost:5432/nce_app
 # DIRECT_DATABASE_CA_CERT_PATH=/absolute/path/to/prod-ca-2021.crt
 ```
 
-`backend/.env.example` already uses the project's frontend port, `3000`.
+`backend/.env.example` already includes the app and Playwright browser origins.
 
 Create stable local JWT keys:
 
@@ -143,13 +143,31 @@ The app runs on `http://localhost:3000`. `frontend/.env` should point at the ver
 VITE_API_BASE_URL=http://localhost:4000/api/v1
 ```
 
-Run the classroom browser workflow from the repo root:
+With the backend running and the demo seed installed, run the real-backend
+browser checks from the repo root:
 
 ```bash
 npm --prefix frontend run e2e
 ```
 
-The Playwright workflow starts the Vite dev server on `http://127.0.0.1:3000`, uses isolated mocked classroom API state, and captures screenshots/traces when the teacher publish, student submit, teacher grade, or student feedback visibility path fails.
+The default Playwright command starts Vite on `http://127.0.0.1:3010`, targets
+`http://127.0.0.1:4000/api/v1`, and signs in with each local demo role before
+checking the authoritative `/me` response. It fails when the backend is not
+available. Supply `PLAYWRIGHT_TEST_PASSWORD` for the shared local demo password,
+or use the role-specific `PLAYWRIGHT_ADMIN_PASSWORD`,
+`PLAYWRIGHT_TEACHER_PASSWORD`, and `PLAYWRIGHT_STUDENT_PASSWORD` variables.
+Override `PLAYWRIGHT_API_BASE_URL` and the role-specific email variables when
+checking another safe test environment; non-local backends require explicit
+email credentials.
+
+API-intercepting classroom and profile-layout checks are opt-in:
+
+```bash
+npm --prefix frontend run e2e:mocked
+```
+
+The cookie-race API harness remains separately opt-in with
+`npm --prefix frontend run e2e:synthetic`.
 
 ## Local Accounts
 

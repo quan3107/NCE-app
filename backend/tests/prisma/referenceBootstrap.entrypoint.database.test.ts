@@ -128,6 +128,15 @@ databaseDescribe('production reference bootstrap entrypoint', () => {
 
     try {
       await assertBootstrapIsStable(clients[0])
+      await expect(
+        clients[0].navigationItem.findFirst({
+          where: { role: 'admin', path: '/admin/profile', isActive: true },
+          select: { label: true, requiredPermission: true },
+        }),
+      ).resolves.toEqual({
+        label: 'Profile',
+        requiredPermission: 'profile:view',
+      })
       const navigationCount = await clients[0].navigationItem.count()
       blocker = clients[3].$transaction(async (tx) => {
         await tx.$queryRawUnsafe(

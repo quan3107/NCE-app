@@ -3,14 +3,22 @@
  * Purpose: Fetch the authenticated user's profile, roles, enrollments, and navigation.
  * Why: Powers the PRD-required /me endpoint with a single query flow.
  */
-import type { EnrollmentRole, UserRole, UserStatus } from "../../prisma/index.js";
+import {
+  UserStatus,
+  type EnrollmentRole,
+  type UserRole,
+} from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
-import { createNotFoundError } from "../../utils/httpError.js";
+import {
+  createHttpError,
+  createNotFoundError,
+} from "../../utils/httpError.js";
+import { writeAuditLog } from "../audit-logs/audit-logs.service.js";
 import { getNavigationForRole } from "../navigation/navigation.service.js";
 import type { NavigationResponse } from "../navigation/navigation.types.js";
 
-type MeProfile = {
+export type MeProfile = {
   id: string;
   email: string;
   fullName: string;
@@ -38,6 +46,62 @@ type MeResponse = {
   enrollments: MeEnrollment[];
   navigation: NavigationResponse;
 };
+
+const meProfileSelect = {
+  id: true,
+  email: true,
+  fullName: true,
+  role: true,
+  status: true,
+} as const;
+
+type UpdateMeProfileInput = {
+  fullName: string;
+};
+
+export async function updateMeProfile(
+  userId: string,
+  input: UpdateMeProfileInput,
+): Promise<MeProfile> {
+  return prisma.$transaction(async (transaction) => {
+    const updateResult = await transaction.user.updateMany({
+      where: {
+        id: userId,
+        deletedAt: null,
+        status: UserStatus.active,
+        NOT: { fullName: input.fullName },
+      },
+      data: { fullName: input.fullName },
+    });
+
+    const profile = await transaction.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: meProfileSelect,
+    });
+
+    if (!profile) {
+      throw createNotFoundError("User", userId);
+    }
+    if (profile.status !== UserStatus.active) {
+      throw createHttpError(403, "Active account required.");
+    }
+
+    if (updateResult.count === 1) {
+      await writeAuditLog(
+        {
+          actorId: userId,
+          action: "user.profile_updated",
+          entity: "user",
+          entityId: userId,
+          eventData: { fullNameChanged: true },
+        },
+        transaction,
+      );
+    }
+
+    return profile;
+  });
+}
 
 export async function getMe(userId: string): Promise<MeResponse> {
   const user = await prisma.user.findFirst({
@@ -71,6 +135,9 @@ export async function getMe(userId: string): Promise<MeResponse> {
 
   if (!user) {
     throw createNotFoundError("User", userId);
+  }
+  if (user.status !== UserStatus.active) {
+    throw createHttpError(403, "Active account required.");
   }
 
   const enrollments = user.enrollments

@@ -24,7 +24,7 @@ test('dashboard paths map correctly for all roles', () => {
 test('resolveProfilePath returns expected route per role', () => {
   assert.equal(resolveProfilePath('student'), '/student/profile');
   assert.equal(resolveProfilePath('teacher'), '/teacher/profile');
-  assert.equal(resolveProfilePath('admin'), null);
+  assert.equal(resolveProfilePath('admin'), '/admin/profile');
   assert.equal(resolveProfilePath('public'), null);
 });
 
