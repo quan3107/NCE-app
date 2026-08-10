@@ -27,15 +27,18 @@ async function verifyDelayedCrossTabSwitch(
 
     await pageA.getByRole('button', { name: 'Login A' }).click();
     await expect(pageA.getByTestId('current-user')).toHaveText('user-a');
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await expect(pageB.getByTestId('current-user')).toHaveText('user-a');
+    await request.post(`${TEST_SERVER}/test/reset`);
 
     const refreshStarted = pageA.waitForRequest('**/api/v1/auth/refresh');
     await pageA.getByRole('button', { name: 'Start protected request' }).click();
     await refreshStarted;
 
     await pageB.getByRole('button', { name: 'Login B' }).click();
-    // Peer notification cannot grant A's authority while B waits behind the
-    // delayed cookie refresh; only the server response may authenticate it.
-    await expect(pageB.getByTestId('current-user')).toHaveText('guest');
+    // The current authority remains visible while B waits behind the delayed
+    // cookie refresh; only the serialized login response may replace it.
+    await expect(pageB.getByTestId('current-user')).toHaveText('user-a');
 
     await request.post(`${TEST_SERVER}/test/release-refresh`);
     await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
@@ -110,6 +113,7 @@ test('refuses cookie writes without Web Locks', async ({
 
 test('refresh reconciles a tab to the shared cookie identity', async ({
   browser,
+  request,
 }) => {
   const context = await browser.newContext();
   const pageA = await context.newPage();
@@ -121,6 +125,8 @@ test('refresh reconciles a tab to the shared cookie identity', async ({
 
   await pageA.getByRole('button', { name: 'Login A' }).click();
   await expect(pageA.getByTestId('current-user')).toHaveText('user-a');
+  await request.post(`${TEST_SERVER}/test/release-refresh`);
+  await expect(pageB.getByTestId('current-user')).toHaveText('user-a');
   await pageB.getByRole('button', { name: 'Login B' }).click();
   await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
 
@@ -135,33 +141,25 @@ test('invalidation during bootstrap starts a fresh revision refresh', async ({
 }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
+  const peer = await context.newPage();
   try {
-    await page.goto('/e2e/auth-cookie-race.html');
+    await Promise.all([
+      page.goto('/e2e/auth-cookie-race.html'),
+      peer.goto('/e2e/auth-cookie-race.html'),
+    ]);
     await page.getByRole('button', { name: 'Login A' }).click();
     await expect(page.getByTestId('current-user')).toHaveText('user-a');
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await expect(peer.getByTestId('current-user')).toHaveText('user-a');
+    await request.post(`${TEST_SERVER}/test/reset`);
 
     const refreshStarted = page.waitForRequest('**/api/v1/auth/refresh');
     await page.reload();
     await refreshStarted;
-    const switchCookie = await context.request.post(
-      `${TEST_SERVER}/api/v1/auth/login`,
-      { data: { email: 'b@example.com', password: 'password' } },
-    );
-    expect(switchCookie.ok()).toBeTruthy();
-    await page.evaluate(() => {
-      window.dispatchEvent(
-        new StorageEvent('storage', {
-          key: 'nce:auth-invalidation',
-          newValue: JSON.stringify({
-            schemaVersion: 1,
-            epoch: Date.now(),
-            reason: 'account-change',
-            nonce: 'peer-bootstrap-race:1',
-          }),
-        }),
-      );
-    });
+    await peer.getByRole('button', { name: 'Login B' }).click();
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
 
+    await expect(peer.getByTestId('current-user')).toHaveText('user-b');
     await expect(page.getByTestId('current-user')).toHaveText('user-b');
   } finally {
     await request.post(`${TEST_SERVER}/test/release-refresh`);
@@ -236,10 +234,11 @@ test('cancels refresh before logout and preserves the new account cookie', async
   await refreshStarted;
 
   await page.getByRole('button', { name: 'Switch to B' }).click();
+  await expect(page.getByTestId('switch-status')).toHaveText('switching');
+  await expect(page.getByTestId('current-user')).toHaveText('guest');
+  await request.post(`${TEST_SERVER}/test/release-refresh`);
   await expect(page.getByTestId('switch-status')).toHaveText('complete');
   await expect(page.getByTestId('current-user')).toHaveText('user-b');
-
-  await request.post(`${TEST_SERVER}/test/release-refresh`);
 
   await page.getByRole('button', { name: 'Restore B session' }).click();
   await expect(page.getByTestId('restore-status')).toHaveText('success');
