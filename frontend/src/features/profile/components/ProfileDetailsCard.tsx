@@ -31,6 +31,8 @@ import { useAuthStore } from "@store/authStore";
 
 const TERMINAL_PROFILE_MESSAGE =
   "This account is no longer available. Please sign in again.";
+const PROFILE_SYNC_MESSAGE =
+  "Changes saved, but the latest profile could not be synchronized. Refresh to verify.";
 
 const isTerminalProfileError = (error: unknown): boolean =>
   error instanceof ApiError && (error.status === 403 || error.status === 404);
@@ -57,6 +59,7 @@ export function ProfileDetailsCard() {
   });
   const previousUserId = useRef(currentUser.id);
   const requestSequence = useRef(0);
+  const draftRevision = useRef(0);
   latestIdentity.current = {
     userId: currentUser.id,
     generation: sessionGeneration,
@@ -164,26 +167,18 @@ export function ProfileDetailsCard() {
     const initiatingIdentity = { ...latestIdentity.current };
     const requestId = requestSequence.current + 1;
     requestSequence.current = requestId;
+    const submittedDraftRevision = draftRevision.current;
+    const isCurrentSave = () =>
+      requestSequence.current === requestId &&
+      latestIdentity.current.userId === initiatingIdentity.userId &&
+      latestIdentity.current.generation === initiatingIdentity.generation;
+    let savedProfile;
     try {
-      await updateProfile.mutateAsync({
+      savedProfile = await updateProfile.mutateAsync({
         fullName: validation.normalizedName,
       });
-      const profile = await refreshCurrentProfile(initiatingIdentity);
-      if (
-        !profile ||
-        requestSequence.current !== requestId ||
-        latestIdentity.current.userId !== initiatingIdentity.userId ||
-        latestIdentity.current.generation !== initiatingIdentity.generation
-      ) {
-        return;
-      }
-      setFullName(profile.fullName);
-      setEditing(false);
     } catch (error) {
-      const identityStillCurrent =
-        latestIdentity.current.userId === initiatingIdentity.userId &&
-        latestIdentity.current.generation === initiatingIdentity.generation;
-      if (requestSequence.current === requestId && identityStillCurrent) {
+      if (isCurrentSave()) {
         if (isTerminalProfileError(error)) {
           endTerminalProfileSession();
           return;
@@ -195,6 +190,39 @@ export function ProfileDetailsCard() {
           setSaveError("Unable to save your profile. Please try again.");
         }
       }
+      return;
+    }
+
+    if (!isCurrentSave()) return;
+    try {
+      const committed = await commitCurrentProfile(
+        initiatingIdentity,
+        savedProfile,
+      );
+      if (!isCurrentSave()) return;
+      if (!committed) {
+        setSaveError(PROFILE_SYNC_MESSAGE);
+        return;
+      }
+      if (draftRevision.current === submittedDraftRevision) {
+        setFullName(savedProfile.fullName);
+        setEditing(false);
+      }
+      const profile = await refreshCurrentProfile(initiatingIdentity);
+      if (
+        profile &&
+        isCurrentSave() &&
+        draftRevision.current === submittedDraftRevision
+      ) {
+        setFullName(profile.fullName);
+      }
+    } catch (error) {
+      if (!isCurrentSave()) return;
+      if (isTerminalProfileError(error)) {
+        endTerminalProfileSession();
+        return;
+      }
+      setSaveError(PROFILE_SYNC_MESSAGE);
     }
   };
 
@@ -230,6 +258,7 @@ export function ProfileDetailsCard() {
               id="profile-name"
               value={fullName}
               onChange={(event) => {
+                draftRevision.current += 1;
                 setFullName(event.target.value);
                 setNameError(null);
               }}
