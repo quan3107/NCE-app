@@ -69,6 +69,7 @@ export async function computeFileChecksum(file: Blob): Promise<string> {
 
 async function signFileUpload(payload: FileSignRequest): Promise<FileSignResponse> {
   return apiClient<FileSignResponse, FileSignRequest>('/files/sign', {
+    auth: 'required',
     method: 'POST',
     body: payload,
   });
@@ -78,6 +79,7 @@ async function completeFileUpload(
   payload: FileCompleteRequest,
 ): Promise<FileCompleteResponse> {
   return apiClient<FileCompleteResponse, FileCompleteRequest>('/files/complete', {
+    auth: 'required',
     method: 'POST',
     body: payload,
   });
