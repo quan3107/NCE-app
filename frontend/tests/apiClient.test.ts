@@ -8,11 +8,19 @@ import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 type ApiClientFn = typeof import('../src/lib/apiClient').apiClient;
 type AuthBridgeInstance = typeof import('../src/lib/authBridge').authBridge;
+type AuthAdmission = import('../src/lib/auth-coordinator').AuthAdmission;
 
 const API_BASE_URL = 'http://localhost:4000/api/v1';
 
 let apiClient: ApiClientFn;
 let authBridge: AuthBridgeInstance;
+const testSignal = new AbortController().signal;
+const admission = (accessToken: string | null): AuthAdmission => ({
+  accessToken,
+  actorId: accessToken ? 'test-user' : null,
+  revision: 1,
+  signal: testSignal,
+});
 
 before(async () => {
   if (typeof process !== 'undefined' && process.env) {
@@ -109,9 +117,9 @@ test('apiClient attaches bearer token supplied by authBridge', async () => {
     },
     async () => {
       authBridge.configure({
-        getAccessToken: () => 'live-token',
+        admit: () => admission('live-token'),
+        isCurrent: () => true,
         refreshAccessToken: async () => ({ status: 'failed' }),
-        clearSession: () => {},
       });
 
       const result = await apiClient<{ ok: boolean }>('/sample', {
@@ -146,9 +154,9 @@ test('apiClient ignores stored snapshots without a live user', async () => {
     },
     async () => {
       authBridge.configure({
-        getAccessToken: () => null,
+        admit: () => admission(null),
+        isCurrent: () => true,
         refreshAccessToken: async () => ({ status: 'failed' }),
-        clearSession: () => {},
       });
 
       await apiClient('/stored-token', { auth: 'optional' });
@@ -183,9 +191,9 @@ test('apiClient never admits a stored admin token before bootstrap', async () =>
     },
     async () => {
       authBridge.configure({
-        getAccessToken: () => null,
+        admit: () => admission(null),
+        isCurrent: () => true,
         refreshAccessToken: async () => ({ status: 'failed' }),
-        clearSession: () => {},
       });
 
       await apiClient('/stored-admin', { auth: 'optional' });
@@ -212,7 +220,8 @@ test('optional auth waits for bootstrap before admitting a course request', asyn
     async () => {
       authBridge.configure({
         waitUntilReady: () => bootstrap,
-        getAccessToken: () => 'memory-token',
+        admit: () => admission('memory-token'),
+        isCurrent: () => true,
       });
 
       const request = apiClient('/api/v1/courses', { auth: 'optional' });
@@ -227,7 +236,6 @@ test('optional auth waits for bootstrap before admitting a course request', asyn
 
 test('apiClient retries once with the exact token returned by refresh', async () => {
   let callCount = 0;
-  let cleared = false;
   let currentToken = 'stale-token';
 
   await withPatchedGlobals(
@@ -250,13 +258,11 @@ test('apiClient retries once with the exact token returned by refresh', async ()
     },
     async () => {
       authBridge.configure({
-        getAccessToken: () => currentToken,
+        admit: () => admission(currentToken),
+        isCurrent: () => true,
         refreshAccessToken: async () => {
           currentToken = 'newer-session-token';
           return { status: 'refreshed', accessToken: 'fresh-token' };
-        },
-        clearSession: () => {
-          cleared = true;
         },
       });
 
@@ -265,14 +271,11 @@ test('apiClient retries once with the exact token returned by refresh', async ()
       });
       assert.equal(result.ok, true);
       assert.equal(callCount, 2);
-      assert.equal(cleared, false);
     },
   );
 });
 
 test('apiClient does not clear session on 401 without bearer auth', async () => {
-  let cleared = false;
-
   await withPatchedGlobals(
     {
       fetch: async () => new Response('', { status: 401, statusText: 'Unauthorized' }),
@@ -280,11 +283,9 @@ test('apiClient does not clear session on 401 without bearer auth', async () => 
     },
     async () => {
       authBridge.configure({
-        getAccessToken: () => null,
+        admit: () => admission(null),
+        isCurrent: () => true,
         refreshAccessToken: async () => ({ status: 'failed' }),
-        clearSession: () => {
-          cleared = true;
-        },
       });
 
       await assert.rejects(
@@ -294,8 +295,6 @@ test('apiClient does not clear session on 401 without bearer auth', async () => 
           error.message.includes('Unauthorized') &&
           (error as { status?: number }).status === 401,
       );
-
-      assert.equal(cleared, false);
     },
   );
 });
