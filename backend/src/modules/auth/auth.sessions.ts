@@ -59,7 +59,12 @@ export async function persistSession(
   userId: string,
   refreshToken: string,
   context: SessionContext,
-): Promise<{ id: string; refreshToken: string; expiresAt: Date }> {
+): Promise<{
+  id: string;
+  familyId: string;
+  refreshToken: string;
+  expiresAt: Date;
+}> {
   const { userAgent, ipHash } = sanitizeSessionMetadata(context);
 
   const sessionId = randomUUID();
@@ -80,6 +85,7 @@ export async function persistSession(
 
   return {
     id: session?.id ?? sessionId,
+    familyId: session?.familyId ?? sessionId,
     refreshToken,
     expiresAt,
   };
