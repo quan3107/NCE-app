@@ -11,6 +11,8 @@ import { afterEach, beforeEach, test, vi } from "vitest";
 
 import { meProfileQueryKey } from "../src/features/profile/api";
 import { startActiveProfileSession } from "../src/lib/active-profile-session";
+import { AuthCoordinator } from "../src/lib/auth-coordinator";
+import { authBridge } from "../src/lib/authBridge";
 import type { CurrentProfile } from "../src/lib/auth-types";
 import { setAuthenticatedQueryScope } from "../src/lib/authenticated-query-scope";
 import { queryClient } from "../src/lib/queryClient";
@@ -24,6 +26,11 @@ const profile = (fullName: string): CurrentProfile => ({
   role: "student",
   status: "active",
 });
+const profileAuthority = {
+  userId: "user-a",
+  role: "student",
+  revision: 2,
+};
 
 beforeEach(() => {
   values.clear();
@@ -36,11 +43,24 @@ beforeEach(() => {
       setItem: (key: string, value: string) => values.set(key, value),
     },
   });
+  const coordinator = new AuthCoordinator();
+  coordinator.finishBootstrap();
+  coordinator.authenticate("student-token", {
+    id: "user-a",
+    role: "student",
+  });
+  authBridge.configure({
+    admit: (mode) => coordinator.admit(mode),
+    getSnapshot: () => coordinator.getSnapshot(),
+    isCurrent: (value) => coordinator.isCurrent(value),
+    waitUntilReady: () => coordinator.waitUntilReady(),
+  });
 });
 
 afterEach(() => {
   queryClient.clear();
   setAuthenticatedQueryScope({ generation: 0, userId: null });
+  authBridge.reset();
   vi.unstubAllGlobals();
 });
 
@@ -51,7 +71,7 @@ test("the active session retains profile cache without a profile page observer",
     vi.fn(async () => Response.json({ profile: profile("Server Name") })),
   );
 
-  const stop = startActiveProfileSession("user-a", () => undefined);
+  const stop = startActiveProfileSession(profileAuthority, () => undefined);
   await waitFor(() =>
     assert.equal(
       queryClient.getQueryData<CurrentProfile>(meProfileQueryKey("user-a"))
@@ -74,7 +94,7 @@ test("profile invalidation refetches while no profile page is mounted", async ()
     .mockResolvedValueOnce(Response.json({ profile: profile("Initial Name") }))
     .mockResolvedValueOnce(Response.json({ profile: profile("Peer Name") }));
   vi.stubGlobal("fetch", fetchProfile);
-  const stop = startActiveProfileSession("user-a", () => undefined);
+  const stop = startActiveProfileSession(profileAuthority, () => undefined);
   await waitFor(() => assert.equal(fetchProfile.mock.calls.length, 1));
 
   window.dispatchEvent(
@@ -107,7 +127,7 @@ test("a terminal profile response ends the active session", async () => {
     ),
   );
   const onTerminal = vi.fn();
-  const stop = startActiveProfileSession("user-a", onTerminal);
+  const stop = startActiveProfileSession(profileAuthority, onTerminal);
 
   await waitFor(() => assert.equal(onTerminal.mock.calls.length, 1));
   stop();
