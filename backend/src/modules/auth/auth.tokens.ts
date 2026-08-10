@@ -14,6 +14,7 @@ import type { UserRole, UserStatus } from "../../prisma/index.js";
 
 type AccessTokenClaims = {
   sub: string;
+  sid: string;
   role: UserRole;
   status: UserStatus;
   iat: number;
@@ -47,11 +48,12 @@ const { privateKey, publicKey } = loadJwtKeys();
 
 export function signAccessToken(payload: {
   userId: string;
+  familyId: string;
   role: UserRole;
   status: UserStatus;
 }): string {
   return jwt.sign(
-    { role: payload.role, status: payload.status },
+    { role: payload.role, status: payload.status, sid: payload.familyId },
     privateKey,
     {
       algorithm: "RS256",
