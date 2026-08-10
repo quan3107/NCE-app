@@ -146,7 +146,7 @@ test("OAuth callback child waits for provider bootstrap before admitting refresh
   assert.equal(refreshCalls, 1);
 });
 
-test("cancelling Google login aborts an unfinished OAuth completion", async () => {
+test("cancelling Google login fences its active cookie refresh", async () => {
   const expiresAt = Date.now() + 60_000;
   window.sessionStorage.setItem(
     "nce:auth-cookie-oauth-owner",
@@ -159,13 +159,13 @@ test("cancelling Google login aborts an unfinished OAuth completion", async () =
   });
   let refreshStarted!: () => void;
   const started = new Promise<void>((resolve) => { refreshStarted = resolve; });
-  vi.stubGlobal("fetch", vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+  let releaseRefresh!: () => void;
+  const refreshReleased = new Promise<Response>((resolve) => {
+    releaseRefresh = () => resolve(Response.json(authResponse));
+  });
+  vi.stubGlobal("fetch", vi.fn(() => {
     refreshStarted();
-    return new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
-        once: true,
-      });
-    });
+    return refreshReleased;
   }));
   const wrapper = ({ children }: PropsWithChildren) => (
     <AuthProvider>{children}</AuthProvider>
@@ -177,6 +177,8 @@ test("cancelling Google login aborts an unfinished OAuth completion", async () =
   act(() => view.result.current.cancelGoogleLogin());
 
   await assert.rejects(completion);
+  assert.notEqual(await readIndexedDbAuthLease("oauth-reservation"), null);
+  releaseRefresh();
   await waitFor(async () => {
     assert.equal(await readIndexedDbAuthLease("oauth-reservation"), null);
     assert.equal(
