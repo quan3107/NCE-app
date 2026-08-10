@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** Bound access tokens to revocable refresh-session families, revoked the full originating family on logout, and made request authority validate the current server-side user role/status so storage-denied clients cannot retain stale access.
+
 - **2026-08-10:** No backend files changed while preventing obsolete queued frontend refreshes from revoking a newer login session.
 
 - **2026-08-10:** No backend files changed while fixing frontend role-scope profile ownership and the local required-auth error contract.
@@ -164,6 +166,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Closed OAuth bootstrap ordering, pre-delivery cross-tab, anonymous optional-request, profile ownership, public IELTS config, and login-profile provenance gaps with lifecycle-bound authority regressions.
 
 - **2026-08-10:** Revalidated queued refresh authority after acquiring the serialized cookie boundary, preventing a superseded peer refresh from rotating and revoking a newer login; added a lock-order regression for the CI-discovered race.
 
