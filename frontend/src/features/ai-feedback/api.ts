@@ -35,6 +35,7 @@ async function fetchWritingFeedbackStatus(
   try {
     return await apiClient<WritingFeedbackResponse>(
       `/api/v1/submissions/${submissionId}/ai-feedback/writing`,
+      { auth: 'required' },
     );
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -49,6 +50,7 @@ async function fetchWritingFeedbackHistory(
 ): Promise<WritingFeedbackReviewResponse[]> {
   const response = await apiClient<WritingFeedbackHistoryResponse>(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing/drafts`,
+    { auth: 'required' },
   );
   return response.drafts;
 }
@@ -56,7 +58,7 @@ async function fetchWritingFeedbackHistory(
 async function requestWritingFeedback(submissionId: string): Promise<WritingFeedbackResponse> {
   return apiClient<WritingFeedbackResponse>(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing`,
-    { method: 'POST' },
+    { auth: 'required', method: 'POST' },
   );
 }
 
@@ -72,6 +74,7 @@ export async function requestAssignmentWritingFeedbackBatch({
   return apiClient<WritingFeedbackBatchResponse, WritingFeedbackBatchRequest>(
     `/api/v1/courses/${courseId}/assignments/${assignmentId}/ai-feedback/writing/batch`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload,
     },
@@ -88,6 +91,7 @@ async function regenerateWritingFeedback({
   return apiClient<WritingFeedbackResponse, WritingFeedbackRegenerateRequest>(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing/regenerate`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload ?? {},
     },
@@ -106,6 +110,7 @@ async function approveWritingFeedback({
   return apiClient<WritingFeedbackReviewResponse, WritingFeedbackApprovalRequest>(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing/drafts/${draftId}/approve`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload,
     },
@@ -124,6 +129,7 @@ async function finalizeWritingFeedback({
   return apiClient<WritingFeedbackReviewResponse, WritingFeedbackApprovalRequest>(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing/drafts/${draftId}/finalize`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload,
     },
@@ -142,6 +148,7 @@ async function rejectWritingFeedback({
   return apiClient<WritingFeedbackReviewResponse, WritingFeedbackRejectRequest>(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing/drafts/${draftId}/reject`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload ?? {},
     },
