@@ -137,7 +137,7 @@ test("cancelling Google login aborts an unfinished OAuth completion", async () =
   assert.equal(view.result.current.isAuthenticated, false);
 });
 
-test("OAuth completion revokes its cookie when live persistence is rejected", async () => {
+test("OAuth completion remains memory-only when legacy storage rejects writes", async () => {
   const values = new Map<string, string>();
   const expiresAt = Date.now() + 60_000;
   values.set(
@@ -186,8 +186,9 @@ test("OAuth completion revokes its cookie when live persistence is rejected", as
   );
   const view = renderHook(() => useAuth(), { wrapper });
 
-  await assert.rejects(view.result.current.completeGoogleLogin());
+  assert.equal(await view.result.current.completeGoogleLogin(), "live");
 
-  assert.deepEqual(requests, ["/api/v1/auth/refresh", "/api/v1/auth/logout"]);
-  assert.equal(view.result.current.isAuthenticated, false);
+  assert.deepEqual(requests, ["/api/v1/auth/refresh"]);
+  assert.equal(view.result.current.isAuthenticated, true);
+  assert.equal(values.get("currentUser"), undefined);
 });
