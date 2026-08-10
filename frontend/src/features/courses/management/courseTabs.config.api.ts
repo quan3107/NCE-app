@@ -63,6 +63,7 @@ function mapTab(value: unknown): CourseManagementTabConfig | null {
 export async function fetchCourseManagementTabs(): Promise<CourseManagementTabConfig[]> {
   const response = await apiClient<CourseManagementTabsResponse>(
     '/api/v1/config/course-management-tabs',
+    { auth: 'required' },
   );
 
   if (!Array.isArray(response.tabs)) {
