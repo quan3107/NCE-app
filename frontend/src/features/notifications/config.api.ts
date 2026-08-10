@@ -96,6 +96,7 @@ export async function fetchNotificationTypes(
 ): Promise<NotificationTypeConfig[]> {
   const response = await apiClient<NotificationTypesResponse>(
     '/api/v1/config/notification-types',
+    { auth: 'required' },
   );
 
   const mapped = Array.isArray(response.types)
