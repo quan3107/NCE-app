@@ -64,7 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       cookieOperations.cancelRefreshes();
       try {
-        const committed = await cookieOperations.run(async (signal, compensate) => {
+        const committed = await cookieOperations.run(async (
+          signal,
+          compensate,
+          isSuperseded,
+        ) => {
           // The operation admitted last owns the final cookie and UI intent.
           const admissionVersion = coordinator.getSnapshot();
           const result = await apiClient<AuthSuccessResponse>('/auth/login', {
@@ -74,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             body: { email, password },
             signal,
           });
-          if (signal.aborted) {
+          if (signal.aborted || isSuperseded()) {
             await revokeRejectedCookieSession(compensate);
             throw new ApiError('Login request timed out.', 0);
           }
@@ -100,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
       cookieOperations.cancelRefreshes();
-      return cookieOperations.run(async (signal, compensate) => {
+      return cookieOperations.run(async (signal, compensate, isSuperseded) => {
         // Queued registration follows the same last-admitted cookie intent.
         const admissionVersion = coordinator.getSnapshot();
         const result = await apiClient<
@@ -120,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isPendingApprovalResponse(result)) {
           return 'pending_approval';
         }
-        if (signal.aborted) {
+        if (signal.aborted || isSuperseded()) {
           await revokeRejectedCookieSession(compensate);
           throw new ApiError('Registration request timed out.', 0);
         }
