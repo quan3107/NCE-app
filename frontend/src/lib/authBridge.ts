@@ -15,6 +15,8 @@ type SessionVersion = {
   userId: string | null;
 };
 type SessionVersionGetter = () => SessionVersion;
+type ReadinessWaiter = () => Promise<void>;
+type RequestSignalGetter = (callerSignal?: AbortSignal) => AbortSignal;
 
 const defaultHandlers = {
   getAccessToken: (): string | null => null,
@@ -27,6 +29,9 @@ const defaultHandlers = {
     sessionEpoch: 0,
     userId: null,
   }),
+  waitUntilReady: async (): Promise<void> => {},
+  getRequestSignal: (callerSignal?: AbortSignal): AbortSignal =>
+    callerSignal ?? new AbortController().signal,
 };
 
 let handlers: {
@@ -34,6 +39,8 @@ let handlers: {
   refreshAccessToken: RefreshInvoker;
   clearSession: SessionClearer;
   getSessionVersion: SessionVersionGetter;
+  waitUntilReady: ReadinessWaiter;
+  getRequestSignal: RequestSignalGetter;
 } = { ...defaultHandlers };
 
 export const authBridge = {
@@ -49,11 +56,19 @@ export const authBridge = {
   getSessionVersion(): SessionVersion {
     return handlers.getSessionVersion();
   },
+  waitUntilReady(): Promise<void> {
+    return handlers.waitUntilReady();
+  },
+  getRequestSignal(callerSignal?: AbortSignal): AbortSignal {
+    return handlers.getRequestSignal(callerSignal);
+  },
   configure(next: {
     getAccessToken?: AccessTokenGetter;
     refreshAccessToken?: RefreshInvoker;
     clearSession?: SessionClearer;
     getSessionVersion?: SessionVersionGetter;
+    waitUntilReady?: ReadinessWaiter;
+    getRequestSignal?: RequestSignalGetter;
   }): void {
     handlers = {
       getAccessToken: next.getAccessToken ?? handlers.getAccessToken,
@@ -62,6 +77,8 @@ export const authBridge = {
       clearSession: next.clearSession ?? handlers.clearSession,
       getSessionVersion:
         next.getSessionVersion ?? handlers.getSessionVersion,
+      waitUntilReady: next.waitUntilReady ?? handlers.waitUntilReady,
+      getRequestSignal: next.getRequestSignal ?? handlers.getRequestSignal,
     };
   },
   reset(): void {
