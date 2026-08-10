@@ -5,12 +5,19 @@
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { apiClient } from "@lib/apiClient";
+import { ApiError, apiClient } from "@lib/apiClient";
+import { authBridge } from "@lib/authBridge";
 import type { CurrentProfile } from "@lib/auth-types";
 import { queryClient } from "@lib/queryClient";
 import { publishProfileInvalidation } from "@lib/shared-profile-invalidation";
 
 export type MeProfile = CurrentProfile;
+
+export type ProfileAuthority = {
+  userId: string;
+  role: string;
+  revision: number;
+};
 
 export type UpdateMeProfilePayload = {
   fullName: string;
@@ -42,6 +49,31 @@ export const updateMeProfile = async (
     body: payload,
   });
 
+export function captureProfileAuthority(): ProfileAuthority | null {
+  const snapshot = authBridge.getSnapshot();
+  if (snapshot.status !== "authenticated") return null;
+  return {
+    userId: snapshot.actor.id,
+    role: snapshot.actor.role,
+    revision: snapshot.revision,
+  };
+}
+
+export function isProfileAuthorityCurrent(
+  authority: ProfileAuthority,
+): boolean {
+  const snapshot = authBridge.getSnapshot();
+  return (
+    snapshot.status === "authenticated" &&
+    snapshot.actor.id === authority.userId &&
+    snapshot.actor.role === authority.role &&
+    snapshot.revision === authority.revision
+  );
+}
+
+const profileAuthorityError = () =>
+  new ApiError("Profile ownership changed while the request was in flight.", 0);
+
 export function useMeProfileQuery(userId: string) {
   return useQuery({
     queryKey: meProfileQueryKey(userId),
@@ -51,14 +83,35 @@ export function useMeProfileQuery(userId: string) {
 }
 
 export function useUpdateMeProfileMutation(userId: string) {
-  return useMutation({
-    mutationFn: updateMeProfile,
-    onSuccess: async (profile) => {
-      if (profile.id !== userId) return;
+  const mutation = useMutation({
+    mutationFn: async (payload: UpdateMeProfilePayload) => {
+      const authority = captureProfileAuthority();
+      if (!authority || authority.userId !== userId) {
+        throw profileAuthorityError();
+      }
+      const profile = await updateMeProfile(payload);
+      if (
+        !isProfileAuthorityCurrent(authority) ||
+        profile.id !== authority.userId ||
+        profile.role !== authority.role
+      ) {
+        throw profileAuthorityError();
+      }
+      return { authority, profile };
+    },
+    onSuccess: async ({ authority, profile }) => {
+      if (!isProfileAuthorityCurrent(authority)) return;
       const queryKey = meProfileQueryKey(userId);
       await queryClient.cancelQueries({ queryKey, exact: true });
+      if (!isProfileAuthorityCurrent(authority)) return;
       queryClient.setQueryData(queryKey, profile);
+      if (!isProfileAuthorityCurrent(authority)) return;
       publishProfileInvalidation({ userId });
     },
   });
+  return {
+    isPending: mutation.isPending,
+    mutateAsync: async (payload: UpdateMeProfilePayload) =>
+      (await mutation.mutateAsync(payload)).profile,
+  };
 }
