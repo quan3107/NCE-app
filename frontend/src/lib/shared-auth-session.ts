@@ -28,12 +28,29 @@ export type AuthInvalidation = {
 };
 
 const CHANNEL_NAME = 'nce-auth-session';
+const MAX_OBSERVED_PUBLICATIONS = 100;
 let channel: BroadcastChannel | null | undefined;
 let nonceSequence = 0;
 
+function createPublisherId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    try {
+      const entropy = crypto.getRandomValues(new Uint32Array(4));
+      return Array.from(entropy, (value) =>
+        value.toString(16).padStart(8, '0'),
+      ).join('');
+    } catch {
+      // Fall through when browser entropy is unavailable or blocked.
+    }
+  }
+  return `${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`;
+}
+
+const publisherId = createPublisherId();
+
 function nextNonce(): string {
   nonceSequence += 1;
-  return `${Date.now().toString(36)}:${nonceSequence.toString(36)}`;
+  return `${publisherId}:${nonceSequence.toString(36)}`;
 }
 
 function normalize(value: unknown): AuthInvalidation | null {
@@ -131,9 +148,21 @@ export function subscribeToAuthInvalidation(
   listener: (invalidation: AuthInvalidation) => void,
 ): () => void {
   let observedEpoch = 0;
+  const observedNonces = new Set<string>();
   const accept = (candidate: AuthInvalidation | null) => {
-    if (!candidate || candidate.epoch <= observedEpoch) return;
-    observedEpoch = candidate.epoch;
+    if (
+      !candidate ||
+      candidate.epoch < observedEpoch ||
+      observedNonces.has(candidate.nonce)
+    ) {
+      return;
+    }
+    observedEpoch = Math.max(observedEpoch, candidate.epoch);
+    observedNonces.add(candidate.nonce);
+    if (observedNonces.size > MAX_OBSERVED_PUBLICATIONS) {
+      const oldest = observedNonces.values().next().value;
+      if (oldest) observedNonces.delete(oldest);
+    }
     listener(candidate);
   };
   const onStorage = (event: StorageEvent) => {
