@@ -40,7 +40,7 @@ const revokeRejectedCookieSession = (
   compensate((signal) =>
     apiClient('/auth/logout', {
       method: 'POST',
-      withAuth: false,
+      auth: 'none',
       credentials: 'include',
       parseJson: false,
       signal,
@@ -51,17 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     liveUser,
     sessionGeneration,
-    tokenRef,
     applyLiveSession,
-    updateLiveUser,
-    commitLiveProfile,
-    refreshLiveProfile,
     clearSession,
+    coordinator,
     cookieOperations,
     completeOAuthSession,
     isRestoringSession,
     restoreLiveSession,
-    getAdmissionSessionVersion,
   } = useAuthRuntime();
 
   const login = useCallback(
@@ -70,10 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const committed = await cookieOperations.run(async (signal, compensate) => {
           // The operation admitted last owns the final cookie and UI intent.
-          const admissionVersion = getAdmissionSessionVersion();
+          const admissionVersion = coordinator.getSnapshot();
           const result = await apiClient<AuthSuccessResponse>('/auth/login', {
             method: 'POST',
-            withAuth: false,
+            auth: 'none',
             credentials: 'include',
             body: { email, password },
             signal,
@@ -98,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [applyLiveSession, cookieOperations, getAdmissionSessionVersion],
+    [applyLiveSession, cookieOperations, coordinator],
   );
 
   const register = useCallback(
@@ -106,12 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cookieOperations.cancelRefreshes();
       return cookieOperations.run(async (signal, compensate) => {
         // Queued registration follows the same last-admitted cookie intent.
-        const admissionVersion = getAdmissionSessionVersion();
+        const admissionVersion = coordinator.getSnapshot();
         const result = await apiClient<
           AuthSuccessResponse | AuthPendingApprovalResponse
         >('/auth/register', {
           method: 'POST',
-          withAuth: false,
+          auth: 'none',
           credentials: 'include',
           signal,
           body: {
@@ -138,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return 'live';
       });
     },
-    [applyLiveSession, cookieOperations, getAdmissionSessionVersion],
+    [applyLiveSession, cookieOperations, coordinator],
   );
 
   const loginWithGoogle = useCallback(async () => {
@@ -151,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await cookieOperations.runOAuthStart(async (signal) => {
         const returnTo = `${window.location.origin}/auth/oauth`;
         return apiClient<{ authorizationUrl: string }>('/auth/google', {
-          withAuth: false,
+          auth: 'none',
           credentials: 'include',
           params: {
             returnTo,
@@ -185,13 +181,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     cookieOperations.cancelRefreshes();
-    clearSession();
+    clearSession('logout');
     await cookieOperations.run(async (signal) => {
       // An earlier queued login may have restored identity after the immediate clear.
       clearSession();
       await apiClient('/auth/logout', {
         method: 'POST',
-        withAuth: false,
+        auth: 'none',
         credentials: 'include',
         parseJson: false,
         signal,
@@ -200,15 +196,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession, cookieOperations]);
 
   const currentUser = liveUser ?? PUBLIC_USER;
-  const isAuthenticated = Boolean(tokenRef.current && liveUser);
+  const isAuthenticated = Boolean(liveUser);
 
   const contextValue = useMemo<AuthContextType>(
     () => ({
       currentUser,
       sessionGeneration,
-      updateCurrentUser: updateLiveUser,
-      commitCurrentProfile: commitLiveProfile,
-      refreshCurrentProfile: refreshLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
@@ -222,9 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       currentUser,
       sessionGeneration,
-      updateLiveUser,
-      commitLiveProfile,
-      refreshLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
