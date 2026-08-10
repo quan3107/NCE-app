@@ -23,7 +23,8 @@ before(async () => {
 test("does not refresh or retry after the initiating session changes", async () => {
   const originalFetch = globalThis.fetch;
   let currentToken = "token-a";
-  let currentSession = { userId: "user-a", generation: 1, sessionEpoch: 1 };
+  let currentSession = { userId: "user-a", revision: 1 };
+  const signal = new AbortController().signal;
   let resolveInitialResponse!: (response: Response) => void;
   let markFetchStarted!: () => void;
   const fetchStarted = new Promise<void>((resolve) => {
@@ -46,8 +47,15 @@ test("does not refresh or retry after the initiating session changes", async () 
     });
   };
   authBridge.configure({
-    getAccessToken: () => currentToken,
-    getSessionVersion: () => currentSession,
+    admit: () => ({
+      accessToken: currentToken,
+      actorId: currentSession.userId,
+      revision: currentSession.revision,
+      signal,
+    }),
+    isCurrent: (candidate) =>
+      candidate.actorId === currentSession.userId &&
+      candidate.revision === currentSession.revision,
     refreshAccessToken: async () => {
       refreshCalls += 1;
       return { status: "refreshed", accessToken: currentToken };
@@ -64,7 +72,7 @@ test("does not refresh or retry after the initiating session changes", async () 
     await fetchStarted;
 
     currentToken = "token-b";
-    currentSession = { userId: "user-b", generation: 3, sessionEpoch: 2 };
+    currentSession = { userId: "user-b", revision: 3 };
     resolveInitialResponse(
       new Response("", { status: 401, statusText: "Unauthorized" }),
     );
