@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** No backend files changed while preventing obsolete queued frontend refreshes from revoking a newer login session.
+
 - **2026-08-10:** No backend files changed while fixing frontend role-scope profile ownership and the local required-auth error contract.
 
 - **2026-08-10:** No backend files changed while closing frontend auth release gaps; real-backend scenarios were migrated to the existing server cookie and `/me` contracts.
@@ -162,6 +164,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Revalidated queued refresh authority after acquiring the serialized cookie boundary, preventing a superseded peer refresh from rotating and revoking a newer login; added a lock-order regression for the CI-discovered race.
 
 - **2026-08-10:** Restarted active `/me` ownership when the same user changes role without restarting for token rotation, and restored `ApiError` wrapping for anonymous required requests.
 
