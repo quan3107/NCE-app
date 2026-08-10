@@ -67,13 +67,13 @@ function getIeltsConfigErrorMessage(error: unknown, fallback: string): string {
 /**
  * Fetch active IELTS configuration
  */
-async function fetchIeltsConfig(version?: number): Promise<IeltsConfig> {
+export async function fetchIeltsConfig(version?: number): Promise<IeltsConfig> {
   const url = version 
     ? `/api/v1/config/ielts?version=${version}`
     : '/api/v1/config/ielts';
 
   try {
-    return await apiClient<IeltsConfig>(url, { auth: 'required' });
+    return await apiClient<IeltsConfig>(url, { auth: 'none' });
   } catch (error) {
     throw new Error(
       getIeltsConfigErrorMessage(error, 'Failed to fetch IELTS configuration'),
@@ -84,10 +84,10 @@ async function fetchIeltsConfig(version?: number): Promise<IeltsConfig> {
 /**
  * Fetch all IELTS configuration versions
  */
-async function fetchIeltsConfigVersions(): Promise<IeltsConfigVersionsResponse> {
+export async function fetchIeltsConfigVersions(): Promise<IeltsConfigVersionsResponse> {
   try {
     return await apiClient<IeltsConfigVersionsResponse>('/api/v1/config/ielts/versions', {
-      auth: 'required',
+      auth: 'none',
     });
   } catch (error) {
     throw new Error(
