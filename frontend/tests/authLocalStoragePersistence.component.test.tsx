@@ -85,12 +85,18 @@ test("reload restores a login whose localStorage write was rejected", async () =
     email: "ada@example.com",
     role: "student" as const,
   };
-  const fetchSpy = vi
-    .fn<typeof fetch>()
-    .mockResolvedValueOnce(Response.json({ accessToken: "login-token", user }))
-    .mockResolvedValueOnce(
-      Response.json({ accessToken: "refresh-token", user }),
-    );
+  const requests: string[] = [];
+  const fetchSpy = vi.fn<typeof fetch>(async (input) => {
+    const path = new URL(String(input)).pathname;
+    requests.push(path);
+    if (path.endsWith("/me")) return Response.json({ profile: user });
+    return Response.json({
+      accessToken: path.endsWith("/auth/login")
+        ? "login-token"
+        : "refresh-token",
+      user,
+    });
+  });
   vi.stubGlobal("fetch", fetchSpy);
   const wrapper = ({ children }: PropsWithChildren) => (
     <AuthProvider>{children}</AuthProvider>
@@ -104,12 +110,15 @@ test("reload restores a login whose localStorage write was rejected", async () =
     );
   });
   assert.equal(first.result.current.isAuthenticated, true);
+  await waitFor(() => assert.equal(requests.includes("/api/v1/me"), true));
   first.unmount();
 
   const reloaded = renderHook(() => useAuth(), { wrapper });
-  await waitFor(() => assert.equal(fetchSpy.mock.calls.length, 2));
   await waitFor(() =>
     assert.equal(reloaded.result.current.isAuthenticated, true),
   );
-  assert.match(String(fetchSpy.mock.calls[1]?.[0]), /\/auth\/refresh$/);
+  assert.equal(
+    requests.filter((path) => path.endsWith("/auth/refresh")).length,
+    1,
+  );
 });
