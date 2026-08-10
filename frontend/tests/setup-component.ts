@@ -5,6 +5,16 @@
  */
 
 import "fake-indexeddb/auto";
+import { authBridge } from "../src/lib/authBridge";
+
+authBridge.configure({
+  getAccessToken: () => "component-test-access-token",
+  getSessionVersion: () => ({
+    generation: 1,
+    sessionEpoch: 1,
+    userId: "component-test-user",
+  }),
+});
 
 if (!navigator.locks) {
   Object.defineProperty(navigator, "locks", {
