@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** No backend files changed while closing frontend auth release gaps; real-backend scenarios were migrated to the existing server cookie and `/me` contracts.
+
 - **2026-08-10:** No backend files changed for the frontend auth/session architecture correction; existing API and HttpOnly refresh-cookie contracts remain unchanged.
 
 - **2026-08-10:** No backend files changed while extracting the frontend authentication restoration baseline and profile-save lifecycle into focused modules for file-size compliance.
@@ -158,6 +160,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Scoped refresh single-flight to auth revisions, made active `/me` globally observed across routes, hardened auth invalidation publication identity/deduplication, simplified coordinator admission, and migrated Playwright auth setup away from legacy storage authority.
 
 - **2026-08-10:** Replaced persisted bearer/profile replication with one booting/anonymous/authenticated in-memory coordinator, invalidation-only cross-tab revalidation, explicit request auth admission, actor-scoped cancellation/cache isolation, authoritative `/me` cache ownership, retryable transient profile errors, and synthetic auth-race CI coverage.
 
