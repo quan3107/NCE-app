@@ -13,9 +13,11 @@ const API_BASE_URL = 'http://localhost:4000/api/v1';
 type FetchQuestionOptions = typeof import('../src/features/ielts-config/questionOptions.api').fetchQuestionOptions;
 type NormalizeQuestionOptionValue =
   typeof import('../src/features/ielts-config/questionOptions.api').normalizeQuestionOptionValue;
+type AuthBridge = typeof import('../src/lib/authBridge').authBridge;
 
 let fetchQuestionOptions: FetchQuestionOptions;
 let normalizeQuestionOptionValue: NormalizeQuestionOptionValue;
+let authBridge: AuthBridge;
 
 before(async () => {
   if (typeof process !== 'undefined' && process.env) {
@@ -25,6 +27,7 @@ before(async () => {
   const module = await import('../src/features/ielts-config/questionOptions.api');
   fetchQuestionOptions = module.fetchQuestionOptions;
   normalizeQuestionOptionValue = module.normalizeQuestionOptionValue;
+  authBridge = (await import('../src/lib/authBridge')).authBridge;
 });
 
 const createStorage = (): Storage => ({
@@ -74,13 +77,15 @@ const withPatchedGlobals = async (
   }
 };
 
-test('fetchQuestionOptions maps API payload and normalizes legacy not given value', async () => {
+test('fetchQuestionOptions is anonymously fetchable and normalizes its payload', async () => {
+  authBridge.reset();
   await withPatchedGlobals(
     {
-      fetch: async (input) => {
+      fetch: async (input, init) => {
         const url = typeof input === 'string' ? input : input.toString();
 
         assert.match(url, /\/config\/ielts\/question-options\?type=true_false/);
+        assert.equal(new Headers(init?.headers).get('authorization'), null);
 
         return new Response(
           JSON.stringify({
