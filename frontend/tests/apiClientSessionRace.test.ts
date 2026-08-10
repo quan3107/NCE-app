@@ -25,6 +25,10 @@ test("does not refresh or retry after the initiating session changes", async () 
   let currentToken = "token-a";
   let currentSession = { userId: "user-a", generation: 1, sessionEpoch: 1 };
   let resolveInitialResponse!: (response: Response) => void;
+  let markFetchStarted!: () => void;
+  const fetchStarted = new Promise<void>((resolve) => {
+    markFetchStarted = resolve;
+  });
   let refreshCalls = 0;
   const requests: Array<{ authorization: string | null; body: string | null }> = [];
 
@@ -38,6 +42,7 @@ test("does not refresh or retry after the initiating session changes", async () 
     }
     return new Promise<Response>((resolve) => {
       resolveInitialResponse = resolve;
+      markFetchStarted();
     });
   };
   authBridge.configure({
@@ -51,9 +56,12 @@ test("does not refresh or retry after the initiating session changes", async () 
 
   try {
     const request = apiClient("/me/profile", {
+      auth: "required",
       method: "PATCH",
       body: { fullName: "Account A Draft" },
     });
+
+    await fetchStarted;
 
     currentToken = "token-b";
     currentSession = { userId: "user-b", generation: 3, sessionEpoch: 2 };
