@@ -35,7 +35,10 @@ export class AuthCoordinator {
   private requestController = new AbortController();
   private listeners = new Set<Listener>();
   private refreshHandler: RefreshHandler = async () => ({ status: 'failed' });
-  private refreshPromise: Promise<RefreshAccessTokenResult> | null = null;
+  private refreshSlot: {
+    revision: number;
+    promise: Promise<RefreshAccessTokenResult>;
+  } | null = null;
   private resolveReadiness!: () => void;
   private readiness = new Promise<void>((resolve) => {
     this.resolveReadiness = resolve;
@@ -121,22 +124,17 @@ export class AuthCoordinator {
     );
   }
 
-  requestSignal(callerSignal?: AbortSignal): AbortSignal {
-    return callerSignal
-      ? AbortSignal.any([callerSignal, this.requestController.signal])
-      : this.requestController.signal;
-  }
-
   setRefreshHandler(handler: RefreshHandler): void {
     this.refreshHandler = handler;
   }
 
   refresh(): Promise<RefreshAccessTokenResult> {
-    if (this.refreshPromise) return this.refreshPromise;
+    const revision = this.state.revision;
+    if (this.refreshSlot?.revision === revision) return this.refreshSlot.promise;
     const promise = this.refreshHandler().finally(() => {
-      if (this.refreshPromise === promise) this.refreshPromise = null;
+      if (this.refreshSlot?.promise === promise) this.refreshSlot = null;
     });
-    this.refreshPromise = promise;
+    this.refreshSlot = { revision, promise };
     return promise;
   }
 
@@ -150,5 +148,3 @@ export class AuthCoordinator {
     this.requestController = new AbortController();
   }
 }
-
-export const authCoordinator = new AuthCoordinator();
