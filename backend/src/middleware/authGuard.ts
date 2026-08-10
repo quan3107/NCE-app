@@ -5,18 +5,22 @@
  */
 import { type NextFunction, type Request, type Response } from "express";
 
-import { isActiveActor, resolveRequestActor } from "./requestActor.js";
+import {
+  isActiveActor,
+  resolveAuthoritativeRequestActor,
+} from "./requestActor.js";
 
 const unauthorizedResponse = {
   message: "Unauthorized",
 };
 
-export function authGuard(
+export async function authGuard(
   req: Request,
   res: Response,
   next: NextFunction,
-): void {
-  const resolved = resolveRequestActor(req);
+): Promise<void> {
+  const resolved =
+    req.authActorResolution ?? (await resolveAuthoritativeRequestActor(req));
   if (resolved.kind === "invalid" || resolved.kind === "anonymous") {
     res.status(401).json(unauthorizedResponse);
     return;
