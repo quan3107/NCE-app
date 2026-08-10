@@ -141,7 +141,9 @@ function ListeningAudio({ section }: { section: IeltsListeningConfig['sections']
     setContentLocation(null);
     setErrorMessage('');
 
-    apiClient<FileContentLocation>(`/api/v1/files/${encodeURIComponent(audioFileId)}/content`)
+    apiClient<FileContentLocation>(`/api/v1/files/${encodeURIComponent(audioFileId)}/content`, {
+      auth: 'required',
+    })
       .then((location) => {
         if (isMounted) {
           setContentLocation(location);
