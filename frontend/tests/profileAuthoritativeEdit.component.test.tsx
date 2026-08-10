@@ -18,6 +18,7 @@ const profileQuery = vi.hoisted(() => ({
   },
   error: null as Error | null,
   isPending: true,
+  refetch: vi.fn(),
 }));
 
 vi.mock("@store/authStore", () => ({
@@ -51,6 +52,7 @@ afterEach(() => {
   profileQuery.data = undefined;
   profileQuery.error = null;
   profileQuery.isPending = true;
+  profileQuery.refetch.mockClear();
 });
 
 test("disables editing while the authoritative profile is pending", () => {
@@ -73,4 +75,14 @@ test("disables editing when the authoritative profile request fails", () => {
       .disabled,
     true,
   );
+});
+
+test("a transient profile error remains retryable", () => {
+  profileQuery.isPending = false;
+  profileQuery.error = new Error("Temporary failure");
+  render(<ProfileDetailsCard />);
+
+  assert.match(screen.getByRole("alert").textContent ?? "", /unable to load/i);
+  screen.getByRole("button", { name: "Retry" }).click();
+  assert.equal(profileQuery.refetch.mock.calls.length, 1);
 });
