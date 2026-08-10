@@ -631,7 +631,7 @@ describe("auth.service", () => {
     expect(prisma.authSession.create).not.toHaveBeenCalled();
   });
 
-  it("revokes matching sessions on logout when a token is present", async () => {
+  it("audits logout after revoking every row in a rotated session family", async () => {
     prisma.authSession.findFirst.mockResolvedValueOnce(
       buildAuthSession({
         id: "session-logout",
@@ -639,7 +639,7 @@ describe("auth.service", () => {
         familyId: "family-logout",
       }),
     );
-    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 3 });
     writeAuditLogSafely.mockImplementationOnce(async () => {
       expect(isRoleContextActive()).toBe(true);
     });
@@ -648,7 +648,7 @@ describe("auth.service", () => {
 
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
       where: {
-        refreshTokenHash: crypto.createHash("sha256").update("to-revoke").digest("hex"),
+        familyId: "family-logout",
         revokedAt: null,
       },
       data: {
@@ -679,10 +679,7 @@ describe("auth.service", () => {
 
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
       where: {
-        refreshTokenHash: crypto
-          .createHash("sha256")
-          .update("already-revoked")
-          .digest("hex"),
+        familyId: "family-logout",
         revokedAt: null,
       },
       data: {
