@@ -67,7 +67,7 @@ export async function fetchQuestionOptions(
   const url = `/api/v1/config/ielts/question-options${query}`;
 
   const response = await apiClient<IeltsQuestionOptionsResponse>(url, {
-    auth: 'required',
+    auth: 'none',
   });
 
   const mappedOptions = Array.isArray(response.options)
