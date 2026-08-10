@@ -114,7 +114,9 @@ test('apiClient attaches bearer token supplied by authBridge', async () => {
         clearSession: () => {},
       });
 
-      const result = await apiClient<{ ok: boolean }>('/sample');
+      const result = await apiClient<{ ok: boolean }>('/sample', {
+        auth: 'required',
+      });
       assert.equal(result.ok, true);
       assert.equal(callCount, 1);
       assert.equal(capturedHeaders?.get('authorization'), 'Bearer live-token');
@@ -149,10 +151,76 @@ test('apiClient ignores stored snapshots without a live user', async () => {
         clearSession: () => {},
       });
 
-      await apiClient('/stored-token');
+      await apiClient('/stored-token', { auth: 'optional' });
       assert.equal(capturedHeaders?.get('authorization'), null);
       assert.equal(capturedHeaders?.get('x-user-role'), null);
       assert.equal(capturedHeaders?.get('x-user-id'), null);
+    },
+  );
+});
+
+test('apiClient never admits a stored admin token before bootstrap', async () => {
+  let capturedHeaders: Headers | null = null;
+  const storedPayload = JSON.stringify({
+    token: 'stored-admin-token',
+    liveUser: {
+      id: 'admin-1',
+      email: 'admin@example.com',
+      name: 'Stored Admin',
+      role: 'admin',
+    },
+    sessionEpoch: 42,
+    profileRevision: 0,
+  });
+
+  await withPatchedGlobals(
+    {
+      fetch: async (_input, init) => {
+        capturedHeaders = new Headers(init?.headers);
+        return Response.json({ ok: true });
+      },
+      localStorage: createStorage({ currentUser: storedPayload }),
+    },
+    async () => {
+      authBridge.configure({
+        getAccessToken: () => null,
+        refreshAccessToken: async () => ({ status: 'failed' }),
+        clearSession: () => {},
+      });
+
+      await apiClient('/stored-admin', { auth: 'optional' });
+      assert.equal(capturedHeaders?.get('authorization'), null);
+    },
+  );
+});
+
+test('optional auth waits for bootstrap before admitting a course request', async () => {
+  let releaseBootstrap!: () => void;
+  const bootstrap = new Promise<void>((resolve) => {
+    releaseBootstrap = resolve;
+  });
+  let fetchCalls = 0;
+
+  await withPatchedGlobals(
+    {
+      fetch: async () => {
+        fetchCalls += 1;
+        return Response.json({ courses: [] });
+      },
+      localStorage: createStorage(),
+    },
+    async () => {
+      authBridge.configure({
+        waitUntilReady: () => bootstrap,
+        getAccessToken: () => 'memory-token',
+      });
+
+      const request = apiClient('/api/v1/courses', { auth: 'optional' });
+      await Promise.resolve();
+      assert.equal(fetchCalls, 0);
+      releaseBootstrap();
+      await request;
+      assert.equal(fetchCalls, 1);
     },
   );
 });
@@ -192,7 +260,9 @@ test('apiClient retries once with the exact token returned by refresh', async ()
         },
       });
 
-      const result = await apiClient<{ ok: boolean }>('/secure');
+      const result = await apiClient<{ ok: boolean }>('/secure', {
+        auth: 'required',
+      });
       assert.equal(result.ok, true);
       assert.equal(callCount, 2);
       assert.equal(cleared, false);
@@ -218,7 +288,7 @@ test('apiClient does not clear session on 401 without bearer auth', async () => 
       });
 
       await assert.rejects(
-        () => apiClient('/unauthenticated-protected'),
+        () => apiClient('/unauthenticated-protected', { auth: 'optional' }),
         (error: unknown) =>
           error instanceof Error &&
           error.message.includes('Unauthorized') &&
@@ -240,7 +310,7 @@ test('apiClient reports network failures as server unavailable', async () => {
     },
     async () => {
       await assert.rejects(
-        () => apiClient('/server-down'),
+        () => apiClient('/server-down', { auth: 'none' }),
         (error: unknown) =>
           error instanceof Error &&
           error.message.includes('Server is unavailable') &&
