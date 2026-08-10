@@ -20,6 +20,11 @@ test("CI runs both mocked UI coverage and seeded real-backend E2E", async () => 
     /npm run e2e:mocked/,
     "frontend CI should identify its API-intercepting Playwright workflow",
   );
+  assert.match(
+    workflow,
+    /npm run e2e:synthetic/,
+    "frontend CI should run synthetic auth race coverage",
+  );
   assert.match(workflow, /npm run seed:demo/);
   assert.match(workflow, /PLAYWRIGHT_BACKEND_COMMAND/);
   assert.match(
