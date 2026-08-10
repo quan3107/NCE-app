@@ -13,7 +13,6 @@ test.beforeEach(async ({ request }) => {
 
 test('timed-out login cannot overwrite a later account cookie', async ({
   page,
-  request,
 }) => {
   await page.goto('/e2e/auth-cookie-race.html');
   const result = await page.evaluate(async () => {
@@ -37,12 +36,14 @@ test('timed-out login cannot overwrite a later account cookie', async ({
     } catch (error) {
       timedOut = error instanceof Error && error.name === 'AbortError';
     }
+    await fetch('http://127.0.0.1:4010/test/release-login', {
+      method: 'POST',
+    });
     const responseB = await login('b@example.com');
     return { timedOut, loginBStatus: responseB.status };
   });
 
   expect(result).toEqual({ timedOut: true, loginBStatus: 200 });
-  await request.post(`${TEST_SERVER}/test/release-login`);
   await page.waitForTimeout(100);
   const refreshedUser = await page.evaluate(async () => {
     const response = await fetch('http://127.0.0.1:4010/api/v1/auth/refresh', {
@@ -56,7 +57,6 @@ test('timed-out login cannot overwrite a later account cookie', async ({
 
 test('timed-out logout cannot clear a later account cookie', async ({
   page,
-  request,
 }) => {
   await page.goto('/e2e/auth-cookie-race.html');
   const result = await page.evaluate(async () => {
@@ -81,6 +81,9 @@ test('timed-out logout cannot clear a later account cookie', async ({
     } catch (error) {
       timedOut = error instanceof Error && error.name === 'AbortError';
     }
+    await fetch('http://127.0.0.1:4010/test/release-logout', {
+      method: 'POST',
+    });
     const responseB = await authRequest('login', {
       email: 'b@example.com',
       password: 'password',
@@ -89,7 +92,6 @@ test('timed-out logout cannot clear a later account cookie', async ({
   });
 
   expect(result).toEqual({ timedOut: true, loginBStatus: 200 });
-  await request.post(`${TEST_SERVER}/test/release-logout`);
   await page.waitForTimeout(100);
   const refreshedUser = await page.evaluate(async () => {
     const response = await fetch('http://127.0.0.1:4010/api/v1/auth/refresh', {
