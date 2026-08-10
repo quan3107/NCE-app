@@ -62,6 +62,7 @@ const fetchTeacherAnalytics = async (
   filters: AnalyticsFilters,
 ): Promise<TeacherAnalyticsResponse> =>
   apiClient<TeacherAnalyticsResponse>("/api/v1/analytics/teacher", {
+    auth: "required",
     params: buildAnalyticsParams(filters),
   });
 
@@ -69,6 +70,7 @@ export const fetchTeacherAnalyticsCsv = async (
   filters: AnalyticsFilters,
 ): Promise<Blob> =>
   apiClient<Blob>("/api/v1/analytics/teacher", {
+    auth: "required",
     params: { ...buildAnalyticsParams(filters), format: "csv" },
     responseType: "blob",
   });
