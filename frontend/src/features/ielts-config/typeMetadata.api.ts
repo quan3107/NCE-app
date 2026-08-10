@@ -105,6 +105,7 @@ export async function fetchIeltsTypeMetadata(version?: number): Promise<IeltsTyp
 
   const response = await apiClient<IeltsTypeMetadataResponse>(
     `/api/v1/config/ielts/type-metadata${query}`,
+    { auth: 'required' },
   );
 
   if (!Array.isArray(response.types)) {
