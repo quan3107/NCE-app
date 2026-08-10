@@ -6,11 +6,19 @@
 
 import { authBridge } from '../src/lib/authBridge';
 
+const controller = new AbortController();
 authBridge.configure({
-  getAccessToken: () => 'node-test-access-token',
-  getSessionVersion: () => ({
-    generation: 1,
-    sessionEpoch: 1,
-    userId: 'node-test-user',
+  admit: () => ({
+    accessToken: 'node-test-access-token',
+    actorId: 'node-test-user',
+    revision: 1,
+    signal: controller.signal,
+  }),
+  isCurrent: () => true,
+  getSnapshot: () => ({
+    status: 'authenticated',
+    revision: 1,
+    accessToken: 'node-test-access-token',
+    actor: { id: 'node-test-user', role: 'student' },
   }),
 });
