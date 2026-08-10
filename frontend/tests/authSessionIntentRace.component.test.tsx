@@ -114,7 +114,7 @@ test("the login admitted last owns the cookie-matching UI session", async () => 
     assert.deepEqual(await Promise.all([first, second]), ["live", "live"]);
   });
   assert.equal(result.current.currentUser.id, "user-b");
-  assert.match(window.localStorage.getItem("currentUser") ?? "", /"id":"user-b"/);
+  assert.equal(window.localStorage.getItem("currentUser"), null);
 });
 
 test.each(["login", "registration"] as const)(
