@@ -33,7 +33,9 @@ export async function fetchDashboardWidgetDefaults(
   _role: DashboardRole,
 ): Promise<DashboardWidgetDefaultsResponse> {
   try {
-    const response = await apiClient<unknown>('/api/v1/config/dashboard-widgets');
+    const response = await apiClient<unknown>('/api/v1/config/dashboard-widgets', {
+      auth: 'required',
+    });
 
     if (!isDashboardWidgetDefaultsResponse(response)) {
       throw new Error('Invalid dashboard widget defaults payload returned by API.');
@@ -47,7 +49,9 @@ export async function fetchDashboardWidgetDefaults(
 
 export async function fetchMyDashboardConfig(): Promise<MyDashboardConfigResponse> {
   try {
-    const response = await apiClient<unknown>('/api/v1/me/dashboard-config');
+    const response = await apiClient<unknown>('/api/v1/me/dashboard-config', {
+      auth: 'required',
+    });
 
     if (!isMyDashboardConfigResponse(response)) {
       throw new Error('Invalid dashboard widget config payload returned by API.');
@@ -66,6 +70,7 @@ export async function saveMyDashboardConfig(
     const response = await apiClient<unknown, UpdateMyDashboardConfigRequest>(
       '/api/v1/me/dashboard-config',
       {
+        auth: 'required',
         method: 'PUT',
         body: payload,
       },
@@ -84,6 +89,7 @@ export async function saveMyDashboardConfig(
 export async function resetMyDashboardConfig(): Promise<void> {
   try {
     await apiClient('/api/v1/me/dashboard-config', {
+      auth: 'required',
       method: 'DELETE',
       parseJson: false,
     });
