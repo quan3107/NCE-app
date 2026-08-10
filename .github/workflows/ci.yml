@@ -94,6 +94,10 @@ jobs:
         run: npm run e2e:mocked
         working-directory: frontend
 
+      - name: Test synthetic frontend auth races
+        run: npm run e2e:synthetic
+        working-directory: frontend
+
   backend:
     name: Backend install, audit, lint, build, and test
     runs-on: ubuntu-latest
