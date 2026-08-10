@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** No backend files changed while making frontend cancellation preserve server-side refresh rotation ordering; the seeded backend verified all eight live-browser auth and mutation scenarios.
+
 - **2026-08-10:** Bound access tokens to revocable refresh-session families, revoked the full originating family on logout, and made request authority validate the current server-side user role/status so storage-denied clients cannot retain stale access.
 
 - **2026-08-10:** No backend files changed while preventing obsolete queued frontend refreshes from revoking a newer login session.
@@ -166,6 +168,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Separated caller cancellation from active cookie-request cancellation so refresh rotation stays serialized until the server settles, suppressed superseded refresh UI application, and aligned OAuth, timeout, synthetic, and real-backend regressions with the fail-closed queue contract.
 
 - **2026-08-10:** Closed OAuth bootstrap ordering, pre-delivery cross-tab, anonymous optional-request, profile ownership, public IELTS config, and login-profile provenance gaps with lifecycle-bound authority regressions.
 
