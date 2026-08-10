@@ -37,11 +37,13 @@ export const fetchStudentNcePath = (
   query: StudentNcePathQuery = {},
 ) =>
   apiClient<StudentNcePathResponse>(`/courses/${courseId}/nce-path`, {
+    auth: 'required',
     params: queryParams(query),
   });
 
 export const fetchNceAssetContent = (courseId: string, key: string) =>
   apiClient<NceAssetContent>(`/courses/${courseId}/nce-assets/content`, {
+    auth: 'required',
     params: { key },
   }).then((content) => ({
     ...content,
@@ -64,6 +66,7 @@ export const saveNceAttemptDraft = async (
   const attempt = await apiClient<NceAttempt, NceAttemptDraftPayload>(
     `/courses/${courseId}/nce-exercises/${exerciseId}/attempts`,
     {
+      auth: 'required',
       method: 'POST',
       body: { response },
     },
@@ -75,6 +78,7 @@ export const saveNceAttemptDraft = async (
 
 export const submitNceAttempt = async (attemptId: string) => {
   const attempt = await apiClient<NceAttempt>(`/nce-attempts/${attemptId}/submit`, {
+    auth: 'required',
     method: 'POST',
   });
 
@@ -86,6 +90,7 @@ export const completeNceLesson = async (courseId: string, lessonId: string) => {
   const progress = await apiClient<NceLessonProgress>(
     `/courses/${courseId}/nce-lessons/${lessonId}/complete`,
     {
+      auth: 'required',
       method: 'POST',
     },
   );
