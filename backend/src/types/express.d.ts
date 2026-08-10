@@ -4,9 +4,11 @@
  * Why: Allows middleware to attach the logged-in user while keeping TypeScript aware downstream.
  */
 import type { UserRole, UserStatus } from "../prisma/index.js";
+import type { RequestActorResolution } from "../middleware/requestActor.js";
 
 declare module "express-serve-static-core" {
   interface Request {
+    authActorResolution?: RequestActorResolution;
     user?: {
       id: string;
       role: UserRole;
