@@ -175,6 +175,9 @@ test("OAuth completion remains memory-only when legacy storage rejects writes", 
       const path = new URL(String(input)).pathname;
       requests.push(path);
       if (path.endsWith("/auth/refresh")) return Response.json(authResponse);
+      if (path.endsWith("/me")) {
+        return Response.json({ profile: authResponse.user });
+      }
       if (path.endsWith("/auth/logout")) {
         return new Response(null, { status: 204 });
       }
@@ -188,7 +191,9 @@ test("OAuth completion remains memory-only when legacy storage rejects writes", 
 
   assert.equal(await view.result.current.completeGoogleLogin(), "live");
 
-  assert.deepEqual(requests, ["/api/v1/auth/refresh"]);
+  await waitFor(() =>
+    assert.deepEqual(requests, ["/api/v1/auth/refresh", "/api/v1/me"]),
+  );
   assert.equal(view.result.current.isAuthenticated, true);
   assert.equal(values.get("currentUser"), undefined);
 });
