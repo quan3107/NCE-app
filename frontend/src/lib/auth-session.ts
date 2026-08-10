@@ -1,294 +1,57 @@
 /**
  * Location: src/lib/auth-session.ts
- * Purpose: Own auth session state, persistence, and live-session application.
- * Why: Keeps AuthProvider focused on user-facing auth actions and context values.
+ * Purpose: Apply actor-scoped query-cache rules around auth transitions.
+ * Why: Account and role changes isolate data while same-actor refresh preserves it.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
+import type { AuthMachineState } from './auth-machine';
+import type { BackendAuthUser, CurrentProfile, LiveUser } from './auth-types';
 import { setAuthenticatedQueryScope } from './authenticated-query-scope';
-import { useAuthProfileSession } from './auth-profile-session';
-import { clearAuthenticatedQueries, synchronizeProfileCache } from './auth-query-session';
-import { useAuthRestorationBaseline } from './auth-restoration-baseline';
-import { loadInitialState, mapBackendUser } from './auth-state';
-import type {
-  AuthSuccessResponse,
-  LiveUser,
-  PersistSnapshot,
-  RefreshPromiseSlot,
-  SessionIdentity,
-  SessionVersion,
-} from './auth-types';
-import {
-  loadSharedAuthSnapshot,
-  persistSharedAuthSnapshot,
-  subscribeToSharedAuth,
-  type SharedAuthSnapshot,
-} from './shared-auth-session';
+import { queryClient } from './queryClient';
 
-export const useAuthSession = () => {
-  const initial = useMemo(loadInitialState, []);
-  const [liveUser, setLiveUser] = useState<LiveUser | null>(null);
-  const liveUserRef = useRef<LiveUser | null>(null);
-  const restorationBaseline = useAuthRestorationBaseline(initial.liveUser);
-  const sessionGenerationRef = useRef(0);
-  const sessionEpochRef = useRef(initial.sessionEpoch);
-  const profileRevisionRef = useRef(initial.profileRevision);
-  const userRevisionRef = useRef(0);
-  const profileCommitSequenceRef = useRef(new Map<string, number>());
-  const tokenRef = useRef<string | null>(null);
-  const refreshPromiseRef = useRef<RefreshPromiseSlot | null>(null);
-  const shouldRefreshOnMountRef = useRef(Boolean(initial.token || initial.liveUser));
-  setAuthenticatedQueryScope({
-    generation: sessionGenerationRef.current,
-    userId: liveUserRef.current?.id ?? null,
-  });
+export const profileQueryKey = (userId: string) =>
+  ['identity', userId, 'profile'] as const;
 
-  const consumeSharedSession = useCallback((snapshot: SharedAuthSnapshot) => {
-    const profileRevisionKind = restorationBaseline.classifyProfileRevision(
-      snapshot, sessionEpochRef.current, profileRevisionRef.current, liveUserRef.current,
-    );
-    sessionEpochRef.current = snapshot.sessionEpoch;
-    profileRevisionRef.current = snapshot.profileRevision;
-    if (profileRevisionKind === 'restoring') return;
-    if (profileRevisionKind === 'live' && snapshot.liveUser) {
-      userRevisionRef.current += 1;
-      tokenRef.current = snapshot.token;
-      liveUserRef.current = snapshot.liveUser;
-      setLiveUser(snapshot.liveUser);
-      synchronizeProfileCache(snapshot.liveUser);
-      return;
-    }
-    restorationBaseline.clear();
-    sessionGenerationRef.current += 1;
-    userRevisionRef.current += 1;
-    tokenRef.current = snapshot.token;
-    liveUserRef.current = snapshot.liveUser;
-    refreshPromiseRef.current = null;
-    profileCommitSequenceRef.current.clear();
-    setAuthenticatedQueryScope({
-      generation: sessionGenerationRef.current,
-      userId: snapshot.liveUser?.id ?? null,
-    });
-    setLiveUser(snapshot.liveUser);
-    clearAuthenticatedQueries();
-  }, [restorationBaseline]);
-
-  const persistState = useCallback(
-    (snapshot: PersistSnapshot, advanceEpoch = false) => {
-      const result = persistSharedAuthSnapshot(
-        snapshot,
-        sessionEpochRef.current,
-        advanceEpoch,
-        restorationBaseline.previousSnapshot(tokenRef.current, liveUserRef.current),
-        profileRevisionRef.current,
-        false,
-      );
-      if (
-        result.status !== 'committed' &&
-        result.status !== 'fallback' &&
-        result.status !== 'volatile'
-      ) {
-        if (result.status === 'stale') consumeSharedSession(result.snapshot);
-        return false;
-      }
-      sessionEpochRef.current = result.snapshot.sessionEpoch;
-      profileRevisionRef.current = result.snapshot.profileRevision;
-      return true;
-    },
-    [consumeSharedSession, restorationBaseline],
-  );
-
-  const persistProfileState = useCallback(
-    (snapshot: PersistSnapshot) => {
-      const result = persistSharedAuthSnapshot(
-        snapshot,
-        sessionEpochRef.current,
-        false,
-        { token: tokenRef.current, liveUser: liveUserRef.current },
-        profileRevisionRef.current,
-        false,
-      );
-      if (result.status === 'stale') {
-        consumeSharedSession(result.snapshot);
-        return false;
-      }
-      sessionEpochRef.current = result.snapshot.sessionEpoch;
-      profileRevisionRef.current = result.snapshot.profileRevision;
-      return true;
-    },
-    [consumeSharedSession],
-  );
-
-  const clearSession = useCallback(() => {
-    persistState({ token: null, liveUser: null }, true);
-    sessionGenerationRef.current += 1;
-    userRevisionRef.current += 1;
-    tokenRef.current = null;
-    liveUserRef.current = null;
-    restorationBaseline.clear();
-    refreshPromiseRef.current = null;
-    profileCommitSequenceRef.current.clear();
-    setAuthenticatedQueryScope({
-      generation: sessionGenerationRef.current,
-      userId: null,
-    });
-    setLiveUser(null);
-    clearAuthenticatedQueries();
-  }, [persistState, restorationBaseline]);
-
-  const getSessionVersion = useCallback(
-    (): SessionVersion => ({
-      generation: sessionGenerationRef.current,
-      sessionEpoch: sessionEpochRef.current,
-      userRevision: userRevisionRef.current,
-      userId: liveUserRef.current?.id ?? null,
-    }),
-    [],
-  );
-
-  const getAdmissionSessionVersion = useCallback((): SessionVersion => {
-    const shared = loadSharedAuthSnapshot();
-    if (
-      shared.sessionEpoch > sessionEpochRef.current ||
-      (shared.sessionEpoch === sessionEpochRef.current &&
-        shared.profileRevision > profileRevisionRef.current)
-    ) {
-      consumeSharedSession(shared);
-    }
-    return {
-      generation: sessionGenerationRef.current,
-      sessionEpoch: sessionEpochRef.current,
-      userRevision: userRevisionRef.current,
-      userId: liveUserRef.current?.id ?? null,
-    };
-  }, [consumeSharedSession]);
-
-  const applyLiveSession = useCallback(
-    (payload: AuthSuccessResponse, expectedVersion?: SessionVersion) => {
-      const nextUser = mapBackendUser(payload.user);
-      const previousUser = liveUserRef.current;
-      if (
-        expectedVersion &&
-        (expectedVersion.generation !== sessionGenerationRef.current ||
-          expectedVersion.sessionEpoch !== sessionEpochRef.current ||
-          expectedVersion.userId !== (previousUser?.id ?? null))
-      ) {
-        return false;
-      }
-
-      const replacesIdentity = restorationBaseline.replacesIdentity(previousUser, nextUser);
-      const userChangedSinceRequest =
-        expectedVersion &&
-        !replacesIdentity &&
-        expectedVersion.userRevision !== userRevisionRef.current;
-      const resolvedNextUser =
-        userChangedSinceRequest && previousUser
-          ? { ...nextUser, name: previousUser.name }
-          : nextUser;
-      const replacesAuthorization = restorationBaseline.replacesAuthorization(
-        previousUser, resolvedNextUser,
-      );
-      const epochBeforePersist = sessionEpochRef.current;
-      const profileRevisionBeforePersist = profileRevisionRef.current;
-
-      if (
-        !persistState(
-          { token: payload.accessToken, liveUser: resolvedNextUser },
-          replacesAuthorization,
-        )
-      ) {
-        if (
-          replacesAuthorization &&
-          sessionEpochRef.current === epochBeforePersist &&
-          profileRevisionRef.current === profileRevisionBeforePersist
-        ) {
-          clearSession();
-        }
-        return false;
-      }
-
-      if (replacesAuthorization) {
-        profileCommitSequenceRef.current.clear();
-        sessionGenerationRef.current += 1;
-        setAuthenticatedQueryScope({
-          generation: sessionGenerationRef.current,
-          userId: resolvedNextUser.id,
-        });
-        clearAuthenticatedQueries();
-      } else {
-        synchronizeProfileCache(resolvedNextUser);
-      }
-      userRevisionRef.current += 1;
-      tokenRef.current = payload.accessToken;
-      liveUserRef.current = resolvedNextUser;
-      restorationBaseline.clear();
-      setLiveUser(resolvedNextUser);
-      return true;
-    },
-    [clearSession, persistState, restorationBaseline],
-  );
-
-  const updateLiveUser = useCallback(
-    (
-      expected: SessionIdentity,
-      updates: Partial<Pick<LiveUser, 'name'>>,
-    ): boolean => {
-      const current = liveUserRef.current;
-      if (
-        !current ||
-        current.id !== expected.userId ||
-        sessionGenerationRef.current !== expected.generation
-      ) {
-        return false;
-      }
-
-      const nextUser = { ...current, ...updates };
-      if (!persistProfileState({ token: tokenRef.current, liveUser: nextUser })) {
-        return false;
-      }
-      userRevisionRef.current += 1;
-      liveUserRef.current = nextUser;
-      setLiveUser(nextUser);
-      return true;
-    },
-    [persistProfileState],
-  );
-
-  const { commitLiveProfile, refreshLiveProfile } = useAuthProfileSession({
-    clearSession,
-    liveUserRef,
-    persistProfileState,
-    profileCommitSequenceRef,
-    sessionGenerationRef,
-    sessionEpochRef,
-    setLiveUser,
-    tokenRef,
-    userRevisionRef,
-  });
-
-  useEffect(
-    () =>
-      subscribeToSharedAuth(
-        sessionEpochRef.current,
-        consumeSharedSession,
-        profileRevisionRef.current,
-      ),
-    [consumeSharedSession],
-  );
-
+export function backendUserToLiveUser(user: BackendAuthUser): LiveUser {
   return {
-    liveUser,
-    sessionGeneration: sessionGenerationRef.current,
-    tokenRef,
-    refreshPromiseRef,
-    shouldRefreshOnMountRef,
-    getSessionVersion,
-    getAdmissionSessionVersion,
-    applyLiveSession,
-    updateLiveUser,
-    commitLiveProfile,
-    refreshLiveProfile,
-    clearSession,
+    id: user.id,
+    email: user.email,
+    name: user.fullName,
+    role: user.role,
   };
-};
+}
+
+export function seedProfileForNewActor(user: BackendAuthUser): void {
+  const key = profileQueryKey(user.id);
+  if (queryClient.getQueryData(key) !== undefined) return;
+  const profile: CurrentProfile = {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+    status: 'active',
+  };
+  queryClient.setQueryData(key, profile);
+}
+
+export function enterActorScope(
+  previous: AuthMachineState,
+  next: AuthMachineState,
+): boolean {
+  const previousActor =
+    previous.status === 'authenticated' ? previous.actor : null;
+  const nextActor = next.status === 'authenticated' ? next.actor : null;
+  const replaced =
+    previousActor?.id !== nextActor?.id || previousActor?.role !== nextActor?.role;
+  if (!replaced) return false;
+  queryClient.clear();
+  setAuthenticatedQueryScope({
+    generation: next.revision,
+    userId: nextActor?.id ?? null,
+  });
+  return true;
+}
+
+export function profileFromCache(userId: string): CurrentProfile | undefined {
+  return queryClient.getQueryData<CurrentProfile>(profileQueryKey(userId));
+}
