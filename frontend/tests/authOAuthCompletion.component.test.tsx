@@ -5,7 +5,7 @@
  */
 
 import assert from "node:assert/strict";
-import type { PropsWithChildren } from "react";
+import { useEffect, type PropsWithChildren } from "react";
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
@@ -94,6 +94,56 @@ test("OAuth completion replaces the initiating account and clears its lease", as
 
   assert.equal(result.current.currentUser.id, "user-b");
   assert.equal(await readIndexedDbAuthLease("oauth-reservation"), null);
+});
+
+test("OAuth callback child waits for provider bootstrap before admitting refresh", async () => {
+  window.history.replaceState({}, "", "/auth/oauth");
+  const expiresAt = Date.now() + 60_000;
+  window.sessionStorage.setItem(
+    "nce:auth-cookie-oauth-owner",
+    JSON.stringify({ ownerId: "oauth-owner", expiresAt }),
+  );
+  await writeIndexedDbAuthLease({
+    name: "oauth-reservation",
+    ownerId: "oauth-owner",
+    expiresAt,
+  });
+  let refreshCalls = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        return Response.json(authResponse);
+      }
+      if (path.endsWith("/me")) {
+        return Response.json({ profile: authResponse.user });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  let completion: Promise<"live"> | undefined;
+  function OAuthCallbackChild() {
+    const { completeGoogleLogin } = useAuth();
+    useEffect(() => {
+      completion = completeGoogleLogin();
+    }, [completeGoogleLogin]);
+    return null;
+  }
+
+  renderHook(() => null, {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <AuthProvider>
+        <OAuthCallbackChild />
+        {children}
+      </AuthProvider>
+    ),
+  });
+
+  await waitFor(() => assert.ok(completion));
+  assert.equal(await completion, "live");
+  assert.equal(refreshCalls, 1);
 });
 
 test("cancelling Google login aborts an unfinished OAuth completion", async () => {
