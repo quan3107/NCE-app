@@ -96,6 +96,58 @@ test("subscriber catches an invalidation written before catch-up read", () => {
   assert.deepEqual(observed, [message]);
 });
 
+test("shared invalidation fences authority before its async event is delivered", () => {
+  const coordinator = new AuthCoordinator();
+  coordinator.finishBootstrap();
+  coordinator.authenticate("token-a", { id: "user-a", role: "student" });
+  const admitted = coordinator.admit("required");
+  window.localStorage.setItem(
+    "nce:auth-invalidation",
+    JSON.stringify({
+      schemaVersion: 1,
+      epoch: Date.now() + 1,
+      reason: "logout",
+      nonce: "peer:pre-delivery",
+    }),
+  );
+
+  assert.equal(coordinator.isCurrent(admitted), false);
+  assert.throws(
+    () => coordinator.admit("required"),
+    /session changed/i,
+  );
+});
+
+test("same-epoch invalidation collisions fence only unacknowledged publications", () => {
+  const first = {
+    schemaVersion: 1 as const,
+    epoch: 90,
+    reason: "account-change" as const,
+    nonce: "publisher-a:1",
+  };
+  window.localStorage.setItem("nce:auth-invalidation", JSON.stringify(first));
+  const coordinator = new AuthCoordinator();
+  coordinator.acknowledgeAuthInvalidation(first);
+  coordinator.finishBootstrap();
+  coordinator.authenticate("token-a", { id: "user-a", role: "student" });
+  const admitted = coordinator.admit("required");
+
+  assert.equal(coordinator.isCurrent(admitted), true);
+  assert.doesNotThrow(() => coordinator.admit("required"));
+
+  window.localStorage.setItem(
+    "nce:auth-invalidation",
+    JSON.stringify({
+      ...first,
+      reason: "logout",
+      nonce: "publisher-b:1",
+    }),
+  );
+
+  assert.equal(coordinator.isCurrent(admitted), false);
+  assert.throws(() => coordinator.admit("required"), /session changed/i);
+});
+
 test("storage and notification failures never create authority", () => {
   const coordinator = new AuthCoordinator();
   Object.defineProperty(window, "localStorage", {
