@@ -6,7 +6,10 @@
 import { type NextFunction, type Request, type Response } from "express";
 
 import { withRoleContext } from "../prisma/client.js";
-import { isActiveActor, resolveRequestActor } from "./requestActor.js";
+import {
+  isActiveActor,
+  resolveAuthoritativeRequestActor,
+} from "./requestActor.js";
 
 export async function rlsContext(
   req: Request,
@@ -18,7 +21,8 @@ export async function rlsContext(
     return;
   }
 
-  const resolvedActor = resolveRequestActor(req);
+  const resolvedActor = await resolveAuthoritativeRequestActor(req);
+  req.authActorResolution = resolvedActor;
   const actor =
     resolvedActor.kind === "authenticated" && isActiveActor(resolvedActor.actor)
       ? resolvedActor.actor
