@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** No backend files changed while correcting frontend reload identity fencing and profile write/reconciliation lifecycle reporting.
+
 - **2026-08-03:** No backend files changed while assigning OAuth lease cleanup to exactly one frontend cancellation path and making peers consume ordered logout tombstones from failed-persistence snapshot removals.
 
 - **2026-08-03:** No backend files changed while extending the live-backend browser gate to restore profile and upload-policy mutations after authoritative round-trip checks.
@@ -150,6 +152,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Preserved validated provisional identity/role baselines across reload restoration so same-user refreshes keep peer requests alive, while real account or role changes still advance the shared epoch; committed confirmed profile PATCH responses before guarded reconciliation so GET failures report synchronization issues and late responses preserve newer drafts.
 
 - **2026-08-03:** Assigned OAuth cancellation cleanup to one owner and converted authenticated storage removals into ordered logout tombstones, preventing competing lease release and stale peer authority when notification publication fails.
 
