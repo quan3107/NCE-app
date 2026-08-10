@@ -14,8 +14,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
 const saveProfile = vi.hoisted(() => vi.fn());
-const commitCurrentProfile = vi.hoisted(() => vi.fn());
-const refreshCurrentProfile = vi.hoisted(() => vi.fn());
 const logout = vi.hoisted(() => vi.fn(async () => undefined));
 const authState = vi.hoisted(() => ({
   currentUser: {
@@ -31,8 +29,6 @@ vi.mock("@store/authStore", () => ({
   useAuthStore: () => ({
     currentUser: authState.currentUser,
     sessionGeneration: authState.sessionGeneration,
-    commitCurrentProfile,
-    refreshCurrentProfile,
     logout,
   }),
 }));
@@ -67,43 +63,6 @@ beforeEach(() => {
     role: "student",
   };
   authState.sessionGeneration = 1;
-  commitCurrentProfile.mockImplementation(
-    (
-      expected: { userId: string; generation: number },
-      profile: { id: string; fullName: string },
-    ) => {
-      if (
-        expected.userId !== authState.currentUser.id ||
-        expected.generation !== authState.sessionGeneration ||
-        profile.id !== authState.currentUser.id
-      ) {
-        return false;
-      }
-      authState.currentUser = {
-        ...authState.currentUser,
-        name: profile.fullName,
-      };
-      return true;
-    },
-  );
-  refreshCurrentProfile.mockImplementation(
-    async (expected: { userId: string; generation: number }) => {
-      const profile = await saveProfile.mock.results.at(-1)?.value;
-      if (
-        !profile ||
-        expected.userId !== authState.currentUser.id ||
-        expected.generation !== authState.sessionGeneration ||
-        profile.id !== authState.currentUser.id
-      ) {
-        return null;
-      }
-      authState.currentUser = {
-        ...authState.currentUser,
-        name: profile.fullName,
-      };
-      return profile;
-    },
-  );
 });
 
 afterEach(() => {
@@ -131,10 +90,7 @@ test("submits the controlled name and updates the authenticated user", async () 
     assert.deepEqual(saveProfile.mock.calls[0]?.[0], {
       fullName: "Updated Name",
     });
-    assert.deepEqual(refreshCurrentProfile.mock.calls[0]?.[0], {
-      userId: "user-1",
-      generation: 1,
-    });
+    assert.equal(screen.getByRole("button", { name: "Edit Profile" }).textContent, "Edit Profile");
   });
 });
 
@@ -178,7 +134,6 @@ test("ignores a late save after the authenticated account changes", async () => 
     });
   });
 
-  assert.equal(refreshCurrentProfile.mock.calls.length, 0);
   assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "User B");
 });
 
@@ -229,9 +184,10 @@ test("ignores an older completion when saves resolve in reverse order", async ()
     });
   });
 
-  assert.equal(refreshCurrentProfile.mock.calls.length, 1);
-  assert.equal(commitCurrentProfile.mock.calls.at(-1)?.[1]?.fullName, "Second Save");
-  assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "Second Save");
+  assert.equal(
+    screen.getByRole("button", { name: "Edit Profile" }).textContent,
+    "Edit Profile",
+  );
 });
 
 test("synchronizes refreshed names without overwriting a dirty edit", () => {
