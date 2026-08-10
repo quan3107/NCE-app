@@ -134,10 +134,11 @@ export function useAuthRuntime() {
     ): Promise<RefreshAccessTokenResult> => {
       const expected = coordinator.getSnapshot();
       try {
-        return await runner(async (signal, compensate) => {
+        return await runner(async (signal, compensate, isSuperseded) => {
           const admitted = coordinator.getSnapshot();
           if (
             signal.aborted ||
+            isSuperseded() ||
             admitted.revision !== expected.revision ||
             actorId(admitted) !== actorId(expected)
           ) {
@@ -149,6 +150,9 @@ export function useAuthRuntime() {
             credentials: 'include',
             signal,
           });
+          if (isSuperseded()) {
+            return { status: 'stale' };
+          }
           if (
             signal.aborted ||
             !applyLiveSession(payload, expected, true, announce)
