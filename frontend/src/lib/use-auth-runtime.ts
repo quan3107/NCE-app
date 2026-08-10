@@ -13,7 +13,6 @@ import {
 } from 'react';
 
 import { apiClient } from './apiClient';
-import { startActiveProfileSession } from './active-profile-session';
 import { AuthCoordinator } from './auth-coordinator';
 import type { AuthMachineState } from './auth-machine';
 import { authBridge } from './authBridge';
@@ -26,18 +25,19 @@ import {
   backendUserToLiveUser,
   enterActorScope,
   profileFromCache,
-  seedProfileForNewActor,
 } from './auth-session';
 import type {
   AuthSuccessResponse,
   LiveUser,
   RefreshAccessTokenResult,
 } from './auth-types';
+import { useActiveProfileRuntime } from './use-active-profile-runtime';
 import { queryClient } from './queryClient';
 import {
   publishAuthInvalidation,
   removeLegacyAuthSnapshot,
   subscribeToAuthInvalidation,
+  type AuthInvalidation,
   type AuthInvalidationReason,
 } from './shared-auth-session';
 
@@ -65,9 +65,6 @@ export function useAuthRuntime() {
   const [fallbackUser, setFallbackUser] = useState<LiveUser | null>(null);
   const activeUserId =
     snapshot.status === 'authenticated' ? snapshot.actor.id : '';
-  const activeUserRole =
-    snapshot.status === 'authenticated' ? snapshot.actor.role : '';
-
   const applyLiveSession = useCallback(
     (
       payload: AuthSuccessResponse,
@@ -100,16 +97,16 @@ export function useAuthRuntime() {
       });
       const next = coordinator.getSnapshot();
       enterActorScope(current, next);
-      seedProfileForNewActor(payload.user);
       setFallbackUser(user);
       if (announce) {
         const previousRole =
           current.status === 'authenticated' ? current.actor.role : null;
-        publishAuthInvalidation(
+        const invalidation = publishAuthInvalidation(
           previousRole && previousRole !== user.role
             ? 'role-change'
             : 'account-change',
         );
+        coordinator.acknowledgeAuthInvalidation(invalidation);
       }
       return true;
     },
@@ -122,7 +119,10 @@ export function useAuthRuntime() {
       coordinator.clear();
       enterActorScope(previous, coordinator.getSnapshot());
       setFallbackUser(null);
-      if (reason) publishAuthInvalidation(reason);
+      if (reason) {
+        const invalidation = publishAuthInvalidation(reason);
+        coordinator.acknowledgeAuthInvalidation(invalidation);
+      }
     },
     [coordinator],
   );
@@ -189,10 +189,12 @@ export function useAuthRuntime() {
     return result.status === 'refreshed';
   }, [coordinator]);
 
-  const completeOAuthSession = useCallback(
-    () => refreshWith(cookieOperations.runOAuthCompletion, true),
-    [cookieOperations, refreshWith],
-  );
+  const completeOAuthSession = useCallback(async () => {
+    // Child callback effects run before this provider's bootstrap effect. Wait
+    // until bootstrap owns the transition before capturing refresh authority.
+    await coordinator.waitUntilReady();
+    return refreshWith(cookieOperations.runOAuthCompletion, true);
+  }, [cookieOperations, coordinator, refreshWith]);
 
   authBridge.configure({
     refreshAccessToken: () => coordinator.refresh(),
@@ -204,37 +206,21 @@ export function useAuthRuntime() {
 
   useEffect(() => coordinator.subscribe(setSnapshot), [coordinator]);
 
-  useEffect(() => {
-    if (!activeUserId) return;
-    return startActiveProfileSession(activeUserId, () => {
-      cookieOperations.cancelRefreshes();
-      clearSession('logout');
-      void cookieOperations
-        .run((signal) =>
-          apiClient('/auth/logout', {
-            auth: 'none',
-            method: 'POST',
-            credentials: 'include',
-            parseJson: false,
-            signal,
-          }),
-        )
-        .catch(() => undefined);
-    });
-  }, [activeUserId, activeUserRole, clearSession, cookieOperations]);
+  useActiveProfileRuntime(snapshot, cookieOperations, clearSession);
 
   useEffect(() => {
     let mounted = true;
-    const revalidate = async (reason: AuthInvalidationReason) => {
+    const revalidate = async (invalidation: AuthInvalidation) => {
       if (!mounted) return;
+      coordinator.acknowledgeAuthInvalidation(invalidation);
       cookieOperations.cancelRefreshes();
       clearSession();
-      if (reason === 'logout') return;
+      if (invalidation.reason === 'logout') return;
       await coordinator.refresh();
     };
     // Subscription performs its catch-up read before bootstrap starts.
     const unsubscribe = subscribeToAuthInvalidation((invalidation) =>
-      void revalidate(invalidation.reason),
+      void revalidate(invalidation),
     );
     removeLegacyAuthSnapshot();
     const initialize = async () => {
