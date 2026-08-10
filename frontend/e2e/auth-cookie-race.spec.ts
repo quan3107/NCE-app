@@ -129,6 +129,46 @@ test('refresh reconciles a tab to the shared cookie identity', async ({
   await context.close();
 });
 
+test('invalidation during bootstrap starts a fresh revision refresh', async ({
+  browser,
+  request,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto('/e2e/auth-cookie-race.html');
+    await page.getByRole('button', { name: 'Login A' }).click();
+    await expect(page.getByTestId('current-user')).toHaveText('user-a');
+
+    const refreshStarted = page.waitForRequest('**/api/v1/auth/refresh');
+    await page.reload();
+    await refreshStarted;
+    const switchCookie = await context.request.post(
+      `${TEST_SERVER}/api/v1/auth/login`,
+      { data: { email: 'b@example.com', password: 'password' } },
+    );
+    expect(switchCookie.ok()).toBeTruthy();
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'nce:auth-invalidation',
+          newValue: JSON.stringify({
+            schemaVersion: 1,
+            epoch: Date.now(),
+            reason: 'account-change',
+            nonce: 'peer-bootstrap-race:1',
+          }),
+        }),
+      );
+    });
+
+    await expect(page.getByTestId('current-user')).toHaveText('user-b');
+  } finally {
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await context.close();
+  }
+});
+
 test('holds cross-tab cookie operations until OAuth completion', async ({
   browser,
 }) => {
