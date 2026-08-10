@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-10:** No backend files changed for the frontend auth/session architecture correction; existing API and HttpOnly refresh-cookie contracts remain unchanged.
+
 - **2026-08-10:** No backend files changed while extracting the frontend authentication restoration baseline and profile-save lifecycle into focused modules for file-size compliance.
 
 - **2026-08-10:** Refreshed dependency resolutions for patched brace expansion, URI parsing, and Nano ID releases after newly published high-severity advisories failed the backend audit gate.
@@ -156,6 +158,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-10:** Replaced persisted bearer/profile replication with one booting/anonymous/authenticated in-memory coordinator, invalidation-only cross-tab revalidation, explicit request auth admission, actor-scoped cancellation/cache isolation, authoritative `/me` cache ownership, retryable transient profile errors, and synthetic auth-race CI coverage.
 
 - **2026-08-10:** Extracted authentication restoration-baseline and profile-save lifecycle state into focused hooks, returning both consuming files below 300 lines and adding a regression that enforces the limit.
 
