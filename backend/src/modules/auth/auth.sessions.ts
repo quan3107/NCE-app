@@ -55,6 +55,13 @@ export class RefreshSessionClaimError extends Error {
   }
 }
 
+/** Serialize every state transition for one refresh-token family. */
+export async function lockSessionFamily(familyId: string): Promise<void> {
+  await prisma.$queryRaw(Prisma.sql`
+    SELECT pg_advisory_xact_lock(hashtextextended(${familyId}, 0))
+  `);
+}
+
 export async function persistSession(
   userId: string,
   refreshToken: string,
@@ -96,11 +103,11 @@ export async function rotateSession(
   refreshToken: string,
   context: SessionContext,
 ): Promise<{
-  id: string
-  familyId: string
-  rotatedFromId: string | null
-  refreshToken: string
-  expiresAt: Date
+  id: string;
+  familyId: string;
+  rotatedFromId: string | null;
+  refreshToken: string;
+  expiresAt: Date;
 }> {
   const { userAgent, ipHash } = sanitizeSessionMetadata(context);
 
@@ -110,6 +117,7 @@ export async function rotateSession(
   const rotatedSessionId = randomUUID();
 
   const rotated = await prisma.$transaction(async (tx) => {
+    await lockSessionFamily(session.familyId);
     const claim = await tx.authSession.updateMany({
       where: {
         id: session.id,
@@ -151,15 +159,18 @@ export async function rotateSession(
 export async function revokeSessionFamily(
   familyId: string,
   revokedAt: Date,
-): Promise<void> {
-  await prisma.authSession.updateMany({
+  markReuse = true,
+): Promise<number> {
+  await lockSessionFamily(familyId);
+  const result = await prisma.authSession.updateMany({
     where: {
       familyId,
       revokedAt: null,
     },
     data: {
       revokedAt,
-      reuseDetectedAt: revokedAt,
+      ...(markReuse ? { reuseDetectedAt: revokedAt } : {}),
     },
   });
+  return result.count;
 }
