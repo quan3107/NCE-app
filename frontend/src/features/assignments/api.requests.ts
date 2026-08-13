@@ -21,7 +21,9 @@ export const fetchAssignments = async (courseIds: string[]): Promise<ApiAssignme
 
   const results = await Promise.all(
     courseIds.map(courseId =>
-      apiClient<ApiAssignment[]>(`/api/v1/courses/${courseId}/assignments`),
+      apiClient<ApiAssignment[]>(`/api/v1/courses/${courseId}/assignments`, {
+        auth: 'required',
+      }),
     ),
   );
 
@@ -35,6 +37,7 @@ export const createAssignment = async (
   return apiClient<ApiAssignment, CreateAssignmentRequest>(
     `/api/v1/courses/${courseId}/assignments`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload,
     },
@@ -49,6 +52,7 @@ export const updateAssignment = async (
   return apiClient<ApiAssignment, UpdateAssignmentRequest>(
     `/api/v1/courses/${courseId}/assignments/${assignmentId}`,
     {
+      auth: 'required',
       method: 'PATCH',
       body: payload,
     },
@@ -62,7 +66,9 @@ export const fetchSubmissions = async (assignmentIds: string[]): Promise<ApiSubm
 
   const results = await Promise.all(
     assignmentIds.map(assignmentId =>
-      apiClient<ApiSubmission[]>(`/api/v1/assignments/${assignmentId}/submissions`),
+      apiClient<ApiSubmission[]>(`/api/v1/assignments/${assignmentId}/submissions`, {
+        auth: 'required',
+      }),
     ),
   );
 
@@ -76,6 +82,7 @@ export const createSubmission = async (
   return apiClient<ApiSubmission, CreateSubmissionRequest>(
     `/api/v1/assignments/${assignmentId}/submissions`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload,
     },
@@ -83,5 +90,5 @@ export const createSubmission = async (
 };
 
 export const fetchEnrollments = async (): Promise<ApiMeResponse> => {
-  return apiClient<ApiMeResponse>('/api/v1/me');
+  return apiClient<ApiMeResponse>('/api/v1/me', { auth: 'required' });
 };

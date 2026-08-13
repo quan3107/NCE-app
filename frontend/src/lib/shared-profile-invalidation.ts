@@ -4,7 +4,7 @@
  * Why: Broadcasting API responses can reorder concurrent database writes.
  */
 
-import { localStorageOrNull, storageSet } from './browser-storage';
+import { localStorageOrNull, storageGet, storageSet } from './browser-storage';
 
 const CHANNEL_NAME = 'nce-auth-profile-invalidation';
 const STORAGE_KEY = 'nce:auth-profile-invalidation';
@@ -13,7 +13,6 @@ const MAX_OBSERVED_PUBLICATIONS = 100;
 export type ProfileInvalidation = {
   type: 'profile-invalidated';
   userId: string;
-  sessionEpoch: number;
   publicationId: string;
 };
 
@@ -61,8 +60,6 @@ function isProfileInvalidation(value: unknown): value is ProfileInvalidation {
   return (
     message.type === 'profile-invalidated' &&
     typeof message.userId === 'string' &&
-    Number.isSafeInteger(message.sessionEpoch) &&
-    Number(message.sessionEpoch) >= 0 &&
     typeof message.publicationId === 'string'
   );
 }
@@ -121,6 +118,9 @@ export function subscribeToProfileInvalidation(
   };
   activeChannel?.addEventListener('message', onMessage);
   window.addEventListener('storage', onStorage);
+  // Attach listeners before reading the latest persisted invalidation.
+  const storage = localStorageOrNull();
+  accept(storage ? parseInvalidation(storageGet(storage, STORAGE_KEY)) : null);
   return () => {
     activeChannel?.removeEventListener('message', onMessage);
     window.removeEventListener('storage', onStorage);

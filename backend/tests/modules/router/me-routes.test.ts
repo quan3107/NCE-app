@@ -30,7 +30,7 @@ describe("modules.router me routes", () => {
   it("requires authentication for PATCH /api/v1/me", async () => {
     const response = await request(app)
       .patch("/api/v1/me")
-      .send({ fullName: "Updated Name" });
+      .send({ fullName: "Updated Name", expectedRevision: 0 });
 
     expect(response.status).not.toBe(404);
     expect(response.status).toBe(401);
@@ -40,7 +40,20 @@ describe("modules.router me routes", () => {
     const response = await request(app)
       .patch("/api/v1/me")
       .set(activeStudentHeaders)
-      .send({ fullName: "   " });
+      .send({ fullName: "   ", expectedRevision: 0 });
+
+    expect(response.status).toBe(400);
+    expect(updateMeProfile).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized expected profile revision inline", async () => {
+    const response = await request(app)
+      .patch("/api/v1/me")
+      .set(activeStudentHeaders)
+      .send({
+        fullName: "Updated Name",
+        expectedRevision: 2_147_483_648,
+      });
 
     expect(response.status).toBe(400);
     expect(updateMeProfile).not.toHaveBeenCalled();
@@ -54,7 +67,7 @@ describe("modules.router me routes", () => {
     const response = await request(app)
       .patch("/api/v1/me")
       .set(activeStudentHeaders)
-      .send({ fullName });
+      .send({ fullName, expectedRevision: 0 });
 
     expect(response.status).toBe(400);
     expect(updateMeProfile).not.toHaveBeenCalled();
@@ -67,17 +80,40 @@ describe("modules.router me routes", () => {
       fullName: "Updated Name",
       role: "student",
       status: "active",
+      profileRevision: 1,
     });
 
     const response = await request(app)
       .patch("/api/v1/me")
       .set(activeStudentHeaders)
-      .send({ fullName: "Updated Name" });
+      .send({ fullName: "Updated Name", expectedRevision: 0 });
 
     expect(response.status).toBe(200);
     expect(updateMeProfile).toHaveBeenCalledWith(userId, {
       fullName: "Updated Name",
+      expectedRevision: 0,
     });
     expect(response.body.fullName).toBe("Updated Name");
+  });
+
+  it("passes a legacy payload without inventing a client revision", async () => {
+    updateMeProfile.mockResolvedValueOnce({
+      id: userId,
+      email: "student@example.com",
+      fullName: "Legacy Update",
+      role: "student",
+      status: "active",
+      profileRevision: 1,
+    });
+
+    const response = await request(app)
+      .patch("/api/v1/me")
+      .set(activeStudentHeaders)
+      .send({ fullName: "Legacy Update" });
+
+    expect(response.status).toBe(200);
+    expect(updateMeProfile).toHaveBeenCalledWith(userId, {
+      fullName: "Legacy Update",
+    });
   });
 });

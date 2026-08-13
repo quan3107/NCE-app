@@ -178,6 +178,19 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (url.pathname === '/api/v1/me' && request.method === 'GET') {
+    const bearer = request.headers.authorization?.replace(/^Bearer\s+/i, '');
+    const account = bearer === 'access-a' ? 'a' : bearer === 'access-b' ? 'b' : null;
+    if (!account) {
+      sendJson(response, 401, { message: 'Authentication required' });
+      return;
+    }
+    sendJson(response, 200, {
+      profile: { ...users[account], status: 'active' },
+    });
+    return;
+  }
+
   sendJson(response, 404, { message: 'Not found' });
 });
 

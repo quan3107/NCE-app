@@ -23,6 +23,7 @@ import {
   randomBytesMock,
   REFRESH_TOKEN_TTL_MS,
   resetAuthServiceMocks,
+  runWithRole,
   signAccessToken,
   writeAuditLogSafely,
 } from "./auth.service.test-utils.js";
@@ -212,7 +213,9 @@ describe("auth.service", () => {
   });
 
   it("rejects registration when the email is already in use", async () => {
-    prisma.user.findFirst.mockResolvedValueOnce(buildUser({ id: "existing-user" }));
+    prisma.user.findFirst.mockResolvedValueOnce(
+      buildUser({ id: "existing-user" }),
+    );
 
     await expect(
       handleRegisterAccount(
@@ -242,7 +245,9 @@ describe("auth.service", () => {
       role: UserRole.student,
     });
 
-    prisma.user.findFirst.mockResolvedValueOnce(mockUser).mockResolvedValueOnce(mockUser);
+    prisma.user.findFirst
+      .mockResolvedValueOnce(mockUser)
+      .mockResolvedValueOnce(mockUser);
     prisma.authSession.create.mockResolvedValueOnce(
       buildAuthSession({ id: "session-login", userId: mockUser.id }),
     );
@@ -309,7 +314,10 @@ describe("auth.service", () => {
     bcryptCompareMock.mockResolvedValueOnce(false);
 
     await expect(
-      handlePasswordLogin({ email: "alice@example.com", password: "wrongpass" }, {}),
+      handlePasswordLogin(
+        { email: "alice@example.com", password: "wrongpass" },
+        {},
+      ),
     ).rejects.toMatchObject({ statusCode: 401 });
 
     expect(prisma.authSession.create).not.toHaveBeenCalled();
@@ -351,7 +359,9 @@ describe("auth.service", () => {
     expect(prisma.authSession.create).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(60_000);
-    prisma.user.findFirst.mockResolvedValueOnce(mockUser).mockResolvedValueOnce(mockUser);
+    prisma.user.findFirst
+      .mockResolvedValueOnce(mockUser)
+      .mockResolvedValueOnce(mockUser);
     prisma.authSession.create.mockResolvedValueOnce(
       buildAuthSession({ id: "session-login", userId: mockUser.id }),
     );
@@ -390,7 +400,9 @@ describe("auth.service", () => {
       ).rejects.toMatchObject({ statusCode: 401 });
     }
 
-    prisma.user.findFirst.mockResolvedValueOnce(mockUser).mockResolvedValueOnce(mockUser);
+    prisma.user.findFirst
+      .mockResolvedValueOnce(mockUser)
+      .mockResolvedValueOnce(mockUser);
     prisma.authSession.create.mockResolvedValueOnce(
       buildAuthSession({ id: "session-login", userId: mockUser.id }),
     );
@@ -460,7 +472,11 @@ describe("auth.service", () => {
     expect(result.accessToken).toBe("signed-access");
     expect(result.refreshToken).toBe(nextTokenBuffer.toString("base64url"));
 
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     expect(prisma.authSession.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.authSession.updateMany.mock.invocationCallOrder[0] ?? 0,
+    );
     const updateArgs = prisma.authSession.updateMany.mock.calls[0]?.[0];
     expect(updateArgs?.where).toEqual({
       id: "session-1",
@@ -570,6 +586,15 @@ describe("auth.service", () => {
       statusCode: 401,
     });
 
+    const transactionResult = runWithRole.mock.results.at(-1)?.value;
+    await expect(transactionResult).resolves.toMatchObject({
+      status: "invalid-refresh-token",
+    });
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.authSession.updateMany.mock.invocationCallOrder[0] ?? 0,
+    );
+
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
       where: {
         familyId: "family-1",
@@ -631,7 +656,7 @@ describe("auth.service", () => {
     expect(prisma.authSession.create).not.toHaveBeenCalled();
   });
 
-  it("revokes matching sessions on logout when a token is present", async () => {
+  it("audits logout after revoking every row in a rotated session family", async () => {
     prisma.authSession.findFirst.mockResolvedValueOnce(
       buildAuthSession({
         id: "session-logout",
@@ -639,16 +664,24 @@ describe("auth.service", () => {
         familyId: "family-logout",
       }),
     );
-    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 3 });
     writeAuditLogSafely.mockImplementationOnce(async () => {
       expect(isRoleContextActive()).toBe(true);
     });
 
-    await handleLogout({}, { refreshToken: "to-revoke", userAgent: "logout-test" });
+    await handleLogout(
+      {},
+      { refreshToken: "to-revoke", userAgent: "logout-test" },
+    );
+
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.authSession.updateMany.mock.invocationCallOrder[0] ?? 0,
+    );
 
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
       where: {
-        refreshTokenHash: crypto.createHash("sha256").update("to-revoke").digest("hex"),
+        familyId: "family-logout",
         revokedAt: null,
       },
       data: {
@@ -662,7 +695,9 @@ describe("auth.service", () => {
       entityId: "session-logout",
       eventData: { sessionRevoked: true },
     });
-    expect(JSON.stringify(writeAuditLogSafely.mock.calls)).not.toContain("to-revoke");
+    expect(JSON.stringify(writeAuditLogSafely.mock.calls)).not.toContain(
+      "to-revoke",
+    );
   });
 
   it("does not audit logout when a concurrent revocation already claimed the session", async () => {
@@ -679,10 +714,7 @@ describe("auth.service", () => {
 
     expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
       where: {
-        refreshTokenHash: crypto
-          .createHash("sha256")
-          .update("already-revoked")
-          .digest("hex"),
+        familyId: "family-logout",
         revokedAt: null,
       },
       data: {

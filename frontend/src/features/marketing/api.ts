@@ -26,13 +26,13 @@ const CMS_KEYS = {
 };
 
 const fetchHomepageContent = async (): Promise<HomepageContent> =>
-    apiClient<HomepageContent>("/cms/homepage-content");
+    apiClient<HomepageContent>("/cms/homepage-content", { auth: "none" });
 
 const fetchAboutPageContent = async (): Promise<AboutPageContent> =>
-    apiClient<AboutPageContent>("/cms/about-page-content");
+    apiClient<AboutPageContent>("/cms/about-page-content", { auth: "none" });
 
 const fetchContactPageContent = async (): Promise<ContactPageContent> =>
-    apiClient<ContactPageContent>("/cms/contact-page-content");
+    apiClient<ContactPageContent>("/cms/contact-page-content", { auth: "none" });
 
 const submitContact = async (
     payload: ContactFormPayload,
@@ -47,7 +47,7 @@ const submitContact = async (
     const response = await apiClient<ContactSubmissionResponse, ContactSubmissionPayload>("/contact", {
         method: "POST",
         body: { ...payload, idempotencyKey: attempt.idempotencyKey },
-        withAuth: false,
+        auth: "none",
     });
     resolveContactAttempt(attempt.fingerprint);
     return response;

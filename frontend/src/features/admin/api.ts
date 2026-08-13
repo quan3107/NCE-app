@@ -122,22 +122,23 @@ export const toAuditLog = (log: ApiAuditLog): AuditLog => {
 };
 
 const fetchUsers = async (): Promise<AdminUser[]> => {
-  const response = await apiClient<ApiUser[]>('/api/v1/users');
+  const response = await apiClient<ApiUser[]>('/api/v1/users', { auth: 'required' });
   return response.map(toUser);
 };
 
 const fetchEnrollments = async (): Promise<AdminEnrollment[]> => {
-  const response = await apiClient<ApiEnrollment[]>('/api/v1/enrollments');
+  const response = await apiClient<ApiEnrollment[]>('/api/v1/enrollments', { auth: 'required' });
   return response.map(toEnrollment);
 };
 
 const fetchAuditLogs = async (): Promise<AuditLog[]> => {
-  const response = await apiClient<ApiAuditLogPage>('/api/v1/audit-logs');
+  const response = await apiClient<ApiAuditLogPage>('/api/v1/audit-logs', { auth: 'required' });
   return response.data.map(toAuditLog);
 };
 
 const createUser = async (payload: CreateUserRequest): Promise<ApiUser> => {
   return apiClient<ApiUser, CreateUserRequest>('/api/v1/users', {
+    auth: 'required',
     method: 'POST',
     body: payload,
   });
@@ -147,6 +148,7 @@ const approveTeacher = async (userId: string): Promise<AdminUser> => {
   const response = await apiClient<ApiUser>(
     `/api/v1/users/${userId}/approve-teacher`,
     {
+      auth: 'required',
       method: 'POST',
     },
   );
@@ -157,6 +159,7 @@ const rejectTeacher = async (userId: string): Promise<AdminUser> => {
   const response = await apiClient<ApiUser>(
     `/api/v1/users/${userId}/reject-teacher`,
     {
+      auth: 'required',
       method: 'POST',
     },
   );
@@ -167,6 +170,7 @@ const createEnrollment = async (
   payload: CreateEnrollmentRequest,
 ): Promise<ApiEnrollment> => {
   return apiClient<ApiEnrollment, CreateEnrollmentRequest>('/api/v1/enrollments', {
+    auth: 'required',
     method: 'POST',
     body: payload,
   });
@@ -174,12 +178,14 @@ const createEnrollment = async (
 
 const removeEnrollment = async (enrollmentId: string): Promise<void> => {
   await apiClient<void>(`/api/v1/enrollments/${enrollmentId}`, {
+    auth: 'required',
     method: 'DELETE',
   });
 };
 
 const createCourse = async (payload: CreateCourseRequest): Promise<void> => {
   await apiClient('/api/v1/courses', {
+    auth: 'required',
     method: 'POST',
     body: payload,
   });

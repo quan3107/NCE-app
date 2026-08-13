@@ -44,7 +44,9 @@ describe("profile OpenAPI contract", () => {
 
     expect(storedDisplayName).toContain("minLength: 2");
     expect(storedDisplayName).toContain("maxLength: 100");
-    expect(storedDisplayName).toContain("non-printing and bidirectional controls");
+    expect(storedDisplayName).toContain(
+      "non-printing and bidirectional controls",
+    );
     expect(canonicalDisplayName).toContain("minLength: 2");
     expect(canonicalDisplayName).toContain("maxLength: 100");
     expect(canonicalDisplayName).toContain("Unicode code points");
@@ -56,6 +58,15 @@ describe("profile OpenAPI contract", () => {
     );
     expect(meSchema).toMatch(
       /MeProfile:[\s\S]*common\.yaml#\/DisplayName[\s\S]*UpdateMeProfileRequest:[\s\S]*common\.yaml#\/CanonicalDisplayName/,
+    );
+    expect(meSchema).toMatch(
+      /MeProfile:[\s\S]*profileRevision:[\s\S]*required: \[id, email, fullName, role, status, profileRevision\]/,
+    );
+    expect(meSchema).toMatch(
+      /UpdateMeProfileRequest:[\s\S]*expectedRevision:[\s\S]*format: int32[\s\S]*maximum: 2147483647[\s\S]*required: \[fullName\]/,
+    );
+    expect(meSchema).toMatch(
+      /omission is accepted only while[\s\S]*revision is 0/i,
     );
     expect(authSchema).toContain(
       "$ref: './common.yaml#/NormalizedDisplayNameInput'",
@@ -86,9 +97,11 @@ describe("profile OpenAPI contract", () => {
   it("documents guarded 403 responses for GET and PATCH", () => {
     const forbiddenResponses = path.match(/'403':/g) ?? [];
     expect(forbiddenResponses).toHaveLength(2);
-    expect(path).toMatch(
-      /get:[\s\S]*'403':[\s\S]*patch:[\s\S]*'403':/,
-    );
+    expect(path).toMatch(/get:[\s\S]*'403':[\s\S]*patch:[\s\S]*'403':/);
+  });
+
+  it("documents stale profile write conflicts", () => {
+    expect(path).toMatch(/patch:[\s\S]*'409':[\s\S]*Profile changed/i);
   });
 
   it("matches runtime validation for every Unicode scalar", () => {

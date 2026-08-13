@@ -28,37 +28,102 @@ function withDeadline<T>(promise: Promise<T>): Promise<T> {
   });
 }
 
-test("refresh timeout aborts work and releases the cookie queue", async () => {
+test("refresh timeout fences the queue until active work settles", async () => {
   const operations = createAuthCookieOperations({ refreshTimeoutMs: 10 });
   let refreshSignal: AbortSignal | null = null;
+  let releaseRefresh = () => undefined;
+  const refreshReleased = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let queuedLogoutStarted = false;
   const refresh = operations.runRefresh(async (signal) => {
     refreshSignal = signal;
-    return new Promise<string>(() => undefined);
+    await refreshReleased;
+    return "refresh-complete";
   });
-  const queuedLogout = operations.run(async () => "logout-complete");
+  const queuedLogout = operations.run(async () => {
+    queuedLogoutStarted = true;
+    return "logout-complete";
+  });
 
   await assert.rejects(withDeadline(refresh), { name: "AbortError" });
-  assert.equal(refreshSignal?.aborted, true);
+  assert.equal(refreshSignal?.aborted, false);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(queuedLogoutStarted, false);
+  releaseRefresh();
   assert.equal(await withDeadline(queuedLogout), "logout-complete");
 });
 
-test("generic cookie operation timeout aborts work and releases the queue", async () => {
+test("cancelling an active refresh fences the next cookie mutation", async () => {
+  const operations = createAuthCookieOperations();
+  let markRefreshStarted = () => undefined;
+  const refreshStarted = new Promise<void>((resolve) => {
+    markRefreshStarted = resolve;
+  });
+  let releaseRefresh = () => undefined;
+  const refreshReleased = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let refreshWasSuperseded = false;
+  let nextMutationStarted = false;
+  const refresh = operations.runRefresh(
+    async (signal, _compensate, isSuperseded) => {
+      markRefreshStarted();
+      await refreshReleased;
+      assert.equal(signal.aborted, false);
+      refreshWasSuperseded = isSuperseded();
+      return "refresh-complete";
+    },
+  );
+  await refreshStarted;
+
+  operations.cancelRefreshes();
+  const nextMutation = operations.run(async () => {
+    nextMutationStarted = true;
+    return "mutation-complete";
+  });
+
+  await assert.rejects(withDeadline(refresh), { name: "AbortError" });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(nextMutationStarted, false);
+  releaseRefresh();
+
+  assert.equal(await withDeadline(nextMutation), "mutation-complete");
+  assert.equal(refreshWasSuperseded, true);
+});
+
+test("generic timeout fences the queue until active work settles", async () => {
   const operations = createAuthCookieOperations({ operationTimeoutMs: 10 });
+  const followingOperations = createAuthCookieOperations({
+    operationTimeoutMs: 1_000,
+  });
   let operationSignal: AbortSignal | null = null;
+  let releaseLogin = () => undefined;
+  const loginReleased = new Promise<void>((resolve) => {
+    releaseLogin = resolve;
+  });
+  let queuedLogoutStarted = false;
   const stalledLogin = operations.run(async (signal) => {
     operationSignal = signal;
-    return new Promise<string>(() => undefined);
+    await loginReleased;
+    return "login-complete";
   });
 
   await assert.rejects(withDeadline(stalledLogin), { name: "AbortError" });
-  assert.equal(operationSignal?.aborted, true);
-  const queuedLogout = operations.run(async () => "logout-complete");
+  assert.equal(operationSignal?.aborted, false);
+  const queuedLogout = followingOperations.run(async () => {
+    queuedLogoutStarted = true;
+    return "logout-complete";
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(queuedLogoutStarted, false);
+  releaseLogin();
   assert.equal(await withDeadline(queuedLogout), "logout-complete");
 });
 
 test("operation timeout includes time spent in the local queue", async () => {
   const blockingOperations = createAuthCookieOperations({
-    operationTimeoutMs: 80,
+    operationTimeoutMs: 1_000,
   });
   const expiringOperations = createAuthCookieOperations({
     operationTimeoutMs: 10,
@@ -68,9 +133,14 @@ test("operation timeout includes time spent in the local queue", async () => {
     markBlockerStarted = resolve;
   });
   let queuedOperationStarted = false;
+  let releaseBlocker = () => undefined;
+  const blockerReleased = new Promise<void>((resolve) => {
+    releaseBlocker = resolve;
+  });
   const stalledLogin = blockingOperations.run(async () => {
     markBlockerStarted();
-    return new Promise<string>(() => undefined);
+    await blockerReleased;
+    return "login-complete";
   });
   await blockerStarted;
   const queuedLogout = expiringOperations.run(async () => {
@@ -80,7 +150,8 @@ test("operation timeout includes time spent in the local queue", async () => {
 
   await assert.rejects(withDeadline(queuedLogout), { name: "AbortError" });
   assert.equal(queuedOperationStarted, false);
-  await assert.rejects(withDeadline(stalledLogin), { name: "AbortError" });
+  releaseBlocker();
+  assert.equal(await withDeadline(stalledLogin), "login-complete");
 });
 
 test("cookie compensation gets a fresh deadline after the operation expires", async () => {
@@ -89,10 +160,13 @@ test("cookie compensation gets a fresh deadline after the operation expires", as
   const compensated = new Promise<void>((resolve) => {
     markCompensated = resolve;
   });
-  const operation = operations.run(async (signal, compensate) => {
-    await new Promise<void>((resolve) => {
-      signal.addEventListener("abort", () => resolve(), { once: true });
-    });
+  let releaseOperation = () => undefined;
+  const operationReleased = new Promise<void>((resolve) => {
+    releaseOperation = resolve;
+  });
+  const operation = operations.run(async (_signal, compensate, isSuperseded) => {
+    await operationReleased;
+    assert.equal(isSuperseded(), true);
     await compensate(async (compensationSignal) => {
       assert.equal(compensationSignal.aborted, false);
       markCompensated();
@@ -100,6 +174,7 @@ test("cookie compensation gets a fresh deadline after the operation expires", as
   });
 
   await assert.rejects(withDeadline(operation), { name: "AbortError" });
+  releaseOperation();
   await withDeadline(compensated);
 });
 
@@ -109,18 +184,21 @@ test("OAuth cancellation reports when active completion owns cleanup", async () 
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
   });
-  const completion = operations.runOAuthCompletion(async (signal) => {
+  let releaseCompletion = () => undefined;
+  const completionReleased = new Promise<void>((resolve) => {
+    releaseCompletion = resolve;
+  });
+  const completion = operations.runOAuthCompletion(async () => {
     markStarted();
-    await new Promise<void>((_resolve, reject) => {
-      signal.addEventListener("abort", () => reject(signal.reason), {
-        once: true,
-      });
-    });
-    return "unreachable";
+    await completionReleased;
+    return "completion-finished";
   });
   await started;
 
   assert.equal(operations.cancelOAuthCompletions(), true);
   await assert.rejects(withDeadline(completion), { name: "AbortError" });
+  assert.equal(operations.cancelOAuthCompletions(), true);
+  releaseCompletion();
+  await withDeadline(operations.run(async () => "queue-drained"));
   assert.equal(operations.cancelOAuthCompletions(), false);
 });

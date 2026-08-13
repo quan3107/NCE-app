@@ -13,6 +13,26 @@ and
 
 ## Backend
 
+- **2026-08-13:** Added a revision-0-only compatibility phase for already-loaded unversioned profile clients, retained optimistic concurrency for revision-aware clients, and bounded expected revisions to PostgreSQL `INTEGER` in runtime and OpenAPI contracts.
+
+- **2026-08-13:** No backend files changed for the OAuth callback invalidation scheduling correction.
+
+- **2026-08-13:** Executed PostgreSQL session-family advisory locks as raw commands so Prisma does not deserialize the lock function's `void` result, preserving refresh/logout serialization in live database tests.
+
+- **2026-08-13:** Serialized refresh rotation, logout, and reuse revocation through one PostgreSQL session-family lock; committed reuse/claim revocation before returning 401; and added monotonic, conditional profile revisions across Prisma, migration, service, OpenAPI, unit, and database concurrency coverage.
+
+- **2026-08-10:** No backend files changed while making frontend cancellation preserve server-side refresh rotation ordering; the seeded backend verified all eight live-browser auth and mutation scenarios.
+
+- **2026-08-10:** Bound access tokens to revocable refresh-session families, revoked the full originating family on logout, and made request authority validate the current server-side user role/status so storage-denied clients cannot retain stale access.
+
+- **2026-08-10:** No backend files changed while preventing obsolete queued frontend refreshes from revoking a newer login session.
+
+- **2026-08-10:** No backend files changed while fixing frontend role-scope profile ownership and the local required-auth error contract.
+
+- **2026-08-10:** No backend files changed while closing frontend auth release gaps; real-backend scenarios were migrated to the existing server cookie and `/me` contracts.
+
+- **2026-08-10:** No backend files changed for the frontend auth/session architecture correction; existing API and HttpOnly refresh-cookie contracts remain unchanged.
+
 - **2026-08-10:** No backend files changed while extracting the frontend authentication restoration baseline and profile-save lifecycle into focused modules for file-size compliance.
 
 - **2026-08-10:** Refreshed dependency resolutions for patched brace expansion, URI parsing, and Nano ID releases after newly published high-severity advisories failed the backend audit gate.
@@ -156,6 +176,28 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-13:** Published a second logout invalidation after server revocation while still holding the cookie lock, clearing fresh peers whose bootstrap refresh queued ahead of logout.
+
+- **2026-08-13:** Kept protected routes loading throughout joined peer session revalidation, returned only cache-accepted profile mutation results, and made real-backend mutation cleanup revision-aware without masking primary failures.
+
+- **2026-08-13:** Coalesced callback-bootstrap invalidations into the owned OAuth completion and deferred mid-completion revalidation until after lease release, preventing cross-tab catch-up from deadlocking the cookie queue.
+
+- **2026-08-13:** No frontend files changed for the backend PostgreSQL advisory-lock adapter correction.
+
+- **2026-08-13:** Compensated cancelled OAuth rotations, deduplicated acknowledged invalidation catch-up, bound request admissions to disposable provider instances with fail-closed bridge reset, and enforced server profile revisions so stale PATCH/GET responses cannot replace newer cache state.
+
+- **2026-08-10:** Separated caller cancellation from active cookie-request cancellation so refresh rotation stays serialized until the server settles, suppressed superseded refresh UI application, and aligned OAuth, timeout, synthetic, and real-backend regressions with the fail-closed queue contract.
+
+- **2026-08-10:** Closed OAuth bootstrap ordering, pre-delivery cross-tab, anonymous optional-request, profile ownership, public IELTS config, and login-profile provenance gaps with lifecycle-bound authority regressions.
+
+- **2026-08-10:** Revalidated queued refresh authority after acquiring the serialized cookie boundary, preventing a superseded peer refresh from rotating and revoking a newer login; added a lock-order regression for the CI-discovered race.
+
+- **2026-08-10:** Restarted active `/me` ownership when the same user changes role without restarting for token rotation, and restored `ApiError` wrapping for anonymous required requests.
+
+- **2026-08-10:** Scoped refresh single-flight to auth revisions, made active `/me` globally observed across routes, hardened auth invalidation publication identity/deduplication, simplified coordinator admission, and migrated Playwright auth setup away from legacy storage authority.
+
+- **2026-08-10:** Replaced persisted bearer/profile replication with one booting/anonymous/authenticated in-memory coordinator, invalidation-only cross-tab revalidation, explicit request auth admission, actor-scoped cancellation/cache isolation, authoritative `/me` cache ownership, retryable transient profile errors, and synthetic auth-race CI coverage.
 
 - **2026-08-10:** Extracted authentication restoration-baseline and profile-save lifecycle state into focused hooks, returning both consuming files below 300 lines and adding a regression that enforces the limit.
 

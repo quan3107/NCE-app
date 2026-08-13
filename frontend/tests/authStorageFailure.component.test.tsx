@@ -265,8 +265,8 @@ test("mount cleanup releases an abandoned OAuth lease before restoring", async (
   window.localStorage.setItem("currentUser", JSON.stringify(initial));
   const operations = createAuthCookieOperations();
   await operations.runOAuthStart(async () => "started");
-  const fetchSpy = vi.fn(async () =>
-    Response.json({
+  const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+    const payload = {
       accessToken: "fresh-token",
       user: {
         id: "user-a",
@@ -274,8 +274,11 @@ test("mount cleanup releases an abandoned OAuth lease before restoring", async (
         email: "user-a@example.com",
         role: "student",
       },
-    }),
-  );
+    };
+    return Response.json(
+      String(input).endsWith("/me") ? { profile: payload.user } : payload,
+    );
+  });
   vi.stubGlobal("fetch", fetchSpy);
   const wrapper = ({ children }: PropsWithChildren) => (
     <AuthProvider>{children}</AuthProvider>
@@ -283,6 +286,7 @@ test("mount cleanup releases an abandoned OAuth lease before restoring", async (
 
   renderHook(() => useAuth(), { wrapper });
 
-  await waitFor(() => assert.equal(fetchSpy.mock.calls.length, 1));
+  await waitFor(() => assert.equal(fetchSpy.mock.calls.length, 2));
   assert.match(String(fetchSpy.mock.calls[0]?.[0]), /\/auth\/refresh$/);
+  assert.match(String(fetchSpy.mock.calls[1]?.[0]), /\/me$/);
 });

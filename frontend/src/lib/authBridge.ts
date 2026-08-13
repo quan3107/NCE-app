@@ -4,67 +4,86 @@
  * Why: Allows fetch utilities to retrieve/refresh tokens while the provider controls session state.
  */
 
+import type { AuthAdmission, AuthMode } from './auth-coordinator';
+import type { AuthMachineState } from './auth-machine';
 import type { RefreshAccessTokenResult } from './auth-types';
 
-type AccessTokenGetter = () => string | null;
 type RefreshInvoker = () => Promise<RefreshAccessTokenResult>;
-type SessionClearer = () => void;
-type SessionVersion = {
-  generation: number;
-  sessionEpoch: number;
-  userId: string | null;
-};
-type SessionVersionGetter = () => SessionVersion;
+type ReadinessWaiter = () => Promise<void>;
+type AdmissionGetter = (mode: Exclude<AuthMode, 'none'>) => AuthAdmission;
+type AdmissionChecker = (admission: AuthAdmission) => boolean;
+type SnapshotGetter = () => AuthMachineState;
+
+const defaultController = new AbortController();
 
 const defaultHandlers = {
-  getAccessToken: (): string | null => null,
   refreshAccessToken: async (): Promise<RefreshAccessTokenResult> => ({
     status: 'failed',
   }),
-  clearSession: (): void => {},
-  getSessionVersion: (): SessionVersion => ({
-    generation: 0,
-    sessionEpoch: 0,
-    userId: null,
-  }),
+  waitUntilReady: async (): Promise<void> => {},
+  admit: (mode: Exclude<AuthMode, 'none'>): AuthAdmission => {
+    if (mode === 'required') {
+      throw Object.assign(new Error('Authentication is required.'), {
+        status: 401,
+      });
+    }
+    return {
+      accessToken: null,
+      actorId: null,
+      revision: 0,
+      signal: defaultController.signal,
+    };
+  },
+  isCurrent: (): boolean => false,
+  getSnapshot: (): AuthMachineState => ({ status: 'booting', revision: 0 }),
 };
 
 let handlers: {
-  getAccessToken: AccessTokenGetter;
   refreshAccessToken: RefreshInvoker;
-  clearSession: SessionClearer;
-  getSessionVersion: SessionVersionGetter;
+  waitUntilReady: ReadinessWaiter;
+  admit: AdmissionGetter;
+  isCurrent: AdmissionChecker;
+  getSnapshot: SnapshotGetter;
 } = { ...defaultHandlers };
+let registration = Symbol('unconfigured-auth-bridge');
 
 export const authBridge = {
-  getAccessToken(): string | null {
-    return handlers.getAccessToken();
-  },
   async refreshAccessToken(): Promise<RefreshAccessTokenResult> {
     return handlers.refreshAccessToken();
   },
-  clearSession(): void {
-    handlers.clearSession();
+  waitUntilReady(): Promise<void> {
+    return handlers.waitUntilReady();
   },
-  getSessionVersion(): SessionVersion {
-    return handlers.getSessionVersion();
+  admit(mode: Exclude<AuthMode, 'none'>): AuthAdmission {
+    return handlers.admit(mode);
+  },
+  isCurrent(admission: AuthAdmission): boolean {
+    return handlers.isCurrent(admission);
+  },
+  getSnapshot(): AuthMachineState {
+    return handlers.getSnapshot();
   },
   configure(next: {
-    getAccessToken?: AccessTokenGetter;
     refreshAccessToken?: RefreshInvoker;
-    clearSession?: SessionClearer;
-    getSessionVersion?: SessionVersionGetter;
-  }): void {
+    waitUntilReady?: ReadinessWaiter;
+    admit?: AdmissionGetter;
+    isCurrent?: AdmissionChecker;
+    getSnapshot?: SnapshotGetter;
+  }): symbol {
+    registration = Symbol('configured-auth-bridge');
     handlers = {
-      getAccessToken: next.getAccessToken ?? handlers.getAccessToken,
       refreshAccessToken:
         next.refreshAccessToken ?? handlers.refreshAccessToken,
-      clearSession: next.clearSession ?? handlers.clearSession,
-      getSessionVersion:
-        next.getSessionVersion ?? handlers.getSessionVersion,
+      waitUntilReady: next.waitUntilReady ?? handlers.waitUntilReady,
+      admit: next.admit ?? handlers.admit,
+      isCurrent: next.isCurrent ?? handlers.isCurrent,
+      getSnapshot: next.getSnapshot ?? handlers.getSnapshot,
     };
+    return registration;
   },
-  reset(): void {
+  reset(expectedRegistration?: symbol): void {
+    if (expectedRegistration && expectedRegistration !== registration) return;
+    registration = Symbol('unconfigured-auth-bridge');
     handlers = { ...defaultHandlers };
   },
 };

@@ -17,7 +17,11 @@ MeProfile:
       $ref: './common.yaml#/UserRole'
     status:
       $ref: './common.yaml#/UserStatus'
-  required: [id, email, fullName, role, status]
+    profileRevision:
+      type: integer
+      minimum: 0
+      description: Monotonic version of editable profile fields.
+  required: [id, email, fullName, role, status, profileRevision]
 
 UpdateMeProfileRequest:
   type: object
@@ -25,6 +29,12 @@ UpdateMeProfileRequest:
   properties:
     fullName:
       $ref: './common.yaml#/CanonicalDisplayName'
+    expectedRevision:
+      type: integer
+      format: int32
+      minimum: 0
+      maximum: 2147483647
+      description: Profile revision returned by the latest accepted GET or PATCH. Revision-aware clients must send it. During the legacy compatibility phase, omission is accepted only while the stored profile revision is 0; later unversioned requests conflict.
   required: [fullName]
 
 MeResponse:

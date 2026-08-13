@@ -83,22 +83,18 @@ export async function signInAs(
   api: ClassroomApiState,
 ) {
   api.activeUser = user;
-  const snapshot = {
-    mode: 'live',
-    token: user.token,
-    persona: { basePersona: 'admin', actingPersona: null },
-    liveUser: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    },
-  };
-
   await page.goto('/');
-  await page.evaluate((nextSnapshot) => {
-    window.localStorage.setItem('currentUser', JSON.stringify(nextSnapshot));
-  }, snapshot);
+  await page.waitForFunction(
+    async (expectedUserId) => {
+      const { authBridge } = await import('/src/lib/authBridge.ts');
+      const snapshot = authBridge.getSnapshot();
+      return (
+        snapshot.status === 'authenticated' &&
+        snapshot.actor.id === expectedUserId
+      );
+    },
+    user.id,
+  );
 }
 
 export async function installClassroomApi(page: Page): Promise<ClassroomApiState> {

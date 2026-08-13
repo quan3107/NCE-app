@@ -10,9 +10,6 @@ export function useAuthStore() {
   const {
     currentUser,
     sessionGeneration,
-    updateCurrentUser,
-    commitCurrentProfile,
-    refreshCurrentProfile,
     isAuthenticated,
     isRestoringSession,
     login,
@@ -27,9 +24,6 @@ export function useAuthStore() {
   return {
     currentUser,
     sessionGeneration,
-    updateCurrentUser,
-    commitCurrentProfile,
-    refreshCurrentProfile,
     isAuthenticated,
     isRestoringSession,
     login,

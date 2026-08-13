@@ -10,6 +10,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
 
 import { AuthProvider, useAuth } from "../src/lib/auth";
+import { createAuthCookieOperations } from "../src/lib/auth-cookie-operations";
 import { queryClient } from "../src/lib/queryClient";
 
 const authResponse = (id: string, token: string) => ({
@@ -114,7 +115,79 @@ test("the login admitted last owns the cookie-matching UI session", async () => 
     assert.deepEqual(await Promise.all([first, second]), ["live", "live"]);
   });
   assert.equal(result.current.currentUser.id, "user-b");
-  assert.match(window.localStorage.getItem("currentUser") ?? "", /"id":"user-b"/);
+  assert.equal(window.localStorage.getItem("currentUser"), null);
+});
+
+test("a peer refresh queued behind login cannot revoke the newer session", async () => {
+  let refreshCalls = 0;
+  let logoutCalls = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        if (refreshCalls === 1) {
+          return Response.json({ message: "No session" }, { status: 401 });
+        }
+        return Response.json(authResponse("user-b", "rotated-token-b"));
+      }
+      if (path.endsWith("/auth/login")) {
+        return Response.json(authResponse("user-b", "token-b"));
+      }
+      if (path.endsWith("/me")) {
+        return Response.json({
+          profile: {
+            ...authResponse("user-b", "token-b").user,
+            status: "active",
+          },
+        });
+      }
+      if (path.endsWith("/auth/logout")) {
+        logoutCalls += 1;
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  const { result } = renderHook(() => useAuth(), { wrapper });
+  await waitFor(() => assert.equal(result.current.isRestoringSession, false));
+  assert.equal(refreshCalls, 1);
+
+  let releaseBlocker!: () => void;
+  const blockerGate = new Promise<void>((resolve) => {
+    releaseBlocker = resolve;
+  });
+  let markBlockerReady!: () => void;
+  const blockerReady = new Promise<void>((resolve) => {
+    markBlockerReady = resolve;
+  });
+  const operations = createAuthCookieOperations();
+  const blocker = operations.run(async () => {
+    markBlockerReady();
+    await blockerGate;
+  });
+  await blockerReady;
+
+  let loginPromise!: Promise<"live" | null>;
+  act(() => {
+    loginPromise = result.current.login("b@example.com", "password");
+  });
+  act(() => {
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "currentUser",
+        newValue: JSON.stringify({ sessionEpoch: Date.now() + 10_000 }),
+      }),
+    );
+  });
+  const drain = operations.run(async () => undefined);
+  releaseBlocker();
+
+  await act(async () => Promise.all([blocker, loginPromise, drain]));
+  assert.equal(result.current.currentUser.id, "user-b");
+  assert.equal(refreshCalls, 1);
+  assert.equal(logoutCalls, 0);
 });
 
 test.each(["login", "registration"] as const)(

@@ -12,7 +12,13 @@ import tsParser from '@typescript-eslint/parser';
 const tsRecommendedRules = tseslint.configs.recommended.rules ?? {};
 
 export default defineConfig([
-  globalIgnores(['build', 'coverage', 'node_modules']),
+  globalIgnores([
+    'build',
+    'coverage',
+    'node_modules',
+    'playwright-report',
+    'test-results',
+  ]),
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: ['build/**', 'node_modules/**'],

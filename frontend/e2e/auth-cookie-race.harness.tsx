@@ -1,7 +1,7 @@
 /**
  * Location: frontend/e2e/auth-cookie-race.harness.tsx
- * Purpose: Expose production auth operations to a focused browser regression.
- * Why: Lets Playwright control a cross-session refresh race without app UI noise.
+ * Purpose: Expose production auth operations to focused browser regressions.
+ * Why: Lets Playwright control cross-tab cookie races without app UI noise.
  */
 
 import { useState } from 'react';
@@ -16,7 +16,10 @@ function Harness() {
   const [restoreStatus, setRestoreStatus] = useState('idle');
 
   const startProtectedRequest = () => {
-    void apiClient('/race-protected', { method: 'POST' }).catch(() => undefined);
+    void apiClient('/race-protected', {
+      auth: 'required',
+      method: 'POST',
+    }).catch(() => undefined);
   };
 
   const switchToB = async () => {
@@ -34,6 +37,8 @@ function Harness() {
   return (
     <main>
       <div data-testid="current-user">{auth.currentUser.id || 'guest'}</div>
+      <div data-testid="authenticated">{String(auth.isAuthenticated)}</div>
+      <div data-testid="restoring">{String(auth.isRestoringSession)}</div>
       <div data-testid="switch-status">{switchStatus}</div>
       <div data-testid="restore-status">{restoreStatus}</div>
       <button onClick={() => auth.login('a@example.com', 'password')}>

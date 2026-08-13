@@ -32,8 +32,6 @@ export function ProfileDetailsCard() {
   const {
     currentUser,
     sessionGeneration,
-    commitCurrentProfile,
-    refreshCurrentProfile,
     logout,
   } = useAuthStore();
   const profileQuery = useMeProfileQuery(currentUser.id);
@@ -83,11 +81,9 @@ export function ProfileDetailsCard() {
 
   const { isSaving, recordDraftChange, submitProfile } =
     useProfileSaveLifecycle({
-      commitCurrentProfile,
       endTerminalProfileSession,
       fullName,
       latestIdentity,
-      refreshCurrentProfile,
       requestSequence,
       setEditing,
       setFullName,
@@ -118,28 +114,6 @@ export function ProfileDetailsCard() {
     }
   }, [endTerminalProfileSession, profileQuery.error]);
 
-  useEffect(() => {
-    const profile = profileQuery.data;
-    if (
-      !profile ||
-      profile.id !== currentUser.id ||
-      (profile.fullName === currentUser.name &&
-        profile.email === currentUser.email &&
-        profile.role === currentUser.role)
-    ) {
-      return;
-    }
-    void commitCurrentProfile(
-      { userId: currentUser.id, generation: sessionGeneration },
-      profile,
-    );
-  }, [
-    commitCurrentProfile,
-    currentUser.id,
-    profileQuery.data,
-    sessionGeneration,
-  ]);
-
   const cancelEditing = () => {
     setFullName(authoritativeName);
     setNameError(null);
@@ -157,7 +131,7 @@ export function ProfileDetailsCard() {
     setEditing(true);
   };
 
-  const initials = getProfileInitials(currentUser.name);
+  const initials = getProfileInitials(authoritativeName);
 
   return (
     <Card>
@@ -176,6 +150,18 @@ export function ProfileDetailsCard() {
         </CardAction>
       </CardHeader>
       <CardContent>
+        {profileQuery.error && !terminalProfileState && (
+          <div role="alert" className="mb-4 space-y-2 text-sm text-destructive">
+            <p>Unable to load your profile. You can retry without signing out.</p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void profileQuery.refetch()}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
         <form className="space-y-4" onSubmit={submitProfile}>
           <div
             className="flex size-20 items-center justify-center rounded-full bg-gradient-to-br from-[#E6F0FF] to-[#BFD9FF] text-2xl font-medium"
@@ -207,7 +193,11 @@ export function ProfileDetailsCard() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="profile-email">Email</Label>
-            <Input id="profile-email" value={currentUser.email} disabled />
+            <Input
+              id="profile-email"
+              value={profileQuery.data?.email ?? currentUser.email}
+              disabled
+            />
             <p className="text-xs text-muted-foreground">
               Email changes require verification and are not available here.
             </p>

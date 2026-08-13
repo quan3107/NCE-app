@@ -39,6 +39,7 @@ export const fetchAdminUploadLimits = (
   signal?: AbortSignal,
 ): Promise<AdminUploadLimits> =>
   apiClient<AdminUploadLimits>("/api/v1/settings/file-upload-limits", {
+    auth: "required",
     signal,
   });
 
@@ -48,6 +49,7 @@ export const updateAdminUploadLimits = (
   apiClient<AdminUploadLimits, AdminUploadLimitUpdates>(
     "/api/v1/settings/file-upload-limits",
     {
+      auth: "required",
       method: "PATCH",
       body: payload,
     },

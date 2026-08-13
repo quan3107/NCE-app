@@ -39,29 +39,13 @@ export type RefreshAccessTokenResult =
   | { status: 'stale' }
   | { status: 'failed' };
 
-export type SessionVersion = {
-  generation: number;
-  sessionEpoch: number;
-  userRevision: number;
-  userId: string | null;
-};
-
-export type RefreshPromiseSlot = {
-  generation: number;
-  promise: Promise<RefreshAccessTokenResult>;
-};
-
-export type SessionIdentity = {
-  userId: string;
-  generation: number;
-};
-
 export type CurrentProfile = {
   id: string;
   email: string;
   fullName: string;
   role: SupportedRole;
   status: UserStatus;
+  profileRevision: number;
 };
 
 export type RegisterPayload = {
@@ -71,25 +55,9 @@ export type RegisterPayload = {
   role: RegisterRole;
 };
 
-export type StoredAuthPayload = {
-  token?: string | null;
-  liveUser?: LiveUser | null;
-};
-
 export type AuthContextType = {
   currentUser: User;
   sessionGeneration: number;
-  updateCurrentUser: (
-    expected: SessionIdentity,
-    updates: Partial<Pick<User, 'name'>>,
-  ) => boolean;
-  commitCurrentProfile: (
-    expected: SessionIdentity,
-    profile: CurrentProfile,
-  ) => Promise<boolean>;
-  refreshCurrentProfile: (
-    expected: SessionIdentity,
-  ) => Promise<CurrentProfile | null>;
   isAuthenticated: boolean;
   isRestoringSession: boolean;
   login: (email: string, password: string) => Promise<'live' | null>;
@@ -99,15 +67,4 @@ export type AuthContextType = {
   completeGoogleLogin: () => Promise<'live'>;
   restoreLiveSession: () => Promise<boolean>;
   logout: () => Promise<void>;
-};
-
-export type PersistSnapshot = {
-  token: string | null;
-  liveUser: LiveUser | null;
-};
-
-export type InitialSnapshot = PersistSnapshot;
-export type InitialAuthSnapshot = PersistSnapshot & {
-  sessionEpoch: number;
-  profileRevision: number;
 };

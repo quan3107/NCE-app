@@ -40,7 +40,7 @@ const revokeRejectedCookieSession = (
   compensate((signal) =>
     apiClient('/auth/logout', {
       method: 'POST',
-      withAuth: false,
+      auth: 'none',
       credentials: 'include',
       parseJson: false,
       signal,
@@ -51,34 +51,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     liveUser,
     sessionGeneration,
-    tokenRef,
     applyLiveSession,
-    updateLiveUser,
-    commitLiveProfile,
-    refreshLiveProfile,
     clearSession,
+    coordinator,
     cookieOperations,
     completeOAuthSession,
     isRestoringSession,
     restoreLiveSession,
-    getAdmissionSessionVersion,
   } = useAuthRuntime();
 
   const login = useCallback(
     async (email: string, password: string) => {
       cookieOperations.cancelRefreshes();
       try {
-        const committed = await cookieOperations.run(async (signal, compensate) => {
+        const committed = await cookieOperations.run(async (
+          signal,
+          compensate,
+          isSuperseded,
+        ) => {
           // The operation admitted last owns the final cookie and UI intent.
-          const admissionVersion = getAdmissionSessionVersion();
+          const admissionVersion = coordinator.getSnapshot();
           const result = await apiClient<AuthSuccessResponse>('/auth/login', {
             method: 'POST',
-            withAuth: false,
+            auth: 'none',
             credentials: 'include',
             body: { email, password },
             signal,
           });
-          if (signal.aborted) {
+          if (signal.aborted || isSuperseded()) {
             await revokeRejectedCookieSession(compensate);
             throw new ApiError('Login request timed out.', 0);
           }
@@ -98,20 +98,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [applyLiveSession, cookieOperations, getAdmissionSessionVersion],
+    [applyLiveSession, cookieOperations, coordinator],
   );
 
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
       cookieOperations.cancelRefreshes();
-      return cookieOperations.run(async (signal, compensate) => {
+      return cookieOperations.run(async (signal, compensate, isSuperseded) => {
         // Queued registration follows the same last-admitted cookie intent.
-        const admissionVersion = getAdmissionSessionVersion();
+        const admissionVersion = coordinator.getSnapshot();
         const result = await apiClient<
           AuthSuccessResponse | AuthPendingApprovalResponse
         >('/auth/register', {
           method: 'POST',
-          withAuth: false,
+          auth: 'none',
           credentials: 'include',
           signal,
           body: {
@@ -124,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isPendingApprovalResponse(result)) {
           return 'pending_approval';
         }
-        if (signal.aborted) {
+        if (signal.aborted || isSuperseded()) {
           await revokeRejectedCookieSession(compensate);
           throw new ApiError('Registration request timed out.', 0);
         }
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return 'live';
       });
     },
-    [applyLiveSession, cookieOperations, getAdmissionSessionVersion],
+    [applyLiveSession, cookieOperations, coordinator],
   );
 
   const loginWithGoogle = useCallback(async () => {
@@ -151,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await cookieOperations.runOAuthStart(async (signal) => {
         const returnTo = `${window.location.origin}/auth/oauth`;
         return apiClient<{ authorizationUrl: string }>('/auth/google', {
-          withAuth: false,
+          auth: 'none',
           credentials: 'include',
           params: {
             returnTo,
@@ -185,30 +185,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     cookieOperations.cancelRefreshes();
-    clearSession();
+    clearSession('logout');
     await cookieOperations.run(async (signal) => {
       // An earlier queued login may have restored identity after the immediate clear.
       clearSession();
       await apiClient('/auth/logout', {
         method: 'POST',
-        withAuth: false,
+        auth: 'none',
         credentials: 'include',
         parseJson: false,
         signal,
       });
+      // A fresh peer can acknowledge the immediate invalidation, then queue a
+      // refresh ahead of this logout. Publish a distinct completion fence while
+      // the revoked cookie is still protected by the cross-tab lock.
+      clearSession('logout');
     });
   }, [clearSession, cookieOperations]);
 
   const currentUser = liveUser ?? PUBLIC_USER;
-  const isAuthenticated = Boolean(tokenRef.current && liveUser);
+  const isAuthenticated = Boolean(liveUser);
 
   const contextValue = useMemo<AuthContextType>(
     () => ({
       currentUser,
       sessionGeneration,
-      updateCurrentUser: updateLiveUser,
-      commitCurrentProfile: commitLiveProfile,
-      refreshCurrentProfile: refreshLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,
@@ -222,9 +223,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       currentUser,
       sessionGeneration,
-      updateLiveUser,
-      commitLiveProfile,
-      refreshLiveProfile,
       isAuthenticated,
       isRestoringSession,
       login,

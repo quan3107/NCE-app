@@ -6,18 +6,16 @@
 
 import { authBridge } from "./authBridge";
 import { API_BASE_URL } from "./apiBaseUrl";
-import {
-  authenticatedRequestSignal,
-  loadSharedAuthSnapshot,
-} from "./shared-auth-session";
+import type { AuthAdmission } from "./auth-coordinator";
 type Primitive = string | number | boolean;
+export type RequestAuthMode = "none" | "optional" | "required";
 export type ApiClientOptions<TBody = unknown> = {
+  auth: RequestAuthMode;
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: TBody;
   params?: Record<string, Primitive | undefined>;
   headers?: HeadersInit;
   signal?: AbortSignal;
-  withAuth?: boolean;
   parseJson?: boolean;
   responseType?: "blob" | "json" | "text";
   credentials?: RequestCredentials;
@@ -33,7 +31,6 @@ export class ApiError extends Error {
   }
 }
 const JSON_CONTENT_TYPE = "application/json";
-type RequestSession = ReturnType<typeof authBridge.getSessionVersion>;
 const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
 const API_VERSION_PREFIX = "/api/v1";
 const SHOULD_LOG_API_ERRORS = import.meta.env?.DEV ?? false;
@@ -69,22 +66,10 @@ function buildUrl(endpoint: string, params?: ApiClientOptions["params"]) {
   return url;
 }
 
-function getAuthHeaders(session: RequestSession): Record<string, string> {
-  const sharedSession = loadSharedAuthSnapshot();
-  const token = authBridge.getAccessToken();
+function getAuthHeaders(token: string | null): Record<string, string> {
   if (typeof token === "string" && token.length > 0) {
     return {
       Authorization: `Bearer ${token}`,
-    };
-  }
-
-  const storedToken =
-    sharedSession.sessionEpoch === session.sessionEpoch && sharedSession.liveUser
-      ? sharedSession.token
-      : null;
-  if (storedToken) {
-    return {
-      Authorization: `Bearer ${storedToken}`,
     };
   }
 
@@ -98,23 +83,8 @@ function sessionChangedError(): ApiError {
   );
 }
 
-function isSameSession(left: RequestSession, right: RequestSession): boolean {
-  return (
-    left.generation === right.generation &&
-    left.sessionEpoch === right.sessionEpoch &&
-    left.userId === right.userId
-  );
-}
-
-function assertRequestSession(
-  initiatingSession: RequestSession,
-  hasBearerAuth: boolean,
-): void {
-  if (
-    hasBearerAuth &&
-    (loadSharedAuthSnapshot().sessionEpoch > initiatingSession.sessionEpoch ||
-      !isSameSession(initiatingSession, authBridge.getSessionVersion()))
-  ) {
+function assertRequestSession(admission: AuthAdmission | null): void {
+  if (admission && !authBridge.isCurrent(admission)) {
     throw sessionChangedError();
   }
 }
@@ -155,7 +125,7 @@ async function apiClientInternal<TResponse, TBody>(
   endpoint: string,
   options: ApiClientOptions<TBody>,
   hasRetried: boolean,
-  initiatingSession: RequestSession,
+  admission: AuthAdmission | null,
   retryAccessToken?: string,
 ): Promise<TResponse> {
   const {
@@ -164,25 +134,33 @@ async function apiClientInternal<TResponse, TBody>(
     params,
     headers,
     signal,
-    withAuth = true,
+    auth = "required",
     parseJson = true,
     responseType = parseJson ? "json" : undefined,
     credentials,
   } = options;
 
   const url = buildUrl(endpoint, params);
-  const authHeaders = withAuth
+  const authHeaders = auth !== "none"
     ? retryAccessToken
       ? { Authorization: `Bearer ${retryAccessToken}` }
-      : getAuthHeaders(initiatingSession)
+      : getAuthHeaders(admission?.accessToken ?? null)
     : {};
   const hasBearerAuth =
-    withAuth && typeof authHeaders.Authorization === "string";
-  assertRequestSession(initiatingSession, hasBearerAuth);
+    auth !== "none" && typeof authHeaders.Authorization === "string";
+  if (auth === "required" && !hasBearerAuth) {
+    throw new ApiError("Authentication is required.", 401);
+  }
+  assertRequestSession(admission);
 
   const init: RequestInit = {
     method,
-    signal: hasBearerAuth ? authenticatedRequestSignal(signal) : signal,
+    signal:
+      admission
+        ? signal
+          ? AbortSignal.any([signal, admission.signal])
+          : admission.signal
+        : signal,
     headers: {
       "Content-Type": JSON_CONTENT_TYPE,
       ...headers,
@@ -202,7 +180,7 @@ async function apiClientInternal<TResponse, TBody>(
   try {
     response = await fetch(url, init);
   } catch (error) {
-    assertRequestSession(initiatingSession, hasBearerAuth);
+    assertRequestSession(admission);
     logApiError(method, url, 0, error);
     throw new ApiError(
       "Server is unavailable. Please check that the backend API is running.",
@@ -210,30 +188,30 @@ async function apiClientInternal<TResponse, TBody>(
       error,
     );
   }
-  assertRequestSession(initiatingSession, hasBearerAuth);
+  assertRequestSession(admission);
 
-  if (response.status === 401 && withAuth && hasBearerAuth && !hasRetried) {
-    if (isSameSession(initiatingSession, authBridge.getSessionVersion())) {
+  if (response.status === 401 && auth !== "none" && hasBearerAuth && !hasRetried) {
+    if (admission && authBridge.isCurrent(admission)) {
       const refreshed = await authBridge.refreshAccessToken();
       if (
         refreshed.status === "refreshed" &&
-        isSameSession(initiatingSession, authBridge.getSessionVersion())
+        authBridge.isCurrent(admission)
       ) {
         return apiClientInternal(
           endpoint,
           options,
           true,
-          initiatingSession,
+          admission,
           refreshed.accessToken,
         );
       }
     }
   }
-  assertRequestSession(initiatingSession, hasBearerAuth);
+  assertRequestSession(admission);
 
   if (!response.ok) {
     const errorPayload = await parseErrorPayload(response);
-    assertRequestSession(initiatingSession, hasBearerAuth);
+    assertRequestSession(admission);
     logApiError(method, url, response.status, errorPayload);
     const message =
       (typeof errorPayload === "object" &&
@@ -253,28 +231,44 @@ async function apiClientInternal<TResponse, TBody>(
 
   if (responseType === "blob") {
     const payload = await response.blob();
-    assertRequestSession(initiatingSession, hasBearerAuth);
+    assertRequestSession(admission);
     return payload as TResponse;
   }
   if (responseType === "text") {
     const payload = await response.text();
-    assertRequestSession(initiatingSession, hasBearerAuth);
+    assertRequestSession(admission);
     return payload as TResponse;
   }
 
   const payload = await response.json();
-  assertRequestSession(initiatingSession, hasBearerAuth);
+  assertRequestSession(admission);
   return payload as TResponse;
 }
 
 export async function apiClient<TResponse = unknown, TBody = unknown>(
   endpoint: string,
-  options: ApiClientOptions<TBody> = {},
+  options: ApiClientOptions<TBody>,
 ): Promise<TResponse> {
+  const auth = options.auth;
+  if (auth !== "none") await authBridge.waitUntilReady();
+  let admission: AuthAdmission | null = null;
+  try {
+    admission = auth === "none" ? null : authBridge.admit(auth);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (
+      error instanceof Error &&
+      "status" in error &&
+      typeof error.status === "number"
+    ) {
+      throw new ApiError(error.message, error.status, error);
+    }
+    throw error;
+  }
   return apiClientInternal<TResponse, TBody>(
     endpoint,
-    options,
+    { ...options, auth },
     false,
-    authBridge.getSessionVersion(),
+    admission,
   );
 }

@@ -14,8 +14,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, test, vi } from "vitest";
 const saveProfile = vi.hoisted(() => vi.fn());
-const commitCurrentProfile = vi.hoisted(() => vi.fn());
-const refreshCurrentProfile = vi.hoisted(() => vi.fn());
 const logout = vi.hoisted(() => vi.fn(async () => undefined));
 const authState = vi.hoisted(() => ({
   currentUser: {
@@ -26,13 +24,15 @@ const authState = vi.hoisted(() => ({
   },
   sessionGeneration: 1,
 }));
+const profileState = vi.hoisted(() => ({
+  fullName: "Original Name",
+  profileRevision: 0,
+}));
 
 vi.mock("@store/authStore", () => ({
   useAuthStore: () => ({
     currentUser: authState.currentUser,
     sessionGeneration: authState.sessionGeneration,
-    commitCurrentProfile,
-    refreshCurrentProfile,
     logout,
   }),
 }));
@@ -42,22 +42,37 @@ vi.mock("@features/profile/api", () => ({
   useMeProfileQuery: () => ({
     data: {
       id: authState.currentUser.id,
-      fullName: authState.currentUser.name,
+      fullName:
+        profileState.profileRevision > 0 &&
+        authState.currentUser.id === "user-1"
+          ? profileState.fullName
+          : authState.currentUser.name,
       email: authState.currentUser.email,
       role: authState.currentUser.role,
       status: "active",
+      profileRevision: profileState.profileRevision,
     },
   }),
   useUpdateMeProfileMutation: () => ({
-    mutateAsync: saveProfile,
+    mutateAsync: async (payload: { fullName: string }) => {
+      const saved = await saveProfile(payload);
+      if (saved.profileRevision >= profileState.profileRevision) {
+        profileState.fullName = saved.fullName;
+        profileState.profileRevision = saved.profileRevision;
+      }
+      return {
+        ...saved,
+        fullName: profileState.fullName,
+        profileRevision: profileState.profileRevision,
+      };
+    },
     isPending: false,
     error: null,
   }),
 }));
 
-const { ProfileDetailsCard } = await import(
-  "../src/features/profile/components/ProfileDetailsCard"
-);
+const { ProfileDetailsCard } =
+  await import("../src/features/profile/components/ProfileDetailsCard");
 
 beforeEach(() => {
   authState.currentUser = {
@@ -67,43 +82,8 @@ beforeEach(() => {
     role: "student",
   };
   authState.sessionGeneration = 1;
-  commitCurrentProfile.mockImplementation(
-    (
-      expected: { userId: string; generation: number },
-      profile: { id: string; fullName: string },
-    ) => {
-      if (
-        expected.userId !== authState.currentUser.id ||
-        expected.generation !== authState.sessionGeneration ||
-        profile.id !== authState.currentUser.id
-      ) {
-        return false;
-      }
-      authState.currentUser = {
-        ...authState.currentUser,
-        name: profile.fullName,
-      };
-      return true;
-    },
-  );
-  refreshCurrentProfile.mockImplementation(
-    async (expected: { userId: string; generation: number }) => {
-      const profile = await saveProfile.mock.results.at(-1)?.value;
-      if (
-        !profile ||
-        expected.userId !== authState.currentUser.id ||
-        expected.generation !== authState.sessionGeneration ||
-        profile.id !== authState.currentUser.id
-      ) {
-        return null;
-      }
-      authState.currentUser = {
-        ...authState.currentUser,
-        name: profile.fullName,
-      };
-      return profile;
-    },
-  );
+  profileState.fullName = "Original Name";
+  profileState.profileRevision = 0;
 });
 
 afterEach(() => {
@@ -118,6 +98,7 @@ test("submits the controlled name and updates the authenticated user", async () 
     email: "student@example.com",
     role: "student",
     status: "active",
+    profileRevision: 1,
   });
   render(<ProfileDetailsCard />);
 
@@ -131,10 +112,10 @@ test("submits the controlled name and updates the authenticated user", async () 
     assert.deepEqual(saveProfile.mock.calls[0]?.[0], {
       fullName: "Updated Name",
     });
-    assert.deepEqual(refreshCurrentProfile.mock.calls[0]?.[0], {
-      userId: "user-1",
-      generation: 1,
-    });
+    assert.equal(
+      screen.getByRole("button", { name: "Edit Profile" }).textContent,
+      "Edit Profile",
+    );
   });
 });
 
@@ -145,6 +126,7 @@ test("ignores a late save after the authenticated account changes", async () => 
     email: string;
     role: "student";
     status: "active";
+    profileRevision: number;
   }) => void;
   saveProfile.mockReturnValueOnce(
     new Promise((resolve) => {
@@ -175,11 +157,14 @@ test("ignores a late save after the authenticated account changes", async () => 
       email: "student@example.com",
       role: "student",
       status: "active",
+      profileRevision: 1,
     });
   });
 
-  assert.equal(refreshCurrentProfile.mock.calls.length, 0);
-  assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "User B");
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "User B",
+  );
 });
 
 test("ignores an older completion when saves resolve in reverse order", async () => {
@@ -190,6 +175,7 @@ test("ignores an older completion when saves resolve in reverse order", async ()
       email: string;
       role: "student";
       status: "active";
+      profileRevision: number;
     }) => void
   > = [];
   saveProfile.mockImplementation(
@@ -204,11 +190,15 @@ test("ignores an older completion when saves resolve in reverse order", async ()
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "First Save" },
   });
-  fireEvent.submit(screen.getByRole("button", { name: "Save Changes" }).closest("form")!);
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Save Changes" }).closest("form")!,
+  );
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Second Save" },
   });
-  fireEvent.submit(screen.getByRole("button", { name: "Save Changes" }).closest("form")!);
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Save Changes" }).closest("form")!,
+  );
 
   await act(async () => {
     resolvers[1]?.({
@@ -217,6 +207,7 @@ test("ignores an older completion when saves resolve in reverse order", async ()
       email: "student@example.com",
       role: "student",
       status: "active",
+      profileRevision: 2,
     });
   });
   await act(async () => {
@@ -226,12 +217,14 @@ test("ignores an older completion when saves resolve in reverse order", async ()
       email: "student@example.com",
       role: "student",
       status: "active",
+      profileRevision: 1,
     });
   });
 
-  assert.equal(refreshCurrentProfile.mock.calls.length, 1);
-  assert.equal(commitCurrentProfile.mock.calls.at(-1)?.[1]?.fullName, "Second Save");
-  assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "Second Save");
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "Second Save",
+  );
 });
 
 test("synchronizes refreshed names without overwriting a dirty edit", () => {
@@ -252,11 +245,59 @@ test("synchronizes refreshed names without overwriting a dirty edit", () => {
   authState.currentUser = { ...authState.currentUser, name: "New Server Name" };
   authState.sessionGeneration = 3;
   view.rerender(<ProfileDetailsCard />);
-  assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "Dirty Draft");
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "Dirty Draft",
+  );
 
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   assert.equal(
     (screen.getByLabelText("Name") as HTMLInputElement).value,
     "New Server Name",
+  );
+});
+
+test("Cancel keeps a newer peer name when an older PATCH resolves later", async () => {
+  let resolveSave!: (profile: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: "student";
+    status: "active";
+    profileRevision: number;
+  }) => void;
+  saveProfile.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveSave = resolve;
+    }),
+  );
+  const view = render(<ProfileDetailsCard />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Delayed Save" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+  await waitFor(() => assert.equal(saveProfile.mock.calls.length, 1));
+
+  profileState.fullName = "Peer Winner";
+  profileState.profileRevision = 2;
+  view.rerender(<ProfileDetailsCard />);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+  await act(async () => {
+    resolveSave({
+      id: "user-1",
+      fullName: "Delayed Save",
+      email: "student@example.com",
+      role: "student",
+      status: "active",
+      profileRevision: 1,
+    });
+  });
+
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "Peer Winner",
   );
 });

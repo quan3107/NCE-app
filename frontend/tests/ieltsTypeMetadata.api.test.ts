@@ -14,6 +14,7 @@ type FetchIeltsTypeMetadata =
   typeof import('../src/features/ielts-config/typeMetadata.api').fetchIeltsTypeMetadata;
 
 let fetchIeltsTypeMetadata: FetchIeltsTypeMetadata;
+let authBridge: typeof import('../src/lib/authBridge').authBridge;
 
 before(async () => {
   if (typeof process !== 'undefined' && process.env) {
@@ -22,6 +23,7 @@ before(async () => {
 
   const module = await import('../src/features/ielts-config/typeMetadata.api');
   fetchIeltsTypeMetadata = module.fetchIeltsTypeMetadata;
+  authBridge = (await import('../src/lib/authBridge')).authBridge;
 });
 
 const createStorage = (): Storage => ({
@@ -72,11 +74,13 @@ const withPatchedGlobals = async (
   }
 };
 
-test('fetchIeltsTypeMetadata maps backend payload', async () => {
+test('fetchIeltsTypeMetadata is anonymously fetchable and maps backend payload', async () => {
+  authBridge.reset();
   await withPatchedGlobals(
     {
-      fetch: async () =>
-        new Response(
+      fetch: async (_input, init) => {
+        assert.equal(new Headers(init?.headers).get('authorization'), null);
+        return new Response(
           JSON.stringify({
             version: 1,
             types: [
@@ -96,7 +100,8 @@ test('fetchIeltsTypeMetadata maps backend payload', async () => {
             ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
+        );
+      },
       localStorage: createStorage(),
     },
     async () => {

@@ -6,4 +6,5 @@
 
 export const STORAGE_KEYS = {
   currentUser: 'currentUser',
+  authInvalidation: 'nce:auth-invalidation',
 } as const;

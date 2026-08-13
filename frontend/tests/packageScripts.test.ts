@@ -17,12 +17,12 @@ test('frontend test scripts use CI-expandable globs and bounded concurrency', as
 
   assert.equal(
     packageJson.scripts?.test,
-    'tsx --test --test-concurrency=2 tests/*.test.ts',
+    'tsx --test --import ./tests/setup-node.ts --test-concurrency=2 tests/*.test.ts',
     'frontend tests should expand in CI without spawning an unbounded process pool',
   );
   assert.equal(
     packageJson.scripts?.['test:coverage'],
-    'node --import tsx --test --test-concurrency=2 --experimental-test-coverage tests/*.test.ts',
+    'node --import tsx --import ./tests/setup-node.ts --test --test-concurrency=2 --experimental-test-coverage tests/*.test.ts',
     'frontend coverage should expand in CI without spawning an unbounded process pool',
   );
   assert.equal(
@@ -128,7 +128,8 @@ test('Playwright separates actual-backend, mocked, and synthetic configurations'
   assert.match(realBackendStorageFailure, /Storage\.prototype\.setItem/);
   assert.match(realBackendStorageFailure, /pageB\.request\.post/);
   assert.match(realBackendStorageFailure, /\/auth\/refresh/);
-  assert.match(realBackendStorageFailure, /peerRefresh\.status\(\).*401/);
+  assert.match(realBackendStorageFailure, /peerRefresh\.ok\(\)/);
+  assert.doesNotMatch(realBackendStorageFailure, /currentUser/);
   assert.match(realBackendSpec, /\/me/);
   assert.match(realBackendSpec, /Bearer \$\{auth\.accessToken\}/);
   assert.match(realBackendMutations, /\/me/);

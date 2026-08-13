@@ -1,0 +1,204 @@
+/**
+ * Location: tests/authInvalidation.component.test.tsx
+ * Purpose: Verify shared auth data can only trigger server revalidation.
+ * Why: Storage failures, legacy snapshots, and peer messages must never grant authority.
+ */
+
+import assert from "node:assert/strict";
+
+import { afterEach, beforeEach, test, vi } from "vitest";
+
+import { AuthCoordinator } from "../src/lib/auth-coordinator";
+import {
+  publishAuthInvalidation,
+  removeLegacyAuthSnapshot,
+  subscribeToAuthInvalidation,
+} from "../src/lib/shared-auth-session";
+
+const localValues = new Map<string, string>();
+const sessionValues = new Map<string, string>();
+const mapStorage = (values: Map<string, string>): Storage => ({
+  get length() { return values.size; },
+  clear: () => values.clear(),
+  getItem: (key) => values.get(key) ?? null,
+  key: (index) => [...values.keys()][index] ?? null,
+  removeItem: (key) => void values.delete(key),
+  setItem: (key, value) => void values.set(key, value),
+});
+
+beforeEach(() => {
+  localValues.clear();
+  sessionValues.clear();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: mapStorage(localValues),
+  });
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: mapStorage(sessionValues),
+  });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+test("legacy stored admin authority is removed without authentication", () => {
+  window.localStorage.setItem(
+    "currentUser",
+    JSON.stringify({
+      token: "stored-admin-token",
+      liveUser: { id: "admin-1", role: "admin" },
+    }),
+  );
+  const coordinator = new AuthCoordinator();
+  removeLegacyAuthSnapshot();
+  coordinator.finishBootstrap();
+
+  assert.equal(window.localStorage.getItem("currentUser"), null);
+  assert.equal(coordinator.getSnapshot().status, "anonymous");
+});
+
+test("partial storage failure cannot expose old authority in a fresh tab", () => {
+  window.localStorage.setItem(
+    "currentUser",
+    JSON.stringify({ token: "old-token", liveUser: { id: "old-admin" } }),
+  );
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      ...mapStorage(localValues),
+      removeItem: () => {
+        throw new DOMException("blocked", "SecurityError");
+      },
+    },
+  });
+  const freshTab = new AuthCoordinator();
+  removeLegacyAuthSnapshot();
+  freshTab.finishBootstrap();
+
+  assert.equal(freshTab.getSnapshot().status, "anonymous");
+  assert.throws(() => freshTab.admit("required"), /required/i);
+});
+
+test("subscriber catches an invalidation written before catch-up read", () => {
+  const message = {
+    schemaVersion: 1,
+    epoch: 77,
+    reason: "server-revalidate",
+    nonce: "between-read-and-subscribe",
+  };
+  window.localStorage.setItem("nce:auth-invalidation", JSON.stringify(message));
+  const observed: unknown[] = [];
+  const unsubscribe = subscribeToAuthInvalidation((value) => observed.push(value));
+  unsubscribe();
+
+  assert.deepEqual(observed, [message]);
+});
+
+test("shared invalidation fences authority before its async event is delivered", () => {
+  const coordinator = new AuthCoordinator();
+  coordinator.finishBootstrap();
+  coordinator.authenticate("token-a", { id: "user-a", role: "student" });
+  const admitted = coordinator.admit("required");
+  window.localStorage.setItem(
+    "nce:auth-invalidation",
+    JSON.stringify({
+      schemaVersion: 1,
+      epoch: Date.now() + 1,
+      reason: "logout",
+      nonce: "peer:pre-delivery",
+    }),
+  );
+
+  assert.equal(coordinator.isCurrent(admitted), false);
+  assert.throws(
+    () => coordinator.admit("required"),
+    /session changed/i,
+  );
+});
+
+test("same-epoch invalidation collisions fence only unacknowledged publications", () => {
+  const first = {
+    schemaVersion: 1 as const,
+    epoch: 90,
+    reason: "account-change" as const,
+    nonce: "publisher-a:1",
+  };
+  window.localStorage.setItem("nce:auth-invalidation", JSON.stringify(first));
+  const coordinator = new AuthCoordinator();
+  coordinator.acknowledgeAuthInvalidation(first);
+  coordinator.finishBootstrap();
+  coordinator.authenticate("token-a", { id: "user-a", role: "student" });
+  const admitted = coordinator.admit("required");
+
+  assert.equal(coordinator.isCurrent(admitted), true);
+  assert.doesNotThrow(() => coordinator.admit("required"));
+
+  window.localStorage.setItem(
+    "nce:auth-invalidation",
+    JSON.stringify({
+      ...first,
+      reason: "logout",
+      nonce: "publisher-b:1",
+    }),
+  );
+
+  assert.equal(coordinator.isCurrent(admitted), false);
+  assert.throws(() => coordinator.admit("required"), /session changed/i);
+});
+
+test("storage and notification failures never create authority", () => {
+  const coordinator = new AuthCoordinator();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      ...mapStorage(localValues),
+      setItem: () => {
+        throw new DOMException("quota", "QuotaExceededError");
+      },
+    },
+  });
+  vi.stubGlobal(
+    "BroadcastChannel",
+    class {
+      postMessage() {
+        throw new Error("notifications blocked");
+      }
+      close() {}
+    },
+  );
+  const invalidation = publishAuthInvalidation("server-revalidate");
+  coordinator.finishBootstrap();
+
+  assert.equal(invalidation.schemaVersion, 1);
+  assert.equal(coordinator.getSnapshot().status, "anonymous");
+  assert.doesNotMatch(JSON.stringify(invalidation), /token|liveUser|profile/i);
+});
+
+test("distinct same-epoch invalidations survive duplicate transport delivery", () => {
+  const observed: string[] = [];
+  const unsubscribe = subscribeToAuthInvalidation((value) => {
+    observed.push(value.nonce);
+  });
+  const dispatch = (epoch: number, nonce: string) =>
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "nce:auth-invalidation",
+        newValue: JSON.stringify({
+          schemaVersion: 1,
+          epoch,
+          reason: "server-revalidate",
+          nonce,
+        }),
+      }),
+    );
+
+  dispatch(90, "publisher-a:1");
+  dispatch(90, "publisher-a:1");
+  dispatch(90, "publisher-b:1");
+  dispatch(89, "publisher-c:1");
+  unsubscribe();
+
+  assert.deepEqual(observed, ["publisher-a:1", "publisher-b:1"]);
+});

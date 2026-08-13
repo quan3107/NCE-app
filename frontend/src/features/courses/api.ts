@@ -111,7 +111,9 @@ const toCourse = (course: CourseSummaryResponse): Course => ({
 });
 
 const fetchCourses = async (): Promise<Course[]> => {
-  const response = await apiClient<CourseListResponse>('/api/v1/courses');
+  const response = await apiClient<CourseListResponse>('/api/v1/courses', {
+    auth: 'optional',
+  });
   return response.courses.map(toCourse);
 };
 

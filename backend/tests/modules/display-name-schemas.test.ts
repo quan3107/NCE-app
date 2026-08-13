@@ -13,7 +13,11 @@ import {
 } from "../../src/modules/users/users.schema.js";
 
 const validPayloads = [
-  ["profile", updateMeProfileSchema, { fullName: "Ada Lovelace" }],
+  [
+    "profile",
+    updateMeProfileSchema,
+    { fullName: "Ada Lovelace", expectedRevision: 0 },
+  ],
   [
     "registration",
     registerAccountSchema,
@@ -46,17 +50,20 @@ const validPayloads = [
 ] as const;
 
 describe("display-name entry points", () => {
-  it.each(validPayloads)("%s rejects unsafe display controls", (_label, schema, payload) => {
-    for (const fullName of [
-      "\u200B\u200B",
-      "Ada\u200BLovelace",
-      "Ada\u202ELovelace",
-      "Ada\tLovelace",
-      "Ada\nLovelace",
-    ]) {
-      expect(() => schema.parse({ ...payload, fullName })).toThrow();
-    }
-  });
+  it.each(validPayloads)(
+    "%s rejects unsafe display controls",
+    (_label, schema, payload) => {
+      for (const fullName of [
+        "\u200B\u200B",
+        "Ada\u200BLovelace",
+        "Ada\u202ELovelace",
+        "Ada\tLovelace",
+        "Ada\nLovelace",
+      ]) {
+        expect(() => schema.parse({ ...payload, fullName })).toThrow();
+      }
+    },
+  );
 
   it("normalizes names at registration and admin entry points", () => {
     for (const schema of [

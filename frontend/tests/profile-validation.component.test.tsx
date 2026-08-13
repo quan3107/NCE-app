@@ -57,8 +57,8 @@ beforeEach(() => {
   saveProfile.mockReset();
   commitCurrentProfile.mockClear();
   refreshCurrentProfile.mockReset();
-  refreshCurrentProfile.mockImplementation(async () =>
-    saveProfile.mock.results.at(-1)?.value,
+  refreshCurrentProfile.mockImplementation(
+    async () => saveProfile.mock.results.at(-1)?.value,
   );
 });
 
@@ -95,13 +95,15 @@ test("shows inline length errors without sending invalid profile data", () => {
 
 test("counts astral profile names by Unicode code point", async () => {
   const emoji = "\u{1F600}";
-  saveProfile.mockImplementation(async ({ fullName }: { fullName: string }) => ({
-    id: "profile-validation-user",
-    fullName,
-    email: "profile@example.com",
-    role: "student",
-    status: "active",
-  }));
+  saveProfile.mockImplementation(
+    async ({ fullName }: { fullName: string }) => ({
+      id: "profile-validation-user",
+      fullName,
+      email: "profile@example.com",
+      role: "student",
+      status: "active",
+    }),
+  );
 
   for (const invalidName of [emoji, emoji.repeat(101)]) {
     cleanup();
@@ -147,5 +149,24 @@ test("surfaces backend fullName field errors at the name input", async () => {
   assert.equal(
     screen.getByLabelText("Name").getAttribute("aria-invalid"),
     "true",
+  );
+});
+
+test("explains a stale profile revision without ending the session", async () => {
+  saveProfile.mockRejectedValueOnce(
+    new ApiError("Profile changed; reload before saving.", 409),
+  );
+
+  editAndSave("Valid Profile Name");
+
+  await waitFor(() => {
+    assert.match(
+      screen.getByRole("alert").textContent ?? "",
+      /changed elsewhere/i,
+    );
+  });
+  assert.equal(
+    screen.getByRole("button", { name: "Cancel" }).hasAttribute("disabled"),
+    false,
   );
 });

@@ -56,6 +56,21 @@ async function openLogout(page: import('@playwright/test').Page): Promise<void> 
   await page.getByRole('menuitem', { name: 'Logout' }).click();
 }
 
+async function expectMemoryRole(
+  page: import('@playwright/test').Page,
+  role: 'student' | 'teacher',
+): Promise<void> {
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { authBridge } = await import('/src/lib/authBridge.ts');
+        const snapshot = authBridge.getSnapshot();
+        return snapshot.status === 'authenticated' ? snapshot.actor.role : 'anonymous';
+      }),
+    )
+    .toBe(role);
+}
+
 test('the login admitted last owns the real refresh cookie and both UIs', async ({
   browser,
 }) => {
@@ -87,20 +102,8 @@ test('the login admitted last owns the real refresh cookie and both UIs', async 
     releaseFirst();
 
     await expect(pageB).toHaveURL(new RegExp(`${teacher.landingPath}$`));
-    await expect
-      .poll(() =>
-        pageA.evaluate(() =>
-          JSON.parse(localStorage.getItem('currentUser') ?? '{}').liveUser?.email,
-        ),
-      )
-      .toBe(teacher.email);
-    await expect
-      .poll(() =>
-        pageB.evaluate(() =>
-          JSON.parse(localStorage.getItem('currentUser') ?? '{}').liveUser?.email,
-        ),
-      )
-      .toBe(teacher.email);
+    await expectMemoryRole(pageA, 'teacher');
+    await expectMemoryRole(pageB, 'teacher');
 
     const refresh = await context.request.post(`${apiBaseURL}/auth/refresh`, {
       data: {},
@@ -114,7 +117,7 @@ test('the login admitted last owns the real refresh cookie and both UIs', async 
   }
 });
 
-test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
+test('a cross-tab logout makes an in-flight real refresh stale', async ({
   browser,
 }) => {
   const context = await browser.newContext();
@@ -139,13 +142,7 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
     await fillLogin(pageA, student);
     await pageA.getByRole('button', { name: 'Sign In' }).click();
     await expect(pageA).toHaveURL(new RegExp(`${student.landingPath}$`));
-    await expect
-      .poll(() =>
-        pageB.evaluate(() =>
-          JSON.parse(localStorage.getItem('currentUser') ?? '{}').liveUser?.email,
-        ),
-      )
-      .toBe(student.email);
+    await expectMemoryRole(pageB, 'student');
 
     pageA.on('response', (response) => {
       const request = response.request();
@@ -165,9 +162,31 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
     const protectedResult = pageA.evaluate(async ({ invalidBearer, requestMarker }) => {
       const { authBridge } = await import('/src/lib/authBridge.ts');
       const { apiClient } = await import('/src/lib/apiClient.ts');
-      authBridge.configure({ getAccessToken: () => invalidBearer });
+      const admitted = authBridge.getSnapshot();
+      if (admitted.status !== 'authenticated') {
+        throw new Error('Expected an authenticated memory session.');
+      }
+      const signal = new AbortController().signal;
+      authBridge.configure({
+        admit: () => ({
+          accessToken: invalidBearer,
+          actorId: admitted.actor.id,
+          revision: admitted.revision,
+          signal,
+        }),
+        isCurrent: (candidate) => {
+          const current = authBridge.getSnapshot();
+          return (
+            current.status === 'authenticated' &&
+            current.actor.id === candidate.actorId &&
+            current.revision === candidate.revision &&
+            !candidate.signal.aborted
+          );
+        },
+      });
       try {
         await apiClient('/me', {
+          auth: 'required',
           params: { e2eCase: requestMarker },
         });
         return { status: -1, message: 'unexpected success' };
@@ -191,11 +210,12 @@ test('a stored cross-tab logout makes an in-flight real refresh stale', async ({
     await openLogout(pageB);
     await expect
       .poll(() =>
-        pageB.evaluate(() =>
-          JSON.parse(localStorage.getItem('currentUser') ?? '{}').token,
-        ),
+        pageB.evaluate(async () => {
+          const { authBridge } = await import('/src/lib/authBridge.ts');
+          return authBridge.getSnapshot().status;
+        }),
       )
-      .toBeNull();
+      .toBe('anonymous');
     releaseRefresh();
 
     const result = await protectedResult;
@@ -227,13 +247,7 @@ test('logout fences the other tab when both storage writes fail', async ({
     await fillLogin(pageA, student);
     await pageA.getByRole('button', { name: 'Sign In' }).click();
     await expect(pageA).toHaveURL(new RegExp(`${student.landingPath}$`));
-    await expect
-      .poll(() =>
-        pageB.evaluate(() =>
-          JSON.parse(localStorage.getItem('currentUser') ?? '{}').liveUser?.email,
-        ),
-      )
-      .toBe(student.email);
+    await expectMemoryRole(pageB, 'student');
 
     await pageB.evaluate(() => {
       Storage.prototype.setItem = () => {
@@ -250,14 +264,14 @@ test('logout fences the other tab when both storage writes fail', async ({
       .poll(() =>
         pageA.evaluate(async () => {
           const { authBridge } = await import('/src/lib/authBridge.ts');
-          return authBridge.getAccessToken();
+          return authBridge.getSnapshot().status;
         }),
       )
-      .toBeNull();
+      .toBe('anonymous');
     const profileStatus = await pageA.evaluate(async () => {
       const { apiClient } = await import('/src/lib/apiClient.ts');
       try {
-        await apiClient('/me');
+        await apiClient('/me', { auth: 'required' });
         return 200;
       } catch (error) {
         return error instanceof Error && 'status' in error

@@ -56,7 +56,7 @@ const toFailedCountResult = (error: unknown, fallback: string): CountApiResult =
 };
 
 export async function fetchNavigationFromMe(): Promise<NavigationPayload> {
-  const response = await apiClient<ApiMeResponse>('/api/v1/me');
+  const response = await apiClient<ApiMeResponse>('/api/v1/me', { auth: 'required' });
 
   if (!isNavigationPayload(response.navigation)) {
     throw new Error('Invalid navigation payload returned by /api/v1/me');
@@ -67,7 +67,9 @@ export async function fetchNavigationFromMe(): Promise<NavigationPayload> {
 
 export async function fetchAssignmentsPendingCount(): Promise<CountApiResult> {
   try {
-    const response = await apiClient<CountResponse>('/api/v1/assignments/pending-count');
+    const response = await apiClient<CountResponse>('/api/v1/assignments/pending-count', {
+      auth: 'required',
+    });
     if (typeof response.count !== 'number') {
       return {
         ok: false,
@@ -86,7 +88,9 @@ export async function fetchAssignmentsPendingCount(): Promise<CountApiResult> {
 
 export async function fetchSubmissionsPendingCount(): Promise<CountApiResult> {
   try {
-    const response = await apiClient<CountResponse>('/api/v1/submissions/pending-count');
+    const response = await apiClient<CountResponse>('/api/v1/submissions/pending-count', {
+      auth: 'required',
+    });
     if (typeof response.count !== 'number') {
       return {
         ok: false,

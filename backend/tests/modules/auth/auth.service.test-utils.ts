@@ -25,12 +25,9 @@ const roleContext = vi.hoisted(() => ({
 }));
 
 vi.mock("node:crypto", async () => {
-  const actual = await vi.importActual<typeof import("node:crypto")>(
-    "node:crypto",
-  );
-  const randomBytesMock = vi.fn((size?: number) =>
-    Buffer.alloc(size ?? 48, 1),
-  );
+  const actual =
+    await vi.importActual<typeof import("node:crypto")>("node:crypto");
+  const randomBytesMock = vi.fn((size?: number) => Buffer.alloc(size ?? 48, 1));
   return {
     ...actual,
     randomBytes: randomBytesMock,
@@ -50,6 +47,8 @@ vi.mock("../../../src/config/prismaClient.js", () => {
     user,
     identity,
     authSession,
+    $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(async (callback) =>
       callback({
         user: { create: user.create },
@@ -66,14 +65,16 @@ vi.mock("../../../src/config/prismaClient.js", () => {
 });
 
 vi.mock("../../../src/prisma/client.js", () => ({
-  runWithRole: vi.fn(async (_options, fn: (tx: unknown) => Promise<unknown>) => {
-    roleContext.depth += 1;
-    try {
-      return await fn({});
-    } finally {
-      roleContext.depth -= 1;
-    }
-  }),
+  runWithRole: vi.fn(
+    async (_options, fn: (tx: unknown) => Promise<unknown>) => {
+      roleContext.depth += 1;
+      try {
+        return await fn({});
+      } finally {
+        roleContext.depth -= 1;
+      }
+    },
+  ),
   withRoleContext: vi.fn(async (_options, fn: () => Promise<unknown>) => {
     roleContext.depth += 1;
     try {
@@ -114,6 +115,10 @@ export const fetchMock = vi.fn();
 export const crypto = await import("node:crypto");
 const prismaModule = await import("../../../src/config/prismaClient.js");
 export const prisma = vi.mocked(prismaModule.prisma, true);
+const prismaClientModule = vi.mocked(
+  await import("../../../src/prisma/client.js"),
+);
+export const { runWithRole } = prismaClientModule;
 const bcryptModule = await import("bcrypt");
 export const bcrypt = vi.mocked(bcryptModule.default, true);
 const tokensModule = vi.mocked(

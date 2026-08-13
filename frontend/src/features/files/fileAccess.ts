@@ -26,7 +26,9 @@ export type FileOpenTarget = (
 export async function requestSignedFileDownload(
   fileId: string,
 ): Promise<SignedFileDownload> {
-  return apiClient<SignedFileDownload>(`/files/${encodeURIComponent(fileId)}/download`);
+  return apiClient<SignedFileDownload>(`/files/${encodeURIComponent(fileId)}/download`, {
+    auth: 'required',
+  });
 }
 
 export async function openSignedFileDownload(

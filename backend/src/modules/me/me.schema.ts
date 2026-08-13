@@ -7,9 +7,17 @@ import { z } from "zod";
 
 import { displayNameSchema } from "../../utils/displayNameValidation.js";
 
+const POSTGRES_INTEGER_MAX = 2_147_483_647;
+
 export const updateMeProfileSchema = z
   .object({
     fullName: displayNameSchema,
+    expectedRevision: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(POSTGRES_INTEGER_MAX)
+      .optional(),
   })
   .strict();
 

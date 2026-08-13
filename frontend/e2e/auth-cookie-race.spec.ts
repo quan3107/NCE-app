@@ -1,7 +1,7 @@
 /**
  * Location: frontend/e2e/auth-cookie-race.spec.ts
- * Purpose: Verify stale refresh responses cannot replace a new account cookie.
- * Why: HttpOnly Set-Cookie races require a real browser and HTTP server.
+ * Purpose: Verify cross-tab refresh and logout races converge to cookie authority.
+ * Why: HttpOnly cookie ordering requires a real browser and HTTP server.
  */
 
 import { expect, test, type APIRequestContext, type Browser } from '@playwright/test';
@@ -27,14 +27,17 @@ async function verifyDelayedCrossTabSwitch(
 
     await pageA.getByRole('button', { name: 'Login A' }).click();
     await expect(pageA.getByTestId('current-user')).toHaveText('user-a');
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await expect(pageB.getByTestId('current-user')).toHaveText('user-a');
+    await request.post(`${TEST_SERVER}/test/reset`);
 
     const refreshStarted = pageA.waitForRequest('**/api/v1/auth/refresh');
     await pageA.getByRole('button', { name: 'Start protected request' }).click();
     await refreshStarted;
 
     await pageB.getByRole('button', { name: 'Login B' }).click();
-    // The shared epoch has already reconciled this tab to A while B waits
-    // behind A's delayed cookie refresh.
+    // The current authority remains visible while B waits behind the delayed
+    // cookie refresh; only the serialized login response may replace it.
     await expect(pageB.getByTestId('current-user')).toHaveText('user-a');
 
     await request.post(`${TEST_SERVER}/test/release-refresh`);
@@ -110,6 +113,7 @@ test('refuses cookie writes without Web Locks', async ({
 
 test('refresh reconciles a tab to the shared cookie identity', async ({
   browser,
+  request,
 }) => {
   const context = await browser.newContext();
   const pageA = await context.newPage();
@@ -121,12 +125,219 @@ test('refresh reconciles a tab to the shared cookie identity', async ({
 
   await pageA.getByRole('button', { name: 'Login A' }).click();
   await expect(pageA.getByTestId('current-user')).toHaveText('user-a');
+  await request.post(`${TEST_SERVER}/test/release-refresh`);
+  await expect(pageB.getByTestId('current-user')).toHaveText('user-a');
   await pageB.getByRole('button', { name: 'Login B' }).click();
   await expect(pageB.getByTestId('current-user')).toHaveText('user-b');
 
   await pageA.getByRole('button', { name: 'Start protected request' }).click();
   await expect(pageA.getByTestId('current-user')).toHaveText('user-b');
   await context.close();
+});
+
+test('invalidation during bootstrap starts a fresh revision refresh', async ({
+  browser,
+  request,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const peer = await context.newPage();
+  try {
+    await Promise.all([
+      page.goto('/e2e/auth-cookie-race.html'),
+      peer.goto('/e2e/auth-cookie-race.html'),
+    ]);
+    await page.getByRole('button', { name: 'Login A' }).click();
+    await expect(page.getByTestId('current-user')).toHaveText('user-a');
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await expect(peer.getByTestId('current-user')).toHaveText('user-a');
+    await request.post(`${TEST_SERVER}/test/reset`);
+
+    const refreshStarted = page.waitForRequest('**/api/v1/auth/refresh');
+    await page.reload();
+    await refreshStarted;
+    await peer.getByRole('button', { name: 'Login B' }).click();
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+
+    await expect(peer.getByTestId('current-user')).toHaveText('user-b');
+    await expect(page.getByTestId('current-user')).toHaveText('user-b');
+  } finally {
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await context.close();
+  }
+});
+
+test('logout completion clears a fresh peer whose refresh queued first', async ({
+  browser,
+  request,
+}) => {
+  const context = await browser.newContext();
+  const logoutPage = await context.newPage();
+  const blockerPage = await context.newPage();
+  const peerPage = await context.newPage();
+  try {
+    await Promise.all([
+      logoutPage.goto('/e2e/auth-cookie-race.html'),
+      blockerPage.goto('/e2e/auth-cookie-lock.html'),
+    ]);
+    await expect(logoutPage.getByTestId('restoring')).toHaveText('false');
+    await logoutPage.getByRole('button', { name: 'Login A' }).click();
+    await expect(logoutPage.getByTestId('current-user')).toHaveText('user-a');
+
+    // Hold the shared cookie lock with an already-admitted operation. Logout
+    // publishes immediately, but its lock request is paused so the fresh peer's
+    // bootstrap refresh deterministically enters the FIFO Web Lock queue first.
+    await blockerPage.evaluate(() => {
+      const state = window as typeof window & {
+        cookieOperationLockHeld?: boolean;
+        releaseCookieOperation?: () => void;
+      };
+      state.cookieOperationLockHeld = false;
+      void import('/src/lib/auth-cookie-operations.ts').then(
+        ({ createAuthCookieOperations }) =>
+          createAuthCookieOperations().run(async () => {
+            state.cookieOperationLockHeld = true;
+            await new Promise<void>((resolve) => {
+              state.releaseCookieOperation = resolve;
+            });
+          }),
+      );
+    });
+    await expect
+      .poll(() =>
+        blockerPage.evaluate(
+          () =>
+            (window as typeof window & { cookieOperationLockHeld?: boolean })
+              .cookieOperationLockHeld,
+        ),
+      )
+      .toBe(true);
+
+    await logoutPage.evaluate(() => {
+      const locks = navigator.locks;
+      const originalRequest = locks.request.bind(locks);
+      const state = window as typeof window & {
+        logoutLockForwarded?: boolean;
+        releaseLogoutLockRequest?: () => void;
+      };
+      let releaseRequest!: () => void;
+      const requestGate = new Promise<void>((resolve) => {
+        releaseRequest = resolve;
+      });
+      let delayNextRequest = true;
+      Object.defineProperty(locks, 'request', {
+        configurable: true,
+        value: async (
+          name: string,
+          options: LockOptions,
+          callback: (lock: Lock | null) => Promise<unknown>,
+        ) => {
+          if (name === 'nce-auth-cookie-operations' && delayNextRequest) {
+            delayNextRequest = false;
+            await requestGate;
+            state.logoutLockForwarded = true;
+          }
+          return originalRequest(name, options, callback);
+        },
+      });
+      state.logoutLockForwarded = false;
+      state.releaseLogoutLockRequest = releaseRequest;
+    });
+
+    let logoutRequests = 0;
+    logoutPage.on('request', (outgoing) => {
+      if (outgoing.url().endsWith('/api/v1/auth/logout')) logoutRequests += 1;
+    });
+    await logoutPage.getByRole('button', { name: 'Logout' }).click();
+    await expect(logoutPage.getByTestId('current-user')).toHaveText('guest');
+
+    await peerPage.addInitScript(() => {
+      const locks = navigator.locks;
+      const originalRequest = locks.request.bind(locks);
+      const state = window as typeof window & { authLockRequests?: number };
+      state.authLockRequests = 0;
+      Object.defineProperty(locks, 'request', {
+        configurable: true,
+        value: (
+          name: string,
+          options: LockOptions,
+          callback: (lock: Lock | null) => Promise<unknown>,
+        ) => {
+          if (name === 'nce-auth-cookie-operations') {
+            state.authLockRequests = (state.authLockRequests ?? 0) + 1;
+          }
+          return originalRequest(name, options, callback);
+        },
+      });
+    });
+    await peerPage.goto('/e2e/auth-cookie-race.html');
+    await expect
+      .poll(() =>
+        peerPage.evaluate(
+          () =>
+            (window as typeof window & { authLockRequests?: number })
+              .authLockRequests,
+        ),
+      )
+      .toBe(1);
+
+    await logoutPage.evaluate(() =>
+      (
+        window as typeof window & { releaseLogoutLockRequest?: () => void }
+      ).releaseLogoutLockRequest?.(),
+    );
+    await expect
+      .poll(() =>
+        logoutPage.evaluate(
+          () =>
+            (window as typeof window & { logoutLockForwarded?: boolean })
+              .logoutLockForwarded,
+        ),
+      )
+      .toBe(true);
+    expect(logoutRequests).toBe(0);
+
+    const peerRefresh = peerPage.waitForRequest('**/api/v1/auth/refresh');
+    const logoutResponse = logoutPage.waitForResponse('**/api/v1/auth/logout');
+    await blockerPage.evaluate(() =>
+      (
+        window as typeof window & { releaseCookieOperation?: () => void }
+      ).releaseCookieOperation?.(),
+    );
+    await peerRefresh;
+    expect(logoutRequests).toBe(0);
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await expect(logoutPage.getByTestId('current-user')).toHaveText('guest');
+    expect((await logoutResponse).status()).toBe(204);
+
+    const cookieRefreshStatus = await peerPage.evaluate(() =>
+      fetch('http://127.0.0.1:4010/api/v1/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+      }).then((response) => response.status),
+    );
+    expect(cookieRefreshStatus).toBe(401);
+    await expect(peerPage.getByTestId('current-user')).toHaveText('guest');
+    await expect(peerPage.getByTestId('authenticated')).toHaveText('false');
+    await expect(peerPage.getByTestId('restoring')).toHaveText('false');
+  } finally {
+    await request.post(`${TEST_SERVER}/test/release-refresh`);
+    await logoutPage
+      .evaluate(() =>
+        (
+          window as typeof window & { releaseLogoutLockRequest?: () => void }
+        ).releaseLogoutLockRequest?.(),
+      )
+      .catch(() => undefined);
+    await blockerPage
+      .evaluate(() =>
+        (
+          window as typeof window & { releaseCookieOperation?: () => void }
+        ).releaseCookieOperation?.(),
+      )
+      .catch(() => undefined);
+    await context.close();
+  }
 });
 
 test('holds cross-tab cookie operations until OAuth completion', async ({
@@ -196,10 +407,11 @@ test('cancels refresh before logout and preserves the new account cookie', async
   await refreshStarted;
 
   await page.getByRole('button', { name: 'Switch to B' }).click();
+  await expect(page.getByTestId('switch-status')).toHaveText('switching');
+  await expect(page.getByTestId('current-user')).toHaveText('guest');
+  await request.post(`${TEST_SERVER}/test/release-refresh`);
   await expect(page.getByTestId('switch-status')).toHaveText('complete');
   await expect(page.getByTestId('current-user')).toHaveText('user-b');
-
-  await request.post(`${TEST_SERVER}/test/release-refresh`);
 
   await page.getByRole('button', { name: 'Restore B session' }).click();
   await expect(page.getByTestId('restore-status')).toHaveText('success');

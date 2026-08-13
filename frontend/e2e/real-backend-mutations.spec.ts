@@ -11,6 +11,7 @@ type Profile = {
   fullName: string;
   role: 'admin';
   status: string;
+  profileRevision: number;
 };
 
 type ProfileResponse = { profile: Profile };
@@ -81,10 +82,48 @@ async function restoreUploadLimits(
   expect(restoreResponse.ok(), 'Failed to restore upload limits').toBeTruthy();
 }
 
+async function restoreProfile(
+  request: APIRequestContext,
+  authorization: string,
+  original: Profile,
+  knownRevision: number | undefined,
+): Promise<void> {
+  const currentResponse = await request.get(`${apiBaseURL}/me`, {
+    headers: { authorization },
+  });
+  let currentRevision = knownRevision;
+  if (currentResponse.ok()) {
+    const current = ((await currentResponse.json()) as ProfileResponse).profile;
+    if (current.fullName === original.fullName) return;
+    currentRevision = current.profileRevision;
+  }
+  expect(
+    currentRevision,
+    'Failed to determine the current profile revision for cleanup',
+  ).toBeDefined();
+  if (currentRevision === undefined) {
+    throw new Error('Current profile revision is unavailable for cleanup.');
+  }
+  const restoreResponse = await request.patch(`${apiBaseURL}/me`, {
+    headers: { authorization },
+    data: {
+      fullName: original.fullName,
+      expectedRevision: currentRevision,
+    },
+  });
+  expect(restoreResponse.ok(), 'Failed to restore profile').toBeTruthy();
+}
+
+const cleanupErrorMessage = (error: unknown): string =>
+  error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+
 test('profile and upload-policy mutations persist and restore', async ({ request }) => {
   let authorization: string | undefined;
   let originalProfile: Profile | undefined;
+  let latestProfileRevision: number | undefined;
   let originalLimits: UploadLimits | undefined;
+  let primaryError: unknown;
+  const cleanupErrors: unknown[] = [];
 
   try {
     const loginResponse = await request.post(`${apiBaseURL}/auth/login`, {
@@ -106,6 +145,7 @@ test('profile and upload-policy mutations persist and restore', async ({ request
     expect(profileResponse.ok(), 'Profile snapshot failed').toBeTruthy();
     expect(limitsResponse.ok(), 'Upload-limit snapshot failed').toBeTruthy();
     originalProfile = ((await profileResponse.json()) as ProfileResponse).profile;
+    latestProfileRevision = originalProfile.profileRevision;
     originalLimits = (await limitsResponse.json()) as UploadLimits;
 
     const originalStudent = originalLimits.limits.find(
@@ -121,7 +161,10 @@ test('profile and upload-policy mutations persist and restore', async ({ request
     const [profileMutation, limitsMutation] = await Promise.all([
       request.patch(`${apiBaseURL}/me`, {
         headers: { authorization },
-        data: { fullName: mutatedName },
+        data: {
+          fullName: mutatedName,
+          expectedRevision: originalProfile.profileRevision,
+        },
       }),
       request.patch(`${apiBaseURL}/settings/file-upload-limits`, {
         headers: { authorization },
@@ -136,6 +179,8 @@ test('profile and upload-policy mutations persist and restore', async ({ request
       }),
     ]);
     expect(profileMutation.ok(), 'Profile mutation failed').toBeTruthy();
+    const mutatedProfile = (await profileMutation.json()) as Profile;
+    latestProfileRevision = mutatedProfile.profileRevision;
     expect(limitsMutation.ok(), 'Upload-limit mutation failed').toBeTruthy();
 
     const [savedProfileResponse, savedLimitsResponse] = await Promise.all([
@@ -148,28 +193,52 @@ test('profile and upload-policy mutations persist and restore', async ({ request
     expect(savedLimitsResponse.ok()).toBeTruthy();
     const savedProfile = ((await savedProfileResponse.json()) as ProfileResponse)
       .profile;
+    latestProfileRevision = savedProfile.profileRevision;
     const savedLimits = (await savedLimitsResponse.json()) as UploadLimits;
     expect(savedProfile.fullName).toBe(mutatedName);
     expect(
       savedLimits.limits.find((limit) => limit.role === 'student')
         ?.maxFileSizeMib,
     ).toBe(mutatedLimit);
+  } catch (error) {
+    primaryError = error;
   } finally {
     if (authorization && originalProfile) {
-      const restoreProfile = await request.patch(`${apiBaseURL}/me`, {
-        headers: { authorization },
-        data: { fullName: originalProfile.fullName },
-      });
-      expect(restoreProfile.ok(), 'Failed to restore profile').toBeTruthy();
+      try {
+        await restoreProfile(
+          request,
+          authorization,
+          originalProfile,
+          latestProfileRevision,
+        );
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
     }
     if (authorization && originalLimits) {
-      await restoreUploadLimits(request, authorization, originalLimits);
+      try {
+        await restoreUploadLimits(request, authorization, originalLimits);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
     }
     if (authorization) {
-      const logoutResponse = await request.post(`${apiBaseURL}/auth/logout`, {
-        data: {},
-      });
-      expect(logoutResponse.status()).toBe(204);
+      try {
+        const logoutResponse = await request.post(`${apiBaseURL}/auth/logout`, {
+          data: {},
+        });
+        expect(logoutResponse.status()).toBe(204);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
     }
   }
+
+  expect
+    .soft(
+      cleanupErrors.map(cleanupErrorMessage),
+      'Real-backend cleanup must restore every mutable seed',
+    )
+    .toEqual([]);
+  if (primaryError) throw primaryError;
 });

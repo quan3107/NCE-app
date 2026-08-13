@@ -24,10 +24,10 @@ export const isCmsVersionConflict = (error: unknown) =>
   error instanceof ApiError && error.status === 409;
 
 export const fetchCmsPages = () =>
-  apiClient<CmsPagesResponse>('/cms/admin/pages');
+  apiClient<CmsPagesResponse>('/cms/admin/pages', { auth: 'required' });
 
 export const fetchCmsDraft = (pageKey: CmsPageKey) =>
-  apiClient<CmsPageState>(`/cms/admin/pages/${pageKey}/draft`);
+  apiClient<CmsPageState>(`/cms/admin/pages/${pageKey}/draft`, { auth: 'required' });
 
 export const saveCmsDraft = ({
   pageKey,
@@ -40,7 +40,7 @@ export const saveCmsDraft = ({
 }) =>
   apiClient<CmsPageState, { content: CmsPageContent; expectedDraftVersion: number }>(
     `/cms/admin/pages/${pageKey}/draft`,
-    { method: 'PUT', body: { content, expectedDraftVersion } },
+    { auth: 'required', method: 'PUT', body: { content, expectedDraftVersion } },
   );
 
 export const publishCmsDraft = ({
@@ -56,6 +56,7 @@ export const publishCmsDraft = ({
     CmsPageState,
     { content: CmsPageContent; expectedDraftVersion: number }
   >(`/cms/admin/pages/${pageKey}/publish`, {
+    auth: 'required',
     method: 'POST',
     body: { content, expectedDraftVersion },
   });
@@ -70,6 +71,7 @@ export const fetchCmsRevisions = (
   const suffix = search.size > 0 ? `?${search.toString()}` : '';
   return apiClient<CmsRevisionsResponse>(
     `/cms/admin/pages/${pageKey}/revisions${suffix}`,
+    { auth: 'required' },
   );
 };
 
@@ -84,7 +86,7 @@ export const rollbackCmsRevision = ({
 }) =>
   apiClient<CmsPageState, { expectedDraftVersion: number }>(
     `/cms/admin/pages/${pageKey}/revisions/${revisionId}/rollback`,
-    { method: 'POST', body: { expectedDraftVersion } },
+    { auth: 'required', method: 'POST', body: { expectedDraftVersion } },
   );
 
 async function refreshPage(

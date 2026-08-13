@@ -63,6 +63,7 @@ describe("nce-attempts.controller", () => {
   it("rejects normal API access tokens on the NCE audio route", async () => {
     const token = signAccessToken({
       userId: studentId,
+      familyId: "66666666-6666-4666-8666-666666666666",
       role: UserRole.student,
       status: UserStatus.active,
     });

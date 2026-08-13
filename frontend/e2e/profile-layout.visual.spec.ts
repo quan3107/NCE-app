@@ -15,17 +15,6 @@ const admin = {
 test('profile title and edit action share the desktop header row', async ({
   page,
 }) => {
-  await page.addInitScript((snapshot) => {
-    localStorage.setItem('currentUser', JSON.stringify(snapshot));
-  }, {
-    token: 'admin-token',
-    liveUser: {
-      id: admin.id,
-      name: admin.fullName,
-      email: admin.email,
-      role: admin.role,
-    },
-  });
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/auth/refresh')) {

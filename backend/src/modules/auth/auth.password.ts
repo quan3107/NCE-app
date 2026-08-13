@@ -113,6 +113,7 @@ export async function handlePasswordLogin(
 
   const accessToken = signAccessToken({
     userId: user.id,
+    familyId: session.familyId,
     role: user.role,
     status: user.status,
   });
@@ -225,6 +226,7 @@ export async function handleRegisterAccount(
 
   const accessToken = signAccessToken({
     userId: userRecord.id,
+    familyId: session.familyId,
     role: userRecord.role,
     status: userRecord.status,
   });

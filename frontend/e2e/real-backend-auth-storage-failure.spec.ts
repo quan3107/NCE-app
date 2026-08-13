@@ -1,7 +1,7 @@
 /**
  * Location: frontend/e2e/real-backend-auth-storage-failure.spec.ts
- * Purpose: Verify rejected browser persistence cannot leak a real login across tabs.
- * Why: A live token rejected by the initiating tab must not be broadcast to peers.
+ * Purpose: Verify browser storage denial cannot block a real memory-only login.
+ * Why: Peers must converge through the server cookie without receiving token authority.
  */
 import { expect, test } from '@playwright/test';
 
@@ -32,7 +32,7 @@ test.beforeAll(async ({ request }) => {
   expect(response.ok()).toBeTruthy();
 });
 
-test('rejected live persistence is not broadcast to another tab', async ({
+test('storage write denial preserves login and server-authoritative peer convergence', async ({
   browser,
 }) => {
   const context = await browser.newContext();
@@ -66,17 +66,36 @@ test('rejected live persistence is not broadcast to another tab', async ({
     await pageA.getByRole('button', { name: 'Sign In' }).click();
 
     expect((await loginResponse).status()).toBe(200);
-    await expect(pageA.getByText('Invalid email or password.')).toBeVisible();
+    await expect(pageA).toHaveURL(/\/student\/dashboard$/);
+    await expect
+      .poll(() =>
+        pageA.evaluate(async () => {
+          const { authBridge } = await import('/src/lib/authBridge.ts');
+          const snapshot = authBridge.getSnapshot();
+          return snapshot.status === 'authenticated' ? snapshot.actor.role : 'anonymous';
+        }),
+      )
+      .toBe('student');
     await pageA.evaluate(() => {
       const channel = new BroadcastChannel('nce-auth-session');
       channel.postMessage({ e2eBarrier: true });
       channel.close();
     });
     await peerBarrier;
+    await expect
+      .poll(() =>
+        pageB.evaluate(async () => {
+          const { authBridge } = await import('/src/lib/authBridge.ts');
+          const snapshot = authBridge.getSnapshot();
+          return snapshot.status === 'authenticated' ? snapshot.actor.role : 'anonymous';
+        }),
+      )
+      .toBe('student');
     const peerRefresh = await pageB.request.post(`${apiBaseURL}/auth/refresh`, {
       data: {},
     });
-    expect(peerRefresh.status()).toBe(401);
+    expect(peerRefresh.ok()).toBeTruthy();
+    expect((await peerRefresh.json()).user.email).toBe(student.email);
   } finally {
     await context.request.post(`${apiBaseURL}/auth/logout`, { data: {} });
     await context.close();

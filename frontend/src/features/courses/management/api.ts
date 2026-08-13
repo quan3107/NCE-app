@@ -85,13 +85,13 @@ export const courseAssignmentsKey = (courseId: string) =>
   ['courses', courseId, 'assignments'] as const;
 
 export const fetchCourseDetail = (courseId: string): Promise<CourseDetailResponse> =>
-  apiClient<CourseDetailResponse>(`/api/v1/courses/${courseId}`);
+  apiClient<CourseDetailResponse>(`/api/v1/courses/${courseId}`, { auth: 'required' });
 
 export const fetchCourseStudents = (courseId: string): Promise<CourseStudentsResponse> =>
-  apiClient<CourseStudentsResponse>(`/api/v1/courses/${courseId}/students`);
+  apiClient<CourseStudentsResponse>(`/api/v1/courses/${courseId}/students`, { auth: 'required' });
 
 export const fetchCourseAssignments = (courseId: string): Promise<CourseAssignmentResponse[]> =>
-  apiClient<CourseAssignmentResponse[]>(`/api/v1/courses/${courseId}/assignments`);
+  apiClient<CourseAssignmentResponse[]>(`/api/v1/courses/${courseId}/assignments`, { auth: 'required' });
 
 export type CourseMutationResponse = {
   id: string;
@@ -158,6 +158,7 @@ export const updateCourseDetails = async (
   const response = await apiClient<CourseMutationResponse, UpdateCourseRequest>(
     `/api/v1/courses/${courseId}`,
     {
+      auth: 'required',
       method: 'PATCH',
       body: {
         title: payload.title.trim(),
@@ -181,6 +182,7 @@ export const removeCourseStudent = async (
   studentId: string,
 ): Promise<void> => {
   await apiClient<void>(`/api/v1/courses/${courseId}/students/${studentId}`, {
+    auth: 'required',
     method: 'DELETE',
     parseJson: false,
   });
@@ -200,6 +202,7 @@ export const removeCourseStudent = async (
 
 export const archiveCourse = async (courseId: string): Promise<CourseMutationResponse> => {
   const response = await apiClient<CourseMutationResponse>(`/api/v1/courses/${courseId}/archive`, {
+    auth: 'required',
     method: 'POST',
   });
   await invalidateCourseList();
@@ -208,6 +211,7 @@ export const archiveCourse = async (courseId: string): Promise<CourseMutationRes
 
 export const restoreCourse = async (courseId: string): Promise<CourseMutationResponse> => {
   const response = await apiClient<CourseMutationResponse>(`/api/v1/courses/${courseId}/restore`, {
+    auth: 'required',
     method: 'POST',
   });
   await invalidateActiveCourseCaches(courseId);
@@ -225,6 +229,7 @@ export const addCourseStudent = async (
   const student = await apiClient<CourseStudentResponse, AddCourseStudentPayload>(
     `/api/v1/courses/${courseId}/students`,
     {
+      auth: 'required',
       method: 'POST',
       body: payload,
     },

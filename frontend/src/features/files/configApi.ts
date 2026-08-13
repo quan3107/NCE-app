@@ -62,9 +62,11 @@ export async function fetchFileUploadConfig(
 ): Promise<FileUploadPolicy> {
   const [limitsResponse, allowedTypesResponse] = await Promise.all([
     apiClient<FileUploadLimitsResponse>('/api/v1/config/file-upload-limits', {
+      auth: 'required',
       signal,
     }),
     apiClient<AllowedFileTypesResponse>('/api/v1/config/allowed-file-types', {
+      auth: 'required',
       signal,
     }),
   ]);

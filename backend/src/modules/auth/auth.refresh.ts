@@ -41,7 +41,7 @@ export async function handleSessionRefresh(
   const refreshTokenHash = hashValue(refreshToken)
   const nextRefreshToken = generateRefreshToken()
 
-  const { rotated, user } = await runWithRole(
+  const refreshResult = await runWithRole(
     { role: 'service_role', userRole: 'service_role' },
     async () => {
       const session = await prisma.authSession.findFirst({
@@ -86,7 +86,7 @@ export async function handleSessionRefresh(
           await revokeSessionFamily(reusedSession.familyId, now)
         }
 
-        throw invalidRefreshTokenError()
+        return { status: 'invalid-refresh-token' as const }
       }
 
       const user = await prisma.user.findFirst({
@@ -119,17 +119,23 @@ export async function handleSessionRefresh(
       } catch (error) {
         if (error instanceof RefreshSessionClaimError) {
           await revokeSessionFamily(error.familyId, error.detectedAt)
-          throw invalidRefreshTokenError()
+          return { status: 'invalid-refresh-token' as const }
         }
         throw error
       }
 
-      return { rotated, user }
+      return { status: 'rotated' as const, rotated, user }
     },
   )
 
+  if (refreshResult.status === 'invalid-refresh-token') {
+    throw invalidRefreshTokenError()
+  }
+  const { rotated, user } = refreshResult
+
   const accessToken = signAccessToken({
     userId: user.id,
+    familyId: rotated.familyId,
     role: user.role,
     status: user.status,
   })
@@ -187,17 +193,13 @@ export async function handleLogout(
         return null
       }
 
-      const revokeResult = await prisma.authSession.updateMany({
-        where: {
-          refreshTokenHash,
-          revokedAt: null,
-        },
-        data: {
-          revokedAt: new Date(),
-        },
-      })
+      const revokedCount = await revokeSessionFamily(
+        session.familyId,
+        new Date(),
+        false,
+      )
 
-      if (revokeResult.count !== 1) {
+      if (revokedCount === 0) {
         return null
       }
 

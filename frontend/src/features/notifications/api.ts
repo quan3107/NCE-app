@@ -55,7 +55,9 @@ export const mapApiNotificationToNotification = (
 };
 
 const fetchNotifications = async (): Promise<Notification[]> => {
-  const response = await apiClient<ApiNotification[]>('/api/v1/notifications');
+  const response = await apiClient<ApiNotification[]>('/api/v1/notifications', {
+    auth: 'required',
+  });
   return response.map(mapApiNotificationToNotification);
 };
 
@@ -70,6 +72,7 @@ export function markNotificationsRead(params: { userId: string; notificationIds?
   const { userId, notificationIds } = params;
 
   return apiClient<ApiNotificationsReadResponse>('/api/v1/notifications/read', {
+    auth: 'required',
     method: 'POST',
     body: {
       userId,
