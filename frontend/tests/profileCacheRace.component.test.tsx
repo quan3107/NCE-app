@@ -41,6 +41,14 @@ test("an older profile fetch cannot overwrite a successful save", async () => {
     waitUntilReady: () => coordinator.waitUntilReady(),
   });
   const queryKey = meProfileQueryKey("user-1");
+  queryClient.setQueryData(queryKey, {
+    id: "user-1",
+    email: "student@example.com",
+    fullName: "Original Name",
+    role: "student",
+    status: "active",
+    profileRevision: 0,
+  });
   let requestSignal: AbortSignal | undefined;
   let resolveOldRequest!: (profile: { id: string; fullName: string }) => void;
   const oldRequest = queryClient.fetchQuery({
@@ -61,16 +69,16 @@ test("an older profile fetch cannot overwrite a successful save", async () => {
         fullName: "Saved Name",
         role: "student",
         status: "active",
+        profileRevision: 1,
       }),
     ),
   );
   const wrapper = ({ children }: PropsWithChildren) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  const mutation = renderHook(
-    () => useUpdateMeProfileMutation("user-1"),
-    { wrapper },
-  );
+  const mutation = renderHook(() => useUpdateMeProfileMutation("user-1"), {
+    wrapper,
+  });
 
   await act(async () => {
     await mutation.result.current.mutateAsync({ fullName: "Saved Name" });
@@ -110,6 +118,10 @@ test("a role transition during cache cancellation rejects the old PATCH owner", 
   queryClient.setQueryData(queryKey, {
     id: "user-1",
     fullName: "Student Name",
+    email: "student@example.com",
+    role: "student",
+    status: "active",
+    profileRevision: 0,
   });
   let releaseCancellation!: () => void;
   let cancellationStarted!: () => void;
@@ -131,16 +143,16 @@ test("a role transition during cache cancellation rejects the old PATCH owner", 
         fullName: "Saved Student Name",
         role: "student",
         status: "active",
+        profileRevision: 1,
       }),
     ),
   );
   const wrapper = ({ children }: PropsWithChildren) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  const mutation = renderHook(
-    () => useUpdateMeProfileMutation("user-1"),
-    { wrapper },
-  );
+  const mutation = renderHook(() => useUpdateMeProfileMutation("user-1"), {
+    wrapper,
+  });
 
   let save!: Promise<unknown>;
   act(() => {
@@ -163,5 +175,89 @@ test("a role transition during cache cancellation rejects the old PATCH owner", 
   assert.equal(
     window.localStorage.getItem("nce:auth-profile-invalidation"),
     null,
+  );
+});
+
+test("a delayed older PATCH response cannot overwrite a newer profile revision", async () => {
+  const coordinator = new AuthCoordinator();
+  coordinator.finishBootstrap();
+  coordinator.authenticate("student-token", { id: "user-1", role: "student" });
+  authBridge.configure({
+    admit: (mode) => coordinator.admit(mode),
+    getSnapshot: () => coordinator.getSnapshot(),
+    isCurrent: (value) => coordinator.isCurrent(value),
+    waitUntilReady: () => coordinator.waitUntilReady(),
+  });
+  const queryKey = meProfileQueryKey("user-1");
+  queryClient.setQueryData(queryKey, {
+    id: "user-1",
+    email: "student@example.com",
+    fullName: "Original Name",
+    role: "student",
+    status: "active",
+    profileRevision: 0,
+  });
+  let resolveFirst!: (response: Response) => void;
+  const requests: Array<{ fullName: string; expectedRevision: number }> = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        fullName: string;
+        expectedRevision: number;
+      };
+      requests.push(body);
+      if (body.fullName === "First Save") {
+        return new Promise<Response>((resolve) => {
+          resolveFirst = resolve;
+        });
+      }
+      return Response.json({
+        id: "user-1",
+        email: "student@example.com",
+        fullName: "Second Save",
+        role: "student",
+        status: "active",
+        profileRevision: 2,
+      });
+    }),
+  );
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  const mutation = renderHook(() => useUpdateMeProfileMutation("user-1"), {
+    wrapper,
+  });
+
+  const first = mutation.result.current.mutateAsync({ fullName: "First Save" });
+  await vi.waitFor(() => assert.equal(requests.length, 1));
+  queryClient.setQueryData(queryKey, {
+    id: "user-1",
+    email: "student@example.com",
+    fullName: "First Save",
+    role: "student",
+    status: "active",
+    profileRevision: 1,
+  });
+  await mutation.result.current.mutateAsync({ fullName: "Second Save" });
+  resolveFirst(
+    Response.json({
+      id: "user-1",
+      email: "student@example.com",
+      fullName: "First Save",
+      role: "student",
+      status: "active",
+      profileRevision: 1,
+    }),
+  );
+  await first;
+
+  assert.deepEqual(requests, [
+    { fullName: "First Save", expectedRevision: 0 },
+    { fullName: "Second Save", expectedRevision: 1 },
+  ]);
+  assert.equal(
+    queryClient.getQueryData<{ fullName: string }>(queryKey)?.fullName,
+    "Second Save",
   );
 });

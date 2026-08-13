@@ -25,6 +25,7 @@ const profile = (fullName: string): CurrentProfile => ({
   fullName,
   role: "student",
   status: "active",
+  profileRevision: 0,
 });
 const profileAuthority = {
   userId: "user-a",
@@ -183,8 +184,7 @@ test("same-user role transition owns the new authorization-scope profile", async
   await waitFor(() => assert.equal(profileRequests, 2));
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(
-    queryClient.getQueryData<CurrentProfile>(meProfileQueryKey("user-a"))
-      ?.role,
+    queryClient.getQueryData<CurrentProfile>(meProfileQueryKey("user-a"))?.role,
     "teacher",
   );
   window.dispatchEvent(

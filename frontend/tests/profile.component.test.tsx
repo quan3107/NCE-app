@@ -24,6 +24,10 @@ const authState = vi.hoisted(() => ({
   },
   sessionGeneration: 1,
 }));
+const profileState = vi.hoisted(() => ({
+  fullName: "Original Name",
+  profileRevision: 0,
+}));
 
 vi.mock("@store/authStore", () => ({
   useAuthStore: () => ({
@@ -38,22 +42,33 @@ vi.mock("@features/profile/api", () => ({
   useMeProfileQuery: () => ({
     data: {
       id: authState.currentUser.id,
-      fullName: authState.currentUser.name,
+      fullName:
+        profileState.profileRevision > 0 &&
+        authState.currentUser.id === "user-1"
+          ? profileState.fullName
+          : authState.currentUser.name,
       email: authState.currentUser.email,
       role: authState.currentUser.role,
       status: "active",
+      profileRevision: profileState.profileRevision,
     },
   }),
   useUpdateMeProfileMutation: () => ({
-    mutateAsync: saveProfile,
+    mutateAsync: async (payload: { fullName: string }) => {
+      const saved = await saveProfile(payload);
+      if (saved.profileRevision >= profileState.profileRevision) {
+        profileState.fullName = saved.fullName;
+        profileState.profileRevision = saved.profileRevision;
+      }
+      return saved;
+    },
     isPending: false,
     error: null,
   }),
 }));
 
-const { ProfileDetailsCard } = await import(
-  "../src/features/profile/components/ProfileDetailsCard"
-);
+const { ProfileDetailsCard } =
+  await import("../src/features/profile/components/ProfileDetailsCard");
 
 beforeEach(() => {
   authState.currentUser = {
@@ -63,6 +78,8 @@ beforeEach(() => {
     role: "student",
   };
   authState.sessionGeneration = 1;
+  profileState.fullName = "Original Name";
+  profileState.profileRevision = 0;
 });
 
 afterEach(() => {
@@ -77,6 +94,7 @@ test("submits the controlled name and updates the authenticated user", async () 
     email: "student@example.com",
     role: "student",
     status: "active",
+    profileRevision: 1,
   });
   render(<ProfileDetailsCard />);
 
@@ -90,7 +108,10 @@ test("submits the controlled name and updates the authenticated user", async () 
     assert.deepEqual(saveProfile.mock.calls[0]?.[0], {
       fullName: "Updated Name",
     });
-    assert.equal(screen.getByRole("button", { name: "Edit Profile" }).textContent, "Edit Profile");
+    assert.equal(
+      screen.getByRole("button", { name: "Edit Profile" }).textContent,
+      "Edit Profile",
+    );
   });
 });
 
@@ -101,6 +122,7 @@ test("ignores a late save after the authenticated account changes", async () => 
     email: string;
     role: "student";
     status: "active";
+    profileRevision: number;
   }) => void;
   saveProfile.mockReturnValueOnce(
     new Promise((resolve) => {
@@ -131,10 +153,14 @@ test("ignores a late save after the authenticated account changes", async () => 
       email: "student@example.com",
       role: "student",
       status: "active",
+      profileRevision: 1,
     });
   });
 
-  assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "User B");
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "User B",
+  );
 });
 
 test("ignores an older completion when saves resolve in reverse order", async () => {
@@ -145,6 +171,7 @@ test("ignores an older completion when saves resolve in reverse order", async ()
       email: string;
       role: "student";
       status: "active";
+      profileRevision: number;
     }) => void
   > = [];
   saveProfile.mockImplementation(
@@ -159,11 +186,15 @@ test("ignores an older completion when saves resolve in reverse order", async ()
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "First Save" },
   });
-  fireEvent.submit(screen.getByRole("button", { name: "Save Changes" }).closest("form")!);
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Save Changes" }).closest("form")!,
+  );
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Second Save" },
   });
-  fireEvent.submit(screen.getByRole("button", { name: "Save Changes" }).closest("form")!);
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Save Changes" }).closest("form")!,
+  );
 
   await act(async () => {
     resolvers[1]?.({
@@ -172,6 +203,7 @@ test("ignores an older completion when saves resolve in reverse order", async ()
       email: "student@example.com",
       role: "student",
       status: "active",
+      profileRevision: 2,
     });
   });
   await act(async () => {
@@ -181,12 +213,13 @@ test("ignores an older completion when saves resolve in reverse order", async ()
       email: "student@example.com",
       role: "student",
       status: "active",
+      profileRevision: 1,
     });
   });
 
   assert.equal(
-    screen.getByRole("button", { name: "Edit Profile" }).textContent,
-    "Edit Profile",
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "Second Save",
   );
 });
 
@@ -208,7 +241,10 @@ test("synchronizes refreshed names without overwriting a dirty edit", () => {
   authState.currentUser = { ...authState.currentUser, name: "New Server Name" };
   authState.sessionGeneration = 3;
   view.rerender(<ProfileDetailsCard />);
-  assert.equal((screen.getByLabelText("Name") as HTMLInputElement).value, "Dirty Draft");
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "Dirty Draft",
+  );
 
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   assert.equal(

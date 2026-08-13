@@ -10,10 +10,7 @@ import {
 } from "../../prisma/index.js";
 
 import { prisma } from "../../prisma/client.js";
-import {
-  createHttpError,
-  createNotFoundError,
-} from "../../utils/httpError.js";
+import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
 import { writeAuditLog } from "../audit-logs/audit-logs.service.js";
 import { getNavigationForRole } from "../navigation/navigation.service.js";
 import type { NavigationResponse } from "../navigation/navigation.types.js";
@@ -24,6 +21,7 @@ export type MeProfile = {
   fullName: string;
   role: UserRole;
   status: UserStatus;
+  profileRevision: number;
 };
 
 type MeEnrollment = {
@@ -53,10 +51,12 @@ const meProfileSelect = {
   fullName: true,
   role: true,
   status: true,
+  profileRevision: true,
 } as const;
 
 type UpdateMeProfileInput = {
   fullName: string;
+  expectedRevision: number;
 };
 
 export async function updateMeProfile(
@@ -69,9 +69,13 @@ export async function updateMeProfile(
         id: userId,
         deletedAt: null,
         status: UserStatus.active,
+        profileRevision: input.expectedRevision,
         NOT: { fullName: input.fullName },
       },
-      data: { fullName: input.fullName },
+      data: {
+        fullName: input.fullName,
+        profileRevision: { increment: 1 },
+      },
     });
 
     const profile = await transaction.user.findFirst({
@@ -84,6 +88,14 @@ export async function updateMeProfile(
     }
     if (profile.status !== UserStatus.active) {
       throw createHttpError(403, "Active account required.");
+    }
+    const changedAtExpectedRevision =
+      updateResult.count === 1 &&
+      profile.profileRevision === input.expectedRevision + 1;
+    const alreadyHasRequestedName =
+      updateResult.count === 0 && profile.fullName === input.fullName;
+    if (!changedAtExpectedRevision && !alreadyHasRequestedName) {
+      throw createHttpError(409, "Profile changed; reload before saving.");
     }
 
     if (updateResult.count === 1) {
@@ -112,6 +124,7 @@ export async function getMe(userId: string): Promise<MeResponse> {
       fullName: true,
       role: true,
       status: true,
+      profileRevision: true,
       enrollments: {
         where: {
           deletedAt: null,
@@ -166,6 +179,7 @@ export async function getMe(userId: string): Promise<MeResponse> {
       fullName: user.fullName,
       role: user.role,
       status: user.status,
+      profileRevision: user.profileRevision,
     },
     roles: {
       global: user.role,

@@ -45,6 +45,7 @@ export type CurrentProfile = {
   fullName: string;
   role: SupportedRole;
   status: UserStatus;
+  profileRevision: number;
 };
 
 export type RegisterPayload = {

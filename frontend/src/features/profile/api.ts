@@ -23,6 +23,10 @@ export type UpdateMeProfilePayload = {
   fullName: string;
 };
 
+type UpdateMeProfileRequest = UpdateMeProfilePayload & {
+  expectedRevision: number;
+};
+
 type MeResponse = {
   profile: MeProfile;
 };
@@ -37,17 +41,29 @@ export const fetchMeProfile = async (
     auth: "required",
     signal,
   });
-  return response.profile;
+  const current = queryClient.getQueryData<MeProfile>(
+    meProfileQueryKey(response.profile.id),
+  );
+  return newerProfile(current, response.profile);
 };
 
 export const updateMeProfile = async (
-  payload: UpdateMeProfilePayload,
+  payload: UpdateMeProfileRequest,
 ): Promise<MeProfile> =>
-  apiClient<MeProfile, UpdateMeProfilePayload>("/api/v1/me", {
+  apiClient<MeProfile, UpdateMeProfileRequest>("/api/v1/me", {
     auth: "required",
     method: "PATCH",
     body: payload,
   });
+
+const newerProfile = (
+  current: MeProfile | undefined,
+  incoming: MeProfile,
+): MeProfile =>
+  current?.id === incoming.id &&
+  current.profileRevision > incoming.profileRevision
+    ? current
+    : incoming;
 
 export function captureProfileAuthority(): ProfileAuthority | null {
   const snapshot = authBridge.getSnapshot();
@@ -89,7 +105,23 @@ export function useUpdateMeProfileMutation(userId: string) {
       if (!authority || authority.userId !== userId) {
         throw profileAuthorityError();
       }
-      const profile = await updateMeProfile(payload);
+      const queryKey = meProfileQueryKey(userId);
+      const baseline = queryClient.getQueryData<MeProfile>(queryKey);
+      if (!baseline || baseline.id !== authority.userId) {
+        throw new ApiError("Reload your profile before saving.", 0);
+      }
+      let profile: MeProfile;
+      try {
+        profile = await updateMeProfile({
+          ...payload,
+          expectedRevision: baseline.profileRevision,
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          await queryClient.invalidateQueries({ queryKey, exact: true });
+        }
+        throw error;
+      }
       if (
         !isProfileAuthorityCurrent(authority) ||
         profile.id !== authority.userId ||
@@ -104,9 +136,14 @@ export function useUpdateMeProfileMutation(userId: string) {
       const queryKey = meProfileQueryKey(userId);
       await queryClient.cancelQueries({ queryKey, exact: true });
       if (!isProfileAuthorityCurrent(authority)) return;
-      queryClient.setQueryData(queryKey, profile);
+      let accepted = false;
+      queryClient.setQueryData<MeProfile>(queryKey, (current) => {
+        const next = newerProfile(current, profile);
+        accepted = next === profile;
+        return next;
+      });
       if (!isProfileAuthorityCurrent(authority)) return;
-      publishProfileInvalidation({ userId });
+      if (accepted) publishProfileInvalidation({ userId });
     },
   });
   return {

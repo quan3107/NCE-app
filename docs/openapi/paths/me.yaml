@@ -36,7 +36,7 @@ Me:
   patch:
     tags: [me]
     summary: Update the authenticated profile
-    description: Updates the display name only; email changes require a separate verified flow.
+    description: Updates the display name only when expectedRevision is current; email changes require a separate verified flow.
     requestBody:
       required: true
       content:
@@ -70,6 +70,12 @@ Me:
               $ref: '../schemas/common.yaml#/ErrorResponse'
       '404':
         description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '409':
+        description: Profile changed after the client loaded its editable baseline
         content:
           application/json:
             schema:

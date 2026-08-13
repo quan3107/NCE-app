@@ -28,7 +28,7 @@ const updateAsStudent = (userId: string, fullName: string) =>
       userId,
       userRole: "student",
     },
-    () => updateMeProfile(userId, { fullName }),
+    () => updateMeProfile(userId, { fullName, expectedRevision: 0 }),
   );
 
 databaseDescribe("atomic profile updates", () => {
@@ -53,14 +53,14 @@ databaseDescribe("atomic profile updates", () => {
             },
           });
 
-          const response = await request(app)
-            .get("/api/v1/me")
-            .set({
-              "x-user-id": userId,
-              "x-user-role": role,
-              "x-user-status": "active",
-            });
-          expect(response.status).toBe(terminalState === "suspended" ? 403 : 404);
+          const response = await request(app).get("/api/v1/me").set({
+            "x-user-id": userId,
+            "x-user-role": role,
+            "x-user-status": "active",
+          });
+          expect(response.status).toBe(
+            terminalState === "suspended" ? 403 : 404,
+          );
         }
       }
     } finally {
@@ -86,7 +86,10 @@ databaseDescribe("atomic profile updates", () => {
           status: "active",
         },
       });
-      const parsed = updateMeProfileSchema.parse({ fullName });
+      const parsed = updateMeProfileSchema.parse({
+        fullName,
+        expectedRevision: 0,
+      });
 
       await updateAsStudent(userId, parsed.fullName);
 
@@ -135,7 +138,7 @@ databaseDescribe("atomic profile updates", () => {
             "x-user-role": "student",
             "x-user-status": "active",
           })
-          .send({ fullName });
+          .send({ fullName, expectedRevision: 0 });
         expect(response.status).toBe(400);
       }
 
@@ -189,6 +192,51 @@ databaseDescribe("atomic profile updates", () => {
           select: { fullName: true },
         }),
       ).resolves.toEqual({ fullName: "Concurrent Name" });
+    } finally {
+      await owner.auditLog.deleteMany({ where: { actorId: userId } });
+      await owner.user.deleteMany({ where: { id: userId } });
+      await owner.$disconnect();
+      await pool.end();
+    }
+  });
+
+  it("keeps the database winner when a stale profile revision writes later", async () => {
+    const pool = createDatabaseTestOwnerPool();
+    const owner = new PrismaClient({ adapter: new PrismaPg(pool) });
+    const userId = randomUUID();
+    try {
+      await owner.user.create({
+        data: {
+          id: userId,
+          email: `profile-stale-${userId}@example.test`,
+          fullName: "Original Name",
+          role: "student",
+          status: "active",
+        },
+      });
+
+      await updateAsStudent(userId, "Winning Name");
+      await expect(
+        runWithRole(
+          {
+            role: "nce_app_authenticated",
+            userId,
+            userRole: "student",
+          },
+          () =>
+            updateMeProfile(userId, {
+              fullName: "Stale Name",
+              expectedRevision: 0,
+            }),
+        ),
+      ).rejects.toMatchObject({ statusCode: 409 });
+
+      await expect(
+        owner.user.findUnique({
+          where: { id: userId },
+          select: { fullName: true, profileRevision: true },
+        }),
+      ).resolves.toEqual({ fullName: "Winning Name", profileRevision: 1 });
     } finally {
       await owner.auditLog.deleteMany({ where: { actorId: userId } });
       await owner.user.deleteMany({ where: { id: userId } });

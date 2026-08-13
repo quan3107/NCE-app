@@ -8,12 +8,29 @@ import { describe, expect, it } from "vitest";
 import { updateMeProfileSchema } from "../../../src/modules/me/me.schema.js";
 
 describe("updateMeProfileSchema", () => {
+  it("requires a nonnegative expected profile revision", () => {
+    expect(
+      updateMeProfileSchema.parse({
+        fullName: "Ada Lovelace",
+        expectedRevision: 3,
+      }),
+    ).toEqual({ fullName: "Ada Lovelace", expectedRevision: 3 });
+    expect(() =>
+      updateMeProfileSchema.parse({ fullName: "Ada Lovelace" }),
+    ).toThrow();
+  });
+
   it.each([
     ["two code points", "😀😀"],
     ["one hundred code points", "😀".repeat(100)],
     ["interior whitespace", "Ada Lovelace"],
   ])("accepts %s", (_label, fullName) => {
-    expect(updateMeProfileSchema.parse({ fullName })).toEqual({ fullName });
+    expect(
+      updateMeProfileSchema.parse({ fullName, expectedRevision: 0 }),
+    ).toEqual({
+      fullName,
+      expectedRevision: 0,
+    });
   });
 
   it.each([
@@ -29,6 +46,8 @@ describe("updateMeProfileSchema", () => {
     ["tab", "Ada\tLovelace"],
     ["newline", "Ada\nLovelace"],
   ])("rejects %s", (_label, fullName) => {
-    expect(() => updateMeProfileSchema.parse({ fullName })).toThrow();
+    expect(() =>
+      updateMeProfileSchema.parse({ fullName, expectedRevision: 0 }),
+    ).toThrow();
   });
 });

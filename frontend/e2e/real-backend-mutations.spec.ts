@@ -11,6 +11,7 @@ type Profile = {
   fullName: string;
   role: 'admin';
   status: string;
+  profileRevision: number;
 };
 
 type ProfileResponse = { profile: Profile };
@@ -84,6 +85,7 @@ async function restoreUploadLimits(
 test('profile and upload-policy mutations persist and restore', async ({ request }) => {
   let authorization: string | undefined;
   let originalProfile: Profile | undefined;
+  let latestProfileRevision: number | undefined;
   let originalLimits: UploadLimits | undefined;
 
   try {
@@ -106,6 +108,7 @@ test('profile and upload-policy mutations persist and restore', async ({ request
     expect(profileResponse.ok(), 'Profile snapshot failed').toBeTruthy();
     expect(limitsResponse.ok(), 'Upload-limit snapshot failed').toBeTruthy();
     originalProfile = ((await profileResponse.json()) as ProfileResponse).profile;
+    latestProfileRevision = originalProfile.profileRevision;
     originalLimits = (await limitsResponse.json()) as UploadLimits;
 
     const originalStudent = originalLimits.limits.find(
@@ -121,7 +124,10 @@ test('profile and upload-policy mutations persist and restore', async ({ request
     const [profileMutation, limitsMutation] = await Promise.all([
       request.patch(`${apiBaseURL}/me`, {
         headers: { authorization },
-        data: { fullName: mutatedName },
+        data: {
+          fullName: mutatedName,
+          expectedRevision: originalProfile.profileRevision,
+        },
       }),
       request.patch(`${apiBaseURL}/settings/file-upload-limits`, {
         headers: { authorization },
@@ -148,6 +154,7 @@ test('profile and upload-policy mutations persist and restore', async ({ request
     expect(savedLimitsResponse.ok()).toBeTruthy();
     const savedProfile = ((await savedProfileResponse.json()) as ProfileResponse)
       .profile;
+    latestProfileRevision = savedProfile.profileRevision;
     const savedLimits = (await savedLimitsResponse.json()) as UploadLimits;
     expect(savedProfile.fullName).toBe(mutatedName);
     expect(
@@ -155,10 +162,13 @@ test('profile and upload-policy mutations persist and restore', async ({ request
         ?.maxFileSizeMib,
     ).toBe(mutatedLimit);
   } finally {
-    if (authorization && originalProfile) {
+    if (authorization && originalProfile && latestProfileRevision !== undefined) {
       const restoreProfile = await request.patch(`${apiBaseURL}/me`, {
         headers: { authorization },
-        data: { fullName: originalProfile.fullName },
+        data: {
+          fullName: originalProfile.fullName,
+          expectedRevision: latestProfileRevision,
+        },
       });
       expect(restoreProfile.ok(), 'Failed to restore profile').toBeTruthy();
     }

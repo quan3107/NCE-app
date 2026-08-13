@@ -45,7 +45,9 @@ export function useProfileSaveLifecycle({
   setNameError,
   setSaveError,
 }: ProfileSaveLifecycleOptions) {
-  const updateProfile = useUpdateMeProfileMutation(latestIdentity.current.userId);
+  const updateProfile = useUpdateMeProfileMutation(
+    latestIdentity.current.userId,
+  );
   const draftRevision = useRef(0);
 
   const recordDraftChange = () => {
@@ -82,6 +84,12 @@ export function useProfileSaveLifecycle({
       if (!isCurrent()) return;
       if (isTerminalProfileError(error)) {
         endTerminalProfileSession();
+        return;
+      }
+      if (error instanceof ApiError && error.status === 409) {
+        setSaveError(
+          "Your profile changed elsewhere. Review the latest name and try again.",
+        );
         return;
       }
       const fieldError = profileNameFieldError(error);

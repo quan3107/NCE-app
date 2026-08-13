@@ -19,9 +19,8 @@ const prisma = vi.mocked(prismaModule.prisma, true);
 const transactionUserUpdateMany = vi.fn();
 const transactionUserFindFirst = vi.fn();
 const transactionAuditCreate = vi.fn();
-const { getMe, updateMeProfile } = await import(
-  "../../../src/modules/me/me.service.js"
-);
+const { getMe, updateMeProfile } =
+  await import("../../../src/modules/me/me.service.js");
 
 const userId = "7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2";
 
@@ -55,10 +54,12 @@ describe("me.service profile updates", () => {
       fullName: "Updated Name",
       role: "student",
       status: "active",
+      profileRevision: 1,
     });
 
     const result = await updateMeProfile(userId, {
       fullName: "Updated Name",
+      expectedRevision: 0,
     });
 
     expect(transactionUserUpdateMany).toHaveBeenCalledWith({
@@ -66,9 +67,13 @@ describe("me.service profile updates", () => {
         id: userId,
         deletedAt: null,
         status: "active",
+        profileRevision: 0,
         NOT: { fullName: "Updated Name" },
       },
-      data: { fullName: "Updated Name" },
+      data: {
+        fullName: "Updated Name",
+        profileRevision: { increment: 1 },
+      },
     });
     expect(transactionAuditCreate).toHaveBeenCalledWith({
       data: {
@@ -94,11 +99,18 @@ describe("me.service profile updates", () => {
       fullName: "Updated Name",
       role: "student",
       status: "active",
+      profileRevision: 1,
     });
 
     await Promise.all([
-      updateMeProfile(userId, { fullName: "Updated Name" }),
-      updateMeProfile(userId, { fullName: "Updated Name" }),
+      updateMeProfile(userId, {
+        fullName: "Updated Name",
+        expectedRevision: 0,
+      }),
+      updateMeProfile(userId, {
+        fullName: "Updated Name",
+        expectedRevision: 0,
+      }),
     ]);
 
     expect(transactionAuditCreate).toHaveBeenCalledTimes(1);
@@ -109,7 +121,10 @@ describe("me.service profile updates", () => {
     transactionUserFindFirst.mockResolvedValueOnce(null);
 
     await expect(
-      updateMeProfile(userId, { fullName: "Updated Name" }),
+      updateMeProfile(userId, {
+        fullName: "Updated Name",
+        expectedRevision: 0,
+      }),
     ).rejects.toMatchObject({ statusCode: 404 });
 
     expect(transactionAuditCreate).not.toHaveBeenCalled();
@@ -123,12 +138,36 @@ describe("me.service profile updates", () => {
       fullName: "Original Name",
       role: "student",
       status: "suspended",
+      profileRevision: 0,
     });
 
     await expect(
-      updateMeProfile(userId, { fullName: "Updated Name" }),
+      updateMeProfile(userId, {
+        fullName: "Updated Name",
+        expectedRevision: 0,
+      }),
     ).rejects.toMatchObject({ statusCode: 403 });
 
+    expect(transactionAuditCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale profile revision without overwriting the database winner", async () => {
+    transactionUserUpdateMany.mockResolvedValueOnce({ count: 0 });
+    transactionUserFindFirst.mockResolvedValueOnce({
+      id: userId,
+      email: "student@example.com",
+      fullName: "Winning Name",
+      role: "student",
+      status: "active",
+      profileRevision: 2,
+    });
+
+    await expect(
+      updateMeProfile(userId, {
+        fullName: "Stale Name",
+        expectedRevision: 1,
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
     expect(transactionAuditCreate).not.toHaveBeenCalled();
   });
 });

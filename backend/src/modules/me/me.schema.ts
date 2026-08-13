@@ -10,6 +10,7 @@ import { displayNameSchema } from "../../utils/displayNameValidation.js";
 export const updateMeProfileSchema = z
   .object({
     fullName: displayNameSchema,
+    expectedRevision: z.number().int().nonnegative(),
   })
   .strict();
 

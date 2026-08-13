@@ -17,6 +17,7 @@ model User {
   email         String         @unique @db.Citext
   password      String?        @map("password_hash")
   fullName      String         @map("full_name")
+  profileRevision Int          @default(0) @map("profile_revision")
   role          UserRole
   status        UserStatus
   courses       Course[]       @relation("CourseOwner")
