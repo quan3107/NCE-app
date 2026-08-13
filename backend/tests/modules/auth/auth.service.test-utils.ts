@@ -47,6 +47,7 @@ vi.mock("../../../src/config/prismaClient.js", () => {
     user,
     identity,
     authSession,
+    $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(async (callback) =>
       callback({

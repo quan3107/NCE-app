@@ -23,19 +23,28 @@ const BARRIER_LOCK_ID = 2_026_081_301;
 const hashToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
-async function waitForAuthWaiters(
+async function waitForAdvisoryWaiter(
   owner: PrismaClient,
-  queryPattern: string,
-): Promise<void> {
+  blockerPid: number,
+): Promise<number> {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
-    const rows = await owner.$queryRaw<Array<{ waiting: bigint }>>`
-      SELECT count(*)::bigint AS waiting
-      FROM pg_stat_activity
-      WHERE wait_event = 'advisory'
-        AND query ILIKE ${queryPattern}
+    const rows = await owner.$queryRaw<Array<{ waitingPid: number }>>`
+      SELECT waiting.pid::integer AS "waitingPid"
+      FROM pg_locks AS held
+      JOIN pg_locks AS waiting
+        ON waiting.locktype = held.locktype
+       AND waiting.database IS NOT DISTINCT FROM held.database
+       AND waiting.classid IS NOT DISTINCT FROM held.classid
+       AND waiting.objid IS NOT DISTINCT FROM held.objid
+       AND waiting.objsubid IS NOT DISTINCT FROM held.objsubid
+      WHERE held.locktype = 'advisory'
+        AND held.pid = ${blockerPid}
+        AND held.granted
+        AND NOT waiting.granted
+      LIMIT 1
     `;
-    if (Number(rows[0]?.waiting ?? 0) >= 1) return;
+    if (rows[0]) return rows[0].waitingPid;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error("Refresh and logout did not overlap at the family barrier.");
@@ -147,9 +156,9 @@ databaseDescribe("auth session-family serialization", () => {
       `);
 
       refresh = handleSessionRefresh({}, { refreshToken });
-      await waitForAuthWaiters(owner, "%UPDATE%auth_sessions%");
+      const refreshPid = await waitForAdvisoryWaiter(owner, observer.processID);
       logout = handleLogout({}, { refreshToken });
-      await waitForAuthWaiters(owner, "%pg_advisory_xact_lock%");
+      await waitForAdvisoryWaiter(owner, refreshPid);
       await observer.query("SELECT pg_advisory_unlock($1::bigint)", [
         BARRIER_LOCK_ID,
       ]);

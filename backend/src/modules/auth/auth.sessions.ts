@@ -57,7 +57,7 @@ export class RefreshSessionClaimError extends Error {
 
 /** Serialize every state transition for one refresh-token family. */
 export async function lockSessionFamily(familyId: string): Promise<void> {
-  await prisma.$queryRaw(Prisma.sql`
+  await prisma.$executeRaw(Prisma.sql`
     SELECT pg_advisory_xact_lock(hashtextextended(${familyId}, 0))
   `);
 }

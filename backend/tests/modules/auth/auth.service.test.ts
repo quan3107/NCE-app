@@ -472,9 +472,9 @@ describe("auth.service", () => {
     expect(result.accessToken).toBe("signed-access");
     expect(result.refreshToken).toBe(nextTokenBuffer.toString("base64url"));
 
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     expect(prisma.authSession.updateMany).toHaveBeenCalledTimes(1);
-    expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(prisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
       prisma.authSession.updateMany.mock.invocationCallOrder[0] ?? 0,
     );
     const updateArgs = prisma.authSession.updateMany.mock.calls[0]?.[0];
@@ -590,8 +590,8 @@ describe("auth.service", () => {
     await expect(transactionResult).resolves.toMatchObject({
       status: "invalid-refresh-token",
     });
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
       prisma.authSession.updateMany.mock.invocationCallOrder[0] ?? 0,
     );
 
@@ -674,8 +674,8 @@ describe("auth.service", () => {
       { refreshToken: "to-revoke", userAgent: "logout-test" },
     );
 
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
       prisma.authSession.updateMany.mock.invocationCallOrder[0] ?? 0,
     );
 
