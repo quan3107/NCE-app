@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-13:** Added a revision-0-only compatibility phase for already-loaded unversioned profile clients, retained optimistic concurrency for revision-aware clients, and bounded expected revisions to PostgreSQL `INTEGER` in runtime and OpenAPI contracts.
+
 - **2026-08-13:** No backend files changed for the OAuth callback invalidation scheduling correction.
 
 - **2026-08-13:** Executed PostgreSQL session-family advisory locks as raw commands so Prisma does not deserialize the lock function's `void` result, preserving refresh/logout serialization in live database tests.
@@ -174,6 +176,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-13:** Kept protected routes loading throughout joined peer session revalidation, returned only cache-accepted profile mutation results, and made real-backend mutation cleanup revision-aware without masking primary failures.
 
 - **2026-08-13:** Coalesced callback-bootstrap invalidations into the owned OAuth completion and deferred mid-completion revalidation until after lease release, preventing cross-tab catch-up from deadlocking the cookie queue.
 
