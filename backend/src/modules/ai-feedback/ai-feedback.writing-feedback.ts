@@ -40,12 +40,40 @@ type WritingFeedbackRequestOptions = {
   providerTierOverride?: AiConcreteProviderRouteKey;
 };
 
+function promptInputWithProviderTierOverride(
+  context: WritingFeedbackContext,
+  providerTierOverride: AiConcreteProviderRouteKey | undefined,
+) {
+  if (!providerTierOverride) {
+    return context.promptInput;
+  }
+
+  // Keep the hashed context immutable while making the queued route preference explicit.
+  return {
+    ...context.promptInput,
+    assignment: {
+      ...context.promptInput.assignment,
+      config: {
+        ...context.promptInput.assignment.config,
+        aiPolicy: {
+          ...context.promptInput.assignment.config.aiPolicy,
+          providerTier: providerTierOverride,
+        },
+      },
+    },
+  };
+}
+
 async function createWritingDraftForContext(
   context: WritingFeedbackContext,
   options: WritingFeedbackRequestOptions = {},
 ) {
-  const prompt = buildIeltsWritingFeedbackPrompt(context.promptInput);
   const routeKey = options.providerTierOverride ?? context.routeKey;
+  const queuedPromptInput = promptInputWithProviderTierOverride(
+    context,
+    options.providerTierOverride,
+  );
+  const prompt = buildIeltsWritingFeedbackPrompt(queuedPromptInput);
 
   assertAiFeedbackGenerationReady();
 
@@ -90,7 +118,7 @@ async function createWritingDraftForContext(
       harnessInput: {
         fixtureId: `writing-feedback:${context.submission.id}:${context.inputHash}`,
         taskType: "writing_feedback",
-        promptInput: context.promptInput,
+        promptInput: queuedPromptInput,
         routeKey,
       },
     },

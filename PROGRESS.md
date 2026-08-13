@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-13:** Propagated writing regeneration tier overrides into queued provider prompts and synchronized finalized draft reasoning effort with image- or health-selected routes.
+
 - **2026-08-13:** Migrated both AI feedback routes to GPT-5.6 Luna, made automatic IELTS writing feedback prefer premium/high reasoning while preserving objective medium routing, explicit tiers, image capability, health fallback, and the disabled-by-default provider gate.
 
 - **2026-08-13:** Added a revision-0-only compatibility phase for already-loaded unversioned profile clients, retained optimistic concurrency for revision-aware clients, and bounded expected revisions to PostgreSQL `INTEGER` in runtime and OpenAPI contracts.
