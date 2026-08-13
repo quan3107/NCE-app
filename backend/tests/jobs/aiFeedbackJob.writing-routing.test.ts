@@ -12,6 +12,10 @@ import type {
   AiProviderRequest,
   AiProviderResult,
 } from '../../src/modules/ai-feedback/provider.types.js'
+import {
+  sha256,
+  stableJson,
+} from '../../src/modules/ai-feedback/ai-feedback.writing-feedback.support.js'
 import { writingHarnessFixtures } from '../fixtures/ai-feedback/harness/harness.fixtures.js'
 
 vi.mock('../../src/prisma/client.js', () => ({
@@ -78,6 +82,7 @@ type QueuedHarnessInput = {
   routeKey: AiConcreteProviderRouteKey
 }
 type QueuedDraftInput = {
+  inputHash: string
   routeKey: AiConcreteProviderRouteKey
   model: string
   reasoningEffort: string
@@ -132,7 +137,7 @@ function setupWritingContext(
     promptInput,
     routeKey,
     visibilityMode: 'teacher_reviewed',
-    inputHash: 'sha256:writing-input',
+    inputHash: sha256(promptInput),
   } as never)
 
   return promptInput
@@ -199,6 +204,7 @@ describe('writing feedback queue routing', () => {
     vi.clearAllMocks()
     aiFeedbackConfig.enabled = true
     aiFeedbackConfig.apiKey = 'sk-test'
+    aiFeedbackConfig.maxInputChars = 12_000
     prisma.$transaction.mockImplementation(async (callback) => callback(prisma))
     createAiFeedbackDraft.mockImplementation(async (input: unknown) => {
       const data = input as Record<string, unknown>
@@ -229,6 +235,8 @@ describe('writing feedback queue routing', () => {
 
       const draftInput = queuedDraftInput()
       const harnessInput = draftInput.generationJob.harnessInput
+      const originalInputHash = sha256(originalPromptInput)
+      const effectiveInputHash = sha256(harnessInput.promptInput)
       expect(draftInput).toEqual(
         expect.objectContaining({
           routeKey: override,
@@ -241,6 +249,11 @@ describe('writing feedback queue routing', () => {
         .toBe(override)
       expect(originalPromptInput.assignment.config.aiPolicy?.providerTier).toBe(
         assignmentTier,
+      )
+      expect(effectiveInputHash).not.toBe(originalInputHash)
+      expect(draftInput.inputHash).toBe(effectiveInputHash)
+      expect(harnessInput.fixtureId).toBe(
+        `writing-feedback:22222222-2222-4222-8222-222222222222:${effectiveInputHash}`,
       )
 
       const { providers } = await runWritingWorker({
@@ -268,6 +281,30 @@ describe('writing feedback queue routing', () => {
       )
     },
   )
+
+  it('checks an overridden queued prompt against the configured input limit', async () => {
+    const originalPromptInput = setupWritingContext('auto', 'premium')
+    const effectivePromptInput = promptInputWithTier('low_cost')
+    aiFeedbackConfig.maxInputChars = stableJson(originalPromptInput).length
+
+    expect(stableJson(effectivePromptInput).length).toBeGreaterThan(
+      aiFeedbackConfig.maxInputChars,
+    )
+
+    await expect(
+      regenerateAiWritingFeedback(
+        { submissionId: '22222222-2222-4222-8222-222222222222' },
+        { providerTier: 'low_cost' },
+        { id: '11111111-1111-4111-8111-111111111111' } as never,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 413,
+      message: 'AI writing feedback input is too large.',
+    })
+
+    expect(createAiFeedbackDraft).not.toHaveBeenCalled()
+    expect(originalPromptInput.assignment.config.aiPolicy?.providerTier).toBe('auto')
+  })
 
   it('stores high reasoning when image capability routing changes low cost to premium', async () => {
     const visualFixture = writingHarnessFixtures.find(

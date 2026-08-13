@@ -25,9 +25,11 @@ import {
 } from "./ai-feedback.writing-feedback.context.js";
 import {
   assertAiFeedbackGenerationReady,
+  assertPromptInputWithinLimit,
   imageUnavailableFeedback,
   modelForRouteKey,
   reasoningEffortForRouteKey,
+  sha256,
   toWritingFeedbackResponse,
 } from "./ai-feedback.writing-feedback.support.js";
 import type { WritingFeedbackContext } from "./ai-feedback.writing-feedback.types.js";
@@ -73,6 +75,8 @@ async function createWritingDraftForContext(
     context,
     options.providerTierOverride,
   );
+  assertPromptInputWithinLimit(queuedPromptInput);
+  const effectiveInputHash = sha256(queuedPromptInput);
   const prompt = buildIeltsWritingFeedbackPrompt(queuedPromptInput);
 
   assertAiFeedbackGenerationReady();
@@ -88,7 +92,7 @@ async function createWritingDraftForContext(
       provider: aiFeedbackConfig.provider,
       model: modelForRouteKey(routeKey),
       reasoningEffort: reasoningEffortForRouteKey(routeKey),
-      inputHash: context.inputHash,
+      inputHash: effectiveInputHash,
       status: "review_required",
       visibilityMode: "teacher_reviewed",
       generatedFeedback: imageUnavailableFeedback(prompt),
@@ -107,7 +111,7 @@ async function createWritingDraftForContext(
     provider: aiFeedbackConfig.provider,
     model: modelForRouteKey(routeKey),
     reasoningEffort: reasoningEffortForRouteKey(routeKey),
-    inputHash: context.inputHash,
+    inputHash: effectiveInputHash,
     status: "queued",
     visibilityMode: context.visibilityMode,
     generatedFeedback: {
@@ -116,7 +120,7 @@ async function createWritingDraftForContext(
     },
     generationJob: {
       harnessInput: {
-        fixtureId: `writing-feedback:${context.submission.id}:${context.inputHash}`,
+        fixtureId: `writing-feedback:${context.submission.id}:${effectiveInputHash}`,
         taskType: "writing_feedback",
         promptInput: queuedPromptInput,
         routeKey,
