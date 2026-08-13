@@ -60,7 +60,11 @@ vi.mock("@features/profile/api", () => ({
         profileState.fullName = saved.fullName;
         profileState.profileRevision = saved.profileRevision;
       }
-      return saved;
+      return {
+        ...saved,
+        fullName: profileState.fullName,
+        profileRevision: profileState.profileRevision,
+      };
     },
     isPending: false,
     error: null,
@@ -250,5 +254,50 @@ test("synchronizes refreshed names without overwriting a dirty edit", () => {
   assert.equal(
     (screen.getByLabelText("Name") as HTMLInputElement).value,
     "New Server Name",
+  );
+});
+
+test("Cancel keeps a newer peer name when an older PATCH resolves later", async () => {
+  let resolveSave!: (profile: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: "student";
+    status: "active";
+    profileRevision: number;
+  }) => void;
+  saveProfile.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveSave = resolve;
+    }),
+  );
+  const view = render(<ProfileDetailsCard />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Delayed Save" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+  await waitFor(() => assert.equal(saveProfile.mock.calls.length, 1));
+
+  profileState.fullName = "Peer Winner";
+  profileState.profileRevision = 2;
+  view.rerender(<ProfileDetailsCard />);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+  await act(async () => {
+    resolveSave({
+      id: "user-1",
+      fullName: "Delayed Save",
+      email: "student@example.com",
+      role: "student",
+      status: "active",
+      profileRevision: 1,
+    });
+  });
+
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "Peer Winner",
   );
 });

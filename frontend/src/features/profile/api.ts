@@ -148,7 +148,20 @@ export function useUpdateMeProfileMutation(userId: string) {
   });
   return {
     isPending: mutation.isPending,
-    mutateAsync: async (payload: UpdateMeProfilePayload) =>
-      (await mutation.mutateAsync(payload)).profile,
+    mutateAsync: async (payload: UpdateMeProfilePayload) => {
+      const result = await mutation.mutateAsync(payload);
+      const current = queryClient.getQueryData<MeProfile>(
+        meProfileQueryKey(result.authority.userId),
+      );
+      if (
+        !isProfileAuthorityCurrent(result.authority) ||
+        !current ||
+        current.id !== result.authority.userId ||
+        current.role !== result.authority.role
+      ) {
+        throw profileAuthorityError();
+      }
+      return current;
+    },
   };
 }

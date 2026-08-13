@@ -166,7 +166,9 @@ test("a role transition during cache cancellation rejects the old PATCH owner", 
     role: "teacher",
   });
   releaseCancellation();
-  await act(async () => save);
+  await act(async () => {
+    await assert.rejects(save, /ownership changed/i);
+  });
 
   assert.notEqual(
     queryClient.getQueryData<{ fullName: string }>(queryKey)?.fullName,
@@ -250,7 +252,7 @@ test("a delayed older PATCH response cannot overwrite a newer profile revision",
       profileRevision: 1,
     }),
   );
-  await first;
+  const firstResult = await first;
 
   assert.deepEqual(requests, [
     { fullName: "First Save", expectedRevision: 0 },
@@ -260,4 +262,5 @@ test("a delayed older PATCH response cannot overwrite a newer profile revision",
     queryClient.getQueryData<{ fullName: string }>(queryKey)?.fullName,
     "Second Save",
   );
+  assert.equal(firstResult.fullName, "Second Save");
 });
