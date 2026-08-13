@@ -36,7 +36,7 @@ Me:
   patch:
     tags: [me]
     summary: Update the authenticated profile
-    description: Updates the display name only when expectedRevision is current; email changes require a separate verified flow.
+    description: Updates the display name only when expectedRevision is current. For compatibility with already-open legacy clients, omission is accepted only at stored profile revision 0; later unversioned requests conflict. Email changes require a separate verified flow.
     requestBody:
       required: true
       content:

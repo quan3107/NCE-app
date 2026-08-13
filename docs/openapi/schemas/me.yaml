@@ -31,9 +31,11 @@ UpdateMeProfileRequest:
       $ref: './common.yaml#/CanonicalDisplayName'
     expectedRevision:
       type: integer
+      format: int32
       minimum: 0
-      description: Profile revision returned by the latest accepted GET or PATCH.
-  required: [fullName, expectedRevision]
+      maximum: 2147483647
+      description: Profile revision returned by the latest accepted GET or PATCH. Revision-aware clients must send it. During the legacy compatibility phase, omission is accepted only while the stored profile revision is 0; later unversioned requests conflict.
+  required: [fullName]
 
 MeResponse:
   type: object

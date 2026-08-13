@@ -63,7 +63,10 @@ describe("profile OpenAPI contract", () => {
       /MeProfile:[\s\S]*profileRevision:[\s\S]*required: \[id, email, fullName, role, status, profileRevision\]/,
     );
     expect(meSchema).toMatch(
-      /UpdateMeProfileRequest:[\s\S]*expectedRevision:[\s\S]*required: \[fullName, expectedRevision\]/,
+      /UpdateMeProfileRequest:[\s\S]*expectedRevision:[\s\S]*format: int32[\s\S]*maximum: 2147483647[\s\S]*required: \[fullName\]/,
+    );
+    expect(meSchema).toMatch(
+      /omission is accepted only while[\s\S]*revision is 0/i,
     );
     expect(authSchema).toContain(
       "$ref: './common.yaml#/NormalizedDisplayNameInput'",

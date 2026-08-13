@@ -89,6 +89,46 @@ describe("me.service profile updates", () => {
     expect(result.fullName).toBe("Updated Name");
   });
 
+  it("allows one legacy write only while the profile revision is zero", async () => {
+    transactionUserUpdateMany.mockResolvedValueOnce({ count: 1 });
+    transactionUserFindFirst.mockResolvedValueOnce({
+      id: userId,
+      email: "student@example.com",
+      fullName: "Legacy Update",
+      role: "student",
+      status: "active",
+      profileRevision: 1,
+    });
+
+    await updateMeProfile(userId, { fullName: "Legacy Update" });
+
+    expect(transactionUserUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ profileRevision: 0 }),
+      }),
+    );
+  });
+
+  it.each(["Legacy Stale Name", "Modern Winner"])(
+    "rejects a legacy write after a revision-aware update (%s)",
+    async (legacyName) => {
+      transactionUserUpdateMany.mockResolvedValueOnce({ count: 0 });
+      transactionUserFindFirst.mockResolvedValueOnce({
+        id: userId,
+        email: "student@example.com",
+        fullName: "Modern Winner",
+        role: "student",
+        status: "active",
+        profileRevision: 1,
+      });
+
+      await expect(
+        updateMeProfile(userId, { fullName: legacyName }),
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(transactionAuditCreate).not.toHaveBeenCalled();
+    },
+  );
+
   it("emits one audit event for concurrent identical requests", async () => {
     transactionUserUpdateMany
       .mockResolvedValueOnce({ count: 1 })

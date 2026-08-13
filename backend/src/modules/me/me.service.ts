@@ -56,7 +56,7 @@ const meProfileSelect = {
 
 type UpdateMeProfileInput = {
   fullName: string;
-  expectedRevision: number;
+  expectedRevision?: number;
 };
 
 export async function updateMeProfile(
@@ -64,12 +64,15 @@ export async function updateMeProfile(
   input: UpdateMeProfileInput,
 ): Promise<MeProfile> {
   return prisma.$transaction(async (transaction) => {
+    // Compatibility for already-open legacy bundles is intentionally one-shot:
+    // only untouched revision-0 profiles accept an unversioned write.
+    const expectedRevision = input.expectedRevision ?? 0;
     const updateResult = await transaction.user.updateMany({
       where: {
         id: userId,
         deletedAt: null,
         status: UserStatus.active,
-        profileRevision: input.expectedRevision,
+        profileRevision: expectedRevision,
         NOT: { fullName: input.fullName },
       },
       data: {
@@ -91,9 +94,11 @@ export async function updateMeProfile(
     }
     const changedAtExpectedRevision =
       updateResult.count === 1 &&
-      profile.profileRevision === input.expectedRevision + 1;
+      profile.profileRevision === expectedRevision + 1;
     const alreadyHasRequestedName =
-      updateResult.count === 0 && profile.fullName === input.fullName;
+      updateResult.count === 0 &&
+      profile.fullName === input.fullName &&
+      (input.expectedRevision !== undefined || profile.profileRevision === 0);
     if (!changedAtExpectedRevision && !alreadyHasRequestedName) {
       throw createHttpError(409, "Profile changed; reload before saving.");
     }

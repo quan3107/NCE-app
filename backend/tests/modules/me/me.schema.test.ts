@@ -8,15 +8,24 @@ import { describe, expect, it } from "vitest";
 import { updateMeProfileSchema } from "../../../src/modules/me/me.schema.js";
 
 describe("updateMeProfileSchema", () => {
-  it("requires a nonnegative expected profile revision", () => {
+  it("accepts revision-aware and one-shot legacy payloads", () => {
     expect(
       updateMeProfileSchema.parse({
         fullName: "Ada Lovelace",
         expectedRevision: 3,
       }),
     ).toEqual({ fullName: "Ada Lovelace", expectedRevision: 3 });
+    expect(updateMeProfileSchema.parse({ fullName: "Ada Lovelace" })).toEqual({
+      fullName: "Ada Lovelace",
+    });
+  });
+
+  it("rejects revisions outside the PostgreSQL INTEGER range", () => {
     expect(() =>
-      updateMeProfileSchema.parse({ fullName: "Ada Lovelace" }),
+      updateMeProfileSchema.parse({
+        fullName: "Ada Lovelace",
+        expectedRevision: 2_147_483_648,
+      }),
     ).toThrow();
   });
 
