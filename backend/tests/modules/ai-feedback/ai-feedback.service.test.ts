@@ -34,12 +34,12 @@ const baseConfig = {
   healthPath: "/models",
   routes: {
     lowCost: {
-      model: "gpt-5.4-nano",
+      model: "gpt-5.6-luna",
       reasoningEffort: "medium",
       supportsImageInput: false,
     },
     premium: {
-      model: "gpt-5.4-mini",
+      model: "gpt-5.6-luna",
       reasoningEffort: "high",
       supportsImageInput: true,
     },
@@ -66,7 +66,7 @@ describe("ai-feedback.service", () => {
 
     expect(health.status).toBe("disabled");
     expect(health.enabled).toBe(false);
-    expect(health.routes.low_cost.model).toBe("gpt-5.4-nano");
+    expect(health.routes.low_cost.model).toBe("gpt-5.6-luna");
     expect(health.routes.low_cost.supports_image_input).toBe(false);
     expect(health.routes.premium.reasoning_effort).toBe("high");
     expect(health.routes.premium.supports_image_input).toBe(true);

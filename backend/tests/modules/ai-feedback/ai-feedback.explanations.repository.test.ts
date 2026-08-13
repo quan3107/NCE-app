@@ -78,7 +78,7 @@ describe("ai-feedback objective explanations", () => {
       sourceContextHash: "sha256:source",
       routeKey: "low_cost",
       provider: "openai-compatible",
-      model: "gpt-5.4-nano",
+      model: "gpt-5.6-luna",
       generatedExplanation: {
         explanation: "The answer conflicts with paragraph two.",
       },
@@ -155,7 +155,7 @@ describe("ai-feedback objective explanations", () => {
       sourceContextHash: "sha256:source",
       routeKey: "low_cost",
       provider: "openai-compatible",
-      model: "gpt-5.4-nano",
+      model: "gpt-5.6-luna",
       generatedExplanation: {
         explanation: "The answer conflicts with paragraph two.",
       },
@@ -203,7 +203,7 @@ describe("ai-feedback objective explanations", () => {
       sourceContextHash: "sha256:source",
       routeKey: "low_cost",
       provider: "openai-compatible",
-      model: "gpt-5.4-nano",
+      model: "gpt-5.6-luna",
       status: "queued",
       generationJob: {
         harnessInput: objectiveHarnessFixtures[0],
@@ -239,7 +239,7 @@ describe("ai-feedback objective explanations", () => {
         sourceContextHash: "sha256:source",
         routeKey: "low_cost",
         provider: "openai-compatible",
-        model: "gpt-5.4-nano",
+        model: "gpt-5.6-luna",
         status: "queued",
         generationJob: {
           harnessInput: objectiveHarnessFixtures[0],
@@ -269,7 +269,7 @@ describe("ai-feedback objective explanations", () => {
           assignmentId,
           routeKey: "low_cost",
           provider: "openai-compatible",
-          model: "gpt-5.4-nano",
+          model: "gpt-5.6-luna",
           promptVersion: "objective-explanation-v2",
           status: "failed",
           failureCode: "queue_enqueue_failed",
@@ -307,7 +307,7 @@ describe("ai-feedback objective explanations", () => {
       sourceContextHash: "sha256:source",
       routeKey: "low_cost",
       provider: "openai-compatible",
-      model: "gpt-5.4-nano",
+      model: "gpt-5.6-luna",
       status: "queued",
       generationJob: {
         harnessInput: objectiveHarnessFixtures[0],
@@ -338,7 +338,7 @@ describe("ai-feedback objective explanations", () => {
         sourceContextHash: "sha256:source",
         routeKey: "low_cost",
         provider: "openai-compatible",
-        model: "gpt-5.4-nano",
+        model: "gpt-5.6-luna",
         status: "queued",
         generationJob: {
           harnessInput: {
@@ -373,7 +373,7 @@ describe("ai-feedback objective explanations", () => {
         sourceContextHash: "sha256:source",
         routeKey: "low_cost",
         provider: "openai-compatible",
-        model: "gpt-5.4-nano",
+        model: "gpt-5.6-luna",
         generatedExplanation: {},
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
@@ -403,7 +403,7 @@ describe("ai-feedback objective explanations", () => {
       sourceContextHash: "sha256:source",
       routeKey: "low_cost",
       provider: "openai-compatible",
-      model: "gpt-5.4-nano",
+      model: "gpt-5.6-luna",
       generatedExplanation: {},
     });
 

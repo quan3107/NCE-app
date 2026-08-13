@@ -52,7 +52,7 @@ function provider(
     baseUrl: "https://api.openai.com/v1",
     apiKey: "hosted-test-key",
     model: `${routeKey}-model`,
-    reasoningEffort: "none",
+    reasoningEffort: routeKey === "premium" ? "high" : "medium",
     supportsReasoningEffort: true,
     supportsImageInput: routeKey === "premium",
     timeoutMs: 500,
@@ -132,6 +132,7 @@ describe("Task 1 image feedback routing integration", () => {
 
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
     expect(body.model).toBe("premium-model");
+    expect(body.reasoning_effort).toBe("high");
     expect(body.messages[1]).toEqual({
       role: "user",
       content: [

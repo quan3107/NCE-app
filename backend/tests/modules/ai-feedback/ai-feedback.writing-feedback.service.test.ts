@@ -188,9 +188,10 @@ describe('requestAiWritingFeedback', () => {
         requesterId: ownerId,
         gradeId: '66666666-6666-4666-8666-666666666666',
         promptVersion: 'ielts-writing-feedback-v1',
-        routeKey: 'low_cost',
+        routeKey: 'premium',
         provider: 'openai-compatible',
-        model: 'gpt-5.4-nano',
+        model: 'gpt-5.6-luna',
+        reasoningEffort: 'high',
         status: 'queued',
         visibilityMode: 'teacher_reviewed',
         inputHash: expect.stringMatching(/^sha256:/),
@@ -198,7 +199,7 @@ describe('requestAiWritingFeedback', () => {
           harnessInput: expect.objectContaining({
             fixtureId: expect.stringContaining(`writing-feedback:${submissionId}:`),
             taskType: 'writing_feedback',
-            routeKey: 'low_cost',
+            routeKey: 'premium',
             promptInput: expect.objectContaining({
               tasks: expect.objectContaining({
                 task1: expect.objectContaining({
@@ -236,9 +237,9 @@ describe('requestAiWritingFeedback', () => {
           submissionId,
           assignmentId,
           gradeId: '66666666-6666-4666-8666-666666666666',
-          routeKey: 'low_cost',
+          routeKey: 'premium',
           provider: 'openai-compatible',
-          model: 'gpt-5.4-nano',
+          model: 'gpt-5.6-luna',
           promptVersion: 'ielts-writing-feedback-v1',
           status: 'queued',
           visibilityMode: 'teacher_reviewed',
@@ -982,7 +983,7 @@ describe('regenerateAiWritingFeedback', () => {
     expect(createAiFeedbackDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         routeKey: 'premium',
-        model: 'gpt-5.4-mini',
+        model: 'gpt-5.6-luna',
         reasoningEffort: 'high',
         generationJob: {
           harnessInput: expect.objectContaining({

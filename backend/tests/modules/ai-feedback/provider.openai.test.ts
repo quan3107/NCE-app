@@ -26,7 +26,7 @@ function provider(
     routeKey: 'low_cost',
     baseUrl: 'https://provider.example/v1',
     apiKey: 'sk-test',
-    model: 'gpt-5.4-nano',
+    model: 'gpt-5.6-luna',
     reasoningEffort: 'medium',
     supportsReasoningEffort: true,
     supportsImageInput: false,
@@ -57,7 +57,7 @@ describe('OpenAIProvider', () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse(
         {
-          model: 'gpt-5.4-nano',
+          model: 'gpt-5.6-luna',
           choices: [
             {
               message: {
@@ -91,7 +91,7 @@ describe('OpenAIProvider', () => {
 
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))
     expect(body).toMatchObject({
-      model: 'gpt-5.4-nano',
+      model: 'gpt-5.6-luna',
       reasoning_effort: 'medium',
       max_completion_tokens: 600,
       response_format: { type: 'json_object' },
@@ -106,7 +106,7 @@ describe('OpenAIProvider', () => {
     expect(result).toMatchObject({
       rawText: '{"summary":"Use articles with singular count nouns."}',
       parsedJson: { summary: 'Use articles with singular count nouns.' },
-      model: 'gpt-5.4-nano',
+      model: 'gpt-5.6-luna',
       routeKey: 'low_cost',
       latencyMs: expect.any(Number),
       providerRequestId: 'req_123',
@@ -156,7 +156,7 @@ describe('OpenAIProvider', () => {
       provider(responseForModel('student response echoed as model')).generate(
         baseRequest,
       ),
-    ).resolves.toMatchObject({ model: 'gpt-5.4-nano' })
+    ).resolves.toMatchObject({ model: 'gpt-5.6-luna' })
   })
 
   it('omits reasoning effort for providers that do not support it', async () => {

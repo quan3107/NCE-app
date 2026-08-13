@@ -28,7 +28,7 @@ AiFeedbackRouteMetadata:
   properties:
     model:
       type: string
-      example: gpt-5.4-nano
+      example: gpt-5.6-luna
     reasoning_effort:
       $ref: '#/AiReasoningEffort'
     supports_image_input:

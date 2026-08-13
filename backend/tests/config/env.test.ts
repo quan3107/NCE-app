@@ -117,10 +117,10 @@ describe('test environment defaults', () => {
       expect(process.env.AI_MAX_INPUT_CHARS).toBe('12000')
       expect(process.env.AI_MAX_OUTPUT_TOKENS).toBe('1200')
       expect(process.env.AI_HEALTH_PATH).toBe('/models')
-      expect(process.env.AI_LOW_COST_MODEL).toBe('gpt-5.4-nano')
+      expect(process.env.AI_LOW_COST_MODEL).toBe('gpt-5.6-luna')
       expect(process.env.AI_LOW_COST_REASONING_EFFORT).toBe('medium')
       expect(process.env.AI_LOW_COST_SUPPORTS_IMAGE_INPUT).toBe('false')
-      expect(process.env.AI_PREMIUM_MODEL).toBe('gpt-5.4-mini')
+      expect(process.env.AI_PREMIUM_MODEL).toBe('gpt-5.6-luna')
       expect(process.env.AI_PREMIUM_REASONING_EFFORT).toBe('high')
       expect(process.env.AI_PREMIUM_SUPPORTS_IMAGE_INPUT).toBe('true')
       expect(process.env.AI_IMAGE_MAX_BYTES).toBe('20971520')
@@ -192,12 +192,12 @@ describe('test environment defaults', () => {
       healthPath: '/models',
       routes: {
         lowCost: {
-          model: 'gpt-5.4-nano',
+          model: 'gpt-5.6-luna',
           reasoningEffort: 'medium',
           supportsImageInput: false,
         },
         premium: {
-          model: 'gpt-5.4-mini',
+          model: 'gpt-5.6-luna',
           reasoningEffort: 'high',
           supportsImageInput: true,
         },

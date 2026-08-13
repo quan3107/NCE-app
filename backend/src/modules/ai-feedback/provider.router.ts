@@ -130,7 +130,8 @@ function routeCandidates(request: AiProviderRequest): AiConcreteProviderRouteKey
     return ["low_cost", "premium"];
   }
 
-  return ["low_cost", "premium"];
+  // Writing feedback is quality-first by default while retaining low-cost fallback.
+  return ["premium", "low_cost"];
 }
 
 function uniqueRoutes(

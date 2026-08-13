@@ -57,9 +57,10 @@ export function assertAiFeedbackGenerationReady(): void {
 export function routeKeyForWritingFeedback(
   assignmentConfig: WritingAssignmentConfig,
 ): AiConcreteProviderRouteKey {
-  return assignmentConfig.aiPolicy?.providerTier === "premium"
-    ? "premium"
-    : "low_cost";
+  // Only an explicit low-cost policy opts writing out of the quality-first route.
+  return assignmentConfig.aiPolicy?.providerTier === "low_cost"
+    ? "low_cost"
+    : "premium";
 }
 
 export function modelForRouteKey(routeKey: AiConcreteProviderRouteKey): string {

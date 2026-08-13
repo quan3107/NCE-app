@@ -446,7 +446,7 @@ function visualCorpusPrompt(
   })
 }
 
-const gptNanoConciseOutput = writingOutputWith({
+const lunaMediumConciseOutput = writingOutputWith({
   rationale: 'Concise feedback: clear ideas, limited visual detail.',
   strengths: ['Clear central opinion'],
   improvement_areas: ['Add one more quantified comparison'],
@@ -455,7 +455,7 @@ const gptNanoConciseOutput = writingOutputWith({
   confidence: 0.72,
 })
 
-const gptMiniPremiumOutput = writingOutputWith({
+const lunaHighPremiumOutput = writingOutputWith({
   band_estimate: 7.5,
   rationale:
     'Premium route output gives fuller reasoning while preserving the expected JSON schema.',
@@ -492,7 +492,7 @@ const writingRegressionFixtures: AiFeedbackHarnessInput[] = [
   {
     ...writingFixture(
       'strong_instant_visible_writing',
-      gptMiniPremiumOutput,
+      lunaHighPremiumOutput,
       strongInstantVisiblePrompt,
     ),
     routeKey: 'premium',
@@ -554,16 +554,16 @@ const writingRegressionFixtures: AiFeedbackHarnessInput[] = [
   },
   {
     ...writingFixture(
-      'gpt_5_4_nano_concise_writing',
-      gptNanoConciseOutput,
+      'gpt_5_6_luna_medium_writing',
+      lunaMediumConciseOutput,
       averageWritingPrompt,
     ),
     routeKey: 'low_cost',
   },
   {
     ...writingFixture(
-      'gpt_5_4_mini_premium_writing',
-      gptMiniPremiumOutput,
+      'gpt_5_6_luna_high_writing',
+      lunaHighPremiumOutput,
       strongInstantVisiblePrompt,
     ),
     routeKey: 'premium',
