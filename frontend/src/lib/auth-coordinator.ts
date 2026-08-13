@@ -25,6 +25,7 @@ export type AuthAdmission = {
   actorId: string | null;
   revision: number;
   signal: AbortSignal;
+  provenance?: symbol;
 };
 
 type RefreshHandler = () => Promise<RefreshAccessTokenResult>;
@@ -36,6 +37,7 @@ function admissionError(message: string, status: number): Error {
 }
 
 export class AuthCoordinator {
+  private readonly provenance = Symbol('auth-coordinator');
   private state = initialAuthState();
   private requestController = new AbortController();
   private listeners = new Set<Listener>();
@@ -47,6 +49,7 @@ export class AuthCoordinator {
   private resolveReadiness!: () => void;
   private acknowledgedInvalidationEpoch = 0;
   private acknowledgedInvalidationNonces = new Set<string>();
+  private disposed = false;
   private readiness = new Promise<void>((resolve) => {
     this.resolveReadiness = resolve;
   });
@@ -79,21 +82,28 @@ export class AuthCoordinator {
     }
     this.acknowledgedInvalidationNonces.add(invalidation.nonce);
     if (
-      this.acknowledgedInvalidationNonces.size >
-      MAX_ACKNOWLEDGED_INVALIDATIONS
+      this.acknowledgedInvalidationNonces.size > MAX_ACKNOWLEDGED_INVALIDATIONS
     ) {
       const oldest = this.acknowledgedInvalidationNonces.values().next().value;
       if (oldest) this.acknowledgedInvalidationNonces.delete(oldest);
     }
   }
 
+  hasAcknowledgedAuthInvalidation(invalidation: AuthInvalidation): boolean {
+    if (invalidation.epoch < this.acknowledgedInvalidationEpoch) return true;
+    if (invalidation.epoch > this.acknowledgedInvalidationEpoch) return false;
+    return this.acknowledgedInvalidationNonces.has(invalidation.nonce);
+  }
+
   finishBootstrap(): void {
+    if (this.disposed) return;
     if (this.state.status !== 'booting') return;
     this.transition(becomeAnonymous(this.state));
     this.resolveReadiness();
   }
 
   authenticate(accessToken: string, actor: SecurityActor): void {
+    if (this.disposed) return;
     this.abortAuthenticatedRequests();
     this.transition(becomeAuthenticated(this.state, accessToken, actor));
     if (this.state.revision === 1) this.resolveReadiness();
@@ -104,6 +114,7 @@ export class AuthCoordinator {
     expectedActorId: string,
     accessToken: string,
   ): boolean {
+    if (this.disposed) return false;
     const next = rotateAccessToken(
       this.state,
       expectedRevision,
@@ -116,12 +127,16 @@ export class AuthCoordinator {
   }
 
   clear(): void {
+    if (this.disposed) return;
     this.abortAuthenticatedRequests();
     this.transition(becomeAnonymous(this.state));
     this.resolveReadiness();
   }
 
   admit(mode: Exclude<AuthMode, 'none'>): AuthAdmission {
+    if (this.disposed) {
+      throw admissionError('Authentication provider was retired.', 0);
+    }
     if (this.hasUnacknowledgedSharedInvalidation()) {
       this.abortAuthenticatedRequests();
       throw admissionError('Authentication session changed in another tab.', 0);
@@ -138,6 +153,7 @@ export class AuthCoordinator {
         actorId: null,
         revision: this.state.revision,
         signal: this.requestController.signal,
+        provenance: this.provenance,
       };
     }
     return {
@@ -145,10 +161,12 @@ export class AuthCoordinator {
       actorId: this.state.actor.id,
       revision: this.state.revision,
       signal: this.requestController.signal,
+      provenance: this.provenance,
     };
   }
 
   isCurrent(admission: AuthAdmission): boolean {
+    if (this.disposed || admission.provenance !== this.provenance) return false;
     if (this.hasUnacknowledgedSharedInvalidation()) {
       this.abortAuthenticatedRequests();
       return false;
@@ -167,13 +185,23 @@ export class AuthCoordinator {
   }
 
   refresh(): Promise<RefreshAccessTokenResult> {
+    if (this.disposed) return Promise.resolve({ status: 'stale' });
     const revision = this.state.revision;
-    if (this.refreshSlot?.revision === revision) return this.refreshSlot.promise;
+    if (this.refreshSlot?.revision === revision)
+      return this.refreshSlot.promise;
     const promise = this.refreshHandler().finally(() => {
       if (this.refreshSlot?.promise === promise) this.refreshSlot = null;
     });
     this.refreshSlot = { revision, promise };
     return promise;
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.requestController.abort();
+    this.listeners.clear();
+    this.resolveReadiness();
   }
 
   private transition(next: AuthMachineState): void {

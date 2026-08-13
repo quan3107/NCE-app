@@ -11,13 +11,97 @@ process.env.VITE_API_BASE_URL = "http://localhost:4000/api/v1";
 
 type ApiClient = typeof import("../src/lib/apiClient").apiClient;
 type AuthBridge = typeof import("../src/lib/authBridge").authBridge;
+type AuthCoordinatorConstructor =
+  typeof import("../src/lib/auth-coordinator").AuthCoordinator;
 
 let apiClient: ApiClient;
 let authBridge: AuthBridge;
+let AuthCoordinator: AuthCoordinatorConstructor;
 
 before(async () => {
   ({ apiClient } = await import("../src/lib/apiClient"));
   ({ authBridge } = await import("../src/lib/authBridge"));
+  ({ AuthCoordinator } = await import("../src/lib/auth-coordinator"));
+});
+
+test("a remounted provider rejects the retiring provider's matching admission", async () => {
+  const originalFetch = globalThis.fetch;
+  const retiring = new AuthCoordinator();
+  const replacement = new AuthCoordinator();
+  for (const coordinator of [retiring, replacement]) {
+    coordinator.finishBootstrap();
+    coordinator.authenticate("same-token", {
+      id: "same-user",
+      role: "student",
+    });
+  }
+  let resolveResponse!: (response: Response) => void;
+  let markStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  globalThis.fetch = async () =>
+    new Promise<Response>((resolve) => {
+      resolveResponse = resolve;
+      markStarted();
+    });
+  const configure = (coordinator: InstanceType<AuthCoordinatorConstructor>) =>
+    authBridge.configure({
+      admit: (mode) => coordinator.admit(mode),
+      isCurrent: (candidate) => coordinator.isCurrent(candidate),
+      waitUntilReady: () => coordinator.waitUntilReady(),
+      getSnapshot: () => coordinator.getSnapshot(),
+    });
+  configure(retiring);
+
+  try {
+    const request = apiClient("/me", { auth: "required" });
+    await started;
+    configure(replacement);
+    resolveResponse(Response.json({ profile: { id: "same-user" } }));
+
+    await assert.rejects(request, /session changed/i);
+  } finally {
+    retiring.dispose?.();
+    replacement.dispose?.();
+    authBridge.reset();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a reset bridge rejects an authenticated response already in flight", async () => {
+  const originalFetch = globalThis.fetch;
+  const coordinator = new AuthCoordinator();
+  coordinator.finishBootstrap();
+  coordinator.authenticate("token-a", { id: "user-a", role: "student" });
+  let resolveResponse!: (response: Response) => void;
+  let markStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  globalThis.fetch = async () =>
+    new Promise<Response>((resolve) => {
+      resolveResponse = resolve;
+      markStarted();
+    });
+  authBridge.configure({
+    admit: (mode) => coordinator.admit(mode),
+    isCurrent: (candidate) => coordinator.isCurrent(candidate),
+    waitUntilReady: () => coordinator.waitUntilReady(),
+  });
+
+  try {
+    const request = apiClient("/me", { auth: "required" });
+    await started;
+    authBridge.reset();
+    resolveResponse(Response.json({ profile: { id: "user-a" } }));
+
+    await assert.rejects(request, /session changed/i);
+  } finally {
+    coordinator.dispose();
+    authBridge.reset();
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("does not refresh or retry after the initiating session changes", async () => {
@@ -31,7 +115,8 @@ test("does not refresh or retry after the initiating session changes", async () 
     markFetchStarted = resolve;
   });
   let refreshCalls = 0;
-  const requests: Array<{ authorization: string | null; body: string | null }> = [];
+  const requests: Array<{ authorization: string | null; body: string | null }> =
+    [];
 
   globalThis.fetch = async (_input, init) => {
     requests.push({
@@ -80,8 +165,8 @@ test("does not refresh or retry after the initiating session changes", async () 
     await assert.rejects(request, (error: unknown) =>
       Boolean(
         error instanceof Error &&
-          (error as { status?: number }).status === 0 &&
-          /session changed/i.test(error.message),
+        (error as { status?: number }).status === 0 &&
+        /session changed/i.test(error.message),
       ),
     );
     assert.equal(refreshCalls, 0);

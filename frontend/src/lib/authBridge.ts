@@ -4,10 +4,7 @@
  * Why: Allows fetch utilities to retrieve/refresh tokens while the provider controls session state.
  */
 
-import type {
-  AuthAdmission,
-  AuthMode,
-} from './auth-coordinator';
+import type { AuthAdmission, AuthMode } from './auth-coordinator';
 import type { AuthMachineState } from './auth-machine';
 import type { RefreshAccessTokenResult } from './auth-types';
 
@@ -37,7 +34,7 @@ const defaultHandlers = {
       signal: defaultController.signal,
     };
   },
-  isCurrent: (): boolean => true,
+  isCurrent: (): boolean => false,
   getSnapshot: (): AuthMachineState => ({ status: 'booting', revision: 0 }),
 };
 
@@ -48,6 +45,7 @@ let handlers: {
   isCurrent: AdmissionChecker;
   getSnapshot: SnapshotGetter;
 } = { ...defaultHandlers };
+let registration = Symbol('unconfigured-auth-bridge');
 
 export const authBridge = {
   async refreshAccessToken(): Promise<RefreshAccessTokenResult> {
@@ -71,7 +69,8 @@ export const authBridge = {
     admit?: AdmissionGetter;
     isCurrent?: AdmissionChecker;
     getSnapshot?: SnapshotGetter;
-  }): void {
+  }): symbol {
+    registration = Symbol('configured-auth-bridge');
     handlers = {
       refreshAccessToken:
         next.refreshAccessToken ?? handlers.refreshAccessToken,
@@ -80,8 +79,11 @@ export const authBridge = {
       isCurrent: next.isCurrent ?? handlers.isCurrent,
       getSnapshot: next.getSnapshot ?? handlers.getSnapshot,
     };
+    return registration;
   },
-  reset(): void {
+  reset(expectedRegistration?: symbol): void {
+    if (expectedRegistration && expectedRegistration !== registration) return;
+    registration = Symbol('unconfigured-auth-bridge');
     handlers = { ...defaultHandlers };
   },
 };

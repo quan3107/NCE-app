@@ -43,10 +43,7 @@ test('same-actor refresh rotates only the memory token', () => {
   coordinator.authenticate('token-a', { id: 'user-a', role: 'student' });
   const revision = coordinator.getSnapshot().revision;
 
-  assert.equal(
-    coordinator.replaceToken(revision, 'user-a', 'token-a2'),
-    true,
-  );
+  assert.equal(coordinator.replaceToken(revision, 'user-a', 'token-a2'), true);
   assert.equal(coordinator.admit('required').accessToken, 'token-a2');
   assert.equal(coordinator.getSnapshot().revision, revision);
 });
@@ -65,6 +62,19 @@ test('same-actor session replacement aborts older admitted work', () => {
 
   assert.equal(admission.signal.aborted, true);
   assert.equal(coordinator.getSnapshot().revision, revision + 1);
+});
+
+test('disposing a coordinator aborts and retires its admissions', () => {
+  const coordinator = new AuthCoordinator();
+  coordinator.finishBootstrap();
+  coordinator.authenticate('token-a', { id: 'user-a', role: 'student' });
+  const admission = coordinator.admit('required');
+
+  coordinator.dispose();
+
+  assert.equal(admission.signal.aborted, true);
+  assert.equal(coordinator.isCurrent(admission), false);
+  assert.throws(() => coordinator.admit('required'), /retired/i);
 });
 
 test('a newer revision starts a fresh refresh instead of joining stale work', async () => {

@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { useEffect, type PropsWithChildren } from "react";
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import {
   readIndexedDbAuthLease,
@@ -27,7 +27,19 @@ const authResponse = {
   },
 };
 
+const withDeadline = <T,>(promise: Promise<T>): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_resolve, reject) => {
+      setTimeout(
+        () => reject(new Error("OAuth completion remained blocked")),
+        250,
+      );
+    }),
+  ]);
+
 beforeEach(() => {
+  window.history.replaceState({}, "", "/auth/oauth");
   const values = new Map<string, string>();
   Object.defineProperty(window, "localStorage", {
     configurable: true,
@@ -146,7 +158,54 @@ test("OAuth callback child waits for provider bootstrap before admitting refresh
   assert.equal(refreshCalls, 1);
 });
 
+test("persisted acknowledged invalidation cannot queue ahead of its OAuth lease owner", async () => {
+  const expiresAt = Date.now() + 60_000;
+  window.localStorage.setItem(
+    "nce:auth-invalidation",
+    JSON.stringify({
+      schemaVersion: 1,
+      epoch: Date.now(),
+      reason: "server-revalidate",
+      nonce: "persisted-before-oauth-bootstrap",
+    }),
+  );
+  window.sessionStorage.setItem(
+    "nce:auth-cookie-oauth-owner",
+    JSON.stringify({ ownerId: "oauth-owner", expiresAt }),
+  );
+  await writeIndexedDbAuthLease({
+    name: "oauth-reservation",
+    ownerId: "oauth-owner",
+    expiresAt,
+  });
+  let refreshCalls = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        return Response.json(authResponse);
+      }
+      if (path.endsWith("/me")) {
+        return Response.json({ profile: authResponse.user });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const view = renderHook(() => useAuth(), { wrapper });
+
+  await expect(
+    withDeadline(view.result.current.completeGoogleLogin()),
+  ).resolves.toBe("live");
+  assert.equal(refreshCalls, 1);
+});
+
 test("cancelling Google login fences its active cookie refresh", async () => {
+  window.history.replaceState({}, "", "/auth/oauth");
   const expiresAt = Date.now() + 60_000;
   window.sessionStorage.setItem(
     "nce:auth-cookie-oauth-owner",
@@ -158,15 +217,46 @@ test("cancelling Google login fences its active cookie refresh", async () => {
     expiresAt,
   });
   let refreshStarted!: () => void;
-  const started = new Promise<void>((resolve) => { refreshStarted = resolve; });
-  let releaseRefresh!: () => void;
-  const refreshReleased = new Promise<Response>((resolve) => {
-    releaseRefresh = () => resolve(Response.json(authResponse));
+  const started = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
   });
-  vi.stubGlobal("fetch", vi.fn(() => {
-    refreshStarted();
-    return refreshReleased;
-  }));
+  let releaseRefresh!: () => void;
+  let cookieLive = false;
+  let refreshCalls = 0;
+  const requests: string[] = [];
+  const refreshReleased = new Promise<Response>((resolve) => {
+    releaseRefresh = () => {
+      cookieLive = true;
+      resolve(Response.json(authResponse));
+    };
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      requests.push(path);
+      if (path.endsWith("/auth/logout")) {
+        cookieLive = false;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (path.endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        if (refreshCalls === 1) {
+          refreshStarted();
+          return refreshReleased;
+        }
+        return Promise.resolve(
+          cookieLive
+            ? Response.json(authResponse)
+            : Response.json({ message: "Unauthorized" }, { status: 401 }),
+        );
+      }
+      if (path.endsWith("/me")) {
+        return Promise.resolve(Response.json({ profile: authResponse.user }));
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
   const wrapper = ({ children }: PropsWithChildren) => (
     <AuthProvider>{children}</AuthProvider>
   );
@@ -187,6 +277,20 @@ test("cancelling Google login fences its active cookie refresh", async () => {
     );
   });
   assert.equal(view.result.current.isAuthenticated, false);
+
+  window.history.replaceState({}, "", "/");
+  view.unmount();
+  const restored = renderHook(() => useAuth(), { wrapper });
+  await waitFor(() =>
+    assert.equal(restored.result.current.isRestoringSession, false),
+  );
+
+  assert.equal(cookieLive, false);
+  assert.equal(restored.result.current.isAuthenticated, false);
+  assert.equal(
+    requests.filter((path) => path.endsWith("/auth/logout")).length,
+    1,
+  );
 });
 
 test("OAuth completion remains memory-only when legacy storage rejects writes", async () => {

@@ -4,13 +4,7 @@
  * Why: One runtime must own bootstrap, refresh single-flight, transitions, and cancellation.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { apiClient } from './apiClient';
 import { AuthCoordinator } from './auth-coordinator';
@@ -21,11 +15,7 @@ import {
   type AuthCookieOperations,
   type CookieCompensate,
 } from './auth-cookie-operations';
-import {
-  backendUserToLiveUser,
-  enterActorScope,
-  profileFromCache,
-} from './auth-session';
+import { backendUserToLiveUser, enterActorScope, profileFromCache } from './auth-session';
 import type {
   AuthSuccessResponse,
   LiveUser,
@@ -63,8 +53,7 @@ export function useAuthRuntime() {
   const cookieOperations = useMemo(createAuthCookieOperations, []);
   const [snapshot, setSnapshot] = useState(coordinator.getSnapshot());
   const [fallbackUser, setFallbackUser] = useState<LiveUser | null>(null);
-  const activeUserId =
-    snapshot.status === 'authenticated' ? snapshot.actor.id : '';
+  const activeUserId = snapshot.status === 'authenticated' ? snapshot.actor.id : '';
   const applyLiveSession = useCallback(
     (
       payload: AuthSuccessResponse,
@@ -102,9 +91,7 @@ export function useAuthRuntime() {
         const previousRole =
           current.status === 'authenticated' ? current.actor.role : null;
         const invalidation = publishAuthInvalidation(
-          previousRole && previousRole !== user.role
-            ? 'role-change'
-            : 'account-change',
+          previousRole && previousRole !== user.role ? 'role-change' : 'account-change',
         );
         coordinator.acknowledgeAuthInvalidation(invalidation);
       }
@@ -151,12 +138,10 @@ export function useAuthRuntime() {
             signal,
           });
           if (isSuperseded()) {
+            await revokeRotatedCookie(compensate);
             return { status: 'stale' };
           }
-          if (
-            signal.aborted ||
-            !applyLiveSession(payload, expected, true, announce)
-          ) {
+          if (signal.aborted || !applyLiveSession(payload, expected, true, announce)) {
             await revokeRotatedCookie(compensate);
             return { status: 'stale' };
           }
@@ -200,13 +185,17 @@ export function useAuthRuntime() {
     return refreshWith(cookieOperations.runOAuthCompletion, true);
   }, [cookieOperations, coordinator, refreshWith]);
 
-  authBridge.configure({
-    refreshAccessToken: () => coordinator.refresh(),
-    waitUntilReady: () => coordinator.waitUntilReady(),
-    admit: (mode) => coordinator.admit(mode),
-    isCurrent: (admission) => coordinator.isCurrent(admission),
-    getSnapshot: () => coordinator.getSnapshot(),
-  });
+  const bridgeRegistration = useMemo(
+    () =>
+      authBridge.configure({
+        refreshAccessToken: () => coordinator.refresh(),
+        waitUntilReady: () => coordinator.waitUntilReady(),
+        admit: (mode) => coordinator.admit(mode),
+        isCurrent: (admission) => coordinator.isCurrent(admission),
+        getSnapshot: () => coordinator.getSnapshot(),
+      }),
+    [coordinator],
+  );
 
   useEffect(() => coordinator.subscribe(setSnapshot), [coordinator]);
 
@@ -216,6 +205,7 @@ export function useAuthRuntime() {
     let mounted = true;
     const revalidate = async (invalidation: AuthInvalidation) => {
       if (!mounted) return;
+      if (coordinator.hasAcknowledgedAuthInvalidation(invalidation)) return;
       coordinator.acknowledgeAuthInvalidation(invalidation);
       cookieOperations.cancelRefreshes();
       clearSession();
@@ -223,8 +213,8 @@ export function useAuthRuntime() {
       await coordinator.refresh();
     };
     // Subscription performs its catch-up read before bootstrap starts.
-    const unsubscribe = subscribeToAuthInvalidation((invalidation) =>
-      void revalidate(invalidation),
+    const unsubscribe = subscribeToAuthInvalidation(
+      (invalidation) => void revalidate(invalidation),
     );
     removeLegacyAuthSnapshot();
     const initialize = async () => {
@@ -246,9 +236,10 @@ export function useAuthRuntime() {
       unsubscribe();
       cookieOperations.cancelRefreshes();
       cookieOperations.cancelOAuthCompletions();
-      authBridge.reset();
+      coordinator.dispose();
+      authBridge.reset(bridgeRegistration);
     };
-  }, [clearSession, cookieOperations, coordinator]);
+  }, [bridgeRegistration, clearSession, cookieOperations, coordinator]);
 
   const subscribeToProfile = useCallback(
     (listener: () => void) => queryClient.getQueryCache().subscribe(listener),
@@ -258,11 +249,7 @@ export function useAuthRuntime() {
     () => (activeUserId ? profileFromCache(activeUserId) : undefined),
     [activeUserId],
   );
-  const profile = useSyncExternalStore(
-    subscribeToProfile,
-    readProfile,
-    () => undefined,
-  );
+  const profile = useSyncExternalStore(subscribeToProfile, readProfile, () => undefined);
   const liveUser: LiveUser | null =
     snapshot.status === 'authenticated'
       ? {
