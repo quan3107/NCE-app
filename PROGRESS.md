@@ -183,6 +183,8 @@ and
 
 ## Frontend
 
+- **2026-08-13:** Hardened the real-backend storage-denial regression by awaiting auth-runtime subscriptions and keeping peer verification inside coordinated browser auth operations.
+
 - **2026-08-13:** Published a second logout invalidation after server revocation while still holding the cookie lock, clearing fresh peers whose bootstrap refresh queued ahead of logout.
 
 - **2026-08-13:** Kept protected routes loading throughout joined peer session revalidation, returned only cache-accepted profile mutation results, and made real-backend mutation cleanup revision-aware without masking primary failures.
