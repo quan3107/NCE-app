@@ -196,6 +196,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         parseJson: false,
         signal,
       });
+      // A fresh peer can acknowledge the immediate invalidation, then queue a
+      // refresh ahead of this logout. Publish a distinct completion fence while
+      // the revoked cookie is still protected by the cross-tab lock.
+      clearSession('logout');
     });
   }, [clearSession, cookieOperations]);
 

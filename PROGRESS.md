@@ -177,6 +177,8 @@ and
 
 ## Frontend
 
+- **2026-08-13:** Published a second logout invalidation after server revocation while still holding the cookie lock, clearing fresh peers whose bootstrap refresh queued ahead of logout.
+
 - **2026-08-13:** Kept protected routes loading throughout joined peer session revalidation, returned only cache-accepted profile mutation results, and made real-backend mutation cleanup revision-aware without masking primary failures.
 
 - **2026-08-13:** Coalesced callback-bootstrap invalidations into the owned OAuth completion and deferred mid-completion revalidation until after lease release, preventing cross-tab catch-up from deadlocking the cookie queue.
