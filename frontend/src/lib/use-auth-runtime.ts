@@ -12,7 +12,6 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-
 import { apiClient } from './apiClient';
 import { AuthCoordinator } from './auth-coordinator';
 import type { AuthMachineState } from './auth-machine';
@@ -23,12 +22,9 @@ import {
   type CookieCompensate,
 } from './auth-cookie-operations';
 import { backendUserToLiveUser, enterActorScope, profileFromCache } from './auth-session';
-import type {
-  AuthSuccessResponse,
-  LiveUser,
-  RefreshAccessTokenResult,
-} from './auth-types';
+import type { AuthSuccessResponse, LiveUser, RefreshAccessTokenResult } from './auth-types';
 import { useActiveProfileRuntime } from './use-active-profile-runtime';
+import { useSessionRestoreTracker } from './use-session-restore-tracker';
 import { queryClient } from './queryClient';
 import {
   publishAuthInvalidation,
@@ -37,7 +33,6 @@ import {
   type AuthInvalidation,
   type AuthInvalidationReason,
 } from './shared-auth-session';
-
 const isAbortError = (error: unknown): boolean =>
   error instanceof Error && error.name === 'AbortError';
 
@@ -61,6 +56,7 @@ export function useAuthRuntime() {
   const [snapshot, setSnapshot] = useState(coordinator.getSnapshot());
   const [fallbackUser, setFallbackUser] = useState<LiveUser | null>(null);
   const oauthRevalidationRevision = useRef(0);
+  const { isSessionRestoreActive, trackSessionRestore } = useSessionRestoreTracker();
   const activeUserId = snapshot.status === 'authenticated' ? snapshot.actor.id : '';
   const applyLiveSession = useCallback(
     (
@@ -182,9 +178,9 @@ export function useAuthRuntime() {
   coordinator.setRefreshHandler(refreshHandler);
 
   const restoreLiveSession = useCallback(async (): Promise<boolean> => {
-    const result = await coordinator.refresh();
+    const result = await trackSessionRestore(() => coordinator.refresh());
     return result.status === 'refreshed';
-  }, [coordinator]);
+  }, [coordinator, trackSessionRestore]);
 
   const completeOAuthSession = useCallback(async () => {
     // Child callback effects run before this provider's bootstrap effect. Wait
@@ -223,16 +219,22 @@ export function useAuthRuntime() {
       if (coordinator.hasAcknowledgedAuthInvalidation(invalidation)) return;
       coordinator.acknowledgeAuthInvalidation(invalidation);
       cookieOperations.cancelRefreshes();
-      clearSession();
-      if (invalidation.reason === 'logout') return;
+      if (invalidation.reason === 'logout') {
+        clearSession();
+        return;
+      }
       if (
         window.location.pathname === '/auth/oauth' &&
         cookieOperations.hasOwnedOAuthLease()
       ) {
+        clearSession();
         oauthRevalidationRevision.current += 1;
         return;
       }
-      await coordinator.refresh();
+      await trackSessionRestore(async () => {
+        clearSession();
+        await coordinator.refresh();
+      });
     };
     // Subscription performs its catch-up read before bootstrap starts.
     const unsubscribe = subscribeToAuthInvalidation(
@@ -247,7 +249,7 @@ export function useAuthRuntime() {
       if (cookieOperations.hasOwnedOAuthLease()) {
         await cookieOperations.releaseOAuthLease().catch(() => undefined);
       }
-      await coordinator.refresh();
+      await restoreLiveSession();
     };
     void initialize();
     const onPageShow = () => void initialize();
@@ -261,7 +263,7 @@ export function useAuthRuntime() {
       coordinator.dispose();
       authBridge.reset(bridgeRegistration);
     };
-  }, [bridgeRegistration, clearSession, cookieOperations, coordinator]);
+  }, [bridgeRegistration, clearSession, cookieOperations, coordinator, restoreLiveSession, trackSessionRestore]);
 
   const subscribeToProfile = useCallback(
     (listener: () => void) => queryClient.getQueryCache().subscribe(listener),
@@ -291,7 +293,7 @@ export function useAuthRuntime() {
     coordinator,
     cookieOperations,
     completeOAuthSession,
-    isRestoringSession: snapshot.status === 'booting',
+    isRestoringSession: snapshot.status === 'booting' || isSessionRestoreActive,
     restoreLiveSession,
   };
 }

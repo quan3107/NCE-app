@@ -66,7 +66,7 @@ const roleLanding: Record<Role, string> = {
 
 const resolveLanding = (role: Role) => roleLanding[role] ?? '/';
 
-function RequireAuth({ children }: { children: ReactNode }) {
+export function RequireAuth({ children }: { children: ReactNode }) {
   const {
     isAuthenticated,
     isRestoringSession,
