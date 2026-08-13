@@ -5,7 +5,7 @@
  */
 
 import assert from "node:assert/strict";
-import { useEffect, type PropsWithChildren } from "react";
+import { useEffect, useLayoutEffect, type PropsWithChildren } from "react";
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -202,6 +202,147 @@ test("persisted acknowledged invalidation cannot queue ahead of its OAuth lease 
     withDeadline(view.result.current.completeGoogleLogin()),
   ).resolves.toBe("live");
   assert.equal(refreshCalls, 1);
+});
+
+test("render-gap invalidation cannot queue ahead of its OAuth lease owner", async () => {
+  const expiresAt = Date.now() + 60_000;
+  window.sessionStorage.setItem(
+    "nce:auth-cookie-oauth-owner",
+    JSON.stringify({ ownerId: "oauth-owner", expiresAt }),
+  );
+  await writeIndexedDbAuthLease({
+    name: "oauth-reservation",
+    ownerId: "oauth-owner",
+    expiresAt,
+  });
+  let refreshCalls = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        return Response.json(authResponse);
+      }
+      if (path.endsWith("/me")) {
+        return Response.json({ profile: authResponse.user });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  let completion: Promise<"live"> | undefined;
+  function OAuthCallbackChild() {
+    const { completeGoogleLogin } = useAuth();
+    useLayoutEffect(() => {
+      window.localStorage.setItem(
+        "nce:auth-invalidation",
+        JSON.stringify({
+          schemaVersion: 1,
+          epoch: Date.now() + 1,
+          reason: "server-revalidate",
+          nonce: "published-during-render-effect-gap",
+        }),
+      );
+    }, []);
+    useEffect(() => {
+      completion = completeGoogleLogin();
+    }, [completeGoogleLogin]);
+    return null;
+  }
+
+  renderHook(() => null, {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <AuthProvider>
+        <OAuthCallbackChild />
+        {children}
+      </AuthProvider>
+    ),
+  });
+
+  await waitFor(() => assert.ok(completion));
+  await expect(withDeadline(completion!)).resolves.toBe("live");
+  assert.equal(refreshCalls, 1);
+});
+
+test("invalidation during OAuth completion drains only after lease release", async () => {
+  const expiresAt = Date.now() + 60_000;
+  window.sessionStorage.setItem(
+    "nce:auth-cookie-oauth-owner",
+    JSON.stringify({ ownerId: "oauth-owner", expiresAt }),
+  );
+  await writeIndexedDbAuthLease({
+    name: "oauth-reservation",
+    ownerId: "oauth-owner",
+    expiresAt,
+  });
+  let refreshStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
+  });
+  let releaseRefresh!: () => void;
+  let cookieLive = false;
+  let refreshCalls = 0;
+  let logoutCalls = 0;
+  const firstRefresh = new Promise<Response>((resolve) => {
+    releaseRefresh = () => {
+      cookieLive = true;
+      resolve(Response.json(authResponse));
+    };
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        if (refreshCalls === 1) {
+          refreshStarted();
+          return firstRefresh;
+        }
+        return Promise.resolve(
+          cookieLive
+            ? Response.json(authResponse)
+            : Response.json({ message: "Unauthorized" }, { status: 401 }),
+        );
+      }
+      if (path.endsWith("/auth/logout")) {
+        logoutCalls += 1;
+        cookieLive = false;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  const view = renderHook(() => useAuth(), { wrapper });
+  const completion = view.result.current.completeGoogleLogin();
+  await started;
+  const invalidation = JSON.stringify({
+    schemaVersion: 1,
+    epoch: Date.now() + 1,
+    reason: "server-revalidate",
+    nonce: "published-during-oauth-completion",
+  });
+
+  act(() => {
+    window.localStorage.setItem("nce:auth-invalidation", invalidation);
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "nce:auth-invalidation",
+        newValue: invalidation,
+      }),
+    );
+  });
+  releaseRefresh();
+
+  await expect(withDeadline(completion)).rejects.toMatchObject({
+    message: "Unable to finalize Google sign-in. Please try again.",
+  });
+  assert.equal(refreshCalls, 2);
+  assert.equal(logoutCalls, 1);
+  assert.equal(await readIndexedDbAuthLease("oauth-reservation"), null);
 });
 
 test("cancelling Google login fences its active cookie refresh", async () => {

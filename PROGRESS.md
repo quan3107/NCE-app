@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-13:** No backend files changed for the OAuth callback invalidation scheduling correction.
+
 - **2026-08-13:** Executed PostgreSQL session-family advisory locks as raw commands so Prisma does not deserialize the lock function's `void` result, preserving refresh/logout serialization in live database tests.
 
 - **2026-08-13:** Serialized refresh rotation, logout, and reuse revocation through one PostgreSQL session-family lock; committed reuse/claim revocation before returning 401; and added monotonic, conditional profile revisions across Prisma, migration, service, OpenAPI, unit, and database concurrency coverage.
@@ -172,6 +174,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-13:** Coalesced callback-bootstrap invalidations into the owned OAuth completion and deferred mid-completion revalidation until after lease release, preventing cross-tab catch-up from deadlocking the cookie queue.
 
 - **2026-08-13:** No frontend files changed for the backend PostgreSQL advisory-lock adapter correction.
 

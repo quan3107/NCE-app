@@ -4,7 +4,14 @@
  * Why: One runtime must own bootstrap, refresh single-flight, transitions, and cancellation.
  */
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { apiClient } from './apiClient';
 import { AuthCoordinator } from './auth-coordinator';
@@ -53,6 +60,7 @@ export function useAuthRuntime() {
   const cookieOperations = useMemo(createAuthCookieOperations, []);
   const [snapshot, setSnapshot] = useState(coordinator.getSnapshot());
   const [fallbackUser, setFallbackUser] = useState<LiveUser | null>(null);
+  const oauthRevalidationRevision = useRef(0);
   const activeUserId = snapshot.status === 'authenticated' ? snapshot.actor.id : '';
   const applyLiveSession = useCallback(
     (
@@ -182,7 +190,14 @@ export function useAuthRuntime() {
     // Child callback effects run before this provider's bootstrap effect. Wait
     // until bootstrap owns the transition before capturing refresh authority.
     await coordinator.waitUntilReady();
-    return refreshWith(cookieOperations.runOAuthCompletion, true);
+    // Catch-up invalidations observed before this point are incorporated by the
+    // lease owner. Later invalidations must drain only after it releases the lease.
+    const incorporatedRevalidation = oauthRevalidationRevision.current;
+    const result = await refreshWith(cookieOperations.runOAuthCompletion, true);
+    if (oauthRevalidationRevision.current === incorporatedRevalidation) {
+      return result;
+    }
+    return coordinator.refresh();
   }, [cookieOperations, coordinator, refreshWith]);
 
   const bridgeRegistration = useMemo(
@@ -210,6 +225,13 @@ export function useAuthRuntime() {
       cookieOperations.cancelRefreshes();
       clearSession();
       if (invalidation.reason === 'logout') return;
+      if (
+        window.location.pathname === '/auth/oauth' &&
+        cookieOperations.hasOwnedOAuthLease()
+      ) {
+        oauthRevalidationRevision.current += 1;
+        return;
+      }
       await coordinator.refresh();
     };
     // Subscription performs its catch-up read before bootstrap starts.
