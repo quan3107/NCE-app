@@ -23,12 +23,12 @@ const config = {
   healthPath: "/models",
   routes: {
     lowCost: {
-      model: "gpt-5.4-nano",
+      model: "gpt-5.6-luna",
       reasoningEffort: "medium",
       supportsImageInput: false,
     },
     premium: {
-      model: "gpt-5.4-mini",
+      model: "gpt-5.6-luna",
       reasoningEffort: "high",
       supportsImageInput: true,
     },
@@ -72,7 +72,7 @@ describe("createAiProviderRouterFromConfig", () => {
       "https://api.openai.com/v1/chat/completions",
     );
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({
-      model: "gpt-5.4-nano",
+      model: "gpt-5.6-luna",
       reasoning_effort: "medium",
     });
 
@@ -80,7 +80,7 @@ describe("createAiProviderRouterFromConfig", () => {
       "https://api.openai.com/v1/chat/completions",
     );
     expect(JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body))).toMatchObject({
-      model: "gpt-5.4-mini",
+      model: "gpt-5.6-luna",
       reasoning_effort: "high",
     });
 

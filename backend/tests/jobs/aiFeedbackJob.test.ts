@@ -74,7 +74,7 @@ const writingWorkerRecord = {
   promptVersion: "writing-feedback-v1",
   provider: "openai-compatible",
   routeKey: "low_cost",
-  model: "gpt-5.4-nano",
+  model: "gpt-5.6-luna",
 };
 
 const explanationWorkerRecord = {
@@ -84,7 +84,7 @@ const explanationWorkerRecord = {
   promptVersion: "objective-explanation-v2",
   provider: "openai-compatible",
   routeKey: "low_cost",
-  model: "gpt-5.4-nano",
+  model: "gpt-5.6-luna",
 };
 
 describe("jobs.aiFeedbackJob", () => {

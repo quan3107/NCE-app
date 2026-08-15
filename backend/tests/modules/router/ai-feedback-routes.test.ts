@@ -49,11 +49,11 @@ describe("modules.router ai feedback routes", () => {
       },
       routes: {
         low_cost: {
-          model: "gpt-5.4-nano",
+          model: "gpt-5.6-luna",
           reasoning_effort: "medium",
         },
         premium: {
-          model: "gpt-5.4-mini",
+          model: "gpt-5.6-luna",
           reasoning_effort: "high",
         },
       },

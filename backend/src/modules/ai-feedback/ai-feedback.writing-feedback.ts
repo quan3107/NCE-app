@@ -25,9 +25,11 @@ import {
 } from "./ai-feedback.writing-feedback.context.js";
 import {
   assertAiFeedbackGenerationReady,
+  assertPromptInputWithinLimit,
   imageUnavailableFeedback,
   modelForRouteKey,
   reasoningEffortForRouteKey,
+  sha256,
   toWritingFeedbackResponse,
 } from "./ai-feedback.writing-feedback.support.js";
 import type { WritingFeedbackContext } from "./ai-feedback.writing-feedback.types.js";
@@ -40,12 +42,42 @@ type WritingFeedbackRequestOptions = {
   providerTierOverride?: AiConcreteProviderRouteKey;
 };
 
+function promptInputWithProviderTierOverride(
+  context: WritingFeedbackContext,
+  providerTierOverride: AiConcreteProviderRouteKey | undefined,
+) {
+  if (!providerTierOverride) {
+    return context.promptInput;
+  }
+
+  // Keep the hashed context immutable while making the queued route preference explicit.
+  return {
+    ...context.promptInput,
+    assignment: {
+      ...context.promptInput.assignment,
+      config: {
+        ...context.promptInput.assignment.config,
+        aiPolicy: {
+          ...context.promptInput.assignment.config.aiPolicy,
+          providerTier: providerTierOverride,
+        },
+      },
+    },
+  };
+}
+
 async function createWritingDraftForContext(
   context: WritingFeedbackContext,
   options: WritingFeedbackRequestOptions = {},
 ) {
-  const prompt = buildIeltsWritingFeedbackPrompt(context.promptInput);
   const routeKey = options.providerTierOverride ?? context.routeKey;
+  const queuedPromptInput = promptInputWithProviderTierOverride(
+    context,
+    options.providerTierOverride,
+  );
+  assertPromptInputWithinLimit(queuedPromptInput);
+  const effectiveInputHash = sha256(queuedPromptInput);
+  const prompt = buildIeltsWritingFeedbackPrompt(queuedPromptInput);
 
   assertAiFeedbackGenerationReady();
 
@@ -60,7 +92,7 @@ async function createWritingDraftForContext(
       provider: aiFeedbackConfig.provider,
       model: modelForRouteKey(routeKey),
       reasoningEffort: reasoningEffortForRouteKey(routeKey),
-      inputHash: context.inputHash,
+      inputHash: effectiveInputHash,
       status: "review_required",
       visibilityMode: "teacher_reviewed",
       generatedFeedback: imageUnavailableFeedback(prompt),
@@ -79,7 +111,7 @@ async function createWritingDraftForContext(
     provider: aiFeedbackConfig.provider,
     model: modelForRouteKey(routeKey),
     reasoningEffort: reasoningEffortForRouteKey(routeKey),
-    inputHash: context.inputHash,
+    inputHash: effectiveInputHash,
     status: "queued",
     visibilityMode: context.visibilityMode,
     generatedFeedback: {
@@ -88,9 +120,9 @@ async function createWritingDraftForContext(
     },
     generationJob: {
       harnessInput: {
-        fixtureId: `writing-feedback:${context.submission.id}:${context.inputHash}`,
+        fixtureId: `writing-feedback:${context.submission.id}:${effectiveInputHash}`,
         taskType: "writing_feedback",
-        promptInput: context.promptInput,
+        promptInput: queuedPromptInput,
         routeKey,
       },
     },

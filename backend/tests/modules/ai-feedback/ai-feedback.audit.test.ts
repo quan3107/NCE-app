@@ -29,7 +29,7 @@ describe("AI feedback audit contracts", () => {
           questionId: "question-1",
           routeKey: "low_cost",
           provider: "openai-compatible",
-          model: "gpt-5.4-nano",
+          model: "gpt-5.6-luna",
           promptVersion: "objective-explanation-v2",
           status: "completed",
           outputGenerated: true,

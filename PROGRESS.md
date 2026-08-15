@@ -13,6 +13,12 @@ and
 
 ## Backend
 
+- **2026-08-13:** Revalidated and rehashed effective queued writing prompts after regeneration tier overrides so draft and fixture audit metadata matches provider input.
+
+- **2026-08-13:** Propagated writing regeneration tier overrides into queued provider prompts and synchronized finalized draft reasoning effort with image- or health-selected routes.
+
+- **2026-08-13:** Migrated both AI feedback routes to GPT-5.6 Luna, made automatic IELTS writing feedback prefer premium/high reasoning while preserving objective medium routing, explicit tiers, image capability, health fallback, and the disabled-by-default provider gate.
+
 - **2026-08-13:** Added a revision-0-only compatibility phase for already-loaded unversioned profile clients, retained optimistic concurrency for revision-aware clients, and bounded expected revisions to PostgreSQL `INTEGER` in runtime and OpenAPI contracts.
 
 - **2026-08-13:** No backend files changed for the OAuth callback invalidation scheduling correction.
@@ -176,6 +182,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-13:** Hardened the real-backend storage-denial regression by awaiting auth-runtime subscriptions and keeping peer verification inside coordinated browser auth operations.
 
 - **2026-08-13:** Published a second logout invalidation after server revocation while still holding the cookie lock, clearing fresh peers whose bootstrap refresh queued ahead of logout.
 

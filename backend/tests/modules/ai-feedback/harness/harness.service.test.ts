@@ -252,13 +252,13 @@ describe('AI harness regression corpus', () => {
           reasonCode: 'unsupported_evidence',
         }),
         expect.objectContaining({
-          fixtureId: 'gpt_5_4_nano_concise_writing',
+          fixtureId: 'gpt_5_6_luna_medium_writing',
           status: 'accepted',
           reasonCode: 'accepted',
           routeKey: 'low_cost',
         }),
         expect.objectContaining({
-          fixtureId: 'gpt_5_4_mini_premium_writing',
+          fixtureId: 'gpt_5_6_luna_high_writing',
           status: 'accepted',
           reasonCode: 'accepted',
           routeKey: 'premium',

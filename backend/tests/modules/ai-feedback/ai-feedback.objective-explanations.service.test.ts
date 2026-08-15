@@ -145,7 +145,7 @@ describe("requestAiObjectiveExplanation", () => {
         promptVersion: "objective-explanation-v2",
         routeKey: "low_cost",
         provider: "openai-compatible",
-        model: "gpt-5.4-nano",
+        model: "gpt-5.6-luna",
         status: "queued",
         generationJob: {
           harnessInput: expect.objectContaining({
@@ -190,7 +190,7 @@ describe("requestAiObjectiveExplanation", () => {
           assignmentId,
           routeKey: "low_cost",
           provider: "openai-compatible",
-          model: "gpt-5.4-nano",
+          model: "gpt-5.6-luna",
           promptVersion: "objective-explanation-v2",
           status: "queued",
           promptUsed: true,

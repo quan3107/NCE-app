@@ -126,9 +126,10 @@ test('Playwright separates actual-backend, mocked, and synthetic configurations'
   assert.match(realBackendSpec, /PLAYWRIGHT_TEST_PASSWORD/);
   assert.match(realBackendSpec, /\/auth\/login/);
   assert.match(realBackendStorageFailure, /Storage\.prototype\.setItem/);
-  assert.match(realBackendStorageFailure, /pageB\.request\.post/);
-  assert.match(realBackendStorageFailure, /\/auth\/refresh/);
-  assert.match(realBackendStorageFailure, /peerRefresh\.ok\(\)/);
+  assert.match(realBackendStorageFailure, /authBridge\.waitUntilReady\(\)/);
+  assert.match(realBackendStorageFailure, /authBridge\.refreshAccessToken\(\)/);
+  assert.match(realBackendStorageFailure, /apiClient<.*>\(['"]\/me['"]/);
+  assert.doesNotMatch(realBackendStorageFailure, /pageB\.request\.post/);
   assert.doesNotMatch(realBackendStorageFailure, /currentUser/);
   assert.match(realBackendSpec, /\/me/);
   assert.match(realBackendSpec, /Bearer \$\{auth\.accessToken\}/);

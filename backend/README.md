@@ -126,11 +126,12 @@ OpenAI-compatible generation runs only on the backend, using `AI_API_KEY`,
 `AI_BASE_URL`, route model IDs, reasoning efforts, timeout limits, and image
 capability flags from `.env`.
 
-The default routes are `low_cost` (`gpt-5.4-nano`, medium reasoning) and
-`premium` (`gpt-5.4-mini`, high reasoning). Verify the configured model IDs and
-image-input support for the provider account before enabling visual IELTS
-Writing Task 1 feedback. Admins can inspect redacted provider readiness at
-`GET /api/v1/ai-feedback/health`.
+The default routes both use `gpt-5.6-luna`: `low_cost` uses medium reasoning and
+`premium` uses high reasoning. Automatic writing feedback prefers `premium`,
+automatic objective explanations prefer `low_cost`, and required images select
+an image-capable route. Verify model access and image-input support for the
+provider account before enabling visual IELTS Writing Task 1 feedback. Admins
+can inspect redacted provider readiness at `GET /api/v1/ai-feedback/health`.
 
 See `../docs/ai-feedback-setup.md` for setup, disable/fallback behavior, budget
 controls, image policy, and live-provider readiness guidance. See

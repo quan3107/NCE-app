@@ -3,7 +3,7 @@
  * Purpose: Verify browser storage denial cannot block a real memory-only login.
  * Why: Peers must converge through the server cookie without receiving token authority.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const apiBaseURL = (
   process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:4000/api/v1'
@@ -32,6 +32,13 @@ test.beforeAll(async ({ request }) => {
   expect(response.ok()).toBeTruthy();
 });
 
+async function waitForAuthRuntime(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { authBridge } = await import('/src/lib/authBridge.ts');
+    await authBridge.waitUntilReady();
+  });
+}
+
 test('storage write denial preserves login and server-authoritative peer convergence', async ({
   browser,
 }) => {
@@ -41,18 +48,9 @@ test('storage write denial preserves login and server-authoritative peer converg
 
   try {
     await Promise.all([pageA.goto('/login'), pageB.goto('/login')]);
-    const peerBarrier = pageB.evaluate(
-      () =>
-        new Promise<void>((resolve) => {
-          const channel = new BroadcastChannel('nce-auth-session');
-          channel.addEventListener('message', (event) => {
-            if (event.data?.e2eBarrier === true) {
-              channel.close();
-              resolve();
-            }
-          });
-        }),
-    );
+    // Storage denial removes the persisted catch-up path, so both application
+    // subscribers must be ready before the transient invalidation is published.
+    await Promise.all([waitForAuthRuntime(pageA), waitForAuthRuntime(pageB)]);
     await pageA.evaluate(() => {
       Storage.prototype.setItem = () => {
         throw new DOMException('Storage write denied', 'QuotaExceededError');
@@ -76,12 +74,6 @@ test('storage write denial preserves login and server-authoritative peer converg
         }),
       )
       .toBe('student');
-    await pageA.evaluate(() => {
-      const channel = new BroadcastChannel('nce-auth-session');
-      channel.postMessage({ e2eBarrier: true });
-      channel.close();
-    });
-    await peerBarrier;
     await expect
       .poll(() =>
         pageB.evaluate(async () => {
@@ -91,11 +83,19 @@ test('storage write denial preserves login and server-authoritative peer converg
         }),
       )
       .toBe('student');
-    const peerRefresh = await pageB.request.post(`${apiBaseURL}/auth/refresh`, {
-      data: {},
+    const peerVerification = await pageB.evaluate(async () => {
+      const { authBridge } = await import('/src/lib/authBridge.ts');
+      const { apiClient } = await import('/src/lib/apiClient.ts');
+      const refresh = await authBridge.refreshAccessToken();
+      const profile = await apiClient<{ profile: { email: string } }>('/me', {
+        auth: 'required',
+      });
+      return { refreshStatus: refresh.status, email: profile.profile.email };
     });
-    expect(peerRefresh.ok()).toBeTruthy();
-    expect((await peerRefresh.json()).user.email).toBe(student.email);
+    expect(peerVerification).toEqual({
+      refreshStatus: 'refreshed',
+      email: student.email,
+    });
   } finally {
     await context.request.post(`${apiBaseURL}/auth/logout`, { data: {} });
     await context.close();

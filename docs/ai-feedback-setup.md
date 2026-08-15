@@ -17,17 +17,27 @@ before feedback can become visible to a student.
 The first hosted provider is `openai-compatible` with `AI_BASE_URL` defaulting to
 `https://api.openai.com/v1`. Two routes are configured:
 
-| Route | Default model | Default reasoning | Intended use |
-| --- | --- | --- | --- |
-| `low_cost` | `gpt-5.4-nano` | `medium` | Objective explanations and ordinary writing drafts where cost matters. |
-| `premium` | `gpt-5.4-mini` | `high` | Explicit premium requests and image-required writing feedback. |
+| Route      | Default model  | Default reasoning | Intended use                                                                                |
+| ---------- | -------------- | ----------------- | ------------------------------------------------------------------------------------------- |
+| `low_cost` | `gpt-5.6-luna` | `medium`          | Automatic objective explanations and explicit cost-sensitive writing feedback.              |
+| `premium`  | `gpt-5.6-luna` | `high`            | Automatic writing feedback, explicit premium requests, and image-required writing feedback. |
 
-Assignment policy can request `auto`, `low_cost`, or `premium`. In `auto`, the
-current prompt builders pass assignment route preference and image requirements
-to the router. If a request requires image input, the router only uses routes
-marked as image-capable. The router also has internal support for high-stakes,
-retry, and low-confidence escalation if future workers pass those signals, but
-the current generation workers do not send those fields.
+Assignment policy can request `auto`, `low_cost`, or `premium`. With `auto`,
+writing feedback tries `premium` then `low_cost`, while objective explanations
+try `low_cost` then `premium`. Explicit route preferences remain first in their
+candidate order. Unhealthy routes fall back to the next compatible candidate.
+If a request requires image input, the router filters out routes not marked as
+image-capable, so visual Task 1 uses the premium/high route under the safe
+defaults. The router also has internal support for high-stakes, retry, and
+low-confidence escalation if future workers pass those signals, but the current
+generation workers do not send those fields.
+
+The official GPT-5.6 Luna model documentation lists image input, structured
+outputs, and medium and high reasoning effort as supported. Luna is positioned
+for efficient, high-volume workloads, which lets both route tiers retain the
+same JSON-schema and image contracts while varying reasoning effort. Validate
+quality, latency, and token use against the app's IELTS harness before rollout:
+<https://developers.openai.com/api/docs/models/gpt-5.6-luna>.
 
 Before enabling a route in a real environment, confirm that the configured model
 ID exists for the account, supports the requested reasoning effort, and supports
@@ -49,11 +59,11 @@ AI_MAX_INPUT_CHARS=12000
 AI_MAX_OUTPUT_TOKENS=1200
 AI_HEALTH_PATH=/models
 
-AI_LOW_COST_MODEL=gpt-5.4-nano
+AI_LOW_COST_MODEL=gpt-5.6-luna
 AI_LOW_COST_REASONING_EFFORT=medium
 AI_LOW_COST_SUPPORTS_IMAGE_INPUT=false
 
-AI_PREMIUM_MODEL=gpt-5.4-mini
+AI_PREMIUM_MODEL=gpt-5.6-luna
 AI_PREMIUM_REASONING_EFFORT=high
 AI_PREMIUM_SUPPORTS_IMAGE_INPUT=true
 
@@ -102,7 +112,10 @@ Budget controls are layered:
   whitelisting and output-token limits rather than this input-size guard.
 - `AI_MAX_OUTPUT_TOKENS` limits response length.
 - Assignment policy chooses `auto`, `low_cost`, or `premium`.
-- Route defaults keep ordinary objective explanations on the lower-cost route.
+- Route defaults keep objective explanations on medium reasoning while making
+  writing feedback quality-first with high reasoning.
+- High reasoning can increase latency and reasoning-token use; compare harness
+  quality and provider usage before enabling the feature in production.
 - The provider router can escalate retry and low-confidence requests if those
   signals are supplied by future workers.
 

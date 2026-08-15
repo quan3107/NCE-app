@@ -56,18 +56,23 @@ function router(options: Partial<Parameters<typeof createAiProviderRouter>[0]> =
 }
 
 describe("createAiProviderRouter", () => {
-  it("routes objective explanations and first-pass writing feedback to low cost by default", async () => {
+  it("routes auto objective explanations to low cost and auto writing feedback to premium", async () => {
     const setup = router();
 
-    await setup.router.generate({
+    const objectiveResult = await setup.router.generate({
       ...baseRequest,
       routeKey: "auto",
       taskType: "objective_explanation",
     });
-    await setup.router.generate({ ...baseRequest, routeKey: "auto" });
+    const writingResult = await setup.router.generate({
+      ...baseRequest,
+      routeKey: "auto",
+    });
 
-    expect(setup.providers.low_cost.generate).toHaveBeenCalledTimes(2);
-    expect(setup.providers.premium.generate).not.toHaveBeenCalled();
+    expect(objectiveResult.routeKey).toBe("low_cost");
+    expect(writingResult.routeKey).toBe("premium");
+    expect(setup.providers.low_cost.generate).toHaveBeenCalledOnce();
+    expect(setup.providers.premium.generate).toHaveBeenCalledOnce();
   });
 
   it("routes high-stakes, premium policy, and low-confidence retry requests to premium", async () => {
@@ -106,7 +111,7 @@ describe("createAiProviderRouter", () => {
     expect(setup.providers.low_cost.generate).not.toHaveBeenCalled();
   });
 
-  it("falls back from an unhealthy preferred premium route to low cost", async () => {
+  it("falls back from an unhealthy default writing route to low cost", async () => {
     const setup = router({
       health: {
         low_cost: "healthy",
@@ -117,19 +122,39 @@ describe("createAiProviderRouter", () => {
     const result = await setup.router.generate({
       ...baseRequest,
       routeKey: "auto",
-      assignmentPolicy: { preferredRoute: "premium" },
     });
 
     expect(result.routeKey).toBe("low_cost");
     expect(setup.providers.low_cost.generate).toHaveBeenCalledOnce();
   });
 
-  it("delegates explicit concrete route keys without auto policy resolution", async () => {
-    const setup = router();
+  it.each(["low_cost", "premium"] as const)(
+    "delegates an explicit %s route without auto policy resolution",
+    async (routeKey) => {
+      const setup = router();
+
+      const result = await setup.router.generate({
+        ...baseRequest,
+        routeKey,
+      });
+
+      expect(result.routeKey).toBe(routeKey);
+      expect(setup.providers[routeKey].generate).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("falls back from an unhealthy default objective route to premium", async () => {
+    const setup = router({
+      health: {
+        low_cost: "unhealthy",
+        premium: "healthy",
+      },
+    });
 
     const result = await setup.router.generate({
       ...baseRequest,
-      routeKey: "premium",
+      routeKey: "auto",
+      taskType: "objective_explanation",
     });
 
     expect(result.routeKey).toBe("premium");

@@ -15,6 +15,9 @@ import {
   objectiveExplanationJobPayloadSchema,
   writingDraftJobPayloadSchema,
 } from "../modules/ai-feedback/ai-feedback.generationJob.schema.js";
+import {
+  reasoningEffortForRouteKey,
+} from "../modules/ai-feedback/ai-feedback.writing-feedback.support.js";
 import { evaluateAiFeedbackHarness } from "../modules/ai-feedback/harness/harness.service.js";
 import {
   parseObjectiveExplanationOutput,
@@ -285,6 +288,7 @@ export async function processWritingDraftJob(
           status: harnessResult.status,
           routeKey: providerResult.routeKey,
           model: providerResult.model,
+          reasoningEffort: reasoningEffortForRouteKey(providerResult.routeKey),
           ...writingResultData,
           failureCode:
             harnessResult.status === "accepted" ? null : harnessResult.reasonCode,
