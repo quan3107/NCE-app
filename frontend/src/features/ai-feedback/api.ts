@@ -6,7 +6,7 @@
 
 import { useMutation, useQuery, type QueryClient } from '@tanstack/react-query';
 
-import { ApiError, apiClient } from '@lib/apiClient';
+import { ApiError, apiClient, type ApiClientOptions } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
 import type {
   WritingFeedbackApprovalRequest,
@@ -26,14 +26,80 @@ const writingFeedbackHistoryKey = (submissionId: string) =>
 const assignmentWritingFeedbackBatchKey = (assignmentId: string) =>
   ['ai-feedback', 'writing', 'batch', assignmentId] as const;
 
+const writingFeedbackStatuses = new Set<WritingFeedbackResponse['status']>([
+  'queued',
+  'running',
+  'accepted',
+  'review_required',
+  'rejected',
+  'failed',
+  'approved',
+  'finalized',
+  'superseded',
+]);
+const writingFeedbackVisibilityModes = new Set<
+  WritingFeedbackResponse['visibilityMode']
+>(['teacher_reviewed', 'instant_student_visible', 'hidden']);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 const isActiveDraft = (draft: WritingFeedbackResponse | null | undefined) =>
   draft?.status === 'queued' || draft?.status === 'running';
 
-async function fetchWritingFeedbackStatus(
+const isWritingFeedbackResponse = (
+  value: unknown,
+): value is WritingFeedbackResponse =>
+  isRecord(value) &&
+  typeof value.id === 'string' &&
+  typeof value.status === 'string' &&
+  writingFeedbackStatuses.has(value.status as WritingFeedbackResponse['status']) &&
+  typeof value.visibilityMode === 'string' &&
+  writingFeedbackVisibilityModes.has(
+    value.visibilityMode as WritingFeedbackResponse['visibilityMode'],
+  ) &&
+  (value.pollingLocation === undefined ||
+    typeof value.pollingLocation === 'string') &&
+  (value.feedback === undefined || isRecord(value.feedback)) &&
+  (value.failureCode === undefined || typeof value.failureCode === 'string') &&
+  (value.failureMessage === undefined ||
+    typeof value.failureMessage === 'string');
+
+const getTerminalWritingFeedbackFromConflict = (
+  error: unknown,
+): WritingFeedbackResponse | null => {
+  if (
+    error instanceof ApiError &&
+    error.status === 409 &&
+    isWritingFeedbackResponse(error.details) &&
+    !isActiveDraft(error.details)
+  ) {
+    return error.details;
+  }
+
+  return null;
+};
+
+const readWritingFeedback = async <TBody = unknown>(
+  endpoint: string,
+  options: ApiClientOptions<TBody>,
+): Promise<WritingFeedbackResponse> => {
+  try {
+    return await apiClient<WritingFeedbackResponse, TBody>(endpoint, options);
+  } catch (error) {
+    const terminalResponse = getTerminalWritingFeedbackFromConflict(error);
+    if (terminalResponse) {
+      return terminalResponse;
+    }
+    throw error;
+  }
+};
+
+export async function fetchWritingFeedbackStatus(
   submissionId: string,
 ): Promise<WritingFeedbackResponse | null> {
   try {
-    return await apiClient<WritingFeedbackResponse>(
+    return await readWritingFeedback(
       `/api/v1/submissions/${submissionId}/ai-feedback/writing`,
       { auth: 'required' },
     );
@@ -55,8 +121,10 @@ async function fetchWritingFeedbackHistory(
   return response.drafts;
 }
 
-async function requestWritingFeedback(submissionId: string): Promise<WritingFeedbackResponse> {
-  return apiClient<WritingFeedbackResponse>(
+export async function requestWritingFeedback(
+  submissionId: string,
+): Promise<WritingFeedbackResponse> {
+  return readWritingFeedback(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing`,
     { auth: 'required', method: 'POST' },
   );
@@ -81,14 +149,14 @@ export async function requestAssignmentWritingFeedbackBatch({
   );
 }
 
-async function regenerateWritingFeedback({
+export async function regenerateWritingFeedback({
   submissionId,
   payload,
 }: {
   submissionId: string;
   payload?: WritingFeedbackRegenerateRequest;
 }): Promise<WritingFeedbackResponse> {
-  return apiClient<WritingFeedbackResponse, WritingFeedbackRegenerateRequest>(
+  return readWritingFeedback<WritingFeedbackRegenerateRequest>(
     `/api/v1/submissions/${submissionId}/ai-feedback/writing/regenerate`,
     {
       auth: 'required',
