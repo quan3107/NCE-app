@@ -23,6 +23,7 @@ import {
   SANDBOX_IELTS_ASSIGNMENT_SEED_MAP,
 } from '../../src/prisma/seeds/ieltsOfficialFixtures.js'
 import {
+  buildIeltsObjectiveSubmissionPayload,
   PRIMARY_IELTS_WRITING_SUBMISSION_SEED_MAP,
   buildIeltsWritingSubmissionPayload,
 } from '../../src/prisma/seeds/ieltsOfficialSubmissions.js'
@@ -270,6 +271,40 @@ describe('seeded writing submission payloads', () => {
     expect(matchingHeadingsEntry.toLowerCase()).toContain('heading')
     expect(matchingHeadingsEntry.toLowerCase()).not.toContain('comparison')
     expect(matchingHeadingsEntry.toLowerCase()).not.toContain('conclusion')
+  })
+})
+
+describe('seeded objective submission payloads', () => {
+  it('builds schema-valid, source-backed Matching Headings answers', () => {
+    const assignmentConfig = buildPrimaryIeltsAssignmentConfig(
+      'Matching Headings Practice',
+      AssignmentType.reading,
+    )
+    const payload = buildIeltsObjectiveSubmissionPayload(
+      'Matching Headings Practice',
+      assignmentConfig,
+    )
+    const parsed = parseSubmissionPayloadForType(AssignmentType.reading, payload)
+    const evidence = parsed.answers
+      .map((answer) =>
+        getIeltsQuestionScoringEvidence({
+          assignmentType: AssignmentType.reading,
+          assignmentConfig,
+          submissionPayload: payload,
+          questionId: answer.questionId,
+        }),
+      )
+      .find((candidate) => candidate?.sourceEvidenceStatus === 'available')
+    const submittedAnswer = parsed.answers.find(
+      (answer) => answer.questionId === evidence?.questionId,
+    )
+
+    expect(evidence).toMatchObject({
+      questionId: submittedAnswer?.questionId,
+      studentAnswer: submittedAnswer?.value,
+      sourceEvidenceStatus: 'available',
+    })
+    expect(evidence?.sourceEvidenceCandidates.length).toBeGreaterThan(0)
   })
 })
 

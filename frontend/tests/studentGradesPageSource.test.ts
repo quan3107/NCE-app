@@ -9,18 +9,26 @@ test('StudentGradesPage renders IELTS scores without repeated band labels', asyn
     '../src/features/grades/components/StudentGradesPage.tsx',
   );
   const source = await readFile(pagePath, 'utf8');
+  const presentationSource = await readFile(
+    path.resolve(
+      import.meta.dirname,
+      '../src/features/grades/components/StudentGradePresentation.tsx',
+    ),
+    'utf8',
+  );
 
-  assert.match(source, /scoreDisplay\.kind === 'ielts_band'/);
-  assert.match(source, /formatBandScore/);
+  assert.match(source, /scoreSummary/);
+  assert.match(presentationSource, /scoreDisplay\.kind === 'ielts_band'/);
+  assert.match(presentationSource, /formatBandScore/);
   assert.match(
-    source,
+    presentationSource,
     /primary: formatBandScore\(grade\.scoreDisplay\.value\)/,
   );
   assert.match(
-    source,
+    presentationSource,
     /\`\$\{formatBandScore\(item\.points\)\} \/ \$\{formatBandScore\(item\.maxPoints\)\}\`/,
   );
-  assert.match(source, /grade\.scoreDisplay\.kind === 'points'/);
+  assert.match(presentationSource, /grade\.scoreDisplay\.kind === 'points'/);
 });
 
 test('StudentGradesPage renders objective explanation failure messages from the API', async () => {
