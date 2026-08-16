@@ -8,8 +8,11 @@ import { before, test } from 'node:test';
 
 type RequestBatchFn =
   typeof import('../src/features/ai-feedback/api').requestAssignmentWritingFeedbackBatch;
+type InvalidateBatchFn =
+  typeof import('../src/features/ai-feedback/api').invalidateAssignmentWritingFeedbackBatchQueries;
 
 let requestAssignmentWritingFeedbackBatch: RequestBatchFn;
+let invalidateAssignmentWritingFeedbackBatchQueries: InvalidateBatchFn;
 
 before(async () => {
   if (typeof process !== 'undefined' && process.env) {
@@ -18,6 +21,23 @@ before(async () => {
 
   const apiModule = await import('../src/features/ai-feedback/api');
   requestAssignmentWritingFeedbackBatch = apiModule.requestAssignmentWritingFeedbackBatch;
+  invalidateAssignmentWritingFeedbackBatchQueries =
+    apiModule.invalidateAssignmentWritingFeedbackBatchQueries;
+});
+
+test('batch success invalidates assignment submissions and all writing draft queries', () => {
+  const invalidations: unknown[] = [];
+  invalidateAssignmentWritingFeedbackBatchQueries({
+    invalidateQueries: (filters: unknown) => {
+      invalidations.push(filters);
+      return Promise.resolve();
+    },
+  });
+
+  assert.deepEqual(invalidations, [
+    { queryKey: ['assignments:submissions'] },
+    { queryKey: ['ai-feedback', 'writing'], exact: false },
+  ]);
 });
 
 test('requestAssignmentWritingFeedbackBatch posts assignment-scoped submission IDs', async () => {

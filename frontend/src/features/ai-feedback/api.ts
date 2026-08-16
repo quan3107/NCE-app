@@ -4,7 +4,7 @@
  * Why: Keeps teacher review screens decoupled from transport details.
  */
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, type QueryClient } from '@tanstack/react-query';
 
 import { ApiError, apiClient } from '@lib/apiClient';
 import { queryClient } from '@lib/queryClient';
@@ -197,13 +197,17 @@ export function useRequestAssignmentWritingFeedbackBatchMutation({
     mutationKey: assignmentWritingFeedbackBatchKey(assignmentId),
     mutationFn: (payload: WritingFeedbackBatchRequest) =>
       requestAssignmentWritingFeedbackBatch({ courseId, assignmentId, payload }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['assignments:submissions'] });
-      void queryClient.invalidateQueries({
-        queryKey: ['ai-feedback', 'writing'],
-        exact: false,
-      });
-    },
+    onSuccess: () => invalidateAssignmentWritingFeedbackBatchQueries(),
+  });
+}
+
+export function invalidateAssignmentWritingFeedbackBatchQueries(
+  client: Pick<QueryClient, 'invalidateQueries'> = queryClient,
+): void {
+  void client.invalidateQueries({ queryKey: ['assignments:submissions'] });
+  void client.invalidateQueries({
+    queryKey: ['ai-feedback', 'writing'],
+    exact: false,
   });
 }
 
