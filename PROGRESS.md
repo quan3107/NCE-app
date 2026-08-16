@@ -13,6 +13,10 @@ and
 
 ## Backend
 
+- **2026-08-16:** Executed the 125-story E2E inventory against a confirmed disposable PostgreSQL 17 database, then health-checked and live-tested the enabled `gpt-5.6-luna` medium/high AI routes without exposing credentials; verified API/server/database effects and cleanup and documented final totals of 84 PASS, 30 FAIL, 4 BLOCKED, and 7 DECISION-GATED in `docs/e2e-user-stories.md`.
+
+- **2026-08-15:** Documented backend-facing E2E user stories for authentication, authorization, courses, assignments, submissions, grading, AI feedback, notifications, files, NCE learning, CMS, analytics, settings, and audit behavior.
+
 - **2026-08-13:** Revalidated and rehashed effective queued writing prompts after regeneration tier overrides so draft and fixture audit metadata matches provider input.
 
 - **2026-08-13:** Propagated writing regeneration tier overrides into queued provider prompts and synchronized finalized draft reasoning effort with image- or health-selected routes.
@@ -182,6 +186,10 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-16:** Exercised all 125 user stories through the Codex in-app Browser across desktop/mobile public, student, teacher, and admin routes, including bounded live Luna queue, timeout, rejection, regeneration, and student-visibility checks; rechecked observed failures and recorded final totals of 84 PASS, 30 FAIL, 4 BLOCKED, and 7 DECISION-GATED in `docs/e2e-user-stories.md`.
+
+- **2026-08-15:** Documented exhaustive browser E2E user stories for public, student, teacher, and admin journeys, including validation, recovery, accessibility, responsive behavior, and decision-gated gaps.
 
 - **2026-08-13:** Hardened the real-backend storage-denial regression by awaiting auth-runtime subscriptions and keeping peer verification inside coordinated browser auth operations.
 
