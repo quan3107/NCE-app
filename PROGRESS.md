@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-16:** Fixed the live AI-feedback E2E root causes with test-first coverage: seeded Reading/Listening submissions now contain valid objective answers; malformed legacy payloads fail with a safe eligibility conflict; GPT-5.6 Luna keeps medium/high routing with a 60-second provider timeout and a bounded 4,096-token output budget; empty completions retain only safe refusal, response-shape, and token-exhaustion diagnostics; and deterministic review, rejection, regeneration, approval, finalization, and student-visibility workflows remain covered. Full backend tests, lint, focused formatting, OpenAPI validation, and the production build pass; the repository-wide Prettier check remains unusable because it includes 717 pre-existing generated/build formatting violations.
+
 - **2026-08-16:** Executed the 125-story E2E inventory against a confirmed disposable PostgreSQL 17 database, then health-checked and live-tested the enabled `gpt-5.6-luna` medium/high AI routes without exposing credentials; verified API/server/database effects and cleanup and documented final totals of 84 PASS, 30 FAIL, 4 BLOCKED, and 7 DECISION-GATED in `docs/e2e-user-stories.md`.
 
 - **2026-08-15:** Documented backend-facing E2E user stories for authentication, authorization, courses, assignments, submissions, grading, AI feedback, notifications, files, NCE learning, CMS, analytics, settings, and audit behavior.
@@ -186,6 +188,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-16:** Added test-driven AI-feedback recovery UI: objective Explain actions now appear only for structured submitted answers, teachers can batch-queue Writing drafts by ungraded, submitted, or explicit eligible selection with scoped counts and duplicate/pending protection, and completed reviewable and instant-provisional drafts retain edit/use/reject/regenerate/approve/finalize behavior and student visibility boundaries. Full frontend tests, component tests, lint, typecheck, and the production build pass.
 
 - **2026-08-16:** Exercised all 125 user stories through the Codex in-app Browser across desktop/mobile public, student, teacher, and admin routes, including bounded live Luna queue, timeout, rejection, regeneration, and student-visibility checks; rechecked observed failures and recorded final totals of 84 PASS, 30 FAIL, 4 BLOCKED, and 7 DECISION-GATED in `docs/e2e-user-stories.md`.
 
