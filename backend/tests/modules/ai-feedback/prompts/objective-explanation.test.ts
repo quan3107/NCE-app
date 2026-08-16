@@ -37,10 +37,28 @@ describe('buildObjectiveExplanationPrompt', () => {
 
     const messages = JSON.stringify(prompt.request.messages)
 
-    expect(prompt.promptVersion).toBe('objective-explanation-v2')
+    expect(prompt.promptVersion).toBe('objective-explanation-v3')
     expect(prompt.request).toMatchObject({
       taskType: 'objective_explanation',
       expectJson: true,
+      jsonSchema: {
+        name: 'objective_explanation',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'result',
+            'short_explanation',
+            'evidence',
+            'misconception',
+            'study_tip',
+          ],
+          properties: {
+            result: { type: 'string', enum: ['incorrect'] },
+          },
+        },
+      },
       temperature: 0,
       assignmentPolicy: {
         highStakes: false,
@@ -48,6 +66,7 @@ describe('buildObjectiveExplanationPrompt', () => {
       },
     })
     expect(messages).toContain('never override the answer key')
+    expect(messages).toContain('copy deterministic_result exactly')
     expect(messages).toContain('exact quote')
     expect(messages.toLowerCase()).not.toContain('ellips')
     expect(messages).toContain('Rising transport costs')

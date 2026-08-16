@@ -118,6 +118,32 @@ describe('OpenAIProvider', () => {
     })
   })
 
+  it('uses strict structured output when a response JSON schema is supplied', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        choices: [{ message: { content: '{"result":"correct"}' } }],
+      }),
+    )
+    const jsonSchema = {
+      name: 'objective_explanation',
+      strict: true,
+      schema: {
+        type: 'object',
+        properties: { result: { type: 'string', enum: ['correct'] } },
+        required: ['result'],
+        additionalProperties: false,
+      },
+    }
+
+    await provider(fetchImpl).generate({ ...baseRequest, jsonSchema })
+
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))
+    expect(body.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: jsonSchema,
+    })
+  })
+
   it('accepts structured content arrays from provider responses', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse({

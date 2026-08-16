@@ -135,7 +135,7 @@ describe('evaluateAiFeedbackHarness', () => {
     ).toMatchObject({
       status: 'accepted',
       reasonCode: 'accepted',
-      promptVersion: 'objective-explanation-v2',
+      promptVersion: 'objective-explanation-v3',
     })
 
     expect(

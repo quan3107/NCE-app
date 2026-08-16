@@ -156,6 +156,9 @@ AI output is always a draft until product policy allows visibility:
   layer.
 - Reading and listening AI explains deterministic scoring only. It must not
   change answer keys or override the deterministic result.
+- Objective explanation prompt v3 uses a strict response schema whose `result`
+  enum contains only the server-computed result; the parser still rejects any
+  incompatible output before persistence.
 - Speaking AI is deferred and should remain disabled in first-release
   operations.
 

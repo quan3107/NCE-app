@@ -164,7 +164,12 @@ export class OpenAIProvider implements AiProvider {
       body.reasoning_effort = this.reasoningEffort
     }
 
-    if (request.expectJson) {
+    if (request.jsonSchema) {
+      body.response_format = {
+        type: 'json_schema',
+        json_schema: request.jsonSchema,
+      }
+    } else if (request.expectJson) {
       body.response_format = { type: 'json_object' }
     }
 
