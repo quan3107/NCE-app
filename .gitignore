@@ -86,3 +86,4 @@ docs/*
 !docs/ai-feedback-prompts.md
 !docs/ai-feedback-setup.md
 !docs/npm-security-update-path-2026-05-25.md
+!docs/e2e-user-stories.md
