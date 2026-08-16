@@ -333,6 +333,117 @@ describe('OpenAIProvider', () => {
     })
   })
 
+  it('classifies output-budget exhaustion without retaining provider content', async () => {
+    await expect(
+      provider(
+        vi.fn().mockResolvedValue(
+          jsonResponse({
+            choices: [
+              {
+                finish_reason: 'length',
+                message: { content: null },
+              },
+            ],
+            usage: {
+              completion_tokens: 600,
+              completion_tokens_details: { reasoning_tokens: 590 },
+            },
+          }),
+        ),
+      ).generate(baseRequest),
+    ).rejects.toMatchObject({
+      code: 'output_budget_exhausted',
+      retryable: true,
+      details: {
+        finishReason: 'length',
+        refusalPresent: false,
+        completionTokens: 600,
+        reasoningTokens: 590,
+        maxOutputTokens: 600,
+      },
+    })
+  })
+
+  it('classifies refusals with a bounded category and no refusal prose', async () => {
+    let caught: unknown
+    try {
+      await provider(
+        vi.fn().mockResolvedValue(
+          jsonResponse({
+            choices: [
+              {
+                finish_reason: 'stop',
+                message: {
+                  content: '',
+                  refusal: 'Private provider refusal prose must not be retained.',
+                },
+              },
+            ],
+          }),
+        ),
+      ).generate(baseRequest)
+    } catch (error) {
+      caught = error
+    }
+
+    expect(caught).toMatchObject({
+      code: 'refusal',
+      retryable: false,
+      details: {
+        finishReason: 'stop',
+        refusalPresent: true,
+        refusalCategory: 'unspecified',
+      },
+    })
+    expect(JSON.stringify(caught)).not.toContain('Private provider refusal prose')
+  })
+
+  it('distinguishes malformed success shapes from empty message content', async () => {
+    await expect(
+      provider(vi.fn().mockResolvedValue(jsonResponse({ choices: [] }))).generate(
+        baseRequest,
+      ),
+    ).rejects.toMatchObject({
+      code: 'malformed_response',
+      retryable: false,
+      details: {
+        finishReason: 'missing',
+        refusalPresent: false,
+      },
+    })
+  })
+
+  it('classifies genuinely empty content with safe completion metadata', async () => {
+    await expect(
+      provider(
+        vi.fn().mockResolvedValue(
+          jsonResponse({
+            choices: [
+              {
+                finish_reason: 'stop',
+                message: { content: '   ' },
+              },
+            ],
+            usage: {
+              completion_tokens: 4,
+              completion_tokens_details: { reasoning_tokens: 0 },
+            },
+          }),
+        ),
+      ).generate(baseRequest),
+    ).rejects.toMatchObject({
+      code: 'empty_content',
+      retryable: true,
+      details: {
+        finishReason: 'stop',
+        refusalPresent: false,
+        completionTokens: 4,
+        reasoningTokens: 0,
+        maxOutputTokens: 600,
+      },
+    })
+  })
+
   it.each([
     ['timeout', () => Object.assign(new Error('aborted'), { name: 'AbortError' })],
     [

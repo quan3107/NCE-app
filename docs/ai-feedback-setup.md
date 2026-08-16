@@ -54,9 +54,9 @@ AI_FEEDBACK_ENABLED=true
 AI_PROVIDER=openai-compatible
 AI_BASE_URL=https://api.openai.com/v1
 AI_API_KEY=sk-...
-AI_TIMEOUT_MS=10000
+AI_TIMEOUT_MS=60000
 AI_MAX_INPUT_CHARS=12000
-AI_MAX_OUTPUT_TOKENS=1200
+AI_MAX_OUTPUT_TOKENS=4096
 AI_HEALTH_PATH=/models
 
 AI_LOW_COST_MODEL=gpt-5.6-luna
@@ -100,17 +100,19 @@ new route for production-quality feedback.
 
 ## Latency, Timeouts, Rate Limits, and Budgets
 
-`AI_TIMEOUT_MS` caps provider calls and health probes. The default is 10 seconds,
-which keeps classroom workflows responsive but may be too short for large
-Writing Task 1 plus Task 2 payloads. Increase cautiously and keep teacher review
-as the fallback for slow or failed jobs.
+`AI_TIMEOUT_MS` caps provider calls and health probes. The default is exactly 60
+seconds so high-reasoning Writing Task 1 plus Task 2 requests have a bounded
+completion window. Keep teacher review as the fallback for slow or failed jobs.
 
 Budget controls are layered:
 
 - `AI_MAX_INPUT_CHARS` rejects oversized IELTS writing feedback prompt inputs
   before provider calls. Objective explanations currently rely on prompt
   whitelisting and output-token limits rather than this input-size guard.
-- `AI_MAX_OUTPUT_TOKENS` limits response length.
+- `AI_MAX_OUTPUT_TOKENS` defaults to a bounded 4,096-token completion budget.
+  This leaves room for high-reasoning tokens plus the required five-criterion
+  structured writing-feedback object; budget exhaustion is classified without
+  retaining provider output.
 - Assignment policy chooses `auto`, `low_cost`, or `premium`.
 - Route defaults keep objective explanations on medium reasoning while making
   writing feedback quality-first with high reasoning.
