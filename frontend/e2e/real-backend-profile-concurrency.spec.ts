@@ -46,6 +46,34 @@ async function openEditor(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Edit Profile' }).click();
 }
 
+async function loginWithPassword(page: Page, email: string, userPassword: string) {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(userPassword);
+  await page.getByRole('button', { name: 'Sign In' }).click();
+}
+
+async function removeDisposableUser(email: string): Promise<void> {
+  const { basePrisma, shutdownPrisma } = await import(
+    '../../backend/src/prisma/client.ts'
+  );
+  try {
+    const user = await basePrisma.user.findUnique({ where: { email } });
+    if (!user) return;
+    await basePrisma.$transaction(async (tx) => {
+      await tx.auditLog.updateMany({
+        where: { actorId: user.id },
+        data: { actorId: null },
+      });
+      await tx.authSession.deleteMany({ where: { userId: user.id } });
+      await tx.identity.deleteMany({ where: { userId: user.id } });
+      await tx.user.delete({ where: { id: user.id } });
+    });
+  } finally {
+    await shutdownPrisma();
+  }
+}
+
 test('a stale tab preserves its draft and must reload before retrying', async ({
   browser,
 }) => {
@@ -144,5 +172,85 @@ test('a stale tab preserves its draft and must reload before retrying', async ({
     if (original) await restoreProfile(pageA, original);
     await context.request.post(`${apiBaseURL}/auth/logout`, { data: {} });
     await context.close();
+  }
+});
+
+test('admin suspension and deletion end an active profile editing session', async ({
+  browser,
+}) => {
+  test.slow();
+  expect(password, 'PLAYWRIGHT_TEST_PASSWORD is required.').not.toBe('');
+  const suffix = Date.now().toString(36);
+  const email = `auth-terminal-${suffix}@example.test`;
+  const originalName = `Terminal User ${suffix}`;
+  const userContext = await browser.newContext();
+  const adminContext = await browser.newContext();
+  const userPage = await userContext.newPage();
+  const adminPage = await adminContext.newPage();
+
+  try {
+    await userPage.goto('/register');
+    await userPage.getByLabel('Full Name').fill(originalName);
+    await userPage.getByLabel('Email').fill(email);
+    await userPage.getByRole('combobox', { name: 'I am a...' }).click();
+    await userPage.getByRole('option', { name: 'Student' }).click();
+    await userPage.getByLabel('Password', { exact: true }).fill(password);
+    await userPage.getByLabel('Confirm Password').fill(password);
+    await userPage.getByRole('checkbox', { name: /terms and conditions/i }).check();
+    await userPage.getByRole('button', { name: 'Create Account' }).click();
+    await expect(userPage).toHaveURL(/\/student\/(dashboard|profile)$/);
+
+    await openEditor(userPage);
+    await userPage.getByLabel('Name').fill(`Suspended Draft ${suffix}`);
+
+    await loginWithPassword(adminPage, 'rosa.admin@ielts.local', password);
+    await expect(adminPage).toHaveURL(/\/admin\/dashboard$/);
+    await adminPage.goto('/admin/users');
+    await adminPage.getByPlaceholder('Search users...').fill(email);
+    const userRow = adminPage.getByRole('row').filter({ hasText: email });
+    await expect(userRow).toBeVisible();
+    await userRow.getByRole('button', { name: 'Suspend' }).click();
+    await expect(userRow).toContainText('Suspended');
+
+    const suspendedPatch = userPage.waitForResponse(
+      (response) =>
+        response.url() === `${apiBaseURL}/me` &&
+        response.request().method() === 'PATCH',
+    );
+    await userPage.getByRole('button', { name: 'Save Changes' }).click();
+    expect([401, 403]).toContain((await suspendedPatch).status());
+    await expect(userPage).toHaveURL(/\/login$/);
+
+    await userRow.getByRole('button', { name: 'Reactivate' }).click();
+    await expect(userRow).toContainText('Active');
+    await loginWithPassword(userPage, email, password);
+    await expect(userPage).toHaveURL(/\/student\/(dashboard|profile)$/);
+    await openEditor(userPage);
+    await userPage.getByLabel('Name').fill(`Deleted Draft ${suffix}`);
+
+    adminPage.once('dialog', (dialog) => dialog.accept());
+    await userRow.getByRole('button', { name: 'Delete' }).click();
+    await expect(userRow).toHaveCount(0);
+
+    const deletedPatch = userPage.waitForResponse(
+      (response) =>
+        response.url() === `${apiBaseURL}/me` &&
+        response.request().method() === 'PATCH',
+    );
+    await userPage.getByRole('button', { name: 'Save Changes' }).click();
+    const deletedStatus = (await deletedPatch).status();
+    expect(deletedStatus).toBeGreaterThanOrEqual(401);
+    expect(deletedStatus).toBeLessThan(500);
+    await expect(userPage).toHaveURL(/\/login$/);
+    await loginWithPassword(userPage, email, password);
+    await expect(userPage).toHaveURL(/\/login$/);
+    await expect(userPage.getByText('Invalid email or password')).toBeVisible();
+  } finally {
+    await Promise.all([
+      userContext.request.post(`${apiBaseURL}/auth/logout`, { data: {} }),
+      adminContext.request.post(`${apiBaseURL}/auth/logout`, { data: {} }),
+    ]);
+    await Promise.all([userContext.close(), adminContext.close()]);
+    await removeDisposableUser(email);
   }
 });
