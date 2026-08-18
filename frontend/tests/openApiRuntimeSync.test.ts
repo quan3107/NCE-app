@@ -12,6 +12,10 @@ const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const modulesRoot = path.join(repositoryRoot, 'backend/src/modules');
 const openApiPath = path.join(repositoryRoot, 'docs/openapi/openapi.yaml');
 const routerPath = path.join(modulesRoot, 'router.ts');
+const testOnlyOperations = new Set([
+  'GET /api/v1/auth/google/test-provider',
+  'GET /api/v1/auth/google/test-provider/complete',
+]);
 
 type RouterImport = {
   routeObject: string;
@@ -70,9 +74,11 @@ async function collectMountedOperations(): Promise<string[]> {
     );
 
     for (const route of routeSource.matchAll(routePattern)) {
-      mountedOperations.add(
-        `${route[1].toUpperCase()} ${joinApiPath(mountPath, route[2])}`,
-      );
+      const operation = `${route[1].toUpperCase()} ${joinApiPath(mountPath, route[2])}`;
+      // The explicitly enabled local OAuth fixture is not part of the production API contract.
+      if (!testOnlyOperations.has(operation)) {
+        mountedOperations.add(operation);
+      }
     }
   }
 
