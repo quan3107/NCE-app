@@ -160,12 +160,14 @@ export function AiFeedbackReviewPanel({
     onPendingDecisionChange?.(null);
   };
 
+  const currentEditedFeedback = () => editedFeedback.trim();
+
   const queueDecisionAfterGradePost = (action: WritingFeedbackDecisionAction) => {
-    if (!draft || !editedFeedback.trim()) {
+    const feedbackMd = currentEditedFeedback();
+    if (!draft || !feedbackMd) {
       toast.error('Teacher feedback is required before approval.');
       return;
     }
-    const feedbackMd = editedFeedback.trim();
     onFeedbackChange(feedbackMd);
     onPendingDecisionChange?.({
       action,
@@ -206,7 +208,8 @@ export function AiFeedbackReviewPanel({
   };
 
   const handleApprove = async () => {
-    if (!draft || !editedFeedback.trim()) {
+    const feedbackMd = currentEditedFeedback();
+    if (!draft || !feedbackMd) {
       toast.error('Teacher feedback is required before approval.');
       return;
     }
@@ -217,9 +220,9 @@ export function AiFeedbackReviewPanel({
     try {
       await approveMutation.mutateAsync({
         draftId: draft.id,
-        payload: { feedbackMd: editedFeedback.trim() },
+        payload: { feedbackMd },
       });
-      onFeedbackChange(editedFeedback.trim());
+      onFeedbackChange(feedbackMd);
       clearPendingDecision();
       toast.success('AI feedback approved into grade feedback.');
     } catch (error) {
@@ -228,7 +231,8 @@ export function AiFeedbackReviewPanel({
   };
 
   const handleFinalize = async () => {
-    if (!draft || !editedFeedback.trim()) {
+    const feedbackMd = currentEditedFeedback();
+    if (!draft || !feedbackMd) {
       toast.error('Teacher feedback is required before finalization.');
       return;
     }
@@ -239,9 +243,9 @@ export function AiFeedbackReviewPanel({
     try {
       await finalizeMutation.mutateAsync({
         draftId: draft.id,
-        payload: { feedbackMd: editedFeedback.trim() },
+        payload: { feedbackMd },
       });
-      onFeedbackChange(editedFeedback.trim());
+      onFeedbackChange(feedbackMd);
       clearPendingDecision();
       toast.success('AI feedback finalized as teacher feedback.');
     } catch (error) {
@@ -266,11 +270,12 @@ export function AiFeedbackReviewPanel({
   };
 
   const useDraftInFeedback = () => {
-    if (!editedFeedback.trim()) {
+    const feedbackMd = currentEditedFeedback();
+    if (!feedbackMd) {
       toast.error('No AI draft text is available to use.');
       return;
     }
-    onFeedbackChange(editedFeedback.trim());
+    onFeedbackChange(feedbackMd);
     clearPendingDecision();
   };
 
@@ -361,12 +366,21 @@ export function AiFeedbackReviewPanel({
               </Alert>
             )}
             <div className="flex flex-wrap gap-2">
-              <Button type="button" onClick={handleApprove} disabled={isPending}>
+              <Button
+                type="button"
+                onClick={handleApprove}
+                disabled={isPending || !editedFeedback.trim()}
+              >
                 <CheckCircle2 className="mr-2 size-4" />
                 {approveAction.label}
               </Button>
               {view.canFinalize && (
-                <Button type="button" variant="secondary" onClick={handleFinalize} disabled={isPending}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleFinalize}
+                  disabled={isPending || !editedFeedback.trim()}
+                >
                   <CheckCircle2 className="mr-2 size-4" />
                   {finalizeAction.label}
                 </Button>

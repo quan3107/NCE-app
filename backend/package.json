@@ -92,6 +92,7 @@
   },
   "overrides": {
     "brace-expansion": "5.0.9",
+    "deepmerge-ts": "8.0.1",
     "find-my-way": "9.7.0",
     "postcss": "8.5.23",
     "valibot": "1.4.2"

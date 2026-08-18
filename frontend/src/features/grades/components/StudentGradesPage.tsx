@@ -4,7 +4,7 @@
  * Why: Keeps the feature module organized under the new structure.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
@@ -20,12 +20,17 @@ import {
   ObjectiveExplanationPollingTimeoutError,
   pollObjectiveExplanationUntilSettled,
   requestObjectiveExplanation,
+  restoreObjectiveExplanations,
   useGradesQuery,
   type ObjectiveExplanationResponse,
   type ObjectiveExplanationStatus,
 } from '@features/grades/api';
 import { extractEditableFeedback } from '@features/ai-feedback/ui.logic';
 import { getEligibleObjectiveExplanationTargets } from '@features/grades/objectiveExplanationEligibility';
+import {
+  readRememberedExplanationKeys,
+  rememberExplanationKey,
+} from '@features/grades/objectiveExplanationMemory';
 import type { Submission } from '@domain';
 import {
   explanationText,
@@ -79,7 +84,75 @@ export function StudentGradesPage() {
       ),
     [submissions, currentUser?.id],
   );
+  const eligibleExplanationLookups = useMemo(
+    () =>
+      studentSubmissions.flatMap((submission) => {
+        const assignment = assignments.find(
+          (candidate) => candidate.id === submission.assignmentId,
+        );
+        if (!assignment) {
+          return [];
+        }
+
+        return getEligibleObjectiveExplanationTargets(
+          assignment,
+          submission,
+        ).map((target) => ({
+          submissionId: submission.id,
+          questionId: target.id,
+        }));
+      }),
+    [assignments, studentSubmissions],
+  );
+  const restorableExplanationLookups = useMemo(() => {
+    if (!currentUser) {
+      return [];
+    }
+    const remembered = readRememberedExplanationKeys(currentUser.id);
+    return eligibleExplanationLookups.filter(({ submissionId, questionId }) =>
+      remembered.has(explanationKey(submissionId, questionId)),
+    );
+  }, [currentUser, eligibleExplanationLookups]);
   const gradesQuery = useGradesQuery(studentSubmissions, assignments);
+
+  useEffect(() => {
+    if (
+      !currentUser ||
+      assignmentsLoading ||
+      restorableExplanationLookups.length === 0
+    ) {
+      return;
+    }
+
+    let active = true;
+    void restoreObjectiveExplanations(restorableExplanationLookups).then(
+      (restored) => {
+        if (!active || restored.length === 0) {
+          return;
+        }
+
+        setExplanations((previous) => {
+          const next = { ...previous };
+          let changed = false;
+
+          restored.forEach(({ submissionId, questionId, response }) => {
+            const key = explanationKey(submissionId, questionId);
+            if (next[key]) {
+              return;
+            }
+            next[key] = toExplanationState(response);
+            changed = true;
+          });
+
+          return changed ? next : previous;
+        });
+      },
+    );
+
+    return () => {
+      active = false;
+    };
+  }, [assignmentsLoading, currentUser, restorableExplanationLookups]);
 
   if (!currentUser) return null;
 
@@ -88,6 +161,7 @@ export function StudentGradesPage() {
 
   const handleExplain = async (submission: Submission, questionId: string) => {
     const key = explanationKey(submission.id, questionId);
+    rememberExplanationKey(currentUser.id, key);
     setExplanations((prev) => ({
       ...prev,
       [key]: { status: 'queued', cached: false },

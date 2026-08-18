@@ -109,6 +109,41 @@ describe('objective explanation payload eligibility', () => {
     )
   })
 
+  it.each(['reading-lite-p1-q1', 'reading-lite-p1-q2'])(
+    'queues the first seeded Matching Headings explanation for %s',
+    async (questionId) => {
+      const assignmentConfig = buildPrimaryIeltsAssignmentConfig(
+        'Matching Headings Practice',
+        AssignmentType.reading,
+      )
+      assignmentConfig.aiPolicy = {
+        writingFeedbackMode: 'off',
+        objectiveExplanations: 'on_demand_student_visible',
+        providerTier: 'auto',
+      }
+      const payload = buildIeltsObjectiveSubmissionPayload(
+        'Matching Headings Practice',
+        assignmentConfig,
+      )
+      prisma.submission.findFirst.mockResolvedValueOnce(
+        seededSubmission(payload, assignmentConfig) as never,
+      )
+
+      await expect(
+        requestAiObjectiveExplanation({ submissionId, questionId }, studentActor),
+      ).resolves.toMatchObject({ status: 'queued', cached: false })
+      expect(upsertAiObjectiveExplanation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          submissionId,
+          assignmentId,
+          questionId,
+          deterministicResult: 'correct',
+          status: 'queued',
+        }),
+      )
+    },
+  )
+
   it('rejects malformed legacy payloads before queueing or auditing', async () => {
     const assignmentConfig = buildPrimaryIeltsAssignmentConfig(
       'Matching Headings Practice',

@@ -64,3 +64,14 @@ test('StudentGradesPage disables terminal unavailable explanation actions', asyn
   );
   assert.match(source, /\? 'Unavailable'/);
 });
+
+test('StudentGradesPage restores authoritative objective explanations after reload', async () => {
+  const pagePath = path.resolve(
+    import.meta.dirname,
+    '../src/features/grades/components/StudentGradesPage.tsx',
+  );
+  const source = await readFile(pagePath, 'utf8');
+
+  assert.match(source, /restoreObjectiveExplanations/);
+  assert.match(source, /setExplanations/);
+});

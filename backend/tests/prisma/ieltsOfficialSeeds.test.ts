@@ -306,6 +306,32 @@ describe('seeded objective submission payloads', () => {
     })
     expect(evidence?.sourceEvidenceCandidates.length).toBeGreaterThan(0)
   })
+
+  it.each(['reading-lite-p1-q1', 'reading-lite-p1-q2'])(
+    'keeps the first visible Matching Headings question source-backed for %s',
+    (questionId) => {
+      const assignmentConfig = buildPrimaryIeltsAssignmentConfig(
+        'Matching Headings Practice',
+        AssignmentType.reading,
+      )
+      const payload = buildIeltsObjectiveSubmissionPayload(
+        'Matching Headings Practice',
+        assignmentConfig,
+      )
+      const evidence = getIeltsQuestionScoringEvidence({
+        assignmentType: AssignmentType.reading,
+        assignmentConfig,
+        submissionPayload: payload,
+        questionId,
+      })
+
+      expect(evidence).toMatchObject({
+        questionId,
+        sourceEvidenceStatus: 'available',
+      })
+      expect(evidence?.sourceEvidenceCandidates.length).toBeGreaterThan(0)
+    },
+  )
 })
 
 describe('auto-scoring compatibility', () => {
