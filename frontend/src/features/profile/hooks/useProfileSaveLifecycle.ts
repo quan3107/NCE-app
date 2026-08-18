@@ -26,23 +26,27 @@ type ProfileIdentity = { userId: string; generation: number };
 
 type ProfileSaveLifecycleOptions = {
   endTerminalProfileSession: () => void;
+  expectedRevision: number;
   fullName: string;
   latestIdentity: MutableRefObject<ProfileIdentity>;
   requestSequence: MutableRefObject<number>;
   setEditing: Dispatch<SetStateAction<boolean>>;
   setFullName: Dispatch<SetStateAction<string>>;
   setNameError: Dispatch<SetStateAction<string | null>>;
+  setRevisionConflict: Dispatch<SetStateAction<boolean>>;
   setSaveError: Dispatch<SetStateAction<string | null>>;
 };
 
 export function useProfileSaveLifecycle({
   endTerminalProfileSession,
+  expectedRevision,
   fullName,
   latestIdentity,
   requestSequence,
   setEditing,
   setFullName,
   setNameError,
+  setRevisionConflict,
   setSaveError,
 }: ProfileSaveLifecycleOptions) {
   const updateProfile = useUpdateMeProfileMutation(
@@ -62,6 +66,7 @@ export function useProfileSaveLifecycle({
       return;
     }
     setNameError(null);
+    setRevisionConflict(false);
     setSaveError(null);
     const identity = { ...latestIdentity.current };
     const requestId = requestSequence.current + 1;
@@ -74,6 +79,7 @@ export function useProfileSaveLifecycle({
     try {
       const saved = await updateProfile.mutateAsync({
         fullName: validation.normalizedName,
+        expectedRevision,
       });
       if (!isCurrent()) return;
       if (draftRevision.current === submittedDraft) {
@@ -87,8 +93,9 @@ export function useProfileSaveLifecycle({
         return;
       }
       if (error instanceof ApiError && error.status === 409) {
+        setRevisionConflict(true);
         setSaveError(
-          "Your profile changed elsewhere. Review the latest name and try again.",
+          "Your profile changed elsewhere. Reload the latest profile before trying again.",
         );
         return;
       }
