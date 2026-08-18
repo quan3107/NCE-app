@@ -166,6 +166,27 @@ const rejectTeacher = async (userId: string): Promise<AdminUser> => {
   return toUser(response);
 };
 
+const updateManagedUserStatus = async ({
+  userId,
+  status,
+}: {
+  userId: string;
+  status: 'active' | 'suspended';
+}): Promise<AdminUser> => {
+  const response = await apiClient<ApiUser, { status: 'active' | 'suspended' }>(
+    `/api/v1/users/${userId}/status`,
+    { auth: 'required', method: 'PATCH', body: { status } },
+  );
+  return toUser(response);
+};
+
+const deleteManagedUser = async (userId: string): Promise<void> => {
+  await apiClient<void>(`/api/v1/users/${userId}`, {
+    auth: 'required',
+    method: 'DELETE',
+  });
+};
+
 const createEnrollment = async (
   payload: CreateEnrollmentRequest,
 ): Promise<ApiEnrollment> => {
@@ -234,6 +255,26 @@ export function useApproveTeacherMutation() {
 export function useRejectTeacherMutation() {
   return useMutation({
     mutationFn: rejectTeacher,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_USERS_KEY });
+      queryClient.invalidateQueries({ queryKey: ADMIN_AUDIT_LOGS_KEY });
+    },
+  });
+}
+
+export function useUpdateManagedUserStatusMutation() {
+  return useMutation({
+    mutationFn: updateManagedUserStatus,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_USERS_KEY });
+      queryClient.invalidateQueries({ queryKey: ADMIN_AUDIT_LOGS_KEY });
+    },
+  });
+}
+
+export function useDeleteManagedUserMutation() {
+  return useMutation({
+    mutationFn: deleteManagedUser,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_USERS_KEY });
       queryClient.invalidateQueries({ queryKey: ADMIN_AUDIT_LOGS_KEY });
