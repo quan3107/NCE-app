@@ -90,6 +90,7 @@
     "test:components": "vitest run --config vitest.config.ts",
     "test:coverage": "node --import tsx --import ./tests/setup-node.ts --test --test-concurrency=2 --experimental-test-coverage tests/*.test.ts",
     "e2e": "playwright test",
+    "e2e:oauth": "playwright test --config playwright.oauth.config.ts",
     "e2e:mocked": "playwright test --config playwright.mocked.config.ts",
     "e2e:synthetic": "playwright test --config playwright.synthetic.config.ts"
   },
