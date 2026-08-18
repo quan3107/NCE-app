@@ -39,6 +39,8 @@ Use disposable local or test-environment data for every mutation story. Verify b
 
 ## Authentication, Sessions, and Profiles
 
+**Section status (2026-08-18): 17/17 PASS.** AUTH-01 through AUTH-17 have browser-visible evidence, including provider-safe OAuth, degraded coordination, stale profile conflicts, and admin-driven suspension/deletion.
+
 ### AUTH-01 — Register as a student
 
 **Goal:** As a new student, I can create an active account and start using the app. **Preconditions:** A unique email and valid display name are available. **Steps:** 1) open Register. 2) enter valid details, select Student, use matching passwords of at least eight characters, and accept terms. 3) submit once. **Expected:** The account is created, a secure session is established, duplicate submission is prevented, and the student reaches the student dashboard. **E2E (2026-08-16):** PASS — Registered a disposable student in Browser, reached the student dashboard, verified the session, then removed it by reseeding.
