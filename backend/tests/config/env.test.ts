@@ -21,6 +21,7 @@ const defaultedEnvKeys = [
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'GOOGLE_REDIRECT_URI',
+  'AUTH_GOOGLE_TEST_FIXTURE_ENABLED',
   'BREVO_API_KEY',
   'BREVO_SENDER_NAME',
   'BREVO_SENDER_EMAIL',
@@ -89,6 +90,7 @@ describe('test environment defaults', () => {
       expect(process.env.GOOGLE_REDIRECT_URI).toBe(
         'http://localhost:4000/api/v1/auth/google/callback',
       )
+      expect(process.env.AUTH_GOOGLE_TEST_FIXTURE_ENABLED).toBe('false')
       expect(process.env.BREVO_API_KEY).toBe('test-brevo-api-key')
       expect(process.env.BREVO_SENDER_NAME).toBe('NCE Test Mailer')
       expect(process.env.BREVO_SENDER_EMAIL).toBe('noreply.test@example.com')
@@ -149,6 +151,10 @@ describe('test environment defaults', () => {
     expect(config.jobDatabaseUrl).toContain('localhost:5432/nce_test')
     expect(config.google.clientId).toBeTruthy()
     expect(config.google.clientSecret).toBeTruthy()
+    expect(config.google.testFixture).toEqual({
+      enabled: false,
+      origin: undefined,
+    })
     expect(config.email.brevoApiKey).toBeTruthy()
     expect(config.cors.allowedOrigins).toEqual([
       'http://localhost:5173',
