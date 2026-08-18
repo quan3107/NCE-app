@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-18:** Made the first two seeded Matching Headings true/false questions explicitly align with their authoritative passage evidence so both queue source-backed student explanations instead of deterministic `insufficient_source_evidence` rejections. Added service and seed regressions for Q1/Q2; focused backend tests, lint, build, OpenAPI validation, and a disposable PostgreSQL replay pass.
+
 - **2026-08-16:** Followed the PR #131 live rerun with test-first objective contract hardening: prompt v3 sends a strict structured-output schema whose `result` enum is fixed to the server-computed score, retains parser rejection of incompatible results, and invalidates prior v2 terminal cache rows without changing Luna routing or score authority. Full backend tests pass with 1,033 tests and 40 skipped; lint, focused formatting, and the production build pass.
 
 - **2026-08-16:** Recreated the isolated PR #131 E2E database and reran the AI feedback stories against live `gpt-5.6-luna` routes without API mocks. Seeded objective requests now pass payload validation and queue, writing drafts complete, unsafe output remains safely rejected, and persisted draft/grade decisions match Browser results; objective explanations remain unavailable because source-backed responses attempt to override deterministic scoring.
@@ -192,6 +194,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-18:** Restored authoritative objective-explanation statuses after a Grades page reload, including resumed polling for queued/running records, and disabled approval/finalization whenever the teacher-edited draft is empty. Added reload and rendered review regressions; the full frontend unit/component suites, lint, typecheck, build, and real in-app Browser checks pass.
 
 - **2026-08-16:** Added regression-first decoding for structured terminal Writing feedback HTTP 409 bodies across status polling, initial requests, and regeneration so rejected and review-required drafts replace stale Running/No draft UI states. All 263 frontend tests and 182 rendered component tests pass; lint, typecheck, and the production build pass.
 
