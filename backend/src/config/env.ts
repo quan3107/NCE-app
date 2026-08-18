@@ -149,6 +149,11 @@ const envSchema = z
     GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
     GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
     GOOGLE_REDIRECT_URI: z.string().url().optional(),
+    AUTH_GOOGLE_TEST_FIXTURE_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    AUTH_GOOGLE_TEST_FIXTURE_ORIGIN: z.string().url().optional(),
     BREVO_API_KEY: z.string().min(1, "BREVO_API_KEY is required"),
     BREVO_SENDER_NAME: z.string().min(1, "BREVO_SENDER_NAME is required"),
     BREVO_SENDER_EMAIL: z
@@ -258,6 +263,32 @@ const envSchema = z
         message: "NCE_ASSET_ROOT is required in production",
       });
     }
+    if (env.AUTH_GOOGLE_TEST_FIXTURE_ENABLED) {
+      if (env.NODE_ENV === "production") {
+        context.addIssue({
+          code: "custom",
+          path: ["AUTH_GOOGLE_TEST_FIXTURE_ENABLED"],
+          message: "AUTH_GOOGLE_TEST_FIXTURE_ENABLED is forbidden in production",
+        });
+      }
+      if (!env.AUTH_GOOGLE_TEST_FIXTURE_ORIGIN) {
+        context.addIssue({
+          code: "custom",
+          path: ["AUTH_GOOGLE_TEST_FIXTURE_ORIGIN"],
+          message: "AUTH_GOOGLE_TEST_FIXTURE_ORIGIN is required when the fixture is enabled",
+        });
+      } else {
+        const fixtureUrl = new URL(env.AUTH_GOOGLE_TEST_FIXTURE_ORIGIN);
+        const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
+        if (fixtureUrl.protocol !== "http:" || !loopbackHosts.has(fixtureUrl.hostname)) {
+          context.addIssue({
+            code: "custom",
+            path: ["AUTH_GOOGLE_TEST_FIXTURE_ORIGIN"],
+            message: "AUTH_GOOGLE_TEST_FIXTURE_ORIGIN must be an HTTP loopback origin",
+          });
+        }
+      }
+    }
   });
 
 const parseResult = envSchema.safeParse(process.env);
@@ -288,6 +319,10 @@ const envConfig = {
     clientId: parseResult.data.GOOGLE_CLIENT_ID,
     clientSecret: parseResult.data.GOOGLE_CLIENT_SECRET,
     redirectUri: parseResult.data.GOOGLE_REDIRECT_URI,
+    testFixture: {
+      enabled: parseResult.data.AUTH_GOOGLE_TEST_FIXTURE_ENABLED,
+      origin: parseResult.data.AUTH_GOOGLE_TEST_FIXTURE_ORIGIN,
+    },
   },
   email: {
     brevoApiKey: parseResult.data.BREVO_API_KEY,
