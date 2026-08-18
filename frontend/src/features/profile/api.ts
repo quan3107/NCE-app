@@ -21,11 +21,10 @@ export type ProfileAuthority = {
 
 export type UpdateMeProfilePayload = {
   fullName: string;
-};
-
-type UpdateMeProfileRequest = UpdateMeProfilePayload & {
   expectedRevision: number;
 };
+
+type UpdateMeProfileRequest = UpdateMeProfilePayload;
 
 type MeResponse = {
   profile: MeProfile;
@@ -106,16 +105,9 @@ export function useUpdateMeProfileMutation(userId: string) {
         throw profileAuthorityError();
       }
       const queryKey = meProfileQueryKey(userId);
-      const baseline = queryClient.getQueryData<MeProfile>(queryKey);
-      if (!baseline || baseline.id !== authority.userId) {
-        throw new ApiError("Reload your profile before saving.", 0);
-      }
       let profile: MeProfile;
       try {
-        profile = await updateMeProfile({
-          ...payload,
-          expectedRevision: baseline.profileRevision,
-        });
+        profile = await updateMeProfile(payload);
       } catch (error) {
         if (error instanceof ApiError && error.status === 409) {
           await queryClient.invalidateQueries({ queryKey, exact: true });
