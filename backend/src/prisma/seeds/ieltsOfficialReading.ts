@@ -65,8 +65,8 @@ Researchers conclude that coastal adaptation must be treated as an iterative man
 
 const QUESTION_BANK: Array<ReadingQuestionDraft[]> = [
   [
-    { type: "true_false_not_given", prompt: "Comparative audits found that combining shading with ventilation reduced classroom heat more consistently than single-system upgrades.", answer: "true" },
-    { type: "true_false_not_given", prompt: "The passage states that all retrofit projects were financed through dedicated long-term resilience funds.", answer: "false" },
+    { type: "true_false_not_given", prompt: "Schools that integrated external shading, operable windows, and reflective roofing often reported lower peak indoor temperatures than schools relying on single-system mechanical upgrades.", answer: "true" },
+    { type: "true_false_not_given", prompt: "Districts using annual grant cycles were more likely to reconfigure courtyards, insulation envelopes, and ventilation shafts.", answer: "false" },
     { type: "true_false_not_given", prompt: "The researchers reported national exam score improvements directly caused by retrofitting.", answer: "not_given" },
     { type: "true_false_not_given", prompt: "Underfunded maintenance contracts were linked to declining retrofit performance after implementation.", answer: "true" },
     { type: "true_false_not_given", prompt: "Schools with examination cohorts were often prioritised in retrofit sequencing decisions.", answer: "true" },
