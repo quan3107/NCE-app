@@ -19,8 +19,10 @@ incorrect entities, missing fields, and unknown properties fail before Prisma.
 | `auth.session_refreshed` | `auth_session` | `sessionRotated` | Failure-safe |
 | `auth.session_revoked` | `auth_session` | `sessionRevoked` | Failure-safe |
 | `user.created` | `user` | `role`, `status` | Failure-safe |
+| `user.deleted` | `user` | `softDeleted` | Failure-safe |
 | `user.invited` | `user` | `role`, `status` | Failure-safe |
 | `user.profile_updated` | `user` | `fullNameChanged` | Strict |
+| `user.status_changed` | `user` | `previousStatus`, `status` | Failure-safe |
 | `user.teacher_approved` | `user` | `previousStatus`, `status` | Failure-safe |
 | `user.teacher_rejected` | `user` | `previousStatus`, `status` | Failure-safe |
 | `course.created` | `course` | `ownerTeacherId` | Failure-safe |
