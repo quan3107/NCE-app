@@ -75,6 +75,15 @@ describe("production CORS environment validation", () => {
     ]);
   });
 
+  it("rejects the local OAuth fixture in production", async () => {
+    process.env.CORS_ALLOWED_ORIGINS = "https://app.example.com";
+    process.env.AUTH_GOOGLE_TEST_FIXTURE_ENABLED = "true";
+
+    await expect(import("../../src/config/env.js")).rejects.toThrow(
+      "AUTH_GOOGLE_TEST_FIXTURE_ENABLED is forbidden in production",
+    );
+  });
+
   it("requires a dedicated production pg-boss database URL", async () => {
     process.env.CORS_ALLOWED_ORIGINS = "https://app.example.com";
     delete process.env.JOB_DATABASE_URL;
