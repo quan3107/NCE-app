@@ -3,42 +3,46 @@
  * Purpose: Capture validation contracts for user management endpoints.
  * Why: Guarantees consistent parsing for user CRUD flows once implemented.
  */
-import { z } from "zod";
+import { z } from 'zod'
 
-import { UserRole, UserStatus } from "../../prisma/index.js";
-import { normalizedDisplayNameSchema } from "../../utils/displayNameValidation.js";
+import { UserRole, UserStatus } from '../../prisma/index.js'
+import { normalizedDisplayNameSchema } from '../../utils/displayNameValidation.js'
 
-export const DEFAULT_USER_LIMIT = 50;
-const MAX_USER_LIMIT = 100;
-const USER_ROLES = [UserRole.admin, UserRole.teacher, UserRole.student] as const;
-const INVITABLE_USER_ROLES = [UserRole.teacher, UserRole.student] as const;
+export const DEFAULT_USER_LIMIT = 50
+const MAX_USER_LIMIT = 100
+const USER_ROLES = [UserRole.admin, UserRole.teacher, UserRole.student] as const
+const INVITABLE_USER_ROLES = [UserRole.teacher, UserRole.student] as const
 const USER_STATUSES = [
   UserStatus.active,
   UserStatus.pending,
   UserStatus.invited,
   UserStatus.suspended,
-] as const;
+] as const
 
 export const userIdParamsSchema = z.object({
   userId: z.string().uuid(),
-});
+})
 
 export const userQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(MAX_USER_LIMIT).optional(),
     offset: z.coerce.number().int().min(0).optional(),
   })
-  .strict();
+  .strict()
 
 export const createUserSchema = z.object({
   email: z.string().email(),
   fullName: normalizedDisplayNameSchema,
   role: z.enum(USER_ROLES),
   status: z.enum(USER_STATUSES).default(UserStatus.invited),
-});
+})
 
 export const inviteUserSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   fullName: normalizedDisplayNameSchema,
   role: z.enum(INVITABLE_USER_ROLES),
-});
+})
+
+export const managedUserStatusSchema = z.object({
+  status: z.enum([UserStatus.active, UserStatus.suspended]),
+})
