@@ -127,6 +127,29 @@ test('completed reviewable drafts support edit, use, reject, regenerate, and app
   });
 });
 
+test('empty teacher edits disable approval and never submit a decision', async () => {
+  render(
+    <AiFeedbackReviewPanel
+      assignment={assignment}
+      feedback=""
+      hasExistingGrade
+      onFeedbackChange={vi.fn()}
+      submissionId="submission-1"
+    />,
+  );
+
+  const editor = await screen.findByLabelText('Teacher-edited AI feedback');
+  await waitFor(() =>
+    assert.equal((editor as HTMLTextAreaElement).value, 'Deterministic completed draft.'),
+  );
+  fireEvent.change(editor, { target: { value: '' } });
+
+  const approveButton = screen.getByRole('button', { name: /^approve$/i });
+  assert.equal((approveButton as HTMLButtonElement).disabled, true);
+  fireEvent.click(approveButton);
+  assert.equal(approve.mock.calls.length, 0);
+});
+
 test('completed instant-provisional drafts can be finalized with teacher edits', async () => {
   draftState.current = {
     ...completedDraft,
