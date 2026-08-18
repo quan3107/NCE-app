@@ -8,10 +8,12 @@ import { type Request, type Response } from 'express'
 import {
   approveTeacherRequest,
   createUser,
+  deleteManagedUser,
   getUserById,
   inviteUser,
   listUsers,
   rejectTeacherRequest,
+  updateManagedUserStatus,
 } from './users.service.js'
 
 function requireActor(req: Request, res: Response): NonNullable<Request['user']> | null {
@@ -21,6 +23,20 @@ function requireActor(req: Request, res: Response): NonNullable<Request['user']>
     return null
   }
   return actor
+}
+
+export async function patchUserStatus(req: Request, res: Response): Promise<void> {
+  const actor = requireActor(req, res)
+  if (!actor) return
+  const user = await updateManagedUserStatus(req.params, req.body, actor)
+  res.status(200).json(user)
+}
+
+export async function deleteUser(req: Request, res: Response): Promise<void> {
+  const actor = requireActor(req, res)
+  if (!actor) return
+  await deleteManagedUser(req.params, actor)
+  res.status(204).send()
 }
 
 export async function getUsers(req: Request, res: Response): Promise<void> {
