@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-18:** Cleared the upstream backend audit failure by overriding Prisma's vulnerable `deepmerge-ts` transitive dependency to 8.0.1. The high-severity audit now reports zero vulnerabilities, and Prisma generation, lint, build, and focused AI regressions pass with the override.
+
 - **2026-08-18:** Made the first two seeded Matching Headings true/false questions explicitly align with their authoritative passage evidence so both queue source-backed student explanations instead of deterministic `insufficient_source_evidence` rejections. Added service and seed regressions for Q1/Q2; focused backend tests, lint, build, OpenAPI validation, and a disposable PostgreSQL replay pass.
 
 - **2026-08-16:** Followed the PR #131 live rerun with test-first objective contract hardening: prompt v3 sends a strict structured-output schema whose `result` enum is fixed to the server-computed score, retains parser rejection of incompatible results, and invalidates prior v2 terminal cache rows without changing Luna routing or score authority. Full backend tests pass with 1,033 tests and 40 skipped; lint, focused formatting, and the production build pass.
