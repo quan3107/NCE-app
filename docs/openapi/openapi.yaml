@@ -122,6 +122,8 @@ paths:
     $ref: './paths/users.yaml#/TeacherApproval'
   /api/v1/users/{userId}/reject-teacher:
     $ref: './paths/users.yaml#/TeacherRejection'
+  /api/v1/users/{userId}/status:
+    $ref: './paths/users.yaml#/UserStatusManagement'
 
   /api/v1/analytics/teacher:
     $ref: './paths/analytics.yaml#/TeacherAnalytics'
