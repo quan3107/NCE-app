@@ -26,6 +26,11 @@ export const googleAuthCallbackSchema = z.object({
   state: z.string().min(1),
 });
 
+export const googleAuthErrorCallbackSchema = z.object({
+  error: z.string().min(1),
+  state: z.string().min(1),
+});
+
 export const registerAccountSchema = z.object({
   fullName: normalizedDisplayNameSchema,
   email: z.string().trim().toLowerCase().email(),
