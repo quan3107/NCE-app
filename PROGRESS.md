@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-18:** Added an explicit disabled-by-default, production-forbidden, loopback-only Google OAuth fixture for deterministic one-use PKCE/state success and failure paths without provider credentials. Production Google behavior remains unchanged; the full 1,041-test backend suite, six real-PostgreSQL profile tests, lint, build, OpenAPI validation, and focused new-file formatting pass.
+
 - **2026-08-18:** Cleared the upstream backend audit failure by overriding Prisma's vulnerable `deepmerge-ts` transitive dependency to 8.0.1. The high-severity audit now reports zero vulnerabilities, and Prisma generation, lint, build, and focused AI regressions pass with the override.
 
 - **2026-08-18:** Made the first two seeded Matching Headings true/false questions explicitly align with their authoritative passage evidence so both queue source-backed student explanations instead of deterministic `insufficient_source_evidence` rejections. Added service and seed regressions for Q1/Q2; focused backend tests, lint, build, OpenAPI validation, and a disposable PostgreSQL replay pass.
@@ -196,6 +198,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-18:** Closed AUTH-09, AUTH-10, AUTH-15, and AUTH-17 with provider-independent real-backend OAuth coverage, deterministic degraded-coordination controls and recovery feedback, and revision-captured profile saves with an accessible conflict/reload/retry path that preserves dirty drafts. Seven OAuth scenarios plus the real-database profile scenario, 21 synthetic auth scenarios, eight existing real-backend auth scenarios, 265 unit tests, 184 component tests, lint, typecheck, build, and an in-app Browser OAuth check pass.
 
 - **2026-08-18:** Restored authoritative objective-explanation statuses after a Grades page reload, including resumed polling for queued/running records, and disabled approval/finalization whenever the teacher-edited draft is empty. Added reload and rendered review regressions; the full frontend unit/component suites, lint, typecheck, build, and real in-app Browser checks pass.
 
