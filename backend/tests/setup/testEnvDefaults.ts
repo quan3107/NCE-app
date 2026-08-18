@@ -13,6 +13,7 @@ export function applyBackendTestEnvDefaults(): void {
   process.env.GOOGLE_CLIENT_ID ??= 'test-google-client-id'
   process.env.GOOGLE_CLIENT_SECRET ??= 'test-google-client-secret'
   process.env.GOOGLE_REDIRECT_URI ??= 'http://localhost:4000/api/v1/auth/google/callback'
+  process.env.AUTH_GOOGLE_TEST_FIXTURE_ENABLED ??= 'false'
   process.env.BREVO_API_KEY ??= 'test-brevo-api-key'
   process.env.BREVO_SENDER_NAME ??= 'NCE Test Mailer'
   process.env.BREVO_SENDER_EMAIL ??= 'noreply.test@example.com'
