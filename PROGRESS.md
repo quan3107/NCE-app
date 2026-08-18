@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-18:** Added admin-only active-user suspension, reactivation, and soft deletion with atomic live-session revocation, protected admin/self invariants, strict audit contracts, route guards, OpenAPI documentation, and service/router/audit regressions. A disposable real-PostgreSQL student was managed through the rendered admin flow and cleaned up afterward; all 1,049 backend tests, lint, build, and OpenAPI validation pass.
+
 - **2026-08-18:** Added an explicit disabled-by-default, production-forbidden, loopback-only Google OAuth fixture for deterministic one-use PKCE/state success and failure paths without provider credentials. Production Google behavior remains unchanged; the full 1,041-test backend suite, six real-PostgreSQL profile tests, lint, build, OpenAPI validation, and focused new-file formatting pass.
 
 - **2026-08-18:** Cleared the upstream backend audit failure by overriding Prisma's vulnerable `deepmerge-ts` transitive dependency to 8.0.1. The high-severity audit now reports zero vulnerabilities, and Prisma generation, lint, build, and focused AI regressions pass with the override.
@@ -198,6 +200,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-18:** Added accessible admin user Suspend, Reactivate, and Delete actions with recoverable feedback, query invalidation, and a real-backend browser regression. An in-app Browser run confirmed suspension and deletion terminate an active student's dirty profile edit, reactivation restores login, deletion prevents re-login, and the disposable data is removed. The nine-scenario OAuth/profile pack, 21 degraded-coordination scenarios, eight existing real-backend scenarios, 265 unit tests, 184 component tests, lint, typecheck, and build pass.
 
 - **2026-08-18:** Closed AUTH-09, AUTH-10, AUTH-15, and AUTH-17 with provider-independent real-backend OAuth coverage, deterministic degraded-coordination controls and recovery feedback, and revision-captured profile saves with an accessible conflict/reload/retry path that preserves dirty drafts. Seven OAuth scenarios plus the real-database profile scenario, 21 synthetic auth scenarios, eight existing real-backend auth scenarios, 265 unit tests, 184 component tests, lint, typecheck, build, and an in-app Browser OAuth check pass.
 
