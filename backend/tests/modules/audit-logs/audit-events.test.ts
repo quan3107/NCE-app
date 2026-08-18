@@ -56,8 +56,10 @@ const reviewedActions = [
   'submission.submitted',
   'submission.updated',
   'user.created',
+  'user.deleted',
   'user.invited',
   'user.profile_updated',
+  'user.status_changed',
   'user.teacher_approved',
   'user.teacher_rejected',
 ] as const

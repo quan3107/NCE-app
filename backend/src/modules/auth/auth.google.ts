@@ -5,7 +5,10 @@
  */
 import { prisma } from '../../config/prismaClient.js'
 import { runWithRole } from '../../prisma/client.js'
-import { googleAuthCallbackSchema } from './auth.schema.js'
+import {
+  googleAuthCallbackSchema,
+  googleAuthErrorCallbackSchema,
+} from './auth.schema.js'
 import { createAuthError } from './auth.errors.js'
 import { generateRefreshToken, timingSafeMatch } from './auth.crypto.js'
 import { persistSession } from './auth.sessions.js'
@@ -37,6 +40,22 @@ export async function completeGoogleAuthorization(
   const { redirectUri, expectedState, codeVerifier, context } = options
 
   assertValidRedirectUri(redirectUri)
+
+  const providerError = googleAuthErrorCallbackSchema.safeParse(query)
+  if (providerError.success) {
+    if (!expectedState || !timingSafeMatch(expectedState, providerError.data.state)) {
+      throw createAuthError(
+        400,
+        'Google sign-in state is invalid or expired. Please try again.',
+      )
+    }
+    throw createAuthError(
+      400,
+      providerError.data.error === 'access_denied'
+        ? 'Google sign-in was cancelled. Please try again.'
+        : 'Google sign-in was denied by the provider. Please try again.',
+    )
+  }
 
   const { code, state } = googleAuthCallbackSchema.parse(query)
 

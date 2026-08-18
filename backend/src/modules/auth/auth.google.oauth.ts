@@ -11,6 +11,8 @@ import { createAuthError } from "./auth.errors.js";
 
 const GOOGLE_AUTHORIZATION_ENDPOINT =
   "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TEST_AUTHORIZATION_PATH =
+  "/api/v1/auth/google/test-provider";
 const GOOGLE_SCOPE = "openid email profile";
 
 const PKCE_CODE_VERIFIER_MIN_LENGTH = 43;
@@ -108,8 +110,15 @@ export async function buildGoogleAuthorizationUrl(
     prompt: "select_account",
   });
 
+  const authorizationEndpoint = config.google.testFixture.enabled
+    ? new URL(
+        GOOGLE_TEST_AUTHORIZATION_PATH,
+        config.google.testFixture.origin,
+      ).toString()
+    : GOOGLE_AUTHORIZATION_ENDPOINT;
+
   return {
-    authorizationUrl: `${GOOGLE_AUTHORIZATION_ENDPOINT}?${params.toString()}`,
+    authorizationUrl: `${authorizationEndpoint}?${params.toString()}`,
     state,
     codeVerifier,
   };

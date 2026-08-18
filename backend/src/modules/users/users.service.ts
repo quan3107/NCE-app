@@ -4,7 +4,7 @@
  * Why: Keeps the domain logic isolated from Express concerns for clean layering.
  */
 import { UserRole, UserStatus } from '../../prisma/index.js'
-import { prisma } from '../../prisma/client.js'
+import { prisma, runWithRole } from '../../prisma/client.js'
 import { isUniqueConstraintError } from '../auth/auth.errors.js'
 import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
@@ -12,6 +12,7 @@ import {
   createUserSchema,
   DEFAULT_USER_LIMIT,
   inviteUserSchema,
+  managedUserStatusSchema,
   userQuerySchema,
   userIdParamsSchema,
 } from './users.schema.js'
@@ -135,6 +136,119 @@ export async function rejectTeacherRequest(params: unknown, actor: UserActor) {
     userId,
     actor,
     nextStatus: UserStatus.suspended,
+  })
+}
+
+export async function updateManagedUserStatus(
+  params: unknown,
+  payload: unknown,
+  actor: UserActor,
+) {
+  const { userId } = userIdParamsSchema.parse(params)
+  const { status } = managedUserStatusSchema.parse(payload)
+  assertManageableUser(userId, actor)
+  const previousStatus =
+    status === UserStatus.suspended ? UserStatus.active : UserStatus.suspended
+  const now = new Date()
+
+  const updated = await runWithRole({ role: 'service_role' }, () =>
+    prisma.$transaction(async (tx) => {
+      const result = await tx.user.updateMany({
+        where: {
+          id: userId,
+          role: { not: UserRole.admin },
+          status: previousStatus,
+          deletedAt: null,
+        },
+        data: { status },
+      })
+      if (result.count === 0) {
+        await throwManagedUserConflict(tx, userId)
+      }
+      if (status === UserStatus.suspended) {
+        await revokeManagedUserSessions(tx, userId, now)
+      }
+      const user = await tx.user.findFirst({
+        where: { id: userId, deletedAt: null },
+        select: userSelect,
+      })
+      if (!user) throw createNotFoundError('User', userId)
+      return user
+    }),
+  )
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'user.status_changed',
+    entity: 'user',
+    entityId: userId,
+    eventData: { previousStatus, status },
+  })
+  return updated
+}
+
+export async function deleteManagedUser(params: unknown, actor: UserActor) {
+  const { userId } = userIdParamsSchema.parse(params)
+  assertManageableUser(userId, actor)
+  const now = new Date()
+
+  await runWithRole({ role: 'service_role' }, () =>
+    prisma.$transaction(async (tx) => {
+      const result = await tx.user.updateMany({
+        where: {
+          id: userId,
+          role: { not: UserRole.admin },
+          deletedAt: null,
+        },
+        data: { deletedAt: now, status: UserStatus.suspended },
+      })
+      if (result.count === 0) {
+        await throwManagedUserConflict(tx, userId)
+      }
+      await revokeManagedUserSessions(tx, userId, now)
+    }),
+  )
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: 'user.deleted',
+    entity: 'user',
+    entityId: userId,
+    eventData: { softDeleted: true },
+  })
+}
+
+function assertManageableUser(userId: string, actor: UserActor): void {
+  if (userId === actor.id) {
+    throw createHttpError(409, 'Administrators cannot change their own account here.')
+  }
+}
+
+async function throwManagedUserConflict(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  userId: string,
+): Promise<never> {
+  const current = await tx.user.findFirst({
+    where: { id: userId },
+    select: { role: true, status: true, deletedAt: true },
+  })
+  if (!current || current.deletedAt) throw createNotFoundError('User', userId)
+  if (current.role === UserRole.admin) {
+    throw createHttpError(409, 'Administrator accounts cannot be changed here.')
+  }
+  throw createHttpError(409, 'The user status changed before this action completed.', {
+    status: current.status,
+  })
+}
+
+async function revokeManagedUserSessions(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  userId: string,
+  revokedAt: Date,
+): Promise<void> {
+  await tx.authSession.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt },
   })
 }
 

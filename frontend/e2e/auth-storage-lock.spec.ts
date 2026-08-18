@@ -116,3 +116,45 @@ test('does not create an OAuth reservation without Web Locks', async ({ page }) 
     ownsLease: false,
   });
 });
+
+test('shows recoverable feedback when cookie coordination is unavailable', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await page.goto('/e2e/auth-cookie-race.html');
+
+  await page.getByRole('button', { name: 'Login A' }).click();
+
+  await expect(page.getByRole('alert')).toContainText(
+    'Authentication coordination is unavailable',
+  );
+  await expect(page.getByRole('button', { name: 'Retry login' })).toBeVisible();
+});
+
+test('fails closed with visible recovery when IndexedDB is unavailable', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(globalThis, 'indexedDB', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  let loginRequests = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/v1/auth/login')) loginRequests += 1;
+  });
+  await page.goto('/e2e/auth-cookie-race.html');
+
+  await page.getByRole('button', { name: 'Login A' }).click();
+
+  await expect(page.getByRole('alert')).toContainText(
+    'Authentication coordination is unavailable',
+  );
+  expect(loginRequests).toBe(0);
+});

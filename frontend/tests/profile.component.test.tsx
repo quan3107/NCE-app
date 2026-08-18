@@ -54,7 +54,10 @@ vi.mock("@features/profile/api", () => ({
     },
   }),
   useUpdateMeProfileMutation: () => ({
-    mutateAsync: async (payload: { fullName: string }) => {
+    mutateAsync: async (payload: {
+      fullName: string;
+      expectedRevision: number;
+    }) => {
       const saved = await saveProfile(payload);
       if (saved.profileRevision >= profileState.profileRevision) {
         profileState.fullName = saved.fullName;
@@ -111,6 +114,7 @@ test("submits the controlled name and updates the authenticated user", async () 
   await waitFor(() => {
     assert.deepEqual(saveProfile.mock.calls[0]?.[0], {
       fullName: "Updated Name",
+      expectedRevision: 0,
     });
     assert.equal(
       screen.getByRole("button", { name: "Edit Profile" }).textContent,
@@ -254,6 +258,34 @@ test("synchronizes refreshed names without overwriting a dirty edit", () => {
   assert.equal(
     (screen.getByLabelText("Name") as HTMLInputElement).value,
     "New Server Name",
+  );
+});
+
+test("submits the revision captured when editing began after a peer refresh", async () => {
+  saveProfile.mockRejectedValueOnce(
+    new Error("Expected the stale revision to be rejected by the API"),
+  );
+  const view = render(<ProfileDetailsCard />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit Profile" }));
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Dirty Stale Draft" },
+  });
+
+  profileState.fullName = "Peer Winner";
+  profileState.profileRevision = 1;
+  view.rerender(<ProfileDetailsCard />);
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+  await waitFor(() => {
+    assert.deepEqual(saveProfile.mock.calls[0]?.[0], {
+      fullName: "Dirty Stale Draft",
+      expectedRevision: 0,
+    });
+  });
+  assert.equal(
+    (screen.getByLabelText("Name") as HTMLInputElement).value,
+    "Dirty Stale Draft",
   );
 });
 

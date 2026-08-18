@@ -81,7 +81,10 @@ test("an older profile fetch cannot overwrite a successful save", async () => {
   });
 
   await act(async () => {
-    await mutation.result.current.mutateAsync({ fullName: "Saved Name" });
+    await mutation.result.current.mutateAsync({
+      fullName: "Saved Name",
+      expectedRevision: 0,
+    });
   });
   assert.equal(requestSignal?.aborted, true);
   resolveOldRequest({ id: "user-1", fullName: "Old Name" });
@@ -158,6 +161,7 @@ test("a role transition during cache cancellation rejects the old PATCH owner", 
   act(() => {
     save = mutation.result.current.mutateAsync({
       fullName: "Saved Student Name",
+      expectedRevision: 0,
     });
   });
   await started;
@@ -231,7 +235,10 @@ test("a delayed older PATCH response cannot overwrite a newer profile revision",
     wrapper,
   });
 
-  const first = mutation.result.current.mutateAsync({ fullName: "First Save" });
+  const first = mutation.result.current.mutateAsync({
+    fullName: "First Save",
+    expectedRevision: 0,
+  });
   await vi.waitFor(() => assert.equal(requests.length, 1));
   queryClient.setQueryData(queryKey, {
     id: "user-1",
@@ -241,7 +248,10 @@ test("a delayed older PATCH response cannot overwrite a newer profile revision",
     status: "active",
     profileRevision: 1,
   });
-  await mutation.result.current.mutateAsync({ fullName: "Second Save" });
+  await mutation.result.current.mutateAsync({
+    fullName: "Second Save",
+    expectedRevision: 1,
+  });
   resolveFirst(
     Response.json({
       id: "user-1",

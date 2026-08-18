@@ -5,13 +5,16 @@
  */
 import { Router } from "express";
 
+import { config } from "../../config/env.js";
 import {
   completeGoogleAuth,
+  decideGoogleTestProvider,
   logout,
   passwordLogin,
   registerAccount,
   refreshSession,
   startGoogleAuth,
+  showGoogleTestProvider,
 } from "./auth.controller.js";
 import { limitAuthRoute } from "./auth.rate-limit.js";
 
@@ -22,6 +25,10 @@ authRouter.post("/register", limitAuthRoute("register"), registerAccount);
 authRouter.post("/refresh", limitAuthRoute("refresh"), refreshSession);
 authRouter.post("/logout", logout);
 authRouter.get("/google", limitAuthRoute("googleStart"), startGoogleAuth);
+if (config.google.testFixture.enabled) {
+  authRouter.get("/google/test-provider", showGoogleTestProvider);
+  authRouter.get("/google/test-provider/complete", decideGoogleTestProvider);
+}
 authRouter.get(
   "/google/callback",
   limitAuthRoute("googleCallback"),

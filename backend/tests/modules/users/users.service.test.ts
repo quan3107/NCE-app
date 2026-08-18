@@ -8,11 +8,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { UserRole, UserStatus } from '../../../src/prisma/index.js'
 
 vi.mock('../../../src/prisma/client.js', () => ({
+  runWithRole: vi.fn(async (_options, callback) => callback()),
   prisma: {
     user: {
       create: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    authSession: {
       updateMany: vi.fn(),
     },
     auditLog: {
@@ -26,8 +30,14 @@ const prismaModule = await import('../../../src/prisma/client.js')
 const prisma = vi.mocked(prismaModule.prisma, true)
 const transactionAuditLogCreate = vi.fn()
 
-const { approveTeacherRequest, createUser, inviteUser, rejectTeacherRequest } =
-  await import('../../../src/modules/users/users.service.js')
+const {
+  approveTeacherRequest,
+  createUser,
+  deleteManagedUser,
+  inviteUser,
+  rejectTeacherRequest,
+  updateManagedUserStatus,
+} = await import('../../../src/modules/users/users.service.js')
 
 const actor = {
   id: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
@@ -61,6 +71,9 @@ describe('users.service teacher approvals', () => {
           findFirst: prisma.user.findFirst,
           update: prisma.user.update,
           updateMany: prisma.user.updateMany,
+        },
+        authSession: {
+          updateMany: prisma.authSession.updateMany,
         },
         auditLog: {
           create: transactionAuditLogCreate,
@@ -227,6 +240,79 @@ describe('users.service teacher approvals', () => {
     )
     expect(transactionAuditLogCreate).not.toHaveBeenCalled()
     expect(result.status).toBe(UserStatus.invited)
+  })
+
+  it('suspends an active non-admin and revokes every live session', async () => {
+    prisma.user.updateMany.mockResolvedValueOnce({ count: 1 })
+    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 2 })
+    prisma.user.findFirst.mockResolvedValueOnce({
+      ...pendingTeacher,
+      role: UserRole.student,
+      status: UserStatus.suspended,
+    })
+
+    const result = await updateManagedUserStatus(
+      { userId: pendingTeacher.id },
+      { status: UserStatus.suspended },
+      actor,
+    )
+
+    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
+      where: { userId: pendingTeacher.id, revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    })
+    expect(result.status).toBe(UserStatus.suspended)
+  })
+
+  it('soft-deletes a non-admin and revokes every live session', async () => {
+    prisma.user.updateMany.mockResolvedValueOnce({ count: 1 })
+    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 1 })
+
+    await deleteManagedUser({ userId: pendingTeacher.id }, actor)
+
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: pendingTeacher.id,
+        role: { not: UserRole.admin },
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: expect.any(Date),
+        status: UserStatus.suspended,
+      },
+    })
+    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
+      where: { userId: pendingTeacher.id, revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    })
+  })
+
+  it('does not let an administrator suspend their own account', async () => {
+    await expect(
+      updateManagedUserStatus(
+        { userId: actor.id },
+        { status: UserStatus.suspended },
+        actor,
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 })
+
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('does not let an administrator delete another administrator', async () => {
+    prisma.user.updateMany.mockResolvedValueOnce({ count: 0 })
+    prisma.user.findFirst.mockResolvedValueOnce({
+      role: UserRole.admin,
+      status: UserStatus.active,
+      deletedAt: null,
+    })
+
+    await expect(
+      deleteManagedUser({ userId: pendingTeacher.id }, actor),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+    })
+    expect(prisma.authSession.updateMany).not.toHaveBeenCalled()
   })
 
   it('rejects whitespace-only invite names after trimming', async () => {

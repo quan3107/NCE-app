@@ -36,9 +36,11 @@ export function ProfileDetailsCard() {
   } = useAuthStore();
   const profileQuery = useMeProfileQuery(currentUser.id);
   const [editing, setEditing] = useState(false);
+  const [editingRevision, setEditingRevision] = useState(0);
   const [fullName, setFullName] = useState(currentUser.name);
   const [nameError, setNameError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [revisionConflict, setRevisionConflict] = useState(false);
   const [terminalProfileState, setTerminalProfileState] = useState(false);
   const terminalLogoutStarted = useRef(false);
   const latestIdentity = useRef({
@@ -82,12 +84,14 @@ export function ProfileDetailsCard() {
   const { isSaving, recordDraftChange, submitProfile } =
     useProfileSaveLifecycle({
       endTerminalProfileSession,
+      expectedRevision: editingRevision,
       fullName,
       latestIdentity,
       requestSequence,
       setEditing,
       setFullName,
       setNameError,
+      setRevisionConflict,
       setSaveError,
     });
 
@@ -97,6 +101,7 @@ export function ProfileDetailsCard() {
       setEditing(false);
       setNameError(null);
       setSaveError(null);
+      setRevisionConflict(false);
       setTerminalProfileState(false);
       terminalLogoutStarted.current = false;
       setFullName(authoritativeName);
@@ -118,6 +123,7 @@ export function ProfileDetailsCard() {
     setFullName(authoritativeName);
     setNameError(null);
     setSaveError(null);
+    setRevisionConflict(false);
     setEditing(false);
   };
 
@@ -126,9 +132,21 @@ export function ProfileDetailsCard() {
       return;
     }
     setFullName(authoritativeName);
+    setEditingRevision(profileQuery.data?.profileRevision ?? 0);
     setNameError(null);
     setSaveError(null);
+    setRevisionConflict(false);
     setEditing(true);
+  };
+
+  const reloadLatestProfile = async () => {
+    const refreshed = await profileQuery.refetch();
+    if (!refreshed.data || refreshed.data.id !== currentUser.id) return;
+    setFullName(refreshed.data.fullName);
+    setEditingRevision(refreshed.data.profileRevision);
+    setNameError(null);
+    setSaveError(null);
+    setRevisionConflict(false);
   };
 
   const initials = getProfileInitials(authoritativeName);
@@ -212,9 +230,18 @@ export function ProfileDetailsCard() {
             />
           </div>
           {saveError && (
-            <p role="alert" className="text-sm text-destructive">
-              {saveError}
-            </p>
+            <div role="alert" className="space-y-2 text-sm text-destructive">
+              <p>{saveError}</p>
+              {revisionConflict && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void reloadLatestProfile()}
+                >
+                  Reload latest profile
+                </Button>
+              )}
+            </div>
           )}
           {editing && (
             <Button

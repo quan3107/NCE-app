@@ -33,6 +33,10 @@ import type {
   PendingApprovalResult,
   RegisterAccountResult,
 } from "./auth.types.js";
+import {
+  completeGoogleTestProvider,
+  createGoogleTestProviderPage,
+} from "./auth.google.fixture.js";
 
 function isPendingApprovalResult(
   result: RegisterAccountResult,
@@ -145,6 +149,15 @@ export async function startGoogleAuth(
   res.status(200).json({
     authorizationUrl,
   });
+}
+
+export function showGoogleTestProvider(req: Request, res: Response): void {
+  const page = createGoogleTestProviderPage(req.query);
+  res.status(200).type("html").send(page);
+}
+
+export function decideGoogleTestProvider(req: Request, res: Response): void {
+  res.redirect(303, completeGoogleTestProvider(req.query));
 }
 
 export async function completeGoogleAuth(

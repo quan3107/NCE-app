@@ -11,12 +11,14 @@ import { Input } from '@components/ui/input';
 import { Badge } from '@components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@components/ui/table';
 import { PageHeader } from '@components/common/PageHeader';
-import { Check, Plus, Search, X } from 'lucide-react';
+import { Ban, Check, Plus, Search, Trash2, UserRoundCheck, X } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
   useAdminUsersQuery,
   useApproveTeacherMutation,
+  useDeleteManagedUserMutation,
   useRejectTeacherMutation,
+  useUpdateManagedUserStatusMutation,
 } from '@features/admin/api';
 import type { UserStatus } from '@lib/backend-schema';
 import { AdminCreateUserDialog } from './AdminCreateUserDialog';
@@ -45,6 +47,8 @@ export function AdminUsersPage() {
   const { data: users = [], isLoading, error, refetch } = useAdminUsersQuery();
   const approveTeacherMutation = useApproveTeacherMutation();
   const rejectTeacherMutation = useRejectTeacherMutation();
+  const statusMutation = useUpdateManagedUserStatusMutation();
+  const deleteMutation = useDeleteManagedUserMutation();
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -72,6 +76,36 @@ export function AdminUsersPage() {
           ? errorValue.message
           : 'Unable to update teacher request.',
       );
+    } finally {
+      setTransitioningUserId(null);
+    }
+  };
+
+  const handleStatusChange = async (
+    userId: string,
+    status: 'active' | 'suspended',
+  ) => {
+    setTransitioningUserId(userId);
+    try {
+      await statusMutation.mutateAsync({ userId, status });
+      toast.success(status === 'suspended' ? 'User suspended.' : 'User reactivated.');
+    } catch (errorValue) {
+      toast.error(errorValue instanceof Error ? errorValue.message : 'Unable to update user.');
+    } finally {
+      setTransitioningUserId(null);
+    }
+  };
+
+  const handleDelete = async (userId: string, email: string) => {
+    if (!window.confirm(`Delete ${email}? This account will lose access immediately.`)) {
+      return;
+    }
+    setTransitioningUserId(userId);
+    try {
+      await deleteMutation.mutateAsync(userId);
+      toast.success('User deleted.');
+    } catch (errorValue) {
+      toast.error(errorValue instanceof Error ? errorValue.message : 'Unable to delete user.');
     } finally {
       setTransitioningUserId(null);
     }
@@ -139,6 +173,7 @@ export function AdminUsersPage() {
                     const canReviewTeacher =
                       user.role === 'teacher' && user.status === 'pending';
                     const isTransitioning = transitioningUserId === user.id;
+                    const canManageAccount = user.role !== 'admin';
 
                     return (
                       <TableRow key={user.id}>
@@ -153,24 +188,28 @@ export function AdminUsersPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {canReviewTeacher ? (
+                          {canManageAccount ? (
                             <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleTeacherDecision(user.id, 'approve')}
-                                disabled={isTransitioning}
-                              >
-                                <Check className="size-4" />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleTeacherDecision(user.id, 'reject')}
-                                disabled={isTransitioning}
-                              >
-                                <X className="size-4" />
-                                Reject
+                              {canReviewTeacher ? (
+                                <>
+                                  <Button size="sm" onClick={() => handleTeacherDecision(user.id, 'approve')} disabled={isTransitioning}>
+                                    <Check className="size-4" /> Approve
+                                  </Button>
+                                  <Button variant="destructive" size="sm" onClick={() => handleTeacherDecision(user.id, 'reject')} disabled={isTransitioning}>
+                                    <X className="size-4" /> Reject
+                                  </Button>
+                                </>
+                              ) : user.status === 'active' ? (
+                                <Button variant="outline" size="sm" onClick={() => handleStatusChange(user.id, 'suspended')} disabled={isTransitioning}>
+                                  <Ban className="size-4" /> Suspend
+                                </Button>
+                              ) : user.status === 'suspended' ? (
+                                <Button variant="outline" size="sm" onClick={() => handleStatusChange(user.id, 'active')} disabled={isTransitioning}>
+                                  <UserRoundCheck className="size-4" /> Reactivate
+                                </Button>
+                              ) : null}
+                              <Button variant="destructive" size="sm" onClick={() => void handleDelete(user.id, user.email)} disabled={isTransitioning}>
+                                <Trash2 className="size-4" /> Delete
                               </Button>
                             </div>
                           ) : (

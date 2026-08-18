@@ -7,6 +7,7 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 
 import { config } from "../../config/env.js";
 import { createAuthError } from "./auth.errors.js";
+import { consumeGoogleTestAuthorizationCode } from "./auth.google.fixture.js";
 
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_ENDPOINT =
@@ -177,6 +178,12 @@ export async function fetchGoogleProfile(params: {
   redirectUri: string;
   codeVerifier: string;
 }): Promise<GoogleProfile> {
+  if (config.google.testFixture.enabled) {
+    return consumeGoogleTestAuthorizationCode({
+      code: params.code,
+      codeVerifier: params.codeVerifier,
+    });
+  }
   const tokenPayload = await exchangeAuthorizationCode(params);
 
   if (
