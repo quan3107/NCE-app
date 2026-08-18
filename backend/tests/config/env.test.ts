@@ -113,9 +113,9 @@ describe('test environment defaults', () => {
       expect(process.env.AI_PROVIDER).toBe('openai-compatible')
       expect(process.env.AI_BASE_URL).toBe('https://api.openai.com/v1')
       expect(process.env.AI_API_KEY).toBe('')
-      expect(process.env.AI_TIMEOUT_MS).toBe('10000')
+      expect(process.env.AI_TIMEOUT_MS).toBe('60000')
       expect(process.env.AI_MAX_INPUT_CHARS).toBe('12000')
-      expect(process.env.AI_MAX_OUTPUT_TOKENS).toBe('1200')
+      expect(process.env.AI_MAX_OUTPUT_TOKENS).toBe('4096')
       expect(process.env.AI_HEALTH_PATH).toBe('/models')
       expect(process.env.AI_LOW_COST_MODEL).toBe('gpt-5.6-luna')
       expect(process.env.AI_LOW_COST_REASONING_EFFORT).toBe('medium')
@@ -182,9 +182,9 @@ describe('test environment defaults', () => {
       provider: 'openai-compatible',
       baseUrl: 'https://api.openai.com/v1',
       apiKey: undefined,
-      timeoutMs: 10_000,
+      timeoutMs: 60_000,
       maxInputChars: 12_000,
-      maxOutputTokens: 1_200,
+      maxOutputTokens: 4_096,
       imageInput: {
         maxBytes: 20 * 1024 * 1024,
         supportedMimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],

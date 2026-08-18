@@ -71,13 +71,13 @@ AiFeedbackHealthResponse:
       properties:
         timeout_ms:
           type: integer
-          example: 10000
+          example: 60000
         max_input_chars:
           type: integer
           example: 12000
         max_output_tokens:
           type: integer
-          example: 1200
+          example: 4096
         image_max_bytes:
           type: integer
           description: Maximum backend-validated image size accepted for hosted AI image input.

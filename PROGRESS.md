@@ -13,6 +13,12 @@ and
 
 ## Backend
 
+- **2026-08-16:** Followed the PR #131 live rerun with test-first objective contract hardening: prompt v3 sends a strict structured-output schema whose `result` enum is fixed to the server-computed score, retains parser rejection of incompatible results, and invalidates prior v2 terminal cache rows without changing Luna routing or score authority. Full backend tests pass with 1,033 tests and 40 skipped; lint, focused formatting, and the production build pass.
+
+- **2026-08-16:** Recreated the isolated PR #131 E2E database and reran the AI feedback stories against live `gpt-5.6-luna` routes without API mocks. Seeded objective requests now pass payload validation and queue, writing drafts complete, unsafe output remains safely rejected, and persisted draft/grade decisions match Browser results; objective explanations remain unavailable because source-backed responses attempt to override deterministic scoring.
+
+- **2026-08-16:** Fixed the live AI-feedback E2E root causes with test-first coverage: seeded Reading/Listening submissions now contain valid objective answers; malformed legacy payloads fail with a safe eligibility conflict; GPT-5.6 Luna keeps medium/high routing with a 60-second provider timeout and a bounded 4,096-token output budget; empty completions retain only safe refusal, response-shape, and token-exhaustion diagnostics; and deterministic review, rejection, regeneration, approval, finalization, and student-visibility workflows remain covered. Full backend tests, lint, focused formatting, OpenAPI validation, and the production build pass; the repository-wide Prettier check remains unusable because it includes 717 pre-existing generated/build formatting violations.
+
 - **2026-08-16:** Executed the 125-story E2E inventory against a confirmed disposable PostgreSQL 17 database, then health-checked and live-tested the enabled `gpt-5.6-luna` medium/high AI routes without exposing credentials; verified API/server/database effects and cleanup and documented final totals of 84 PASS, 30 FAIL, 4 BLOCKED, and 7 DECISION-GATED in `docs/e2e-user-stories.md`.
 
 - **2026-08-15:** Documented backend-facing E2E user stories for authentication, authorization, courses, assignments, submissions, grading, AI feedback, notifications, files, NCE learning, CMS, analytics, settings, and audit behavior.
@@ -186,6 +192,12 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-16:** Added regression-first decoding for structured terminal Writing feedback HTTP 409 bodies across status polling, initial requests, and regeneration so rejected and review-required drafts replace stale Running/No draft UI states. All 263 frontend tests and 182 rendered component tests pass; lint, typecheck, and the production build pass.
+
+- **2026-08-16:** Reran STU-15 and GRADE-08–10 in the in-app Browser against the real API. GRADE-09 and GRADE-10 now pass, while STU-15 remains failed on safe provider rejection and GRADE-08 exposes terminal writing-feedback HTTP 409 bodies as generic `Conflict` with stale `Running`/`No draft` UI until reload; updated the inventory totals to 86 PASS, 30 FAIL, 2 BLOCKED, and 7 DECISION-GATED.
+
+- **2026-08-16:** Added test-driven AI-feedback recovery UI: objective Explain actions now appear only for structured submitted answers, teachers can batch-queue Writing drafts by ungraded, submitted, or explicit eligible selection with scoped counts and duplicate/pending protection, and completed reviewable and instant-provisional drafts retain edit/use/reject/regenerate/approve/finalize behavior and student visibility boundaries. Full frontend tests, component tests, lint, typecheck, and the production build pass.
 
 - **2026-08-16:** Exercised all 125 user stories through the Codex in-app Browser across desktop/mobile public, student, teacher, and admin routes, including bounded live Luna queue, timeout, rejection, regeneration, and student-visibility checks; rechecked observed failures and recorded final totals of 84 PASS, 30 FAIL, 4 BLOCKED, and 7 DECISION-GATED in `docs/e2e-user-stories.md`.
 

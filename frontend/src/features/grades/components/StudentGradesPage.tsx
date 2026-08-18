@@ -25,14 +25,16 @@ import {
   type ObjectiveExplanationStatus,
 } from '@features/grades/api';
 import { extractEditableFeedback } from '@features/ai-feedback/ui.logic';
+import { getEligibleObjectiveExplanationTargets } from '@features/grades/objectiveExplanationEligibility';
+import type { Submission } from '@domain';
 import {
-  isIeltsAssignmentType,
-  normalizeIeltsAssignmentConfig,
-  type IeltsListeningConfig,
-  type IeltsReadingConfig,
-} from '@lib/ielts';
-import { getStudentIeltsAnswerTargets } from '@features/assignments/components/ielts/student/studentIeltsAnswerTargets';
-import type { Assignment, Grade, Submission } from '@domain';
+  explanationText,
+  renderFeedbackContent,
+  rubricProgressValue,
+  rubricScoreLabel,
+  scoreSummary,
+  toFeedbackLabel,
+} from './StudentGradePresentation';
 
 type ExplanationViewStatus = ObjectiveExplanationStatus | 'polling_timeout';
 
@@ -57,175 +59,6 @@ const toExplanationState = (
   failureCode: response.failureCode,
   failureMessage: response.failureMessage,
 });
-
-const toFeedbackLabel = (label: Grade['feedbackLabel']) =>
-  label === 'teacher-reviewed AI-assisted feedback'
-    ? 'Teacher-reviewed AI-assisted Feedback'
-    : 'Teacher Feedback';
-
-const assertNever = (value: never): never => {
-  throw new Error(`Unsupported score display: ${JSON.stringify(value)}`);
-};
-
-type ScoreSummary = {
-  primary: string;
-  secondary: string | null;
-  className: string;
-};
-
-const formatBandScore = (value: number) => value.toFixed(1);
-
-const scoreSummary = (grade: Grade): ScoreSummary => {
-  if (grade.provisionalOnly) {
-    return {
-      primary: 'Provisional feedback',
-      secondary: null,
-      className: 'text-sm font-medium',
-    };
-  }
-
-  if (grade.scoreDisplay.kind === 'ielts_band') {
-    return {
-      primary: formatBandScore(grade.scoreDisplay.value),
-      secondary: null,
-      className: 'text-3xl font-medium',
-    };
-  }
-
-  if (grade.scoreDisplay.kind === 'unavailable') {
-    return {
-      primary: grade.scoreDisplay.label,
-      secondary: null,
-      className: 'text-sm font-medium',
-    };
-  }
-
-  if (grade.scoreDisplay.kind === 'points') {
-    const percentage =
-      grade.scoreDisplay.max > 0
-        ? `${((grade.scoreDisplay.value / grade.scoreDisplay.max) * 100).toFixed(0)}%`
-        : null;
-
-    return {
-      primary: `${grade.scoreDisplay.value}/${grade.scoreDisplay.max}`,
-      secondary: percentage,
-      className: 'text-3xl font-medium',
-    };
-  }
-
-  return assertNever(grade.scoreDisplay);
-};
-
-const rubricScoreLabel = (item: Grade['rubricBreakdown'][number]) =>
-  item.scale === 'ielts_band'
-    ? `${formatBandScore(item.points)} / ${formatBandScore(item.maxPoints)}`
-    : `${item.points}/${item.maxPoints}`;
-
-const rubricProgressValue = (item: Grade['rubricBreakdown'][number]) =>
-  item.maxPoints > 0 ? (item.points / item.maxPoints) * 100 : 0;
-
-const explanationText = (explanation: Record<string, unknown> | undefined) => {
-  if (!explanation) {
-    return '';
-  }
-
-  const preferred =
-    explanation.short_explanation ??
-    explanation.explanation ??
-    explanation.rationale ??
-    explanation.feedbackMd ??
-    explanation.feedback ??
-    explanation.content;
-
-  return typeof preferred === 'string'
-    ? preferred
-    : JSON.stringify(explanation);
-};
-
-const renderFeedbackContent = (feedback: string) => {
-  const lines = feedback.split('\n');
-  const elements: React.ReactNode[] = [];
-  let listItems: string[] = [];
-
-  const flushListItems = () => {
-    if (listItems.length > 0) {
-      elements.push(
-        <ul key={`list-${elements.length}`} className="space-y-2 ml-4">
-          {listItems.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-3">
-              <div className="size-1.5 rounded-full bg-primary/70 mt-2 flex-shrink-0" />
-              <span className="text-sm text-foreground/90 leading-relaxed">
-                {item}
-              </span>
-            </li>
-          ))}
-        </ul>,
-      );
-      listItems = [];
-    }
-  };
-
-  lines.forEach((line, i) => {
-    const trimmedLine = line.trim();
-
-    if (trimmedLine.startsWith('# ')) {
-      flushListItems();
-      const title = trimmedLine.replace('# ', '');
-      elements.push(
-        <div key={i} className="pt-2 first:pt-0">
-          <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-            <Award className="size-5 text-primary" />
-            {title}
-          </h3>
-        </div>,
-      );
-    } else if (trimmedLine.startsWith('## ')) {
-      flushListItems();
-      const subtitle = trimmedLine.replace('## ', '');
-      elements.push(
-        <div key={i} className="pt-3">
-          <h4 className="text-base font-medium text-foreground/90 mb-2 pl-3 border-l-2 border-primary/40">
-            {subtitle}
-          </h4>
-        </div>,
-      );
-    } else if (trimmedLine.startsWith('- ')) {
-      listItems.push(trimmedLine.replace('- ', ''));
-    } else if (trimmedLine) {
-      flushListItems();
-      elements.push(
-        <p key={i} className="text-sm text-foreground/80 leading-relaxed">
-          {trimmedLine}
-        </p>,
-      );
-    }
-  });
-
-  flushListItems();
-  return elements;
-};
-
-const getObjectiveExplanationTargets = (assignment: Assignment) => {
-  if (
-    !isIeltsAssignmentType(assignment.type) ||
-    (assignment.type !== 'reading' && assignment.type !== 'listening')
-  ) {
-    return [];
-  }
-
-  const config = normalizeIeltsAssignmentConfig(
-    assignment.type,
-    assignment.assignmentConfig,
-  );
-
-  if (config.aiPolicy.objectiveExplanations !== 'on_demand_student_visible') {
-    return [];
-  }
-
-  return getStudentIeltsAnswerTargets(
-    config as IeltsReadingConfig | IeltsListeningConfig,
-  );
-};
 
 export function StudentGradesPage() {
   const { currentUser } = useAuthStore();
@@ -374,8 +207,10 @@ export function StudentGradesPage() {
 
               const hasOfficialGrade = !grade.provisionalOnly;
               const displayScore = scoreSummary(grade);
-              const explanationTargets =
-                getObjectiveExplanationTargets(assignment);
+              const explanationTargets = getEligibleObjectiveExplanationTargets(
+                assignment,
+                submission,
+              );
               const provisionalFeedback = extractEditableFeedback(
                 grade.studentAiFeedback?.feedback,
               );

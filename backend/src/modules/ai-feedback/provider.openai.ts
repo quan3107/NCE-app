@@ -4,6 +4,12 @@
  * Why: Keeps provider credentials and model selection in the backend.
  */
 import { AiProviderError } from './provider.errors.js'
+import {
+  classifyEmptyChatCompletion,
+  firstValidChatChoice,
+  type OpenAiChatChoice,
+  type OpenAiChatUsage,
+} from './provider.openai-diagnostics.js'
 import type {
   AiConcreteProviderRouteKey,
   AiProviderImageContentPart,
@@ -41,16 +47,8 @@ type OpenAiChatContentPart =
 
 type ChatCompletionResponse = {
   model?: unknown
-  choices?: Array<{
-    message?: {
-      content?: unknown
-    }
-  }>
-  usage?: {
-    prompt_tokens?: unknown
-    completion_tokens?: unknown
-    total_tokens?: unknown
-  }
+  choices?: OpenAiChatChoice[]
+  usage?: OpenAiChatUsage
 }
 
 const defaultMaxResponseBytes = 256 * 1024
@@ -166,7 +164,12 @@ export class OpenAIProvider implements AiProvider {
       body.reasoning_effort = this.reasoningEffort
     }
 
-    if (request.expectJson) {
+    if (request.jsonSchema) {
+      body.response_format = {
+        type: 'json_schema',
+        json_schema: request.jsonSchema,
+      }
+    } else if (request.expectJson) {
       body.response_format = { type: 'json_object' }
     }
 
@@ -229,12 +232,9 @@ export class OpenAIProvider implements AiProvider {
     }
 
     if (!response.ok) {
-      const errorPayload = parseJsonIfPossible(responseText)
-
       throw new AiProviderError({
         code: 'http_error',
-        message:
-          extractProviderErrorMessage(errorPayload) ?? 'AI provider request failed.',
+        message: 'AI provider request failed.',
         routeKey: this.routeKey,
         details: { status: response.status },
       })
@@ -251,11 +251,25 @@ export class OpenAIProvider implements AiProvider {
       })
     }
 
-    const rawText = normalizeContent(payload.choices?.[0]?.message?.content).trim()
-    if (!rawText) {
+    const choice = firstValidChatChoice(payload.choices)
+    if (!choice) {
       throw new AiProviderError({
-        code: 'empty_content',
-        message: 'AI provider returned empty content.',
+        code: 'malformed_response',
+        message: 'AI provider returned an invalid completion shape.',
+        routeKey: this.routeKey,
+        details: {
+          finishReason: 'missing',
+          refusalPresent: false,
+        },
+      })
+    }
+
+    const rawText = normalizeContent(choice.message.content).trim()
+    if (!rawText) {
+      throw classifyEmptyChatCompletion({
+        choice,
+        usage: payload.usage,
+        maxOutputTokens: request.maxOutputTokens ?? this.maxOutputTokens,
         routeKey: this.routeKey,
       })
     }
@@ -352,20 +366,6 @@ function normalizeTokenUsage(
 
 function numberOrUndefined(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined
-}
-
-function extractProviderErrorMessage(payload: unknown): string | undefined {
-  if (!payload || typeof payload !== 'object') {
-    return undefined
-  }
-
-  const error = (payload as { error?: unknown }).error
-  if (!error || typeof error !== 'object') {
-    return undefined
-  }
-
-  const message = (error as { message?: unknown }).message
-  return typeof message === 'string' ? message : undefined
 }
 
 function isConnectionRefused(error: unknown): boolean {

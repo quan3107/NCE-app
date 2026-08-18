@@ -100,7 +100,10 @@ export function TeacherAssignmentDetailTabs({
       </TabsContent>
 
       <TabsContent value="submissions" className="space-y-6">
-        <TeacherAssignmentSubmissionsTab submissions={submissions} />
+        <TeacherAssignmentSubmissionsTab
+          assignment={assignment}
+          submissions={submissions}
+        />
       </TabsContent>
 
       <TabsContent value="analytics" className="space-y-6">

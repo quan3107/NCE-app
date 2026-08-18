@@ -26,7 +26,7 @@ const baseConfig = {
   apiKey: "sk-test-secret",
   timeoutMs: 250,
   maxInputChars: 12_000,
-  maxOutputTokens: 1_200,
+  maxOutputTokens: 4_096,
   imageInput: {
     maxBytes: 20 * 1024 * 1024,
     supportedMimeTypes: ["image/png", "image/jpeg", "image/webp", "image/gif"],

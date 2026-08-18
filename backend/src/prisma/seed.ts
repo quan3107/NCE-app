@@ -22,7 +22,10 @@ import {
 import { basePrisma, shutdownPrisma } from './client.js'
 import { buildSeedAuditEvent } from './seedAuditEvents.js'
 import { buildPrimaryIeltsAssignmentConfig } from './seeds/ieltsOfficialFixtures.js'
-import { buildIeltsWritingSubmissionPayload } from './seeds/ieltsOfficialSubmissions.js'
+import {
+  buildIeltsObjectiveSubmissionPayload,
+  buildIeltsWritingSubmissionPayload,
+} from './seeds/ieltsOfficialSubmissions.js'
 
 const prisma = basePrisma
 
@@ -788,6 +791,12 @@ async function main(): Promise<void> {
     const payload: Prisma.InputJsonObject =
       assignment.type === AssignmentType.writing
         ? buildIeltsWritingSubmissionPayload(seed.assignmentTitle)
+        : assignment.type === AssignmentType.reading ||
+            assignment.type === AssignmentType.listening
+          ? buildIeltsObjectiveSubmissionPayload(
+              seed.assignmentTitle,
+              assignment.assignmentConfig,
+            )
         : {
             artifact: seed.assignmentTitle,
             resources: [
@@ -1107,7 +1116,16 @@ async function main(): Promise<void> {
 
     const name = file.objectKey.split('/').pop() ?? file.objectKey
 
+    const objectivePayload =
+      assignment.type === AssignmentType.reading ||
+      assignment.type === AssignmentType.listening
+        ? buildIeltsObjectiveSubmissionPayload(
+            seed.assignmentTitle,
+            assignment.assignmentConfig,
+          )
+        : {}
     const payload: Prisma.InputJsonObject = {
+      ...objectivePayload,
       studentName: student.fullName,
       version: seed.version ?? 1,
       files: [

@@ -7,7 +7,7 @@ import type { AiProviderMessage } from '../provider.types.js'
 import { buildIeltsWritingCriteriaSystemPromptFragment } from '../criteria/criteria.prompt.js'
 
 export const IELTS_WRITING_FEEDBACK_PROMPT_VERSION = 'ielts-writing-feedback-v1'
-export const OBJECTIVE_EXPLANATION_PROMPT_VERSION = 'objective-explanation-v2'
+export const OBJECTIVE_EXPLANATION_PROMPT_VERSION = 'objective-explanation-v3'
 
 export function buildIeltsWritingSystemMessage(): AiProviderMessage {
   return {
@@ -36,6 +36,7 @@ export function buildObjectiveExplanationSystemMessage(): AiProviderMessage {
       'Role: You explain deterministic reading and listening question scoring to students.',
       'Tone: student-safe, concise, and focused on learning.',
       'Boundary: Explain the deterministic scoring result and never override the answer key.',
+      'Result contract: In the result field, copy deterministic_result exactly; put all explanatory prose in the other fields.',
       'Evidence: The evidence field must be an exact quote from the provided source_evidence_candidates list.',
       'Evidence scope: Do not quote broad passage or transcript text unless it appears in source_evidence_candidates.',
       'Insufficient context: If source context is insufficient, say what is missing and avoid unsupported claims.',

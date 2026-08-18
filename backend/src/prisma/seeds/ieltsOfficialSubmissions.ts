@@ -11,6 +11,40 @@ type WritingSubmissionSeed = {
   durationSeconds: number
 }
 
+type ObjectiveQuestion = {
+  id?: unknown
+  answer?: unknown
+  correctAnswer?: unknown
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function objectiveAnswersFromConfig(
+  assignmentConfig: unknown,
+): Array<{ questionId: string; value: Prisma.InputJsonValue }> {
+  if (!isRecord(assignmentConfig) || !Array.isArray(assignmentConfig.sections)) {
+    return []
+  }
+
+  return assignmentConfig.sections.flatMap((section) => {
+    if (!isRecord(section) || !Array.isArray(section.questions)) {
+      return []
+    }
+
+    return section.questions.flatMap((questionValue) => {
+      const question = questionValue as ObjectiveQuestion
+      const value = question.answer ?? question.correctAnswer
+      if (typeof question.id !== 'string' || value === undefined || value === null) {
+        return []
+      }
+
+      return [{ questionId: question.id, value: value as Prisma.InputJsonValue }]
+    })
+  })
+}
+
 export const PRIMARY_IELTS_WRITING_SUBMISSION_SEED_MAP: Record<
   string,
   WritingSubmissionSeed
@@ -51,5 +85,20 @@ export function buildIeltsWritingSubmissionPayload(
     durationSeconds: seed.durationSeconds,
     task1: { text: seed.task1Text },
     task2: { text: seed.task2Text },
+  }
+}
+
+export function buildIeltsObjectiveSubmissionPayload(
+  title: string,
+  assignmentConfig: unknown,
+): Prisma.InputJsonObject {
+  const answers = objectiveAnswersFromConfig(assignmentConfig)
+  if (answers.length === 0) {
+    throw new Error(`Missing IELTS objective answers for ${title}`)
+  }
+
+  return {
+    version: 1,
+    answers,
   }
 }

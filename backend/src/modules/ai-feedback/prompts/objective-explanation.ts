@@ -138,6 +138,25 @@ function buildUserPayload(input: ObjectiveExplanationPromptInput) {
   }
 }
 
+function buildResponseJsonSchema(deterministicResult: string) {
+  return {
+    name: 'objective_explanation',
+    strict: true as const,
+    schema: {
+      type: 'object',
+      properties: {
+        result: { type: 'string', enum: [cleanText(deterministicResult)] },
+        short_explanation: { type: 'string' },
+        evidence: { type: 'string' },
+        misconception: { type: 'string' },
+        study_tip: { type: 'string' },
+      },
+      required: ['result', 'short_explanation', 'evidence', 'misconception', 'study_tip'],
+      additionalProperties: false,
+    },
+  }
+}
+
 export function buildObjectiveExplanationPrompt(
   input: ObjectiveExplanationPromptInput,
 ): BuiltObjectiveExplanationPrompt {
@@ -156,6 +175,7 @@ export function buildObjectiveExplanationPrompt(
       ...(preferredRoute ? { preferredRoute } : {}),
     },
     expectJson: true,
+    jsonSchema: buildResponseJsonSchema(input.deterministicResult),
     temperature: 0,
   }
 

@@ -1,15 +1,27 @@
 /**
  * Location: tests/aiFeedbackApi.test.ts
- * Purpose: Verify AI feedback transport helpers.
- * Why: Batch writing generation needs a stable assignment-scoped API contract.
+ * Purpose: Verify AI feedback transport helpers and terminal conflict decoding.
+ * Why: Batch and single-draft workflows need stable responses for every terminal state.
  */
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 
 type RequestBatchFn =
   typeof import('../src/features/ai-feedback/api').requestAssignmentWritingFeedbackBatch;
+type InvalidateBatchFn =
+  typeof import('../src/features/ai-feedback/api').invalidateAssignmentWritingFeedbackBatchQueries;
+type FetchWritingStatusFn =
+  typeof import('../src/features/ai-feedback/api').fetchWritingFeedbackStatus;
+type RequestWritingFn =
+  typeof import('../src/features/ai-feedback/api').requestWritingFeedback;
+type RegenerateWritingFn =
+  typeof import('../src/features/ai-feedback/api').regenerateWritingFeedback;
 
 let requestAssignmentWritingFeedbackBatch: RequestBatchFn;
+let invalidateAssignmentWritingFeedbackBatchQueries: InvalidateBatchFn;
+let fetchWritingFeedbackStatus: FetchWritingStatusFn;
+let requestWritingFeedback: RequestWritingFn;
+let regenerateWritingFeedback: RegenerateWritingFn;
 
 before(async () => {
   if (typeof process !== 'undefined' && process.env) {
@@ -18,6 +30,111 @@ before(async () => {
 
   const apiModule = await import('../src/features/ai-feedback/api');
   requestAssignmentWritingFeedbackBatch = apiModule.requestAssignmentWritingFeedbackBatch;
+  invalidateAssignmentWritingFeedbackBatchQueries =
+    apiModule.invalidateAssignmentWritingFeedbackBatchQueries;
+  fetchWritingFeedbackStatus = apiModule.fetchWritingFeedbackStatus;
+  requestWritingFeedback = apiModule.requestWritingFeedback;
+  regenerateWritingFeedback = apiModule.regenerateWritingFeedback;
+});
+
+const withFetch = async (
+  fetch: typeof globalThis.fetch,
+  run: () => Promise<void>,
+) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = fetch;
+
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+};
+
+const terminalConflict = (
+  status: 'rejected' | 'review_required',
+) => ({
+  id: `draft-${status}`,
+  status,
+  visibilityMode: 'hidden' as const,
+  failureCode:
+    status === 'rejected' ? 'unsafe_output' : 'image_context_unavailable',
+  failureMessage:
+    status === 'rejected'
+      ? 'Generated feedback requires teacher review.'
+      : 'Required image context is unavailable.',
+});
+
+test('status fetch returns rejected draft bodies from terminal conflicts', async () => {
+  const response = terminalConflict('rejected');
+
+  await withFetch(
+    async () =>
+      new Response(JSON.stringify(response), {
+        status: 409,
+        statusText: 'Conflict',
+        headers: { 'content-type': 'application/json' },
+      }),
+    async () => {
+      assert.deepEqual(
+        await fetchWritingFeedbackStatus('submission-1'),
+        response,
+      );
+    },
+  );
+});
+
+test('initial request returns review-required bodies from terminal conflicts', async () => {
+  const response = terminalConflict('review_required');
+
+  await withFetch(
+    async () =>
+      new Response(JSON.stringify(response), {
+        status: 409,
+        statusText: 'Conflict',
+        headers: { 'content-type': 'application/json' },
+      }),
+    async () => {
+      assert.deepEqual(await requestWritingFeedback('submission-2'), response);
+    },
+  );
+});
+
+test('regeneration returns rejected bodies from terminal conflicts', async () => {
+  const response = terminalConflict('rejected');
+
+  await withFetch(
+    async () =>
+      new Response(JSON.stringify(response), {
+        status: 409,
+        statusText: 'Conflict',
+        headers: { 'content-type': 'application/json' },
+      }),
+    async () => {
+      assert.deepEqual(
+        await regenerateWritingFeedback({
+          submissionId: 'submission-3',
+          payload: { providerTier: 'premium' },
+        }),
+        response,
+      );
+    },
+  );
+});
+
+test('batch success invalidates assignment submissions and all writing draft queries', () => {
+  const invalidations: unknown[] = [];
+  invalidateAssignmentWritingFeedbackBatchQueries({
+    invalidateQueries: (filters: unknown) => {
+      invalidations.push(filters);
+      return Promise.resolve();
+    },
+  });
+
+  assert.deepEqual(invalidations, [
+    { queryKey: ['assignments:submissions'] },
+    { queryKey: ['ai-feedback', 'writing'], exact: false },
+  ]);
 });
 
 test('requestAssignmentWritingFeedbackBatch posts assignment-scoped submission IDs', async () => {

@@ -10,7 +10,10 @@ export type AiProviderErrorCode =
   | "timeout"
   | "http_error"
   | "malformed_json"
+  | "malformed_response"
   | "empty_content"
+  | "output_budget_exhausted"
+  | "refusal"
   | "missing_model"
   | "unsupported_reasoning_effort"
   | "unsupported_image_input"
@@ -31,7 +34,10 @@ const defaultStatusByCode = {
   timeout: 504,
   http_error: 502,
   malformed_json: 502,
+  malformed_response: 502,
   empty_content: 502,
+  output_budget_exhausted: 502,
+  refusal: 422,
   missing_model: 500,
   unsupported_reasoning_effort: 500,
   unsupported_image_input: 400,
@@ -44,7 +50,10 @@ const defaultRetryableByCode = {
   timeout: true,
   http_error: true,
   malformed_json: false,
+  malformed_response: false,
   empty_content: true,
+  output_budget_exhausted: true,
+  refusal: false,
   missing_model: false,
   unsupported_reasoning_effort: false,
   unsupported_image_input: false,

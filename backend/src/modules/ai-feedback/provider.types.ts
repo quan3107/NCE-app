@@ -31,6 +31,12 @@ export type AiProviderMessage = {
   content: AiProviderMessageContent;
 };
 
+export type AiProviderJsonSchema = {
+  name: string;
+  strict: true;
+  schema: Record<string, unknown>;
+};
+
 export type AiAssignmentPolicy = {
   highStakes?: boolean;
   preferredRoute?: AiConcreteProviderRouteKey;
@@ -49,6 +55,7 @@ export type AiProviderRequest = {
   retry?: AiRetryState;
   requiresImageInput?: boolean;
   expectJson?: boolean;
+  jsonSchema?: AiProviderJsonSchema;
   temperature?: number;
   maxOutputTokens?: number;
 };
