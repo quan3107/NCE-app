@@ -122,3 +122,66 @@ test("sessionStorage denial without an OAuth lease still reaches logout", async 
   await expect(page.getByTestId("current-user")).toHaveText("guest");
   await context.close();
 });
+
+test("combined storage and BroadcastChannel denial keeps cookies usable", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.defineProperty(globalThis, "BroadcastChannel", {
+      configurable: true,
+      value: undefined,
+    });
+    for (const key of ["localStorage", "sessionStorage"] as const) {
+      Object.defineProperty(window, key, {
+        configurable: true,
+        get() {
+          throw new DOMException("Storage denied", "SecurityError");
+        },
+      });
+    }
+  });
+  const page = await context.newPage();
+  await page.goto("/e2e/auth-cookie-race.html");
+
+  await page.getByRole("button", { name: "Login A" }).click();
+  await expect(page.getByTestId("current-user")).toHaveText("user-a");
+  expect(
+    (await context.cookies(`${TEST_SERVER}/api/v1/auth`)).some(
+      (cookie) => cookie.name === "refreshToken",
+    ),
+  ).toBe(true);
+
+  const logoutResponse = page.waitForResponse("**/api/v1/auth/logout");
+  await page.getByRole("button", { name: "Logout" }).click();
+  expect((await logoutResponse).status()).toBe(204);
+  await expect(page.getByTestId("current-user")).toHaveText("guest");
+  await context.close();
+});
+
+test("storage events preserve peer ordering when BroadcastChannel fails", async ({
+  browser,
+  request,
+}) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.defineProperty(globalThis, "BroadcastChannel", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  const pageA = await context.newPage();
+  const pageB = await context.newPage();
+  await Promise.all([
+    pageA.goto("/e2e/auth-cookie-race.html"),
+    pageB.goto("/e2e/auth-cookie-race.html"),
+  ]);
+
+  const peerRefresh = pageB.waitForRequest("**/api/v1/auth/refresh");
+  await pageA.getByRole("button", { name: "Login A" }).click();
+  await expect(pageA.getByTestId("current-user")).toHaveText("user-a");
+  await peerRefresh;
+  await request.post(`${TEST_SERVER}/test/release-refresh`);
+  await expect(pageB.getByTestId("current-user")).toHaveText("user-a");
+  await context.close();
+});
