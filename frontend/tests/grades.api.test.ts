@@ -9,6 +9,7 @@ import type { Assignment, Submission } from '../src/types/domain';
 type GradesApi = typeof import('../src/features/grades/api');
 
 let fetchObjectiveExplanation: GradesApi['fetchObjectiveExplanation'];
+let restoreObjectiveExplanations: GradesApi['restoreObjectiveExplanations'];
 let pollObjectiveExplanationUntilSettled: GradesApi['pollObjectiveExplanationUntilSettled'];
 let requestObjectiveExplanation: GradesApi['requestObjectiveExplanation'];
 let toGrade: GradesApi['toGrade'];
@@ -20,6 +21,7 @@ before(async () => {
 
   const gradesApi = await import('../src/features/grades/api');
   fetchObjectiveExplanation = gradesApi.fetchObjectiveExplanation;
+  restoreObjectiveExplanations = gradesApi.restoreObjectiveExplanations;
   pollObjectiveExplanationUntilSettled =
     gradesApi.pollObjectiveExplanationUntilSettled;
   requestObjectiveExplanation = gradesApi.requestObjectiveExplanation;
@@ -552,6 +554,49 @@ test('fetchObjectiveExplanation returns rejected payloads from conflict response
         result.failureMessage,
         'This question does not include enough source text for a source-backed AI explanation.',
       );
+    },
+  );
+});
+
+test('restoreObjectiveExplanations reloads cached records and ignores missing questions', async () => {
+  const completed: ObjectiveExplanationResponse = {
+    id: 'explanation-cached',
+    status: 'completed',
+    cached: true,
+    explanation: {
+      short_explanation: 'The passage directly supports the statement.',
+    },
+  };
+
+  await withFetch(
+    async (input) => {
+      const url = String(input);
+      if (url.includes('/questions/q1/')) {
+        return new Response(JSON.stringify(completed), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ message: 'Not found.' }), {
+        status: 404,
+        statusText: 'Not Found',
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+    async () => {
+      const restored = await restoreObjectiveExplanations([
+        { submissionId: 'submission-1', questionId: 'q1' },
+        { submissionId: 'submission-1', questionId: 'q2' },
+      ]);
+
+      assert.deepEqual(restored, [
+        {
+          submissionId: 'submission-1',
+          questionId: 'q1',
+          response: completed,
+        },
+      ]);
     },
   );
 });

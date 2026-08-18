@@ -55,6 +55,15 @@ export type ObjectiveExplanationResponse = {
   failureMessage?: string;
 };
 
+export type ObjectiveExplanationLookup = {
+  submissionId: string;
+  questionId: string;
+};
+
+export type RestoredObjectiveExplanation = ObjectiveExplanationLookup & {
+  response: ObjectiveExplanationResponse;
+};
+
 const objectiveExplanationStatuses = new Set<ObjectiveExplanationStatus>([
   'queued',
   'running',
@@ -364,6 +373,29 @@ export async function pollObjectiveExplanationUntilSettled(
   }
 
   return current;
+}
+
+export async function restoreObjectiveExplanations(
+  targets: ObjectiveExplanationLookup[],
+): Promise<RestoredObjectiveExplanation[]> {
+  const results = await Promise.allSettled(
+    targets.map(async ({ submissionId, questionId }) => {
+      const initial = await fetchObjectiveExplanation(submissionId, questionId);
+      const response = isActiveObjectiveExplanation(initial)
+        ? await pollObjectiveExplanationUntilSettled(
+            submissionId,
+            questionId,
+            initial,
+          )
+        : initial;
+
+      return { submissionId, questionId, response };
+    }),
+  );
+
+  return results.flatMap((result) =>
+    result.status === 'fulfilled' ? [result.value] : [],
+  );
 }
 
 export function useGradesQuery(
