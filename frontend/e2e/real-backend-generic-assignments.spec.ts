@@ -40,6 +40,10 @@ const teacherEmail = process.env.PLAYWRIGHT_TEACHER_EMAIL ?? 'sarah.tutor@ielts.
 const studentEmail = process.env.PLAYWRIGHT_STUDENT_EMAIL ?? 'amelia.chan@ielts.local';
 const otherStudentEmail = 'diego.rojas@ielts.local';
 const courseTitle = 'IELTS Academic Writing Bootcamp';
+const roleLandingPath: Record<AuthResponse['user']['role'], string> = {
+  teacher: '/teacher/dashboard',
+  student: '/student/dashboard',
+};
 
 async function loginThroughBrowser(page: Page, email: string): Promise<AuthResponse> {
   const loginResponse = page.waitForResponse(
@@ -51,7 +55,12 @@ async function loginThroughBrowser(page: Page, email: string): Promise<AuthRespo
   await page.getByRole('button', { name: 'Sign In' }).click();
   const response = await loginResponse;
   expect(response.ok()).toBeTruthy();
-  return (await response.json()) as AuthResponse;
+  const auth = (await response.json()) as AuthResponse;
+  await expect(page).toHaveURL(new RegExp(`${roleLandingPath[auth.user.role]}$`));
+  await expect(
+    page.locator('header button').filter({ has: page.locator('[data-slot="avatar"]') }),
+  ).toBeVisible();
+  return auth;
 }
 
 async function loginThroughApi(request: APIRequestContext, email: string): Promise<AuthResponse> {
