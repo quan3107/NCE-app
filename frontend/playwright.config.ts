@@ -61,6 +61,7 @@ export default defineConfig({
     'real-backend-mutations.spec.ts',
     'real-backend-generic-assignments.spec.ts',
     'real-backend-nce-educator-workflows.spec.ts',
+    'real-backend-nce-protected-audio.spec.ts',
   ],
   timeout: 60_000,
   expect: {

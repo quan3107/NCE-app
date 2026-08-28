@@ -44,6 +44,7 @@ function audioRequest(token: string, requestedKey = key): Request {
 
 function response(): Response {
   return {
+    set: vi.fn(),
     type: vi.fn(),
     sendFile: vi.fn(),
   } as unknown as Response;
@@ -120,6 +121,10 @@ describe("nce-attempts.controller", () => {
       },
     );
     expect(res.type).toHaveBeenCalledWith("audio/mpeg");
+    expect(res.set).toHaveBeenCalledWith(
+      "Cross-Origin-Resource-Policy",
+      "cross-origin",
+    );
     expect(res.sendFile).toHaveBeenCalled();
   });
 });

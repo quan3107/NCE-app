@@ -12,7 +12,7 @@ async function main(): Promise<void> {
 
   const result = await seedNceContent(basePrisma)
   console.info(
-    `NCE content seed complete (books=${result.books}, lessons=${result.lessons}, courseAssignments=${result.courseAssignments}).`,
+    `NCE content seed complete (assets=${result.assets}, books=${result.books}, lessons=${result.lessons}, courseAssignments=${result.courseAssignments}).`,
   )
 }
 

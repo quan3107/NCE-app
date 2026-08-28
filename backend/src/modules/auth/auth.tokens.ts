@@ -5,7 +5,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { generateKeyPairSync } from "node:crypto";
+import { generateKeyPairSync, randomUUID } from "node:crypto";
 
 import jwt from "jsonwebtoken";
 
@@ -92,6 +92,7 @@ export function signNceAssetToken(payload: {
     {
       algorithm: "RS256",
       expiresIn: NCE_ASSET_TOKEN_TTL,
+      jwtid: randomUUID(),
       subject: payload.userId,
       issuer: TOKEN_ISSUER,
       audience: NCE_ASSET_TOKEN_AUDIENCE,

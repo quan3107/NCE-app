@@ -3,14 +3,23 @@
  * Purpose: Validate NCE schema, migration, package script, and seed fixture contracts.
  * Why: PR-40 adds foundational NCE content tables and must keep the seed path idempotent and complete.
  */
-import { readdirSync, readFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   NCE_BOOK_SEEDS,
   NCE_EXERCISE_TYPES,
 } from '../../src/prisma/seeds/nceContent.data.js'
+import { seedNceAssets } from '../../src/prisma/seeds/nceAssets.seed.js'
 import { assertRepresentativeNceBookSeed } from './nceSeedShapeAssertions.js'
 
 const testDir = dirname(fileURLToPath(import.meta.url))
@@ -161,6 +170,53 @@ describe('NCE seed fixtures', () => {
   it('covers the representative Book 1 path with all supported exercise types', () => {
     expect(NCE_BOOK_SEEDS).toHaveLength(1)
     assertRepresentativeNceBookSeed(NCE_BOOK_SEEDS[0], NCE_EXERCISE_TYPES)
+  })
+
+  it('provisions every protected audio object referenced by the demo lessons', () => {
+    const assetRoot = mkdtempSync(resolve(tmpdir(), 'nce-seeded-assets-'))
+
+    try {
+      const result = seedNceAssets({ NCE_ASSET_ROOT: assetRoot })
+      const referencedKeys = new Set<string>()
+      for (const book of NCE_BOOK_SEEDS) {
+        for (const unit of book.units) {
+          for (const lesson of unit.lessons) {
+            for (const exercise of lesson.exercises) {
+              const key = exercise.content.audioKey
+              if (typeof key === 'string') referencedKeys.add(key)
+            }
+          }
+        }
+      }
+
+      expect(result.assets).toBe(referencedKeys.size)
+      for (const key of referencedKeys) {
+        const audio = readFileSync(resolve(assetRoot, key))
+        expect(audio.length).toBeGreaterThan(1_000)
+        expect(audio.subarray(0, 4).toString('ascii')).toBe('OggS')
+      }
+    } finally {
+      rmSync(assetRoot, { force: true, recursive: true })
+    }
+  })
+
+  it('preserves an existing configured NCE audio object on seed replay', () => {
+    const assetRoot = mkdtempSync(resolve(tmpdir(), 'nce-preserved-assets-'))
+    const existingPath = resolve(assetRoot, 'nce/book1/lesson1/dialogue.ogg')
+    const operatorBytes = Buffer.from('operator-provided-audio')
+    mkdirSync(dirname(existingPath), { recursive: true })
+    writeFileSync(existingPath, operatorBytes)
+
+    try {
+      const firstReplay = seedNceAssets({ NCE_ASSET_ROOT: assetRoot })
+      const secondReplay = seedNceAssets({ NCE_ASSET_ROOT: assetRoot })
+
+      expect(firstReplay).toMatchObject({ assets: 2, created: 1 })
+      expect(secondReplay).toMatchObject({ assets: 2, created: 0 })
+      expect(readFileSync(existingPath)).toEqual(operatorBytes)
+    } finally {
+      rmSync(assetRoot, { force: true, recursive: true })
+    }
   })
 
   it('keeps NCE course fixtures in the explicit demo seed namespace', () => {

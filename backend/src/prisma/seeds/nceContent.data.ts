@@ -99,7 +99,7 @@ export const NCE_BOOK_SEEDS: NceBookSeed[] = [
               audio: [
                 {
                   label: 'dialogue',
-                  objectKey: 'nce/book1/lesson1/dialogue.mp3',
+                  objectKey: 'nce/book1/lesson1/dialogue.ogg',
                 },
               ],
             },
@@ -161,7 +161,7 @@ export const NCE_BOOK_SEEDS: NceBookSeed[] = [
                 exerciseType: NceExerciseType.listening,
                 prompt: 'Listen and choose the phrase you hear first.',
                 content: {
-                  audioKey: 'nce/book1/lesson1/dialogue.mp3',
+                  audioKey: 'nce/book1/lesson1/dialogue.ogg',
                   choices: ['Excuse me', 'Thank you', 'Good morning'],
                 },
                 answerKey: { choice: 'Excuse me' },
@@ -207,7 +207,7 @@ export const NCE_BOOK_SEEDS: NceBookSeed[] = [
               audio: [
                 {
                   label: 'dictation',
-                  objectKey: 'nce/book1/lesson2/dictation.mp3',
+                  objectKey: 'nce/book1/lesson2/dictation.ogg',
                 },
               ],
             },
@@ -274,7 +274,7 @@ export const NCE_BOOK_SEEDS: NceBookSeed[] = [
                 objectiveCode: 'nce-b1-u1-l2-objects',
                 exerciseType: NceExerciseType.dictation,
                 prompt: 'Listen and type the sentence.',
-                content: { audioKey: 'nce/book1/lesson2/dictation.mp3' },
+                content: { audioKey: 'nce/book1/lesson2/dictation.ogg' },
                 answerKey: { sentence: 'Is this your book?' },
                 scoringConfig: { maxScore: 1, punctuationOptional: true },
                 sortOrder: 4,
