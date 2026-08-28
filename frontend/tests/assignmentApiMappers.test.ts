@@ -8,14 +8,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import {
-  toAssignment,
-  toSubmission,
-} from '../src/features/assignments/api.mappers';
-import {
-  createIeltsAssignmentConfig,
-  normalizeIeltsAssignmentConfig,
-} from '../src/lib/ielts';
+import { toAssignment, toSubmission } from '../src/features/assignments/api.mappers';
+import { createIeltsAssignmentConfig, normalizeIeltsAssignmentConfig } from '../src/lib/ielts';
 
 test('toAssignment formats structured late policies for student display', () => {
   const assignment = toAssignment(
@@ -53,14 +47,8 @@ test('toAssignment maps IELTS assignments max scores to the band scale', () => {
 
   const reading = toAssignment(buildApiAssignment('reading'), 'IELTS');
   const listening = toAssignment(buildApiAssignment('listening'), 'IELTS');
-  const writing = toAssignment(
-    buildApiAssignment('writing'),
-    'IELTS',
-  );
-  const speaking = toAssignment(
-    buildApiAssignment('speaking'),
-    'IELTS',
-  );
+  const writing = toAssignment(buildApiAssignment('writing'), 'IELTS');
+  const speaking = toAssignment(buildApiAssignment('speaking'), 'IELTS');
 
   assert.equal(reading.maxScore, 9);
   assert.equal(listening.maxScore, 9);
@@ -85,6 +73,25 @@ test('toAssignment keeps non-IELTS assignment max scores on the generic point sc
   );
 
   assert.equal(assignment.maxScore, 100);
+});
+
+test('toAssignment reads the persisted generic maximum score', () => {
+  const assignment = toAssignment(
+    {
+      id: 'text-assignment',
+      courseId: 'course-1',
+      title: 'Research response',
+      description: null,
+      type: 'text',
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: '2026-06-01T00:00:00.000Z',
+      assignmentConfig: { version: 1, maxScore: 75 },
+    },
+    'General Course',
+  );
+
+  assert.equal(assignment.maxScore, 75);
 });
 
 test('IELTS assignment configs default AI policy to off', () => {
@@ -182,6 +189,35 @@ test('toSubmission preserves the raw payload for draft recovery', () => {
   });
 
   assert.deepEqual(submission.rawPayload, payload);
+});
+
+test('toSubmission exposes validated generic links and canonical file metadata', () => {
+  const submission = toSubmission({
+    id: 'submission-generic',
+    assignmentId: 'assignment-generic',
+    studentId: 'student-1',
+    status: 'submitted',
+    submittedAt: '2026-02-01T10:00:00.000Z',
+    payload: {
+      version: 1,
+      link: 'https://example.com/work',
+      files: [
+        {
+          id: 'file-1',
+          name: 'essay.pdf',
+          size: 512,
+          mime: 'application/pdf',
+          checksum: 'checksum',
+          bucket: 'nce-mock-uploads',
+          objectKey: 'uploads/student/essay.pdf',
+        },
+      ],
+    },
+  });
+
+  assert.equal(submission.link, 'https://example.com/work');
+  assert.equal(submission.files?.[0]?.name, 'essay.pdf');
+  assert.equal(submission.files?.[0]?.objectKey, 'uploads/student/essay.pdf');
 });
 
 test('toSubmission maps IELTS speaking recordings to downloadable files', () => {

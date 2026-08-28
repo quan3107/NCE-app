@@ -61,6 +61,7 @@ export type Submission = {
   status: SubmissionStatus;
   submittedAt?: Date;
   content?: string;
+  link?: string;
   files?: SubmissionFile[];
   version: number;
   rawPayload?: Record<string, unknown>;

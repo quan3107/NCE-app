@@ -13,14 +13,12 @@ import { PageHeader } from '@components/common/PageHeader';
 import { AutoSaveIndicator } from '@components/ui/auto-save-indicator';
 import { useRouter } from '@lib/router';
 import { useAutoSave } from '@lib/use-auto-save';
-import {
-  createIeltsAssignmentConfig,
-  type IeltsAssignmentConfig,
-  type IeltsAssignmentType,
-} from '@lib/ielts';
+import { createIeltsAssignmentConfig, type IeltsAssignmentConfig, type IeltsAssignmentType } from '@lib/ielts';
 import type { AssignmentType } from '@domain';
 import { useAssignmentResources, useCreateAssignmentMutation } from '@features/assignments/api';
 import { IeltsTypeSelection } from './ielts/authoring/IeltsTypeSelection';
+import { GenericAssignmentTypeSelection, type GenericAssignmentType } from './GenericAssignmentTypeSelection';
+import { TeacherGenericAssignmentCreatePage } from './TeacherGenericAssignmentCreatePage';
 import { TeacherIeltsAssignmentEditor } from './TeacherIeltsAssignmentEditor';
 import {
   formatTimeAgo,
@@ -41,10 +39,13 @@ export function TeacherIeltsAssignmentCreatePage() {
 
   const draft = getInitialStateFromDraft();
   const didRestore = !!draft;
-  
+
   const [selectedType, setSelectedType] = useState<IeltsAssignmentType | null>(draft?.type || null);
+  const [selectedGenericType, setSelectedGenericType] = useState<GenericAssignmentType | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [assignmentConfig, setAssignmentConfig] = useState<IeltsAssignmentConfig | null>(draft?.data?.assignmentConfig || null);
+  const [assignmentConfig, setAssignmentConfig] = useState<IeltsAssignmentConfig | null>(
+    draft?.data?.assignmentConfig || null,
+  );
 
   const [assignmentTitle, setAssignmentTitle] = useState(draft?.data?.assignmentTitle || '');
   const [courseId, setCourseId] = useState(draft?.data?.courseId || '');
@@ -56,7 +57,7 @@ export function TeacherIeltsAssignmentCreatePage() {
 
   const [listeningFiles, setListeningFiles] = useState<UploadMap>({});
   const [writingTask1File, setWritingTask1File] = useState<File | null>(null);
-  
+
   const [isRestoring, setIsRestoring] = useState(didRestore);
 
   const autoSaveKey = useMemo(() => {
@@ -65,7 +66,7 @@ export function TeacherIeltsAssignmentCreatePage() {
     }
     return 'ielts_create';
   }, [selectedType]);
-  
+
   const autoSaveData = useMemo(
     () => ({
       selectedType,
@@ -88,14 +89,14 @@ export function TeacherIeltsAssignmentCreatePage() {
       durationMinutes,
       enforceTime,
       dueDate,
-    ]
+    ],
   );
 
-  const { 
-    status: autoSaveStatus, 
-    lastSaved, 
-    clearDraft, 
-    draftTimestamp
+  const {
+    status: autoSaveStatus,
+    lastSaved,
+    clearDraft,
+    draftTimestamp,
   } = useAutoSave(autoSaveData, {
     key: autoSaveKey,
     debounceMs: 1000,
@@ -105,7 +106,7 @@ export function TeacherIeltsAssignmentCreatePage() {
     if (draft && didRestore) {
       const timeAgo = formatTimeAgo(new Date(draft.timestamp));
       toast.success(`Draft restored from ${timeAgo}`);
-      
+
       setTimeout(() => {
         setIsRestoring(false);
       }, 1500);
@@ -162,10 +163,7 @@ export function TeacherIeltsAssignmentCreatePage() {
     }
   }, [selectedType, assignmentConfig]);
 
-  const canSave = useMemo(
-    () => assignmentTitle.trim().length > 0 && courseId.length > 0,
-    [assignmentTitle, courseId],
-  );
+  const canSave = useMemo(() => assignmentTitle.trim().length > 0 && courseId.length > 0, [assignmentTitle, courseId]);
 
   const handleAudioSelect = (sectionId: string, file: File | null) => {
     setListeningFiles((current) => ({ ...current, [sectionId]: file }));
@@ -210,9 +208,7 @@ export function TeacherIeltsAssignmentCreatePage() {
           publishedAt: publish ? new Date().toISOString() : undefined,
         },
       });
-      toast.success(
-        publish ? 'Assignment published successfully' : 'Assignment draft saved successfully',
-      );
+      toast.success(publish ? 'Assignment published successfully' : 'Assignment draft saved successfully');
       clearDraft();
       navigate('/teacher/assignments');
     } catch (error) {
@@ -220,11 +216,22 @@ export function TeacherIeltsAssignmentCreatePage() {
     }
   };
 
+  if (selectedGenericType) {
+    return (
+      <TeacherGenericAssignmentCreatePage
+        courses={courses}
+        initialType={selectedGenericType}
+        onCancel={() => setSelectedGenericType(null)}
+        onCreated={() => navigate('/teacher/assignments')}
+      />
+    );
+  }
+
   if (!selectedType) {
     return (
       <div>
         <PageHeader
-          title="Create IELTS Assignment"
+          title="Create Assignment"
           description="Choose the type of assignment you want to create"
           actions={
             <Button variant="outline" onClick={() => navigate('/teacher/assignments')}>
@@ -233,8 +240,25 @@ export function TeacherIeltsAssignmentCreatePage() {
             </Button>
           }
         />
-        <div className="p-4 sm:p-6 lg:p-8">
-          <IeltsTypeSelection onSelect={handleSelectType} />
+        <div className="space-y-8 p-4 sm:p-6 lg:p-8">
+          <section className="space-y-4" aria-labelledby="generic-assignment-types">
+            <div>
+              <h2 id="generic-assignment-types">General Assignments</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Collect a text response, a web link, or uploaded files.
+              </p>
+            </div>
+            <GenericAssignmentTypeSelection onSelect={setSelectedGenericType} />
+          </section>
+          <section className="space-y-4" aria-labelledby="ielts-assignment-types">
+            <div>
+              <h2 id="ielts-assignment-types">IELTS Assignments</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Build a structured Reading, Listening, Writing, or Speaking assignment.
+              </p>
+            </div>
+            <IeltsTypeSelection onSelect={handleSelectType} />
+          </section>
         </div>
       </div>
     );
@@ -247,7 +271,12 @@ export function TeacherIeltsAssignmentCreatePage() {
         description="Configure your IELTS assignment"
         actions={
           <div className="flex items-center gap-4">
-            <AutoSaveIndicator status={autoSaveStatus} lastSaved={lastSaved} draftTimestamp={draftTimestamp} isRestoring={isRestoring} />
+            <AutoSaveIndicator
+              status={autoSaveStatus}
+              lastSaved={lastSaved}
+              draftTimestamp={draftTimestamp}
+              isRestoring={isRestoring}
+            />
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setSelectedType(null)}>
                 <ArrowLeft className="mr-2 size-4" />

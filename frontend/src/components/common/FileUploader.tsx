@@ -12,11 +12,7 @@ import { Progress } from '@components/ui/progress';
 import { cn } from '@components/ui/utils';
 import { formatFileSize } from '@lib/utils';
 import type { SubmissionFile } from '@domain';
-import {
-  UploadStage,
-  isAllowedFile,
-  uploadFileWithProgress,
-} from '@features/files/fileUpload';
+import { UploadStage, isAllowedFile, uploadFileWithProgress } from '@features/files/fileUpload';
 import { useFileUploadConfig } from '@features/files/configApi';
 
 // Base file type - common properties for both SubmissionFile and UploadFile
@@ -70,9 +66,7 @@ const createUploadId = (): string => {
 };
 
 export function FileUploader(props: DefaultFileUploaderProps): ReactElement;
-export function FileUploader<T extends BaseFile>(
-  props: CustomFileUploaderProps<T>,
-): ReactElement;
+export function FileUploader<T extends BaseFile>(props: CustomFileUploaderProps<T>): ReactElement;
 export function FileUploader<T extends BaseFile>(
   props: DefaultFileUploaderProps | CustomFileUploaderProps<T>,
 ): ReactElement {
@@ -81,6 +75,7 @@ export function FileUploader<T extends BaseFile>(
   const policy = policyQuery.data;
   const maxFileSize = policy?.limits.maxFileSize ?? 0;
   const maxTotalSize = policy?.limits.maxTotalSize ?? 0;
+  const maxFilesPerUpload = policy?.limits.maxFilesPerUpload ?? 0;
   const inputId = useId();
   const helperId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -97,25 +92,18 @@ export function FileUploader<T extends BaseFile>(
       .reduce((sum, item) => sum + item.file.size, 0);
     return uploadedSize + pendingSize;
   }, [uploads, value]);
-  const isBusy = useMemo(
-    () => uploads.some((item) => item.status !== 'error'),
-    [uploads],
-  );
+  const isBusy = useMemo(() => uploads.some((item) => item.status !== 'error'), [uploads]);
   useEffect(() => {
     onBusyChange?.(isBusy);
   }, [isBusy, onBusyChange]);
   const updateUpload = (id: string, patch: Partial<UploadItem>) => {
-    setUploads((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    );
+    setUploads((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
   const removeUpload = (id: string) => {
     setUploads((prev) => prev.filter((item) => item.id !== id));
   };
   const removeCompletedFile = (id: string) => {
-    (onChange as (files: typeof value) => void)(
-      value.filter((file) => file.id !== id) as typeof value,
-    );
+    (onChange as (files: typeof value) => void)(value.filter((file) => file.id !== id) as typeof value);
   };
   const handleUpload = async (uploadId: string, file: File) => {
     try {
@@ -125,20 +113,18 @@ export function FileUploader<T extends BaseFile>(
           (progress) => updateUpload(uploadId, { progress }),
           (stage) => updateUpload(uploadId, { status: stage }),
         );
-        (props.onChange as (files: T[]) => void)([
-          ...(valueRef.current as T[]),
-          result,
-        ]);
+        const nextFiles = [...(valueRef.current as T[]), result];
+        valueRef.current = nextFiles;
+        (props.onChange as (files: T[]) => void)(nextFiles);
       } else {
         const result = await uploadFileWithProgress({
           file,
           onProgress: (progress) => updateUpload(uploadId, { progress }),
           onStageChange: (stage) => updateUpload(uploadId, { status: stage }),
         });
-        (onChange as (files: SubmissionFile[]) => void)([
-          ...(valueRef.current as SubmissionFile[]),
-          result,
-        ]);
+        const nextFiles = [...(valueRef.current as SubmissionFile[]), result];
+        valueRef.current = nextFiles as typeof value;
+        (onChange as (files: SubmissionFile[]) => void)(nextFiles);
       }
       removeUpload(uploadId);
     } catch (error) {
@@ -158,30 +144,29 @@ export function FileUploader<T extends BaseFile>(
       return;
     }
     let runningTotal = totalSize;
+    let runningCount = value.length + uploads.filter((item) => item.status !== 'error').length;
     selected.forEach((file) => {
+      if (runningCount >= maxFilesPerUpload) {
+        toast.error(`You can upload up to ${maxFilesPerUpload} file${maxFilesPerUpload === 1 ? '' : 's'}.`);
+        return;
+      }
       const { ok, reason } = isAllowedFile(file, policy);
       if (!ok) {
         toast.error(reason ?? 'Unsupported file type.');
         return;
       }
       if (file.size > maxFileSize) {
-        toast.error(
-          `${file.name} exceeds the ${formatFileSize(maxFileSize)} per-file limit.`,
-        );
+        toast.error(`${file.name} exceeds the ${formatFileSize(maxFileSize)} per-file limit.`);
         return;
       }
       if (runningTotal + file.size > maxTotalSize) {
-        toast.error(
-          `Total upload size cannot exceed ${formatFileSize(maxTotalSize)}.`,
-        );
+        toast.error(`Total upload size cannot exceed ${formatFileSize(maxTotalSize)}.`);
         return;
       }
       runningTotal += file.size;
+      runningCount += 1;
       const uploadId = createUploadId();
-      setUploads((prev) => [
-        ...prev,
-        { id: uploadId, file, progress: 0, status: 'hashing' },
-      ]);
+      setUploads((prev) => [...prev, { id: uploadId, file, progress: 0, status: 'hashing' }]);
       void handleUpload(uploadId, file);
     });
   };
@@ -204,10 +189,7 @@ export function FileUploader<T extends BaseFile>(
 
   const renderCompletedFiles = () =>
     value.map((file) => (
-      <div
-        key={file.id}
-        className="flex items-center gap-3 rounded-md border border-muted-foreground/20 p-3"
-      >
+      <div key={file.id} className="flex items-center gap-3 rounded-md border border-muted-foreground/20 p-3">
         <CheckCircle2 className="size-4 text-green-600" />
         <div className="flex-1">
           <p className="text-sm font-medium">{file.name}</p>
@@ -240,9 +222,7 @@ export function FileUploader<T extends BaseFile>(
 
   if (policyQuery.error || !policy) {
     const message =
-      policyQuery.error instanceof Error
-        ? policyQuery.error.message
-        : 'The upload policy response was empty.';
+      policyQuery.error instanceof Error ? policyQuery.error.message : 'The upload policy response was empty.';
 
     return (
       <div className="space-y-3">
@@ -293,8 +273,8 @@ export function FileUploader<T extends BaseFile>(
           </button>
         </p>
         <p id={helperId} className="text-xs text-muted-foreground mt-1">
-          {policy.typeLabel} · {formatFileSize(maxFileSize)} max per file ·{' '}
-          {formatFileSize(maxTotalSize)} total
+          {policy.typeLabel} · {formatFileSize(maxFileSize)} max per file · {formatFileSize(maxTotalSize)} total ·{' '}
+          {maxFilesPerUpload} files maximum
         </p>
       </div>
       {(value.length > 0 || uploads.length > 0) && (
@@ -302,10 +282,7 @@ export function FileUploader<T extends BaseFile>(
           {renderCompletedFiles()}
 
           {uploads.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center gap-3 rounded-md border border-muted-foreground/20 p-3"
-            >
+            <div key={item.id} className="flex items-center gap-3 rounded-md border border-muted-foreground/20 p-3">
               {item.status === 'error' ? (
                 <AlertCircle className="size-4 text-destructive" />
               ) : (
@@ -320,9 +297,7 @@ export function FileUploader<T extends BaseFile>(
                 </div>
                 <Progress value={item.status === 'error' ? 0 : item.progress} />
                 <div className="text-xs text-muted-foreground">
-                  {item.status === 'error'
-                    ? item.error ?? 'Upload failed.'
-                    : formatFileSize(item.file.size)}
+                  {item.status === 'error' ? (item.error ?? 'Upload failed.') : formatFileSize(item.file.size)}
                 </div>
               </div>
               <Button
