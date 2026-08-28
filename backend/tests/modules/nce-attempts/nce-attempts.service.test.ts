@@ -267,6 +267,15 @@ describe("nce-attempts.service", () => {
                   visible: "learner material",
                 },
               },
+              scoringConfig: {
+                points: 1,
+                rubric: {
+                  maxScore: 2,
+                  answerKey: "private scoring answer",
+                  teacherNotes: "private scoring note",
+                  privateTranscript: "private scoring transcript",
+                },
+              },
               attempts: [],
             },
           ],
@@ -281,10 +290,15 @@ describe("nce-attempts.service", () => {
     expect(serialized).toContain("learner material");
     expect(serialized).toContain("public lesson transcript");
     expect(serialized).toContain("public exercise transcript");
+    expect(serialized).toContain('"points":1');
+    expect(serialized).toContain('"maxScore":2');
     expect(serialized).not.toContain("secret answer");
     expect(serialized).not.toContain("private teacher transcript");
     expect(serialized).not.toContain("private underscored transcript");
     expect(serialized).not.toContain("private media note");
+    expect(serialized).not.toContain("private scoring answer");
+    expect(serialized).not.toContain("private scoring note");
+    expect(serialized).not.toContain("private scoring transcript");
     const pathQuery = prisma.nceCourseLessonAssignment.findMany.mock.calls[0]?.[0];
     expect(pathQuery?.select?.lesson?.select?.teacherNotes).toBe(false);
     expect(pathQuery?.select?.lesson?.select?.exercises?.select).not.toHaveProperty(

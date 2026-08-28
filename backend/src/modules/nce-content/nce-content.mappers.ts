@@ -159,7 +159,9 @@ const mapNceExercise = (
     ? exercise.content
     : mapLearnerJson(exercise.content),
   ...(options.includeAnswers ? { answerKey: exercise.answerKey } : {}),
-  scoringConfig: exercise.scoringConfig,
+  scoringConfig: options.includeAnswers
+    ? exercise.scoringConfig
+    : mapLearnerJson(exercise.scoringConfig),
   sortOrder: exercise.sortOrder,
 });
 
