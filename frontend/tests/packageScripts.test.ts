@@ -111,6 +111,7 @@ test('Playwright separates actual-backend, mocked, and synthetic configurations'
   assert.match(actual, /real-backend-auth-ordering\.spec\.ts/);
   assert.match(actual, /real-backend-auth-storage-failure\.spec\.ts/);
   assert.match(actual, /real-backend-mutations\.spec\.ts/);
+  assert.match(actual, /real-backend-nce-protected-audio\.spec\.ts/);
   assert.match(actual, /frontendURL\.hostname/);
   assert.match(actual, /frontendURL\.port/);
   assert.doesNotMatch(actual, /classroom-workflow\.spec/);
