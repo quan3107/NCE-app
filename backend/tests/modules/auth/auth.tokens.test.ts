@@ -3,7 +3,7 @@
  * Purpose: Verify JWT purpose separation for API and NCE media tokens.
  * Why: Prevents signed media URLs from becoming reusable bearer credentials.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   signAccessToken,
@@ -51,6 +51,28 @@ describe("auth.tokens", () => {
     const claims = verifyNceAssetToken(token);
 
     expect(claims.exp - claims.iat).toBeGreaterThanOrEqual(15 * 60);
+  });
+
+  it("issues a unique refreshed NCE asset token and rejects it after expiry", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-28T10:00:00.000Z"));
+    try {
+      const payload = {
+        userId: studentId,
+        role: UserRole.student,
+        status: UserStatus.active,
+        courseId,
+        key,
+      };
+      const firstToken = signNceAssetToken(payload);
+      const refreshedToken = signNceAssetToken(payload);
+
+      expect(refreshedToken).not.toBe(firstToken);
+      vi.setSystemTime(new Date("2026-08-28T10:16:00.000Z"));
+      expect(() => verifyNceAssetToken(firstToken)).toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("rejects normal API access tokens as NCE asset tokens", () => {

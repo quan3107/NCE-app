@@ -747,7 +747,6 @@ export async function listStudentNcePath(
                   exerciseType: true,
                   prompt: true,
                   content: true,
-                  answerKey: true,
                   scoringConfig: true,
                   sortOrder: true,
                   attempts: {

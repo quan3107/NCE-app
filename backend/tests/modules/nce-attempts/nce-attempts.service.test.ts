@@ -238,6 +238,60 @@ describe("nce-attempts.service", () => {
     });
   });
 
+  it("omits learner answer, teacher-note, and private transcript fields recursively", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce(course);
+    prisma.nceCourseLessonAssignment.findMany.mockResolvedValueOnce([
+      {
+        ...lessonAssignment,
+        lesson: {
+          ...lessonAssignment.lesson,
+          mediaJson: {
+            audio: [
+              {
+                objectKey: "nce/book1/lesson1/dialogue.mp3",
+                transcript: "public lesson transcript",
+                teacherNotes: "private media note",
+              },
+            ],
+          },
+          exercises: [
+            {
+              ...exercise,
+              content: {
+                audioKey: "nce/book1/lesson1/dialogue.mp3",
+                transcript: "public exercise transcript",
+                nested: {
+                  answerKey: "secret answer",
+                  teacherTranscript: "private teacher transcript",
+                  private_transcript: "private underscored transcript",
+                  visible: "learner material",
+                },
+              },
+              attempts: [],
+            },
+          ],
+        },
+      },
+    ]);
+    prisma.nceCourseLessonAssignment.count.mockResolvedValueOnce(1);
+
+    const result = await listStudentNcePath({ courseId }, studentActor, {});
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).toContain("learner material");
+    expect(serialized).toContain("public lesson transcript");
+    expect(serialized).toContain("public exercise transcript");
+    expect(serialized).not.toContain("secret answer");
+    expect(serialized).not.toContain("private teacher transcript");
+    expect(serialized).not.toContain("private underscored transcript");
+    expect(serialized).not.toContain("private media note");
+    const pathQuery = prisma.nceCourseLessonAssignment.findMany.mock.calls[0]?.[0];
+    expect(pathQuery?.select?.lesson?.select?.teacherNotes).toBe(false);
+    expect(pathQuery?.select?.lesson?.select?.exercises?.select).not.toHaveProperty(
+      "answerKey",
+    );
+  });
+
   it("returns a playable NCE asset URL for assigned exercise audio", async () => {
     const previousAssetRoot = process.env.NCE_ASSET_ROOT;
     const assetRoot = mkdtempSync(path.join(tmpdir(), "nce-assets-"));

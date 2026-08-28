@@ -59,6 +59,9 @@ export async function getNceAssetAudio(req: Request, res: Response): Promise<voi
     req.query,
     actorFromNceAssetToken(req),
   );
+  // The signed, reauthorized media route is intentionally consumed by the
+  // separately hosted frontend; override Helmet's same-origin media default.
+  res.set("Cross-Origin-Resource-Policy", "cross-origin");
   res.type(payload.mime);
   res.sendFile(payload.path);
 }

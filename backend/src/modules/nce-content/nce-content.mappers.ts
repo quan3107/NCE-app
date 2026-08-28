@@ -51,7 +51,7 @@ export type NceExerciseRow = {
   exerciseType: NceExerciseType;
   prompt: string;
   content: Prisma.JsonValue;
-  answerKey: Prisma.JsonValue;
+  answerKey?: Prisma.JsonValue;
   scoringConfig: Prisma.JsonValue | null;
   sortOrder: number;
 };
@@ -81,6 +81,33 @@ type LessonMapperOptions = {
 };
 
 const toIso = (date: DateLike): string | null => date?.toISOString() ?? null;
+
+const learnerPrivateJsonKeys = new Set([
+  "answerkey",
+  "privatetranscript",
+  "teachernotes",
+  "teachertranscript",
+]);
+
+function mapLearnerJson(value: Prisma.JsonValue | null): Prisma.JsonValue | null {
+  if (Array.isArray(value)) {
+    return value.map((item) => mapLearnerJson(item) as Prisma.JsonValue);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(
+        ([key]) =>
+          !learnerPrivateJsonKeys.has(
+            key.replace(/[^a-z0-9]/gi, "").toLowerCase(),
+          ),
+      )
+      .map(([key, item]) => [key, mapLearnerJson(item as Prisma.JsonValue)]),
+  ) as Prisma.JsonObject;
+}
 
 export const mapNceBook = (book: NceBookRow) => ({
   id: book.id,
@@ -128,7 +155,9 @@ const mapNceExercise = (
   objectiveId: exercise.objectiveId,
   exerciseType: exercise.exerciseType,
   prompt: exercise.prompt,
-  content: exercise.content,
+  content: options.includeAnswers
+    ? exercise.content
+    : mapLearnerJson(exercise.content),
   ...(options.includeAnswers ? { answerKey: exercise.answerKey } : {}),
   scoringConfig: exercise.scoringConfig,
   sortOrder: exercise.sortOrder,
@@ -143,7 +172,10 @@ export const mapNceLesson = (
   lessonNumber: lesson.lessonNumber,
   title: lesson.title,
   lessonText: lesson.lessonText,
-  media: lesson.mediaJson,
+  media:
+    options.includeAnswers || options.includeTeacherNotes
+      ? lesson.mediaJson
+      : mapLearnerJson(lesson.mediaJson),
   sortOrder: lesson.sortOrder,
   status: lesson.status,
   publishedAt: toIso(lesson.publishedAt),

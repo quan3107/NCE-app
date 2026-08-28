@@ -170,7 +170,7 @@ NceExercise:
       type: object
       additionalProperties: true
       nullable: true
-      description: Exercise content JSON.
+      description: Exercise content JSON. Learner/public reads omit answer, teacher-note, and explicitly private or teacher transcript fields; an intended public transcript is preserved.
     answerKey:
       type: object
       additionalProperties: true
@@ -204,7 +204,7 @@ NceLesson:
       type: object
       additionalProperties: true
       nullable: true
-      description: Media metadata JSON.
+      description: Media metadata JSON. Learner/public reads omit explicitly private or teacher transcript and educator-only fields while preserving intended public transcripts.
     sortOrder:
       type: integer
     status:
