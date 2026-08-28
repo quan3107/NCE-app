@@ -29,6 +29,16 @@ type FileContentRecord = {
   size: number;
 };
 
+export type CompletedSubmissionFile = {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  checksum: string;
+  bucket: string;
+  objectKey: string;
+};
+
 function sanitizeFileName(fileName: string): string {
   const baseName = path.basename(fileName.trim());
   const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -48,7 +58,10 @@ function toExtension(value: string): string {
   return path.extname(value.trim().toLowerCase());
 }
 
-function mimeMatchesPolicy(mime: string, allowedMimeTypes: Set<string>): boolean {
+function mimeMatchesPolicy(
+  mime: string,
+  allowedMimeTypes: Set<string>,
+): boolean {
   if (allowedMimeTypes.has(mime)) {
     return true;
   }
@@ -85,7 +98,10 @@ async function assertUploadAllowed({
     });
   }
 
-  const allowedByMime = mimeMatchesPolicy(normalizedMime, config.allowedMimeTypes);
+  const allowedByMime = mimeMatchesPolicy(
+    normalizedMime,
+    config.allowedMimeTypes,
+  );
   const allowedByExtension =
     extension.length > 0 && config.allowedExtensions.has(extension);
 
@@ -237,7 +253,9 @@ async function actorCanAccessAssignmentFile(
   const accessibleAssignments = await prisma.assignment.findMany({
     where: {
       deletedAt: null,
-      ...(actor.role === UserRole.student ? { publishedAt: { not: null } } : {}),
+      ...(actor.role === UserRole.student
+        ? { publishedAt: { not: null } }
+        : {}),
       course: accessibleCourseWhere(actor),
     },
     select: {
@@ -303,6 +321,82 @@ function buildMockStorageUrl(bucket: string, objectKey: string): string {
 
 function fileNameFromObjectKey(objectKey: string): string {
   return path.basename(objectKey) || "download";
+}
+
+/**
+ * Resolve client file IDs to authoritative completed-upload records.
+ * Submission payloads must never persist client-provided object keys or metadata.
+ */
+export async function getOwnedCompletedSubmissionFiles(
+  fileIds: string[],
+  ownerId: string,
+  role: UserRole,
+): Promise<CompletedSubmissionFile[]> {
+  const config = await getRoleFileUploadConfig(role);
+  if (fileIds.length > config.limits.max_files_per_upload) {
+    throw createHttpError(400, "Too many files for one submission.", {
+      max_files_per_upload: config.limits.max_files_per_upload,
+    });
+  }
+
+  const records = await prisma.file.findMany({
+    where: {
+      id: { in: fileIds },
+      ownerId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      bucket: true,
+      objectKey: true,
+      mime: true,
+      size: true,
+      checksum: true,
+    },
+  });
+  const recordsById = new Map(records.map((record) => [record.id, record]));
+  const orderedRecords = fileIds.map((fileId) => recordsById.get(fileId));
+  if (orderedRecords.some((record) => !record)) {
+    throw createHttpError(
+      400,
+      "Only completed files owned by the student can be submitted.",
+    );
+  }
+
+  const totalSize = orderedRecords.reduce(
+    (sum, record) => sum + (record?.size ?? 0),
+    0,
+  );
+  if (totalSize > config.limits.max_total_size) {
+    throw createHttpError(
+      400,
+      "Files exceed the total submission size limit.",
+      {
+        max_total_size: config.limits.max_total_size,
+      },
+    );
+  }
+
+  await Promise.all(
+    orderedRecords.map((record) =>
+      assertUploadAllowed({
+        role,
+        fileName: record!.objectKey,
+        mime: record!.mime,
+        size: record!.size,
+      }),
+    ),
+  );
+
+  return orderedRecords.map((record) => ({
+    id: record!.id,
+    name: fileNameFromObjectKey(record!.objectKey),
+    size: record!.size,
+    mime: record!.mime,
+    checksum: record!.checksum,
+    bucket: record!.bucket,
+    objectKey: record!.objectKey,
+  }));
 }
 
 export async function getSignedFileDownload(

@@ -35,13 +35,12 @@ const latePolicySchema = z.discriminatedUnion("type", [
 
 export const createAssignmentSchema = z
   .object({
-    title: z.string().min(1),
-    descriptionMd: z.string().optional(),
+    title: z.string().trim().min(1).max(200),
+    descriptionMd: z.string().trim().max(100_000).optional(),
     type: z.enum([
       "file",
       "link",
       "text",
-      "quiz",
       "reading",
       "listening",
       "writing",
@@ -56,14 +55,13 @@ export const createAssignmentSchema = z
 
 export const updateAssignmentSchema = z
   .object({
-    title: z.string().min(1).optional(),
-    descriptionMd: z.string().optional(),
+    title: z.string().trim().min(1).max(200).optional(),
+    descriptionMd: z.string().trim().max(100_000).optional(),
     type: z
       .enum([
         "file",
         "link",
         "text",
-        "quiz",
         "reading",
         "listening",
         "writing",

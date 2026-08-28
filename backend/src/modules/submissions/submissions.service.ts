@@ -37,6 +37,7 @@ import {
   readMaxAttempts,
 } from './submissions.timing.js'
 import { assertSubmittedIeltsPayloadHasContent } from './submissions.ielts-content.js'
+import { getOwnedCompletedSubmissionFiles } from '../files/files.service.js'
 
 type SubmissionAssignmentForAiFeedback = {
   type: string
@@ -225,7 +226,19 @@ export async function createSubmission(
   assertAssignmentPublishedForSubmission(assignment)
   await assertStudentEnrolledForSubmission(assignment, user.id)
 
-  const validatedPayload = parseSubmissionPayloadForType(assignment.type, payload.payload)
+  const parsedPayload = parseSubmissionPayloadForType(assignment.type, payload.payload)
+  const parsedFilePayload = parsedPayload as { files: Array<{ id: string }> }
+  const validatedPayload =
+    assignment.type === 'file'
+      ? {
+          ...parsedFilePayload,
+          files: await getOwnedCompletedSubmissionFiles(
+            parsedFilePayload.files.map((file) => file.id),
+            user.id,
+            UserRole.student,
+          ),
+        }
+      : parsedPayload
 
   const isIeltsAssignment = isIeltsAssignmentType(assignment.type)
   ;({ status, submittedAt } = applyIeltsTimingRules({
@@ -349,8 +362,8 @@ export async function createSubmission(
     return updatedSubmission
   }
 
-  const payloadVersion =
-    typeof payloadJson?.version === 'number' ? payloadJson.version : 1
+  // The first persisted version is server-owned; clients cannot skip attempt history.
+  const payloadVersion = 1
   const maxAttempts = readMaxAttempts(assignment.assignmentConfig, isIeltsAssignment)
   if (maxAttempts !== undefined && payloadVersion > maxAttempts) {
     throw createHttpError(409, 'Maximum attempts reached for this assignment.')

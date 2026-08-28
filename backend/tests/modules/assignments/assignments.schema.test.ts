@@ -42,4 +42,14 @@ describe("assignments.schema latePolicy", () => {
       }),
     ).toThrow();
   });
+
+  it("rejects unsupported quiz assignment authoring", () => {
+    expect(() =>
+      createAssignmentSchema.parse({
+        title: "Unsupported Quiz",
+        type: "quiz",
+      }),
+    ).toThrow();
+    expect(() => updateAssignmentSchema.parse({ type: "quiz" })).toThrow();
+  });
 });
