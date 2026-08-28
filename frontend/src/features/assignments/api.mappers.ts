@@ -20,9 +20,7 @@ const safeParseJson = (value: string): Record<string, unknown> | null => {
 const formatPercent = (value: number): string =>
   Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
 
-const formatLatePolicy = (
-  policy: Record<string, unknown> | string | null,
-): string => {
+const formatLatePolicy = (policy: Record<string, unknown> | string | null): string => {
   if (!policy) {
     return '';
   }
@@ -39,8 +37,15 @@ const formatLatePolicy = (
   return JSON.stringify(record);
 };
 
-const maxScoreForAssignmentType = (type: ApiAssignment['type']): number =>
-  isIeltsAssignmentType(type) ? 9 : 100;
+const maxScoreForAssignment = (
+  type: ApiAssignment['type'],
+  assignmentConfig: Record<string, unknown> | null,
+): number => {
+  if (isIeltsAssignmentType(type)) {
+    return 9;
+  }
+  return typeof assignmentConfig?.maxScore === 'number' ? assignmentConfig.maxScore : 100;
+};
 
 export const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment => {
   const latePolicy = formatLatePolicy(assignment.latePolicy);
@@ -48,7 +53,7 @@ export const toAssignment = (assignment: ApiAssignment, courseName: string): Ass
   const assignmentConfig =
     typeof assignment.assignmentConfig === 'string'
       ? safeParseJson(assignment.assignmentConfig)
-      : assignment.assignmentConfig ?? null;
+      : (assignment.assignmentConfig ?? null);
 
   return {
     id: assignment.id,
@@ -57,11 +62,11 @@ export const toAssignment = (assignment: ApiAssignment, courseName: string): Ass
     type: assignment.type,
     courseId: assignment.courseId,
     courseName,
-    dueAt: assignment.dueAt ? new Date(assignment.dueAt) : new Date(),
+    dueAt: assignment.dueAt ? new Date(assignment.dueAt) : null,
     publishedAt: assignment.publishedAt ? new Date(assignment.publishedAt) : undefined,
     status: assignment.publishedAt ? 'published' : 'draft',
     latePolicy,
-    maxScore: maxScoreForAssignmentType(assignment.type),
+    maxScore: maxScoreForAssignment(assignment.type, assignmentConfig),
     assignmentConfig,
   };
 };
@@ -118,14 +123,10 @@ const toSpeakingRecordingFile = (item: unknown): SubmissionFile | null => {
 
 const toSubmissionFiles = (payloadRecord: Record<string, unknown>): SubmissionFile[] | undefined => {
   const files = Array.isArray(payloadRecord.files)
-    ? payloadRecord.files
-        .map(toSubmissionFile)
-        .filter((item): item is SubmissionFile => Boolean(item))
+    ? payloadRecord.files.map(toSubmissionFile).filter((item): item is SubmissionFile => Boolean(item))
     : [];
   const recordingFiles = Array.isArray(payloadRecord.recordings)
-    ? payloadRecord.recordings
-        .map(toSpeakingRecordingFile)
-        .filter((item): item is SubmissionFile => Boolean(item))
+    ? payloadRecord.recordings.map(toSpeakingRecordingFile).filter((item): item is SubmissionFile => Boolean(item))
     : [];
   const mergedFiles = [...files, ...recordingFiles];
 
@@ -141,11 +142,11 @@ export const toSubmission = (submission: ApiSubmission): Submission => {
     id: submission.id,
     assignmentId: submission.assignmentId,
     studentId: submission.studentId,
-    studentName:
-      typeof payloadRecord.studentName === 'string' ? payloadRecord.studentName : 'Student',
+    studentName: typeof payloadRecord.studentName === 'string' ? payloadRecord.studentName : 'Student',
     status: submission.status,
     submittedAt: submission.submittedAt ? new Date(submission.submittedAt) : undefined,
     content: typeof payloadRecord.content === 'string' ? payloadRecord.content : undefined,
+    link: typeof payloadRecord.link === 'string' ? payloadRecord.link : undefined,
     files,
     version: typeof payloadRecord.version === 'number' ? payloadRecord.version : 1,
     rawPayload: payloadRecord,

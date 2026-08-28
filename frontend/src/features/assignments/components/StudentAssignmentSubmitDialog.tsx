@@ -6,7 +6,14 @@
 
 import type { Assignment, SubmissionFile } from '@domain';
 import { Button } from '@components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@components/ui/dialog';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
@@ -71,9 +78,7 @@ export function StudentAssignmentSubmitDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{ieltsForm ? 'IELTS Attempt' : 'Submit Assignment'}</DialogTitle>
-          <DialogDescription>
-            Submit your work for {assignment.title}
-          </DialogDescription>
+          <DialogDescription>Submit your work for {assignment.title}</DialogDescription>
         </DialogHeader>
 
         {ieltsForm ? (
@@ -88,14 +93,16 @@ export function StudentAssignmentSubmitDialog({
           />
         ) : (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Upload Files</Label>
-              <FileUploader
-                value={uploadedFiles}
-                onChange={onUploadedFilesChange}
-                onBusyChange={onUploadBusyChange}
-              />
-            </div>
+            {assignment.type === 'file' && (
+              <div className="space-y-2">
+                <Label>Upload Files</Label>
+                <FileUploader
+                  value={uploadedFiles}
+                  onChange={onUploadedFilesChange}
+                  onBusyChange={onUploadBusyChange}
+                />
+              </div>
+            )}
 
             {assignment.type === 'link' && (
               <div className="space-y-2">
@@ -129,11 +136,7 @@ export function StudentAssignmentSubmitDialog({
             Cancel
           </Button>
           {ieltsForm && onSaveDraft && (
-            <Button
-              variant="outline"
-              onClick={onSaveDraft}
-              disabled={isSubmitting || isUploadBusy}
-            >
+            <Button variant="outline" onClick={onSaveDraft} disabled={isSubmitting || isUploadBusy}>
               Save Draft
             </Button>
           )}

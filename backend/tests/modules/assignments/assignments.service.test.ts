@@ -105,6 +105,37 @@ describe('assignments.service.createAssignment', () => {
     expect(result).toBe(record)
   })
 
+  it('persists validated generic assignment scores and publication state', async () => {
+    const publishedAt = '2026-08-30T12:00:00.000Z'
+    const record = { id: 'generic-assignment-1' } as Assignment
+    prisma.course.findFirst.mockResolvedValueOnce({ id: courseId })
+    prisma.assignment.create.mockResolvedValueOnce(record)
+
+    await createAssignment(
+      { courseId },
+      {
+        title: '  Research response  ',
+        descriptionMd: '  Submit a concise response.  ',
+        type: 'text',
+        dueAt: '2026-09-01T12:00:00.000Z',
+        assignmentConfig: { version: 1, maxScore: 75 },
+        publishedAt,
+      },
+      ownerTeacher,
+    )
+
+    expect(prisma.assignment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        courseId,
+        title: '  Research response  ',
+        description: '  Submit a concise response.  ',
+        type: 'text',
+        assignmentConfig: { version: 1, maxScore: 75 },
+        publishedAt: new Date(publishedAt),
+      }),
+    })
+  })
+
   it('rejects IELTS assignments without assignment_config', async () => {
     await expect(
       createAssignment(

@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-28:** Added strict generic assignment and submission contracts for text, HTTPS link, and completed owned files; canonicalized file metadata from persisted upload records; retained course-scoped download authorization; rejected unsupported quiz authoring; and documented the OpenAPI shapes. All 1,060 backend tests, lint, build, and OpenAPI validation pass. The repository-wide Prettier check still reports 713 pre-existing generated/source style violations.
+
 - **2026-08-18:** Added admin-only active-user suspension, reactivation, and soft deletion with atomic live-session revocation, protected admin/self invariants, strict audit contracts, route guards, OpenAPI documentation, and service/router/audit regressions. A disposable real-PostgreSQL student was managed through the rendered admin flow and cleaned up afterward; all 1,049 backend tests, lint, build, and OpenAPI validation pass.
 
 - **2026-08-18:** Added an explicit disabled-by-default, production-forbidden, loopback-only Google OAuth fixture for deterministic one-use PKCE/state success and failure paths without provider credentials. Production Google behavior remains unchanged; the full 1,041-test backend suite, six real-PostgreSQL profile tests, lint, build, OpenAPI validation, and focused new-file formatting pass.
@@ -200,6 +202,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-28:** Added teacher draft/publish authoring for supported generic text, link, and file assignments; student response-specific submit controls and canonical summaries; upload-count/race enforcement; and authorized student/teacher file downloads. All 267 frontend unit tests, 189 rendered component tests, lint, typecheck, build, the nine-test real-backend Chromium pack, and the focused five-story Chromium scenario pass against disposable PostgreSQL; ASG-13 and STU-03 through STU-06 now pass with visually inspected evidence.
 
 - **2026-08-18:** Added accessible admin user Suspend, Reactivate, and Delete actions with recoverable feedback, query invalidation, and a real-backend browser regression. An in-app Browser run confirmed suspension and deletion terminate an active student's dirty profile edit, reactivation restores login, deletion prevents re-login, and the disposable data is removed. The nine-scenario OAuth/profile pack, 21 degraded-coordination scenarios, eight existing real-backend scenarios, 265 unit tests, 184 component tests, lint, typecheck, and build pass.
 

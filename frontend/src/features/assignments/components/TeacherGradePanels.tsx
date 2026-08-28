@@ -65,9 +65,7 @@ export function TeacherGradePanels({
   submission,
 }: TeacherGradePanelsProps) {
   const finalPercentage =
-    !ieltsGradingMode && assignment.maxScore > 0
-      ? `${((finalScore / assignment.maxScore) * 100).toFixed(0)}%`
-      : 'N/A';
+    !ieltsGradingMode && assignment.maxScore > 0 ? `${((finalScore / assignment.maxScore) * 100).toFixed(0)}%` : 'N/A';
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -86,11 +84,7 @@ export function TeacherGradePanels({
             rubricIsLoading={rubricIsLoading}
             scores={scores}
           />
-          <FeedbackPanel
-            feedback={feedback}
-            onFeedbackChange={onFeedbackChange}
-            reviewPanel={reviewPanel}
-          />
+          <FeedbackPanel feedback={feedback} onFeedbackChange={onFeedbackChange} reviewPanel={reviewPanel} />
         </div>
 
         <div className="space-y-6">
@@ -119,15 +113,10 @@ export function TeacherGradePanels({
   );
 }
 
-function StudentSubmissionPanel({
-  assignment,
-  submission,
-}: {
-  assignment: Assignment;
-  submission: Submission;
-}) {
+function StudentSubmissionPanel({ assignment, submission }: { assignment: Assignment; submission: Submission }) {
   const hasIeltsPayload = isIeltsAssignmentType(assignment.type) && submission.rawPayload;
   const hasLegacyContent = Boolean(submission.content);
+  const hasLink = Boolean(submission.link);
   const hasFiles = Boolean(submission.files?.length);
 
   return (
@@ -136,12 +125,22 @@ function StudentSubmissionPanel({
         <CardTitle>Student Submission</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {hasIeltsPayload && (
-          <IeltsSubmissionPayloadView assignment={assignment} payload={submission.rawPayload} />
-        )}
+        {hasIeltsPayload && <IeltsSubmissionPayloadView assignment={assignment} payload={submission.rawPayload} />}
         {submission.content && (
           <div className="p-4 bg-muted/50 rounded-lg">
             <p className="text-sm whitespace-pre-wrap">{submission.content}</p>
+          </div>
+        )}
+        {submission.link && (
+          <div className="rounded-lg bg-muted/50 p-4">
+            <a
+              className="break-all text-sm text-primary underline underline-offset-4"
+              href={submission.link}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {submission.link}
+            </a>
           </div>
         )}
         {submission.files?.map((file) => (
@@ -151,7 +150,7 @@ function StudentSubmissionPanel({
             <FileDownloadButton file={file} />
           </div>
         ))}
-        {!hasIeltsPayload && !hasLegacyContent && !hasFiles && (
+        {!hasIeltsPayload && !hasLegacyContent && !hasLink && !hasFiles && (
           <p className="text-sm text-muted-foreground">No displayable submission content.</p>
         )}
       </CardContent>
@@ -212,9 +211,7 @@ function RubricPanel({
                 }}
               />
               {ieltsGradingMode && (
-                <p className="text-xs text-muted-foreground">
-                  Use IELTS bands from 0 to 9 in 0.5 increments.
-                </p>
+                <p className="text-xs text-muted-foreground">Use IELTS bands from 0 to 9 in 0.5 increments.</p>
               )}
             </div>
           ))
@@ -297,10 +294,7 @@ function GradeSummaryPanel({
   finalScore,
   ieltsGradingMode,
   rawScore,
-}: Pick<
-  TeacherGradePanelsProps,
-  'adjustments' | 'assignment' | 'finalScore' | 'ieltsGradingMode' | 'rawScore'
-> & {
+}: Pick<TeacherGradePanelsProps, 'adjustments' | 'assignment' | 'finalScore' | 'ieltsGradingMode' | 'rawScore'> & {
   finalPercentage: string;
 }) {
   return (
@@ -310,9 +304,7 @@ function GradeSummaryPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex justify-between">
-          <span className="text-muted-foreground">
-            {ieltsGradingMode ? 'Average Band' : 'Raw Score'}
-          </span>
+          <span className="text-muted-foreground">{ieltsGradingMode ? 'Average Band' : 'Raw Score'}</span>
           <span className="font-medium">{rawScore}</span>
         </div>
         {adjustments !== 0 && (
@@ -354,10 +346,7 @@ function SubmissionInfoPanel({ submission }: { submission: Submission }) {
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Status</span>
-          <Badge
-            variant={submission.status === 'late' ? 'destructive' : 'secondary'}
-            className="capitalize"
-          >
+          <Badge variant={submission.status === 'late' ? 'destructive' : 'secondary'} className="capitalize">
             {submission.status}
           </Badge>
         </div>

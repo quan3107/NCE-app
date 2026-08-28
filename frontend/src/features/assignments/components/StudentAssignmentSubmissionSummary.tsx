@@ -23,7 +23,7 @@ function SubmissionFiles({ files }: { files: SubmissionFile[] }) {
     <div>
       <Label>Files</Label>
       <div className="mt-2 space-y-2">
-        {files.map(file => (
+        {files.map((file) => (
           <div key={file.id} className="flex items-center gap-2 text-sm">
             <FileText className="size-4 text-muted-foreground" />
             <div className="min-w-0 flex-1">
@@ -49,6 +49,7 @@ export function StudentAssignmentSubmissionSummary({
     : 'Draft saved';
   const hasIeltsPayload = isIeltsAssignmentType(assignment.type) && submission.rawPayload;
   const hasLegacyContent = Boolean(submission.content);
+  const hasLink = Boolean(submission.link);
   const hasFiles = Boolean(submission.files?.length);
 
   return (
@@ -59,19 +60,28 @@ export function StudentAssignmentSubmissionSummary({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-4 bg-muted/50 rounded-lg">
-          {hasIeltsPayload && (
-            <IeltsSubmissionPayloadView assignment={assignment} payload={submission.rawPayload} />
-          )}
+          {hasIeltsPayload && <IeltsSubmissionPayloadView assignment={assignment} payload={submission.rawPayload} />}
           {submission.content && (
             <div>
               <Label>Content</Label>
               <p className="mt-2 text-sm whitespace-pre-wrap">{submission.content}</p>
             </div>
           )}
-          {submission.files && submission.files.length > 0 && (
-            <SubmissionFiles files={submission.files} />
+          {submission.link && (
+            <div>
+              <Label>Submitted Link</Label>
+              <a
+                className="mt-2 block break-all text-sm text-primary underline underline-offset-4"
+                href={submission.link}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {submission.link}
+              </a>
+            </div>
           )}
-          {!hasIeltsPayload && !hasLegacyContent && !hasFiles && (
+          {submission.files && submission.files.length > 0 && <SubmissionFiles files={submission.files} />}
+          {!hasIeltsPayload && !hasLegacyContent && !hasLink && !hasFiles && (
             <p className="text-sm text-muted-foreground">No displayable submission content.</p>
           )}
         </div>

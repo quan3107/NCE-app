@@ -210,7 +210,6 @@ export function TeacherAssignmentCreateDialog({
                 <SelectItem value="file">File Upload</SelectItem>
                 <SelectItem value="text">Text Response</SelectItem>
                 <SelectItem value="link">Link Submission</SelectItem>
-                <SelectItem value="quiz">Quiz</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -5,6 +5,10 @@
  */
 import { AssignmentType } from '../../prisma/index.js'
 import { z } from 'zod'
+import {
+  parseGenericAssignmentConfig,
+  parseGenericSubmissionPayload,
+} from './generic.schema.js'
 import { questionIdSchema } from './question-id.schema.js'
 
 const IELTS_ASSIGNMENT_TYPES = [
@@ -335,7 +339,7 @@ const submissionPayloadSchemasByType: Record<IeltsAssignmentType, z.ZodTypeAny> 
 
 export function parseAssignmentConfigForType(type: AssignmentType, config: unknown) {
   if (!isIeltsAssignmentType(type)) {
-    return config
+    return parseGenericAssignmentConfig(type, config)
   }
   const schema = assignmentConfigSchemasByType[type]
   const result = z.object({ assignmentConfig: schema }).parse({
@@ -346,7 +350,7 @@ export function parseAssignmentConfigForType(type: AssignmentType, config: unkno
 
 export function parseSubmissionPayloadForType(type: AssignmentType, payload: unknown) {
   if (!isIeltsAssignmentType(type)) {
-    return payload
+    return parseGenericSubmissionPayload(type, payload)
   }
   return submissionPayloadSchemasByType[type].parse(payload)
 }

@@ -36,5 +36,5 @@ export function fromDateTimeLocalValue(
   }
 
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? new Date() : date;
+  return date;
 }

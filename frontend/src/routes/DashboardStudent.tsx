@@ -95,7 +95,8 @@ export function DashboardStudentRoute() {
   // Calculate assignment statuses
   const now = new Date();
   const dueSoon = studentAssignments.filter(a => {
-    const dueDate = new Date(a.dueAt);
+    const dueDate = a.dueAt;
+    if (!dueDate) return false;
     const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     const submission = studentSubmissions.find(s => s.assignmentId === a.id);
     return hoursUntilDue <= 48 && hoursUntilDue > 0 && !submission;
@@ -103,7 +104,7 @@ export function DashboardStudentRoute() {
 
   const assigned = studentAssignments.filter(a => {
     const submission = studentSubmissions.find(s => s.assignmentId === a.id);
-    return !submission && new Date(a.dueAt) > now;
+    return !submission && Boolean(a.dueAt && a.dueAt > now);
   });
 
   const completed = studentSubmissions.filter(s => s.status === 'graded').length;

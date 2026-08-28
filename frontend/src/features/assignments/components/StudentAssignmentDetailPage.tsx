@@ -19,10 +19,7 @@ import { StudentAssignmentDescriptionCard } from '@features/assignments/componen
 import { StudentAssignmentHeaderActions } from '@features/assignments/components/StudentAssignmentHeaderActions';
 import { StudentAssignmentStatusAlerts } from '@features/assignments/components/StudentAssignmentStatusAlerts';
 import { StudentAssignmentSubmissionSummary } from '@features/assignments/components/StudentAssignmentSubmissionSummary';
-import {
-  isIeltsAssignmentType,
-  normalizeIeltsAssignmentConfig,
-} from '@lib/ielts';
+import { isIeltsAssignmentType, normalizeIeltsAssignmentConfig } from '@lib/ielts';
 import {
   buildStudentIeltsPayload,
   createInitialStudentIeltsAttempt,
@@ -30,6 +27,7 @@ import {
   hasStudentIeltsSubmissionContent,
 } from '@features/assignments/components/ielts/student/studentIeltsAttempt.logic';
 import { createStudentIeltsAttemptFromPayload } from '@features/assignments/components/ielts/student/studentIeltsAttemptHydration';
+import { toSubmission } from '@features/assignments/api.mappers';
 
 export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
   const { currentUser } = useAuthStore();
@@ -43,19 +41,15 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const [localSubmission, setLocalSubmission] = useState<Submission | null>(null);
   const [ieltsAttempt, setIeltsAttempt] = useState(() => createInitialStudentIeltsAttempt());
   const createSubmissionMutation = useCreateSubmissionMutation();
-  const assignment = assignments.find(a => a.id === assignmentId);
+  const assignment = assignments.find((a) => a.id === assignmentId);
   const submission = useMemo(
     () =>
-      submissions.find(
-        (item) => item.assignmentId === assignmentId && item.studentId === currentUser?.id,
-      ) ?? localSubmission,
+      submissions.find((item) => item.assignmentId === assignmentId && item.studentId === currentUser?.id) ??
+      localSubmission,
     [assignmentId, currentUser?.id, localSubmission, submissions],
   );
-  const ieltsType =
-    assignment && isIeltsAssignmentType(assignment.type) ? assignment.type : undefined;
-  const ieltsConfig = ieltsType
-    ? normalizeIeltsAssignmentConfig(ieltsType, assignment?.assignmentConfig)
-    : null;
+  const ieltsType = assignment && isIeltsAssignmentType(assignment.type) ? assignment.type : undefined;
+  const ieltsConfig = ieltsType ? normalizeIeltsAssignmentConfig(ieltsType, assignment?.assignmentConfig) : null;
   const attemptAvailability = ieltsConfig
     ? getStudentIeltsAttemptAvailability({
         config: ieltsConfig,
@@ -74,22 +68,13 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       return;
     }
     setIeltsAttempt(createInitialStudentIeltsAttempt());
-  }, [
-    assignmentId,
-    ieltsType,
-    showSubmitDialog,
-    submission?.id,
-    submission?.rawPayload,
-    submission?.status,
-  ]);
+  }, [assignmentId, ieltsType, showSubmitDialog, submission?.id, submission?.rawPayload, submission?.status]);
 
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Loading assignment...
-          </CardContent>
+          <CardContent className="py-12 text-center text-muted-foreground">Loading assignment...</CardContent>
         </Card>
       </div>
     );
@@ -116,10 +101,12 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       </div>
     );
   }
-  const dueDate = new Date(assignment.dueAt);
+  const dueDate = assignment.dueAt;
   const now = new Date();
-  const isOverdue = dueDate < now && !submission;
-  const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const isOverdue = Boolean(dueDate && dueDate < now && !submission);
+  const hoursUntilDue = dueDate
+    ? (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+    : Number.POSITIVE_INFINITY;
   const isDueSoon = hoursUntilDue <= 48 && hoursUntilDue > 0;
   const canResubmit = Boolean(submission && submission.status !== 'graded' && !hasReachedMaxAttempts);
 
@@ -132,11 +119,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       toast.error('Maximum attempts reached for this assignment.');
       return;
     }
-    if (
-      !ieltsType &&
-      (assignment.type === 'text' || assignment.type === 'link') &&
-      !submissionContent.trim()
-    ) {
+    if (!ieltsType && (assignment.type === 'text' || assignment.type === 'link') && !submissionContent.trim()) {
       toast.error('Please add your submission before sending.');
       return;
     }
@@ -157,16 +140,10 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
 
     try {
       const requestTime = new Date();
-      const submittedAt =
-        mode === 'submitted' ? requestTime.toISOString() : undefined;
-      const status =
-        mode === 'draft' ? 'draft' : dueDate < requestTime ? 'late' : 'submitted';
+      const submittedAt = mode === 'submitted' ? requestTime.toISOString() : undefined;
+      const status = mode === 'draft' ? 'draft' : dueDate && dueDate < requestTime ? 'late' : 'submitted';
       const nextVersion =
-        ieltsType && attemptAvailability
-          ? attemptAvailability.nextAttempt
-          : submission
-            ? submission.version + 1
-            : 1;
+        ieltsType && attemptAvailability ? attemptAvailability.nextAttempt : submission ? submission.version + 1 : 1;
       const payloadRecord: Record<string, unknown> =
         ieltsType && ieltsConfig
           ? buildStudentIeltsPayload({
@@ -176,10 +153,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
               state: ieltsAttempt,
               submittedAt,
             })
-          : {
-              studentName: currentUser.name || 'Student',
-              version: nextVersion,
-            };
+          : {};
 
       if (!ieltsType && assignment.type === 'text') {
         payloadRecord.content = submissionContent.trim();
@@ -187,8 +161,8 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       if (!ieltsType && assignment.type === 'link') {
         payloadRecord.link = submissionContent.trim();
       }
-      if (!ieltsType && uploadedFiles.length > 0) {
-        payloadRecord.files = uploadedFiles;
+      if (!ieltsType && assignment.type === 'file' && uploadedFiles.length > 0) {
+        payloadRecord.files = uploadedFiles.map((file) => ({ id: file.id }));
       }
 
       const response = await createSubmissionMutation.mutateAsync({
@@ -201,21 +175,9 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       });
 
       const responsePayload = response.payload ?? payloadRecord;
-      const responseVersion =
-        typeof responsePayload.version === 'number' ? responsePayload.version : nextVersion;
       const nextSubmission: Submission = {
-        id: response.id,
-        assignmentId: response.assignmentId,
-        studentId: response.studentId,
+        ...toSubmission({ ...response, payload: responsePayload }),
         studentName: currentUser.name || 'Student',
-        status: response.status,
-        submittedAt: response.submittedAt ? new Date(response.submittedAt) : undefined,
-        content: typeof payloadRecord.content === 'string' ? payloadRecord.content : undefined,
-        files: Array.isArray(payloadRecord.files)
-          ? (payloadRecord.files as SubmissionFile[])
-          : undefined,
-        version: responseVersion,
-        rawPayload: responsePayload,
       };
 
       setLocalSubmission(nextSubmission);
@@ -228,9 +190,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       toast.success(mode === 'draft' ? 'Draft saved.' : 'Assignment submitted successfully!');
       setShowSubmitDialog(false);
     } catch (errorValue) {
-      toast.error(
-        errorValue instanceof Error ? errorValue.message : 'Unable to submit assignment.',
-      );
+      toast.error(errorValue instanceof Error ? errorValue.message : 'Unable to submit assignment.');
     } finally {
       setIsSubmitting(false);
     }
@@ -248,10 +208,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
         title={assignment.title}
         description={assignment.courseName}
         showBack
-        breadcrumbs={[
-          { label: 'Assignments', path: '/student/assignments' },
-          { label: assignment.title },
-        ]}
+        breadcrumbs={[{ label: 'Assignments', path: '/student/assignments' }, { label: assignment.title }]}
         actions={
           <StudentAssignmentHeaderActions
             submission={submission}
@@ -275,9 +232,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <StudentAssignmentDescriptionCard assignment={assignment} />
-              {submission && (
-                <StudentAssignmentSubmissionSummary assignment={assignment} submission={submission} />
-              )}
+              {submission && <StudentAssignmentSubmissionSummary assignment={assignment} submission={submission} />}
             </div>
             <StudentAssignmentSidebar
               assignment={assignment}
@@ -311,4 +266,3 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
     </div>
   );
 }
-

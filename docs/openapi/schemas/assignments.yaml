@@ -27,11 +27,10 @@ Assignment:
     assignmentConfig:
       type: object
       nullable: true
-      description: IELTS assignment configuration payload (shape depends on assignment type).
+      description: Validated assignment configuration payload (shape depends on assignment type).
       anyOf:
         - $ref: '#/IeltsAssignmentConfig'
-        - type: object
-          additionalProperties: true
+        - $ref: '#/GenericAssignmentConfig'
     publishedAt:
       type: string
       format: date-time
@@ -56,17 +55,17 @@ CreateAssignmentRequest:
     descriptionMd:
       type: string
     type:
-      $ref: './common.yaml#/AssignmentType'
+      type: string
+      enum: [file, link, text, reading, listening, writing, speaking]
     dueAt:
       type: string
     latePolicy:
       $ref: '#/LatePolicy'
     assignmentConfig:
-      description: IELTS assignment configuration payload (shape depends on assignment type).
+      description: Validated assignment configuration payload (shape depends on assignment type).
       anyOf:
         - $ref: '#/IeltsAssignmentConfig'
-        - type: object
-          additionalProperties: true
+        - $ref: '#/GenericAssignmentConfig'
     publishedAt:
       type: string
   required: [title, type]
@@ -79,19 +78,33 @@ UpdateAssignmentRequest:
     descriptionMd:
       type: string
     type:
-      $ref: './common.yaml#/AssignmentType'
+      type: string
+      enum: [file, link, text, reading, listening, writing, speaking]
     dueAt:
       type: string
     latePolicy:
       $ref: '#/LatePolicy'
     assignmentConfig:
-      description: IELTS assignment configuration payload (shape depends on assignment type).
+      description: Validated assignment configuration payload (shape depends on assignment type).
       anyOf:
         - $ref: '#/IeltsAssignmentConfig'
-        - type: object
-          additionalProperties: true
+        - $ref: '#/GenericAssignmentConfig'
     publishedAt:
       type: string
+
+GenericAssignmentConfig:
+  type: object
+  additionalProperties: false
+  properties:
+    version:
+      type: integer
+      enum: [1]
+    maxScore:
+      type: number
+      minimum: 0
+      exclusiveMinimum: true
+      maximum: 10000
+  required: [version, maxScore]
 
 LatePolicy:
   type: object

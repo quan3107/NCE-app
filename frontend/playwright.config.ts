@@ -59,6 +59,7 @@ export default defineConfig({
     'real-backend-auth-ordering.spec.ts',
     'real-backend-auth-storage-failure.spec.ts',
     'real-backend-mutations.spec.ts',
+    'real-backend-generic-assignments.spec.ts',
   ],
   timeout: 60_000,
   expect: {

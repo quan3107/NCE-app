@@ -21,11 +21,10 @@ Submission:
       format: date-time
       nullable: true
     payload:
-      description: IELTS submission payload (shape depends on assignment type).
+      description: Validated submission payload (shape depends on assignment type).
       anyOf:
         - $ref: '#/IeltsSubmissionPayload'
-        - type: object
-          additionalProperties: true
+        - $ref: '#/GenericSubmissionResponsePayload'
     createdAt:
       type: string
       format: date-time
@@ -43,11 +42,10 @@ CreateSubmissionRequest:
   additionalProperties: false
   properties:
     payload:
-      description: IELTS submission payload (shape depends on assignment type).
+      description: Validated submission payload (shape depends on assignment type).
       anyOf:
         - $ref: '#/IeltsSubmissionPayload'
-        - type: object
-          additionalProperties: true
+        - $ref: '#/GenericSubmissionPayload'
     submittedAt:
       type: string
       format: date-time
@@ -55,6 +53,105 @@ CreateSubmissionRequest:
       type: string
       enum: [draft, submitted, late]
   required: [payload]
+
+GenericSubmissionPayload:
+  oneOf:
+    - $ref: '#/TextSubmissionPayload'
+    - $ref: '#/LinkSubmissionPayload'
+    - $ref: '#/FileSubmissionPayload'
+
+GenericSubmissionResponsePayload:
+  oneOf:
+    - $ref: '#/TextSubmissionPayload'
+    - $ref: '#/LinkSubmissionPayload'
+    - $ref: '#/FileSubmissionResponsePayload'
+
+GenericSubmissionVersion:
+  type: integer
+  minimum: 1
+
+TextSubmissionPayload:
+  type: object
+  additionalProperties: false
+  properties:
+    version:
+      $ref: '#/GenericSubmissionVersion'
+    content:
+      type: string
+      minLength: 1
+      maxLength: 100000
+  required: [content]
+
+LinkSubmissionPayload:
+  type: object
+  additionalProperties: false
+  properties:
+    version:
+      $ref: '#/GenericSubmissionVersion'
+    link:
+      type: string
+      format: uri
+      maxLength: 2048
+      pattern: '^https?://'
+  required: [link]
+
+SubmissionFileReference:
+  type: object
+  additionalProperties: false
+  properties:
+    id:
+      type: string
+      format: uuid
+  required: [id]
+
+FileSubmissionPayload:
+  type: object
+  additionalProperties: false
+  properties:
+    version:
+      $ref: '#/GenericSubmissionVersion'
+    files:
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items:
+        $ref: '#/SubmissionFileReference'
+  required: [files]
+
+CanonicalSubmissionFile:
+  type: object
+  additionalProperties: false
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    size:
+      type: integer
+      minimum: 1
+    mime:
+      type: string
+    checksum:
+      type: string
+    bucket:
+      type: string
+    objectKey:
+      type: string
+  required: [id, name, size, mime, checksum, bucket, objectKey]
+
+FileSubmissionResponsePayload:
+  type: object
+  additionalProperties: false
+  properties:
+    version:
+      $ref: '#/GenericSubmissionVersion'
+    files:
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/CanonicalSubmissionFile'
+  required: [version, files]
 
 IeltsSubmissionPayload:
   oneOf:
