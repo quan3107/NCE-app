@@ -15,6 +15,7 @@ import {
   getCourses,
   getCourseStudents,
   getCourseTeachers,
+  getCourseTeacherCandidates,
   patchCourse,
   postCourse,
   postCourseArchive,
@@ -49,6 +50,12 @@ courseRouter.delete(
   authGuard,
   roleGuard([UserRole.admin, UserRole.teacher]),
   deleteCourseStudent,
+);
+courseRouter.get(
+  "/:courseId/teacher-candidates",
+  authGuard,
+  roleGuard([UserRole.admin, UserRole.teacher]),
+  getCourseTeacherCandidates,
 );
 courseRouter.get(
   "/:courseId/teachers",

@@ -1534,4 +1534,17 @@ describe("nce-attempts.service", () => {
     });
     expect(result.attempts[0]).not.toHaveProperty("response");
   });
+
+  it("denies attempt summaries after co-teacher delegation is revoked", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce({
+      ...course,
+      ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      enrollments: [],
+    });
+
+    await expect(
+      listTeacherNceAttemptSummaries({ courseId }, teacherActor, {}),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(prisma.nceExerciseAttempt.findMany).not.toHaveBeenCalled();
+  });
 });

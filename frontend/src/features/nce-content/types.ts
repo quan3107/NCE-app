@@ -167,6 +167,7 @@ export type CourseNceLesson = NceLesson & {
   dueAt: string | null;
   canEdit: boolean;
   canPublish: boolean;
+  isCourseOwned: boolean;
 };
 
 export type NceBookListResponse = {
@@ -184,5 +185,32 @@ export type NceLessonListResponse = {
 
 export type CourseNceLessonListResponse = {
   lessons: CourseNceLesson[];
+  pagination: NcePagination;
+};
+
+export type NceAttemptSummary = {
+  id: string;
+  courseId: string;
+  lessonId: string;
+  exerciseId: string;
+  studentId: string;
+  status: "draft" | "submitted";
+  score: number | null;
+  maxScore: number | null;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  student: { id: string; fullName: string; email: string };
+  exercise: {
+    id: string;
+    exerciseType: NceExerciseType;
+    prompt: string;
+    sortOrder: number;
+    lesson: { id: string; title: string; lessonNumber: number };
+  };
+};
+
+export type NceAttemptSummaryListResponse = {
+  attempts: NceAttemptSummary[];
   pagination: NcePagination;
 };

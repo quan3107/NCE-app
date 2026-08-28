@@ -116,18 +116,34 @@ export const patchNceLessonSchema = z.object({
   exercises: z.array(nceExerciseWriteSchema).optional(),
 });
 
-export const assignNceLessonsSchema = z.object({
-  lessons: z
-    .array(
-      z.object({
-        lessonId: z.string().uuid(),
-        sequence: z.number().int().min(1),
-        availableFrom: optionalDateSchema,
-        dueAt: optionalDateSchema,
-      }),
-    )
-    .default([]),
-});
+export const assignNceLessonsSchema = z
+  .object({
+    lessons: z
+      .array(
+        z.object({
+          lessonId: z.string().uuid(),
+          sequence: z.number().int().min(1),
+          availableFrom: optionalDateSchema,
+          dueAt: optionalDateSchema,
+        }),
+      )
+      .default([]),
+  })
+  .superRefine((value, context) => {
+    value.lessons.forEach((lesson, index) => {
+      if (
+        lesson.availableFrom &&
+        lesson.dueAt &&
+        new Date(lesson.availableFrom).getTime() > new Date(lesson.dueAt).getTime()
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Availability must begin on or before the due date",
+          path: ["lessons", index, "dueAt"],
+        });
+      }
+    });
+  });
 
 export type CreateNceLessonInput = z.infer<typeof createNceLessonSchema>;
 export type PatchNceLessonInput = z.infer<typeof patchNceLessonSchema>;

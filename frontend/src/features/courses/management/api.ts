@@ -66,6 +66,20 @@ export type CourseStudentsResponse = {
   students: CourseStudentResponse[];
 };
 
+export type CourseTeacherResponse = CourseStudentResponse;
+
+export type CourseTeachersResponse = {
+  courseId: string;
+  teachers: CourseTeacherResponse[];
+};
+
+export type CourseTeacherCandidate = Omit<CourseTeacherResponse, 'enrolledAt'>;
+
+export type CourseTeacherCandidatesResponse = {
+  courseId: string;
+  teachers: CourseTeacherCandidate[];
+};
+
 export type CourseAssignmentResponse = {
   id: string;
   courseId: string;
@@ -83,6 +97,10 @@ export const courseStudentsKey = (courseId: string) =>
   ['courses', courseId, 'students'] as const;
 export const courseAssignmentsKey = (courseId: string) =>
   ['courses', courseId, 'assignments'] as const;
+export const courseTeachersKey = (courseId: string) =>
+  ['courses', courseId, 'teachers'] as const;
+export const courseTeacherCandidatesKey = (courseId: string) =>
+  ['courses', courseId, 'teacher-candidates'] as const;
 
 export const fetchCourseDetail = (courseId: string): Promise<CourseDetailResponse> =>
   apiClient<CourseDetailResponse>(`/api/v1/courses/${courseId}`, { auth: 'required' });
@@ -92,6 +110,21 @@ export const fetchCourseStudents = (courseId: string): Promise<CourseStudentsRes
 
 export const fetchCourseAssignments = (courseId: string): Promise<CourseAssignmentResponse[]> =>
   apiClient<CourseAssignmentResponse[]>(`/api/v1/courses/${courseId}/assignments`, { auth: 'required' });
+
+export const fetchCourseTeachers = (
+  courseId: string,
+): Promise<CourseTeachersResponse> =>
+  apiClient<CourseTeachersResponse>(`/api/v1/courses/${courseId}/teachers`, {
+    auth: 'required',
+  });
+
+export const fetchCourseTeacherCandidates = (
+  courseId: string,
+): Promise<CourseTeacherCandidatesResponse> =>
+  apiClient<CourseTeacherCandidatesResponse>(
+    `/api/v1/courses/${courseId}/teacher-candidates`,
+    { auth: 'required' },
+  );
 
 export type CourseMutationResponse = {
   id: string;
@@ -254,6 +287,39 @@ export const addCourseStudent = async (
   return student;
 };
 
+export const addCourseTeacher = async (courseId: string, email: string) => {
+  const teacher = await apiClient<CourseTeacherResponse, { email: string }>(
+    `/api/v1/courses/${courseId}/teachers`,
+    { auth: 'required', method: 'POST', body: { email } },
+  );
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: courseTeachersKey(courseId) }),
+    queryClient.invalidateQueries({
+      queryKey: courseTeacherCandidatesKey(courseId),
+    }),
+    invalidateCourseList(),
+  ]);
+  return teacher;
+};
+
+export const removeCourseTeacher = async (
+  courseId: string,
+  teacherId: string,
+) => {
+  await apiClient<void>(`/api/v1/courses/${courseId}/teachers/${teacherId}`, {
+    auth: 'required',
+    method: 'DELETE',
+    parseJson: false,
+  });
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: courseTeachersKey(courseId) }),
+    queryClient.invalidateQueries({
+      queryKey: courseTeacherCandidatesKey(courseId),
+    }),
+    invalidateCourseList(),
+  ]);
+};
+
 export function useCourseDetailQuery(courseId: string) {
   return useQuery({
     queryKey: courseDetailKey(courseId),
@@ -273,5 +339,24 @@ export function useCourseAssignmentsQuery(courseId: string) {
     queryKey: courseAssignmentsKey(courseId),
     queryFn: () => fetchCourseAssignments(courseId),
     enabled: Boolean(courseId),
+  });
+}
+
+export function useCourseTeachersQuery(courseId: string) {
+  return useQuery({
+    queryKey: courseTeachersKey(courseId),
+    queryFn: () => fetchCourseTeachers(courseId),
+    enabled: Boolean(courseId),
+  });
+}
+
+export function useCourseTeacherCandidatesQuery(
+  courseId: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: courseTeacherCandidatesKey(courseId),
+    queryFn: () => fetchCourseTeacherCandidates(courseId),
+    enabled: Boolean(courseId) && enabled,
   });
 }

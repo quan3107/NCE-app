@@ -10,16 +10,26 @@ import { Archive, RotateCcw } from 'lucide-react';
 
 import type { CourseArchiveHandlers } from '../../hooks/useTeacherCourseManagement';
 import type { CourseArchiveState, RubricState } from '../../types';
+import { CoTeachersCard } from './CoTeachersCard';
 
 type SettingsTabProps = {
   rubric: RubricState;
   archive: CourseArchiveState;
   archiveHandlers: CourseArchiveHandlers;
+  courseId: string;
+  canManageTeachers: boolean;
 };
 
-export function SettingsTab({ rubric, archive, archiveHandlers }: SettingsTabProps) {
+export function SettingsTab({
+  rubric,
+  archive,
+  archiveHandlers,
+  courseId,
+  canManageTeachers,
+}: SettingsTabProps) {
   return (
     <div className="space-y-6">
+      <CoTeachersCard courseId={courseId} canManage={canManageTeachers} />
       <Card>
         <CardHeader>
           <CardTitle>Grading Rubric</CardTitle>

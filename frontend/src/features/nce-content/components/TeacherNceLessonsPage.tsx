@@ -7,10 +7,15 @@
 import { useState } from 'react';
 import { PageHeader } from '@components/common/PageHeader';
 import { Button } from '@components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
-import { Input } from '@components/ui/input';
-import { Label } from '@components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@components/ui/card';
 import { Skeleton } from '@components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { useRouter } from '@lib/router';
 import { Edit, Plus, RefreshCw } from 'lucide-react';
 import {
@@ -18,6 +23,9 @@ import {
   unpublishNceLesson,
   useCourseNceLessonsQuery,
 } from '../api';
+import { NceAttemptSummaries } from './NceAttemptSummaries';
+import { NceCoursePicker } from './NceCoursePicker';
+import { NcePathEditor } from './NcePathEditor';
 
 const LESSONS_PAGE_SIZE = 100;
 
@@ -96,16 +104,12 @@ export function TeacherNceLessonsPage() {
       />
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div className="space-y-2">
-            <Label htmlFor="nce-course-id">Course ID</Label>
-            <Input
-              id="nce-course-id"
-              value={courseId}
-              onChange={(event) => updateCourseId(event.target.value)}
-              placeholder="Paste a course ID to manage its NCE sequence"
-            />
-          </div>
-          <Button variant="outline" onClick={() => query.refetch()} disabled={!courseId || query.isLoading}>
+          <NceCoursePicker courseId={courseId} onChange={updateCourseId} />
+          <Button
+            variant="outline"
+            onClick={() => query.refetch()}
+            disabled={!courseId || query.isLoading}
+          >
             <RefreshCw className="mr-2 size-4" />
             Refresh
           </Button>
@@ -119,9 +123,18 @@ export function TeacherNceLessonsPage() {
 
         {!courseId ? (
           <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Enter a course ID to load draft and published NCE lessons.
+            Select a course to manage its NCE lessons, learning path, and
+            learner activity.
           </div>
-        ) : query.isLoading ? (
+        ) : (
+          <Tabs defaultValue="lessons" className="space-y-5">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="lessons">Lessons</TabsTrigger>
+              <TabsTrigger value="path">Course Path</TabsTrigger>
+              <TabsTrigger value="attempts">Learner Activity</TabsTrigger>
+            </TabsList>
+            <TabsContent value="lessons">
+        {query.isLoading ? (
           <div className="grid gap-4 md:grid-cols-2">
             {Array.from({ length: 4 }).map((_, index) => (
               <Card key={`nce-lesson-skeleton-${index}`}>
@@ -218,6 +231,30 @@ export function TeacherNceLessonsPage() {
               </div>
             )}
           </div>
+        )}
+            </TabsContent>
+            <TabsContent value="path">
+              {query.isLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading course path...
+                </p>
+              ) : query.error ? (
+                <p role="alert" className="text-sm text-destructive">
+                  Unable to load the course path.
+                </p>
+              ) : (
+                <NcePathEditor
+                  courseId={courseId}
+                  lessons={lessons}
+                  total={totalLessons}
+                  onSaved={() => query.refetch()}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="attempts">
+              <NceAttemptSummaries courseId={courseId} />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>

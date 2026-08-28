@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-08-28:** Made the seeded NCE course usable by the documented teacher owner; added owner/admin-only active co-teacher candidate selection, strict server-side delegation boundaries, publish/unpublish audit contracts, ordered-path date validation, course-ownership metadata, and revoked summary regressions. A clean PostgreSQL 17 migration/seed replay plus real-backend Chromium flow verified COURSE-06 and NCE-02/03/04/09; all 1,064 backend tests, lint, typecheck/build, and focused new-file formatting pass.
+
 - **2026-08-28:** Added strict generic assignment and submission contracts for text, HTTPS link, and completed owned files; canonicalized file metadata from persisted upload records; retained course-scoped download authorization; rejected unsupported quiz authoring; and documented the OpenAPI shapes. All 1,060 backend tests, lint, build, and OpenAPI validation pass. The repository-wide Prettier check still reports 713 pre-existing generated/source style violations.
 
 - **2026-08-18:** Added admin-only active-user suspension, reactivation, and soft deletion with atomic live-session revocation, protected admin/self invariants, strict audit contracts, route guards, OpenAPI documentation, and service/router/audit regressions. A disposable real-PostgreSQL student was managed through the rendered admin flow and cleaned up afterward; all 1,049 backend tests, lint, build, and OpenAPI validation pass.
@@ -202,6 +204,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-08-28:** Added named course/teacher/book/unit selectors, owner-managed co-teacher roster controls, the integrated NCE lesson/path/activity workspace, safe paginated attempt summaries, and real-backend coverage for delegation through revocation. All 267 frontend unit tests, 193 rendered component tests, lint, typecheck, build, focused new-file formatting, and the clean 7.1-second Chromium scenario pass; the five COURSE-06/NCE-02/03/04/09 screenshots were visually inspected.
 
 - **2026-08-28:** Added teacher draft/publish authoring for supported generic text, link, and file assignments; student response-specific submit controls and canonical summaries; upload-count/race enforcement; and authorized student/teacher file downloads. All 267 frontend unit tests, 189 rendered component tests, lint, typecheck, build, the nine-test real-backend Chromium pack, and the focused five-story Chromium scenario pass against disposable PostgreSQL; ASG-13 and STU-03 through STU-06 now pass with visually inspected evidence.
 

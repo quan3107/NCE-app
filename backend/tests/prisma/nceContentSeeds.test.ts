@@ -176,6 +176,10 @@ describe('NCE seed fixtures', () => {
     expect(packageJson.scripts['seed:nce-content']).toBeUndefined()
     expect(demoSeed).not.toContain('seedNceContent')
     expect(nceSeed).not.toContain("from '../client.js'")
+    expect(nceSeed).toContain("const DEMO_NCE_TEACHER_EMAIL = 'sarah.tutor@ielts.local'")
+    expect(nceSeed).toMatch(
+      /const teacher =\s*demoTeacher \?\?\s*\(await prisma\.user\.upsert/,
+    )
     expect(nceSeed).toMatch(
       /export async function seedNceContent\(\s*prismaClient: PrismaClient/,
     )

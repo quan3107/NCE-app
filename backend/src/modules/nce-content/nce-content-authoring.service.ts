@@ -8,6 +8,7 @@ import { NcePublishStatus, Prisma } from "../../prisma/index.js";
 import { prisma } from "../../config/prismaClient.js";
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { createHttpError } from "../../utils/httpError.js";
+import { writeAuditLogSafely } from "../audit-logs/audit-logs.service.js";
 import type { NceLessonRow } from "./nce-content.mappers.js";
 import {
   assignmentRows,
@@ -242,6 +243,9 @@ export async function publishNceLesson(
   const current = await findCurrentAuthoredLesson(lessonId, actor);
   await assertLessonCourseWritable(current, courseId, actor);
   assertPublishable(current);
+  if (current.status !== NcePublishStatus.draft) {
+    throw createHttpError(409, "NCE lesson is not a draft");
+  }
 
   const lesson = await readWithServiceRole(actor, () =>
     prisma.nceLesson.update({
@@ -253,6 +257,19 @@ export async function publishNceLesson(
       select: authoredLessonSelect,
     }),
   );
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: "nce.lesson.published",
+    entity: "nce_lesson",
+    entityId: lessonId,
+    eventData: {
+      courseId: current.courseId ?? null,
+      statusBefore: "draft",
+      statusAfter: "published",
+      publicationChanged: true,
+    },
+  });
 
   return mapAuthoredLesson(lesson as NceLessonRow);
 }
@@ -266,6 +283,10 @@ export async function unpublishNceLesson(
   const current = await findCurrentAuthoredLesson(lessonId, actor);
   await assertLessonCourseWritable(current, courseId, actor);
 
+  if (current.status !== NcePublishStatus.published) {
+    throw createHttpError(409, "NCE lesson is not published");
+  }
+
   const lesson = await readWithServiceRole(actor, () =>
     prisma.nceLesson.update({
       where: { id: lessonId },
@@ -276,6 +297,19 @@ export async function unpublishNceLesson(
       select: authoredLessonSelect,
     }),
   );
+
+  await writeAuditLogSafely({
+    actorId: actor.id,
+    action: "nce.lesson.unpublished",
+    entity: "nce_lesson",
+    entityId: lessonId,
+    eventData: {
+      courseId: current.courseId ?? null,
+      statusBefore: "published",
+      statusAfter: "draft",
+      publicationChanged: true,
+    },
+  });
 
   return mapAuthoredLesson(lesson as NceLessonRow);
 }

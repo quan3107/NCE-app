@@ -23,6 +23,24 @@ const submissionEventShape = {
 }
 
 export const learningAuditContracts = {
+  'nce.lesson.published': {
+    entity: 'nce_lesson',
+    schema: z.strictObject({
+      courseId: auditIdSchema.nullable(),
+      statusBefore: z.literal('draft'),
+      statusAfter: z.literal('published'),
+      publicationChanged: changedMarkerSchema,
+    }),
+  },
+  'nce.lesson.unpublished': {
+    entity: 'nce_lesson',
+    schema: z.strictObject({
+      courseId: auditIdSchema.nullable(),
+      statusBefore: z.literal('published'),
+      statusAfter: z.literal('draft'),
+      publicationChanged: changedMarkerSchema,
+    }),
+  },
   'assignment.created': {
     entity: 'assignment',
     schema: z.strictObject({

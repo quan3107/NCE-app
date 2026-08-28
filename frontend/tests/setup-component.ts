@@ -1,7 +1,7 @@
 /**
  * Location: tests/setup-component.ts
- * Purpose: Provide jsdom with the Web Locks boundary available in supported browsers.
- * Why: Component tests need an explicit coordination primitive while IndexedDB is absent.
+ * Purpose: Provide jsdom with browser coordination and pointer primitives used by the UI.
+ * Why: Component tests exercise Web Locks and Radix controls that jsdom does not implement.
  */
 
 import "fake-indexeddb/auto";
@@ -35,4 +35,14 @@ if (!navigator.locks) {
       ) => callback(),
     },
   });
+}
+
+if (!HTMLElement.prototype.hasPointerCapture) {
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  HTMLElement.prototype.setPointerCapture = () => undefined;
+  HTMLElement.prototype.releasePointerCapture = () => undefined;
+}
+
+if (!HTMLElement.prototype.scrollIntoView) {
+  HTMLElement.prototype.scrollIntoView = () => undefined;
 }

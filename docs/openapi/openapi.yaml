@@ -150,6 +150,8 @@ paths:
     $ref: './paths/courses.yaml#/CourseStudentById'
   /api/v1/courses/{courseId}/teachers:
     $ref: './paths/courses.yaml#/CourseTeachers'
+  /api/v1/courses/{courseId}/teacher-candidates:
+    $ref: './paths/courses.yaml#/CourseTeacherCandidates'
   /api/v1/courses/{courseId}/teachers/{teacherId}:
     $ref: './paths/courses.yaml#/CourseTeacherById'
   /api/v1/nce/books:

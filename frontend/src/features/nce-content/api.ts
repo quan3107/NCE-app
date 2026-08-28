@@ -14,6 +14,7 @@ import type {
   CourseNceLessonListResponse,
   NceBookListResponse,
   NceLesson,
+  NceAttemptSummaryListResponse,
   NceLessonPatchPayload,
   NceLessonListResponse,
   NceLessonWritePayload,
@@ -85,6 +86,18 @@ export const fetchCourseNceLessons = (
     auth: 'required',
     params: queryParams(query),
   });
+
+export const fetchCourseNceAttemptSummaries = (
+  courseId: string,
+  query: Pick<NceReadQuery, "page" | "pageSize"> = {},
+) =>
+  apiClient<NceAttemptSummaryListResponse>(
+    `/courses/${courseId}/nce-attempts`,
+    {
+      auth: "required",
+      params: queryParams(query),
+    },
+  );
 
 const invalidateNceContent = async () => {
   await queryClient.invalidateQueries({ queryKey: NCE_CONTENT_KEY });
@@ -212,6 +225,17 @@ export function useCourseNceLessonsQuery(
   return useQuery({
     queryKey: [...NCE_CONTENT_KEY, 'courses', courseId, 'lessons', query],
     queryFn: () => fetchCourseNceLessons(courseId ?? '', query),
+    enabled: Boolean(courseId),
+  });
+}
+
+export function useCourseNceAttemptSummariesQuery(
+  courseId: string | undefined,
+  query: Pick<NceReadQuery, "page" | "pageSize"> = {},
+) {
+  return useQuery({
+    queryKey: [...NCE_CONTENT_KEY, "courses", courseId, "attempts", query],
+    queryFn: () => fetchCourseNceAttemptSummaries(courseId ?? "", query),
     enabled: Boolean(courseId),
   });
 }

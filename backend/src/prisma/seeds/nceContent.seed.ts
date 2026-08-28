@@ -13,24 +13,37 @@ import {
 import { NCE_BOOK_SEEDS, type NceLessonSeed } from './nceContent.data.js'
 
 const NCE_TEACHER_EMAIL = 'nce.content@system.local'
+const DEMO_NCE_TEACHER_EMAIL = 'sarah.tutor@ielts.local'
 const NCE_COURSE_TITLE = 'New Concept English Book 1 Foundations'
 
 async function ensureSeedCourse(prisma: Prisma.TransactionClient) {
-  const teacher = await prisma.user.upsert({
-    where: { email: NCE_TEACHER_EMAIL },
-    create: {
-      email: NCE_TEACHER_EMAIL,
-      password: null,
-      fullName: 'NCE Content Teacher',
+  // Prefer the documented demo teacher so the seeded owner can actually delegate.
+  const demoTeacher = await prisma.user.findFirst({
+    where: {
+      email: DEMO_NCE_TEACHER_EMAIL,
       role: UserRole.teacher,
       status: UserStatus.active,
-    },
-    update: {
-      fullName: 'NCE Content Teacher',
-      role: UserRole.teacher,
-      status: UserStatus.active,
+      deletedAt: null,
     },
   })
+  const teacher =
+    demoTeacher ??
+    (await prisma.user.upsert({
+      where: { email: NCE_TEACHER_EMAIL },
+      create: {
+        email: NCE_TEACHER_EMAIL,
+        password: null,
+        fullName: 'NCE Content Teacher',
+        role: UserRole.teacher,
+        status: UserStatus.active,
+      },
+      update: {
+        deletedAt: null,
+        fullName: 'NCE Content Teacher',
+        role: UserRole.teacher,
+        status: UserStatus.active,
+      },
+    }))
 
   const courseData = {
     description: 'A seeded course path for the first NCE Book 1 lessons.',
@@ -66,6 +79,23 @@ async function ensureSeedCourse(prisma: Prisma.TransactionClient) {
     },
     update: { roleInCourse: EnrollmentRole.teacher, deletedAt: null },
   })
+
+  if (demoTeacher) {
+    const systemTeacher = await prisma.user.findUnique({
+      where: { email: NCE_TEACHER_EMAIL },
+      select: { id: true },
+    })
+    if (systemTeacher) {
+      await prisma.enrollment.updateMany({
+        where: { courseId: course.id, userId: systemTeacher.id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      })
+      await prisma.user.update({
+        where: { id: systemTeacher.id },
+        data: { status: UserStatus.suspended },
+      })
+    }
+  }
 
   return course
 }

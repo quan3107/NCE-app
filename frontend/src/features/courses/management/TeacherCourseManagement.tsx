@@ -25,9 +25,11 @@ import {
   type TabValue,
 } from './courseTabs.ui';
 import { useTeacherCourseManagement } from './hooks/useTeacherCourseManagement';
+import { useAuthStore } from '@store/authStore';
 
 export function TeacherCourseManagement({ courseId }: { courseId: string }) {
   const { navigate } = useRouter();
+  const { currentUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabValue | ''>('');
   const unsupportedTabWarningsRef = useRef(new Set<string>());
 
@@ -246,6 +248,8 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
                   rubric={rubric}
                   archive={archive}
                   archiveHandlers={archiveHandlers}
+                  courseId={courseId}
+                  canManageTeachers={currentUser.id === course.teacherId}
                 />
               </TabsContent>
             )}
