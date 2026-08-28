@@ -62,7 +62,7 @@ export const toAssignment = (assignment: ApiAssignment, courseName: string): Ass
     type: assignment.type,
     courseId: assignment.courseId,
     courseName,
-    dueAt: assignment.dueAt ? new Date(assignment.dueAt) : new Date(),
+    dueAt: assignment.dueAt ? new Date(assignment.dueAt) : null,
     publishedAt: assignment.publishedAt ? new Date(assignment.publishedAt) : undefined,
     status: assignment.publishedAt ? 'published' : 'draft',
     latePolicy,

@@ -93,7 +93,7 @@ export function StudentAssignmentsPage() {
 
     let matchesTab = true;
     if (activeTab === 'todo') {
-      matchesTab = status === 'not_submitted' && new Date(assignment.dueAt) > new Date();
+      matchesTab = status === 'not_submitted' && Boolean(assignment.dueAt && assignment.dueAt > new Date());
     } else if (activeTab === 'submitted') {
       matchesTab = status === 'submitted' || status === 'late';
     } else if (activeTab === 'graded') {
@@ -105,7 +105,9 @@ export function StudentAssignmentsPage() {
 
   const counts = {
     all: studentAssignments.length,
-    todo: studentAssignments.filter(a => getAssignmentStatus(a.id) === 'not_submitted' && new Date(a.dueAt) > new Date()).length,
+    todo: studentAssignments.filter(
+      a => getAssignmentStatus(a.id) === 'not_submitted' && Boolean(a.dueAt && a.dueAt > new Date()),
+    ).length,
     submitted: studentAssignments.filter(a => ['submitted', 'late'].includes(getAssignmentStatus(a.id))).length,
     graded: studentAssignments.filter(a => getAssignmentStatus(a.id) === 'graded').length,
   };
@@ -183,10 +185,12 @@ export function StudentAssignmentsPage() {
                 {filteredAssignments.map(assignment => {
                   const status = getAssignmentStatus(assignment.id);
                   const submission = studentSubmissions.find(s => s.assignmentId === assignment.id);
-                  const dueDate = new Date(assignment.dueAt);
+                  const dueDate = assignment.dueAt;
                   const now = new Date();
-                  const isOverdue = dueDate < now && status === 'not_submitted';
-                  const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+                  const isOverdue = Boolean(dueDate && dueDate < now && status === 'not_submitted');
+                  const hoursUntilDue = dueDate
+                    ? (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+                    : Number.POSITIVE_INFINITY;
                   const isDueSoon = hoursUntilDue <= 48 && hoursUntilDue > 0;
 
                   return (
@@ -238,9 +242,9 @@ export function StudentAssignmentsPage() {
                                 <Clock className="size-4 text-muted-foreground" />
                                 <span className="text-muted-foreground">Due:</span>
                                 <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                                  {formatDate(dueDate, 'datetime')}
+                                  {dueDate ? formatDate(dueDate, 'datetime') : 'Not set'}
                                 </span>
-                                {!isOverdue && dueDate > now && (
+                                {!isOverdue && dueDate && dueDate > now && (
                                   <span className="text-muted-foreground">
                                     ({formatDistanceToNow(dueDate, { addSuffix: true })})
                                   </span>

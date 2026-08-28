@@ -31,7 +31,7 @@ export type TeacherAssignmentStatsSummary = {
 
 type TeacherAssignmentDetailTabsProps = {
   assignment: Assignment;
-  originalDueAt?: Date;
+  originalDueAt?: Date | null;
   courseTitle: string;
   submissions: Submission[];
   statsCards: TeacherAssignmentStatCard[];

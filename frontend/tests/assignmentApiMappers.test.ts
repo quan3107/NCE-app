@@ -73,6 +73,7 @@ test('toAssignment keeps non-IELTS assignment max scores on the generic point sc
   );
 
   assert.equal(assignment.maxScore, 100);
+  assert.equal(assignment.dueAt, null);
 });
 
 test('toAssignment reads the persisted generic maximum score', () => {

@@ -11,7 +11,7 @@ import { formatDate } from '@lib/utils';
 
 type StudentAssignmentStatusAlertsProps = {
   assignment: Assignment;
-  dueDate: Date;
+  dueDate: Date | null;
   submission: Submission | null;
   isOverdue: boolean;
   isDueSoon: boolean;
@@ -28,7 +28,7 @@ export function StudentAssignmentStatusAlerts({
 }: StudentAssignmentStatusAlertsProps) {
   return (
     <>
-      {isOverdue && (
+      {isOverdue && dueDate && (
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription>
@@ -36,7 +36,7 @@ export function StudentAssignmentStatusAlerts({
           </AlertDescription>
         </Alert>
       )}
-      {isDueSoon && !submission && (
+      {isDueSoon && dueDate && !submission && (
         <Alert>
           <Clock className="size-4" />
           <AlertDescription>

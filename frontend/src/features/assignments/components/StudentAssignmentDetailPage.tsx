@@ -101,10 +101,12 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       </div>
     );
   }
-  const dueDate = new Date(assignment.dueAt);
+  const dueDate = assignment.dueAt;
   const now = new Date();
-  const isOverdue = dueDate < now && !submission;
-  const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const isOverdue = Boolean(dueDate && dueDate < now && !submission);
+  const hoursUntilDue = dueDate
+    ? (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+    : Number.POSITIVE_INFINITY;
   const isDueSoon = hoursUntilDue <= 48 && hoursUntilDue > 0;
   const canResubmit = Boolean(submission && submission.status !== 'graded' && !hasReachedMaxAttempts);
 
@@ -139,7 +141,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
     try {
       const requestTime = new Date();
       const submittedAt = mode === 'submitted' ? requestTime.toISOString() : undefined;
-      const status = mode === 'draft' ? 'draft' : dueDate < requestTime ? 'late' : 'submitted';
+      const status = mode === 'draft' ? 'draft' : dueDate && dueDate < requestTime ? 'late' : 'submitted';
       const nextVersion =
         ieltsType && attemptAvailability ? attemptAvailability.nextAttempt : submission ? submission.version + 1 : 1;
       const payloadRecord: Record<string, unknown> =

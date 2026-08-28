@@ -43,8 +43,11 @@ export function StudentDueSoonPanel({ dueSoon, now, navigate }: StudentDueSoonPa
         ) : (
           <div className="space-y-3">
             {dueSoon.slice(0, 3).map((assignment) => {
+              if (!assignment.dueAt) {
+                return null;
+              }
               const hoursUntilDue =
-                (new Date(assignment.dueAt).getTime() - now.getTime()) / (1000 * 60 * 60);
+                (assignment.dueAt.getTime() - now.getTime()) / (1000 * 60 * 60);
               const urgent = hoursUntilDue <= 24;
 
               return (
@@ -61,7 +64,7 @@ export function StudentDueSoonPanel({ dueSoon, now, navigate }: StudentDueSoonPa
                     <p className="text-sm text-muted-foreground">{assignment.courseName}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant={urgent ? 'destructive' : 'secondary'} className="text-xs">
-                        Due {formatDistanceToNow(new Date(assignment.dueAt), { addSuffix: true })}
+                        Due {formatDistanceToNow(assignment.dueAt, { addSuffix: true })}
                       </Badge>
                     </div>
                   </div>

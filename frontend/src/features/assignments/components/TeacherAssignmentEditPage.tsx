@@ -121,14 +121,24 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
       toast.error('Wait for file uploads to finish before saving this assignment.');
       return;
     }
+    if (publish && !formState.dueAt) {
+      toast.error('Due date is required before publishing.');
+      return;
+    }
+
+    const parsedDueAt = formState.dueAt
+      ? fromDateTimeLocalValue(formState.dueAt, assignment.dueAt ?? undefined)
+      : null;
+    if (parsedDueAt && Number.isNaN(parsedDueAt.getTime())) {
+      toast.error('Enter a valid due date.');
+      return;
+    }
 
     const payload = {
       title: formState.title.trim(),
       descriptionMd: formState.description.trim() || undefined,
       type: formState.type as Assignment['type'],
-      dueAt: formState.dueAt
-        ? fromDateTimeLocalValue(formState.dueAt, assignment.dueAt).toISOString()
-        : undefined,
+      dueAt: parsedDueAt?.toISOString(),
       assignmentConfig:
         isIeltsAssignmentType(formState.type) && assignmentConfig
           ? assignmentConfig
@@ -257,8 +267,9 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Due Date</Label>
+                <Label htmlFor="assignment-due-date">Due Date</Label>
                 <Input
+                  id="assignment-due-date"
                   type="datetime-local"
                   value={formState.dueAt}
                   onChange={(event) =>

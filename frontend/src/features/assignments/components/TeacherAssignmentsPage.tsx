@@ -60,7 +60,9 @@ export function TeacherAssignmentsPage() {
                   <div className="flex flex-wrap gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Clock className="size-4 text-muted-foreground" />
-                      <span>Due: {formatDate(assignment.dueAt, 'datetime')}</span>
+                      <span>
+                        Due: {assignment.dueAt ? formatDate(assignment.dueAt, 'datetime') : 'Not set'}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <FileText className="size-4 text-muted-foreground" />

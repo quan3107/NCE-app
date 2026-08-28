@@ -18,6 +18,7 @@ type AssignmentResponse = {
   courseId: string;
   title: string;
   type: 'text' | 'link' | 'file';
+  dueAt: string | null;
   publishedAt: string | null;
   assignmentConfig: { version: 1; maxScore: number };
 };
@@ -82,6 +83,7 @@ async function createGenericAssignment(
     title: string;
     maxScore: number;
     publish: boolean;
+    dueAt?: string | null;
   },
 ): Promise<AssignmentResponse> {
   const typeLabels = {
@@ -94,7 +96,9 @@ async function createGenericAssignment(
   await page.getByLabel('Title').fill(input.title);
   await selectCourse(page);
   await page.getByLabel('Description').fill(`Instructions for ${input.title}`);
-  await page.getByLabel('Due Date').fill('2030-08-30T12:00');
+  if (input.dueAt !== null) {
+    await page.getByLabel('Due Date').fill(input.dueAt ?? '2030-08-30T12:00');
+  }
   await page.getByLabel('Maximum Score').fill(String(input.maxScore));
 
   const createResponse = page.waitForResponse(
@@ -163,8 +167,10 @@ test('ASG-13 and STU-03 through STU-06 pass against the real backend', async ({ 
       title: `E2E Generic Text ${suffix}`,
       maxScore: 75,
       publish: false,
+      dueAt: null,
     });
     createdAssignments.push(textAssignment);
+    expect(textAssignment.dueAt).toBeNull();
 
     const studentApiAuth = await loginThroughApi(request, studentEmail);
     const hiddenDraftResponse = await request.get(`${apiBaseURL}/courses/${textAssignment.courseId}/assignments`, {
@@ -178,20 +184,48 @@ test('ASG-13 and STU-03 through STU-06 pass against the real backend', async ({ 
     ).toBe(false);
 
     await page.goto(`/teacher/assignments/${textAssignment.id}/edit`);
+    await expect(page.getByLabel('Due Date')).toHaveValue('');
+    await page.getByRole('button', { name: 'Publish Now' }).click();
+    await expect(page.getByText('Due date is required before publishing.')).toBeVisible();
+
+    const stillHiddenResponse = await request.get(
+      `${apiBaseURL}/courses/${textAssignment.courseId}/assignments`,
+      { headers: { authorization: `Bearer ${studentApiAuth.accessToken}` } },
+    );
+    expect(stillHiddenResponse.ok()).toBeTruthy();
+    expect(
+      ((await stillHiddenResponse.json()) as AssignmentResponse[]).some(
+        (assignment) => assignment.id === textAssignment.id,
+      ),
+    ).toBe(false);
+
+    const futureDeadline = '2030-08-31T12:00';
+    await page.getByLabel('Due Date').fill(futureDeadline);
     const publishResponse = page.waitForResponse(
       (response) =>
         response.request().method() === 'PATCH' && response.url().endsWith(`/assignments/${textAssignment.id}`),
     );
     await page.getByRole('button', { name: 'Publish Now' }).click();
-    expect((await publishResponse).ok()).toBeTruthy();
+    const publishedResponse = await publishResponse;
+    expect(publishedResponse.ok()).toBeTruthy();
+    const publishedAssignment = (await publishedResponse.json()) as AssignmentResponse;
+    expect(publishedAssignment.publishedAt).not.toBeNull();
+    expect(publishedAssignment.dueAt).not.toBeNull();
+    expect(new Date(publishedAssignment.dueAt as string).getTime()).toBeGreaterThan(Date.now());
+
+    await expect(page).toHaveURL(/\/teacher\/assignments$/);
+    await page.goto(`/teacher/assignments/${textAssignment.id}/edit`);
+    await expect(page.getByLabel('Due Date')).toHaveValue(futureDeadline);
+    await page.reload();
+    await expect(page.getByLabel('Due Date')).toHaveValue(futureDeadline);
+
     const visibleResponse = await request.get(`${apiBaseURL}/courses/${textAssignment.courseId}/assignments`, {
       headers: { authorization: `Bearer ${studentApiAuth.accessToken}` },
     });
-    expect(
-      ((await visibleResponse.json()) as AssignmentResponse[]).some(
-        (assignment) => assignment.id === textAssignment.id,
-      ),
-    ).toBe(true);
+    const visibleAssignment = ((await visibleResponse.json()) as AssignmentResponse[]).find(
+      (assignment) => assignment.id === textAssignment.id,
+    );
+    expect(visibleAssignment?.dueAt).toBe(publishedAssignment.dueAt);
 
     const linkAssignment = await createGenericAssignment(page, {
       type: 'link',

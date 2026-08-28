@@ -13,7 +13,7 @@ import { FileText, Link as LinkIcon, Type, Upload } from 'lucide-react';
 
 type StudentAssignmentSidebarProps = {
   assignment: Assignment;
-  dueDate: Date;
+  dueDate: Date | null;
   isOverdue: boolean;
   onViewAssignments: () => void;
 };
@@ -55,7 +55,7 @@ export function StudentAssignmentSidebar({
             <Label>Due Date</Label>
             <div className="mt-2">
               <p className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                {formatDate(dueDate, 'datetime')}
+                {dueDate ? formatDate(dueDate, 'datetime') : 'Not set'}
               </p>
               <p className="text-xs text-muted-foreground mt-1">UTC+07:00 (Bangkok)</p>
             </div>

@@ -45,7 +45,7 @@ export type Assignment = {
   type: AssignmentType;
   courseId: string;
   courseName: string;
-  dueAt: Date;
+  dueAt: Date | null;
   publishedAt?: Date;
   status: AssignmentStatus;
   latePolicy: string;

@@ -47,7 +47,9 @@ export function DeadlinesTab({ assignments, onCreateAssignment }: DeadlinesTabPr
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="size-4" />
-                            <span>Due: {formatDate(assignment.dueAt, 'datetime')}</span>
+                            <span>
+                              Due: {assignment.dueAt ? formatDate(assignment.dueAt, 'datetime') : 'Not set'}
+                            </span>
                           </div>
                           <Badge variant={assignment.status === 'published' ? 'default' : 'secondary'}>
                             {assignment.status}
