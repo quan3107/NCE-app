@@ -205,7 +205,7 @@ and
 
 ## Frontend
 
-- **2026-08-28:** Added named course/teacher/book/unit selectors, owner-managed co-teacher roster controls, the integrated NCE lesson/path/activity workspace, safe paginated attempt summaries, and real-backend coverage for delegation through revocation. All 267 frontend unit tests, 193 rendered component tests, lint, typecheck, build, focused new-file formatting, and the clean 7.1-second Chromium scenario pass; the five COURSE-06/NCE-02/03/04/09 screenshots were visually inspected.
+- **2026-08-28:** Added named course/teacher/book/unit selectors, owner-managed co-teacher roster controls, the integrated NCE lesson/path/activity workspace, safe paginated attempt summaries, and real-backend coverage for delegation through revocation. Course switches now discard stale dirty path state and reset learner-activity pagination. All 267 frontend unit tests, 195 rendered component tests, lint, typecheck, build, focused new-file formatting, and the clean 7.1-second Chromium scenario pass; the five COURSE-06/NCE-02/03/04/09 screenshots were visually inspected.
 
 - **2026-08-28:** Added teacher draft/publish authoring for supported generic text, link, and file assignments; student response-specific submit controls and canonical summaries; upload-count/race enforcement; and authorized student/teacher file downloads. All 267 frontend unit tests, 189 rendered component tests, lint, typecheck, build, the nine-test real-backend Chromium pack, and the focused five-story Chromium scenario pass against disposable PostgreSQL; ASG-13 and STU-03 through STU-06 now pass with visually inspected evidence.
 

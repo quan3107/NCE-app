@@ -4,7 +4,7 @@
  * Why: Owners and delegated educators need a usable view over the existing scoped summary API.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@components/ui/button";
 import { Card, CardContent } from "@components/ui/card";
 import {
@@ -21,6 +21,11 @@ const PAGE_SIZE = 20;
 
 export function NceAttemptSummaries({ courseId }: { courseId: string }) {
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [courseId]);
+
   const query = useCourseNceAttemptSummariesQuery(courseId, {
     page,
     pageSize: PAGE_SIZE,

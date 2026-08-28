@@ -4,7 +4,7 @@
  * Why: Course educators need a named, bounded workflow instead of raw assignment requests.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@components/ui/card";
 import { Input } from "@components/ui/input";
@@ -51,6 +51,7 @@ const toPathLesson = (lesson: CourseNceLesson): PathLesson => ({
 });
 
 export function NcePathEditor({ courseId, lessons, total, onSaved }: Props) {
+  const activeCourseId = useRef(courseId);
   const [items, setItems] = useState<PathLesson[]>([]);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,8 +67,20 @@ export function NcePathEditor({ courseId, lessons, total, onSaved }: Props) {
   });
 
   useEffect(() => {
+    if (activeCourseId.current !== courseId) {
+      activeCourseId.current = courseId;
+      setItems(lessons.map(toPathLesson));
+      setDirty(false);
+      setSaving(false);
+      setError(null);
+      setBookId("");
+      setUnitId("");
+      setLessonId("");
+      return;
+    }
+
     if (!dirty) setItems(lessons.map(toPathLesson));
-  }, [dirty, lessons]);
+  }, [courseId, dirty, lessons]);
 
   const libraryLessons = libraryQuery.data?.lessons ?? [];
   const selectedLibraryLesson = libraryLessons.find(
