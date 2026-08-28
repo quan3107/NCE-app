@@ -11,6 +11,7 @@ import {
   UserStatus,
 } from '../generated.js'
 import { NCE_BOOK_SEEDS, type NceLessonSeed } from './nceContent.data.js'
+import { seedNceAssets } from './nceAssets.seed.js'
 
 const NCE_TEACHER_EMAIL = 'nce.content@system.local'
 const DEMO_NCE_TEACHER_EMAIL = 'sarah.tutor@ielts.local'
@@ -156,9 +157,15 @@ async function upsertLessonContent(
   }
 }
 
-export async function seedNceContent(
-  prismaClient: PrismaClient,
-): Promise<{ books: number; lessons: number; courseAssignments: number }> {
+export async function seedNceContent(prismaClient: PrismaClient): Promise<{
+  assets: number
+  books: number
+  lessons: number
+  courseAssignments: number
+}> {
+  // Provision files before committing references so a failed write cannot leave
+  // newly seeded database content pointing at absent protected media.
+  const { assets } = seedNceAssets()
   return prismaClient.$transaction(async (prisma) => {
     const course = await ensureSeedCourse(prisma)
     let lessonCount = 0
@@ -269,6 +276,7 @@ export async function seedNceContent(
     }
 
     return {
+      assets,
       books: NCE_BOOK_SEEDS.length,
       lessons: lessonCount,
       courseAssignments: courseLessonAssignments.length,
