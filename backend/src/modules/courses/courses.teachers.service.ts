@@ -20,8 +20,41 @@ import {
 import type {
   CourseManager,
   CourseTeacher,
+  CourseTeacherCandidatesResponse,
   CourseTeachersResponse,
 } from "./courses.types.js";
+
+export async function listCourseTeacherCandidates(
+  params: unknown,
+  actor: CourseManager,
+): Promise<CourseTeacherCandidatesResponse> {
+  const { courseId } = courseIdParamsSchema.parse(params);
+  const course = await ensureCourseAccessible(courseId, actor);
+  const teachers = await prisma.user.findMany({
+    where: {
+      id: { not: course.ownerId },
+      role: UserRole.teacher,
+      status: UserStatus.active,
+      deletedAt: null,
+      enrollments: {
+        none: {
+          courseId,
+          roleInCourse: EnrollmentRole.teacher,
+          deletedAt: null,
+        },
+      },
+    },
+    orderBy: [{ fullName: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      status: true,
+    },
+  });
+
+  return { courseId, teachers };
+}
 
 const toCourseTeacher = (input: {
   createdAt: Date;

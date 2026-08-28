@@ -18,6 +18,7 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
     },
     user: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -32,8 +33,12 @@ const auditLogsModule =
   await import("../../../src/modules/audit-logs/audit-logs.service.js");
 const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely);
 
-const { addCoTeacherToCourse, listCoTeachersForCourse, removeCoTeacherFromCourse } =
-  await import("../../../src/modules/courses/courses.teachers.service.js");
+const {
+  addCoTeacherToCourse,
+  listCoTeachersForCourse,
+  listCourseTeacherCandidates,
+  removeCoTeacherFromCourse,
+} = await import("../../../src/modules/courses/courses.teachers.service.js");
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 const ownerId = "22222222-2222-4222-8222-222222222222";
@@ -97,6 +102,40 @@ describe("courses.teachers.service", () => {
         },
       ],
     });
+  });
+
+  it("lists only active nondelegated teacher candidates for the owner", async () => {
+    prisma.user.findMany.mockResolvedValueOnce([coTeacher]);
+
+    const result = await listCourseTeacherCandidates({ courseId }, ownerActor);
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { not: ownerId },
+          role: UserRole.teacher,
+          status: UserStatus.active,
+          deletedAt: null,
+          enrollments: {
+            none: { courseId, roleInCourse: EnrollmentRole.teacher, deletedAt: null },
+          },
+        }),
+        orderBy: [{ fullName: "asc" }, { id: "asc" }],
+      }),
+    );
+    expect(result).toEqual({ courseId, teachers: [coTeacher] });
+  });
+
+  it("denies co-teachers access to peer-selection candidates", async () => {
+    prisma.course.findFirst.mockResolvedValueOnce({ id: courseId, ownerId });
+
+    await expect(
+      listCourseTeacherCandidates(
+        { courseId },
+        { id: teacherId, role: UserRole.teacher },
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
   });
 
   it("reactivates a deleted teacher enrollment when an owner adds a co-teacher", async () => {

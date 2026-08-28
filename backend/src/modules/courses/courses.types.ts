@@ -20,6 +20,11 @@ export type CourseStudent = {
 
 export type CourseTeacher = CourseStudent;
 
+export type CourseTeacherCandidate = Pick<
+  CourseTeacher,
+  "id" | "fullName" | "email" | "status"
+>;
+
 export type CourseStudentsResponse = {
   courseId: string;
   students: CourseStudent[];
@@ -28,6 +33,11 @@ export type CourseStudentsResponse = {
 export type CourseTeachersResponse = {
   courseId: string;
   teachers: CourseTeacher[];
+};
+
+export type CourseTeacherCandidatesResponse = {
+  courseId: string;
+  teachers: CourseTeacherCandidate[];
 };
 
 export type CourseMetrics = {

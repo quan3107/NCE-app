@@ -389,7 +389,9 @@ jobs:
         working-directory: backend
 
       - name: Seed real-backend browser accounts
-        run: npm run seed:demo
+        run: |
+          npm run seed:demo
+          npm run seed:demo:nce-content
         working-directory: backend
         env:
           DEMO_SEED_CONFIRM_DATABASE: nce_test

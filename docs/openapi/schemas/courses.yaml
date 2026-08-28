@@ -243,6 +243,33 @@ CourseTeachersResponse:
         $ref: '#/CourseTeacher'
   required: [courseId, teachers]
 
+CourseTeacherCandidate:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    fullName:
+      type: string
+    email:
+      type: string
+      format: email
+    status:
+      $ref: "./common.yaml#/UserStatus"
+  required: [id, fullName, email, status]
+
+CourseTeacherCandidatesResponse:
+  type: object
+  properties:
+    courseId:
+      type: string
+      format: uuid
+    teachers:
+      type: array
+      items:
+        $ref: "#/CourseTeacherCandidate"
+  required: [courseId, teachers]
+
 AddCourseStudentRequest:
   type: object
   properties:

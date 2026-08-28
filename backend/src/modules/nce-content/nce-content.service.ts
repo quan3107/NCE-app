@@ -547,6 +547,7 @@ export async function listCourseNceLessons(
         dueAt: assignment.dueAt?.toISOString() ?? null,
         canEdit: canWriteLesson,
         canPublish: canWriteLesson,
+        isCourseOwned: lesson.courseId === courseId,
         ...mapNceLesson(lesson, lessonVisibility),
       };
     }),

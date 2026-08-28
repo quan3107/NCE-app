@@ -451,6 +451,45 @@ CourseTeachers:
     security:
       - BearerAuth: []
 
+CourseTeacherCandidates:
+  get:
+    tags: [courses]
+    summary: List active teachers eligible for course delegation (admin/owner teacher)
+    parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Eligible active teachers not already delegated to this course
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/courses.yaml#/CourseTeacherCandidatesResponse"
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "403":
+        description: Only an administrator or the course owner can select delegation candidates
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "404":
+        description: Course not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+    security:
+      - BearerAuth: []
+
 CourseTeacherById:
   delete:
     tags: [courses]

@@ -106,7 +106,11 @@ test('NCE course lesson schema exposes teacher write permissions', async () => {
 
   assert.match(courseLessonSchema, /canEdit:/);
   assert.match(courseLessonSchema, /canPublish:/);
-  assert.match(courseLessonSchema, /required: \[sequence, availableFrom, dueAt, canEdit, canPublish\]/);
+  assert.match(courseLessonSchema, /isCourseOwned:/);
+  assert.match(
+    courseLessonSchema,
+    /required:\s+\[sequence, availableFrom, dueAt, canEdit, canPublish, isCourseOwned\]/,
+  );
 });
 
 test('NCE write schema documents supported answer key shapes', async () => {

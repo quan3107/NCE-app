@@ -4,10 +4,29 @@ import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@components/ui/select';
 import { useRouter } from '@lib/router';
 import { ArrowLeft, Plus, Save } from 'lucide-react';
-import { createNceLesson, patchNceLesson, useNceLessonQuery } from '../api';
-import type { NceExerciseInput, NceExerciseType, NceLessonPatchPayload, NceLessonWritePayload, NceObjectiveInput } from '../types';
+import {
+  createNceLesson,
+  patchNceLesson,
+  useNceBooksQuery,
+  useNceLessonQuery,
+  useNceUnitsQuery,
+} from '../api';
+import type {
+  NceExerciseInput,
+  NceExerciseType,
+  NceLessonPatchPayload,
+  NceLessonWritePayload,
+  NceObjectiveInput,
+} from '../types';
 import { NceExerciseEditor } from './NceExerciseEditor';
 import {
   emptyExercise,
@@ -41,6 +60,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
     courseId ? { includeDrafts: true, courseId } : { includeDrafts: false },
   );
   const [unitId, setUnitId] = useState('');
+  const [bookId, setBookId] = useState('');
   const [lessonNumber, setLessonNumber] = useState(1);
   const [title, setTitle] = useState('');
   const [lessonText, setLessonText] = useState('');
@@ -52,6 +72,8 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
   const [isDirty, setIsDirty] = useState(false);
   const [hydratedLessonId, setHydratedLessonId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const booksQuery = useNceBooksQuery();
+  const unitsQuery = useNceUnitsQuery(bookId || undefined);
 
   useEffect(() => {
     const lesson = lessonQuery.data;
@@ -64,6 +86,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
     }
 
     setUnitId(lesson.unitId);
+    setBookId(lesson.unit?.bookId ?? lesson.unit?.book?.id ?? '');
     setLessonNumber(lesson.lessonNumber);
     setTitle(lesson.title);
     setLessonText(lesson.lessonText);
@@ -230,12 +253,49 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
 
             <section className="space-y-4">
               <div className="grid gap-4 md:grid-cols-4">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="nce-unit-id">Unit ID</Label>
-                  <Input id="nce-unit-id" value={unitId} onChange={(event) => {
-                    setIsDirty(true);
-                    setUnitId(event.target.value);
-                  }} />
+                <div className="space-y-2">
+                  <Label htmlFor="nce-book">Book</Label>
+                  <Select
+                    value={bookId}
+                    onValueChange={(value) => {
+                      setIsDirty(true);
+                      setBookId(value);
+                      setUnitId('');
+                    }}
+                  >
+                    <SelectTrigger id="nce-book">
+                      <SelectValue placeholder="Select a book" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(booksQuery.data?.books ?? []).map((book) => (
+                        <SelectItem key={book.id} value={book.id}>
+                          {book.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nce-unit">Unit</Label>
+                  <Select
+                    value={unitId}
+                    onValueChange={(value) => {
+                      setIsDirty(true);
+                      setUnitId(value);
+                    }}
+                    disabled={!bookId || unitsQuery.isLoading}
+                  >
+                    <SelectTrigger id="nce-unit">
+                      <SelectValue placeholder="Select a unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(unitsQuery.data?.units ?? []).map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          Unit {unit.unitNumber}: {unit.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="nce-lesson-number">Lesson Number</Label>

@@ -256,7 +256,11 @@ CourseNceLesson:
         canPublish:
           type: boolean
           description: True when the current actor can publish or unpublish this course-scoped lesson.
-      required: [sequence, availableFrom, dueAt, canEdit, canPublish]
+        isCourseOwned:
+          type: boolean
+          description: True when the lesson belongs to this course and therefore remains in its authoring workspace.
+      required:
+        [sequence, availableFrom, dueAt, canEdit, canPublish, isCourseOwned]
 
 NceBookListResponse:
   type: object

@@ -42,6 +42,8 @@ incorrect entities, missing fields, and unknown properties fail before Prisma.
 | `submission.updated` | `submission` | assignment/course/student IDs, status transition, timestamp/content markers | Failure-safe |
 | `submission.submitted` | `submission` | assignment/course/student IDs, status transition, timestamp/content markers | Failure-safe |
 | `grade.upserted` | `grade` | `submissionId`, `graderId`, score/feedback markers | Failure-safe |
+| `nce.lesson.published` | `nce_lesson` | nullable course ID, status transition, publication marker | Failure-safe |
+| `nce.lesson.unpublished` | `nce_lesson` | nullable course ID, status transition, publication marker | Failure-safe |
 | `cms.draft_updated` | `cms_page_content` | page key, draft versions, content marker | Failure-safe |
 | `cms.published` | `cms_page_content` | page/revision IDs and number, content marker | Failure-safe |
 | `cms.rolled_back` | `cms_page_content` | page/revision/source IDs and numbers, content marker | Failure-safe |

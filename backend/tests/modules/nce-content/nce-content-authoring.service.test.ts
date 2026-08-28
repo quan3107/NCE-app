@@ -43,9 +43,16 @@ vi.mock("../../../src/config/prismaClient.js", () => ({
   runWithRole: vi.fn(async (_options, write) => write()),
 }));
 
+vi.mock("../../../src/modules/audit-logs/audit-logs.service.js", () => ({
+  writeAuditLogSafely: vi.fn(),
+}));
+
 const prismaModule = await import("../../../src/config/prismaClient.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
 const runWithRole = vi.mocked(prismaModule.runWithRole);
+const auditModule =
+  await import("../../../src/modules/audit-logs/audit-logs.service.js");
+const writeAuditLogSafely = vi.mocked(auditModule.writeAuditLogSafely);
 
 const {
   assignNceLessonsToCourse,
@@ -1056,6 +1063,18 @@ describe("nce-content authoring service", () => {
       }),
     );
     expect(result.status).toBe(NcePublishStatus.published);
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: teacherActor.id,
+      action: "nce.lesson.published",
+      entity: "nce_lesson",
+      entityId: lessonId,
+      eventData: {
+        courseId,
+        statusBefore: "draft",
+        statusAfter: "published",
+        publicationChanged: true,
+      },
+    });
   });
 
   it("unpublishes a lesson without deleting content", async () => {
@@ -1083,6 +1102,18 @@ describe("nce-content authoring service", () => {
       }),
     );
     expect(result.status).toBe(NcePublishStatus.draft);
+    expect(writeAuditLogSafely).toHaveBeenCalledWith({
+      actorId: teacherActor.id,
+      action: "nce.lesson.unpublished",
+      entity: "nce_lesson",
+      entityId: lessonId,
+      eventData: {
+        courseId,
+        statusBefore: "published",
+        statusAfter: "draft",
+        publicationChanged: true,
+      },
+    });
   });
 
   it("lets a course teacher replace ordered course lesson assignments", async () => {
@@ -1149,6 +1180,26 @@ describe("nce-content authoring service", () => {
 
     expect(prisma.nceCourseLessonAssignment.deleteMany).not.toHaveBeenCalled();
     expect(prisma.nceCourseLessonAssignment.createMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects availability windows that end before they begin", async () => {
+    await expect(
+      assignNceLessonsToCourse(
+        { courseId },
+        {
+          lessons: [
+            {
+              lessonId,
+              sequence: 1,
+              availableFrom: "2026-06-27T00:00:00.000Z",
+              dueAt: "2026-06-20T00:00:00.000Z",
+            },
+          ],
+        },
+        teacherActor,
+      ),
+    ).rejects.toMatchObject({ name: "ZodError" });
+    expect(prisma.nceCourseLessonAssignment.deleteMany).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate course assignment sequences before replacing rows", async () => {

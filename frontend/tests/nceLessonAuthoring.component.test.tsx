@@ -107,6 +107,48 @@ test('TeacherNceLessonEditorPage keeps add-after-remove keys unique in the saved
 
   globalThis.fetch = async (input, init) => {
     const url = String(input);
+    if (url.includes('/nce/books') && !url.includes('/units')) {
+      return new Response(
+        JSON.stringify({
+          books: [
+            {
+              id: 'book-1',
+              code: 'nce-1',
+              title: 'NCE Book 1',
+              level: 'beginner',
+              description: null,
+              sortOrder: 1,
+              status: 'published',
+              publishedAt: null,
+              createdAt: '2026-06-20T00:00:00.000Z',
+              updatedAt: '2026-06-20T00:00:00.000Z',
+            },
+          ],
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+    if (url.includes('/nce/books/book-1/units')) {
+      return new Response(
+        JSON.stringify({
+          units: [
+            {
+              id: 'unit-1',
+              bookId: 'book-1',
+              unitNumber: 1,
+              title: 'Introductions',
+              description: null,
+              sortOrder: 1,
+              status: 'published',
+              publishedAt: null,
+              createdAt: '2026-06-20T00:00:00.000Z',
+              updatedAt: '2026-06-20T00:00:00.000Z',
+            },
+          ],
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
     if (url.includes('/nce/lessons') && init?.method === 'POST') {
       capturedPayload = JSON.parse(String(init.body)) as Record<string, unknown>;
       return new Response(JSON.stringify({
@@ -139,7 +181,12 @@ test('TeacherNceLessonEditorPage keeps add-after-remove keys unique in the saved
       '/teacher/nce-lessons/new?courseId=course-123',
     );
 
-    await user.type(screen.getByLabelText('Unit ID'), 'unit-1');
+    await user.click(screen.getByLabelText('Book'));
+    await user.click(await screen.findByRole('option', { name: 'NCE Book 1' }));
+    await user.click(screen.getByLabelText('Unit'));
+    await user.click(
+      await screen.findByRole('option', { name: 'Unit 1: Introductions' }),
+    );
     await user.type(screen.getByLabelText('Title'), 'Lesson title');
     await user.type(screen.getByLabelText('Lesson Text'), 'Lesson text');
 

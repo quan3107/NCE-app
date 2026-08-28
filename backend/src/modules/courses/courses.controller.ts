@@ -20,6 +20,7 @@ import {
 import {
   addCoTeacherToCourse,
   listCoTeachersForCourse,
+  listCourseTeacherCandidates,
   removeCoTeacherFromCourse,
 } from './courses.teachers.service.js'
 
@@ -133,6 +134,20 @@ export async function getCourseTeachers(req: Request, res: Response): Promise<vo
   }
 
   const payload = await listCoTeachersForCourse(req.params, actor)
+  res.status(200).json(payload)
+}
+
+export async function getCourseTeacherCandidates(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user
+  if (!actor) {
+    res.status(401).json({ message: 'Unauthorized' })
+    return
+  }
+
+  const payload = await listCourseTeacherCandidates(req.params, actor)
   res.status(200).json(payload)
 }
 

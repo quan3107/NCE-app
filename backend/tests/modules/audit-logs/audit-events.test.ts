@@ -51,6 +51,8 @@ const reviewedActions = [
   'enrollment.created',
   'enrollment.deleted',
   'grade.upserted',
+  'nce.lesson.published',
+  'nce.lesson.unpublished',
   'settings.file_upload_limits_updated',
   'submission.created',
   'submission.submitted',
