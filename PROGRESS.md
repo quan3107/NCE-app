@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-20:** Exposed only the fixed, credential-free R2 configuration error so missing storage returns an actionable 503 instead of a generic internal error. Verified through the real API/browser missing-storage path; other server errors retain their existing disclosure policy.
+
 - **2026-09-20:** Deferred R2 staging cleanup until file persistence succeeds, made final writes conditional, and recovered overlapping completion races from the committed owned record. Database-failure/retry, overlap and tampered-byte regressions pass; 48 file/submission tests, TypeScript and focused lint pass. Real R2 insert-failure injection recovered via two overlapping 201 retries and an exact-byte download.
 
 - **2026-09-20:** Resolved speaking recording metadata from owned file records in authorized submission responses, including legacy ID-only drafts. Batched lookup, ownership regression, 27 submission tests and TypeScript/lint pass. Real R2 submission persisted three recordings and zero grades.
@@ -215,6 +217,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-20:** Replaced the generic-assignment browser test's obsolete storage.mock interception with explicit unconfigured-storage recovery assertions and opt-in real R2 upload/download coverage. Both real-backend paths pass locally; focused lint and TypeScript checks pass. CI without R2 credentials does not claim successful STU-05/06 storage coverage.
 
 - **2026-09-20:** Reverified three concurrent uploads and speaking attempt 2 submission in Browser against the real API/R2 after the completion recovery correction. Recording metadata remains accurate; X-07 stays deferred.
 
