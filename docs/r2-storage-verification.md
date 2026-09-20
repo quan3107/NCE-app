@@ -65,6 +65,17 @@ the backend environment. Optional `R2_JURISDICTION` is `default`, `eu`, `us`, or
 `fedramp`. Missing/invalid configuration returns a safe 503 when storage is used.
 Never place these values in frontend environment variables or version control.
 
+## CI storage coverage
+
+The generic-assignment browser test no longer intercepts `storage.mock`. CI has
+no R2 credentials, so its default path verifies the explicit configuration error,
+removal of the failed upload, and rejection of an empty file submission. Text and
+link submission checks still run. Successful STU-05/06 uploads and authorized
+downloads require `PLAYWRIGHT_R2_ENABLED=true`, a configured backend and bucket
+CORS for the browser origin. Both paths were rerun against the local real API;
+the enabled path used the private R2 bucket. CI without credentials does not
+establish successful cloud-storage acceptance.
+
 ## Code checks
 
 Backend and frontend TypeScript checks pass. Focused backend lint and all 13 file
