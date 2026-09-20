@@ -28,10 +28,13 @@ export function getR2Settings() {
   })
   if (!result.success) {
     // Never include validation input or provider credentials in API/log errors.
-    throw createHttpError(
+    const error = createHttpError(
       503,
       'File storage is not configured. Contact the administrator.',
     )
+    // This fixed message contains no provider details and gives users a recovery path.
+    error.expose = true
+    throw error
   }
   const settings = result.data
   const jurisdiction =
