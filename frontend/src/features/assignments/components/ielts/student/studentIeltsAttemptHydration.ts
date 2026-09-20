@@ -105,7 +105,13 @@ const recoverSpeaking = (
             {
               id: recording.fileId,
               durationSeconds: recording.durationSeconds,
-              file: toSyntheticRecordingFile(recording.fileId),
+              file: {
+                ...toSyntheticRecordingFile(recording.fileId),
+                ...(typeof recording.fileName === 'string' ? { name: recording.fileName } : {}),
+                ...(typeof recording.size === 'number' ? { size: recording.size } : {}),
+                ...(typeof recording.mime === 'string' ? { mime: recording.mime } : {}),
+                ...(typeof recording.checksum === 'string' ? { checksum: recording.checksum } : {}),
+              },
             },
           ];
         })
