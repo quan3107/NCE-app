@@ -217,6 +217,7 @@ test('uploadFileWithProgress signs, uploads, and completes a file', async () => 
           return new Response(
             JSON.stringify({
               uploadUrl,
+              uploadToken: 'issued-upload-intent',
               method: 'PUT',
               headers: { 'Content-Type': file.type },
               bucket: 'nce-mock-uploads',
@@ -229,6 +230,7 @@ test('uploadFileWithProgress signs, uploads, and completes a file', async () => 
 
         if (url.endsWith('/files/complete')) {
           completeCalled = true;
+          assert.equal(JSON.parse(String(_init?.body)).uploadToken, 'issued-upload-intent');
           return new Response(
             JSON.stringify({
               id: 'file-123',
