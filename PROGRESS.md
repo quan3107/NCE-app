@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-20:** Stabilized the settings-read UUID index regression by isolating the actor predicate from competing authorization filters; the concurrent-demotion test still exercises authorization. Both focused database tests, lint and formatting pass. A broader local run passed 1,107 tests but hit five environment/bootstrap failures; the environment-default suite passes separately with its expected database defaults. GitHub CI remains the clean-run verification.
+
 - **2026-09-20:** Exposed only the fixed, credential-free R2 configuration error so missing storage returns an actionable 503 instead of a generic internal error. Verified through the real API/browser missing-storage path; other server errors retain their existing disclosure policy.
 
 - **2026-09-20:** Deferred R2 staging cleanup until file persistence succeeds, made final writes conditional, and recovered overlapping completion races from the committed owned record. Database-failure/retry, overlap and tampered-byte regressions pass; 48 file/submission tests, TypeScript and focused lint pass. Real R2 insert-failure injection recovered via two overlapping 201 retries and an exact-byte download.
