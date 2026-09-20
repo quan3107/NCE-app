@@ -106,30 +106,31 @@ export async function promoteR2Upload(intent: UploadIntent): Promise<string> {
       )
     }
     const key = finalObjectKey(intent)
-    await storage.send(
-      new PutObjectCommand({
-        Bucket: intent.bucket,
-        Key: key,
-        Body: createReadStream(filename),
-        ContentLength: size,
-        ContentType: intent.mime,
-        ContentMD5: md5.digest('base64'),
-        Metadata: {
-          'owner-id': intent.ownerId,
-          'upload-id': intent.id,
-          sha256: intent.checksum,
-        },
-        CacheControl: 'private, no-store',
-      }),
-      { abortSignal: signal },
-    )
-    // The final object is complete even if staging cleanup fails. A pending-prefix
-    // lifecycle rule removes abandoned objects and late replays of the PUT URL.
     await storage
-      .send(new DeleteObjectCommand({ Bucket: intent.bucket, Key: intent.objectKey }), {
-        abortSignal: signal,
+      .send(
+        new PutObjectCommand({
+          Bucket: intent.bucket,
+          Key: key,
+          Body: createReadStream(filename),
+          ContentLength: size,
+          ContentType: intent.mime,
+          ContentMD5: md5.digest('base64'),
+          Metadata: {
+            'owner-id': intent.ownerId,
+            'upload-id': intent.id,
+            sha256: intent.checksum,
+          },
+          CacheControl: 'private, no-store',
+          // Final keys are immutable, including overlapping completion requests.
+          IfNoneMatch: '*',
+        }),
+        { abortSignal: signal },
+      )
+      .catch((error) => {
+        // Only this server can create the final key. The pending bytes were checked
+        // against the same signed checksum above; another completion won the write.
+        if (error?.$metadata?.httpStatusCode !== 412) throw error
       })
-      .catch(() => undefined)
     return key
   } catch (error) {
     if (error && typeof error === 'object' && 'statusCode' in error) throw error
@@ -140,6 +141,19 @@ export async function promoteR2Upload(intent: UploadIntent): Promise<string> {
   } finally {
     storage.destroy()
     await rm(directory, { recursive: true, force: true })
+  }
+}
+
+/** Call only after the corresponding file record is durably persisted. */
+export async function cleanupR2Upload(intent: UploadIntent): Promise<void> {
+  const storage = client()
+  try {
+    await storage.send(
+      new DeleteObjectCommand({ Bucket: intent.bucket, Key: intent.objectKey }),
+      { abortSignal: AbortSignal.timeout(10_000) },
+    )
+  } finally {
+    storage.destroy()
   }
 }
 
