@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@components/ui/card';
 import { PageHeader } from '@components/common/PageHeader';
+import { Button } from '@components/ui/button';
 import { useRouter } from '@lib/router';
 import { toast } from 'sonner@2.0.3';
 import { useAssignmentResources, markSubmissionAsGraded } from '@features/assignments/api';
@@ -155,7 +156,14 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   }
 
   if (!submission || !assignment) {
-    return null;
+    return (
+      <div>
+        <PageHeader title="Submission not found" actions={
+          <Button variant="outline" onClick={() => navigate('/teacher/submissions')}>Back to Submissions</Button>
+        } />
+        <StatusCard message="This submission or its assignment is no longer available." />
+      </div>
+    );
   }
 
   const rawScore = calculateRawScore(
