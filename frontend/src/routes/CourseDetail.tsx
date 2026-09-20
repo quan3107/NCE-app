@@ -60,6 +60,10 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
   const hasLearningOutcomes = learningOutcomes.length > 0;
   const structureSummary = course.structureSummary?.trim() || undefined;
   const prerequisitesSummary = course.prerequisitesSummary?.trim() || undefined;
+  const scheduleLabel =
+    course.schedule && course.schedule.trim().length > 0
+      ? course.schedule
+      : 'Schedule shared at enrollment';
   const durationLabel =
     course.duration && course.duration.trim().length > 0
       ? course.duration
@@ -136,7 +140,7 @@ export function CourseDetailRoute({ courseId }: { courseId: string }) {
                   <Calendar className="size-5 text-primary" />
                   <div>
                     <p className="text-sm text-muted-foreground">Schedule</p>
-                    <p className="font-medium">{course.schedule}</p>
+                    <p className="font-medium">{scheduleLabel}</p>
                   </div>
                 </div>
 
