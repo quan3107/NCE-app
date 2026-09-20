@@ -169,6 +169,11 @@ export function AdminUsersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {filteredUsers.length === 0 && (
+                    <TableRow><TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                      No users match your search.
+                    </TableCell></TableRow>
+                  )}
                   {filteredUsers.map(user => {
                     const canReviewTeacher =
                       user.role === 'teacher' && user.status === 'pending';
