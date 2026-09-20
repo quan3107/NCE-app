@@ -25,6 +25,7 @@ type FileSignRequest = {
 };
 
 type FileSignResponse = {
+  uploadToken: string;
   uploadUrl: string;
   method: string;
   headers: Record<string, string>;
@@ -34,6 +35,7 @@ type FileSignResponse = {
 };
 
 type FileCompleteRequest = {
+  uploadToken: string;
   bucket: string;
   objectKey: string;
   mime: string;
@@ -159,6 +161,7 @@ export async function uploadFileWithProgress({
 
   onStageChange?.('completing');
   const completed = await completeFileUpload({
+    uploadToken: signed.uploadToken,
     bucket: signed.bucket,
     objectKey: signed.objectKey,
     mime,
