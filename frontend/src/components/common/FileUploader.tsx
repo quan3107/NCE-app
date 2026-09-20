@@ -93,9 +93,14 @@ export function FileUploader<T extends BaseFile>(
     return uploadedSize + pendingSize;
   }, [uploads, value]);
   const isBusy = useMemo(() => uploads.some((item) => item.status !== 'error'), [uploads]);
+  const busyCallbackRef = useRef(onBusyChange);
+  // Callback identity is not an upload transition; inline consumers may set state.
   useEffect(() => {
-    onBusyChange?.(isBusy);
-  }, [isBusy, onBusyChange]);
+    busyCallbackRef.current = onBusyChange;
+  }, [onBusyChange]);
+  useEffect(() => {
+    busyCallbackRef.current?.(isBusy);
+  }, [isBusy]);
   const updateUpload = (id: string, patch: Partial<UploadItem>) => {
     setUploads((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
