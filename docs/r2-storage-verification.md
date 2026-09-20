@@ -89,3 +89,28 @@ in the evidence directory. Performance acceptance was deliberately deferred.
 
 Checks passed: 27 backend submission tests, four uploader component tests, twelve
 student attempt logic/source tests, both TypeScript checks and focused lint.
+
+## Completion recovery correction
+
+Staging cleanup now runs only after file metadata is durably saved, or after a
+retry finds that record. Failed inserts retain staging for checksum verification
+on retry. Final objects use conditional `If-None-Match: *` writes, supported by
+[Cloudflare R2](https://developers.cloudflare.com/r2/api/s3/api/), so overlapping
+completions cannot overwrite accepted media. A request that loses the insert or
+staging-read race returns the already committed owned record. Cleanup failures
+remain best effort; the documented staging lifecycle recommendation still applies.
+
+Three deterministic regressions exercise the real promotion code with test storage:
+promotion followed by failed insert and retry, overlapping completions, and
+tampered staging bytes after failure. All 48 backend file/submission tests, backend
+TypeScript and focused lint pass.
+
+Real API/R2 acceptance additionally injected an insert failure using a temporary
+trigger on the disposable database. The initial harness used the wrong column
+name and was corrected before the successful run. The corrected trigger rejected
+only `recovery-test.wav`; after removing it, two overlapping retries returned 201
+and the same file ID, and the download matched the original bytes. Temporary
+trigger/function objects were removed. Evidence: `r2-recovery-acceptance.json`.
+The in-app browser then uploaded all three speaking parts and submitted attempt 2
+against the real API/R2, with accurate metadata. Screenshot: `r2-recovery-browser.png`.
+Performance acceptance remains deferred.
