@@ -40,6 +40,9 @@ const teacherEmail = process.env.PLAYWRIGHT_TEACHER_EMAIL ?? 'sarah.tutor@ielts.
 const studentEmail = process.env.PLAYWRIGHT_STUDENT_EMAIL ?? 'amelia.chan@ielts.local';
 const otherStudentEmail = 'diego.rojas@ielts.local';
 const courseTitle = 'IELTS Academic Writing Bootcamp';
+// CI has no bucket credentials. Opt in only when the real API has private R2
+// configured and its bucket CORS permits this browser origin.
+const r2Enabled = process.env.PLAYWRIGHT_R2_ENABLED === 'true';
 const roleLandingPath: Record<AuthResponse['user']['role'], string> = {
   teacher: '/teacher/dashboard',
   student: '/student/dashboard',
@@ -138,18 +141,10 @@ async function openStudentAssignment(page: Page, title: string): Promise<void> {
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
 }
 
-test('ASG-13 and STU-03 through STU-06 pass against the real backend', async ({ context, page, request }) => {
+test('generic assignments enforce real submission and storage contracts', async ({ page, request }) => {
   test.setTimeout(120_000);
   await mkdir(evidenceDir, { recursive: true });
   const createdAssignments: AssignmentResponse[] = [];
-
-  await context.route('https://storage.mock/**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: route.request().method() === 'GET' ? 'application/pdf' : 'text/plain',
-      body: route.request().method() === 'GET' ? '%PDF-1.4\n%e2e\n' : '',
-    });
-  });
 
   try {
     await loginThroughBrowser(page, teacherEmail);
@@ -324,12 +319,29 @@ test('ASG-13 and STU-03 through STU-06 pass against the real backend', async ({ 
     await page.getByRole('button', { name: 'Submit Assignment' }).click();
     await page.getByRole('button', { name: 'Submit', exact: true }).click();
     await expect(page.getByText('Please upload at least one file before submitting.')).toBeVisible();
+    const signResponse = page.waitForResponse(
+      response => response.request().method() === 'POST' && response.url() === `${apiBaseURL}/files/sign`,
+      { timeout: 15_000 },
+    );
     await page.locator('input[type="file"]').setInputFiles({
       name: 'e2e-essay.pdf',
       mimeType: 'application/pdf',
       buffer: Buffer.from('%PDF-1.4\nE2E assignment evidence\n'),
     });
+    const signing = await signResponse;
+    if (!r2Enabled) {
+      expect(signing.status()).toBe(503);
+      await expect(page.getByText('File storage is not configured. Contact the administrator.')).toBeVisible();
+      await page.getByRole('button', { name: 'Remove e2e-essay.pdf' }).click();
+      await page.getByRole('button', { name: 'Submit', exact: true }).click();
+      await expect(page.getByText('Please upload at least one file before submitting.')).toBeVisible();
+      test.info().annotations.push({ type: 'storage coverage', description:
+        'Verified unavailable-storage recovery. Successful STU-05/06 uploads/downloads require PLAYWRIGHT_R2_ENABLED=true and real R2 configuration.' });
+      return;
+    }
+    expect(signing.status()).toBe(200);
     await expect(page.getByText('e2e-essay.pdf')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove e2e-essay.pdf' })).toBeEnabled();
     const fileSubmissionResponse = page.waitForResponse(
       (response) =>
         response.request().method() === 'POST' &&
@@ -392,6 +404,7 @@ test('ASG-13 and STU-03 through STU-06 pass against the real backend', async ({ 
         fileName: '../../unsafe name.pdf',
         mime: 'application/pdf',
         size: 128,
+        checksum: '0'.repeat(64),
       },
     });
     expect(traversalSign.ok()).toBeTruthy();
