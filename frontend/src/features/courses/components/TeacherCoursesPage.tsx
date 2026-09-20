@@ -49,6 +49,10 @@ export function TeacherCoursesPage() {
               Unable to load courses. Try refreshing.
             </CardContent>
           </Card>
+        ) : courses.length === 0 ? (
+          <Card><CardContent className="py-12 text-center text-muted-foreground">
+            No courses are available.
+          </CardContent></Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map(course => (
