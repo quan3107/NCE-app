@@ -131,9 +131,14 @@ const fetchEnrollments = async (): Promise<AdminEnrollment[]> => {
   return response.map(toEnrollment);
 };
 
-const fetchAuditLogs = async (): Promise<AuditLog[]> => {
-  const response = await apiClient<ApiAuditLogPage>('/api/v1/audit-logs', { auth: 'required' });
-  return response.data.map(toAuditLog);
+export const AUDIT_LOG_PAGE_SIZE = 50;
+
+const fetchAuditLogs = async (offset: number): Promise<{ data: AuditLog[]; nextOffset: number | null }> => {
+  const response = await apiClient<ApiAuditLogPage>('/api/v1/audit-logs', {
+    auth: 'required',
+    params: { limit: AUDIT_LOG_PAGE_SIZE, offset },
+  });
+  return { data: response.data.map(toAuditLog), nextOffset: response.nextOffset };
 };
 
 const createUser = async (payload: CreateUserRequest): Promise<ApiUser> => {
@@ -226,10 +231,10 @@ export function useAdminEnrollmentsQuery() {
   });
 }
 
-export function useAdminAuditLogsQuery() {
+export function useAdminAuditLogsQuery(offset = 0) {
   return useQuery({
-    queryKey: ADMIN_AUDIT_LOGS_KEY,
-    queryFn: fetchAuditLogs,
+    queryKey: [...ADMIN_AUDIT_LOGS_KEY, offset],
+    queryFn: () => fetchAuditLogs(offset),
   });
 }
 
