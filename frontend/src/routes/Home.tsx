@@ -5,6 +5,7 @@
  */
 
 import { CallToAction } from '@components/marketing/CallToAction'
+import { Button } from '@components/ui/button'
 import { FeaturedCourses } from '@components/marketing/FeaturedCourses'
 import { HeroSection } from '@components/marketing/HeroSection'
 import { HowItWorks } from '@components/marketing/HowItWorks'
@@ -40,6 +41,9 @@ export function HomeRoute() {
               Unable to load homepage content.
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+            <Button className="mt-4" disabled={homepageQuery.isFetching} onClick={() => void homepageQuery.refetch()}>
+              {homepageQuery.isFetching ? 'Retrying...' : 'Retry'}
+            </Button>
           </div>
         </div>
       </section>
