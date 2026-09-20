@@ -33,6 +33,7 @@ vi.mock("../../../src/config/r2.js", () => ({
 vi.mock("../../../src/modules/files/r2-storage.js", () => ({
   signR2Upload: vi.fn(async () => "https://storage.example/upload"),
   promoteR2Upload: vi.fn(async () => "uploads/user/test.pdf"),
+  cleanupR2Upload: vi.fn(async () => undefined),
   signR2Download: vi.fn(
     async (bucket, key) => `https://storage.mock/${bucket}/${key}`,
   ),
