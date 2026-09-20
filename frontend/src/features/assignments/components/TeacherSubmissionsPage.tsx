@@ -46,6 +46,11 @@ export function TeacherSubmissionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {reviewSubmissions.length === 0 && (
+                    <TableRow><TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                      No submissions to review.
+                    </TableCell></TableRow>
+                  )}
                   {reviewSubmissions.map(submission => {
                     const assignment = assignments.find(a => a.id === submission.assignmentId);
                     return (
