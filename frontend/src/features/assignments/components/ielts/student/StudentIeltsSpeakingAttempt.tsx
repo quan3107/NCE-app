@@ -4,7 +4,7 @@
  * Why: Keeps the main IELTS attempt form focused on type orchestration.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Mic } from 'lucide-react';
 import { FileUploader } from '@components/common/FileUploader';
 import { Badge } from '@components/ui/badge';
@@ -49,6 +49,8 @@ export function StudentIeltsSpeakingAttempt({
   onUploadBusyChange,
 }: StudentIeltsSpeakingAttemptProps) {
   const [busyParts, setBusyParts] = useState<Partial<Record<SpeakingPart, boolean>>>({});
+  const attemptRef = useRef(attempt);
+  useLayoutEffect(() => { attemptRef.current = attempt; }, [attempt]);
 
   useEffect(() => {
     onUploadBusyChange?.(Object.values(busyParts).some(Boolean));
@@ -97,20 +99,24 @@ export function StudentIeltsSpeakingAttempt({
                   }
                   onChange={(files) => {
                     const file = files[files.length - 1];
-                    const nextRecordings = { ...attempt.speakingRecordings };
+                    const current = attemptRef.current;
+                    const nextRecordings = { ...current.speakingRecordings };
                     if (!file) {
                       delete nextRecordings[part];
                     } else {
                       nextRecordings[part] = {
                         id: file.id,
-                        durationSeconds: recording?.durationSeconds ?? 1,
+                        durationSeconds: current.speakingRecordings[part]?.durationSeconds ?? 1,
                         file,
                       };
                     }
-                    onChange({
-                      ...attempt,
+                    // Merge synchronously as multiple uploads can finish before React renders.
+                    const next = {
+                      ...current,
                       speakingRecordings: nextRecordings,
-                    });
+                    };
+                    attemptRef.current = next;
+                    onChange(next);
                   }}
                 />
               </div>

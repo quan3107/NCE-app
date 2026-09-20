@@ -80,6 +80,11 @@ export function FileUploader<T extends BaseFile>(
   const helperId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const valueRef = useRef(value);
+  const changeCallbackRef = useRef(onChange);
+  // Upload promises may finish after the parent has changed other fields.
+  useEffect(() => {
+    changeCallbackRef.current = onChange;
+  }, [onChange]);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   useEffect(() => {
@@ -93,9 +98,14 @@ export function FileUploader<T extends BaseFile>(
     return uploadedSize + pendingSize;
   }, [uploads, value]);
   const isBusy = useMemo(() => uploads.some((item) => item.status !== 'error'), [uploads]);
+  const busyCallbackRef = useRef(onBusyChange);
+  // Callback identity is not an upload transition; inline consumers may set state.
   useEffect(() => {
-    onBusyChange?.(isBusy);
-  }, [isBusy, onBusyChange]);
+    busyCallbackRef.current = onBusyChange;
+  }, [onBusyChange]);
+  useEffect(() => {
+    busyCallbackRef.current?.(isBusy);
+  }, [isBusy]);
   const updateUpload = (id: string, patch: Partial<UploadItem>) => {
     setUploads((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
@@ -115,7 +125,7 @@ export function FileUploader<T extends BaseFile>(
         );
         const nextFiles = [...(valueRef.current as T[]), result];
         valueRef.current = nextFiles;
-        (props.onChange as (files: T[]) => void)(nextFiles);
+        (changeCallbackRef.current as (files: T[]) => void)(nextFiles);
       } else {
         const result = await uploadFileWithProgress({
           file,
@@ -124,7 +134,7 @@ export function FileUploader<T extends BaseFile>(
         });
         const nextFiles = [...(valueRef.current as SubmissionFile[]), result];
         valueRef.current = nextFiles as typeof value;
-        (onChange as (files: SubmissionFile[]) => void)(nextFiles);
+        (changeCallbackRef.current as (files: SubmissionFile[]) => void)(nextFiles);
       }
       removeUpload(uploadId);
     } catch (error) {

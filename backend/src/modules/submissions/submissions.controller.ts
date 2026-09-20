@@ -12,13 +12,14 @@ import {
   getUngradedSubmissionsCount as getUngradedSubmissionsCountService,
 } from "./submissions.service.js";
 import { createSubmissionSchema } from "./submissions.schema.js";
+import { withRecordingMetadata } from "./submissions.recording-metadata.js";
 
 export async function getSubmissions(
   req: Request,
   res: Response,
 ): Promise<void> {
   const submissions = await listSubmissions(req.params, req.query, req.user);
-  res.status(200).json(submissions);
+  res.status(200).json(await withRecordingMetadata(submissions));
 }
 
 export async function postSubmission(
@@ -27,7 +28,7 @@ export async function postSubmission(
 ): Promise<void> {
   const payload = createSubmissionSchema.parse(req.body);
   const submission = await createSubmission(req.params, payload, req.user);
-  res.status(201).json(submission);
+  res.status(201).json((await withRecordingMetadata([submission]))[0]);
 }
 
 export async function getSubmission(
@@ -35,7 +36,7 @@ export async function getSubmission(
   res: Response,
 ): Promise<void> {
   const submission = await getSubmissionById(req.params);
-  res.status(200).json(submission);
+  res.status(200).json((await withRecordingMetadata([submission]))[0]);
 }
 
 /**

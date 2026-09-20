@@ -21,11 +21,10 @@ import {
   type AuthCookieOperations,
   type CookieCompensate,
 } from './auth-cookie-operations';
-import { backendUserToLiveUser, enterActorScope, profileFromCache } from './auth-session';
+import { backendUserToLiveUser, enterActorScope, profileFromCache, subscribeToProfileCache } from './auth-session';
 import type { AuthSuccessResponse, LiveUser, RefreshAccessTokenResult } from './auth-types';
 import { useActiveProfileRuntime } from './use-active-profile-runtime';
 import { useSessionRestoreTracker } from './use-session-restore-tracker';
-import { queryClient } from './queryClient';
 import {
   publishAuthInvalidation,
   removeLegacyAuthSnapshot,
@@ -266,8 +265,8 @@ export function useAuthRuntime() {
   }, [bridgeRegistration, clearSession, cookieOperations, coordinator, restoreLiveSession, trackSessionRestore]);
 
   const subscribeToProfile = useCallback(
-    (listener: () => void) => queryClient.getQueryCache().subscribe(listener),
-    [],
+    (listener: () => void) => subscribeToProfileCache(activeUserId, listener),
+    [activeUserId],
   );
   const readProfile = useCallback(
     () => (activeUserId ? profileFromCache(activeUserId) : undefined),

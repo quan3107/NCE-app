@@ -1,10 +1,18 @@
 /**
  * File: src/modules/files/files.service.ts
- * Purpose: Generate mock signed upload/download intents and persist completed file metadata.
- * Why: Provides PRD-aligned file endpoints without requiring storage infrastructure yet.
+ * Purpose: Sign private R2 uploads and downloads and persist verified file metadata.
+ * Why: Only server-issued, verified uploads may become accessible application files.
  */
 import { randomUUID } from "crypto";
 import path from "path";
+import { getR2Settings } from "../../config/r2.js";
+import { issueUploadToken, readUploadToken } from "./upload-intent.js";
+import {
+  signR2Upload,
+  promoteR2Upload,
+  signR2Download,
+  cleanupR2Upload,
+} from "./r2-storage.js";
 
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { prisma } from "../../prisma/client.js";
@@ -18,8 +26,7 @@ import {
 } from "./files.schema.js";
 
 const UPLOAD_TTL_MS = 15 * 60 * 1000;
-const DOWNLOAD_TTL_MS = 15 * 60 * 1000;
-const DEFAULT_BUCKET = "nce-mock-uploads";
+const DOWNLOAD_TTL_MS = 5 * 60 * 1000;
 
 type FileContentRecord = {
   ownerId: string;
@@ -132,18 +139,29 @@ export async function signFileUpload(
     size: data.size,
   });
 
-  const objectKey = `uploads/${ownerId}/${randomUUID()}/${safeName}`;
-  const expiresAt = new Date(Date.now() + UPLOAD_TTL_MS).toISOString();
-  // Mock URL until storage signing is implemented for real buckets.
-  const uploadUrl = `https://storage.mock/${DEFAULT_BUCKET}/${objectKey}`;
+  const id = randomUUID();
+  const objectKey = `pending/${ownerId}/${id}/${safeName}`;
+  const intent = {
+    id,
+    ownerId,
+    bucket: getR2Settings().bucket,
+    objectKey,
+    mime: data.mime,
+    size: data.size,
+    checksum: data.checksum,
+    expiresAt: Date.now() + UPLOAD_TTL_MS,
+  };
+  const expiresAt = new Date(intent.expiresAt).toISOString();
+  const uploadUrl = await signR2Upload(intent);
 
   return {
     uploadUrl,
+    uploadToken: issueUploadToken(intent),
     method: "PUT",
     headers: {
       "Content-Type": data.mime,
     },
-    bucket: DEFAULT_BUCKET,
+    bucket: intent.bucket,
     objectKey,
     expiresAt,
   };
@@ -155,6 +173,19 @@ export async function completeFileUpload(
   role: UserRole,
 ) {
   const data = fileCompleteSchema.parse(payload);
+  const intent = readUploadToken(data.uploadToken, ownerId);
+  if (
+    data.bucket !== intent.bucket ||
+    data.objectKey !== intent.objectKey ||
+    data.mime !== intent.mime ||
+    data.size !== intent.size ||
+    data.checksum !== intent.checksum
+  ) {
+    throw createHttpError(
+      400,
+      "File metadata does not match its upload intent.",
+    );
+  }
   await assertUploadAllowed({
     role,
     fileName: data.objectKey,
@@ -162,16 +193,38 @@ export async function completeFileUpload(
     size: data.size,
   });
 
-  return prisma.file.create({
-    data: {
-      ownerId,
-      bucket: data.bucket,
-      objectKey: data.objectKey,
-      mime: data.mime,
-      size: data.size,
-      checksum: data.checksum,
-    },
+  const existing = await prisma.file.findFirst({
+    where: { id: intent.id, ownerId, deletedAt: null },
   });
+  if (existing) {
+    await cleanupR2Upload(intent).catch(() => undefined);
+    return existing;
+  }
+  try {
+    const objectKey = await promoteR2Upload(intent);
+    const completed = await prisma.file.create({
+      data: {
+        id: intent.id,
+        ownerId,
+        bucket: data.bucket,
+        objectKey,
+        mime: data.mime,
+        size: data.size,
+        checksum: data.checksum,
+      },
+    });
+    // Retain staging through failed inserts so retries can verify the bytes again.
+    await cleanupR2Upload(intent).catch(() => undefined);
+    return completed;
+  } catch (error) {
+    // An overlapping request may have committed and cleaned staging meanwhile.
+    const winner = await prisma.file.findFirst({
+      where: { id: intent.id, ownerId, deletedAt: null },
+    });
+    if (!winner) throw error;
+    await cleanupR2Upload(intent).catch(() => undefined);
+    return winner;
+  }
 }
 
 function recordHasFileReference(
@@ -309,16 +362,6 @@ async function actorCanAccessFile(
   );
 }
 
-function buildMockStorageUrl(bucket: string, objectKey: string): string {
-  const encodedBucket = encodeURIComponent(bucket);
-  const encodedKey = objectKey
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-
-  return `https://storage.mock/${encodedBucket}/${encodedKey}`;
-}
-
 function fileNameFromObjectKey(objectKey: string): string {
   return path.basename(objectKey) || "download";
 }
@@ -428,7 +471,7 @@ export async function getSignedFileDownload(
   }
 
   return {
-    url: buildMockStorageUrl(file.bucket, file.objectKey),
+    url: await signR2Download(file.bucket, file.objectKey, file.mime),
     method: "GET",
     headers: {},
     fileName: fileNameFromObjectKey(file.objectKey),

@@ -44,11 +44,14 @@ FileSignRequest:
       type: number
     checksum:
       type: string
-  required: [fileName, mime, size]
+  required: [fileName, mime, size, checksum]
 
 FileSignResponse:
   type: object
   properties:
+    uploadToken:
+      type: string
+      description: Expiring owner-bound completion token.
     uploadUrl:
       type: string
     method:
@@ -63,11 +66,14 @@ FileSignResponse:
     expiresAt:
       type: string
       format: date-time
-  required: [uploadUrl, method, headers, bucket, objectKey, expiresAt]
+  required: [uploadToken, uploadUrl, method, headers, bucket, objectKey, expiresAt]
 
 FileCompleteRequest:
   type: object
   properties:
+    uploadToken:
+      type: string
+      maxLength: 4096
     bucket:
       type: string
     objectKey:
@@ -78,7 +84,7 @@ FileCompleteRequest:
       type: number
     checksum:
       type: string
-  required: [bucket, objectKey, mime, size, checksum]
+  required: [uploadToken, bucket, objectKey, mime, size, checksum]
 
 FileDownloadResponse:
   type: object

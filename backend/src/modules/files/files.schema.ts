@@ -10,7 +10,7 @@ export const fileSignSchema = z
     fileName: z.string().min(1),
     mime: z.string().trim().min(1),
     size: z.number().int().positive(),
-    checksum: z.string().min(1).optional(),
+    checksum: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();
 
@@ -20,7 +20,8 @@ export const fileCompleteSchema = z
     objectKey: z.string().min(1),
     mime: z.string().trim().min(1),
     size: z.number().int().positive(),
-    checksum: z.string().min(1),
+    checksum: z.string().regex(/^[a-f0-9]{64}$/),
+    uploadToken: z.string().min(1).max(4096),
   })
   .strict();
 

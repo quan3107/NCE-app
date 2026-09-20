@@ -13,6 +13,18 @@ and
 
 ## Backend
 
+- **2026-09-20:** Stabilized the settings-read UUID index regression by isolating the actor predicate from competing authorization filters; the concurrent-demotion test still exercises authorization. Both focused database tests, lint and formatting pass. A broader local run passed 1,107 tests but hit five environment/bootstrap failures; the environment-default suite passes separately with its expected database defaults. GitHub CI remains the clean-run verification.
+
+- **2026-09-20:** Exposed only the fixed, credential-free R2 configuration error so missing storage returns an actionable 503 instead of a generic internal error. Verified through the real API/browser missing-storage path; other server errors retain their existing disclosure policy.
+
+- **2026-09-20:** Deferred R2 staging cleanup until file persistence succeeds, made final writes conditional, and recovered overlapping completion races from the committed owned record. Database-failure/retry, overlap and tampered-byte regressions pass; 48 file/submission tests, TypeScript and focused lint pass. Real R2 insert-failure injection recovered via two overlapping 201 retries and an exact-byte download.
+
+- **2026-09-20:** Resolved speaking recording metadata from owned file records in authorized submission responses, including legacy ID-only drafts. Batched lookup, ownership regression, 27 submission tests and TypeScript/lint pass. Real R2 submission persisted three recordings and zero grades.
+
+- **2026-09-20:** Connected the pending R2 adapter and verified real private-bucket uploads/downloads. Nine live API/storage assertions passed, including checksum and ownership rejection. Speaking persisted as submitted with three recordings; local credentials remain ignored. Details: `docs/r2-storage-verification.md`.
+
+- **2026-09-20:** Verified speaking draft persistence and bounded audit queries against a disposable PostgreSQL 17 database with all 77 migrations and documented seeds; 19 audit regressions pass. Real recording completion is blocked by the existing storage.mock implementation. No backend application contract changed. Evidence: `docs/e2e-speaking-performance-verification.md`.
+
 - **2026-09-20:** Cleared the PR backend high-severity audit gate by updating fast-uri to 3.1.8 and overriding Prisma's mysql2 dependency to 3.24.4, retaining Prisma 7.9.0. Locked install, high-threshold audit, lint, build, and 1,068 tests pass (40 existing skips); the npm entrypoint suite passed after supplying npm_execpath. Four moderate audit findings remain.
 - **2026-09-20:** Verified PUB-06 against the real public course API using a disposable PostgreSQL 17 database with all 77 migrations and documented demo/reference/NCE seeds. No backend application changes were needed; no API responses were mocked.
 - **2026-08-28:** Provisioned original deterministic protected Ogg demo audio create-if-absent with hash verification, preserving operator-owned files and failing genuine asset writes before NCE database references commit. Signed streams now support separately hosted learner UIs without weakening other resource policy, refreshes are unique and short-lived, and learner mappings omit only clearly private/educator/answer fields while preserving public transcripts. Clean PostgreSQL 17 migration/seed replay, exact migration history, bidirectional schema diff, governance probe, OpenAPI validation, lint, build, 1,068 backend tests, focused seed/token/access regressions, and real-backend Chromium authorization/playback coverage pass.
@@ -207,6 +219,16 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-20:** Replaced the generic-assignment browser test's obsolete storage.mock interception with explicit unconfigured-storage recovery assertions and opt-in real R2 upload/download coverage. Both real-backend paths pass locally; focused lint and TypeScript checks pass. CI without R2 credentials does not claim successful STU-05/06 storage coverage.
+
+- **2026-09-20:** Reverified three concurrent uploads and speaking attempt 2 submission in Browser against the real API/R2 after the completion recovery correction. Recording metadata remains accurate; X-07 stays deferred.
+
+- **2026-09-20:** Fixed stale upload callbacks and concurrent speaking state merges; draft hydration preserves server-resolved filename/size/MIME. Concurrent real R2 upload, replace, draft/reload and submit pass; STU-10 is PASS. Regression verifies simultaneous completion with duration edits. X-07 performance acceptance deferred by user.
+
+- **2026-09-20:** Reran speaking against real R2. Sequential upload/draft/reload/submission works, but simultaneous part uploads lose earlier recording state; summaries display placeholder names and 0 B sizes. STU-10 is FAIL; X-07 remains BLOCKED on the performance baseline. Details: `docs/r2-storage-verification.md`.
+
+- **2026-09-20:** Fixed FileUploader busy-callback render loops, scoped/deferred auth profile notifications, and added server-backed 50-row audit pagination. Real in-app browser checks covered exact Speaking S2, draft recovery, teacher reload/sign-out, 138 audit rows, charts, and 40-question authoring with added API latency. TypeScript, lint, 268 unit tests, 196 component tests, and build pass. STU-10/X-07 remain BLOCKED for full acceptance due to real storage and performance-baseline limits; recomputed inventory is 104 PASS, 12 FAIL, 2 BLOCKED, 7 DECISION-GATED.
 
 - **2026-09-20:** Fixed PUB-06 by displaying “Schedule shared at enrollment” for missing or whitespace-only course schedules, matching Duration copy. In-app browser verification covered Courses > first Learn More, reload, all overview fields and optional fallbacks, preserved populated schedule/duration, and Login/Contact CTA routing; screenshots were visually inspected. Focused lint, TypeScript, 15 existing query/course tests, and production build pass. Evidence: `/tmp/nce-pub06-20260920`.
 - **2026-08-28:** Added deterministic real-backend Chromium coverage for authenticated SPA navigation, protected Ogg response bytes, native playback, signed-URL refresh, payload privacy, and unauthorized/course/revoked access boundaries; the scenario is included in the CI real-backend project. Frontend lint, typecheck, 267 unit tests, 195 component tests, production build, and the 5.3-second Chromium run pass; the protected-audio screenshot was visually inspected.

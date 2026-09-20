@@ -4,17 +4,36 @@
  * Why: Keeps the feature module organized under the new structure.
  */
 
-import { Card, CardContent } from '@components/ui/card';
-import { Button } from '@components/ui/button';
-import { Badge } from '@components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@components/ui/table';
-import { PageHeader } from '@components/common/PageHeader';
-import { formatDate } from '@lib/utils';
-import { Download } from 'lucide-react';
-import { useAdminAuditLogsQuery } from '@features/admin/api';
+import { useState } from "react";
+import { Card, CardContent } from "@components/ui/card";
+import { Button } from "@components/ui/button";
+import { Badge } from "@components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@components/ui/table";
+import { PageHeader } from "@components/common/PageHeader";
+import { formatDate } from "@lib/utils";
+import { Download } from "lucide-react";
+import {
+  AUDIT_LOG_PAGE_SIZE,
+  useAdminAuditLogsQuery,
+} from "@features/admin/api";
 
 export function AdminAuditLogsPage() {
-  const { data: logs = [], isLoading, error, refetch } = useAdminAuditLogsQuery();
+  const [offset, setOffset] = useState(0);
+  const {
+    data: page,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useAdminAuditLogsQuery(offset);
+  const logs = page?.data ?? [];
 
   return (
     <div>
@@ -23,7 +42,12 @@ export function AdminAuditLogsPage() {
         description="System activity and changes"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
               Refresh
             </Button>
             <Button variant="outline">
@@ -36,7 +60,9 @@ export function AdminAuditLogsPage() {
       <div className="p-4 sm:p-6 lg:p-8">
         {isLoading ? (
           <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">Loading audit logs...</CardContent>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              Loading audit logs...
+            </CardContent>
           </Card>
         ) : error ? (
           <Card>
@@ -60,9 +86,18 @@ export function AdminAuditLogsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {logs.map(log => (
+                  {logs.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-8 text-center">
+                        No audit logs on this page.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {logs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="font-mono text-xs">{formatDate(log.timestamp, 'datetime')}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {formatDate(log.timestamp, "datetime")}
+                      </TableCell>
                       <TableCell>{log.actor}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{log.action}</Badge>
@@ -77,7 +112,9 @@ export function AdminAuditLogsPage() {
                       <TableCell>
                         <Badge variant="outline">v{log.schemaVersion}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{log.details}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {log.details}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -85,6 +122,34 @@ export function AdminAuditLogsPage() {
             </CardContent>
           </Card>
         )}
+        <nav
+          aria-label="Audit log pagination"
+          className="mt-4 flex items-center justify-between gap-3"
+        >
+          <Button
+            variant="outline"
+            disabled={offset === 0 || isFetching}
+            onClick={() =>
+              setOffset((current) => Math.max(0, current - AUDIT_LOG_PAGE_SIZE))
+            }
+          >
+            Previous
+          </Button>
+          <p role="status" className="text-sm text-muted-foreground">
+            {isFetching
+              ? "Loading audit logs..."
+              : `Page ${Math.floor(offset / AUDIT_LOG_PAGE_SIZE) + 1}`}
+          </p>
+          <Button
+            variant="outline"
+            disabled={isFetching || Boolean(error) || page?.nextOffset == null}
+            onClick={() => {
+              if (page?.nextOffset != null) setOffset(page.nextOffset);
+            }}
+          >
+            Next
+          </Button>
+        </nav>
       </div>
     </div>
   );

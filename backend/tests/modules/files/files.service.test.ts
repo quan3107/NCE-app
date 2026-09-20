@@ -3,9 +3,7 @@
  * Purpose: Verify role-based upload policy enforcement in file signing/completion flows.
  * Why: Prevents frontend/backend validation drift for type and size checks.
  */
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 vi.mock("../../../src/prisma/client.js", () => ({
   prisma: {
     file: {
@@ -20,26 +18,39 @@ vi.mock("../../../src/prisma/client.js", () => ({
     },
   },
 }));
-
-vi.mock("../../../src/modules/file-upload-config/file-upload-config.service.js", () => ({
-  getRoleFileUploadConfig: vi.fn(),
+vi.mock(
+  "../../../src/modules/file-upload-config/file-upload-config.service.js",
+  () => ({
+    getRoleFileUploadConfig: vi.fn(),
+  }),
+);
+vi.mock("../../../src/config/r2.js", () => ({
+  getR2Settings: () => ({
+    bucket: "nce-mock-uploads",
+    secretAccessKey: "test-only-secret",
+  }),
 }));
-
+vi.mock("../../../src/modules/files/r2-storage.js", () => ({
+  signR2Upload: vi.fn(async () => "https://storage.example/upload"),
+  promoteR2Upload: vi.fn(async () => "uploads/user/test.pdf"),
+  cleanupR2Upload: vi.fn(async () => undefined),
+  signR2Download: vi.fn(
+    async (bucket, key) => `https://storage.mock/${bucket}/${key}`,
+  ),
+}));
+const { issueUploadToken } =
+  await import("../../../src/modules/files/upload-intent.js");
 const prismaModule = await import("../../../src/prisma/client.js");
-const fileUploadConfigModule = await import(
-  "../../../src/modules/file-upload-config/file-upload-config.service.js"
-);
-
+const fileUploadConfigModule =
+  await import("../../../src/modules/file-upload-config/file-upload-config.service.js");
 const prisma = vi.mocked(prismaModule.prisma, true);
-const getRoleFileUploadConfig = vi.mocked(fileUploadConfigModule.getRoleFileUploadConfig);
-
-const { completeFileUpload, signFileUpload } = await import(
-  "../../../src/modules/files/files.service.js"
+const getRoleFileUploadConfig = vi.mocked(
+  fileUploadConfigModule.getRoleFileUploadConfig,
 );
-const { getSignedFileDownload } = await import(
-  "../../../src/modules/files/files.service.js"
-);
-
+const { completeFileUpload, signFileUpload } =
+  await import("../../../src/modules/files/files.service.js");
+const { getSignedFileDownload } =
+  await import("../../../src/modules/files/files.service.js");
 function makePolicy() {
   return {
     role: "student",
@@ -68,7 +79,6 @@ function makePolicy() {
     allowedExtensions: new Set([".pdf", ".mp3", ".wav"]),
   };
 }
-
 describe("files.service upload policy enforcement", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -78,18 +88,17 @@ describe("files.service upload policy enforcement", () => {
     prisma.assignment.findMany.mockResolvedValue([]);
     prisma.submission.findMany.mockResolvedValue([]);
   });
-
   it("accepts exact mime type matches during signing", async () => {
     const result = await signFileUpload(
       {
         fileName: "essay.pdf",
         mime: "application/pdf",
         size: 512,
+        checksum: "a".repeat(64),
       },
       "11111111-1111-4111-8111-111111111111",
       "student",
     );
-
     expect(result.method).toBe("PUT");
     expect(result.bucket).toBe("nce-mock-uploads");
   });
@@ -100,6 +109,7 @@ describe("files.service upload policy enforcement", () => {
         fileName: "response.mp3",
         mime: "audio/mpeg",
         size: 512,
+        checksum: "a".repeat(64),
       },
       "11111111-1111-4111-8111-111111111111",
       "student",
@@ -114,6 +124,7 @@ describe("files.service upload policy enforcement", () => {
         fileName: "essay.PDF",
         mime: "application/octet-stream",
         size: 512,
+        checksum: "a".repeat(64),
       },
       "11111111-1111-4111-8111-111111111111",
       "student",
@@ -129,6 +140,7 @@ describe("files.service upload policy enforcement", () => {
           fileName: "script.exe",
           mime: "application/octet-stream",
           size: 512,
+          checksum: "a".repeat(64),
         },
         "11111111-1111-4111-8111-111111111111",
         "student",
@@ -146,6 +158,7 @@ describe("files.service upload policy enforcement", () => {
           fileName: "essay.pdf",
           mime: "application/pdf",
           size: 2048,
+          checksum: "a".repeat(64),
         },
         "11111111-1111-4111-8111-111111111111",
         "student",
@@ -159,11 +172,21 @@ describe("files.service upload policy enforcement", () => {
   it("re-checks policy constraints during completion", async () => {
     await completeFileUpload(
       {
+        uploadToken: issueUploadToken({
+          id: "22222222-2222-4222-8222-222222222222",
+          ownerId: "11111111-1111-4111-8111-111111111111",
+          bucket: "nce-mock-uploads",
+          objectKey: "uploads/user/test.pdf",
+          mime: "application/pdf",
+          size: 512,
+          checksum: "a".repeat(64),
+          expiresAt: Date.now() + 60000,
+        }),
         bucket: "nce-mock-uploads",
         objectKey: "uploads/user/test.pdf",
         mime: "application/pdf",
         size: 512,
-        checksum: "abc123",
+        checksum: "a".repeat(64),
       },
       "11111111-1111-4111-8111-111111111111",
       "student",
@@ -175,6 +198,7 @@ describe("files.service upload policy enforcement", () => {
           objectKey: "uploads/user/test.pdf",
           mime: "application/pdf",
           size: 512,
+          checksum: "a".repeat(64),
         }),
       }),
     );
@@ -190,7 +214,7 @@ describe("files.service upload policy enforcement", () => {
       objectKey: "uploads/user/recording.mp3",
       mime: "audio/mpeg",
       size: 512,
-      checksum: "abc123",
+      checksum: "a".repeat(64),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -209,7 +233,7 @@ describe("files.service upload policy enforcement", () => {
       fileName: "recording.mp3",
       mime: "audio/mpeg",
       size: 512,
-      expiresAt: "2026-01-01T00:15:00.000Z",
+      expiresAt: "2026-01-01T00:05:00.000Z",
     });
     vi.useRealTimers();
   });
@@ -222,7 +246,7 @@ describe("files.service upload policy enforcement", () => {
       objectKey: "uploads/user/recording.mp3",
       mime: "audio/mpeg",
       size: 512,
-      checksum: "abc123",
+      checksum: "a".repeat(64),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -248,7 +272,7 @@ describe("files.service upload policy enforcement", () => {
       objectKey: "uploads/teacher/listening.mp3",
       mime: "audio/mpeg",
       size: 512,
-      checksum: "abc123",
+      checksum: "a".repeat(64),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -292,7 +316,7 @@ describe("files.service upload policy enforcement", () => {
       objectKey: "uploads/teacher/listening.mp3",
       mime: "audio/mpeg",
       size: 512,
-      checksum: "abc123",
+      checksum: "a".repeat(64),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -326,7 +350,7 @@ describe("files.service upload policy enforcement", () => {
       objectKey: "uploads/teacher/listening.mp3",
       mime: "audio/mpeg",
       size: 512,
-      checksum: "abc123",
+      checksum: "a".repeat(64),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -379,7 +403,7 @@ describe("files.service upload policy enforcement", () => {
       objectKey: "uploads/student/essay.pdf",
       mime: "application/pdf",
       size: 512,
-      checksum: "abc123",
+      checksum: "a".repeat(64),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
@@ -448,7 +472,7 @@ describe("files.service upload policy enforcement", () => {
       objectKey: "uploads/student/essay.pdf",
       mime: "application/pdf",
       size: 512,
-      checksum: "abc123",
+      checksum: "a".repeat(64),
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       deletedAt: null,
