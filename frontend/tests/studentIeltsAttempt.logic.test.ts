@@ -25,6 +25,17 @@ import type {
 const startedAt = '2026-02-01T10:00:00.000Z';
 const submittedAt = '2026-02-01T10:12:34.000Z';
 
+test('speaking draft recovery preserves server-resolved recording metadata', () => {
+  const state = createStudentIeltsAttemptFromPayload('speaking', {
+    recordings: [{ part: 'part1', fileId: 'owned-file', durationSeconds: 4,
+      fileName: 'recording.wav', size: 32044, mime: 'audio/wav', checksum: 'verified' }],
+  });
+  assert.equal(state.speakingRecordings.part1?.file?.name, 'recording.wav');
+  assert.equal(state.speakingRecordings.part1?.file?.size, 32044);
+  assert.equal(state.speakingRecordings.part1?.file?.mime, 'audio/wav');
+  assert.equal(state.speakingRecordings.part1?.durationSeconds, 4);
+});
+
 const readingConfig: IeltsReadingConfig = {
   version: 1,
   instructions: 'Read the passage and answer the questions.',
