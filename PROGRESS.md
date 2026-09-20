@@ -13,6 +13,10 @@ and
 
 ## Backend
 
+- **2026-09-20:** Resolved speaking recording metadata from owned file records in authorized submission responses, including legacy ID-only drafts. Batched lookup, ownership regression, 27 submission tests and TypeScript/lint pass. Real R2 submission persisted three recordings and zero grades.
+
+- **2026-09-20:** Connected the pending R2 adapter and verified real private-bucket uploads/downloads. Nine live API/storage assertions passed, including checksum and ownership rejection. Speaking persisted as submitted with three recordings; local credentials remain ignored. Details: `docs/r2-storage-verification.md`.
+
 - **2026-09-20:** Verified speaking draft persistence and bounded audit queries against a disposable PostgreSQL 17 database with all 77 migrations and documented seeds; 19 audit regressions pass. Real recording completion is blocked by the existing storage.mock implementation. No backend application contract changed. Evidence: `docs/e2e-speaking-performance-verification.md`.
 
 - **2026-09-20:** Cleared the PR backend high-severity audit gate by updating fast-uri to 3.1.8 and overriding Prisma's mysql2 dependency to 3.24.4, retaining Prisma 7.9.0. Locked install, high-threshold audit, lint, build, and 1,068 tests pass (40 existing skips); the npm entrypoint suite passed after supplying npm_execpath. Four moderate audit findings remain.
@@ -209,6 +213,10 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-20:** Fixed stale upload callbacks and concurrent speaking state merges; draft hydration preserves server-resolved filename/size/MIME. Concurrent real R2 upload, replace, draft/reload and submit pass; STU-10 is PASS. Regression verifies simultaneous completion with duration edits. X-07 performance acceptance deferred by user.
+
+- **2026-09-20:** Reran speaking against real R2. Sequential upload/draft/reload/submission works, but simultaneous part uploads lose earlier recording state; summaries display placeholder names and 0 B sizes. STU-10 is FAIL; X-07 remains BLOCKED on the performance baseline. Details: `docs/r2-storage-verification.md`.
 
 - **2026-09-20:** Fixed FileUploader busy-callback render loops, scoped/deferred auth profile notifications, and added server-backed 50-row audit pagination. Real in-app browser checks covered exact Speaking S2, draft recovery, teacher reload/sign-out, 138 audit rows, charts, and 40-question authoring with added API latency. TypeScript, lint, 268 unit tests, 196 component tests, and build pass. STU-10/X-07 remain BLOCKED for full acceptance due to real storage and performance-baseline limits; recomputed inventory is 104 PASS, 12 FAIL, 2 BLOCKED, 7 DECISION-GATED.
 
