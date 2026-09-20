@@ -110,6 +110,11 @@ export function AdminEnrollmentsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {rows.length === 0 && (
+                    <TableRow><TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                      No enrollments yet.
+                    </TableCell></TableRow>
+                  )}
                   {rows.map(row => (
                     <TableRow key={row.id}>
                       <TableCell className="font-medium">{row.userName}</TableCell>
