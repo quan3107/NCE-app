@@ -34,7 +34,8 @@ import {
 
 export function TeacherIeltsAssignmentCreatePage() {
   const { navigate } = useRouter();
-  const { courses } = useAssignmentResources();
+  const { courses, isLoading, error, refetch } = useAssignmentResources();
+  const [isRetrying, setIsRetrying] = useState(false);
   const createAssignmentMutation = useCreateAssignmentMutation();
 
   const draft = getInitialStateFromDraft();
@@ -215,6 +216,25 @@ export function TeacherIeltsAssignmentCreatePage() {
       toast.error(error instanceof Error ? error.message : 'Unable to save assignment.');
     }
   };
+
+  // Gate both authoring flows before mounting forms with unavailable course data.
+  if (isLoading || error || courses.length === 0) {
+    return (
+      <div>
+        <PageHeader title="Create Assignment" actions={
+          <Button variant="outline" onClick={() => navigate('/teacher/assignments')}>Back to Assignments</Button>
+        } />
+        <div className="p-4 sm:p-6 lg:p-8 space-y-4" role={error ? 'alert' : 'status'}>
+          <p>{error ? `Unable to load assignment resources: ${error.message}` : isLoading
+            ? 'Loading assignment resources...' : 'No courses are available. A course is required to create an assignment.'}</p>
+          {!isLoading && <Button disabled={isRetrying} onClick={async () => {
+            setIsRetrying(true);
+            try { await refetch(); } finally { setIsRetrying(false); }
+          }}>Retry</Button>}
+        </div>
+      </div>
+    );
+  }
 
   if (selectedGenericType) {
     return (
