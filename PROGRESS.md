@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-20:** Verified speaking draft persistence and bounded audit queries against a disposable PostgreSQL 17 database with all 77 migrations and documented seeds; 19 audit regressions pass. Real recording completion is blocked by the existing storage.mock implementation. No backend application contract changed. Evidence: `docs/e2e-speaking-performance-verification.md`.
+
 - **2026-09-20:** Cleared the PR backend high-severity audit gate by updating fast-uri to 3.1.8 and overriding Prisma's mysql2 dependency to 3.24.4, retaining Prisma 7.9.0. Locked install, high-threshold audit, lint, build, and 1,068 tests pass (40 existing skips); the npm entrypoint suite passed after supplying npm_execpath. Four moderate audit findings remain.
 - **2026-09-20:** Verified PUB-06 against the real public course API using a disposable PostgreSQL 17 database with all 77 migrations and documented demo/reference/NCE seeds. No backend application changes were needed; no API responses were mocked.
 - **2026-08-28:** Provisioned original deterministic protected Ogg demo audio create-if-absent with hash verification, preserving operator-owned files and failing genuine asset writes before NCE database references commit. Signed streams now support separately hosted learner UIs without weakening other resource policy, refreshes are unique and short-lived, and learner mappings omit only clearly private/educator/answer fields while preserving public transcripts. Clean PostgreSQL 17 migration/seed replay, exact migration history, bidirectional schema diff, governance probe, OpenAPI validation, lint, build, 1,068 backend tests, focused seed/token/access regressions, and real-backend Chromium authorization/playback coverage pass.
@@ -207,6 +209,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-20:** Fixed FileUploader busy-callback render loops, scoped/deferred auth profile notifications, and added server-backed 50-row audit pagination. Real in-app browser checks covered exact Speaking S2, draft recovery, teacher reload/sign-out, 138 audit rows, charts, and 40-question authoring with added API latency. TypeScript, lint, 268 unit tests, 196 component tests, and build pass. STU-10/X-07 remain BLOCKED for full acceptance due to real storage and performance-baseline limits; recomputed inventory is 104 PASS, 12 FAIL, 2 BLOCKED, 7 DECISION-GATED.
 
 - **2026-09-20:** Fixed PUB-06 by displaying “Schedule shared at enrollment” for missing or whitespace-only course schedules, matching Duration copy. In-app browser verification covered Courses > first Learn More, reload, all overview fields and optional fallbacks, preserved populated schedule/duration, and Login/Contact CTA routing; screenshots were visually inspected. Focused lint, TypeScript, 15 existing query/course tests, and production build pass. Evidence: `/tmp/nce-pub06-20260920`.
 - **2026-08-28:** Added deterministic real-backend Chromium coverage for authenticated SPA navigation, protected Ogg response bytes, native playback, signed-URL refresh, payload privacy, and unauthorized/course/revoked access boundaries; the scenario is included in the CI real-backend project. Frontend lint, typecheck, 267 unit tests, 195 component tests, production build, and the 5.3-second Chromium run pass; the protected-audio screenshot was visually inspected.
