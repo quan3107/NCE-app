@@ -155,9 +155,33 @@ are prefixed `fixed-` in the evidence directory. Error screens, disabled rubric
 creation, and empty tables were visually inspected. The database was restored from
 `before-fix-empty.sql`; restore output is `fix-restoration.log`.
 
-ESLint, TypeScript, 207 component tests, 269 unit tests, and production build pass.
+ESLint, TypeScript, 208 component tests, 269 unit tests, and production build pass.
 Seven new rendered regressions cover NCE lesson/book/unit/404 recovery, missing
 grading records, authoring prerequisites, and rubric dependency recovery. Existing
 lesson add/remove/save coverage also passes after waiting for authoritative data.
 The scope limits above still apply: this is route-state verification, not an
 exhaustive audit of every panel, mutation, or mobile layout.
+
+### Generic draft retention correction
+
+Review found that the initial authoring gate unmounted the generic form on a
+background resource failure and lost its local draft. The form now stays mounted
+inside a disabled fieldset during loading/error/empty recovery; its submit handler
+also rejects unavailable resources and a course that is no longer in the list.
+Initial unavailable data still blocks entry into authoring.
+
+A permanent component regression fills title, description, course, due date, and
+score, then checks error/Retry, loading, and empty recovery. It verifies blocked
+mutations during failure and submission of the retained draft after recovery.
+
+Real-app verification used the same API/database and temporarily revoked SELECT
+on submissions only, reproducing a dependency failure outside courses. A temporary
+UI control invoked the existing resource refetch callback without navigating away;
+it changed no API responses or query state and was removed before final checks.
+The failure retained title, description, course, and score with all form controls
+disabled; restoring grants and clicking the actual Retry preserved those values
+and re-enabled the form. Due-date retention is covered by the component regression;
+the browser's date-input automation did not enter a complete date. Error and
+recovered screens were visually inspected. Evidence: `draft-retention-error.txt`,
+`draft-retention-recovered.txt`, and `draft-retention-restore.log` in the evidence
+directory. Database data was preserved and original grants restored.
