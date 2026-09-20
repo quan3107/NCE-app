@@ -6,7 +6,10 @@ Why: Separate verified defect fixes from unsupported storage and performance cla
 
 # Speaking and rendering verification — 2026-09-20
 
-STU-10 and X-07 remain **BLOCKED for full acceptance**. Their recorded rendering
+The initial pre-R2 run below left STU-10 and X-07 **BLOCKED for full acceptance**.
+The later [real R2 rerun](r2-storage-verification.md) supersedes the storage blocker:
+STU-10 now passes after the concurrent upload and metadata fixes; X-07 remains
+BLOCKED with performance acceptance deferred by the user. Their recorded rendering
 and audit pagination defects are fixed, but successful speaking media persistence
 cannot be verified against the application's placeholder storage implementation.
 No production performance SLO or mid-range device baseline is defined in the
