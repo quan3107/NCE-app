@@ -7,7 +7,12 @@ import { randomUUID } from "crypto";
 import path from "path";
 import { getR2Settings } from "../../config/r2.js";
 import { issueUploadToken, readUploadToken } from "./upload-intent.js";
-import { signR2Upload, promoteR2Upload, signR2Download } from "./r2-storage.js";
+import {
+  signR2Upload,
+  promoteR2Upload,
+  signR2Download,
+  cleanupR2Upload,
+} from "./r2-storage.js";
 
 import type { RequestActor } from "../../middleware/requestActor.js";
 import { prisma } from "../../prisma/client.js";
@@ -191,19 +196,35 @@ export async function completeFileUpload(
   const existing = await prisma.file.findFirst({
     where: { id: intent.id, ownerId, deletedAt: null },
   });
-  if (existing) return existing;
-  const objectKey = await promoteR2Upload(intent);
-  return prisma.file.create({
-    data: {
-      id: intent.id,
-      ownerId,
-      bucket: data.bucket,
-      objectKey,
-      mime: data.mime,
-      size: data.size,
-      checksum: data.checksum,
-    },
-  });
+  if (existing) {
+    await cleanupR2Upload(intent).catch(() => undefined);
+    return existing;
+  }
+  try {
+    const objectKey = await promoteR2Upload(intent);
+    const completed = await prisma.file.create({
+      data: {
+        id: intent.id,
+        ownerId,
+        bucket: data.bucket,
+        objectKey,
+        mime: data.mime,
+        size: data.size,
+        checksum: data.checksum,
+      },
+    });
+    // Retain staging through failed inserts so retries can verify the bytes again.
+    await cleanupR2Upload(intent).catch(() => undefined);
+    return completed;
+  } catch (error) {
+    // An overlapping request may have committed and cleaned staging meanwhile.
+    const winner = await prisma.file.findFirst({
+      where: { id: intent.id, ownerId, deletedAt: null },
+    });
+    if (!winner) throw error;
+    await cleanupR2Upload(intent).catch(() => undefined);
+    return winner;
+  }
 }
 
 function recordHasFileReference(
