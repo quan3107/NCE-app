@@ -1,3 +1,4 @@
+/** NCE lesson editor: require authoritative lesson/catalog data before editing or saving. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader } from '@components/common/PageHeader';
 import { Button } from '@components/ui/button';
@@ -139,6 +140,35 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
     [courseId],
   );
 
+  // Keep draft state in this component while failed dependencies are retried.
+  const dataError = lessonQuery.error ?? booksQuery.error ?? (bookId ? unitsQuery.error : null);
+  const dataLoading = (isEditing && lessonQuery.isLoading) || booksQuery.isLoading ||
+    (Boolean(bookId) && unitsQuery.isLoading);
+  const dataFetching = lessonQuery.isFetching || booksQuery.isFetching || unitsQuery.isFetching;
+  const canSave = !dataError && !dataLoading && Boolean(unitId) &&
+    Boolean(unitsQuery.data?.units.some((unit) => unit.id === unitId)) &&
+    (!isEditing || hydratedLessonId === lessonId);
+
+  if (dataError || dataLoading || (isEditing && !lessonQuery.data) || !booksQuery.data?.books.length) {
+    return (
+      <div>
+        <PageHeader title={isEditing ? 'Edit NCE Lesson' : 'New NCE Lesson'} actions={
+          <Button variant="outline" onClick={() => navigate(backPath)}>Back</Button>
+        } />
+        <div className="p-4 sm:p-6 lg:p-8 space-y-4" role={dataError ? 'alert' : 'status'}>
+          <p>{dataError ? `Unable to load lesson resources: ${dataError.message}` : dataLoading
+            ? 'Loading lesson resources...' : isEditing && !lessonQuery.data
+              ? 'Lesson not found.' : 'No books are available. Add a book before creating a lesson.'}</p>
+          {!dataLoading && <Button disabled={dataFetching} onClick={() => {
+            if (isEditing) void lessonQuery.refetch();
+            void booksQuery.refetch();
+            if (bookId) void unitsQuery.refetch();
+          }}>Retry</Button>}
+        </div>
+      </div>
+    );
+  }
+
   const buildPayload = (): NceLessonWritePayload | NceLessonPatchPayload => {
     const parsedObjectives = objectives.map(({ clientId: _clientId, ...objective }) => objective);
     const parsedExercises = exercises.map((exercise) => {
@@ -174,6 +204,7 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
   };
 
   const saveLesson = async () => {
+    if (!canSave) return;
     if (!isEditing && !courseId) {
       setErrorMessage('Select a course before creating an NCE lesson.');
       return;
@@ -422,7 +453,10 @@ export function TeacherNceLessonEditorPage({ lessonId }: Props) {
             </section>
 
             <div className="flex justify-end">
-              <Button onClick={saveLesson} disabled={isSaving}>
+              {bookId && !unitsQuery.data?.units.length && (
+                <p className="text-sm text-muted-foreground">No units are available for this book.</p>
+              )}
+              <Button onClick={saveLesson} disabled={isSaving || !canSave}>
                 <Save className="mr-2 size-4" />
                 {isSaving ? 'Saving' : 'Save Lesson'}
               </Button>
