@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-20:** Deferred R2 staging cleanup until file persistence succeeds, made final writes conditional, and recovered overlapping completion races from the committed owned record. Database-failure/retry, overlap and tampered-byte regressions pass; 48 file/submission tests, TypeScript and focused lint pass. Real R2 insert-failure injection recovered via two overlapping 201 retries and an exact-byte download.
+
 - **2026-09-20:** Resolved speaking recording metadata from owned file records in authorized submission responses, including legacy ID-only drafts. Batched lookup, ownership regression, 27 submission tests and TypeScript/lint pass. Real R2 submission persisted three recordings and zero grades.
 
 - **2026-09-20:** Connected the pending R2 adapter and verified real private-bucket uploads/downloads. Nine live API/storage assertions passed, including checksum and ownership rejection. Speaking persisted as submitted with three recordings; local credentials remain ignored. Details: `docs/r2-storage-verification.md`.
@@ -213,6 +215,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-20:** Reverified three concurrent uploads and speaking attempt 2 submission in Browser against the real API/R2 after the completion recovery correction. Recording metadata remains accurate; X-07 stays deferred.
 
 - **2026-09-20:** Fixed stale upload callbacks and concurrent speaking state merges; draft hydration preserves server-resolved filename/size/MIME. Concurrent real R2 upload, replace, draft/reload and submit pass; STU-10 is PASS. Regression verifies simultaneous completion with duration edits. X-07 performance acceptance deferred by user.
 
