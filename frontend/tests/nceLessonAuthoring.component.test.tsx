@@ -181,9 +181,9 @@ test('TeacherNceLessonEditorPage keeps add-after-remove keys unique in the saved
       '/teacher/nce-lessons/new?courseId=course-123',
     );
 
-    await user.click(screen.getByLabelText('Book'));
+    await user.click(await screen.findByLabelText('Book'));
     await user.click(await screen.findByRole('option', { name: 'NCE Book 1' }));
-    await user.click(screen.getByLabelText('Unit'));
+    await user.click(await screen.findByLabelText('Unit'));
     await user.click(
       await screen.findByRole('option', { name: 'Unit 1: Introductions' }),
     );

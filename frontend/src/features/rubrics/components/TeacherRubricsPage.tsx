@@ -82,6 +82,9 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
   const defaultRubricsQuery = useDefaultRubricsQuery('assignment', 'writing');
 
   const courseOptions = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
+  const courseUnavailable = !embedded && (coursesQuery.isLoading || Boolean(coursesQuery.error));
+  const canCreate = !courseUnavailable && Boolean(effectiveCourseId) &&
+    !rubricsQuery.isLoading && !rubricsQuery.error;
   const defaultRubricTemplate = useMemo(() => {
     return (
       defaultRubricsQuery.data?.templates.find(
@@ -98,6 +101,7 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
   }, [defaultRubricTemplate]);
 
   const handleCreateRubric = async () => {
+    if (!canCreate) return;
     if (!selectedCourseId) {
       toast.error('Select a course before creating a rubric.');
       return;
@@ -148,7 +152,7 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
           title="Rubrics"
           description="Create and manage grading rubrics"
           actions={
-            <Button onClick={() => setShowCreateDialog(true)}>
+            <Button disabled={!canCreate} onClick={() => setShowCreateDialog(true)}>
               <Plus className="mr-2 size-4" />
               Create Rubric
             </Button>
@@ -181,14 +185,23 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
 
           {embedded && (
             <div className="flex justify-end">
-              <Button onClick={() => setShowCreateDialog(true)}>
+              <Button disabled={!canCreate} onClick={() => setShowCreateDialog(true)}>
                 <Plus className="mr-2 size-4" />
                 Create Rubric
               </Button>
             </div>
           )}
 
-          {rubricsQuery.isLoading ? (
+          {courseUnavailable ? (
+            <Card><CardContent className="py-12 text-center space-y-4" role={coursesQuery.error ? 'alert' : 'status'}>
+              <p>{coursesQuery.error ? 'Unable to load courses.' : 'Loading courses...'}</p>
+              {coursesQuery.error && <Button disabled={coursesQuery.isFetching} onClick={() => void coursesQuery.refetch()}>Retry</Button>}
+            </CardContent></Card>
+          ) : !effectiveCourseId ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">
+              No courses are available. Select a course before creating rubrics.
+            </CardContent></Card>
+          ) : rubricsQuery.isLoading ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 Loading rubrics...
@@ -198,6 +211,7 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
             <Card>
               <CardContent className="py-12 text-center text-destructive">
                 Unable to load rubrics.
+                <Button className="ml-3" disabled={rubricsQuery.isFetching} onClick={() => void rubricsQuery.refetch()}>Retry</Button>
               </CardContent>
             </Card>
           ) : (
@@ -276,7 +290,7 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
             </Button>
             <Button
               onClick={handleCreateRubric}
-              disabled={createRubricMutation.isPending || !createRubricCriteria}
+              disabled={createRubricMutation.isPending || !createRubricCriteria || !canCreate}
             >
               {createRubricMutation.isPending ? 'Creating...' : 'Create Rubric'}
             </Button>
@@ -286,4 +300,3 @@ export function TeacherRubricsPage({ embedded = false, courseId: propCourseId }:
     </div>
   );
 }
-

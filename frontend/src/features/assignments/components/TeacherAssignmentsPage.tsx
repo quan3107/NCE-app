@@ -41,6 +41,11 @@ export function TeacherAssignmentsPage() {
 
     return (
       <div className="space-y-3">
+        {assignments.length === 0 && (
+          <Card><CardContent className="py-12 text-center text-muted-foreground">
+            No assignments yet. Create an assignment to get started.
+          </CardContent></Card>
+        )}
         {assignments.map(assignment => (
           <Card
             key={assignment.id}

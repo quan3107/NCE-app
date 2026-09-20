@@ -5,6 +5,7 @@
  */
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@components/ui/card'
+import { Button } from '@components/ui/button'
 import { useAboutPageContentQuery } from '@features/marketing/api'
 import { getIconComponent } from '@features/marketing/iconMap'
 
@@ -35,6 +36,9 @@ export function AboutRoute() {
               Unable to load about page content.
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+            <Button className="mt-4" disabled={aboutQuery.isFetching} onClick={() => void aboutQuery.refetch()}>
+              {aboutQuery.isFetching ? 'Retrying...' : 'Retry'}
+            </Button>
           </div>
         </div>
       </section>

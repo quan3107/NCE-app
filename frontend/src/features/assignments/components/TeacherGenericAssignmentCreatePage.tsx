@@ -23,6 +23,7 @@ type TeacherGenericAssignmentCreatePageProps = {
   initialType: GenericAssignmentType;
   onCancel: () => void;
   onCreated: () => void;
+  resourcesUnavailable?: boolean;
 };
 
 const typeLabels: Record<GenericAssignmentType, string> = {
@@ -36,6 +37,7 @@ export function TeacherGenericAssignmentCreatePage({
   initialType,
   onCancel,
   onCreated,
+  resourcesUnavailable = false,
 }: TeacherGenericAssignmentCreatePageProps) {
   const createAssignmentMutation = useCreateAssignmentMutation();
   const [title, setTitle] = useState('');
@@ -46,11 +48,13 @@ export function TeacherGenericAssignmentCreatePage({
   const [maxScore, setMaxScore] = useState('100');
 
   const handleSubmit = async (publish: boolean) => {
+    // Preserve local fields during recovery without allowing stale submissions.
+    if (resourcesUnavailable) return;
     if (!title.trim()) {
       toast.error('Assignment title is required.');
       return;
     }
-    if (!courseId) {
+    if (!courses.some((course) => course.id === courseId)) {
       toast.error('Please select a course.');
       return;
     }
@@ -94,7 +98,7 @@ export function TeacherGenericAssignmentCreatePage({
   };
 
   return (
-    <div>
+    <fieldset disabled={resourcesUnavailable} className="min-w-0">
       <PageHeader
         title={`Create ${typeLabels[type]} Assignment`}
         description="Configure the student response and grading details"
@@ -120,7 +124,7 @@ export function TeacherGenericAssignmentCreatePage({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="generic-assignment-course">Course</Label>
-                <Select value={courseId} onValueChange={setCourseId}>
+                <Select value={courseId} onValueChange={setCourseId} disabled={resourcesUnavailable}>
                   <SelectTrigger id="generic-assignment-course">
                     <SelectValue placeholder="Select course" />
                   </SelectTrigger>
@@ -137,7 +141,7 @@ export function TeacherGenericAssignmentCreatePage({
 
             <div className="space-y-2">
               <Label htmlFor="generic-assignment-type">Response Type</Label>
-              <Select value={type} onValueChange={(value) => setType(value as GenericAssignmentType)}>
+              <Select value={type} onValueChange={(value) => setType(value as GenericAssignmentType)} disabled={resourcesUnavailable}>
                 <SelectTrigger id="generic-assignment-type">
                   <SelectValue />
                 </SelectTrigger>
@@ -202,6 +206,6 @@ export function TeacherGenericAssignmentCreatePage({
           </CardContent>
         </Card>
       </div>
-    </div>
+    </fieldset>
   );
 }

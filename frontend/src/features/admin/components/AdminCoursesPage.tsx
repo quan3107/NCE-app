@@ -85,6 +85,11 @@ export function AdminCoursesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {courses.length === 0 && (
+                    <TableRow><TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                      No courses are available.
+                    </TableCell></TableRow>
+                  )}
                   {courses.map(course => (
                     <TableRow key={course.id}>
                       <TableCell className="font-medium">{course.title}</TableCell>

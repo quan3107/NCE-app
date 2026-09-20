@@ -9,13 +9,16 @@ import React from 'react';
 import { afterEach, test, vi } from 'vitest';
 
 import { TeacherRubricsPage } from '../src/features/rubrics/components/TeacherRubricsPage';
+vi.mock('@lib/router', () => ({ useRouter: () => ({ navigate: vi.fn() }) }));
 
 const createRubric = vi.hoisted(() => vi.fn(async () => undefined));
+const courseState = vi.hoisted(() => ({
+  data: [{ id: 'course-1', title: 'Writing Course' }],
+  isLoading: false, error: null as Error | null, isFetching: false, refetch: vi.fn(),
+}));
 
 vi.mock('@features/courses/api', () => ({
-  useCoursesQuery: () => ({
-    data: [{ id: 'course-1', title: 'Writing Course' }],
-  }),
+  useCoursesQuery: () => courseState,
 }));
 
 vi.mock('@features/rubrics/api', () => ({
@@ -62,6 +65,23 @@ vi.mock('sonner@2.0.3', () => ({
 afterEach(() => {
   cleanup();
   createRubric.mockClear();
+  courseState.error = null;
+  courseState.isLoading = false;
+  courseState.refetch.mockClear();
+});
+
+test('failed course lookup is not an empty rubric list and offers recovery', () => {
+  courseState.error = new Error('Read failed');
+  const view = render(<TeacherRubricsPage />);
+  assert.ok(screen.getByText('Unable to load courses.'));
+  assert.ok(screen.queryByText('No rubrics yet for this course.') === null);
+  assert.equal((screen.getByRole('button', { name: 'Create Rubric' }) as HTMLButtonElement).disabled, true);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  assert.equal(courseState.refetch.mock.calls.length, 1);
+  courseState.error = null;
+  view.rerender(<TeacherRubricsPage />);
+  assert.ok(screen.getByText('No rubrics yet for this course.'));
+  assert.equal((screen.getByRole('button', { name: 'Create Rubric' }) as HTMLButtonElement).disabled, false);
 });
 
 test('rubric create is blocked when backend template omits criterion levels', () => {

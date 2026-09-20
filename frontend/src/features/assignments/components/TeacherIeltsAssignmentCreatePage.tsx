@@ -34,7 +34,8 @@ import {
 
 export function TeacherIeltsAssignmentCreatePage() {
   const { navigate } = useRouter();
-  const { courses } = useAssignmentResources();
+  const { courses, isLoading, error, refetch } = useAssignmentResources();
+  const [isRetrying, setIsRetrying] = useState(false);
   const createAssignmentMutation = useCreateAssignmentMutation();
 
   const draft = getInitialStateFromDraft();
@@ -216,16 +217,41 @@ export function TeacherIeltsAssignmentCreatePage() {
     }
   };
 
+  const resourcesUnavailable = isLoading || Boolean(error) || courses.length === 0;
+  const resourceState = resourcesUnavailable ? (
+      <div>
+        {!selectedGenericType && <PageHeader title="Create Assignment" actions={
+          <Button variant="outline" onClick={() => navigate('/teacher/assignments')}>Back to Assignments</Button>
+        } />}
+        <div className="p-4 sm:p-6 lg:p-8 space-y-4" role={error ? 'alert' : 'status'}>
+          <p>{error ? `Unable to load assignment resources: ${error.message}` : isLoading
+            ? 'Loading assignment resources...' : 'No courses are available. A course is required to create an assignment.'}</p>
+          {!isLoading && <Button disabled={isRetrying} onClick={async () => {
+            setIsRetrying(true);
+            try { await refetch(); } finally { setIsRetrying(false); }
+          }}>Retry</Button>}
+        </div>
+      </div>
+    ) : null;
+
+  // Keep the generic draft owner mounted through background query failures.
+  // Its controls and submit handler remain blocked until resources recover.
   if (selectedGenericType) {
     return (
-      <TeacherGenericAssignmentCreatePage
-        courses={courses}
-        initialType={selectedGenericType}
-        onCancel={() => setSelectedGenericType(null)}
-        onCreated={() => navigate('/teacher/assignments')}
-      />
+      <>
+        {resourceState}
+        <TeacherGenericAssignmentCreatePage
+          courses={courses}
+          resourcesUnavailable={resourcesUnavailable}
+          initialType={selectedGenericType}
+          onCancel={() => setSelectedGenericType(null)}
+          onCreated={() => navigate('/teacher/assignments')}
+        />
+      </>
     );
   }
+
+  if (resourcesUnavailable) return resourceState;
 
   if (!selectedType) {
     return (
