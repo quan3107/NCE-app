@@ -13,11 +13,13 @@ Why: Separate the already-fixed loading defect from the remaining retry change.
   Profile, and sign-out followed by reload. Initials were AC, SN, and RM;
   destinations retained the correct role prefix. Anonymous public navigation
   and About reload also passed.
-- **X-02: BLOCKED for full acceptance; recorded public-page defect resolved.**
-  The public loading/error/retry, empty-list, unknown-course, and unknown-route
-  cases below passed. This is not a new five-state matrix for every protected
-  route in the application, as the full story requires. Those unrelated routes
-  remain unverified by this rerun. X-07 remains outside this task.
+- **X-02: PASS following protected-route fixes and verification.** The public loading/error/retry,
+  empty-list, unknown-course, and unknown-route cases below passed. Subsequent
+  testing visited all 33 protected route declarations and found hidden editor
+  errors, a blank missing-submission page, and misleading empty states, now fixed
+  and rechecked against the real app. See
+  [protected route verification](e2e-route-state-verification.md). This supersedes
+  the earlier coverage-only BLOCKED label. X-07 remains outside this task.
 
 ## Baseline and diagnosis
 
