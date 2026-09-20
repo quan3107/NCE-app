@@ -102,6 +102,9 @@ export function ContactRoute() {
           <div className="max-w-2xl rounded-[8px] border border-destructive/30 bg-card p-6">
             <h1 className="text-2xl font-semibold text-destructive">Unable to load contact page content.</h1>
             <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+            <Button className="mt-4" disabled={contactQuery.isFetching} onClick={() => void contactQuery.refetch()}>
+              {contactQuery.isFetching ? 'Retrying...' : 'Retry'}
+            </Button>
           </div>
         </div>
       </section>
