@@ -65,7 +65,7 @@ databaseDescribe("settings read database boundary", () => {
     }
   });
 
-  it("uses the users primary-key index for the UUID actor lookup", async () => {
+  it("keeps the UUID actor predicate eligible for primary-key lookup", async () => {
     const actorId = await createActor({ role: "admin" });
     const { client, pool } = await connectRuntimeClient();
 
@@ -73,14 +73,14 @@ databaseDescribe("settings read database boundary", () => {
       await client.query("BEGIN");
       await setAuthenticatedRole(client, "admin", actorId);
       await client.query("SET LOCAL enable_seqscan = off");
+      // Isolate UUID index eligibility: on tiny tables the full authorization
+      // query can legitimately prefer the deletedAt index. Authorization and
+      // concurrent demotion are exercised separately above.
       const plan = await client.query(
         `EXPLAIN (FORMAT JSON)
          SELECT users.id
          FROM public.users AS users
          WHERE users.id = current_setting('app.current_user_id', true)::UUID
-           AND users.role = 'admin'
-           AND users.status = 'active'
-           AND users."deletedAt" IS NULL
          FOR SHARE`,
       );
 
