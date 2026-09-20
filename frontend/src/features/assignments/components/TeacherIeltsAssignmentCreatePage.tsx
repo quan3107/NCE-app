@@ -217,13 +217,12 @@ export function TeacherIeltsAssignmentCreatePage() {
     }
   };
 
-  // Gate both authoring flows before mounting forms with unavailable course data.
-  if (isLoading || error || courses.length === 0) {
-    return (
+  const resourcesUnavailable = isLoading || Boolean(error) || courses.length === 0;
+  const resourceState = resourcesUnavailable ? (
       <div>
-        <PageHeader title="Create Assignment" actions={
+        {!selectedGenericType && <PageHeader title="Create Assignment" actions={
           <Button variant="outline" onClick={() => navigate('/teacher/assignments')}>Back to Assignments</Button>
-        } />
+        } />}
         <div className="p-4 sm:p-6 lg:p-8 space-y-4" role={error ? 'alert' : 'status'}>
           <p>{error ? `Unable to load assignment resources: ${error.message}` : isLoading
             ? 'Loading assignment resources...' : 'No courses are available. A course is required to create an assignment.'}</p>
@@ -233,19 +232,26 @@ export function TeacherIeltsAssignmentCreatePage() {
           }}>Retry</Button>}
         </div>
       </div>
+    ) : null;
+
+  // Keep the generic draft owner mounted through background query failures.
+  // Its controls and submit handler remain blocked until resources recover.
+  if (selectedGenericType) {
+    return (
+      <>
+        {resourceState}
+        <TeacherGenericAssignmentCreatePage
+          courses={courses}
+          resourcesUnavailable={resourcesUnavailable}
+          initialType={selectedGenericType}
+          onCancel={() => setSelectedGenericType(null)}
+          onCreated={() => navigate('/teacher/assignments')}
+        />
+      </>
     );
   }
 
-  if (selectedGenericType) {
-    return (
-      <TeacherGenericAssignmentCreatePage
-        courses={courses}
-        initialType={selectedGenericType}
-        onCancel={() => setSelectedGenericType(null)}
-        onCreated={() => navigate('/teacher/assignments')}
-      />
-    );
-  }
+  if (resourcesUnavailable) return resourceState;
 
   if (!selectedType) {
     return (
