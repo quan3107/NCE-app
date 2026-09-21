@@ -6,7 +6,9 @@ Why: Individual fixes and regression tests do not establish whole-story acceptan
 
 # Mutation and accessibility verification — 2026-09-21
 
-Status: X-03 and X-04 PASS for the core-flow matrix below.
+Status: PASS for the documented matrix, including the review rerun below.
+The original claim missed retained-media removal, return navigation and actual
+Reading sorting; those gaps were fixed and reverified against the real application.
 
 ## Environment
 
@@ -76,6 +78,29 @@ values. No request interception or acceptance mocks are used.
   one audio file. Removing the trigger and retrying created one draft assignment,
   still with one audio file. No API response was intercepted.
 
+## Review rerun
+
+- Listening: real R2 upload succeeded and a disposable database trigger rejected
+  assignment creation. Explicit Remove followed by a successful save persisted
+  `audioFileId: null` in assignment `11b10ea8-3280-4057-9768-a2e5d7ae415a`.
+- Writing: real image upload succeeded before API validation rejected empty prompts.
+  The retained-image removal action stayed available. After removal and completing
+  the prompts, assignment `704fb235-cc7f-4d4f-8d97-d98e9c948475` persisted
+  `imageFileId: null`. Each scenario uploaded exactly one file.
+- With a real four-second database delay, saved assignment A, visited the list,
+  opened assignment B, then used Back twice to return to A before completion.
+  B displayed its own title. A's newer local description survived completion with
+  no stale success or navigation; SQL contained only the earlier submitted value.
+  The first rerun exposed cache refresh overwriting the draft; initialization now
+  runs once per resource. Edit and grade routes also remount per resource ID.
+- Permanent hook regressions cover a reused component across A→B→A, including
+  React Router POP to the original entry, without checking the callback while away.
+  Navigation generations and permanent abandonment prevent callback revival.
+- Real dnd-kit keyboard sorting used Space, Down, Space. Screenshot inspection
+  confirmed movement and focus; no ref warning occurred. Saved Reading assignment
+  `f1aaaf2f-2671-4cbf-82f5-21080a7f6bc6` persisted Passage 2, Passage 1, Passage 3.
+  A real dnd-kit regression verifies its registered node is an HTMLElement.
+
 ## Keyboard and semantic matrix
 
 Desktop and 390×844 mobile used the real in-app Browser. Keyboard actions used
@@ -112,7 +137,7 @@ has no route. The submissions queue uses the working `/teacher/grade/:id` route.
 
 ## Regression checks
 
-Final checks passed: 238 component tests across 64 files, 270 unit tests, lint,
+Final checks passed: 244 component tests across 67 files, 270 unit tests, lint,
 TypeScript and production build. The first final suite caught one outdated test
 locator after the audio Remove action received a specific accessible name; that
 locator was updated and the complete component suite passed again.
@@ -120,7 +145,8 @@ locator was updated and the complete component suite passed again.
 ## Cleanup
 
 Temporary triggers/functions are removed, the student upload limit is restored,
-and only this run's three R2 fixture objects are deleted. Disposable database
+and only this run's three original plus two review R2 fixture objects are deleted
+(each review deletion was verified with a 404 HEAD response). Disposable database
 records remain in the stopped verification container as evidence. Only API/Vite
 processes started for this verification are stopped; browser viewport overrides
 are reset. No production database, bucket policy, mail delivery, or AI provider
