@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-21:** Completed OPS-05/07/08/10/15/16 with real PostgreSQL/API verification: added admin-only paginated delivery metadata, mapped duplicate user creation to 409, and made homepage aggregates exclude deleted rows and avoid invented empty averages. Verified actual worker delivery, recipient privacy, role denials, equal-value settings CAS/audit semantics, all audit filters, and atomic aggregation failure. All 77 migrations applied locally; 1,085 backend tests pass (40 existing skips), lint/build and OpenAPI validation pass. Evidence: `docs/e2e-operations-verification.md`.
+
 - **2026-09-21:** Filter private listening transcripts and objective answer keys from student assignment list/detail responses, preserving teacher data, scoring, and Writing sample-release rules. Real API checks confirm privacy before/after submission, correct raw scoring, and intended sample visibility. All 95 assignment/submission/scoring tests, TypeScript, and focused lint pass. ASG-09 PASS; evidence: `docs/e2e-listening-audio-verification.md`.
 
 - **2026-09-20:** Stabilized the settings-read UUID index regression by isolating the actor predicate from competing authorization filters; the concurrent-demotion test still exercises authorization. Both focused database tests, lint and formatting pass. A broader local run passed 1,107 tests but hit five environment/bootstrap failures; the environment-default suite passes separately with its expected database defaults. GitHub CI remains the clean-run verification.
@@ -224,6 +226,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-21:** Completed the six remaining OPS stories with Browser verification: notification inspection/re-drive, downloadable CSV with visible fallback, associated email/duplicate errors, settings conflict reload/retry, homepage Refresh Stats, and audit filters. Chrome saved a CSV whose values matched real filtered JSON; actual database locks exercised export/CMS pending and failure recovery. Added scope-change export protection. Lint, TypeScript, build, 269 unit tests, the 220-test component suite, and eight final analytics regressions pass. Catalog reconciles to 114 PASS, 3 FAIL, 1 BLOCKED, 7 DECISION-GATED; X-03 remains FAIL pending its wider matrix. Disposable task servers/database are stopped after verification; pre-existing local changes remain uncommitted.
 
 - **2026-09-21:** Complete listening authoring validation, section removal/reordering, explicit duplicate and same-name bulk mapping, playable student preview, and save locking throughout uploads. All 217 component tests, TypeScript, focused lint, and build pass. Real Browser/API/R2 verifies audio bytes, saved order/playback, upload-busy gating, learner rendering, and privacy. ASG-09 PASS; evidence: `docs/e2e-listening-audio-verification.md`.
 
