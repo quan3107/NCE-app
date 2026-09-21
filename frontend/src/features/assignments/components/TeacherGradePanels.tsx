@@ -20,6 +20,7 @@ import { IeltsSubmissionPayloadView } from './IeltsSubmissionPayloadView';
 import type { GradeCriterion } from './teacherGrade.logic';
 
 type TeacherGradePanelsProps = {
+  scoreError?: string | null;
   adjustments: number;
   assignment: Assignment;
   feedback: string;
@@ -43,6 +44,7 @@ type TeacherGradePanelsProps = {
 };
 
 export function TeacherGradePanels({
+  scoreError,
   adjustments,
   assignment,
   feedback,
@@ -73,6 +75,7 @@ export function TeacherGradePanels({
         <div className="lg:col-span-2 space-y-6">
           <StudentSubmissionPanel assignment={assignment} submission={submission} />
           <RubricPanel
+            scoreError={scoreError}
             assignment={assignment}
             gradeCriteria={gradeCriteria}
             ieltsGradingMode={ieltsGradingMode}
@@ -159,6 +162,7 @@ function StudentSubmissionPanel({ assignment, submission }: { assignment: Assign
 }
 
 function RubricPanel({
+  scoreError,
   assignment,
   gradeCriteria,
   ieltsGradingMode,
@@ -171,6 +175,7 @@ function RubricPanel({
   scores,
 }: Pick<
   TeacherGradePanelsProps,
+  | 'scoreError'
   | 'assignment'
   | 'gradeCriteria'
   | 'ieltsGradingMode'
@@ -188,18 +193,22 @@ function RubricPanel({
         <CardTitle>Rubric</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {scoreError && <p id="grade-score-error" role="alert" className="text-sm text-destructive">{scoreError}</p>}
         {rubricIsLoading && rubricIds.length > 0 ? (
           <p className="text-sm text-muted-foreground">Loading rubric criteria...</p>
         ) : rubricDrivenMode ? (
           gradeCriteria.map((criterion) => (
             <div key={criterion.key} className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>{criterion.label}</Label>
+                <Label htmlFor={`grade-${criterion.key}`}>{criterion.label}</Label>
                 <span className="text-sm text-muted-foreground">
                   {ieltsGradingMode ? 'Band' : `/ ${criterion.max}`}
                 </span>
               </div>
               <Input
+                id={`grade-${criterion.key}`}
+                aria-invalid={Boolean(scoreError)}
+                aria-describedby={scoreError ? 'grade-score-error' : undefined}
                 type="number"
                 min="0"
                 max={criterion.max}
@@ -217,6 +226,7 @@ function RubricPanel({
           ))
         ) : (
           <FreeformGradePanel
+            scoreError={scoreError}
             assignment={assignment}
             onRawScoreChange={onRawScoreChange}
             rawScoreInput={rawScoreInput}
@@ -229,11 +239,12 @@ function RubricPanel({
 }
 
 function FreeformGradePanel({
+  scoreError,
   assignment,
   onRawScoreChange,
   rawScoreInput,
   rubricIds,
-}: Pick<TeacherGradePanelsProps, 'assignment' | 'onRawScoreChange' | 'rawScoreInput' | 'rubricIds'>) {
+}: Pick<TeacherGradePanelsProps, 'scoreError' | 'assignment' | 'onRawScoreChange' | 'rawScoreInput' | 'rubricIds'>) {
   const fallbackMessage =
     rubricIds.length === 0
       ? 'No rubric is linked to this assignment. Freeform grading is enabled.'
@@ -245,8 +256,11 @@ function FreeformGradePanel({
     <div className="space-y-4 rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">{fallbackMessage}</p>
       <div className="space-y-2">
-        <Label>Raw Score</Label>
+        <Label htmlFor="grade-raw-score">Raw Score</Label>
         <Input
+          id="grade-raw-score"
+          aria-invalid={Boolean(scoreError)}
+          aria-describedby={scoreError ? 'grade-score-error' : undefined}
           type="number"
           min="0"
           max={assignment.maxScore}
@@ -275,6 +289,7 @@ function FeedbackPanel({
         </CardHeader>
         <CardContent>
           <Textarea
+            aria-label="Teacher feedback"
             rows={8}
             placeholder="Provide detailed feedback to the student..."
             value={feedback}
