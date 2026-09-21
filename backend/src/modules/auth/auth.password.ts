@@ -13,7 +13,7 @@ import { signAccessToken } from "./auth.tokens.js";
 import { AUTH_ERROR, createAuthError, isUniqueConstraintError } from "./auth.errors.js";
 import { generateRefreshToken } from "./auth.crypto.js";
 import { authRateLimiter } from "./auth.rate-limit.js";
-import { persistSession } from "./auth.sessions.js";
+import { lockSessionUser, persistSession } from "./auth.sessions.js";
 import { writeAuthAuditLogSafely } from "./auth.audit.js";
 import {
   assertActiveUser,
@@ -85,6 +85,7 @@ export async function handlePasswordLogin(
   const { session, user } = await runWithRole(
     { role: "service_role", userRole: "service_role" },
     async () => {
+      await lockSessionUser(candidate.id);
       const freshUser = await prisma.user.findFirst({
         where: {
           id: candidate.id,
@@ -96,10 +97,12 @@ export async function handlePasswordLogin(
           fullName: true,
           role: true,
           status: true,
+          password: true,
         },
       });
 
-      if (!freshUser) {
+      // A reset may have committed while bcrypt was checking the old credential.
+      if (!freshUser || freshUser.password !== candidate.password) {
         throw createAuthError(401, AUTH_ERROR);
       }
 
