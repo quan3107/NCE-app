@@ -13,6 +13,10 @@ and
 
 ## Backend
 
+- **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. Full delivery acceptance is BLOCKED: Brevo returned `401 API Key is not enabled`. Evidence: `docs/e2e-password-recovery-verification.md`.
+
+- **2026-09-21:** Recorded DG-01 password recovery decisions: reuse Brevo, expire reset links after 30 minutes, and revoke all existing sessions after a successful reset. Implementation and verification remain pending.
+
 - **2026-09-21:** No backend changes for the teacher dashboard grading-link fix.
 
 - **2026-09-21:** Reverified review fixes using real API/PostgreSQL/R2: explicit audio/image removal saved null media IDs after partial success, delayed assignment completion preserved the returned local draft, and keyboard Reading reorder persisted 2/1/3. Removed review triggers and two exact storage fixtures; no backend application changes.
@@ -234,6 +238,10 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-21:** Implemented accessible password request/reset/error/success screens and connected Forgot password. Browser verified existing/unknown generic responses and inspected form layout against the actual API/database; 270 unit tests, 249 component tests, lint, typecheck, and build pass. Browser credential submission awaits the requested manual handoff; delivered-email acceptance is blocked by Brevo. DG-01 is BLOCKED, giving 117 PASS, 0 FAIL, 2 BLOCKED, 6 DECISION-GATED. Evidence: `docs/e2e-password-recovery-verification.md`.
+
+- **2026-09-21:** Recorded the confirmed DG-01 recovery contract in the story catalog; password recovery UI implementation and verification remain pending.
 
 - **2026-09-21:** Corrected the teacher dashboard Grade action to the registered `/teacher/grade/:submissionId` route. Focused ESLint and frontend TypeScript checks pass.
 
