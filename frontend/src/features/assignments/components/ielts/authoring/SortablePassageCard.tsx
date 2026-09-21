@@ -54,10 +54,7 @@ export function SortablePassageCard({
         isDragging && 'border-primary shadow-lg'
       )}
     >
-      <CardHeader
-        className="cursor-pointer"
-        onClick={onToggle}
-      >
+      <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button
@@ -66,10 +63,8 @@ export function SortablePassageCard({
               className="size-8 shrink-0 cursor-grab active:cursor-grabbing"
               {...attributes}
               {...listeners}
+              aria-label={`Reorder ${title}`}
               onClick={(e) => {
-                e.stopPropagation();
-              }}
-              onPointerDown={(e) => {
                 e.stopPropagation();
               }}
             >
@@ -82,9 +77,17 @@ export function SortablePassageCard({
               </p>
             </div>
           </div>
-          <div className="shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${title}`}
+            aria-expanded={isExpanded}
+            onClick={onToggle}
+            className="shrink-0"
+          >
             {isExpanded ? <ChevronUp /> : <ChevronDown />}
-          </div>
+          </Button>
         </div>
       </CardHeader>
       {isExpanded && (
