@@ -82,9 +82,11 @@ export function ListeningSectionEditor({
               <Input
                 type="file"
                 accept="audio/*"
-                onChange={(event) =>
-                  onAudioSelect(section.id, event.target.files?.[0] ?? null)
-                }
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) onAudioSelect(section.id, file);
+                  event.target.value = '';
+                }}
                 className="flex-1"
               />
               <Button variant="outline" onClick={() => onAudioSelect(section.id, null)}>
@@ -97,7 +99,11 @@ export function ListeningSectionEditor({
             <Input
               type="file"
               accept="audio/*"
-              onChange={(event) => onAudioSelect(section.id, event.target.files?.[0] ?? null)}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) onAudioSelect(section.id, file);
+                event.target.value = '';
+              }}
             />
             <Button variant="outline">
               <Upload className="mr-2 size-4" />
