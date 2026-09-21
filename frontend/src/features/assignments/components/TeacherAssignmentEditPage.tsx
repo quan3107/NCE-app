@@ -67,12 +67,15 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
     null,
   );
   const [isUploadBusy, setIsUploadBusy] = useState(false);
+  const initializedAssignment = useRef<string | null>(null);
   const isIelts = isIeltsAssignmentType(formState.type);
 
   useEffect(() => {
-    if (!assignment) {
+    // Background invalidation from an earlier save must not replace this draft.
+    if (!assignment || initializedAssignment.current === assignment.id) {
       return;
     }
+    initializedAssignment.current = assignment.id;
     setFormState({
       title: assignment.title,
       description: assignment.description ?? '',
