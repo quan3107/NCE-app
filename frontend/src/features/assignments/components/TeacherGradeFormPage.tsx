@@ -4,7 +4,8 @@
  * Why: Keeps data lookup and grade submission flow near the route while panels live separately.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutationLifetime } from '@lib/useMutationLifetime';
 import { Card, CardContent } from '@components/ui/card';
 import { PageHeader } from '@components/common/PageHeader';
 import { Button } from '@components/ui/button';
@@ -31,11 +32,14 @@ import {
 } from './teacherGrade.logic';
 
 export function TeacherGradeFormPage({ submissionId }: { submissionId: string }) {
+  const captureLifetime = useMutationLifetime();
+  const pending = useRef(false);
   const { currentUser } = useAuthStore();
   const { navigate } = useRouter();
   const [scores, setScores] = useState<Record<string, number>>({});
   const [rawScoreInput, setRawScoreInput] = useState(0);
   const [feedback, setFeedback] = useState('');
+  const [scoreError, setScoreError] = useState<string | null>(null);
   const [pendingAiDecision, setPendingAiDecision] = useState<AiFeedbackPendingDecision | null>(null);
   const [appliedGradeStateKey, setAppliedGradeStateKey] = useState<string | null>(null);
   const { submissions, assignments, isLoading, error } = useAssignmentResources();
@@ -183,6 +187,8 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   const finalScore = rawScore + adjustments;
 
   const handleSubmit = async () => {
+    if (pending.current) return;
+    setScoreError(null);
     if (gradeQueryIsSettling) {
       toast.error('Wait for the existing grade to finish loading before submitting.');
       return;
@@ -196,14 +202,14 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       return;
     }
     if (!Number.isFinite(rawScore) || rawScore < 0) {
-      toast.error('Raw score must be a valid non-negative number.');
+      setScoreError('Raw score must be a valid non-negative number.');
       return;
     }
     if (
       ieltsGradingMode &&
       !gradeCriteria.every((criterion) => isValidIeltsBandScore(scores[criterion.key] ?? 0))
     ) {
-      toast.error('IELTS criteria must use bands from 0 to 9 in 0.5 increments.');
+      setScoreError('IELTS criteria must use bands from 0 to 9 in 0.5 increments.');
       return;
     }
 
@@ -225,6 +231,8 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       return;
     }
 
+    pending.current = true;
+    const isCurrent = captureLifetime();
     try {
       await upsertGradeMutation.mutateAsync({
         submissionId,
@@ -237,6 +245,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
           feedbackMd: feedbackMdForGrade,
         },
       });
+      if (!isCurrent()) return;
       markSubmissionAsGraded(submissionId);
 
       if (pendingAiDecision) {
@@ -250,9 +259,11 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
           } else {
             await finalizeAiFeedbackMutation.mutateAsync(decisionPayload);
           }
+          if (!isCurrent()) return;
           setPendingAiDecision(null);
           toast.success('Grade posted and AI feedback decision recorded.');
         } catch (aiDecisionError) {
+          if (!isCurrent()) return;
           toast.error(
             aiDecisionError instanceof Error
               ? `Grade posted, but AI feedback decision failed: ${aiDecisionError.message}`
@@ -267,7 +278,10 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       }
       navigate('/teacher/submissions');
     } catch (errorValue) {
+      if (!isCurrent()) return;
       toast.error(errorValue instanceof Error ? errorValue.message : 'Unable to post grade.');
+    } finally {
+      pending.current = false;
     }
   };
 
@@ -279,6 +293,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
         showBack
       />
       <TeacherGradePanels
+        scoreError={scoreError}
         adjustments={adjustments}
         assignment={assignment}
         feedback={feedback}
