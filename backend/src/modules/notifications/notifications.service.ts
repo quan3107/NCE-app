@@ -35,6 +35,33 @@ const RESENDABLE_STATUSES = new Set<NotificationStatus>([
   NotificationStatus.delivery_unknown,
 ])
 
+export async function listNotificationDeliveries(query: unknown) {
+  const { limit = DEFAULT_NOTIFICATION_LIMIT, cursor } =
+    notificationQuerySchema.parse(query)
+  const rows = await prisma.notification.findMany({
+    where: { deletedAt: null },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    // Operational metadata only: payloads can contain private educational content.
+    select: {
+      id: true,
+      userId: true,
+      type: true,
+      channel: true,
+      status: true,
+      attemptCount: true,
+      lastAttemptAt: true,
+      nextAttemptAt: true,
+      deadLetteredAt: true,
+    },
+  })
+  return {
+    data: rows.slice(0, limit),
+    nextCursor: rows.length > limit ? rows[limit - 1]!.id : null,
+  }
+}
+
 export async function listNotifications(actor: NotificationActor, query: unknown) {
   const { limit: rawLimit, cursor } = notificationQuerySchema.parse(query)
   const limit = rawLimit ?? DEFAULT_NOTIFICATION_LIMIT
