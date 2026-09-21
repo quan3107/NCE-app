@@ -5,7 +5,6 @@
  */
 
 import { Card, CardContent } from '@components/ui/card';
-import { cn } from '@components/ui/utils';
 import { useIeltsTypeMetadata } from '@features/ielts-config/typeMetadata.api';
 import type { IeltsAssignmentType } from '@lib/ielts';
 
@@ -60,20 +59,22 @@ export function IeltsTypeSelection({ onSelect }: IeltsTypeSelectionProps) {
         const Icon = resolveTypeIcon(type.icon);
 
         return (
-          <Card
+          <button
             key={type.id}
-            className={cn('cursor-pointer transition-all hover:shadow-lg hover:scale-105 border-2')}
+            type="button"
+            aria-label={type.title}
+            className="rounded-xl text-card-foreground cursor-pointer transition-all hover:shadow-lg hover:scale-105 border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             style={buildTypeCardBackgroundStyle(type.theme)}
             onClick={() => onSelect(type.id)}
           >
-            <CardContent className="p-8 text-center">
-              <div className="mb-4 flex justify-center">
+            <span className="block p-8 text-center">
+              <span className="mb-4 flex justify-center">
                 <Icon className="size-8" style={buildTypeIconStyle(type.theme)} />
-              </div>
-              <h3 className="mb-2">{type.title}</h3>
-              <p className="text-sm text-muted-foreground">{type.description}</p>
-            </CardContent>
-          </Card>
+              </span>
+              <span className="block mb-2 font-semibold">{type.title}</span>
+              <span className="block text-sm text-muted-foreground">{type.description}</span>
+            </span>
+          </button>
         );
       })}
     </div>
