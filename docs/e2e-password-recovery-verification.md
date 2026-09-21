@@ -86,3 +86,26 @@ After verification, the Browser session was signed out, the temporary API and
 frontend servers were stopped, and the disposable PostgreSQL container and its
 volume were removed. Temporary signing keys and saved session fixtures were
 deleted.
+
+## Delayed reset navigation follow-up
+
+A review found that a successful reset finishing after navigation could rewrite
+the address bar to `/reset-password` while the request form remained visible.
+The recovery form now uses the existing mutation lifetime guard before applying
+success, error, pending-state, or URL effects after an asynchronous response.
+Successful active forms clear pending state before removing the token fragment.
+
+Permanent BrowserRouter regressions cover late success and failure after using
+“Request a new reset link,” with the production reset/request route keys. The
+destination URL, email draft, feedback, and enabled submit button stay intact.
+All 251 component tests, frontend lint, typecheck, and build pass.
+
+The real Chromium/API/PostgreSQL rerun used a disposable account and explicit
+database token fixture; it did not send another email or mock any API response.
+A PostgreSQL row lock held the actual reset pending, and the test observed the
+API connection waiting on that lock before navigating to `/forgot-password`.
+Releasing the lock returned HTTP 200. The destination URL and email draft stayed
+intact, reload showed the request form, and PostgreSQL confirmed the password
+changed and token was consumed. The reload screenshot was visually inspected.
+Evidence: `/tmp/nce-password-recovery/navigation-evidence.json` and
+`navigation-after-reload.png`. The disposable environment was removed afterward.
