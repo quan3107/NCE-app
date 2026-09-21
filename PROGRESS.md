@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-21:** Verified X-03 against the real local API, disposable PostgreSQL and real R2. Controlled delays covered registration/contact/assignment/submission/grade/preferences/CMS/settings; SQL confirmed single results and revoked late-registration sessions. Concurrent file completion returned one ID; an induced assignment failure retained uploaded audio for retry. No backend application changes. Evidence: `docs/e2e-mutation-accessibility-verification.md`.
+
 - **2026-09-21:** Fixed inconsistent official-grade demo submission statuses and added an idempotent migration repairing active historical records. Real PostgreSQL/HTTP verified seed status, atomic teacher posts, server-calculated IELTS bands, ownership/deleted-record boundaries and migration replay. 1,085 standard tests plus the enabled migration regression pass; lint/build pass. STU-14 PASS; evidence: `docs/e2e-student-grades-verification.md`.
 
 - **2026-09-21:** Completed OPS-05/07/08/10/15/16 with real PostgreSQL/API verification: added admin-only paginated delivery metadata, mapped duplicate user creation to 409, and made homepage aggregates exclude deleted rows and avoid invented empty averages. Verified actual worker delivery, recipient privacy, role denials, equal-value settings CAS/audit semantics, all audit filters, and atomic aggregation failure. All 77 migrations applied locally; 1,085 backend tests pass (40 existing skips), lint/build and OpenAPI validation pass. Evidence: `docs/e2e-operations-verification.md`.
@@ -228,6 +230,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-21:** Completed the X-03/X-04 core-flow matrix with route/session mutation guards, account-owned authoring drafts, duplicate upload protection and explicit partial-success recovery. Fixed keyboard authoring controls, rich-text Tab escape, mobile drawer focus, field errors/statuses and rollback focus after revision refresh. Real Browser screenshots and API/PostgreSQL/R2 checks are recorded in `docs/e2e-mutation-accessibility-verification.md`; final frontend regression checks pass. Catalog: 117 PASS, 0 FAIL, 1 BLOCKED, 7 DECISION-GATED.
 
 - **2026-09-21:** Completed STU-14: unavailable conventional scores no longer imply zero, rubric rows no longer invent maxima, IELTS units are explicit, and grade failures offer working retry. Actual Browser/API/PostgreSQL checks cover assignment/detail/grade consistency, rubric/feedback/grader/time, reload, empty isolation and real lock-failure recovery. 270 unit and 224 component tests, lint, TypeScript and build pass. Totals: 115 PASS, 2 FAIL, 1 BLOCKED, 7 DECISION-GATED. Evidence: `docs/e2e-student-grades-verification.md`.
 
