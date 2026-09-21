@@ -179,7 +179,7 @@ export function AiPolicyControls({ type, value, onChange }: AiPolicyControlsProp
               value={view.policy.providerTier}
               onValueChange={(tier) => updatePolicy({ providerTier: tier as IeltsAiProviderTier })}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Provider tier">
                 <SelectValue placeholder="Select provider tier" />
               </SelectTrigger>
               <SelectContent>
