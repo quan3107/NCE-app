@@ -9,6 +9,7 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Label } from '@components/ui/label';
 import { formatDate } from '@lib/utils';
+import { isIeltsAssignmentType } from '@lib/ielts';
 import { FileText, Link as LinkIcon, Type, Upload } from 'lucide-react';
 
 type StudentAssignmentSidebarProps = {
@@ -66,7 +67,11 @@ export function StudentAssignmentSidebar({
           </div>
           <div>
             <Label>Max Score</Label>
-            <p className="text-sm mt-2">{assignment.maxScore} points</p>
+            <p className="text-sm mt-2">
+              {isIeltsAssignmentType(assignment.type)
+                ? `IELTS band ${assignment.maxScore}`
+                : `${assignment.maxScore} points`}
+            </p>
           </div>
         </CardContent>
       </Card>
