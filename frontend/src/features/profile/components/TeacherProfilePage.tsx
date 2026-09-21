@@ -16,8 +16,12 @@ import {
   useSaveMyNotificationPreferences,
 } from '@features/notifications/preferences.api';
 import { toast } from 'sonner@2.0.3';
+import { useRef } from 'react';
+import { useMutationLifetime } from '@lib/useMutationLifetime';
 
 export function TeacherProfilePage() {
+  const pending = useRef(false);
+  const captureLifetime = useMutationLifetime();
   const preferencesQuery = useMyNotificationPreferences();
   const savePreferencesMutation = useSaveMyNotificationPreferences();
   const resetPreferencesMutation = useResetMyNotificationPreferences();
@@ -27,27 +31,40 @@ export function TeacherProfilePage() {
     savePreferencesMutation.isPending || resetPreferencesMutation.isPending;
 
   const handleTogglePreference = async (id: string, enabled: boolean) => {
+    if (pending.current) return;
+    pending.current = true;
+    const isCurrent = captureLifetime();
     try {
       await savePreferencesMutation.mutateAsync({
         types: [{ id, enabled }],
       });
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('[notifications] failed to save teacher preference', {
         id,
         enabled,
         error,
       });
       toast.error('Unable to save notification preference. Please try again.');
+    } finally {
+      pending.current = false;
     }
   };
 
   const handleResetPreferences = async () => {
+    if (pending.current) return;
+    pending.current = true;
+    const isCurrent = captureLifetime();
     try {
       await resetPreferencesMutation.mutateAsync();
+      if (!isCurrent()) return;
       toast.success('Notification preferences reset to defaults.');
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('[notifications] failed to reset teacher preferences', { error });
       toast.error('Unable to reset preferences. Please try again.');
+    } finally {
+      pending.current = false;
     }
   };
 
@@ -76,6 +93,11 @@ export function TeacherProfilePage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              <p role="status" className="text-sm text-muted-foreground">
+                {isSavingPreferences ? 'Saving preferences...' :
+                  savePreferencesMutation.isSuccess || resetPreferencesMutation.isSuccess
+                    ? 'Preferences saved.' : ''}
+              </p>
               {preferencesQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">
                   Loading notification preferences...
@@ -92,10 +114,11 @@ export function TeacherProfilePage() {
                 preferenceTypes.map((type) => (
                   <div key={type.id} className="flex items-center justify-between">
                     <div>
-                      <Label>{type.label}</Label>
+                      <Label htmlFor={`preference-${type.id}`}>{type.label}</Label>
                       <p className="text-sm text-muted-foreground">{type.description}</p>
                     </div>
                     <Switch
+                      id={`preference-${type.id}`}
                       checked={type.enabled}
                       onCheckedChange={(enabled) =>
                         void handleTogglePreference(type.id, enabled)

@@ -63,7 +63,7 @@ export function AutoSaveIndicator({
   }
 
   return (
-    <div className={cn('flex items-center gap-1.5', className)}>
+    <div role="status" className={cn('flex items-center gap-1.5', className)}>
       {getContent()}
     </div>
   );

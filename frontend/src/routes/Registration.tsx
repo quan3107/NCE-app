@@ -4,7 +4,7 @@
  * Why: Keeps onboarding cohesive now that backend signup persists real accounts.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
@@ -21,6 +21,12 @@ import { toast } from 'sonner@2.0.3';
 import { RegistrationInformation, RegistrationTerms } from './RegistrationDetails';
 
 export function AuthRegister() {
+  const pending = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const { currentUser, isAuthenticated, register, loginWithGoogle } = useAuth();
   const { navigate, currentPath } = useRouter();
   const [formData, setFormData] = useState({
@@ -33,6 +39,7 @@ export function AuthRegister() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [fullNameError, setFullNameError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<{ field: string; message: string } | null>(null);
 
   // Navigate when user is already logged in
   useEffect(() => {
@@ -49,11 +56,13 @@ export function AuthRegister() {
   }, [currentPath, currentUser, isAuthenticated, navigate]);
 
   const handleInputChange = (field: string, value: string) => {
+    setValidationError(null);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (pending.current) return;
     setIsLoading(true);
 
     const validatedName = validateProfileDisplayName(formData.fullName);
@@ -64,29 +73,34 @@ export function AuthRegister() {
     }
 
     if (!formData.role) {
+      setValidationError({ field: 'role', message: 'Please select your role' });
       toast.error('Please select your role');
       setIsLoading(false);
       return;
     }
 
     if (formData.password.length < 8) {
+      setValidationError({ field: 'password', message: 'Password must be at least 8 characters' });
       toast.error('Password must be at least 8 characters');
       setIsLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
+      setValidationError({ field: 'confirmPassword', message: 'Passwords do not match' });
       toast.error('Passwords do not match');
       setIsLoading(false);
       return;
     }
 
     if (!agreedToTerms) {
+      setValidationError({ field: 'terms', message: 'Please accept the Terms and Conditions' });
       toast.error('Please accept the Terms and Conditions');
       setIsLoading(false);
       return;
     }
 
+    pending.current = true;
     try {
       const result = await register({
         fullName: validatedName.normalizedName,
@@ -95,6 +109,7 @@ export function AuthRegister() {
         role: formData.role as RegisterRole,
       });
 
+      if (!mounted.current) return;
       if (result === 'pending_approval') {
         toast.success(
           'Teacher account request submitted. Please wait for admin approval before signing in.',
@@ -106,16 +121,19 @@ export function AuthRegister() {
       toast.success('Account created successfully!');
       navigate('/student/dashboard');
     } catch (error) {
+      if (!mounted.current) return;
       const fieldError = profileNameFieldError(error);
       if (fieldError) {
         setFullNameError(fieldError);
       } else if (error instanceof ApiError) {
+        setValidationError({ field: 'email', message: error.message || 'Registration failed. Please try again.' });
         toast.error(error.message || 'Registration failed. Please try again.');
       } else {
         toast.error('Registration failed. Please try again.');
       }
     } finally {
-      setIsLoading(false);
+      pending.current = false;
+      if (mounted.current) setIsLoading(false);
     }
   };
 
@@ -172,6 +190,7 @@ export function AuthRegister() {
 
           {/* Email Registration */}
           <form onSubmit={handleEmailRegister} className="space-y-4">
+            {validationError && <p id="registration-error" role="alert" className="text-sm text-destructive">{validationError.message}</p>}
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <div className="relative">
@@ -192,7 +211,7 @@ export function AuthRegister() {
                 />
               </div>
               {fullNameError && (
-                <p id="fullName-error" className="text-sm text-destructive">
+                <p id="fullName-error" role="alert" className="text-sm text-destructive">
                   {fullNameError}
                 </p>
               )}
@@ -204,6 +223,8 @@ export function AuthRegister() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   id="email"
+                  aria-invalid={validationError?.field === 'email'}
+                  aria-describedby={validationError?.field === 'email' ? 'registration-error' : undefined}
                   type="email"
                   placeholder="your.email@example.com"
                   value={formData.email}
@@ -223,7 +244,7 @@ export function AuthRegister() {
                   onValueChange={(value) => handleInputChange('role', value)}
                   required
                 >
-                  <SelectTrigger id="role" className="pl-10">
+                  <SelectTrigger id="role" className="pl-10" aria-invalid={validationError?.field === 'role'} aria-describedby={validationError?.field === 'role' ? 'registration-error' : undefined}>
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -240,6 +261,8 @@ export function AuthRegister() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   id="password"
+                  aria-invalid={validationError?.field === 'password'}
+                  aria-describedby={validationError?.field === 'password' ? 'registration-error' : undefined}
                   type="password"
                   placeholder="••••••••"
                   value={formData.password}
@@ -258,6 +281,8 @@ export function AuthRegister() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   id="confirmPassword"
+                  aria-invalid={validationError?.field === 'confirmPassword'}
+                  aria-describedby={validationError?.field === 'confirmPassword' ? 'registration-error' : undefined}
                   type="password"
                   placeholder="••••••••"
                   value={formData.confirmPassword}
@@ -270,8 +295,9 @@ export function AuthRegister() {
             </div>
 
             <RegistrationTerms
+              errorId={validationError?.field === 'terms' ? 'registration-error' : undefined}
               checked={agreedToTerms}
-              onCheckedChange={setAgreedToTerms}
+              onCheckedChange={(checked) => { setAgreedToTerms(checked); setValidationError(null); }}
             />
 
             <Button type="submit" className="w-full" disabled={isLoading}>

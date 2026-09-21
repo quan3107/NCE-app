@@ -13,21 +13,42 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@components/ui/alert-dialog';
+import { useRef } from 'react';
 
 type ConfirmRollbackDialogProps = {
   open: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  isBusy?: boolean;
+  error?: unknown;
 };
 
 export function ConfirmRollbackDialog({
   open,
   onCancel,
   onConfirm,
+  isBusy = false,
+  error,
 }: ConfirmRollbackDialogProps) {
+  const opener = useRef<HTMLElement | null>(null);
   return (
     <AlertDialog open={open} onOpenChange={(nextOpen) => !nextOpen && onCancel()}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onOpenAutoFocus={() => { opener.current = document.activeElement as HTMLElement; }}
+        onCloseAutoFocus={(event) => {
+          if (opener.current) {
+            event.preventDefault();
+            const restoreFocus = () => {
+              // Refreshing revisions may replace the original trigger node.
+              const target = opener.current?.id
+                ? document.getElementById(opener.current.id) : opener.current;
+              if (target?.isConnected) target.focus();
+            };
+            restoreFocus();
+            requestAnimationFrame(restoreFocus);
+          }
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>Publish this historical revision?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -35,9 +56,13 @@ export function ConfirmRollbackDialog({
             Concurrent draft changes will be rejected.
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {error ? <p role="alert" className="text-sm text-destructive">{error instanceof Error ? error.message : 'Rollback failed. Please try again.'}</p> : null}
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Confirm rollback</AlertDialogAction>
+          <AlertDialogAction disabled={isBusy} onClick={(event) => {
+            event.preventDefault();
+            onConfirm();
+          }}>{isBusy ? 'Rolling back…' : 'Confirm rollback'}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

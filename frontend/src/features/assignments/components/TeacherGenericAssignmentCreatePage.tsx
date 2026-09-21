@@ -3,7 +3,8 @@
  * Purpose: Author and publish supported generic assignments.
  * Why: The active teacher create route previously exposed only IELTS workflows.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useMutationLifetime } from '@lib/useMutationLifetime';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
@@ -40,41 +41,52 @@ export function TeacherGenericAssignmentCreatePage({
   resourcesUnavailable = false,
 }: TeacherGenericAssignmentCreatePageProps) {
   const createAssignmentMutation = useCreateAssignmentMutation();
+  const captureLifetime = useMutationLifetime();
+  const pending = useRef(false);
   const [title, setTitle] = useState('');
   const [courseId, setCourseId] = useState('');
   const [type, setType] = useState<GenericAssignmentType>(initialType);
   const [description, setDescription] = useState('');
   const [dueAt, setDueAt] = useState('');
   const [maxScore, setMaxScore] = useState('100');
+  const [validationError, setValidationError] = useState<{ field: string; message: string } | null>(null);
+  const reportError = (field: string, message: string) => setValidationError({ field, message });
+  const errorProps = (field: string) => ({
+    'aria-invalid': validationError?.field === field,
+    'aria-describedby': validationError?.field === field ? 'generic-assignment-error' : undefined,
+  });
 
   const handleSubmit = async (publish: boolean) => {
     // Preserve local fields during recovery without allowing stale submissions.
-    if (resourcesUnavailable) return;
+    if (resourcesUnavailable || pending.current) return;
     if (!title.trim()) {
-      toast.error('Assignment title is required.');
+      reportError('title', 'Assignment title is required.');
       return;
     }
     if (!courses.some((course) => course.id === courseId)) {
-      toast.error('Please select a course.');
+      reportError('course', 'Please select a course.');
       return;
     }
     if (publish && !dueAt) {
-      toast.error('Due date is required before publishing.');
+      reportError('due', 'Due date is required before publishing.');
       return;
     }
 
     const parsedScore = Number(maxScore);
     if (!Number.isFinite(parsedScore) || parsedScore <= 0 || parsedScore > 10_000) {
-      toast.error('Maximum score must be greater than 0 and no more than 10,000.');
+      reportError('score', 'Maximum score must be greater than 0 and no more than 10,000.');
       return;
     }
 
     const parsedDueAt = dueAt ? new Date(dueAt) : null;
     if (parsedDueAt && Number.isNaN(parsedDueAt.getTime())) {
-      toast.error('Enter a valid due date.');
+      reportError('due', 'Enter a valid due date.');
       return;
     }
 
+    pending.current = true;
+    setValidationError(null);
+    const isCurrent = captureLifetime();
     try {
       await createAssignmentMutation.mutateAsync({
         courseId,
@@ -90,10 +102,14 @@ export function TeacherGenericAssignmentCreatePage({
           publishedAt: publish ? new Date().toISOString() : undefined,
         },
       });
+      if (!isCurrent()) return;
       toast.success(publish ? 'Assignment published successfully.' : 'Assignment draft saved.');
       onCreated();
     } catch (error) {
+      if (!isCurrent()) return;
       toast.error(error instanceof Error ? error.message : 'Unable to save assignment.');
+    } finally {
+      pending.current = false;
     }
   };
 
@@ -112,11 +128,13 @@ export function TeacherGenericAssignmentCreatePage({
       <div className="p-4 sm:p-6 lg:p-8">
         <Card className="mx-auto max-w-4xl">
           <CardContent className="space-y-6 p-6">
+            {validationError && <p id="generic-assignment-error" role="alert" className="text-sm text-destructive">{validationError.message}</p>}
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="generic-assignment-title">Title</Label>
                 <Input
                   id="generic-assignment-title"
+                  {...errorProps('title')}
                   value={title}
                   maxLength={200}
                   onChange={(event) => setTitle(event.target.value)}
@@ -125,7 +143,7 @@ export function TeacherGenericAssignmentCreatePage({
               <div className="space-y-2">
                 <Label htmlFor="generic-assignment-course">Course</Label>
                 <Select value={courseId} onValueChange={setCourseId} disabled={resourcesUnavailable}>
-                  <SelectTrigger id="generic-assignment-course">
+                  <SelectTrigger id="generic-assignment-course" {...errorProps('course')}>
                     <SelectValue placeholder="Select course" />
                   </SelectTrigger>
                   <SelectContent>
@@ -169,6 +187,7 @@ export function TeacherGenericAssignmentCreatePage({
                 <Label htmlFor="generic-assignment-due">Due Date</Label>
                 <Input
                   id="generic-assignment-due"
+                  {...errorProps('due')}
                   type="datetime-local"
                   value={dueAt}
                   onChange={(event) => setDueAt(event.target.value)}
@@ -178,6 +197,7 @@ export function TeacherGenericAssignmentCreatePage({
                 <Label htmlFor="generic-assignment-score">Maximum Score</Label>
                 <Input
                   id="generic-assignment-score"
+                  {...errorProps('score')}
                   type="number"
                   min="0.01"
                   max="10000"

@@ -74,7 +74,7 @@ export function ListeningSectionEditor({
       questionCount={section.questions.length}
       hasAudio={!!uploadedAudio || !!section.audioFileId}
     >
-      <div className="flex items-end gap-2">
+      <div className="flex flex-wrap items-end gap-2">
         <div className="flex-1 space-y-2">
           <Label htmlFor={`title-${section.id}`}>Section title</Label>
           <Input id={`title-${section.id}`} value={section.title}
@@ -84,7 +84,7 @@ export function ListeningSectionEditor({
           onClick={() => onRemoveSection(section.id)}>Remove {section.title}</Button>
       </div>
       <div className="space-y-2">
-        <Label>Audio File</Label>
+        <Label htmlFor={`audio-${section.id}`}>Audio File — {section.title}</Label>
         {uploadedAudio ? (
           <div className="space-y-3">
             <AudioPlayer
@@ -94,6 +94,7 @@ export function ListeningSectionEditor({
             />
             <div className="flex gap-2">
               <Input
+                id={`audio-${section.id}`}
                 type="file"
                 accept="audio/*"
                 onChange={(event) => {
@@ -103,14 +104,15 @@ export function ListeningSectionEditor({
                 }}
                 className="flex-1"
               />
-              <Button variant="outline" onClick={() => onAudioSelect(section.id, null)}>
+              <Button aria-label={`Remove audio for ${section.title}`} variant="outline" onClick={() => onAudioSelect(section.id, null)}>
                 Remove
               </Button>
             </div>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Input
+              id={`audio-${section.id}`}
               type="file"
               accept="audio/*"
               onChange={(event) => {
@@ -119,7 +121,7 @@ export function ListeningSectionEditor({
                 event.target.value = '';
               }}
             />
-            <Button variant="outline">
+            <Button aria-label={`Upload audio for ${section.title}`} variant="outline" onClick={() => document.getElementById(`audio-${section.id}`)?.click()}>
               <Upload className="mr-2 size-4" />
               Upload
             </Button>
@@ -141,7 +143,7 @@ export function ListeningSectionEditor({
             onUpdateSection(sectionIndex, { playback: { limitPlays: toPlaybackLimit(value) } })
           }
         >
-          <SelectTrigger>
+          <SelectTrigger aria-label="Playback Limit">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

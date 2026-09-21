@@ -217,6 +217,8 @@ export function LoginRoute() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   id="email"
+                  aria-invalid={Boolean(errorMessage)}
+                  aria-describedby={errorMessage ? 'login-error' : undefined}
                   type="email"
                   placeholder="your.email@example.com"
                   value={email}
@@ -236,6 +238,8 @@ export function LoginRoute() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   id="password"
+                  aria-invalid={Boolean(errorMessage)}
+                  aria-describedby={errorMessage ? 'login-error' : undefined}
                   type="password"
                   placeholder="••••••••"
                   value={password}
@@ -250,7 +254,7 @@ export function LoginRoute() {
             </div>
 
             {errorMessage && (
-              <Alert variant="destructive">
+              <Alert id="login-error" variant="destructive">
                 <AlertTitle>Sign-in failed</AlertTitle>
                 <AlertDescription>{errorMessage}</AlertDescription>
               </Alert>

@@ -49,6 +49,7 @@ const homepageContent = {
 vi.mock("@features/admin/cmsApi", () => ({
   useRefreshHomepageStatsMutation: () => ({
     mutate: vi.fn(),
+    reset: vi.fn(),
     isPending: false,
   }),
   isCmsVersionConflict: (error: unknown) =>

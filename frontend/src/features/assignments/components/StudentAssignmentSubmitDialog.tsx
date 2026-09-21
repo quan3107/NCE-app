@@ -41,6 +41,7 @@ type StudentAssignmentSubmitDialogProps = {
   onIeltsAttemptChange?: (attempt: StudentIeltsAttemptState) => void;
   onSaveDraft?: () => void;
   onSubmit: () => void;
+  error?: string | null;
 };
 
 export function StudentAssignmentSubmitDialog({
@@ -62,6 +63,7 @@ export function StudentAssignmentSubmitDialog({
   onIeltsAttemptChange,
   onSaveDraft,
   onSubmit,
+  error,
 }: StudentAssignmentSubmitDialogProps) {
   const ieltsForm =
     ieltsType && ieltsConfig && ieltsAttempt && onIeltsAttemptChange
@@ -80,6 +82,7 @@ export function StudentAssignmentSubmitDialog({
           <DialogTitle>{ieltsForm ? 'IELTS Attempt' : 'Submit Assignment'}</DialogTitle>
           <DialogDescription>Submit your work for {assignment.title}</DialogDescription>
         </DialogHeader>
+        {error && <p id="submission-error" role="alert" className="text-sm text-destructive">{error}</p>}
 
         {ieltsForm ? (
           <StudentIeltsAttemptForm
@@ -109,6 +112,8 @@ export function StudentAssignmentSubmitDialog({
                 <Label htmlFor="link">Submission Link</Label>
                 <Input
                   id="link"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? 'submission-error' : undefined}
                   placeholder="https://..."
                   value={submissionContent}
                   onChange={(event) => onSubmissionContentChange(event.target.value)}
@@ -121,6 +126,8 @@ export function StudentAssignmentSubmitDialog({
                 <Label htmlFor="text">Your Response</Label>
                 <Textarea
                   id="text"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? 'submission-error' : undefined}
                   placeholder="Type your response here..."
                   rows={8}
                   value={submissionContent}

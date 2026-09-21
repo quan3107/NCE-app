@@ -59,7 +59,7 @@ test('rejects text repeatedly before preview or upload and preserves existing va
   expect(screen.getByText('section1.wav')).toBeTruthy();
   expect(mocks.revokeUrl).not.toHaveBeenCalled();
   expect(onAudioSelect).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Remove audio for Section 1', exact: true }));
   expect(onAudioSelect).toHaveBeenLastCalledWith('one', null);
 });
 

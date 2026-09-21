@@ -58,6 +58,7 @@ export function CmsRevisionHistory({
               </p>
             </div>
             <Button
+              id={`cms-rollback-${revision.id}`}
               type="button"
               size="sm"
               variant="outline"

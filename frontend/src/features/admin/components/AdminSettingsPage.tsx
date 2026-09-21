@@ -3,7 +3,8 @@
  * Purpose: Manage persisted role-based file upload limits.
  * Why: Admin settings should show only controls with real runtime behavior.
  */
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useMutationLifetime } from "@lib/useMutationLifetime";
 
 import { PageHeader } from "@components/common/PageHeader";
 import { Button } from "@components/ui/button";
@@ -40,6 +41,8 @@ export function AdminSettingsPage() {
 }
 
 function AdminSettingsForm() {
+  const pending = useRef(false);
+  const captureLifetime = useMutationLifetime();
   const limitsQuery = useAdminUploadLimitsQuery();
   const updateLimits = useUpdateAdminUploadLimitsMutation();
   const [form, setForm] = useState<FormState>(() => ({
@@ -72,7 +75,7 @@ function AdminSettingsForm() {
 
   const submitSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (updateLimits.isPending || conflicted) return;
+    if (pending.current || updateLimits.isPending || conflicted) return;
     const nextErrors: FormErrors = {};
     const parsedValues = emptyValues();
     for (const role of ROLES) {
@@ -102,8 +105,11 @@ function AdminSettingsForm() {
     if (Object.keys(updates).length === 0) return;
 
     setSaveError(null);
+    pending.current = true;
+    const isCurrent = captureLifetime();
     try {
       const saved = await updateLimits.mutateAsync({ updates });
+      if (!isCurrent()) return;
       const nextSavedValues = emptyValues();
       for (const limit of saved.limits) {
         nextSavedValues[limit.role] = String(limit.maxFileSizeMib);
@@ -113,12 +119,15 @@ function AdminSettingsForm() {
         savedValues: nextSavedValues,
       });
     } catch (error) {
+      if (!isCurrent()) return;
       setConflicted(error instanceof ApiError && error.status === 409);
       setSaveError(
         error instanceof ApiError && error.status === 409
           ? "Settings changed in another session. Reload before saving again."
           : "Unable to save settings. Please try again.",
       );
+    } finally {
+      pending.current = false;
     }
   };
 
@@ -183,7 +192,7 @@ function AdminSettingsForm() {
                         aria-describedby={errors[role] ? errorId : undefined}
                       />
                       {errors[role] && (
-                        <p id={errorId} className="text-sm text-destructive">
+                        <p id={errorId} role="alert" className="text-sm text-destructive">
                           {errors[role]}
                         </p>
                       )}
@@ -196,6 +205,7 @@ function AdminSettingsForm() {
                   {saveError}
                 </p>
               )}
+              {updateLimits.isSuccess && !saveError && <p role="status">Settings saved.</p>}
               {conflicted && (
                 <Button
                   type="button"

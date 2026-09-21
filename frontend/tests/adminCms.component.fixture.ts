@@ -20,6 +20,7 @@ export const refreshStatsState = {
 };
 export const useRefreshHomepageStatsMutation = () => ({
   mutate: refreshStatsMutate,
+  reset: vi.fn(),
   ...refreshStatsState,
 });
 export const cmsState = {

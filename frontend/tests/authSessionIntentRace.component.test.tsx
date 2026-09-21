@@ -48,6 +48,35 @@ const wrapper = ({ children }: PropsWithChildren) => (
   <AuthProvider>{children}</AuthProvider>
 );
 
+test("registration completed after leaving its route revokes the unused session", async () => {
+  window.history.replaceState({}, '', '/register');
+  let resolveRegistration!: (response: Response) => void;
+  let logoutCalls = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const path = new URL(String(input)).pathname;
+    if (path.endsWith('/auth/register')) {
+      return new Promise<Response>((resolve) => { resolveRegistration = resolve; });
+    }
+    if (path.endsWith('/auth/logout')) {
+      logoutCalls += 1;
+      return new Response(null, { status: 204 });
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  }));
+  const { result } = renderHook(() => useAuth(), { wrapper });
+  let operation!: Promise<unknown>;
+  act(() => {
+    operation = result.current.register({ fullName: 'User A', email: 'a@example.com', password: 'password', role: 'student' });
+  });
+  await waitFor(() => assert.equal(typeof resolveRegistration, 'function'));
+  window.history.pushState({}, '', '/contact');
+  resolveRegistration(Response.json(authResponse('user-a', 'token-a')));
+  await act(async () => operation.catch(() => undefined));
+  assert.equal(result.current.isAuthenticated, false);
+  assert.equal(logoutCalls, 1);
+  window.history.replaceState({}, '', '/');
+});
+
 test("logout remains locally clear after an earlier login completes", async () => {
   let resolveLogin!: (response: Response) => void;
   vi.stubGlobal(

@@ -76,6 +76,7 @@ export function WritingTaskSection({
       <div className="space-y-2">
         <Label>{taskLabel} Prompt</Label>
         <Textarea
+          aria-label={`${taskLabel} Prompt`}
           value={stripHtml(prompt)}
           onChange={(event) => onChangePrompt(stripHtml(event.target.value))}
           placeholder={promptPlaceholder}
@@ -84,7 +85,7 @@ export function WritingTaskSection({
       </div>
       <div className="space-y-2">
         <Label>Student Response</Label>
-        <RichTextEditor value="" onChange={() => {}} placeholder="Students will write their response here..." />
+        <RichTextEditor aria-label={`${taskLabel} Student Response`} value="" onChange={() => {}} placeholder="Students will write their response here..." />
       </div>
       {children}
       <div className="mt-4 space-y-3">

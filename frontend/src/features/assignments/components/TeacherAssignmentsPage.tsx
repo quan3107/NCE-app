@@ -56,7 +56,10 @@ export function TeacherAssignmentsPage() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3>{assignment.title}</h3>
+                    <h3><button type="button" className="text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" onClick={(event) => {
+                      event.stopPropagation();
+                      navigate(`/teacher/assignments/${assignment.id}/detail`);
+                    }}>{assignment.title}</button></h3>
                     <Badge variant={assignment.status === 'published' ? 'default' : 'secondary'} className="capitalize">
                       {assignment.status}
                     </Badge>
@@ -78,6 +81,7 @@ export function TeacherAssignmentsPage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label={`Edit ${assignment.title}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     navigate(`/teacher/assignments/${assignment.id}/edit`);

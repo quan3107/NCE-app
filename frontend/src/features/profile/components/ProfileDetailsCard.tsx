@@ -204,7 +204,7 @@ export function ProfileDetailsCard() {
               aria-describedby={nameError ? "profile-name-error" : undefined}
             />
             {nameError && (
-              <p id="profile-name-error" className="text-sm text-destructive">
+              <p id="profile-name-error" role="alert" className="text-sm text-destructive">
                 {nameError}
               </p>
             )}

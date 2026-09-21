@@ -4,12 +4,12 @@
  * Why: Provides intuitive drag-and-drop for reordering passages.
  */
 
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
-import { Button } from '@components/ui/button';
-import { cn } from '@components/ui/utils';
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@components/ui/card";
+import { Button } from "@components/ui/button";
+import { cn } from "@components/ui/utils";
 
 interface SortablePassageCardProps {
   id: string;
@@ -46,50 +46,50 @@ export function SortablePassageCard({
   };
 
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        'border-2',
-        isDragging && 'border-primary shadow-lg'
-      )}
-    >
-      <CardHeader
-        className="cursor-pointer"
-        onClick={onToggle}
+    <div ref={setNodeRef} style={style}>
+      <Card
+        className={cn("border-2", isDragging && "border-primary shadow-lg")}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0 cursor-grab active:cursor-grabbing"
+                {...attributes}
+                {...listeners}
+                aria-label={`Reorder ${title}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <GripVertical className="size-4 text-muted-foreground" />
+              </Button>
+              <div>
+                <CardTitle className="text-lg">{title}</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {questionCount} questions
+                </p>
+              </div>
+            </div>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              className="size-8 shrink-0 cursor-grab active:cursor-grabbing"
-              {...attributes}
-              {...listeners}
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-              }}
+              aria-label={`${isExpanded ? "Collapse" : "Expand"} ${title}`}
+              aria-expanded={isExpanded}
+              onClick={onToggle}
+              className="shrink-0"
             >
-              <GripVertical className="size-4 text-muted-foreground" />
+              {isExpanded ? <ChevronUp /> : <ChevronDown />}
             </Button>
-            <div>
-              <CardTitle className="text-lg">{title}</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                {questionCount} questions
-              </p>
-            </div>
           </div>
-          <div className="shrink-0">
-            {isExpanded ? <ChevronUp /> : <ChevronDown />}
-          </div>
-        </div>
-      </CardHeader>
-      {isExpanded && (
-        <CardContent className="space-y-4">{children}</CardContent>
-      )}
-    </Card>
+        </CardHeader>
+        {isExpanded && (
+          <CardContent className="space-y-4">{children}</CardContent>
+        )}
+      </Card>
+    </div>
   );
 }

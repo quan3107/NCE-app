@@ -22,6 +22,7 @@ export default defineConfig({
       '@radix-ui/react-select@2.1.6': '@radix-ui/react-select',
       '@radix-ui/react-switch@1.1.3': '@radix-ui/react-switch',
       '@radix-ui/react-tabs@1.1.3': '@radix-ui/react-tabs',
+      '@radix-ui/react-tooltip@1.1.8': '@radix-ui/react-tooltip',
       '@radix-ui/react-radio-group@1.2.3': '@radix-ui/react-radio-group',
       'class-variance-authority@0.7.1': 'class-variance-authority',
       'lucide-react@0.487.0': 'lucide-react',

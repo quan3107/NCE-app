@@ -26,6 +26,7 @@ import {
 import type { IeltsWritingTask1Type } from '@lib/ielts';
 
 type WritingVisualUploadProps = {
+  retainedFileId?: string | null;
   fileName: string | null;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveImage: () => void;
@@ -36,6 +37,7 @@ type WritingVisualUploadProps = {
 };
 
 export function WritingVisualUpload({
+  retainedFileId,
   fileName,
   onFileChange,
   onRemoveImage,
@@ -46,8 +48,12 @@ export function WritingVisualUpload({
 }: WritingVisualUploadProps) {
   if (!previewUrl) {
     return (
-      <div className="flex items-center gap-2">
-        <Input type="file" accept="image/*" onChange={onFileChange} className="flex-1" />
+      <div className="space-y-2">
+        {retainedFileId && <div className="flex flex-wrap items-center gap-2">
+          <p>Uploaded Task 1 visual retained for this draft.</p>
+          <Button aria-label="Remove Task 1 visual" variant="outline" onClick={onRemoveImage}>Remove</Button>
+        </div>}
+        <Input aria-label="Task 1 visual image" type="file" accept="image/*" onChange={onFileChange} className="flex-1" />
       </div>
     );
   }
@@ -59,7 +65,7 @@ export function WritingVisualUpload({
         <div className="absolute top-2 right-2 flex gap-2">
           <Dialog>
             <DialogTrigger asChild>
-              <Button size="icon" variant="secondary" className="size-8">
+              <Button aria-label="Expand Task 1 visual" size="icon" variant="secondary" className="size-8">
                 <Maximize2 className="size-4" />
               </Button>
             </DialogTrigger>
@@ -71,7 +77,7 @@ export function WritingVisualUpload({
               <img src={previewUrl} alt="Task 1 visual full size" className="w-full rounded-lg" />
             </DialogContent>
           </Dialog>
-          <Button size="icon" variant="destructive" className="size-8" onClick={onRemoveImage}>
+          <Button aria-label="Remove Task 1 visual" size="icon" variant="destructive" className="size-8" onClick={onRemoveImage}>
             <Trash2 className="size-4" />
           </Button>
         </div>
@@ -89,6 +95,7 @@ export function WritingVisualUpload({
         </Button>
         <Input
           id="image-replace-input"
+          aria-label="Replace Task 1 visual"
           type="file"
           accept="image/*"
           onChange={onFileChange}
@@ -99,7 +106,7 @@ export function WritingVisualUpload({
       <div className="space-y-2 mt-3">
         <Label>Visual Type (Optional)</Label>
         <Select value={visualType || ''} onValueChange={onVisualTypeChange}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger aria-label="Visual Type (Optional)" className="w-full">
             <SelectValue placeholder="Select visual type..." />
           </SelectTrigger>
           <SelectContent>

@@ -69,7 +69,8 @@ export function WritingAssignmentForm({
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onImageSelect(event.target.files?.[0] ?? null);
+    const file = event.target.files?.[0];
+    if (file) onImageSelect(file);
   };
 
   if (isLoadingTask1Types || isLoadingTimingOptions) {
@@ -138,6 +139,7 @@ export function WritingAssignmentForm({
           <div className="space-y-2">
             <Label>Visual (Optional - Chart/Graph/Diagram)</Label>
             <WritingVisualUpload
+              retainedFileId={value.task1.imageFileId}
               fileName={fileName}
               onFileChange={handleFileChange}
               onRemoveImage={handleRemoveImage}

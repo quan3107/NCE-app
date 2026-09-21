@@ -171,29 +171,27 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
                   className="tabs-pill"
                 >
                   <span>Passage {index + 1}</span>
-                  {sections.length > 1 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSection(section.id);
-                      }}
-                      className="passage-remove-btn"
-                      title="Delete passage"
-                      type="button"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  )}
                 </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
+          {sections.length > 1 && activeSection && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Delete passage ${sections.findIndex((section) => section.id === activeSectionId) + 1}`}
+              onClick={() => handleDeleteSection(activeSectionId)}
+            >
+              <X className="size-3" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-lg"
             onClick={handleAddSection}
-            title="Add passage"
+            aria-label="Add passage"
           >
             <Plus className="size-4" />
           </Button>
@@ -210,6 +208,7 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
                 <div className="flex items-center gap-3 flex-1">
                   <span className="text-sm font-medium text-muted-foreground">Title:</span>
                   <Input
+                    aria-label="Passage title"
                     value={activeSection.title}
                     onChange={(e) =>
                       handleUpdateSection(activeSection.id, { title: e.target.value })
@@ -221,6 +220,7 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
               </div>
               <div className="flex-1 overflow-y-auto p-6 lg:p-8 scrollbar-visible">
                 <Textarea
+                  aria-label="Passage text"
                   value={activeSection.passage}
                   onChange={(e) =>
                     handleUpdateSection(activeSection.id, { passage: e.target.value })

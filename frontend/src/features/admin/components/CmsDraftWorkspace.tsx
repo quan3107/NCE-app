@@ -54,6 +54,7 @@ export function CmsDraftWorkspace(props: CmsDraftWorkspaceProps) {
           <Label htmlFor="cms-page">Marketing page</Label>
           <select
             id="cms-page"
+            disabled={props.isBusy}
             value={pageKey}
             onChange={(event) =>
               props.onPageSelect(event.target.value as CmsPageKey)

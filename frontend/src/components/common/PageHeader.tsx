@@ -59,10 +59,10 @@ export function PageHeader({ title, description, actions, showBack, breadcrumbs 
           </Breadcrumb>
         )}
 
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-4 flex-1 min-w-0">
             {showBack && (
-              <Button variant="ghost" size="icon" onClick={goBack}>
+              <Button aria-label="Back" variant="ghost" size="icon" onClick={goBack}>
                 <ChevronLeft className="size-5" />
               </Button>
             )}
@@ -74,7 +74,7 @@ export function PageHeader({ title, description, actions, showBack, breadcrumbs 
             </div>
           </div>
           {actions && (
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex max-w-full flex-wrap items-center gap-2">
               {actions}
             </div>
           )}

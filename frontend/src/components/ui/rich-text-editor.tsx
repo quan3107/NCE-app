@@ -11,7 +11,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
-import { Extension } from '@tiptap/core';
 import { cn } from './utils';
 import { normalizeRichText } from '@lib/rich-text';
 import { RichTextEditorToolbar } from './rich-text-editor-toolbar';
@@ -21,61 +20,15 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  'aria-label'?: string;
 }
-
-/**
- * Custom extension to handle Tab key behavior
- * - Tab: Insert 4 spaces or indent list
- * - Shift+Tab: Remove 4 spaces or outdent list, or move focus if no indentation
- */
-const TabHandler = Extension.create({
-  name: 'tabHandler',
-
-  addKeyboardShortcuts() {
-    return {
-      Tab: () => {
-        const { editor } = this;
-        
-        // If in a list, use standard list indentation
-        if (editor.isActive('bulletList') || editor.isActive('orderedList')) {
-          return editor.commands.sinkListItem('listItem');
-        }
-        
-        // Otherwise, insert 4 spaces
-        return editor.commands.insertContent('    ');
-      },
-      'Shift-Tab': () => {
-        const { editor } = this;
-        
-        // If in a list, use standard list outdentation
-        if (editor.isActive('bulletList') || editor.isActive('orderedList')) {
-          return editor.commands.liftListItem('listItem');
-        }
-        
-        // Check if we should remove indentation or move focus
-        const { from } = editor.state.selection;
-        
-        // Get text before cursor
-        const textBefore = editor.state.doc.textBetween(Math.max(0, from - 4), from);
-        
-        // If there are 4 spaces before cursor, remove them
-        if (textBefore === '    ') {
-          editor.commands.deleteRange({ from: from - 4, to: from });
-          return true;
-        }
-        
-        // Otherwise, let default behavior happen (move focus)
-        return false;
-      },
-    };
-  },
-});
 
 export function RichTextEditor({
   value,
   onChange,
   placeholder = 'Start typing...',
   className,
+  'aria-label': ariaLabel = 'Rich text',
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -99,7 +52,6 @@ export function RichTextEditor({
       Placeholder.configure({
         placeholder,
       }),
-      TabHandler,
     ],
     content: normalizeRichText(value),
     onUpdate: ({ editor }) => {
@@ -110,9 +62,12 @@ export function RichTextEditor({
     },
     editorProps: {
       attributes: {
+        role: 'textbox',
+        'aria-label': ariaLabel,
+        'aria-multiline': 'true',
         class: cn(
           'prose prose-sm dark:prose-invert max-w-none',
-          'focus:outline-none',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
           'min-h-500 px-3 py-2',
         ),
       },

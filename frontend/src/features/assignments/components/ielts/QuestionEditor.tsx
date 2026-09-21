@@ -209,7 +209,7 @@ export function QuestionEditor({
   return (
     <div className="rounded-[10px] border bg-card p-4 space-y-4">
       {/* Header with question number and type selector */}
-      <div className="flex items-start gap-3">
+      <div className="flex flex-col items-start gap-3 sm:flex-row">
         <div className="flex items-center gap-2 mt-2">
           {(onMoveUp || onMoveDown) ? (
             <div className="flex flex-col gap-0.5">
@@ -220,6 +220,7 @@ export function QuestionEditor({
                   className="size-5 p-0"
                   disabled={!canMoveUp}
                   onClick={onMoveUp}
+                  aria-label={`Move question ${questionNumber} up`}
                 >
                   <ArrowUp className="size-3" />
                 </Button>
@@ -231,6 +232,7 @@ export function QuestionEditor({
                   className="size-5 p-0"
                   disabled={!canMoveDown}
                   onClick={onMoveDown}
+                  aria-label={`Move question ${questionNumber} down`}
                 >
                   <ArrowDown className="size-3" />
                 </Button>
@@ -244,10 +246,10 @@ export function QuestionEditor({
           </span>
         </div>
 
-        <div className="flex-1 space-y-4">
+        <div className="w-full min-w-0 flex-1 space-y-4">
           {/* Question type selector */}
           <Select value={question.type} onValueChange={handleTypeChange}>
-            <SelectTrigger className="w-[220px] h-8 text-xs">
+            <SelectTrigger aria-label={`Question ${questionNumber} type`} className="w-full max-w-[220px] h-8 text-xs">
               <SelectValue placeholder="Select question type" />
             </SelectTrigger>
             <SelectContent>
@@ -270,7 +272,7 @@ export function QuestionEditor({
               value={question.format || 'summary'}
               onValueChange={(value) => handleFormatChange(value as IeltsCompletionFormat)}
             >
-              <SelectTrigger className="w-[220px] h-8 text-xs">
+              <SelectTrigger aria-label={`Question ${questionNumber} format`} className="w-[220px] h-8 text-xs">
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
               <SelectContent>
@@ -285,6 +287,7 @@ export function QuestionEditor({
 
           {/* Question prompt */}
           <Textarea
+            aria-label={`Question ${questionNumber} prompt`}
             value={question.prompt}
             onChange={(e) => onChange({ ...question, prompt: e.target.value })}
             placeholder="Enter question prompt..."
@@ -351,6 +354,7 @@ export function QuestionEditor({
             size="icon"
             className="size-8 shrink-0"
             onClick={onDelete}
+            aria-label={`Delete question ${questionNumber}`}
           >
             <Trash2 className="size-4 text-destructive" />
           </Button>

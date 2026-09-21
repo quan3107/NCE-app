@@ -13,6 +13,7 @@ import type {
   IeltsWritingConfig,
 } from '@lib/ielts';
 import { uploadFileWithProgress } from '@features/files/fileUpload';
+import { authoringDraftKey } from '@lib/authoring-draft-key';
 
 export type UploadMap = Record<string, File | null>;
 
@@ -103,13 +104,13 @@ export function getInitialStateFromDraft(): RestoredDraft | null {
     let foundDraft: RestoredDraft | null = null;
 
     for (const type of possibleTypes) {
-      const draft = parseDraft(localStorage.getItem(`ielts_autosave_ielts_${type}`));
+      const draft = parseDraft(localStorage.getItem(authoringDraftKey(`ielts_${type}`)));
       if (draft?.type === type && (!foundDraft || draft.timestamp > foundDraft.timestamp)) {
         foundDraft = draft;
       }
     }
 
-    const createDraft = parseDraft(localStorage.getItem('ielts_autosave_ielts_create'));
+    const createDraft = parseDraft(localStorage.getItem(authoringDraftKey('ielts_create')));
     if (createDraft && (!foundDraft || createDraft.timestamp > foundDraft.timestamp)) {
       foundDraft = createDraft;
     }
@@ -146,12 +147,13 @@ export async function uploadListeningAudioFiles(
   config: IeltsAssignmentConfig,
   selectedType: IeltsAssignmentType,
   listeningFiles: UploadMap,
+  onUploaded?: (sectionId: string, fileId: string) => void,
 ): Promise<IeltsAssignmentConfig> {
   if (selectedType !== 'listening' || !isListeningConfig(config)) {
     return config;
   }
 
-  const sections = await Promise.all(
+  const results = await Promise.allSettled(
     config.sections.map(async (section) => {
       const file = listeningFiles[section.id];
       if (!file) {
@@ -162,10 +164,16 @@ export async function uploadListeningAudioFiles(
         file,
         onProgress: () => undefined,
       });
+      onUploaded?.(section.id, uploaded.id);
       return { ...section, audioFileId: uploaded.id };
     }),
   );
-
+  const failures = results.filter((result) => result.status === 'rejected');
+  if (failures.length) {
+    const completed = results.filter((result, index) => result.status === 'fulfilled' && listeningFiles[config.sections[index].id]).length;
+    throw new Error(`${completed} audio upload(s) completed; ${failures.length} failed. The assignment was not saved. Retry the failed uploads.`);
+  }
+  const sections = results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
   return { ...config, sections };
 }
 

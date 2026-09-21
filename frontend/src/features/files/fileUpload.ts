@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from '@lib/apiClient';
+import { getAuthenticatedQueryScope } from '@lib/authenticated-query-scope';
 import type { SubmissionFile } from '@domain';
 
 export {
@@ -136,11 +137,18 @@ export async function uploadFileWithProgress({
   onProgress: (progress: number) => void;
   onStageChange?: (stage: UploadStage) => void;
 }): Promise<SubmissionFile> {
+  const session = JSON.stringify(getAuthenticatedQueryScope());
+  const assertSession = () => {
+    if (JSON.stringify(getAuthenticatedQueryScope()) !== session) {
+      throw new Error('Upload cancelled because the authentication session changed.');
+    }
+  };
   const mime = file.type || 'application/octet-stream';
 
   onProgress(0);
   onStageChange?.('hashing');
   const checksum = await computeFileChecksum(file);
+  assertSession();
 
   onStageChange?.('signing');
   const signed = await signFileUpload({
@@ -149,6 +157,7 @@ export async function uploadFileWithProgress({
     size: file.size,
     checksum,
   });
+  assertSession();
 
   onStageChange?.('uploading');
   await uploadToSignedUrl({
@@ -158,6 +167,7 @@ export async function uploadFileWithProgress({
     file,
     onProgress,
   });
+  assertSession();
 
   onStageChange?.('completing');
   const completed = await completeFileUpload({
@@ -168,6 +178,7 @@ export async function uploadFileWithProgress({
     size: file.size,
     checksum,
   });
+  assertSession();
 
   onProgress(100);
 

@@ -103,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (payload: RegisterPayload): Promise<RegisterResult> => {
+      const initiatingRoute = typeof window === 'undefined' ? null : window.location.href;
       cookieOperations.cancelRefreshes();
       return cookieOperations.run(async (signal, compensate, isSuperseded) => {
         // Queued registration follows the same last-admitted cookie intent.
@@ -121,12 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: payload.role,
           },
         });
+        const routeChanged = initiatingRoute !== null && window.location.href !== initiatingRoute;
+        if (signal.aborted || isSuperseded() || routeChanged) {
+          if (!isPendingApprovalResponse(result)) await revokeRejectedCookieSession(compensate);
+          throw new ApiError('Registration request timed out.', 0);
+        }
         if (isPendingApprovalResponse(result)) {
           return 'pending_approval';
-        }
-        if (signal.aborted || isSuperseded()) {
-          await revokeRejectedCookieSession(compensate);
-          throw new ApiError('Registration request timed out.', 0);
         }
         if (!applyLiveSession(result, admissionVersion)) {
           await revokeRejectedCookieSession(compensate);
