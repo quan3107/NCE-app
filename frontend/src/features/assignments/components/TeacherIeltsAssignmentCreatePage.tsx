@@ -4,7 +4,7 @@
  * Why: Matches the dedicated create experience for IELTS reading/listening/writing/speaking.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Eye } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
@@ -37,6 +37,8 @@ export function TeacherIeltsAssignmentCreatePage() {
   const { courses, isLoading, error, refetch } = useAssignmentResources();
   const [isRetrying, setIsRetrying] = useState(false);
   const createAssignmentMutation = useCreateAssignmentMutation();
+  const submitLock = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const draft = getInitialStateFromDraft();
   const didRestore = !!draft;
@@ -180,6 +182,9 @@ export function TeacherIeltsAssignmentCreatePage() {
   const speakingConfig = assignmentConfig && isSpeakingConfig(assignmentConfig) ? assignmentConfig : null;
 
   const handleSubmit = async (publish: boolean) => {
+    // The mutation becomes pending only after uploads. Lock the entire operation,
+    // synchronously, so two clicks cannot upload/create the same assignment twice.
+    if (submitLock.current) return;
     if (!selectedType || !assignmentConfig) {
       toast.error('Select an IELTS assignment type to continue.');
       return;
@@ -193,6 +198,8 @@ export function TeacherIeltsAssignmentCreatePage() {
       return;
     }
 
+    submitLock.current = true;
+    setIsSaving(true);
     try {
       let config = assignmentConfig;
       config = await uploadListeningAudioFiles(config, selectedType, listeningFiles);
@@ -214,6 +221,9 @@ export function TeacherIeltsAssignmentCreatePage() {
       navigate('/teacher/assignments');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to save assignment.');
+    } finally {
+      submitLock.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -304,11 +314,11 @@ export function TeacherIeltsAssignmentCreatePage() {
               isRestoring={isRestoring}
             />
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setSelectedType(null)}>
+              <Button variant="outline" disabled={isSaving} onClick={() => setSelectedType(null)}>
                 <ArrowLeft className="mr-2 size-4" />
                 Change Type
               </Button>
-              <Button variant="outline" onClick={() => setShowPreview(!showPreview)}>
+              <Button variant="outline" disabled={isSaving} onClick={() => setShowPreview(!showPreview)}>
                 <Eye className="mr-2 size-4" />
                 {showPreview ? 'Edit' : 'Preview'}
               </Button>
@@ -326,7 +336,8 @@ export function TeacherIeltsAssignmentCreatePage() {
         durationMinutes={durationMinutes}
         enforceTime={enforceTime}
         instructions={instructions}
-        isLoading={createAssignmentMutation.isPending}
+        isLoading={isSaving || createAssignmentMutation.isPending}
+        showPreview={showPreview}
         listeningConfig={listeningConfig}
         onAssignmentConfigChange={setAssignmentConfig}
         onAssignmentTitleChange={setAssignmentTitle}
