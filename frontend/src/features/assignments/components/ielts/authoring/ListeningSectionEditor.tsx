@@ -8,6 +8,7 @@ import { Plus, Upload } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import { Textarea } from '@components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -43,6 +44,8 @@ type ListeningSectionEditorProps = {
     updatedQuestion: IeltsQuestion,
   ) => void;
   onUpdateSection: (index: number, patch: Partial<ListeningSection>) => void;
+  onRemoveSection: (sectionId: string) => void;
+  canRemoveSection: boolean;
 };
 
 export function ListeningSectionEditor({
@@ -60,6 +63,8 @@ export function ListeningSectionEditor({
   onMoveQuestion,
   onUpdateQuestion,
   onUpdateSection,
+  onRemoveSection,
+  canRemoveSection,
 }: ListeningSectionEditorProps) {
   return (
     <SortableSectionCard
@@ -69,6 +74,15 @@ export function ListeningSectionEditor({
       questionCount={section.questions.length}
       hasAudio={!!uploadedAudio || !!section.audioFileId}
     >
+      <div className="flex items-end gap-2">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor={`title-${section.id}`}>Section title</Label>
+          <Input id={`title-${section.id}`} value={section.title}
+            onChange={(event) => onUpdateSection(sectionIndex, { title: event.target.value })} />
+        </div>
+        <Button variant="outline" disabled={!canRemoveSection}
+          onClick={() => onRemoveSection(section.id)}>Remove {section.title}</Button>
+      </div>
       <div className="space-y-2">
         <Label>Audio File</Label>
         {uploadedAudio ? (
@@ -111,6 +125,12 @@ export function ListeningSectionEditor({
             </Button>
           </div>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={`transcript-${section.id}`}>Transcript (instructor-only)</Label>
+        <Textarea id={`transcript-${section.id}`} value={section.transcript ?? ''}
+          onChange={(event) => onUpdateSection(sectionIndex, { transcript: event.target.value })} />
       </div>
 
       <div className="space-y-2">
