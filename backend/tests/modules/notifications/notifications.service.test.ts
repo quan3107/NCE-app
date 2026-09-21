@@ -26,6 +26,7 @@ const {
   createNotification,
   getNotificationById,
   listNotifications,
+  listNotificationDeliveries,
   markNotificationsRead,
   resendNotification,
 } = await import('../../../src/modules/notifications/notifications.service.js')
@@ -60,6 +61,15 @@ const expectNoRecoveryMetadata = (notification: Record<string, unknown>) => {
 }
 
 describe('notifications.service', () => {
+  it('bounds admin delivery pages and selects operational fields only', async () => {
+    prisma.notification.findMany.mockResolvedValueOnce([{ id: 'one' }, { id: 'two' }])
+    const result = await listNotificationDeliveries({ limit: 1 })
+    expect(result).toEqual({ data: [{ id: 'one' }], nextCursor: 'one' })
+    const query = prisma.notification.findMany.mock.lastCall?.[0]
+    expect(query.take).toBe(2)
+    expect(query.select).not.toHaveProperty('payload')
+    expect(query.select).not.toHaveProperty('failureReason')
+  })
   beforeEach(() => {
     vi.resetAllMocks()
   })
