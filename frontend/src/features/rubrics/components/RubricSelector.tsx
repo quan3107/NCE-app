@@ -98,7 +98,7 @@ export function RubricSelector({
           onValueChange={handleChange}
           disabled={disabled}
         >
-          <SelectTrigger>
+          <SelectTrigger aria-label={label}>
             <SelectValue placeholder="Select a rubric..." />
           </SelectTrigger>
           <SelectContent>
