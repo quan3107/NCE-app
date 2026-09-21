@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Chrome, GraduationCap, Lock, Mail } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@components/ui/alert';
 import { Button } from '@components/ui/button';
@@ -266,7 +266,7 @@ export function LoginRoute() {
           </form>
 
           <div className="text-center text-sm text-muted-foreground">
-            <button className="hover:text-foreground">Forgot password?</button>
+            <Link to="/forgot-password" className="hover:text-foreground">Forgot password?</Link>
           </div>
 
           <Separator />
