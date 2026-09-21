@@ -173,6 +173,17 @@ export function TeacherIeltsAssignmentCreatePage() {
 
   const handleAudioSelect = (sectionId: string, file: File | null) => {
     setListeningFiles((current) => ({ ...current, [sectionId]: file }));
+    if (file === null) setAssignmentConfig((current) => current && isListeningConfig(current) ? {
+      ...current,
+      sections: current.sections.map((section) => section.id === sectionId ? { ...section, audioFileId: null } : section),
+    } : current);
+  };
+
+  const handleWritingImageSelect = (file: File | null) => {
+    setWritingTask1File(file);
+    if (file === null) setAssignmentConfig((current) => current && isWritingConfig(current) ? {
+      ...current, task1: { ...current.task1, imageFileId: null },
+    } : current);
   };
 
   const handleManageRubrics = () => {
@@ -383,7 +394,7 @@ export function TeacherIeltsAssignmentCreatePage() {
         onPublish={() => handleSubmit(true)}
         onSaveDraft={() => handleSubmit(false)}
         onTimingEnabledChange={setTimingEnabled}
-        onWritingImageSelect={setWritingTask1File}
+        onWritingImageSelect={handleWritingImageSelect}
         readingConfig={readingConfig}
         selectedType={selectedType}
         speakingConfig={speakingConfig}
