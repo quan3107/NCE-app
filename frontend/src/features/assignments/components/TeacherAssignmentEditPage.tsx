@@ -4,7 +4,8 @@
  * Why: Enables the new assignment update endpoint to power the edit route.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutationLifetime } from '@lib/useMutationLifetime';
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { Label } from '@components/ui/label';
@@ -50,6 +51,8 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
   const { navigate } = useRouter();
   const { assignments, courses, isLoading, error } = useAssignmentResources();
   const updateAssignmentMutation = useUpdateAssignmentMutation();
+  const captureLifetime = useMutationLifetime();
+  const pending = useRef(false);
   const assignment = useMemo(
     () => assignments.find((item) => item.id === assignmentId) ?? null,
     [assignments, assignmentId],
@@ -102,6 +105,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
   };
 
   const handleSave = async (publish: boolean) => {
+    if (pending.current) return;
     if (!assignment) {
       return;
     }
@@ -146,18 +150,24 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
       publishedAt: publish ? new Date().toISOString() : undefined,
     };
 
+    pending.current = true;
+    const isCurrent = captureLifetime();
     try {
       await updateAssignmentMutation.mutateAsync({
         courseId: assignment.courseId,
         assignmentId: assignment.id,
         payload,
       });
+      if (!isCurrent()) return;
       toast.success(publish ? 'Assignment published.' : 'Assignment updated.');
       navigate('/teacher/assignments');
     } catch (errorValue) {
+      if (!isCurrent()) return;
       toast.error(
         errorValue instanceof Error ? errorValue.message : 'Unable to update assignment.',
       );
+    } finally {
+      pending.current = false;
     }
   };
 
@@ -209,8 +219,9 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="space-y-2">
-                <Label>Title</Label>
+                <Label htmlFor="edit-assignment-title">Title</Label>
                 <Input
+                  id="edit-assignment-title"
                   value={formState.title}
                   onChange={(event) =>
                     setFormState((current) => ({ ...current, title: event.target.value }))
@@ -219,7 +230,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
               </div>
               <div className="space-y-2">
                 <Label>Course</Label>
-                <Input value={course?.title ?? assignment.courseName} disabled />
+                <Input aria-label="Course" value={course?.title ?? assignment.courseName} disabled />
               </div>
               <div className="space-y-2">
                 <Label>IELTS Skill Type</Label>
@@ -238,7 +249,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
                   value={isIeltsAssignmentType(formState.type) ? '' : formState.type}
                   onValueChange={handleTypeChange}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Other Assignment Types">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -251,6 +262,7 @@ export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: stri
               <div className="space-y-2">
                 <Label>{isIelts ? 'Overview (shown in assignment list)' : 'Description'}</Label>
                 <Textarea
+                  aria-label={isIelts ? 'Overview (shown in assignment list)' : 'Description'}
                   rows={5}
                   value={formState.description}
                   onChange={(event) =>
