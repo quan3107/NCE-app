@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-21:** No backend changes for the teacher dashboard grading-link fix.
+
 - **2026-09-21:** Reverified review fixes using real API/PostgreSQL/R2: explicit audio/image removal saved null media IDs after partial success, delayed assignment completion preserved the returned local draft, and keyboard Reading reorder persisted 2/1/3. Removed review triggers and two exact storage fixtures; no backend application changes.
 
 - **2026-09-21:** Verified X-03 against the real local API, disposable PostgreSQL and real R2. Controlled delays covered registration/contact/assignment/submission/grade/preferences/CMS/settings; SQL confirmed single results and revoked late-registration sessions. Concurrent file completion returned one ID; an induced assignment failure retained uploaded audio for retry. No backend application changes. Evidence: `docs/e2e-mutation-accessibility-verification.md`.
@@ -232,6 +234,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-21:** Corrected the teacher dashboard Grade action to the registered `/teacher/grade/:submissionId` route. Focused ESLint and frontend TypeScript checks pass.
 
 - **2026-09-21:** Closed the mutation/accessibility review gaps: explicit removal clears retained audio/image IDs, navigation generations prevent A→B→A callback revival, resource-keyed edit/grade routes reset state, assignment cache refresh preserves local drafts, and Reading sorting registers a real DOM node. Real Browser/API checks and permanent regressions cover the fixes; 244 component tests, 270 unit tests, lint, TypeScript and build pass. Evidence: `docs/e2e-mutation-accessibility-verification.md`.
 
