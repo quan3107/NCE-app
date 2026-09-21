@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-21:** Verified the recovery navigation follow-up against the actual API and disposable PostgreSQL. An account row lock held the reset pending until Browser navigation completed; releasing it produced HTTP 200, a changed password, and a consumed token. No backend application change or acceptance-response mock was used.
+
 - **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. After API-key reactivation and sending-IP authorization, Brevo accepted the real Browser retry and the controlled recipient confirmed email receipt. The user completed the emailed-link reset; real API checks confirmed token consumption, old-password rejection, emailed-token reuse rejection, and revocation of both still-unexpired saved access/refresh sessions. DG-01 passes. All implementation-head PR checks passed. Evidence: `docs/e2e-password-recovery-verification.md`.
 
 - **2026-09-21:** Recorded DG-01 password recovery decisions: reuse Brevo, expire reset links after 30 minutes, and revoke all existing sessions after a successful reset. Implementation and verification remain pending.
@@ -238,6 +240,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-21:** Fenced password-recovery success/error/finally effects and URL cleanup with the existing mutation lifetime guard. Added BrowserRouter regressions for late success and failure after navigation. All 251 component tests, lint, typecheck, and build pass. Real Chromium/API/PostgreSQL verification preserved `/forgot-password`, the destination draft, and the correct form after reload; screenshot inspected. Evidence: `docs/e2e-password-recovery-verification.md`.
 
 - **2026-09-21:** Implemented accessible password request/reset/error/success screens and connected Forgot password. Browser verified existing/unknown generic responses and inspected form layout against the actual API/database; 270 unit tests, 249 component tests, lint, typecheck, and build pass. Email delivery and the user-assisted emailed-link reset are verified. Browser sign-in with the new test password reached the student dashboard; the screenshot was visually inspected. DG-01 passes, giving 118 PASS, 0 FAIL, 1 BLOCKED, 6 DECISION-GATED. Evidence: `docs/e2e-password-recovery-verification.md`.
 
