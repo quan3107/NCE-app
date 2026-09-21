@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-21:** Filter private listening transcripts and objective answer keys from student assignment list/detail responses, preserving teacher data, scoring, and Writing sample-release rules. Real API checks confirm privacy before/after submission, correct raw scoring, and intended sample visibility. All 95 assignment/submission/scoring tests, TypeScript, and focused lint pass. ASG-09 PASS; evidence: `docs/e2e-listening-audio-verification.md`.
+
 - **2026-09-20:** Stabilized the settings-read UUID index regression by isolating the actor predicate from competing authorization filters; the concurrent-demotion test still exercises authorization. Both focused database tests, lint and formatting pass. A broader local run passed 1,107 tests but hit five environment/bootstrap failures; the environment-default suite passes separately with its expected database defaults. GitHub CI remains the clean-run verification.
 
 - **2026-09-20:** Exposed only the fixed, credential-free R2 configuration error so missing storage returns an actionable 503 instead of a generic internal error. Verified through the real API/browser missing-storage path; other server errors retain their existing disclosure policy.
@@ -222,6 +224,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-21:** Complete listening authoring validation, section removal/reordering, explicit duplicate and same-name bulk mapping, playable student preview, and save locking throughout uploads. All 217 component tests, TypeScript, focused lint, and build pass. Real Browser/API/R2 verifies audio bytes, saved order/playback, upload-busy gating, learner rendering, and privacy. ASG-09 PASS; evidence: `docs/e2e-listening-audio-verification.md`.
 
 - **2026-09-20:** Replaced the generic-assignment browser test's obsolete storage.mock interception with explicit unconfigured-storage recovery assertions and opt-in real R2 upload/download coverage. Both real-backend paths pass locally; focused lint and TypeScript checks pass. CI without R2 credentials does not claim successful STU-05/06 storage coverage.
 

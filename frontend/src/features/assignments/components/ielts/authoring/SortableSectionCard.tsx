@@ -45,9 +45,8 @@ export function SortableSectionCard({
   };
 
   return (
+    <div ref={setNodeRef} style={style}>
     <Card
-      ref={setNodeRef}
-      style={style}
       className={cn(
         'border-2 transition-colors',
         isDragging && 'border-primary shadow-lg',
@@ -63,6 +62,7 @@ export function SortableSectionCard({
               className="size-8 shrink-0 cursor-grab active:cursor-grabbing"
               {...attributes}
               {...listeners}
+              aria-label={`Reorder ${title}`}
             >
               <GripVertical className="size-4 text-muted-foreground" />
             </Button>
@@ -86,5 +86,6 @@ export function SortableSectionCard({
         {children}
       </CardContent>
     </Card>
+    </div>
   );
 }

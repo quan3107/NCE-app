@@ -4,7 +4,7 @@
  * Why: Keeps state and drag-drop behavior in one place while child files render large sections.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FolderUp, Plus } from 'lucide-react';
 import {
   closestCenter,
@@ -36,14 +36,19 @@ import {
   createListeningQuestion,
 } from './listeningAuthoring.logic';
 import { uploadAuthoringFile } from '../diagramLabelingUpload';
+import { useFileUploadConfig } from '@features/files/configApi';
+import { createFileUploadPolicy, isAllowedFile } from '@features/files/uploadPolicy';
+import { StudentIeltsAttemptForm } from '../student/StudentIeltsAttemptForm';
+import { createInitialStudentIeltsAttempt } from '../student/studentIeltsAttempt.logic';
 
 type ListeningAssignmentFormProps = {
   value: IeltsListeningConfig;
   onChange: (value: IeltsListeningConfig) => void;
   onAudioSelect: (sectionId: string, file: File | null) => void;
+  showPreview?: boolean;
 };
 
-export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: ListeningAssignmentFormProps) {
+export function ListeningAssignmentForm({ value, onChange, onAudioSelect, showPreview = false }: ListeningAssignmentFormProps) {
   const [uploadedImages, setUploadedImages] = useState<Record<string, UploadFile>>({});
   const [uploadedAudio, setUploadedAudio] = useState<Record<string, { file: File; url: string }>>(
     {},
@@ -51,7 +56,31 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
   const [bulkUploadFiles, setBulkUploadFiles] = useState<File[]>([]);
   const [showBulkUploadDialog, setShowBulkUploadDialog] = useState(false);
   const [bulkMatches, setBulkMatches] = useState<Record<string, File | null>>({});
+  const [previewAttempt, setPreviewAttempt] = useState(createInitialStudentIeltsAttempt);
+  const audioRef = useRef(uploadedAudio);
+  audioRef.current = uploadedAudio;
+  useEffect(() => () => {
+    Object.values(audioRef.current).forEach(({ url }) => URL.revokeObjectURL(url));
+  }, []);
   const bulkInputRef = useRef<HTMLInputElement>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const { data: uploadPolicy } = useFileUploadConfig();
+  // The general policy also permits documents; listening must only accept audio.
+  const audioPolicy = uploadPolicy && createFileUploadPolicy({
+    limits: uploadPolicy.limits,
+    allowedTypes: uploadPolicy.allowedTypes.filter((type) => type.mimeType.startsWith('audio/')),
+  });
+  const validateAudio = (file: File) => {
+    const result = isAllowedFile(file, audioPolicy);
+    if (!result.ok) {
+      const hint = audioPolicy ? ` (${audioPolicy.typeLabel})` : ' after upload settings load';
+      return `${result.reason} Choose a supported audio file${hint}.`;
+    }
+    if (audioPolicy && file.size > audioPolicy.limits.maxFileSize) {
+      return `${file.name} exceeds the audio upload size limit of ${audioPolicy.limits.maxFileSize} bytes.`;
+    }
+    return null;
+  };
 
   const {
     data: questionTypes,
@@ -169,6 +198,10 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
   };
 
   const handleAudioSelect = (sectionId: string, file: File | null) => {
+    const error = file ? validateAudio(file) : null;
+    setAudioError(error);
+    // Reject before replacing an existing preview or queuing an upload for save.
+    if (error) return;
     setUploadedAudio((prev) => {
       const next = { ...prev };
       if (next[sectionId]?.url) {
@@ -190,10 +223,12 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
       return;
     }
 
-    const audioFiles = Array.from(files).filter((file) => file.type.startsWith('audio/'));
-    if (!audioFiles.length) {
-      return;
-    }
+    const audioFiles = Array.from(files);
+    event.target.value = '';
+    const errors = audioFiles.map(validateAudio).filter(Boolean);
+    setAudioError(errors.length ? errors.join(' ') : null);
+    // Keep a mixed selection atomic so rejected files are never silently lost.
+    if (errors.length) return;
 
     setBulkUploadFiles(audioFiles);
     setBulkMatches(createBulkAudioMatches(audioFiles, value.sections));
@@ -201,6 +236,8 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
   };
 
   const applyBulkUpload = () => {
+    const assigned = Object.values(bulkMatches).filter(Boolean);
+    if (new Set(assigned).size !== assigned.length) return;
     Object.entries(bulkMatches).forEach(([sectionId, file]) => {
       if (file) {
         handleAudioSelect(sectionId, file);
@@ -213,6 +250,11 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
     setShowBulkUploadDialog(false);
     setBulkUploadFiles([]);
     setBulkMatches({});
+  };
+
+  const removeSection = (sectionId: string) => {
+    handleAudioSelect(sectionId, null);
+    onChange({ ...value, sections: value.sections.filter((section) => section.id !== sectionId) });
   };
 
   if (isLoadingQuestionTypes || isLoadingCompletionFormats) {
@@ -241,6 +283,19 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
   const questionTypeOptions = questionTypes?.map((qt) => ({ value: qt.id, label: qt.label })) ?? [];
   const completionFormatOptions =
     completionFormats?.map((cf) => ({ value: cf.id, label: cf.label })) ?? [];
+
+  if (showPreview) return (
+    <Card>
+      <CardHeader><CardTitle>Student preview</CardTitle>
+        <CardDescription>Try the audio and questions. Preview responses are not saved.</CardDescription>
+      </CardHeader>
+      <CardContent><StudentIeltsAttemptForm type="listening" config={value}
+        attempt={previewAttempt} onChange={setPreviewAttempt} nextAttempt={1}
+        maxAttempts={value.attempts.maxAttempts}
+        listeningAudioUrls={Object.fromEntries(Object.entries(uploadedAudio).map(([id, audio]) => [id, audio.url]))} />
+      </CardContent>
+    </Card>
+  );
 
   return (
     <Card>
@@ -271,6 +326,7 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {audioError && <p role="alert" className="text-sm text-destructive">{audioError}</p>}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext
             items={value.sections.map((section) => section.id)}
@@ -293,6 +349,8 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
                 onMoveQuestion={moveQuestion}
                 onUpdateQuestion={handleUpdateQuestion}
                 onUpdateSection={updateSection}
+                onRemoveSection={removeSection}
+                canRemoveSection={value.sections.length > 1}
               />
             ))}
           </SortableContext>

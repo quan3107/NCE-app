@@ -51,6 +51,7 @@ type TeacherIeltsAssignmentEditorProps = {
   timingEnabled: boolean;
   writingConfig: IeltsWritingConfig | null;
   writingTask1File: File | null;
+  showPreview?: boolean;
 };
 
 export function TeacherIeltsAssignmentEditor({
@@ -83,12 +84,13 @@ export function TeacherIeltsAssignmentEditor({
   timingEnabled,
   writingConfig,
   writingTask1File,
+  showPreview,
 }: TeacherIeltsAssignmentEditorProps) {
   const selectedConfig = readingConfig ?? listeningConfig ?? writingConfig ?? speakingConfig;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
-      <div className="space-y-6">
+      <fieldset disabled={isLoading} className="space-y-6 min-w-0">
         <IeltsAuthoringBasicDetailsCard
           courses={courses}
           assignmentTitle={assignmentTitle}
@@ -123,6 +125,7 @@ export function TeacherIeltsAssignmentEditor({
             value={listeningConfig}
             onChange={onAssignmentConfigChange}
             onAudioSelect={onAudioSelect}
+            showPreview={showPreview}
           />
         )}
         {selectedType === 'writing' && writingConfig && (
@@ -145,7 +148,7 @@ export function TeacherIeltsAssignmentEditor({
           onSaveDraft={onSaveDraft}
           onPublish={onPublish}
         />
-      </div>
+      </fieldset>
     </div>
   );
 }

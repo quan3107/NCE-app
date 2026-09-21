@@ -36,6 +36,7 @@ type StudentIeltsAttemptFormProps = {
   maxAttempts: number | null;
   onChange: (attempt: StudentIeltsAttemptState) => void;
   onUploadBusyChange?: (busy: boolean) => void;
+  listeningAudioUrls?: Record<string, string>;
 };
 
 type FileContentLocation = {
@@ -125,12 +126,15 @@ export const normalizeSelectedValue = (
   return value;
 };
 
-function ListeningAudio({ section }: { section: IeltsListeningConfig['sections'][number] }) {
+function ListeningAudio({ section, previewUrl }: {
+  section: IeltsListeningConfig['sections'][number]; previewUrl?: string;
+}) {
   const audioFileId = section.audioFileId;
   const [contentLocation, setContentLocation] = useState<FileContentLocation | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
+    if (previewUrl) return;
     if (!audioFileId) {
       setContentLocation(null);
       setErrorMessage('');
@@ -158,9 +162,9 @@ function ListeningAudio({ section }: { section: IeltsListeningConfig['sections']
     return () => {
       isMounted = false;
     };
-  }, [audioFileId]);
+  }, [audioFileId, previewUrl]);
 
-  if (!audioFileId) {
+  if (!audioFileId && !previewUrl) {
     return (
       <p className="mt-2 rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
         Audio has not been attached for this section.
@@ -174,8 +178,8 @@ function ListeningAudio({ section }: { section: IeltsListeningConfig['sections']
         <Volume2 className="size-4 text-muted-foreground" />
         <span>Section audio</span>
       </div>
-      {contentLocation ? (
-        <audio controls src={contentLocation.url} className="w-full" />
+      {previewUrl || contentLocation ? (
+        <audio controls src={previewUrl ?? contentLocation?.url} className="w-full" />
       ) : (
         <p className="text-sm text-muted-foreground">
           {errorMessage || 'Loading audio...'}
@@ -195,11 +199,13 @@ function ReadingListeningAttempt({
   config,
   attempt,
   onChange,
+  listeningAudioUrls,
 }: {
   type: 'reading' | 'listening';
   config: IeltsReadingConfig | IeltsListeningConfig;
   attempt: StudentIeltsAttemptState;
   onChange: (attempt: StudentIeltsAttemptState) => void;
+  listeningAudioUrls?: Record<string, string>;
 }) {
   let questionNumber = 1;
   return (
@@ -214,7 +220,8 @@ function ReadingListeningAttempt({
               </p>
             )}
             {type === 'listening' && (
-              <ListeningAudio section={section as IeltsListeningConfig['sections'][number]} />
+              <ListeningAudio section={section as IeltsListeningConfig['sections'][number]}
+                previewUrl={listeningAudioUrls?.[section.id]} />
             )}
           </div>
           <div className="space-y-3">
@@ -295,6 +302,7 @@ export function StudentIeltsAttemptForm({
   maxAttempts,
   onChange,
   onUploadBusyChange,
+  listeningAudioUrls,
 }: StudentIeltsAttemptFormProps) {
   return (
     <div className="space-y-4">
@@ -324,6 +332,7 @@ export function StudentIeltsAttemptForm({
       {type === 'listening' && (
         <ReadingListeningAttempt
           type="listening"
+          listeningAudioUrls={listeningAudioUrls}
           config={config as IeltsListeningConfig}
           attempt={attempt}
           onChange={onChange}

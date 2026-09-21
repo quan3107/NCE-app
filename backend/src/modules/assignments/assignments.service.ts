@@ -27,11 +27,8 @@ import {
   type CreateAssignmentPayload,
   type UpdateAssignmentPayload,
 } from './assignments.schema.js'
-import {
-  filterWritingAssignmentForStudent,
-  shouldFilterWritingAssignmentForStudent,
-  validateWritingRubrics,
-} from './assignments.helpers.js'
+import { validateWritingRubrics } from './assignments.helpers.js'
+import { assignmentForStudent } from './assignments.student-content.js'
 import { parseAssignmentConfigForType } from './ielts.schema.js'
 import { buildAssignmentUpdateData } from './assignments.update.js'
 
@@ -51,10 +48,20 @@ function parseOptionalDate(
 
 export async function listAssignments(params: unknown, actor: CourseManager) {
   const { courseId } = courseScopedParamsSchema.parse(params)
-  return prisma.assignment.findMany({
+  const assignments = await prisma.assignment.findMany({
     where: assignmentAccessWhere(courseId, actor, 'read'),
     orderBy: { createdAt: 'desc' },
+    ...(actor.role === UserRole.student
+      ? { include: {
+          submissions: {
+            where: { studentId: actor.id, deletedAt: null },
+            select: { id: true, status: true, grade: { select: { gradedAt: true } } },
+            take: 1,
+          },
+        } }
+      : {}),
   })
+  return actor.role === UserRole.student ? assignments.map(assignmentForStudent) : assignments
 }
 
 /**
@@ -144,8 +151,8 @@ export async function getAssignment(params: unknown, user: CourseManager) {
     throw createNotFoundError('Assignment', assignmentId)
   }
 
-  if (shouldFilterWritingAssignmentForStudent(assignment, user)) {
-    return filterWritingAssignmentForStudent(assignment)
+  if (user.role === UserRole.student) {
+    return assignmentForStudent(assignment)
   }
 
   // Admins and teachers get full data (remove submissions from response)

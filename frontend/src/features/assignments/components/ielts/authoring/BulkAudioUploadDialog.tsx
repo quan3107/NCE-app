@@ -51,6 +51,10 @@ export function BulkAudioUploadDialog({
   const assignedFiles = new Set(Object.values(bulkMatches).filter((file): file is File => file !== null));
   const unassignedFiles = files.filter((file) => !assignedFiles.has(file));
   const appliedFileCount = Object.values(bulkMatches).filter(Boolean).length;
+  const duplicateFiles = files.filter((file) =>
+    Object.values(bulkMatches).filter((assigned) => assigned === file).length > 1);
+  const fileLabel = (file: File) => files.filter((item) => item.name === file.name).length > 1
+    ? `${file.name} (file ${files.indexOf(file) + 1}, ${file.size} bytes)` : file.name;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,6 +67,10 @@ export function BulkAudioUploadDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {duplicateFiles.length > 0 && <p role="alert" className="text-sm text-destructive">
+            Duplicate assignments: {duplicateFiles.map(fileLabel).join(', ')}.
+            Assign each file to only one section before applying.
+          </p>}
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-muted-foreground">Section Assignments</h4>
             {sections.map((section) => {
@@ -76,25 +84,25 @@ export function BulkAudioUploadDialog({
                   <span className="font-medium min-w-[80px]">{section.title}</span>
                   <div className="flex-1">
                     <Select
-                      value={assignedFile ? assignedFile.name : '__none__'}
+                      value={assignedFile ? String(files.indexOf(assignedFile)) : '__none__'}
                       onValueChange={(value) => {
                         if (value === '__none__') {
                           onRemoveFileFromSection(section.id);
                           return;
                         }
 
-                        const selectedFile = files.find((file) => file.name === value);
+                        const selectedFile = files[Number(value)];
                         onAssignFileToSection(section.id, selectedFile || null);
                       }}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full" aria-label={`Audio for ${section.title}`}>
                         <SelectValue placeholder="Select audio file..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">No file assigned</SelectItem>
-                        {files.map((file) => (
-                          <SelectItem key={file.name} value={file.name}>
-                            {file.name}
+                        {files.map((file, index) => (
+                          <SelectItem key={index} value={String(index)}>
+                            {fileLabel(file)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -126,7 +134,7 @@ export function BulkAudioUploadDialog({
                     key={`${file.name}-${idx}`}
                     className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
                   >
-                    <span className="text-sm">{file.name}</span>
+                    <span className="text-sm">{fileLabel(file)}</span>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -152,7 +160,7 @@ export function BulkAudioUploadDialog({
             <X className="mr-2 size-4" />
             Cancel
           </Button>
-          <Button onClick={onApply}>
+          <Button onClick={onApply} disabled={appliedFileCount === 0 || duplicateFiles.length > 0}>
             <Upload className="mr-2 size-4" />
             Apply ({appliedFileCount} files)
           </Button>
