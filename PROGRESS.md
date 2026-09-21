@@ -13,7 +13,7 @@ and
 
 ## Backend
 
-- **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. Full delivery acceptance is BLOCKED: Brevo returned `401 API Key is not enabled`. Evidence: `docs/e2e-password-recovery-verification.md`.
+- **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. Full delivery acceptance is BLOCKED: after API-key reactivation, Brevo still returned 401 because the sending IP is not authorized. All PR checks passed. Evidence: `docs/e2e-password-recovery-verification.md`.
 
 - **2026-09-21:** Recorded DG-01 password recovery decisions: reuse Brevo, expire reset links after 30 minutes, and revoke all existing sessions after a successful reset. Implementation and verification remain pending.
 
