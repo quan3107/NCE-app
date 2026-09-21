@@ -156,7 +156,7 @@ export function DashboardTeacherRoute() {
                           {formatDistanceToNow(new Date(submission.submittedAt!), { addSuffix: true })}
                         </Badge>
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/submissions/${submission.id}`)}>
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/grade/${submission.id}`)}>
                         Grade
                       </Button>
                     </div>
