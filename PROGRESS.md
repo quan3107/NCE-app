@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-21:** Verified listening uploads against the real API/R2 in a separate disposable database. Found that an enrolled learner's assignment GET exposes the instructor-only transcript and answer; ASG-09 remains FAIL. No backend application code changed. Evidence: `docs/e2e-listening-audio-verification.md`.
+
 - **2026-09-20:** Stabilized the settings-read UUID index regression by isolating the actor predicate from competing authorization filters; the concurrent-demotion test still exercises authorization. Both focused database tests, lint and formatting pass. A broader local run passed 1,107 tests but hit five environment/bootstrap failures; the environment-default suite passes separately with its expected database defaults. GitHub CI remains the clean-run verification.
 
 - **2026-09-20:** Exposed only the fixed, credential-free R2 configuration error so missing storage returns an actionable 503 instead of a generic internal error. Verified through the real API/browser missing-storage path; other server errors retain their existing disclosure policy.
@@ -222,6 +224,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-21:** Reject unsupported/oversized listening audio before preview or queued upload, preserve valid audio on rejection, reset pickers for retries, and report mixed bulk selections explicitly. Four new regressions and all 212 component tests, TypeScript, focused lint, and build pass. Real Browser/API/R2 verified rejection, playback, individual/bulk save and persistence; ASG-09 stays FAIL for the remaining acceptance gaps in `docs/e2e-listening-audio-verification.md`.
 
 - **2026-09-20:** Replaced the generic-assignment browser test's obsolete storage.mock interception with explicit unconfigured-storage recovery assertions and opt-in real R2 upload/download coverage. Both real-backend paths pass locally; focused lint and TypeScript checks pass. CI without R2 credentials does not claim successful STU-05/06 storage coverage.
 
