@@ -6,11 +6,16 @@ Why: Implementation and isolated tests must not be mistaken for a delivered-emai
 
 # Password recovery verification — 2026-09-21
 
-DG-01 is implemented but **BLOCKED for full acceptance**. After the user
-reactivated the API key, the real Browser retry at 12:15 UTC returned a new
-Brevo HTTP 401: the sending machine's IP is not authorized. The previous attempt
-returned `API Key is not enabled`. No email delivery or emailed-link round trip
-is claimed. The failed retry token was invalidated in PostgreSQL.
+DG-01 is implemented; **email delivery is now verified**. After the user
+reactivated the API key and authorized the sending IP, the real Browser retry
+at 12:17 UTC was accepted by Brevo. The user confirmed receipt of the reset
+email. The message was then read directly in Gmail through in-app Browser, and
+its actual link opened the reset form. Its SHA-256 digest matches PostgreSQL's
+stored, unexpired token with the expected 30-minute lifetime.
+Full acceptance remains **BLOCKED on manual Browser reset completion**: the user
+reported that the email was received but the reset was not yet completed.
+Earlier disabled-key and unauthorized-IP attempts returned 401; their failed
+issuances were invalidated.
 
 ## Environment and boundaries
 
@@ -35,7 +40,7 @@ is claimed. The failed retry token was invalidated in PostgreSQL.
 | Check | Evidence and result |
 | --- | --- |
 | Login entry point | In-app Browser followed the real Forgot password link to the request form. |
-| Existing email | Browser submitted the controlled account email; real API returned the generic acknowledgment. Brevo rejected delivery with 401. The failed issuance was invalidated. |
+| Existing email | Browser submitted the controlled account email; real API returned the generic acknowledgment. After key/IP configuration was corrected, Brevo accepted the retry. Receipt was confirmed by the user and directly in Gmail through Browser. The actual email link opened the reset form and its digest matched the live database token. Earlier failed issuances were invalidated. |
 | Unknown email | Browser submitted a nonexistent reserved-domain email; the same generic acknowledgment appeared. No mail was sent. |
 | Account policy | Real database tests reject pending, suspended, Google-only, and soft-deleted accounts. HTTP requests for unknown and suspended accounts return identical 200/message responses. |
 | Token security | Unit checks verify random 256-bit token, SHA-256-only storage, normalized recipient, 30-minute expiry, and fragment link. Real DB checks verify one concurrent consumption succeeds and the token is cleared. |
@@ -48,7 +53,7 @@ is claimed. The failed retry token was invalidated in PostgreSQL.
 | Concurrent login/refresh | PostgreSQL lock-barrier test makes login and refresh read old credentials while reset waits. After reset commits, both fail with 401 and no unrevoked session survives. |
 | Atomic failure | A temporary PostgreSQL trigger rejects session revocation; password and token changes roll back. The trigger is removed in test cleanup. |
 | Browser layout | Request acknowledgment and reset form screenshots were visually inspected. Labels, one page heading, keyboard form controls, feedback focus, and recovery/sign-in links are present. |
-| Browser reset submission | Manual credential-entry handoff requested under Browser Use policy; completion is not yet verified. |
+| Browser reset submission | User confirmed email receipt but has not completed the reset. Two fresh independent HTTP sessions were verified active with `/me` 200 and retained for the post-reset revocation check. |
 
 ## Automated validation
 
@@ -69,8 +74,8 @@ provider failure invalidates that issuance without changing the generic response
 The recipient cooldown is database-backed; IP throttling retains the app's
 existing per-process limiter behavior.
 
-Authorize the sending machine's IP in Brevo and repeat the controlled-recipient
-delivered-email round trip before marking DG-01 PASS. The key has been reactivated;
-the remaining provider blocker is the IP allowlist. All PR checks passed on the
-implementation head. Complete the Browser
-credential-entry handoff and verify the success screen and subsequent sign-in.
+The key and sending-IP configuration are now working, and the controlled
+recipient confirmed delivery. Complete the Browser credential-entry handoff,
+then verify the success screen, subsequent sign-in, and rejection of the
+retained pre-reset sessions before marking DG-01 PASS. All PR checks passed on
+the implementation head. The isolated local app remains running for this handoff.
