@@ -127,6 +127,7 @@ export function StudentAssignmentsPage() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
+                  aria-label="Search assignments"
                   placeholder="Search assignments..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -134,7 +135,7 @@ export function StudentAssignmentsPage() {
                 />
               </div>
               <Select value={filterCourse} onValueChange={setFilterCourse}>
-                <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectTrigger aria-label="Filter by course" className="w-full sm:w-[200px]">
                   <SelectValue placeholder="All Courses" />
                 </SelectTrigger>
                 <SelectContent>
@@ -204,7 +205,10 @@ export function StudentAssignmentsPage() {
                           <div className="flex-1 min-w-0 space-y-3">
                             <div>
                               <div className="flex items-start gap-3 mb-2">
-                                <h3 className="flex-1">{assignment.title}</h3>
+                                <h3 className="flex-1"><button type="button" className="text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" onClick={(event) => {
+                                  event.stopPropagation();
+                                  navigate(`/student/assignments/${assignment.id}`);
+                                }}>{assignment.title}</button></h3>
                                 {status === 'graded' ? (
                                   <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-200">
                                     <CheckCircle2 className="size-3 mr-1" />
