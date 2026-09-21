@@ -39,6 +39,8 @@ function ToolbarButton({ onClick, isActive, disabled, children, title }: Toolbar
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-label={title}
+      aria-pressed={isActive}
       className={cn(
         'inline-flex h-8 w-8 items-center justify-center rounded-md text-sm font-medium transition-colors',
         'hover:bg-accent hover:text-accent-foreground',
