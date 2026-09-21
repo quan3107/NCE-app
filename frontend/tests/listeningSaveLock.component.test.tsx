@@ -60,3 +60,26 @@ test('failed upload creates nothing and permits a deliberate retry', async () =>
   await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
   expect(mocks.upload).toHaveBeenCalledTimes(2);
 });
+
+test('leaving during upload never starts an assignment mutation', async () => {
+  let finishUpload!: () => void;
+  mocks.upload.mockImplementation((config) => new Promise(resolve => { finishUpload = () => resolve(config); }));
+  const view = render(<TeacherIeltsAssignmentCreatePage />);
+  fireEvent.click(screen.getByText('Save twice'));
+  view.unmount();
+  await act(async () => finishUpload());
+  expect(mocks.create).not.toHaveBeenCalled();
+  expect(mocks.navigate).not.toHaveBeenCalled();
+});
+
+test('leaving during creation never redirects when the server acknowledges', async () => {
+  mocks.upload.mockImplementation(async (config) => config);
+  let finishCreate!: () => void;
+  mocks.create.mockImplementation(() => new Promise<void>(resolve => { finishCreate = resolve; }));
+  const view = render(<TeacherIeltsAssignmentCreatePage />);
+  fireEvent.click(screen.getByText('Save twice'));
+  await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+  view.unmount();
+  await act(async () => finishCreate());
+  expect(mocks.navigate).not.toHaveBeenCalled();
+});
