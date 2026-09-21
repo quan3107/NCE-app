@@ -36,9 +36,7 @@ const emptyValues = (): FormValues => ({
 
 export function AdminSettingsPage() {
   const { currentUser, sessionGeneration } = useAuthStore();
-  return (
-    <AdminSettingsForm key={`${currentUser.id}:${sessionGeneration}`} />
-  );
+  return <AdminSettingsForm key={`${currentUser.id}:${sessionGeneration}`} />;
 }
 
 function AdminSettingsForm() {
@@ -50,6 +48,7 @@ function AdminSettingsForm() {
   }));
   const [errors, setErrors] = useState<FormErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [conflicted, setConflicted] = useState(false);
   const { values, savedValues } = form;
 
   useEffect(() => {
@@ -73,6 +72,7 @@ function AdminSettingsForm() {
 
   const submitSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (updateLimits.isPending || conflicted) return;
     const nextErrors: FormErrors = {};
     const parsedValues = emptyValues();
     for (const role of ROLES) {
@@ -113,6 +113,7 @@ function AdminSettingsForm() {
         savedValues: nextSavedValues,
       });
     } catch (error) {
+      setConflicted(error instanceof ApiError && error.status === 409);
       setSaveError(
         error instanceof ApiError && error.status === 409
           ? "Settings changed in another session. Reload before saving again."
@@ -142,7 +143,9 @@ function AdminSettingsForm() {
                 These per-file limits are enforced by the backend for each role.
               </p>
               {limitsQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading settings...</p>
+                <p className="text-sm text-muted-foreground">
+                  Loading settings...
+                </p>
               ) : limitsQuery.error ? (
                 <p role="alert" className="text-sm text-destructive">
                   Unable to load settings. Please refresh and try again.
@@ -193,11 +196,35 @@ function AdminSettingsForm() {
                   {saveError}
                 </p>
               )}
+              {conflicted && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={limitsQuery.isFetching}
+                  onClick={async () => {
+                    const result = await limitsQuery.refetch();
+                    if (!result.data || result.error) return;
+                    const incoming = emptyValues();
+                    for (const limit of result.data.limits)
+                      incoming[limit.role] = String(limit.maxFileSizeMib);
+                    setForm({ values: incoming, savedValues: incoming });
+                    setConflicted(false);
+                    setSaveError(null);
+                  }}
+                >
+                  Reload latest settings
+                </Button>
+              )}
             </CardContent>
           </Card>
           <Button
             type="submit"
-            disabled={limitsQuery.isLoading || Boolean(limitsQuery.error) || updateLimits.isPending}
+            disabled={
+              limitsQuery.isLoading ||
+              Boolean(limitsQuery.error) ||
+              updateLimits.isPending ||
+              conflicted
+            }
           >
             {updateLimits.isPending ? "Saving..." : "Save Settings"}
           </Button>
