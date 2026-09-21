@@ -227,6 +227,8 @@ and
 
 ## Frontend
 
+- **2026-09-21:** Fixed the PR frontend CI assertion-safety failure by comparing both analytics download-link absence checks as booleans. The exact coverage command passes all 269 tests; all eight analytics component tests and focused lint pass. Application behavior is unchanged.
+
 - **2026-09-21:** Completed the six remaining OPS stories with Browser verification: notification inspection/re-drive, downloadable CSV with visible fallback, associated email/duplicate errors, settings conflict reload/retry, homepage Refresh Stats, and audit filters. Chrome saved a CSV whose values matched real filtered JSON; actual database locks exercised export/CMS pending and failure recovery. Added scope-change export protection. Lint, TypeScript, build, 269 unit tests, the 220-test component suite, and eight final analytics regressions pass. Catalog reconciles to 114 PASS, 3 FAIL, 1 BLOCKED, 7 DECISION-GATED; X-03 remains FAIL pending its wider matrix. Disposable task servers/database are stopped after verification; pre-existing local changes remain uncommitted.
 
 - **2026-09-21:** Complete listening authoring validation, section removal/reordering, explicit duplicate and same-name bulk mapping, playable student preview, and save locking throughout uploads. All 217 component tests, TypeScript, focused lint, and build pass. Real Browser/API/R2 verifies audio bytes, saved order/playback, upload-busy gating, learner rendering, and privacy. ASG-09 PASS; evidence: `docs/e2e-listening-audio-verification.md`.
