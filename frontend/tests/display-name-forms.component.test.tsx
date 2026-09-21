@@ -55,7 +55,10 @@ vi.mock("@components/ui/separator", () => ({
 }));
 
 vi.mock("@components/ui/checkbox", () => ({
-  Checkbox: ({ onCheckedChange, ...props }: ComponentProps<"input"> & {
+  Checkbox: ({
+    onCheckedChange,
+    ...props
+  }: ComponentProps<"input"> & {
     onCheckedChange?: (checked: boolean) => void;
   }) => (
     <input
@@ -67,7 +70,11 @@ vi.mock("@components/ui/checkbox", () => ({
 }));
 
 vi.mock("@components/ui/select", () => ({
-  Select: ({ children, onValueChange, value }: {
+  Select: ({
+    children,
+    onValueChange,
+    value,
+  }: {
     children: ReactNode;
     onValueChange?: (value: string) => void;
     value?: string;
@@ -91,17 +98,24 @@ vi.mock("@components/ui/select", () => ({
 vi.mock("@components/ui/dialog", () => ({
   Dialog: ({ children, open }: { children: ReactNode; open: boolean }) =>
     open ? children : null,
-  DialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  DialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogDescription: ({ children }: { children: ReactNode }) => (
+    <p>{children}</p>
+  ),
+  DialogFooter: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogHeader: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
   DialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
 }));
 
 const { AuthRegister } = await import("../src/routes/Registration");
-const { AdminCreateUserDialog } = await import(
-  "../src/features/admin/components/AdminCreateUserDialog"
-);
+const { AdminCreateUserDialog } =
+  await import("../src/features/admin/components/AdminCreateUserDialog");
 
 beforeEach(() => {
   register.mockReset();
@@ -132,7 +146,10 @@ test("registration rejects a one-character display name inline", async () => {
   );
 
   assert.ok(screen.getByText("Name must be between 2 and 100 characters."));
-  assert.equal(screen.getByLabelText("Full Name").getAttribute("aria-invalid"), "true");
+  assert.equal(
+    screen.getByLabelText("Full Name").getAttribute("aria-invalid"),
+    "true",
+  );
   assert.equal(register.mock.calls.length, 0);
 });
 
@@ -147,14 +164,21 @@ test("registration maps backend fullName errors to the field", async () => {
     screen.getByRole("combobox", { name: "I am a..." }),
     "student",
   );
-  await user.type(screen.getByLabelText("Password", { selector: "#password" }), "password1");
+  await user.type(
+    screen.getByLabelText("Password", { selector: "#password" }),
+    "password1",
+  );
   await user.type(screen.getByLabelText("Confirm Password"), "password1");
-  await user.click(screen.getByRole("checkbox", { name: /terms and conditions/i }));
+  await user.click(
+    screen.getByRole("checkbox", { name: /terms and conditions/i }),
+  );
   fireEvent.submit(
     screen.getByRole("button", { name: "Create Account" }).closest("form")!,
   );
 
-  assert.ok(await screen.findByText("The name is rejected by the current policy."));
+  assert.ok(
+    await screen.findByText("The name is rejected by the current policy."),
+  );
   assert.equal(register.mock.calls.length, 1);
 });
 
@@ -162,11 +186,32 @@ test("admin creation rejects a one-character display name inline", async () => {
   const user = userEvent.setup();
   render(<AdminCreateUserDialog open onOpenChange={vi.fn()} />);
   await user.type(screen.getByPlaceholderText("Full name"), "A");
-  await user.type(screen.getByPlaceholderText("email@example.com"), "user@example.com");
+  await user.type(
+    screen.getByPlaceholderText("email@example.com"),
+    "user@example.com",
+  );
   await user.click(screen.getByRole("button", { name: "Create User" }));
 
   assert.ok(screen.getByText("Name must be between 2 and 100 characters."));
   assert.equal(createUser.mock.calls.length, 0);
+});
+
+test("admin creation associates malformed and duplicate email feedback with the input", async () => {
+  const user = userEvent.setup();
+  render(<AdminCreateUserDialog open onOpenChange={vi.fn()} />);
+  await user.type(screen.getByLabelText("Name"), "Valid Name");
+  const email = screen.getByLabelText("Email");
+  await user.type(email, "malformed");
+  await user.click(screen.getByRole("button", { name: "Create User" }));
+  assert.equal(createUser.mock.calls.length, 0);
+  assert.equal(email.getAttribute("aria-invalid"), "true");
+  assert.equal(email.getAttribute("aria-describedby"), "admin-email-error");
+  assert.ok(screen.getByRole("alert").textContent?.includes("valid email"));
+  await user.clear(email);
+  await user.type(email, "duplicate@example.com");
+  createUser.mockRejectedValueOnce(new ApiError("Conflict", 409));
+  await user.click(screen.getByRole("button", { name: "Create User" }));
+  assert.ok(await screen.findByText("A user with this email already exists."));
 });
 
 test("admin creation maps backend fullName errors to the field", async () => {
@@ -174,9 +219,14 @@ test("admin creation maps backend fullName errors to the field", async () => {
   const user = userEvent.setup();
   render(<AdminCreateUserDialog open onOpenChange={vi.fn()} />);
   await user.type(screen.getByPlaceholderText("Full name"), "Valid Name");
-  await user.type(screen.getByPlaceholderText("email@example.com"), "user@example.com");
+  await user.type(
+    screen.getByPlaceholderText("email@example.com"),
+    "user@example.com",
+  );
   await user.click(screen.getByRole("button", { name: "Create User" }));
 
-  assert.ok(await screen.findByText("The name is rejected by the current policy."));
+  assert.ok(
+    await screen.findByText("The name is rejected by the current policy."),
+  );
   assert.equal(createUser.mock.calls.length, 1);
 });
