@@ -48,6 +48,7 @@ export function SpeakingAssignmentForm({ value, onChange }: SpeakingAssignmentFo
             {value.part1.questions.map((question, index) => (
               <div key={`part1-${index}`} className="flex gap-2">
                 <Input
+                  aria-label={`Part 1 question ${index + 1}`}
                   value={question}
                   onChange={(event) => {
                     const next = [...value.part1.questions];
@@ -61,6 +62,7 @@ export function SpeakingAssignmentForm({ value, onChange }: SpeakingAssignmentFo
                     variant="ghost"
                     size="sm"
                     onClick={() => updatePart1(value.part1.questions.filter((_, idx) => idx !== index))}
+                    aria-label={`Delete Part 1 question ${index + 1}`}
                   >
                     <Trash2 className="size-4" />
                   </Button>
@@ -84,6 +86,7 @@ export function SpeakingAssignmentForm({ value, onChange }: SpeakingAssignmentFo
             <div className="space-y-2">
               <Label>Topic/Cue Card</Label>
               <Textarea
+                aria-label="Topic/Cue Card"
                 value={value.part2.cueCard.topic}
                 onChange={(event) =>
                   onChange({
@@ -103,6 +106,7 @@ export function SpeakingAssignmentForm({ value, onChange }: SpeakingAssignmentFo
               {value.part2.cueCard.bulletPoints.map((bullet, index) => (
                 <Input
                   key={`bullet-${index}`}
+                  aria-label={`Bullet point ${index + 1}`}
                   value={bullet}
                   onChange={(event) => {
                     const next = [...value.part2.cueCard.bulletPoints];
@@ -125,6 +129,7 @@ export function SpeakingAssignmentForm({ value, onChange }: SpeakingAssignmentFo
                 <Input
                   type="number"
                   value={value.part2.prepSeconds}
+                  aria-label="Preparation Time (seconds)"
                   onChange={(event) =>
                     onChange({
                       ...value,
@@ -141,6 +146,7 @@ export function SpeakingAssignmentForm({ value, onChange }: SpeakingAssignmentFo
                 <Input
                   type="number"
                   value={value.part2.talkSeconds}
+                  aria-label="Talk Time (seconds)"
                   onChange={(event) =>
                     onChange({
                       ...value,
@@ -187,12 +193,14 @@ export function SpeakingAssignmentForm({ value, onChange }: SpeakingAssignmentFo
                     updatePart3(next);
                   }}
                   placeholder={`Discussion question ${index + 1}`}
+                  aria-label={`Discussion question ${index + 1}`}
                 />
                 {value.part3.questions.length > 1 && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => updatePart3(value.part3.questions.filter((_, idx) => idx !== index))}
+                    aria-label={`Delete discussion question ${index + 1}`}
                   >
                     <Trash2 className="size-4" />
                   </Button>
