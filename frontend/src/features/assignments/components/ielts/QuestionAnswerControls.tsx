@@ -64,6 +64,7 @@ export function QuestionAnswerControls({
                   {String.fromCharCode(65 + index)}.
                 </span>
                 <Input
+                  aria-label={`Option ${String.fromCharCode(65 + index)}`}
                   value={option}
                   onChange={(event) => onOptionChange(index, event.target.value)}
                   placeholder={`Option ${String.fromCharCode(65 + index)}`}
@@ -74,6 +75,7 @@ export function QuestionAnswerControls({
                   size="icon"
                   className="size-7"
                   onClick={() => onRemoveOption(index)}
+                  aria-label={`Remove option ${String.fromCharCode(65 + index)}`}
                   disabled={question.options.length <= 2}
                 >
                   <Trash2 className="size-3.5 text-destructive" />
@@ -106,7 +108,7 @@ export function QuestionAnswerControls({
                 })
               }
             >
-              <SelectTrigger className="w-[180px] h-8 text-xs">
+              <SelectTrigger aria-label="Correct answer" className="w-[180px] h-8 text-xs">
                 <SelectValue placeholder="Select answer" />
               </SelectTrigger>
               <SelectContent>
@@ -127,7 +129,7 @@ export function QuestionAnswerControls({
                 })
               }
             >
-              <SelectTrigger className="w-[180px] h-8 text-xs">
+              <SelectTrigger aria-label="Correct answer" className="w-[180px] h-8 text-xs">
                 <SelectValue placeholder="Select answer" />
               </SelectTrigger>
               <SelectContent>
@@ -143,7 +145,7 @@ export function QuestionAnswerControls({
               value={question.correctAnswer}
               onValueChange={(value) => onChange({ ...question, correctAnswer: value })}
             >
-              <SelectTrigger className="w-[180px] h-8 text-xs">
+              <SelectTrigger aria-label="Correct answer" className="w-[180px] h-8 text-xs">
                 <SelectValue placeholder="Select correct option" />
               </SelectTrigger>
               <SelectContent>
@@ -156,6 +158,7 @@ export function QuestionAnswerControls({
             </Select>
           ) : (
             <Input
+              aria-label="Correct answer"
               value={question.correctAnswer}
               onChange={(event) => onChange({ ...question, correctAnswer: event.target.value })}
               placeholder="Enter correct answer..."
