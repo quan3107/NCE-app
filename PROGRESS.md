@@ -13,7 +13,7 @@ and
 
 ## Backend
 
-- **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. After API-key reactivation and sending-IP authorization, Brevo accepted the real Browser retry and the controlled recipient confirmed email receipt. Full acceptance remains BLOCKED on manual Browser reset completion; two fresh sessions are ready for the post-reset check. All implementation-head PR checks passed. Evidence: `docs/e2e-password-recovery-verification.md`.
+- **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. After API-key reactivation and sending-IP authorization, Brevo accepted the real Browser retry and the controlled recipient confirmed email receipt. The user completed the emailed-link reset; real API checks confirmed token consumption, old-password rejection, emailed-token reuse rejection, and revocation of both still-unexpired saved access/refresh sessions. DG-01 passes. All implementation-head PR checks passed. Evidence: `docs/e2e-password-recovery-verification.md`.
 
 - **2026-09-21:** Recorded DG-01 password recovery decisions: reuse Brevo, expire reset links after 30 minutes, and revoke all existing sessions after a successful reset. Implementation and verification remain pending.
 
@@ -239,7 +239,7 @@ and
 
 ## Frontend
 
-- **2026-09-21:** Implemented accessible password request/reset/error/success screens and connected Forgot password. Browser verified existing/unknown generic responses and inspected form layout against the actual API/database; 270 unit tests, 249 component tests, lint, typecheck, and build pass. Email delivery is now confirmed by the controlled recipient after the real Browser retry; credential submission still awaits the requested manual handoff. DG-01 is BLOCKED, giving 117 PASS, 0 FAIL, 2 BLOCKED, 6 DECISION-GATED. Evidence: `docs/e2e-password-recovery-verification.md`.
+- **2026-09-21:** Implemented accessible password request/reset/error/success screens and connected Forgot password. Browser verified existing/unknown generic responses and inspected form layout against the actual API/database; 270 unit tests, 249 component tests, lint, typecheck, and build pass. Email delivery and the user-assisted emailed-link reset are verified. Browser sign-in with the new test password reached the student dashboard; the screenshot was visually inspected. DG-01 passes, giving 118 PASS, 0 FAIL, 1 BLOCKED, 6 DECISION-GATED. Evidence: `docs/e2e-password-recovery-verification.md`.
 
 - **2026-09-21:** Recorded the confirmed DG-01 recovery contract in the story catalog; password recovery UI implementation and verification remain pending.
 
