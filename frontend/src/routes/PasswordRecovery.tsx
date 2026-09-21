@@ -15,9 +15,11 @@ import {
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { ApiError, apiClient } from "@lib/apiClient";
+import { useMutationLifetime } from "@lib/useMutationLifetime";
 
 export function PasswordRecoveryRoute() {
   const location = useLocation();
+  const captureLifetime = useMutationLifetime();
   const isReset = location.pathname === "/reset-password";
   // The secret is held only in memory. Never persist it in browser storage.
   const token = new URLSearchParams(location.hash.slice(1)).get("token") ?? "";
@@ -43,6 +45,7 @@ export function PasswordRecoveryRoute() {
       return;
     }
     setBusy(true);
+    const isCurrent = captureLifetime();
     try {
       const result = await apiClient<{ message: string }>(
         isReset ? "/auth/reset-password" : "/auth/forgot-password",
@@ -53,9 +56,13 @@ export function PasswordRecoveryRoute() {
           body: isReset ? { token, password } : { email: email.trim() },
         },
       );
+      // The server may finish after the user has left this recovery form.
+      if (!isCurrent()) return;
       setPassword("");
       setConfirmation("");
       setSuccess(result.message);
+      // Clear pending state before removing the fragment changes the lifetime URL.
+      setBusy(false);
       if (isReset)
         window.history.replaceState(
           window.history.state,
@@ -63,13 +70,14 @@ export function PasswordRecoveryRoute() {
           location.pathname,
         );
     } catch (cause) {
+      if (!isCurrent()) return;
       setError(
         cause instanceof ApiError && cause.status !== 0
           ? cause.message
           : "Unable to connect. Check your connection and try again.",
       );
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
 
