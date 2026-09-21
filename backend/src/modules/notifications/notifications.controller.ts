@@ -9,9 +9,17 @@ import {
   createNotification,
   getNotificationById,
   listNotifications,
+  listNotificationDeliveries,
   markNotificationsRead,
   resendNotification,
 } from './notifications.service.js'
+
+export async function getNotificationDeliveries(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  res.json(await listNotificationDeliveries(req.query))
+}
 
 export async function getNotifications(req: Request, res: Response): Promise<void> {
   const actor = req.user
