@@ -27,6 +27,7 @@ type IeltsAuthoringBasicDetailsCardProps = {
   enforceTime: boolean;
   onEnforceTimeChange: (value: boolean) => void;
   dueDate: string;
+  dueDateErrorId?: string;
   onDueDateChange: (value: string) => void;
 };
 
@@ -45,6 +46,7 @@ export function IeltsAuthoringBasicDetailsCard({
   enforceTime,
   onEnforceTimeChange,
   dueDate,
+  dueDateErrorId,
   onDueDateChange,
 }: IeltsAuthoringBasicDetailsCardProps) {
   return (
@@ -55,17 +57,18 @@ export function IeltsAuthoringBasicDetailsCard({
       <CardContent className="space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Assignment Title *</Label>
+            <Label htmlFor="ielts-title">Assignment Title *</Label>
             <Input
+              id="ielts-title"
               value={assignmentTitle}
               onChange={(event) => onAssignmentTitleChange(event.target.value)}
               placeholder="e.g., IELTS Reading Practice Test 1"
             />
           </div>
           <div className="space-y-2">
-            <Label>Course *</Label>
+            <Label htmlFor="ielts-course">Course *</Label>
             <Select value={courseId} onValueChange={onCourseChange}>
-              <SelectTrigger>
+              <SelectTrigger id="ielts-course">
                 <SelectValue placeholder="Select course" />
               </SelectTrigger>
               <SelectContent>
@@ -80,8 +83,9 @@ export function IeltsAuthoringBasicDetailsCard({
         </div>
 
         <div className="space-y-2">
-          <Label>Instructions</Label>
+          <Label htmlFor="ielts-instructions">Instructions</Label>
           <Textarea
+            id="ielts-instructions"
             value={instructions}
             onChange={(event) => onInstructionsChange(event.target.value)}
             placeholder="Provide instructions for students..."
@@ -92,19 +96,20 @@ export function IeltsAuthoringBasicDetailsCard({
         <div className="space-y-4 pt-4 border-t">
           <div className="flex items-center justify-between">
             <div>
-              <Label>Timing</Label>
+              <Label htmlFor="ielts-timing">Timing</Label>
               <p className="text-sm text-muted-foreground">
                 Enable time limits for this assignment
               </p>
             </div>
-            <Switch checked={timingEnabled} onCheckedChange={onTimingEnabledChange} />
+            <Switch id="ielts-timing" checked={timingEnabled} onCheckedChange={onTimingEnabledChange} />
           </div>
 
           {timingEnabled && (
             <div className="grid md:grid-cols-2 gap-4 pl-4 border-l-2">
               <div className="space-y-2">
-                <Label>Duration (minutes)</Label>
+                <Label htmlFor="ielts-duration">Duration (minutes)</Label>
                 <Input
+                  id="ielts-duration"
                   type="number"
                   value={durationMinutes}
                   onChange={(event) =>
@@ -114,22 +119,25 @@ export function IeltsAuthoringBasicDetailsCard({
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Enforce Time Limit</Label>
+                  <Label htmlFor="ielts-enforce-time">Enforce Time Limit</Label>
                   <p className="text-sm text-muted-foreground">
                     Auto-submit when time expires
                   </p>
                 </div>
-                <Switch checked={enforceTime} onCheckedChange={onEnforceTimeChange} />
+                <Switch id="ielts-enforce-time" checked={enforceTime} onCheckedChange={onEnforceTimeChange} />
               </div>
             </div>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label>Due Date *</Label>
+          <Label htmlFor="ielts-due-date">Due Date *</Label>
           <Input
+            id="ielts-due-date"
             type="datetime-local"
             value={dueDate}
+            aria-invalid={Boolean(dueDateErrorId)}
+            aria-describedby={dueDateErrorId}
             onChange={(event) => onDueDateChange(event.target.value)}
           />
         </div>
