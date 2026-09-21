@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { authoringDraftKey } from './authoring-draft-key';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -41,6 +42,7 @@ export function useAutoSave<T>(
   options: UseAutoSaveOptions
 ): UseAutoSaveReturn<T> {
   const { key, debounceMs = DEFAULT_DEBOUNCE_MS, maxAgeDays = DEFAULT_MAX_AGE_DAYS } = options;
+  const storageKey = authoringDraftKey(key);
   
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -56,7 +58,6 @@ export function useAutoSave<T>(
   // Check for existing draft on mount
   useEffect(() => {
     try {
-      const storageKey = `ielts_autosave_${key}`;
       const saved = localStorage.getItem(storageKey);
       
       if (saved) {
@@ -76,7 +77,7 @@ export function useAutoSave<T>(
     } catch (error) {
       console.error('Error checking for draft:', error);
     }
-  }, [key, maxAgeDays]);
+  }, [storageKey, maxAgeDays]);
 
   // Store initial data on first render
   useEffect(() => {
@@ -113,8 +114,8 @@ export function useAutoSave<T>(
 
     // Debounce the save
     timeoutRef.current = setTimeout(() => {
+      if (authoringDraftKey(key) !== storageKey) return;
       try {
-        const storageKey = `ielts_autosave_${key}`;
         const state: AutoSaveState<T> = {
           data,
           timestamp: Date.now(),
@@ -138,11 +139,10 @@ export function useAutoSave<T>(
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [data, key, debounceMs]);
+  }, [data, key, storageKey, debounceMs]);
 
   const clearDraft = useCallback(() => {
     try {
-      const storageKey = `ielts_autosave_${key}`;
       localStorage.removeItem(storageKey);
       setHasDraft(false);
       setDraftTimestamp(null);
@@ -152,7 +152,7 @@ export function useAutoSave<T>(
     } catch (error) {
       console.error('Error clearing draft:', error);
     }
-  }, [key]);
+  }, [storageKey]);
 
   const restoreDraft = useCallback((): T | null => {
     return draftData;
@@ -189,7 +189,7 @@ export function useDraftConflict<T>(
     if (!serverData) return;
 
     try {
-      const storageKey = `ielts_autosave_${assignmentId}`;
+      const storageKey = authoringDraftKey(assignmentId);
       const saved = localStorage.getItem(storageKey);
       
       if (saved) {
