@@ -122,23 +122,40 @@ export const toAuditLog = (log: ApiAuditLog): AuditLog => {
 };
 
 const fetchUsers = async (): Promise<AdminUser[]> => {
-  const response = await apiClient<ApiUser[]>('/api/v1/users', { auth: 'required' });
+  const response = await apiClient<ApiUser[]>('/api/v1/users', {
+    auth: 'required',
+  });
   return response.map(toUser);
 };
 
 const fetchEnrollments = async (): Promise<AdminEnrollment[]> => {
-  const response = await apiClient<ApiEnrollment[]>('/api/v1/enrollments', { auth: 'required' });
+  const response = await apiClient<ApiEnrollment[]>('/api/v1/enrollments', {
+    auth: 'required',
+  });
   return response.map(toEnrollment);
 };
 
 export const AUDIT_LOG_PAGE_SIZE = 50;
 
-const fetchAuditLogs = async (offset: number): Promise<{ data: AuditLog[]; nextOffset: number | null }> => {
+export type AuditLogFilters = Partial<
+  Record<
+    'actorId' | 'action' | 'entity' | 'entityId' | 'createdFrom' | 'createdTo',
+    string
+  >
+>;
+
+const fetchAuditLogs = async (
+  offset: number,
+  filters: AuditLogFilters,
+): Promise<{ data: AuditLog[]; nextOffset: number | null }> => {
   const response = await apiClient<ApiAuditLogPage>('/api/v1/audit-logs', {
     auth: 'required',
-    params: { limit: AUDIT_LOG_PAGE_SIZE, offset },
+    params: { ...filters, limit: AUDIT_LOG_PAGE_SIZE, offset },
   });
-  return { data: response.data.map(toAuditLog), nextOffset: response.nextOffset };
+  return {
+    data: response.data.map(toAuditLog),
+    nextOffset: response.nextOffset,
+  };
 };
 
 const createUser = async (payload: CreateUserRequest): Promise<ApiUser> => {
@@ -195,11 +212,14 @@ const deleteManagedUser = async (userId: string): Promise<void> => {
 const createEnrollment = async (
   payload: CreateEnrollmentRequest,
 ): Promise<ApiEnrollment> => {
-  return apiClient<ApiEnrollment, CreateEnrollmentRequest>('/api/v1/enrollments', {
-    auth: 'required',
-    method: 'POST',
-    body: payload,
-  });
+  return apiClient<ApiEnrollment, CreateEnrollmentRequest>(
+    '/api/v1/enrollments',
+    {
+      auth: 'required',
+      method: 'POST',
+      body: payload,
+    },
+  );
 };
 
 const removeEnrollment = async (enrollmentId: string): Promise<void> => {
@@ -231,10 +251,13 @@ export function useAdminEnrollmentsQuery() {
   });
 }
 
-export function useAdminAuditLogsQuery(offset = 0) {
+export function useAdminAuditLogsQuery(
+  offset = 0,
+  filters: AuditLogFilters = {},
+) {
   return useQuery({
-    queryKey: [...ADMIN_AUDIT_LOGS_KEY, offset],
-    queryFn: () => fetchAuditLogs(offset),
+    queryKey: [...ADMIN_AUDIT_LOGS_KEY, offset, filters],
+    queryFn: () => fetchAuditLogs(offset, filters),
   });
 }
 
@@ -322,8 +345,16 @@ export function useAdminDashboardMetrics() {
   const enrollments = useAdminEnrollmentsQuery();
 
   const isLoading =
-    assignments.isLoading || courses.isLoading || users.isLoading || enrollments.isLoading;
-  const error = assignments.error ?? courses.error ?? users.error ?? enrollments.error ?? null;
+    assignments.isLoading ||
+    courses.isLoading ||
+    users.isLoading ||
+    enrollments.isLoading;
+  const error =
+    assignments.error ??
+    courses.error ??
+    users.error ??
+    enrollments.error ??
+    null;
 
   const userCount = users.data?.length ?? 0;
   const courseCount = courses.data?.length ?? 0;
