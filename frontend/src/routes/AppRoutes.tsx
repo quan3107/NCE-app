@@ -128,9 +128,10 @@ function PublicLayout() {
 }
 
 function AppLayout() {
+  const { currentUser, sessionGeneration } = useAuthStore();
   return (
     <RequireAuth>
-      <NavigationProvider>
+      <NavigationProvider key={`${currentUser.id}:${sessionGeneration}`}>
         <AppShell variant="app">
           <Suspense fallback={<RouteLoading />}>
             <Outlet />
