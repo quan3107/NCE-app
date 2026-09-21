@@ -13,6 +13,7 @@ import { PageHeader } from '@components/common/PageHeader';
 import { AutoSaveIndicator } from '@components/ui/auto-save-indicator';
 import { useRouter } from '@lib/router';
 import { useAutoSave } from '@lib/use-auto-save';
+import { useMutationLifetime } from '@lib/useMutationLifetime';
 import { createIeltsAssignmentConfig, type IeltsAssignmentConfig, type IeltsAssignmentType } from '@lib/ielts';
 import type { AssignmentType } from '@domain';
 import { useAssignmentResources, useCreateAssignmentMutation } from '@features/assignments/api';
@@ -38,7 +39,9 @@ export function TeacherIeltsAssignmentCreatePage() {
   const [isRetrying, setIsRetrying] = useState(false);
   const createAssignmentMutation = useCreateAssignmentMutation();
   const submitLock = useRef(false);
+  const captureLifetime = useMutationLifetime();
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const draft = getInitialStateFromDraft();
   const didRestore = !!draft;
@@ -185,6 +188,7 @@ export function TeacherIeltsAssignmentCreatePage() {
     // The mutation becomes pending only after uploads. Lock the entire operation,
     // synchronously, so two clicks cannot upload/create the same assignment twice.
     if (submitLock.current) return;
+    setSaveError(null);
     if (!selectedType || !assignmentConfig) {
       toast.error('Select an IELTS assignment type to continue.');
       return;
@@ -194,16 +198,37 @@ export function TeacherIeltsAssignmentCreatePage() {
       return;
     }
     if (publish && !dueDate) {
+      setSaveError('Choose a due date before publishing.');
       toast.error('Please fill in all required fields');
       return;
     }
 
     submitLock.current = true;
+    const isCurrent = captureLifetime();
+    let uploadedCount = isListeningConfig(assignmentConfig)
+      ? assignmentConfig.sections.filter((section) => section.audioFileId && !listeningFiles[section.id]).length
+      : isWritingConfig(assignmentConfig) && assignmentConfig.task1.imageFileId && !writingTask1File ? 1 : 0;
     setIsSaving(true);
     try {
       let config = assignmentConfig;
-      config = await uploadListeningAudioFiles(config, selectedType, listeningFiles);
+      config = await uploadListeningAudioFiles(config, selectedType, listeningFiles, (sectionId, fileId) => {
+        uploadedCount += 1;
+        if (!isCurrent()) return;
+        // Retain completed media so a later failure only retries unfinished work.
+        setAssignmentConfig((current) => current && isListeningConfig(current) ? {
+          ...current,
+          sections: current.sections.map((section) => section.id === sectionId ? { ...section, audioFileId: fileId } : section),
+        } : current);
+        setListeningFiles((current) => current[sectionId] === listeningFiles[sectionId] ? { ...current, [sectionId]: null } : current);
+      });
+      if (!isCurrent()) return;
       config = await uploadWritingTaskImage(config, selectedType, writingTask1File);
+      if (!isCurrent()) return;
+      if (selectedType === 'writing' && writingTask1File) {
+        uploadedCount += 1;
+        setAssignmentConfig(config);
+        setWritingTask1File(null);
+      }
 
       await createAssignmentMutation.mutateAsync({
         courseId,
@@ -216,14 +241,19 @@ export function TeacherIeltsAssignmentCreatePage() {
           publishedAt: publish ? new Date().toISOString() : undefined,
         },
       });
+      if (!isCurrent()) return;
       toast.success(publish ? 'Assignment published successfully' : 'Assignment draft saved successfully');
       clearDraft();
       navigate('/teacher/assignments');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to save assignment.');
+      if (!isCurrent()) return;
+      const message = error instanceof Error ? error.message : 'Unable to save assignment.';
+      const failure = uploadedCount > 0 ? `${uploadedCount} file(s) uploaded, but the assignment was not saved. ${message}` : message;
+      setSaveError(failure);
+      toast.error(failure);
     } finally {
       submitLock.current = false;
-      setIsSaving(false);
+      if (isCurrent()) setIsSaving(false);
     }
   };
 
@@ -306,7 +336,7 @@ export function TeacherIeltsAssignmentCreatePage() {
         title={`Create ${selectedType.charAt(0).toUpperCase()}${selectedType.slice(1)} Assignment`}
         description="Configure your IELTS assignment"
         actions={
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <AutoSaveIndicator
               status={autoSaveStatus}
               lastSaved={lastSaved}
@@ -327,12 +357,14 @@ export function TeacherIeltsAssignmentCreatePage() {
         }
       />
 
+      {saveError && <p id="ielts-save-error" role="alert" className="px-4 py-3 text-destructive">{saveError}</p>}
       <TeacherIeltsAssignmentEditor
         assignmentTitle={assignmentTitle}
         canSave={canSave}
         courseId={courseId}
         courses={courses}
         dueDate={dueDate}
+        dueDateErrorId={saveError === 'Choose a due date before publishing.' && !dueDate ? 'ielts-save-error' : undefined}
         durationMinutes={durationMinutes}
         enforceTime={enforceTime}
         instructions={instructions}
