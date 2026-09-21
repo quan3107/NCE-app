@@ -114,6 +114,7 @@ export function AdminCmsPage() {
     saveMutation.reset();
     publishMutation.reset();
     rollbackMutation.reset();
+    refreshStats.reset();
     setEditor(null);
     setPageKey(nextPageKey);
     setShowPreview(false);
@@ -146,6 +147,11 @@ export function AdminCmsPage() {
         description="Edit drafts, preview changes, publish revisions, and restore earlier content."
       />
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <p role="status" className="text-sm text-muted-foreground">
+          {isBusy ? 'Saving content…' : rollbackMutation.isSuccess
+            ? 'Historical revision published.' : publishMutation.isSuccess
+              ? 'Content published.' : saveMutation.isSuccess ? 'Draft saved.' : ''}
+        </p>
         {pagesQuery.error ? (
           <Card>
             <CardContent className="py-6 text-sm text-destructive">
@@ -265,10 +271,12 @@ export function AdminCmsPage() {
         }
       />
       <ConfirmRollbackDialog
+        isBusy={isBusy}
+        error={rollbackMutation.error}
         open={pendingRollback !== null}
         onCancel={() => setPendingRollback(null)}
         onConfirm={() => {
-          if (!pendingRollback || !editor) return;
+          if (!pendingRollback || !editor || isBusy) return;
           rollbackMutation.mutate(
             {
               pageKey,
