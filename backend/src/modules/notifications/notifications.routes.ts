@@ -11,6 +11,7 @@ import { roleGuard } from '../../middleware/roleGuard.js'
 import {
   getNotification,
   getNotifications,
+  getNotificationDeliveries,
   postNotificationResend,
   postNotificationsRead,
   postNotification,
@@ -21,6 +22,11 @@ export const notificationRouter = Router()
 notificationRouter.use(authGuard)
 
 notificationRouter.get('/', getNotifications)
+notificationRouter.get(
+  '/deliveries',
+  roleGuard([UserRole.admin]),
+  getNotificationDeliveries,
+)
 notificationRouter.post('/', roleGuard([UserRole.admin]), postNotification)
 notificationRouter.post('/read', postNotificationsRead)
 notificationRouter.post(
