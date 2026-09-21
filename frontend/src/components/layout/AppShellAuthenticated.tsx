@@ -5,7 +5,8 @@
  */
 
 import { type ReactNode, useEffect, useState } from 'react';
-import { AlertCircle, BookOpen, Bell, GraduationCap, Info, LogOut, Menu, Settings, User, X } from 'lucide-react';
+import { BookOpen, Bell, GraduationCap, Info, LogOut, Menu, Settings, User } from 'lucide-react';
+import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetTrigger } from '@components/ui/sheet';
 import { toast } from 'sonner@2.0.3';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
@@ -77,19 +78,42 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
     });
   };
 
+  const navigation = (
+    <nav aria-label="Workspace" className="flex-1 p-3 space-y-1 overflow-y-auto">
+      {isLoading && items.length === 0 && <p role="status">Loading navigation...</p>}
+      {!isLoading && error && <div role="alert" className="space-y-3 p-2">
+        <p>{source === 'unavailable' ? 'Navigation is unavailable.' : 'Navigation counts are unavailable.'}</p>
+        <Button variant="outline" onClick={() => void refetch()}>Retry navigation</Button>
+      </div>}
+      {source !== 'unavailable' && items.map((item) => <NavigationItemRow
+        key={item.id} item={item} isActive={currentPath === item.path}
+        count={getBadgeCountForSource(item.badgeSource, badgeCounts)} onClick={handleNavClick}
+      />)}
+      {!isLoading && source !== 'unavailable' && items.length === 0 &&
+        <p>No navigation items are available for this account.</p>}
+    </nav>
+  );
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <header className="h-16 border-b bg-card/90 backdrop-blur flex items-center px-4 gap-4 sticky top-0 z-50">
-        <Button
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetTrigger asChild><Button
           variant="ghost"
           size="icon"
           className="md:hidden"
-          onClick={() => setSidebarOpen((open) => !open)}
+          aria-label="Open workspace navigation"
         >
-          {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-        </Button>
+          <Menu className="size-5" />
+        </Button></SheetTrigger>
+        <SheetContent side="left" className="w-64">
+          <SheetTitle className="px-4 pt-4">Workspace navigation</SheetTitle>
+          <SheetDescription className="sr-only">Choose a page in your workspace.</SheetDescription>
+          {navigation}
+        </SheetContent>
+        </Sheet>
 
-        <button onClick={() => navigate('/')} className="flex items-center gap-2" type="button">
+        <button aria-label="NCE" onClick={() => navigate('/')} className="flex items-center gap-2" type="button">
           <div className="brand-mark size-8">
             <GraduationCap className="size-5" />
           </div>
@@ -103,6 +127,7 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
             variant="ghost"
             size="icon"
             className="relative"
+            aria-label={`Notifications, ${badgeCounts.notifications} unread`}
             onClick={() => navigate(notificationItem.path)}
           >
             <Bell className="size-5" />
@@ -166,67 +191,10 @@ export function AppShellAuthenticated({ children }: AppShellAuthenticatedProps) 
 
       <div className="flex-1 flex overflow-hidden">
         <aside
-          className={[
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-            'md:translate-x-0 fixed md:relative inset-y-0 left-0 z-40',
-            'w-64 border-r bg-sidebar transition-transform duration-200 ease-in-out',
-            'flex flex-col mt-16 md:mt-0',
-          ].join(' ')}
+          className="hidden md:flex w-64 border-r bg-sidebar flex-col"
         >
-          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-            {isLoading && items.length === 0 && (
-              <p className="text-sm text-muted-foreground px-2 py-3" role="status">
-                Loading navigation...
-              </p>
-            )}
-
-            {!isLoading && error && (
-              <div className="px-2 py-3 space-y-3" role="alert">
-                <div className="flex gap-2 text-sm text-muted-foreground">
-                  <AlertCircle className="mt-0.5 size-4 text-destructive" />
-                  <span>
-                    {source === 'unavailable'
-                      ? 'Navigation is unavailable.'
-                      : 'Navigation counts are unavailable.'}
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => void refetch()}
-                >
-                  Retry navigation
-                </Button>
-              </div>
-            )}
-
-            {source !== 'unavailable' && items.map((item) => (
-              <NavigationItemRow
-                key={item.id}
-                item={item}
-                isActive={currentPath === item.path}
-                count={getBadgeCountForSource(item.badgeSource, badgeCounts)}
-                onClick={handleNavClick}
-              />
-            ))}
-
-            {!isLoading && source !== 'unavailable' && items.length === 0 && (
-              <p className="text-sm text-muted-foreground px-2 py-3">
-                No navigation items are available for this account.
-              </p>
-            )}
-          </nav>
-
+          {navigation}
         </aside>
-
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/20 z-30 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
 
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
