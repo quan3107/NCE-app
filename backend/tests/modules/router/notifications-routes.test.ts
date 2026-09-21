@@ -16,6 +16,7 @@ vi.mock('../../../src/modules/notifications/notifications.service.js', () => ({
   createNotification: vi.fn(),
   getNotificationById: vi.fn(),
   listNotifications: vi.fn(),
+  listNotificationDeliveries: vi.fn(async () => ({ data: [], nextCursor: null })),
   markNotificationsRead: vi.fn(),
   resendNotification: vi.fn(async () => ({
     id: notificationId,
@@ -33,6 +34,23 @@ const asRole = (userId: string, role: UserRole) => ({
 })
 
 describe('modules.router notification routes', () => {
+  it('restricts delivery inspection to administrators', async () => {
+    for (const role of [UserRole.teacher, UserRole.student]) {
+      expect(
+        (
+          await request(app)
+            .get('/api/v1/notifications/deliveries')
+            .set(asRole(teacherId, role))
+        ).status,
+      ).toBe(403)
+    }
+    expect(notificationService.listNotificationDeliveries).not.toHaveBeenCalled()
+    const response = await request(app)
+      .get('/api/v1/notifications/deliveries')
+      .set(asRole(adminId, UserRole.admin))
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ data: [], nextCursor: null })
+  })
   beforeEach(() => {
     vi.clearAllMocks()
   })
