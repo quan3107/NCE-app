@@ -13,7 +13,7 @@ and
 
 ## Backend
 
-- **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. Full delivery acceptance is BLOCKED: after API-key reactivation, Brevo still returned 401 because the sending IP is not authorized. All PR checks passed. Evidence: `docs/e2e-password-recovery-verification.md`.
+- **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. After API-key reactivation and sending-IP authorization, Brevo accepted the real Browser retry and the controlled recipient confirmed email receipt. Full acceptance remains BLOCKED on manual Browser reset completion; two fresh sessions are ready for the post-reset check. All implementation-head PR checks passed. Evidence: `docs/e2e-password-recovery-verification.md`.
 
 - **2026-09-21:** Recorded DG-01 password recovery decisions: reuse Brevo, expire reset links after 30 minutes, and revoke all existing sessions after a successful reset. Implementation and verification remain pending.
 
@@ -239,7 +239,7 @@ and
 
 ## Frontend
 
-- **2026-09-21:** Implemented accessible password request/reset/error/success screens and connected Forgot password. Browser verified existing/unknown generic responses and inspected form layout against the actual API/database; 270 unit tests, 249 component tests, lint, typecheck, and build pass. Browser credential submission awaits the requested manual handoff; delivered-email acceptance is blocked by Brevo. DG-01 is BLOCKED, giving 117 PASS, 0 FAIL, 2 BLOCKED, 6 DECISION-GATED. Evidence: `docs/e2e-password-recovery-verification.md`.
+- **2026-09-21:** Implemented accessible password request/reset/error/success screens and connected Forgot password. Browser verified existing/unknown generic responses and inspected form layout against the actual API/database; 270 unit tests, 249 component tests, lint, typecheck, and build pass. Email delivery is now confirmed by the controlled recipient after the real Browser retry; credential submission still awaits the requested manual handoff. DG-01 is BLOCKED, giving 117 PASS, 0 FAIL, 2 BLOCKED, 6 DECISION-GATED. Evidence: `docs/e2e-password-recovery-verification.md`.
 
 - **2026-09-21:** Recorded the confirmed DG-01 recovery contract in the story catalog; password recovery UI implementation and verification remain pending.
 
