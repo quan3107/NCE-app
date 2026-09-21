@@ -4,13 +4,14 @@
  * Why: Component checks supplement the separate real API/database acceptance run.
  */
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { BrowserRouter, MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { PasswordRecoveryRoute } from "../src/routes/PasswordRecovery";
 import { ApiError, apiClient } from "../src/lib/apiClient";
@@ -22,6 +23,7 @@ vi.mock("../src/lib/apiClient", async (original) => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  window.history.replaceState(null, "", "/");
 });
 const token = "a".repeat(64);
 const open = (path = "/forgot-password") =>
@@ -127,3 +129,60 @@ test("a missing token never exposes an actionable reset form", () => {
   expect(screen.getByRole("alert").textContent).toContain("invalid or missing");
   expect(screen.queryByRole("button", { name: "Reset password" })).toBeNull();
 });
+
+test.each(["success", "failure"])(
+  "late reset %s preserves the destination URL and form after navigation",
+  async (outcome) => {
+    let resolve!: (value: { message: string }) => void;
+    let reject!: (reason: Error) => void;
+    vi.mocked(apiClient).mockReturnValue(
+      new Promise((yes, no) => {
+        resolve = yes;
+        reject = no;
+      }),
+    );
+    window.history.replaceState(null, "", `/reset-password#token=${token}`);
+    render(
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="reset-password"
+            element={<PasswordRecoveryRoute key="reset" />}
+          />
+          <Route
+            path="forgot-password"
+            element={<PasswordRecoveryRoute key="request" />}
+          />
+        </Routes>
+      </BrowserRouter>,
+    );
+    for (const name of ["New password", "Confirm new password"])
+      fireEvent.change(screen.getByLabelText(name), {
+        target: { value: "New-password-2026" },
+      });
+    fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
+    fireEvent.click(
+      screen.getByRole("link", { name: "Request a new reset link" }),
+    );
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "draft@example.invalid" },
+    });
+    await act(async () => {
+      if (outcome === "success") resolve({ message: "Password reset." });
+      else reject(new ApiError("Expired reset", 400));
+    });
+    expect(window.location.pathname).toBe("/forgot-password");
+    expect(
+      (screen.getByLabelText("Email address") as HTMLInputElement).value,
+    ).toBe("draft@example.invalid");
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toBe("");
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Send reset link",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  },
+);
