@@ -36,6 +36,8 @@ import {
   createListeningQuestion,
 } from './listeningAuthoring.logic';
 import { uploadAuthoringFile } from '../diagramLabelingUpload';
+import { useFileUploadConfig } from '@features/files/configApi';
+import { createFileUploadPolicy, isAllowedFile } from '@features/files/uploadPolicy';
 
 type ListeningAssignmentFormProps = {
   value: IeltsListeningConfig;
@@ -52,6 +54,24 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
   const [showBulkUploadDialog, setShowBulkUploadDialog] = useState(false);
   const [bulkMatches, setBulkMatches] = useState<Record<string, File | null>>({});
   const bulkInputRef = useRef<HTMLInputElement>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const { data: uploadPolicy } = useFileUploadConfig();
+  // The general policy also permits documents; listening must only accept audio.
+  const audioPolicy = uploadPolicy && createFileUploadPolicy({
+    limits: uploadPolicy.limits,
+    allowedTypes: uploadPolicy.allowedTypes.filter((type) => type.mimeType.startsWith('audio/')),
+  });
+  const validateAudio = (file: File) => {
+    const result = isAllowedFile(file, audioPolicy);
+    if (!result.ok) {
+      const hint = audioPolicy ? ` (${audioPolicy.typeLabel})` : ' after upload settings load';
+      return `${result.reason} Choose a supported audio file${hint}.`;
+    }
+    if (audioPolicy && file.size > audioPolicy.limits.maxFileSize) {
+      return `${file.name} exceeds the audio upload size limit of ${audioPolicy.limits.maxFileSize} bytes.`;
+    }
+    return null;
+  };
 
   const {
     data: questionTypes,
@@ -169,6 +189,10 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
   };
 
   const handleAudioSelect = (sectionId: string, file: File | null) => {
+    const error = file ? validateAudio(file) : null;
+    setAudioError(error);
+    // Reject before replacing an existing preview or queuing an upload for save.
+    if (error) return;
     setUploadedAudio((prev) => {
       const next = { ...prev };
       if (next[sectionId]?.url) {
@@ -190,10 +214,12 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
       return;
     }
 
-    const audioFiles = Array.from(files).filter((file) => file.type.startsWith('audio/'));
-    if (!audioFiles.length) {
-      return;
-    }
+    const audioFiles = Array.from(files);
+    event.target.value = '';
+    const errors = audioFiles.map(validateAudio).filter(Boolean);
+    setAudioError(errors.length ? errors.join(' ') : null);
+    // Keep a mixed selection atomic so rejected files are never silently lost.
+    if (errors.length) return;
 
     setBulkUploadFiles(audioFiles);
     setBulkMatches(createBulkAudioMatches(audioFiles, value.sections));
@@ -271,6 +297,7 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect }: List
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {audioError && <p role="alert" className="text-sm text-destructive">{audioError}</p>}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext
             items={value.sections.map((section) => section.id)}
