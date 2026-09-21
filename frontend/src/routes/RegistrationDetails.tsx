@@ -10,13 +10,16 @@ import { toast } from 'sonner@2.0.3';
 type TermsProps = {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
+  errorId?: string;
 };
 
-export function RegistrationTerms({ checked, onCheckedChange }: TermsProps) {
+export function RegistrationTerms({ checked, onCheckedChange, errorId }: TermsProps) {
   return (
     <div className="flex items-center space-x-2">
       <Checkbox
         id="terms"
+        aria-invalid={Boolean(errorId)}
+        aria-describedby={errorId}
         checked={checked}
         onCheckedChange={(value) => onCheckedChange(value === true)}
       />
