@@ -29,6 +29,7 @@ export function IeltsAuthoringActionsCard({
           <div>
             <h4 className="font-medium mb-1">Ready to publish?</h4>
             <p className="text-sm text-muted-foreground">Save as draft or publish for students</p>
+            {isLoading && <p role="status" className="text-sm">Uploading files and saving assignment...</p>}
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={onSaveDraft} disabled={!canSave || isLoading}>
