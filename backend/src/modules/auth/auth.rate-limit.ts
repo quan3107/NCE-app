@@ -20,6 +20,8 @@ export const AUTH_RATE_LIMITED_MESSAGE =
 const AUTH_RATE_LIMITED_CODE = "AUTH_RATE_LIMITED";
 
 export type AuthRouteRateLimitKey =
+  | "requestPasswordReset"
+  | "resetPassword"
   | "register"
   | "refresh"
   | "googleStart"
