@@ -27,6 +27,7 @@ type TeacherIeltsAssignmentEditorProps = {
   courseId: string;
   courses: Course[];
   dueDate: string;
+  dueDateErrorId?: string;
   durationMinutes: number;
   enforceTime: boolean;
   instructions: string;
@@ -60,6 +61,7 @@ export function TeacherIeltsAssignmentEditor({
   courseId,
   courses,
   dueDate,
+  dueDateErrorId,
   durationMinutes,
   enforceTime,
   instructions,
@@ -106,6 +108,7 @@ export function TeacherIeltsAssignmentEditor({
           enforceTime={enforceTime}
           onEnforceTimeChange={onEnforceTimeChange}
           dueDate={dueDate}
+          dueDateErrorId={dueDateErrorId}
           onDueDateChange={onDueDateChange}
         />
 
