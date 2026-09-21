@@ -13,6 +13,9 @@ import { AdminDashboardPage } from '../src/features/admin/components/AdminDashbo
 
 const metricsRefetch = vi.hoisted(() => vi.fn(async () => undefined));
 const dashboardConfigRefetch = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock('../src/features/admin/components/NotificationDeliveries', () => ({
+  NotificationDeliveries: () => null,
+}));
 
 vi.mock('@features/admin/api', () => ({
   useAdminDashboardMetrics: () => ({
