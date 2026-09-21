@@ -97,6 +97,7 @@ export function WritingSampleResponsePanel({
             <WordCountDisplay text={sampleResponse} max={1000} />
           </div>
           <RichTextEditor
+            aria-label="Model Answer"
             value={sampleResponse || ''}
             onChange={onChangeResponse}
             placeholder="Enter a model answer that demonstrates what a good response looks like..."
