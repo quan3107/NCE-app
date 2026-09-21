@@ -14,6 +14,7 @@ import { formatFileSize } from '@lib/utils';
 import type { SubmissionFile } from '@domain';
 import { UploadStage, isAllowedFile, uploadFileWithProgress } from '@features/files/fileUpload';
 import { useFileUploadConfig } from '@features/files/configApi';
+import { useMutationLifetime } from '@lib/useMutationLifetime';
 
 // Base file type - common properties for both SubmissionFile and UploadFile
 type BaseFile = {
@@ -71,6 +72,8 @@ export function FileUploader<T extends BaseFile>(
   props: DefaultFileUploaderProps | CustomFileUploaderProps<T>,
 ): ReactElement {
   const { value, onChange, onBusyChange } = props;
+  const captureLifetime = useMutationLifetime();
+  const activeFiles = useRef(new Set<string>());
   const policyQuery = useFileUploadConfig();
   const policy = policyQuery.data;
   const maxFileSize = policy?.limits.maxFileSize ?? 0;
@@ -116,32 +119,38 @@ export function FileUploader<T extends BaseFile>(
     (onChange as (files: typeof value) => void)(value.filter((file) => file.id !== id) as typeof value);
   };
   const handleUpload = async (uploadId: string, file: File) => {
+    const isCurrent = captureLifetime();
     try {
       if (props.uploadFn) {
         const result = await props.uploadFn(
           file,
-          (progress) => updateUpload(uploadId, { progress }),
-          (stage) => updateUpload(uploadId, { status: stage }),
+          (progress) => { if (isCurrent()) updateUpload(uploadId, { progress }); },
+          (stage) => { if (isCurrent()) updateUpload(uploadId, { status: stage }); },
         );
+        if (!isCurrent()) return;
         const nextFiles = [...(valueRef.current as T[]), result];
         valueRef.current = nextFiles;
         (changeCallbackRef.current as (files: T[]) => void)(nextFiles);
       } else {
         const result = await uploadFileWithProgress({
           file,
-          onProgress: (progress) => updateUpload(uploadId, { progress }),
-          onStageChange: (stage) => updateUpload(uploadId, { status: stage }),
+          onProgress: (progress) => { if (isCurrent()) updateUpload(uploadId, { progress }); },
+          onStageChange: (stage) => { if (isCurrent()) updateUpload(uploadId, { status: stage }); },
         });
+        if (!isCurrent()) return;
         const nextFiles = [...(valueRef.current as SubmissionFile[]), result];
         valueRef.current = nextFiles as typeof value;
         (changeCallbackRef.current as (files: SubmissionFile[]) => void)(nextFiles);
       }
       removeUpload(uploadId);
     } catch (error) {
+      if (!isCurrent()) return;
       updateUpload(uploadId, {
         status: 'error',
         error: error instanceof Error ? error.message : 'Upload failed.',
       });
+    } finally {
+      activeFiles.current.delete(`${file.name}:${file.size}:${file.lastModified}`);
     }
   };
   const addFiles = (files: FileList | File[]) => {
@@ -156,6 +165,8 @@ export function FileUploader<T extends BaseFile>(
     let runningTotal = totalSize;
     let runningCount = value.length + uploads.filter((item) => item.status !== 'error').length;
     selected.forEach((file) => {
+      const fingerprint = `${file.name}:${file.size}:${file.lastModified}`;
+      if (activeFiles.current.has(fingerprint)) return;
       if (runningCount >= maxFilesPerUpload) {
         toast.error(`You can upload up to ${maxFilesPerUpload} file${maxFilesPerUpload === 1 ? '' : 's'}.`);
         return;
@@ -176,6 +187,7 @@ export function FileUploader<T extends BaseFile>(
       runningTotal += file.size;
       runningCount += 1;
       const uploadId = createUploadId();
+      activeFiles.current.add(fingerprint);
       setUploads((prev) => [...prev, { id: uploadId, file, progress: 0, status: 'hashing' }]);
       void handleUpload(uploadId, file);
     });
@@ -288,7 +300,7 @@ export function FileUploader<T extends BaseFile>(
         </p>
       </div>
       {(value.length > 0 || uploads.length > 0) && (
-        <div className="space-y-2">
+        <div className="space-y-2" aria-live="polite" aria-relevant="additions text">
           {renderCompletedFiles()}
 
           {uploads.map((item) => (
@@ -305,8 +317,8 @@ export function FileUploader<T extends BaseFile>(
                     {item.status === 'error' ? stageLabels.error : stageLabels[item.status]}
                   </span>
                 </div>
-                <Progress value={item.status === 'error' ? 0 : item.progress} />
-                <div className="text-xs text-muted-foreground">
+                <Progress aria-label={`Upload ${item.file.name}`} value={item.status === 'error' ? 0 : item.progress} />
+                <div role={item.status === 'error' ? 'alert' : undefined} className="text-xs text-muted-foreground">
                   {item.status === 'error' ? (item.error ?? 'Upload failed.') : formatFileSize(item.file.size)}
                 </div>
               </div>
