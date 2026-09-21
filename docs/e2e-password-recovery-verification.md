@@ -6,14 +6,16 @@ Why: Implementation and isolated tests must not be mistaken for a delivered-emai
 
 # Password recovery verification — 2026-09-21
 
-DG-01 is implemented; **email delivery is now verified**. After the user
+DG-01 **PASSES** the real Browser/API/database acceptance flow. After the user
 reactivated the API key and authorized the sending IP, the real Browser retry
 at 12:17 UTC was accepted by Brevo. The user confirmed receipt of the reset
 email. The message was then read directly in Gmail through in-app Browser, and
 its actual link opened the reset form. Its SHA-256 digest matches PostgreSQL's
 stored, unexpired token with the expected 30-minute lifetime.
-Full acceptance remains **BLOCKED on manual Browser reset completion**: the user
-reported that the email was received but the reset was not yet completed.
+The user completed password entry and submission through the emailed link.
+At 12:27 UTC, live verification proved the token was consumed, all prior sessions
+were revoked, and the old password was rejected. In-app Browser then signed in
+successfully with the new test password and displayed the student dashboard.
 Earlier disabled-key and unauthorized-IP attempts returned 401; their failed
 issuances were invalidated.
 
@@ -30,8 +32,9 @@ issuances were invalidated.
 - Existing Brevo integration and configured credentials were used. Only the
   recipient explicitly supplied by the user was targeted by a live send.
 - No API responses, session validation, or database acceptance behavior were mocked.
-  Provider-independent valid/expired tokens were explicit database fixtures;
-  they were not recovered from a delivered email.
+  Initial provider-independent valid/expired cases used explicit database
+  fixtures. The final successful reset used the actual Brevo-delivered email
+  link, read in Gmail through Browser, with user-assisted credential submission.
 - Local raw evidence is under `/tmp/nce-password-recovery`; temporary tokens,
   passwords, private keys, and session cookies are not committed.
 
@@ -45,15 +48,15 @@ issuances were invalidated.
 | Account policy | Real database tests reject pending, suspended, Google-only, and soft-deleted accounts. HTTP requests for unknown and suspended accounts return identical 200/message responses. |
 | Token security | Unit checks verify random 256-bit token, SHA-256-only storage, normalized recipient, 30-minute expiry, and fragment link. Real DB checks verify one concurrent consumption succeeds and the token is cleared. |
 | Cooldown and rate limits | Database cooldown preserves a newly issued token without sending another email. Both HTTP routes pass the existing IP rate-limit regression tests. |
-| Valid reset | Real external HTTP request changes the password with a fixture token and returns 200. |
+| Valid reset | Initial real HTTP fixture reset returned 200. Final acceptance used the actual delivered link: the user submitted the new password, the live database confirmed token consumption, and Browser sign-in with the new password succeeded. |
 | Password policy | Short passwords return 400 without consuming the token; the subsequent compliant reset succeeds. |
-| Expiry and reuse | Real external HTTP requests reject expired and consumed fixture tokens with 400. |
-| Old/new password | Real HTTP login rejects the old password with 401 and accepts the new password with 200. |
-| All sessions revoked | Two independently created HTTP sessions lose both bearer access to `/me` and refresh-cookie access with 401 after reset. |
+| Expiry and reuse | Real external HTTP requests reject expired and consumed fixture tokens with 400. Reuse of the actual emailed token also returned 400 after the user completed the reset. |
+| Old/new password | Real HTTP login rejects the old password with 401. In-app Browser signs in with the user-supplied new test password and displays the student dashboard and success notification. |
+| All sessions revoked | After the actual emailed-link reset, both saved independent sessions returned 401 for bearer access to `/me` and refresh-cookie access. Both access tokens were still within their original expiry. PostgreSQL showed zero unrevoked sessions before the new-password login. |
 | Concurrent login/refresh | PostgreSQL lock-barrier test makes login and refresh read old credentials while reset waits. After reset commits, both fail with 401 and no unrevoked session survives. |
 | Atomic failure | A temporary PostgreSQL trigger rejects session revocation; password and token changes roll back. The trigger is removed in test cleanup. |
 | Browser layout | Request acknowledgment and reset form screenshots were visually inspected. Labels, one page heading, keyboard form controls, feedback focus, and recovery/sign-in links are present. |
-| Browser reset submission | User confirmed email receipt but has not completed the reset. Two fresh independent HTTP sessions were verified active with `/me` 200 and retained for the post-reset revocation check. |
+| Browser reset submission | User performed credential entry/submission, then returned to sign-in. The post-reset state was independently verified through the real API/database and successful Browser login. The transient reset-success screen was not captured; the subsequent dashboard screenshot was visually inspected. |
 
 ## Automated validation
 
@@ -74,8 +77,12 @@ provider failure invalidates that issuance without changing the generic response
 The recipient cooldown is database-backed; IP throttling retains the app's
 existing per-process limiter behavior.
 
-The key and sending-IP configuration are now working, and the controlled
-recipient confirmed delivery. Complete the Browser credential-entry handoff,
-then verify the success screen, subsequent sign-in, and rejection of the
-retained pre-reset sessions before marking DG-01 PASS. All PR checks passed on
-the implementation head. The isolated local app remains running for this handoff.
+The key and sending-IP configuration are now working. Controlled-recipient
+delivery, the user-assisted emailed-link reset, new-password Browser sign-in,
+and rejection of retained pre-reset sessions are verified. All PR checks passed
+on the implementation head. No production account or database was modified.
+
+After verification, the Browser session was signed out, the temporary API and
+frontend servers were stopped, and the disposable PostgreSQL container and its
+volume were removed. Temporary signing keys and saved session fixtures were
+deleted.
