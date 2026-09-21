@@ -17,8 +17,34 @@ import {
   showGoogleTestProvider,
 } from "./auth.controller.js";
 import { limitAuthRoute } from "./auth.rate-limit.js";
+import {
+  requestPasswordReset,
+  resetPassword,
+  PASSWORD_RESET_REQUEST_MESSAGE,
+} from "./auth.recovery.js";
 
 export const authRouter = Router();
+
+authRouter.post(
+  "/forgot-password",
+  limitAuthRoute("requestPasswordReset"),
+  async (req, res) => {
+    await requestPasswordReset(req.body);
+    res.set("Cache-Control", "no-store").status(200).json({
+      message: PASSWORD_RESET_REQUEST_MESSAGE,
+    });
+  },
+);
+authRouter.post(
+  "/reset-password",
+  limitAuthRoute("resetPassword"),
+  async (req, res) => {
+    await resetPassword(req.body);
+    res.set("Cache-Control", "no-store").status(200).json({
+      message: "Password reset. Sign in with your new password.",
+    });
+  },
+);
 
 authRouter.post("/login", passwordLogin);
 authRouter.post("/register", limitAuthRoute("register"), registerAccount);

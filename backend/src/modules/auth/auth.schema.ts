@@ -37,3 +37,12 @@ export const registerAccountSchema = z.object({
   password: z.string().min(8),
   role: z.enum(REGISTERABLE_ROLES),
 });
+
+export const requestPasswordResetSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(320),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().regex(/^[a-f0-9]{64}$/),
+  password: registerAccountSchema.shape.password,
+});

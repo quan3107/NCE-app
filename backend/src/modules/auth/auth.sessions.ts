@@ -62,6 +62,13 @@ export async function lockSessionFamily(familyId: string): Promise<void> {
   `);
 }
 
+/** Lock the account before session creation/rotation so reset revocation cannot race it. */
+export async function lockSessionUser(userId: string): Promise<void> {
+  await prisma.$queryRaw(Prisma.sql`
+    SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE
+  `);
+}
+
 export async function persistSession(
   userId: string,
   refreshToken: string,
@@ -73,6 +80,8 @@ export async function persistSession(
   expiresAt: Date;
 }> {
   const { userAgent, ipHash } = sanitizeSessionMetadata(context);
+
+  await lockSessionUser(userId);
 
   const sessionId = randomUUID();
   const refreshTokenHash = hashValue(refreshToken);
@@ -117,6 +126,7 @@ export async function rotateSession(
   const rotatedSessionId = randomUUID();
 
   const rotated = await prisma.$transaction(async (tx) => {
+    await lockSessionUser(session.userId);
     await lockSessionFamily(session.familyId);
     const claim = await tx.authSession.updateMany({
       where: {

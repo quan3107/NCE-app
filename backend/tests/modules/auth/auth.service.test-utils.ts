@@ -172,6 +172,8 @@ export const buildUser = (overrides: Partial<User> = {}): User => ({
   id: "user-default",
   email: "user@example.com",
   password: "$2b$10$hash",
+  passwordResetHash: null,
+  passwordResetExpiresAt: null,
   fullName: "Default User",
   role: UserRole.teacher,
   status: UserStatus.active,
