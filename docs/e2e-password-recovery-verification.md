@@ -6,9 +6,11 @@ Why: Implementation and isolated tests must not be mistaken for a delivered-emai
 
 # Password recovery verification — 2026-09-21
 
-DG-01 is implemented but **BLOCKED for full acceptance**. The live Brevo send to
-the user-supplied controlled recipient returned HTTP 401, `API Key is not enabled`.
-No email delivery or emailed-link round trip is claimed.
+DG-01 is implemented but **BLOCKED for full acceptance**. After the user
+reactivated the API key, the real Browser retry at 12:15 UTC returned a new
+Brevo HTTP 401: the sending machine's IP is not authorized. The previous attempt
+returned `API Key is not enabled`. No email delivery or emailed-link round trip
+is claimed. The failed retry token was invalidated in PostgreSQL.
 
 ## Environment and boundaries
 
@@ -67,6 +69,8 @@ provider failure invalidates that issuance without changing the generic response
 The recipient cooldown is database-backed; IP throttling retains the app's
 existing per-process limiter behavior.
 
-Enable the configured Brevo API key and repeat the controlled-recipient
-delivered-email round trip before marking DG-01 PASS. Complete the Browser
+Authorize the sending machine's IP in Brevo and repeat the controlled-recipient
+delivered-email round trip before marking DG-01 PASS. The key has been reactivated;
+the remaining provider blocker is the IP allowlist. All PR checks passed on the
+implementation head. Complete the Browser
 credential-entry handoff and verify the success screen and subsequent sign-in.
