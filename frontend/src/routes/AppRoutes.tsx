@@ -11,6 +11,7 @@ import { NavigationProvider } from '@features/navigation';
 import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
 import { RouteLoading } from '@routes/RouteLoading';
+import { PasswordRecoveryRoute } from '@routes/PasswordRecovery';
 import {
   AboutRoute,
   AdminAuditLogsPage,
@@ -188,6 +189,8 @@ export function AppRoutes() {
       <Route element={<PublicLayout />}>
         <Route index element={<HomeGate />} />
         <Route path="login" element={<LoginRoute />} />
+        <Route path="forgot-password" element={<PasswordRecoveryRoute key="request" />} />
+        <Route path="reset-password" element={<PasswordRecoveryRoute key="reset" />} />
         <Route path="register" element={<AuthRegister />} />
         <Route path="auth/oauth" element={<OAuthRoute />} />
         <Route path="about" element={<AboutRoute />} />
