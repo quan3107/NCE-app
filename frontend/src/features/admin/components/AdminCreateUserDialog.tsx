@@ -29,6 +29,7 @@ import {
   validateProfileDisplayName,
 } from '@features/profile/profileValidation';
 import type { UserRole, UserStatus } from '@lib/backend-schema';
+import { ApiError } from '@lib/apiClient';
 import { toast } from 'sonner@2.0.3';
 
 type Props = {
@@ -46,16 +47,20 @@ const initialFormState = {
 export function AdminCreateUserDialog({ open, onOpenChange }: Props) {
   const [formState, setFormState] = useState(initialFormState);
   const [fullNameError, setFullNameError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const createUserMutation = useCreateUserMutation();
 
   const createUser = async () => {
+    if (createUserMutation.isPending) return;
     const validatedName = validateProfileDisplayName(formState.fullName);
     setFullNameError(validatedName.error);
-    if (validatedName.error) return;
-    if (!formState.email.trim()) {
-      toast.error('Email is required.');
-      return;
-    }
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      formState.email.trim(),
+    );
+    setEmailError(validEmail ? null : 'Enter a valid email address.');
+    setSaveError(null);
+    if (validatedName.error || !validEmail) return;
     try {
       await createUserMutation.mutateAsync({
         fullName: validatedName.normalizedName,
@@ -67,11 +72,18 @@ export function AdminCreateUserDialog({ open, onOpenChange }: Props) {
       onOpenChange(false);
       setFormState(initialFormState);
       setFullNameError(null);
+      setEmailError(null);
     } catch (error) {
       const fieldError = profileNameFieldError(error);
       if (fieldError) setFullNameError(fieldError);
-      else {
-        toast.error(
+      else if (error instanceof ApiError && [400, 409].includes(error.status)) {
+        setEmailError(
+          error.status === 409
+            ? 'A user with this email already exists.'
+            : 'Enter a valid email address.',
+        );
+      } else {
+        setSaveError(
           error instanceof Error ? error.message : 'Unable to create user.',
         );
       }
@@ -93,7 +105,9 @@ export function AdminCreateUserDialog({ open, onOpenChange }: Props) {
               placeholder="Full name"
               value={formState.fullName}
               aria-invalid={Boolean(fullNameError)}
-              aria-describedby={fullNameError ? 'admin-full-name-error' : undefined}
+              aria-describedby={
+                fullNameError ? 'admin-full-name-error' : undefined
+              }
               onChange={(event) => {
                 setFullNameError(null);
                 setFormState((current) => ({
@@ -103,7 +117,10 @@ export function AdminCreateUserDialog({ open, onOpenChange }: Props) {
               }}
             />
             {fullNameError && (
-              <p id="admin-full-name-error" className="text-sm text-destructive">
+              <p
+                id="admin-full-name-error"
+                className="text-sm text-destructive"
+              >
                 {fullNameError}
               </p>
             )}
@@ -112,25 +129,43 @@ export function AdminCreateUserDialog({ open, onOpenChange }: Props) {
             <Label htmlFor="admin-email">Email</Label>
             <Input
               id="admin-email"
+              type="email"
+              aria-invalid={Boolean(emailError)}
+              aria-describedby={emailError ? 'admin-email-error' : undefined}
               placeholder="email@example.com"
               value={formState.email}
-              onChange={(event) =>
+              onChange={(event) => {
+                setEmailError(null);
                 setFormState((current) => ({
                   ...current,
                   email: event.target.value,
-                }))
-              }
+                }));
+              }}
             />
+            {emailError && (
+              <p
+                id="admin-email-error"
+                role="alert"
+                className="text-sm text-destructive"
+              >
+                {emailError}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="admin-role">Role</Label>
             <Select
               value={formState.role}
               onValueChange={(role) =>
-                setFormState((current) => ({ ...current, role: role as UserRole }))
+                setFormState((current) => ({
+                  ...current,
+                  role: role as UserRole,
+                }))
               }
             >
-              <SelectTrigger id="admin-role"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="admin-role">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="student">Student</SelectItem>
                 <SelectItem value="teacher">Teacher</SelectItem>
@@ -149,7 +184,9 @@ export function AdminCreateUserDialog({ open, onOpenChange }: Props) {
                 }))
               }
             >
-              <SelectTrigger id="admin-status"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="admin-status">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
@@ -160,6 +197,11 @@ export function AdminCreateUserDialog({ open, onOpenChange }: Props) {
           </div>
         </div>
         <DialogFooter>
+          {saveError && (
+            <p role="alert" className="text-sm text-destructive">
+              {saveError}
+            </p>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
