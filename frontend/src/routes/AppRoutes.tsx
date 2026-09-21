@@ -159,7 +159,7 @@ function StudentAssignmentDetailWrapper() {
 
 function TeacherGradeFormWrapper() {
   const { submissionId = '' } = useParams<{ submissionId: string }>();
-  return <TeacherGradeFormPage submissionId={submissionId} />;
+  return <TeacherGradeFormPage key={submissionId} submissionId={submissionId} />;
 }
 
 function TeacherAssignmentDetailWrapper() {
@@ -169,7 +169,7 @@ function TeacherAssignmentDetailWrapper() {
 
 function TeacherAssignmentEditWrapper() {
   const { assignmentId = '' } = useParams<{ assignmentId: string }>();
-  return <TeacherAssignmentEditPage assignmentId={assignmentId} />;
+  return <TeacherAssignmentEditPage key={assignmentId} assignmentId={assignmentId} />;
 }
 
 function TeacherCourseManagementWrapper() {
