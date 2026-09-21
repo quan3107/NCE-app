@@ -118,8 +118,9 @@ test("selecting an accessible course updates analytics and its CSV export", asyn
   );
   await user.selectOptions(screen.getByLabelText("Course"), "");
   assert.equal(
-    screen.queryByRole("link", { name: "download teacher-analytics.csv" }),
-    null,
+    screen.queryByRole("link", { name: "download teacher-analytics.csv" }) ===
+      null,
+    true,
   );
 
   click.mockRestore();
@@ -186,8 +187,9 @@ test("an export resolving after a scope change cannot download stale analytics",
   );
   assert.equal(createUrl.mock.calls.length, 0);
   assert.equal(
-    screen.queryByRole("link", { name: "download teacher-analytics.csv" }),
-    null,
+    screen.queryByRole("link", { name: "download teacher-analytics.csv" }) ===
+      null,
+    true,
   );
 });
 
