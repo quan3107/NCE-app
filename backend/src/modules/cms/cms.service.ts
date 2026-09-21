@@ -64,9 +64,9 @@ export const getContactPageContent = async (): Promise<ContactPageContent> =>
 
 export const getRealtimeStats = async () => {
   const [activeStudents, totalSubmissions, gradedSubmissions] = await Promise.all([
-    prisma.user.count({ where: { status: 'active', role: 'student' } }),
-    prisma.submission.count(),
-    prisma.submission.count({ where: { status: 'graded' } }),
+    prisma.user.count({ where: { status: 'active', role: 'student', deletedAt: null } }),
+    prisma.submission.count({ where: { deletedAt: null } }),
+    prisma.submission.count({ where: { status: 'graded', deletedAt: null } }),
   ])
 
   const successRate = totalSubmissions > 0 ? gradedSubmissions / totalSubmissions : 0
@@ -75,12 +75,14 @@ export const getRealtimeStats = async () => {
     .aggregate({
       where: {
         band: { not: null },
+        deletedAt: null,
       },
       _avg: {
         band: true,
       },
     })
-    .then((result) => (result._avg?.band ? Number(result._avg.band) : 7.5))
+    // Empty data must not manufacture a marketing score.
+    .then((result) => Number(result._avg?.band ?? 0))
 
   return {
     activeStudents,

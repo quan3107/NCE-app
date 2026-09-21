@@ -18,21 +18,25 @@ import {
 } from "@components/ui/table";
 import { PageHeader } from "@components/common/PageHeader";
 import { formatDate } from "@lib/utils";
-import { Download } from "lucide-react";
+import { Input } from "@components/ui/input";
+import { Label } from "@components/ui/label";
 import {
   AUDIT_LOG_PAGE_SIZE,
   useAdminAuditLogsQuery,
+  type AuditLogFilters,
 } from "@features/admin/api";
 
 export function AdminAuditLogsPage() {
   const [offset, setOffset] = useState(0);
+  const [inputs, setInputs] = useState<AuditLogFilters>({});
+  const [filters, setFilters] = useState<AuditLogFilters>({});
   const {
     data: page,
     isLoading,
     isFetching,
     error,
     refetch,
-  } = useAdminAuditLogsQuery(offset);
+  } = useAdminAuditLogsQuery(offset, filters);
   const logs = page?.data ?? [];
 
   return (
@@ -50,14 +54,66 @@ export function AdminAuditLogsPage() {
             >
               Refresh
             </Button>
-            <Button variant="outline">
-              <Download className="mr-2 size-4" />
-              Export
-            </Button>
           </div>
         }
       />
       <div className="p-4 sm:p-6 lg:p-8">
+        <form
+          className="mb-6 grid gap-3 sm:grid-cols-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setOffset(0);
+            setFilters(
+              Object.fromEntries(
+                Object.entries(inputs)
+                  .filter(([, value]) => value?.trim())
+                  .map(([key, value]) => [
+                    key,
+                    key.startsWith("created")
+                      ? new Date(value!).toISOString()
+                      : value!.trim(),
+                  ]),
+              ),
+            );
+          }}
+        >
+          {(
+            [
+              ["actorId", "Actor ID"],
+              ["action", "Action"],
+              ["entity", "Entity"],
+              ["entityId", "Entity ID"],
+              ["createdFrom", "From (local time)"],
+              ["createdTo", "To (local time)"],
+            ] as const
+          ).map(([key, label]) => (
+            <div key={key} className="space-y-1">
+              <Label htmlFor={`audit-${key}`}>{label}</Label>
+              <Input
+                id={`audit-${key}`}
+                type={key.startsWith("created") ? "datetime-local" : "text"}
+                value={inputs[key] ?? ""}
+                onChange={(event) =>
+                  setInputs({ ...inputs, [key]: event.target.value })
+                }
+              />
+            </div>
+          ))}
+          <Button type="submit" disabled={isFetching}>
+            Apply filters
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setInputs({});
+              setFilters({});
+              setOffset(0);
+            }}
+          >
+            Clear filters
+          </Button>
+        </form>
         {isLoading ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">

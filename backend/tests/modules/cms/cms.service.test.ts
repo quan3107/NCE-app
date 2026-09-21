@@ -45,10 +45,24 @@ const auditLogsModule =
   await import('../../../src/modules/audit-logs/audit-logs.service.js')
 const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely)
 
-const { updateHomepageStatsWithRealtimeData } =
+const { updateHomepageStatsWithRealtimeData, getRealtimeStats } =
   await import('../../../src/modules/cms/cms.service.js')
 
 describe('cms.service', () => {
+  it('does not invent an average for empty grade data and excludes deleted rows', async () => {
+    prisma.user.count.mockResolvedValueOnce(0)
+    prisma.submission.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0)
+    prisma.grade.aggregate.mockResolvedValueOnce({ _avg: { band: null } })
+    expect(await getRealtimeStats()).toEqual({
+      activeStudents: 0,
+      avgBandScore: 0,
+      successRate: 0,
+    })
+    expect(prisma.grade.aggregate).toHaveBeenCalledWith({
+      where: { band: { not: null }, deletedAt: null },
+      _avg: { band: true },
+    })
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     database.$queryRaw.mockResolvedValue([{ id: 'homepage-1' }])

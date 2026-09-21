@@ -24,14 +24,33 @@ const homepageContent = {
     cta_secondary: "Login",
   },
   stats: [
-    { itemKey: "stat_students", label: "Students", value: 10, format: "number" },
-    { itemKey: "stat_band_score", label: "Band score", value: 7.5, format: "decimal" },
-    { itemKey: "stat_success_rate", label: "Success rate", value: 0.8, format: "percentage" },
+    {
+      itemKey: "stat_students",
+      label: "Students",
+      value: 10,
+      format: "number",
+    },
+    {
+      itemKey: "stat_band_score",
+      label: "Band score",
+      value: 7.5,
+      format: "decimal",
+    },
+    {
+      itemKey: "stat_success_rate",
+      label: "Success rate",
+      value: 0.8,
+      format: "percentage",
+    },
   ],
   howItWorks: { title: "How it works", description: "Steps", features: [] },
 };
 
 vi.mock("@features/admin/cmsApi", () => ({
+  useRefreshHomepageStatsMutation: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
   isCmsVersionConflict: (error: unknown) =>
     (error as { status?: number } | null)?.status === 409,
   useCmsPagesQuery: () => ({

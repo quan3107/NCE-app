@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { UserRole, UserStatus } from '../../../src/prisma/index.js'
+import { Prisma, UserRole, UserStatus } from '../../../src/prisma/index.js'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   runWithRole: vi.fn(async (_options, callback) => callback()),
@@ -113,6 +113,27 @@ describe('users.service teacher approvals', () => {
       select: { id: true },
     })
     expect(result).toBe(createdUser)
+  })
+
+  it('returns conflict for duplicate admin creation without a success audit', async () => {
+    prisma.user.create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('Duplicate', {
+        code: 'P2002',
+        clientVersion: '7.9.0',
+      }),
+    )
+    await expect(
+      createUser(
+        {
+          email: 'duplicate@example.com',
+          fullName: 'Duplicate User',
+          role: 'student',
+          status: 'active',
+        },
+        actor,
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 })
+    expect(prisma.auditLog.create).not.toHaveBeenCalled()
   })
 
   it('approves pending teacher requests and writes an audit entry', async () => {

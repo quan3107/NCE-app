@@ -10,33 +10,59 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, test, vi } from "vitest";
 
 import { AdminAuditLogsPage } from "../src/features/admin/components/AdminAuditLogsPage";
+const observedQuery = vi.hoisted(() => vi.fn());
 
 vi.mock("@features/admin/api", () => ({
   AUDIT_LOG_PAGE_SIZE: 50,
-  useAdminAuditLogsQuery: (offset = 0) => ({
-    data: {
-      nextOffset: offset === 0 ? 50 : null,
-      data: [
-        {
-          id: "audit-1",
-          actor: "System",
-          action: "course.updated",
-          entity: "course",
-          entityId: offset === 0 ? "course-17" : "course-18",
-          eventData: { titleChanged: true },
-          schemaVersion: 1,
-          timestamp: new Date("2026-07-25T12:00:00.000Z"),
-          details: '{"titleChanged":true}',
-        },
-      ],
-    },
-    isLoading: false,
-    error: null,
-    refetch: vi.fn(),
-  }),
+  useAdminAuditLogsQuery: (offset = 0, filters = {}) => {
+    observedQuery(offset, filters);
+    return {
+      data: {
+        nextOffset: offset === 0 ? 50 : null,
+        data: [
+          {
+            id: "audit-1",
+            actor: "System",
+            action: "course.updated",
+            entity: "course",
+            entityId: offset === 0 ? "course-17" : "course-18",
+            eventData: { titleChanged: true },
+            schemaVersion: 1,
+            timestamp: new Date("2026-07-25T12:00:00.000Z"),
+            details: '{"titleChanged":true}',
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    };
+  },
 }));
 
 afterEach(cleanup);
+
+test("applying filters resets pagination and clear restores the unfiltered query", () => {
+  render(
+    <MemoryRouter>
+      <AdminAuditLogsPage />
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  fireEvent.change(screen.getByLabelText("Action"), {
+    target: { value: " course.updated " },
+  });
+  fireEvent.change(screen.getByLabelText("Entity ID"), {
+    target: { value: "course-17" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+  assert.deepEqual(observedQuery.mock.lastCall, [
+    0,
+    { action: "course.updated", entityId: "course-17" },
+  ]);
+  fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  assert.deepEqual(observedQuery.mock.lastCall, [0, {}]);
+});
 
 test("admin audit table displays entityId", () => {
   render(

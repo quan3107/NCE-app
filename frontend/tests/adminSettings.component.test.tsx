@@ -45,6 +45,7 @@ vi.mock("@features/admin/settingsApi", () => ({
     data: settingsState.data,
     isLoading: false,
     error: null,
+    refetch: async () => ({ data: settingsState.data, error: null }),
   }),
   useUpdateAdminUploadLimitsMutation: () => ({
     mutateAsync: saveSettings,
@@ -53,9 +54,8 @@ vi.mock("@features/admin/settingsApi", () => ({
   }),
 }));
 
-const { AdminSettingsPage } = await import(
-  "../src/features/admin/components/AdminSettingsPage"
-);
+const { AdminSettingsPage } =
+  await import("../src/features/admin/components/AdminSettingsPage");
 
 beforeEach(() => {
   authState.currentUser = {
@@ -150,6 +150,33 @@ test("shows a reload message when another admin changed the same role", async ()
       ),
     );
   });
+  assert.equal(
+    (screen.getByRole("button", { name: "Save Settings" }) as HTMLButtonElement)
+      .disabled,
+    true,
+  );
+  settingsState.data.limits[1].maxFileSizeMib = 40;
+  fireEvent.click(
+    screen.getByRole("button", { name: "Reload latest settings" }),
+  );
+  await waitFor(() =>
+    assert.equal(
+      (screen.getByLabelText("Teacher max file size (MiB)") as HTMLInputElement)
+        .value,
+      "40",
+    ),
+  );
+  fireEvent.change(screen.getByLabelText("Teacher max file size (MiB)"), {
+    target: { value: "45" },
+  });
+  saveSettings.mockResolvedValueOnce(settingsState.data);
+  fireEvent.click(screen.getByRole("button", { name: "Save Settings" }));
+  await waitFor(() =>
+    assert.equal(
+      saveSettings.mock.lastCall?.[0].updates.teacher.expectedMaxFileSizeMib,
+      40,
+    ),
+  );
 });
 
 test("preserves dirty roles and their baseline during background refresh", async () => {

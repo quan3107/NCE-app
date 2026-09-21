@@ -77,7 +77,10 @@ test("selecting an accessible course updates analytics and its CSV export", asyn
     .mockImplementation(() => {});
   const click = vi
     .spyOn(HTMLAnchorElement.prototype, "click")
-    .mockImplementation(() => {});
+    .mockImplementation(function (this: HTMLAnchorElement) {
+      assert.equal(this.isConnected, true);
+      assert.equal(this.download, "teacher-analytics.csv");
+    });
   const user = userEvent.setup();
 
   render(
@@ -104,6 +107,20 @@ test("selecting an accessible course updates analytics and its CSV export", asyn
   await user.click(screen.getByRole("button", { name: /export csv/i }));
   await waitFor(() =>
     assert.equal(exportCsv.mock.lastCall?.[0].courseId, courseId),
+  );
+  assert.equal(click.mock.calls.length, 1);
+  assert.equal(revokeObjectUrl.mock.calls.length, 0);
+  assert.equal(
+    screen
+      .getByRole("link", { name: "download teacher-analytics.csv" })
+      .getAttribute("download"),
+    "teacher-analytics.csv",
+  );
+  await user.selectOptions(screen.getByLabelText("Course"), "");
+  assert.equal(
+    screen.queryByRole("link", { name: "download teacher-analytics.csv" }) ===
+      null,
+    true,
   );
 
   click.mockRestore();
@@ -133,6 +150,46 @@ test("an invalid course search parameter never reaches analytics requests", () =
   assert.equal(
     (screen.getByLabelText("Course") as HTMLSelectElement).value,
     "",
+  );
+});
+
+test("an export resolving after a scope change cannot download stale analytics", async () => {
+  analyticsQuery.mockReturnValue({ data: null, isLoading: false, error: null });
+  let resolveExport!: (blob: Blob) => void;
+  exportCsv.mockReturnValueOnce(
+    new Promise<Blob>((resolve) => {
+      resolveExport = resolve;
+    }),
+  );
+  const createUrl = vi
+    .spyOn(URL, "createObjectURL")
+    .mockReturnValue("blob:stale");
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter>
+      <TeacherAnalyticsPage />
+    </MemoryRouter>,
+  );
+  await user.click(screen.getByRole("button", { name: /export csv/i }));
+  assert.equal(
+    (screen.getByRole("button", { name: "Exporting…" }) as HTMLButtonElement)
+      .disabled,
+    true,
+  );
+  await user.selectOptions(screen.getByLabelText("Course"), courseId);
+  resolveExport(new Blob(["old scope"]));
+  await waitFor(() =>
+    assert.equal(
+      (screen.getByRole("button", { name: /export csv/i }) as HTMLButtonElement)
+        .disabled,
+      false,
+    ),
+  );
+  assert.equal(createUrl.mock.calls.length, 0);
+  assert.equal(
+    screen.queryByRole("link", { name: "download teacher-analytics.csv" }) ===
+      null,
+    true,
   );
 });
 

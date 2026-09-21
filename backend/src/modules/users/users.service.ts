@@ -61,15 +61,23 @@ export async function getUserById(params: unknown) {
 
 export async function createUser(payload: unknown, actor: UserActor) {
   const data = createUserSchema.parse(payload)
-  const user = await prisma.user.create({
-    data: {
-      email: data.email,
-      fullName: data.fullName,
-      role: data.role,
-      status: data.status,
-    },
-    select: userSelect,
-  })
+  const user = await prisma.user
+    .create({
+      data: {
+        email: data.email,
+        fullName: data.fullName,
+        role: data.role,
+        status: data.status,
+      },
+      select: userSelect,
+    })
+    .catch((error: unknown) => {
+      // Let the database arbitrate concurrent creates without a check/write race.
+      if (isUniqueConstraintError(error)) {
+        throw createHttpError(409, 'An account with that email already exists.')
+      }
+      throw error
+    })
 
   await writeAuditLogSafely({
     actorId: actor.id,

@@ -14,6 +14,7 @@ import { DashboardStatsGrid } from '@features/dashboard-config/components/Dashbo
 import { DashboardWidgetEditor } from '@features/dashboard-config/components/DashboardWidgetEditor';
 import type { DashboardWidget } from '@features/dashboard-config/types';
 import { useDashboardConfig } from '@features/dashboard-config/useDashboardConfig';
+import { NotificationDeliveries } from './NotificationDeliveries';
 
 export function AdminDashboardPage() {
   const [isWidgetEditorOpen, setIsWidgetEditorOpen] = useState(false);
@@ -87,8 +88,12 @@ export function AdminDashboardPage() {
         ) : pageError ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-destructive font-medium">Unable to load dashboard data.</p>
-              <p className="text-sm text-muted-foreground mt-2">{pageError.message}</p>
+              <p className="text-destructive font-medium">
+                Unable to load dashboard data.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {pageError.message}
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -98,6 +103,7 @@ export function AdminDashboardPage() {
             gridClassName="grid sm:grid-cols-4 gap-4"
           />
         )}
+        <NotificationDeliveries />
       </div>
 
       {dashboardConfig.config && (
@@ -114,12 +120,3 @@ export function AdminDashboardPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

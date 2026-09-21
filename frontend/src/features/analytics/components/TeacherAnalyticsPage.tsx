@@ -3,7 +3,7 @@
  * Purpose: Coordinate filtered teacher analytics data and presentation.
  * Why: Keeps URL state and export behavior at the analytics route boundary.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Award, BookOpen, Clock, Gauge } from "lucide-react";
 
@@ -39,6 +39,11 @@ export function TeacherAnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const exportGeneration = useRef(0);
+  const [preparedExport, setPreparedExport] = useState<{
+    url: string;
+    scope: string;
+  } | null>(null);
   const requestedFilters = useMemo(
     () => readFilters(searchParams),
     [searchParams],
@@ -61,6 +66,24 @@ export function TeacherAnalyticsPage() {
     [requestedFilters, selectedCourseUnavailable],
   );
   const analyticsQuery = useTeacherAnalyticsQuery(filters);
+  const exportScope = JSON.stringify(filters);
+  useEffect(() => {
+    exportGeneration.current += 1;
+    return () => {
+      exportGeneration.current += 1;
+    };
+  }, [exportScope]);
+  useEffect(
+    () => () => {
+      // Give an activated download time to consume its blob before cleanup.
+      if (preparedExport)
+        window.setTimeout(
+          () => URL.revokeObjectURL(preparedExport.url),
+          60_000,
+        );
+    },
+    [preparedExport],
+  );
 
   useEffect(() => {
     if (!selectedCourseUnavailable) {
@@ -84,17 +107,24 @@ export function TeacherAnalyticsPage() {
   };
 
   const handleExport = async () => {
+    if (isExporting) return;
     setIsExporting(true);
     setExportError(null);
+    setPreparedExport(null);
+    const generation = ++exportGeneration.current;
     try {
       const blob = await fetchTeacherAnalyticsCsv(filters);
+      if (generation !== exportGeneration.current) return;
       const url = URL.createObjectURL(blob);
+      setPreparedExport({ url, scope: exportScope });
       const link = document.createElement("a");
       link.href = url;
       link.download = "teacher-analytics.csv";
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
+      link.remove();
     } catch (error) {
+      if (generation !== exportGeneration.current) return;
       setExportError(
         error instanceof Error ? error.message : "Unable to export analytics.",
       );
@@ -155,6 +185,19 @@ export function TeacherAnalyticsPage() {
           onChange={handleFilterChange}
           onExport={handleExport}
         />
+        {preparedExport?.scope === exportScope && (
+          <p role="status" className="text-sm">
+            CSV prepared. If your download did not start,{" "}
+            <a
+              className="underline"
+              href={preparedExport.url}
+              download="teacher-analytics.csv"
+            >
+              download teacher-analytics.csv
+            </a>
+            .
+          </p>
+        )}
         {analyticsQuery.isLoading ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">

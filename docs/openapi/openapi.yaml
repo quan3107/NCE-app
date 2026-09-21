@@ -225,6 +225,8 @@ paths:
 
   /api/v1/notifications:
     $ref: './paths/notifications.yaml#/Notifications'
+  /api/v1/notifications/deliveries:
+    $ref: './paths/notifications.yaml#/NotificationDeliveries'
   /api/v1/notifications/{notificationId}:
     $ref: './paths/notifications.yaml#/NotificationById'
   /api/v1/notifications/{notificationId}/resend:

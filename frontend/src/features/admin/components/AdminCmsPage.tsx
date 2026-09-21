@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 
 import { PageHeader } from "@components/common/PageHeader";
+import { Button } from "@components/ui/button";
 import { Card, CardContent } from "@components/ui/card";
 import {
   useCmsDraftQuery,
@@ -14,6 +15,7 @@ import {
   usePublishCmsDraftMutation,
   useRollbackCmsRevisionMutation,
   useSaveCmsDraftMutation,
+  useRefreshHomepageStatsMutation,
 } from "@features/admin/cmsApi";
 import type {
   CmsPageContent,
@@ -49,6 +51,7 @@ export function AdminCmsPage() {
   const saveMutation = useSaveCmsDraftMutation();
   const publishMutation = usePublishCmsDraftMutation();
   const rollbackMutation = useRollbackCmsRevisionMutation();
+  const refreshStats = useRefreshHomepageStatsMutation();
   const [editor, setEditor] = useState<CmsEditorState | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [pendingPageKey, setPendingPageKey] = useState<CmsPageKey | null>(null);
@@ -84,6 +87,7 @@ export function AdminCmsPage() {
   const isBusy =
     saveMutation.isPending ||
     publishMutation.isPending ||
+    refreshStats.isPending ||
     rollbackMutation.isPending;
   const hasLocalChanges = Boolean(
     editor &&
@@ -200,6 +204,34 @@ export function AdminCmsPage() {
           onReload={reloadServerDraft}
           onOverwrite={overwriteServerDraft}
         />
+
+        {pageKey === "homepage" && (
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              disabled={
+                isBusy || !hasValidDraft || hasLocalChanges || hasServerConflict
+              }
+              onClick={() => refreshStats.mutate()}
+            >
+              {refreshStats.isPending
+                ? "Refreshing statistics…"
+                : "Refresh Stats"}
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              Updates draft and public statistics from current system data. Save
+              local edits first.
+            </p>
+            {refreshStats.isError && (
+              <p role="alert" className="text-destructive">
+                Unable to refresh statistics. Please try again.
+              </p>
+            )}
+            {refreshStats.isSuccess && (
+              <p role="status">Homepage statistics refreshed.</p>
+            )}
+          </div>
+        )}
 
         <CmsRevisionHistory
           revisions={revisions}

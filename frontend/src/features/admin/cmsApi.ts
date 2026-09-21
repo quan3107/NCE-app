@@ -16,7 +16,8 @@ import type {
 } from './cmsTypes';
 
 const pagesKey = ['admin', 'cms', 'pages'] as const;
-const draftKey = (pageKey: CmsPageKey) => ['admin', 'cms', pageKey, 'draft'] as const;
+const draftKey = (pageKey: CmsPageKey) =>
+  ['admin', 'cms', pageKey, 'draft'] as const;
 const revisionsKey = (pageKey: CmsPageKey) =>
   ['admin', 'cms', pageKey, 'revisions'] as const;
 
@@ -27,7 +28,9 @@ export const fetchCmsPages = () =>
   apiClient<CmsPagesResponse>('/cms/admin/pages', { auth: 'required' });
 
 export const fetchCmsDraft = (pageKey: CmsPageKey) =>
-  apiClient<CmsPageState>(`/cms/admin/pages/${pageKey}/draft`, { auth: 'required' });
+  apiClient<CmsPageState>(`/cms/admin/pages/${pageKey}/draft`, {
+    auth: 'required',
+  });
 
 export const saveCmsDraft = ({
   pageKey,
@@ -38,10 +41,14 @@ export const saveCmsDraft = ({
   content: CmsPageContent;
   expectedDraftVersion: number;
 }) =>
-  apiClient<CmsPageState, { content: CmsPageContent; expectedDraftVersion: number }>(
-    `/cms/admin/pages/${pageKey}/draft`,
-    { auth: 'required', method: 'PUT', body: { content, expectedDraftVersion } },
-  );
+  apiClient<
+    CmsPageState,
+    { content: CmsPageContent; expectedDraftVersion: number }
+  >(`/cms/admin/pages/${pageKey}/draft`, {
+    auth: 'required',
+    method: 'PUT',
+    body: { content, expectedDraftVersion },
+  });
 
 export const publishCmsDraft = ({
   pageKey,
@@ -135,17 +142,35 @@ export function useCmsPagesQuery() {
   return useQuery({ queryKey: pagesKey, queryFn: fetchCmsPages });
 }
 
+export function useRefreshHomepageStatsMutation() {
+  return useMutation({
+    mutationFn: () =>
+      apiClient('/cms/refresh-stats', { auth: 'required', method: 'POST' }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: draftKey('homepage') }),
+        queryClient.invalidateQueries({ queryKey: pagesKey }),
+        queryClient.invalidateQueries({ queryKey: ['cms', 'homepage'] }),
+      ]);
+    },
+  });
+}
+
 export function useCmsDraftQuery(pageKey: CmsPageKey) {
-  return useQuery({ queryKey: draftKey(pageKey), queryFn: () => fetchCmsDraft(pageKey) });
+  return useQuery({
+    queryKey: draftKey(pageKey),
+    queryFn: () => fetchCmsDraft(pageKey),
+  });
 }
 
 export function useCmsRevisionsQuery(pageKey: CmsPageKey) {
   return useInfiniteQuery({
     queryKey: revisionsKey(pageKey),
-    queryFn: ({ pageParam }) => fetchCmsRevisions(pageKey, {
-      limit: 25,
-      cursor: pageParam,
-    }),
+    queryFn: ({ pageParam }) =>
+      fetchCmsRevisions(pageKey, {
+        limit: 25,
+        cursor: pageParam,
+      }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
@@ -163,7 +188,8 @@ export function useSaveCmsDraftMutation() {
 export function usePublishCmsDraftMutation() {
   return useMutation({
     mutationFn: publishCmsDraft,
-    onSuccess: (page) => refreshPage(page, { revisions: true, published: true }),
+    onSuccess: (page) =>
+      refreshPage(page, { revisions: true, published: true }),
     onError: (error, variables) =>
       refreshAfterVersionConflict(error, variables.pageKey, {
         revisions: true,
@@ -175,7 +201,8 @@ export function usePublishCmsDraftMutation() {
 export function useRollbackCmsRevisionMutation() {
   return useMutation({
     mutationFn: rollbackCmsRevision,
-    onSuccess: (page) => refreshPage(page, { revisions: true, published: true }),
+    onSuccess: (page) =>
+      refreshPage(page, { revisions: true, published: true }),
     onError: (error, variables) =>
       refreshAfterVersionConflict(error, variables.pageKey, {
         revisions: true,

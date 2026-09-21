@@ -17,16 +17,50 @@ import {
   rollbackReset,
   saveMutate,
   saveReset,
+  refreshStatsMutate,
+  refreshStatsState,
 } from "./adminCms.component.fixture";
 
-vi.mock("@features/admin/cmsApi", () =>
-  import("./adminCms.component.fixture"),
-);
+vi.mock("@features/admin/cmsApi", () => import("./adminCms.component.fixture"));
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   resetCmsComponentState();
+});
+
+test("homepage statistics refresh protects edits and exposes pending, failure, and retry", () => {
+  const view = renderAdminCmsPage();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh Stats" }));
+  assert.equal(refreshStatsMutate.mock.calls.length, 1);
+  refreshStatsState.isPending = true;
+  act(() => view.rerenderPage());
+  assert.equal(
+    (
+      screen.getByRole("button", {
+        name: "Refreshing statistics…",
+      }) as HTMLButtonElement
+    ).disabled,
+    true,
+  );
+  refreshStatsState.isPending = false;
+  refreshStatsState.isError = true;
+  act(() => view.rerenderPage());
+  assert.ok(
+    screen
+      .getByRole("alert")
+      .textContent?.includes("Unable to refresh statistics"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Refresh Stats" }));
+  assert.equal(refreshStatsMutate.mock.calls.length, 2);
+  fireEvent.change(screen.getByLabelText("Hero title"), {
+    target: { value: "Unsaved work" },
+  });
+  assert.equal(
+    (screen.getByRole("button", { name: "Refresh Stats" }) as HTMLButtonElement)
+      .disabled,
+    true,
+  );
 });
 
 test("admin CMS page submits edited drafts, publishes, and rolls back", () => {
