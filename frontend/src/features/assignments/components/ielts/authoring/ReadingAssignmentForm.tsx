@@ -221,8 +221,9 @@ export function ReadingAssignmentForm({
                 }
               >
                 <div className="space-y-2">
-                  <Label>Passage Title</Label>
+                  <Label htmlFor={`passage-title-${passage.id}`}>Passage Title</Label>
                   <Input
+                    id={`passage-title-${passage.id}`}
                     value={passage.title}
                     onChange={(event) =>
                       updatePassage(passageIndex, { title: event.target.value })
@@ -230,8 +231,9 @@ export function ReadingAssignmentForm({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Passage Content</Label>
+                  <Label htmlFor={`passage-content-${passage.id}`}>Passage Content</Label>
                   <Textarea
+                    id={`passage-content-${passage.id}`}
                     value={passage.passage}
                     onChange={(event) =>
                       updatePassage(passageIndex, { passage: event.target.value })
