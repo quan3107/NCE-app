@@ -11,6 +11,14 @@ import { resetAuthRateLimiter } from "../../../src/modules/auth/auth.service.js"
 
 const limitedAuthRequests = [
   {
+    name: "password recovery request",
+    send: () => request(app).post("/api/v1/auth/forgot-password").send({}),
+  },
+  {
+    name: "password reset",
+    send: () => request(app).post("/api/v1/auth/reset-password").send({}),
+  },
+  {
     name: "registration",
     send: () => request(app).post("/api/v1/auth/register").send({}),
   },
