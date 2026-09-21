@@ -4,7 +4,8 @@
  * Why: Keeps the feature module organized under the new structure.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutationLifetime } from '@lib/useMutationLifetime';
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { PageHeader } from '@components/common/PageHeader';
@@ -30,11 +31,19 @@ import { createStudentIeltsAttemptFromPayload } from '@features/assignments/comp
 import { toSubmission } from '@features/assignments/api.mappers';
 
 export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
+  const { currentUser, sessionGeneration } = useAuthStore();
+  return <StudentAssignmentDetail key={`${assignmentId}:${currentUser.id}:${sessionGeneration}`} assignmentId={assignmentId} />;
+}
+
+function StudentAssignmentDetail({ assignmentId }: { assignmentId: string }) {
+  const captureLifetime = useMutationLifetime();
+  const pending = useRef(false);
   const { currentUser } = useAuthStore();
   const { navigate } = useRouter();
   const { assignments, submissions, isLoading, error } = useAssignmentResources();
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [submissionContent, setSubmissionContent] = useState('');
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadBusy, setIsUploadBusy] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<SubmissionFile[]>([]);
@@ -111,6 +120,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
   const canResubmit = Boolean(submission && submission.status !== 'graded' && !hasReachedMaxAttempts);
 
   const submitAssignment = async (mode: 'draft' | 'submitted') => {
+    if (pending.current || isUploadBusy) return;
     if (!currentUser?.id) {
       toast.error('Unable to submit without a student account.');
       return;
@@ -120,11 +130,11 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       return;
     }
     if (!ieltsType && (assignment.type === 'text' || assignment.type === 'link') && !submissionContent.trim()) {
-      toast.error('Please add your submission before sending.');
+      setSubmissionError('Please add your submission before sending.');
       return;
     }
     if (!ieltsType && assignment.type === 'file' && uploadedFiles.length === 0) {
-      toast.error('Please upload at least one file before submitting.');
+      setSubmissionError('Please upload at least one file before submitting.');
       return;
     }
     if (
@@ -133,9 +143,12 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       ieltsConfig &&
       !hasStudentIeltsSubmissionContent(ieltsType, ieltsConfig, ieltsAttempt)
     ) {
-      toast.error('Please complete the IELTS attempt before submitting.');
+      setSubmissionError('Please complete the IELTS attempt before submitting.');
       return;
     }
+    pending.current = true;
+    setSubmissionError(null);
+    const isCurrent = captureLifetime();
     setIsSubmitting(true);
 
     try {
@@ -174,6 +187,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
         },
       });
 
+      if (!isCurrent()) return;
       const responsePayload = response.payload ?? payloadRecord;
       const nextSubmission: Submission = {
         ...toSubmission({ ...response, payload: responsePayload }),
@@ -190,9 +204,11 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
       toast.success(mode === 'draft' ? 'Draft saved.' : 'Assignment submitted successfully!');
       setShowSubmitDialog(false);
     } catch (errorValue) {
-      toast.error(errorValue instanceof Error ? errorValue.message : 'Unable to submit assignment.');
+      if (!isCurrent()) return;
+      setSubmissionError(errorValue instanceof Error ? errorValue.message : 'Unable to submit assignment.');
     } finally {
-      setIsSubmitting(false);
+      pending.current = false;
+      if (isCurrent()) setIsSubmitting(false);
     }
   };
   const handleSubmit = () => {
@@ -244,6 +260,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
         </div>
       </div>
       <StudentAssignmentSubmitDialog
+        error={submissionError}
         assignment={assignment}
         isOpen={showSubmitDialog}
         isSubmitting={isSubmitting}
@@ -256,7 +273,7 @@ export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: st
         ieltsNextAttempt={attemptAvailability?.nextAttempt}
         ieltsMaxAttempts={attemptAvailability?.maxAttempts}
         onOpenChange={setShowSubmitDialog}
-        onSubmissionContentChange={setSubmissionContent}
+        onSubmissionContentChange={(value) => { setSubmissionContent(value); setSubmissionError(null); }}
         onUploadedFilesChange={setUploadedFiles}
         onUploadBusyChange={setIsUploadBusy}
         onIeltsAttemptChange={setIeltsAttempt}
