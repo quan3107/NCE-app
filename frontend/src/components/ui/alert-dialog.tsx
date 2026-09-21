@@ -1,3 +1,8 @@
+/**
+ * Location: components/ui/alert-dialog.tsx
+ * Purpose: Style confirmation dialogs while preserving Radix focus and ref contracts.
+ * Why: Portal presence and keyboard focus require refs to reach DOM elements.
+ */
 "use client";
 
 import * as React from "react";
@@ -28,12 +33,16 @@ function AlertDialogPortal({
   );
 }
 
-function AlertDialogOverlay({
+const AlertDialogOverlay = React.forwardRef<
+  React.ElementRef<typeof AlertDialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
+>(({
   className,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
+}, ref) => {
   return (
     <AlertDialogPrimitive.Overlay
+      ref={ref}
       data-slot="alert-dialog-overlay"
       className={cn(
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
@@ -42,7 +51,8 @@ function AlertDialogOverlay({
       {...props}
     />
   );
-}
+});
+AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 
 function AlertDialogContent({
   className,
