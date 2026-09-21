@@ -25,13 +25,13 @@ export function IeltsAuthoringActionsCard({
   return (
     <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2">
       <CardContent className="p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h4 className="font-medium mb-1">Ready to publish?</h4>
             <p className="text-sm text-muted-foreground">Save as draft or publish for students</p>
             {isLoading && <p role="status" className="text-sm">Uploading files and saving assignment...</p>}
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button variant="outline" onClick={onSaveDraft} disabled={!canSave || isLoading}>
               <Save className="mr-2 size-4" />
               Save Draft
