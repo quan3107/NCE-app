@@ -10,6 +10,7 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import { useMutationLifetime } from '@lib/useMutationLifetime';
 import { Textarea } from '@components/ui/textarea';
 import {
   useContactPageContentQuery,
@@ -29,6 +30,7 @@ export function ContactRoute() {
   const contactQuery = useContactPageContentQuery();
   const submission = useContactSubmissionMutation();
   const activeSubmissionId = useRef(0);
+  const captureLifetime = useMutationLifetime();
   const [clientErrors, setClientErrors] = useState<ContactFieldErrors>({});
   const [dismissedServerFields, setDismissedServerFields] = useState<Set<ContactField>>(new Set());
   const serverErrors = backendContactFieldErrors(submission.error);
@@ -78,9 +80,10 @@ export function ContactRoute() {
     setDismissedServerFields(new Set());
     submission.reset();
 
+    const isCurrent = captureLifetime();
     try {
       await submission.mutateAsync(payload);
-      if (activeSubmissionId.current === submissionId) {
+      if (isCurrent() && activeSubmissionId.current === submissionId) {
         form.reset();
       }
     } catch {
