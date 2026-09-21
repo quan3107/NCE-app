@@ -26,6 +26,7 @@ import {
 import type { IeltsWritingTask1Type } from '@lib/ielts';
 
 type WritingVisualUploadProps = {
+  retainedFileId?: string | null;
   fileName: string | null;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveImage: () => void;
@@ -36,6 +37,7 @@ type WritingVisualUploadProps = {
 };
 
 export function WritingVisualUpload({
+  retainedFileId,
   fileName,
   onFileChange,
   onRemoveImage,
@@ -46,7 +48,11 @@ export function WritingVisualUpload({
 }: WritingVisualUploadProps) {
   if (!previewUrl) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="space-y-2">
+        {retainedFileId && <div className="flex flex-wrap items-center gap-2">
+          <p>Uploaded Task 1 visual retained for this draft.</p>
+          <Button aria-label="Remove Task 1 visual" variant="outline" onClick={onRemoveImage}>Remove</Button>
+        </div>}
         <Input aria-label="Task 1 visual image" type="file" accept="image/*" onChange={onFileChange} className="flex-1" />
       </div>
     );
