@@ -811,7 +811,8 @@ async function main(): Promise<void> {
       data: {
         assignmentId: assignment.id,
         studentId: student.id,
-        status: seed.status,
+        // Every submission in this seed group receives an official grade below.
+        status: SubmissionStatus.graded,
         submittedAt: daysFromNow(seed.submittedOffsetDays),
         payload,
       },
@@ -1145,7 +1146,10 @@ async function main(): Promise<void> {
       data: {
         assignmentId: assignment.id,
         studentId: student.id,
-        status: seed.status,
+        status:
+          seed.graderEmail && seed.rawScore !== undefined && seed.finalScore !== undefined
+            ? SubmissionStatus.graded
+            : seed.status,
         submittedAt: daysFromNow(seed.submittedOffsetDays),
         payload,
       },

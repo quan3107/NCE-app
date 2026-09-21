@@ -76,6 +76,7 @@ export function StudentGradesPage() {
     assignments,
     isLoading: assignmentsLoading,
     error: assignmentsError,
+    refetch: refetchAssignments,
   } = useAssignmentResources();
   const studentSubmissions = useMemo(
     () =>
@@ -239,6 +240,15 @@ export function StudentGradesPage() {
               <p className="text-sm text-muted-foreground mt-2">
                 {error.message}
               </p>
+              <Button
+                className="mt-4"
+                onClick={() => {
+                  void refetchAssignments();
+                  void gradesQuery.refetch();
+                }}
+              >
+                Try again
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -328,10 +338,12 @@ export function StudentGradesPage() {
                                     {rubricScoreLabel(item)}
                                   </span>
                                 </div>
-                                <Progress
-                                  value={rubricProgressValue(item)}
-                                  className="h-1.5"
-                                />
+                                {item.maxPoints > 0 && (
+                                  <Progress
+                                    value={rubricProgressValue(item)}
+                                    className="h-1.5"
+                                  />
+                                )}
                               </div>
                             </div>
                           ))}

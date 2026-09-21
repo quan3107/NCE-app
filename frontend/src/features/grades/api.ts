@@ -217,7 +217,8 @@ export const toGrade = (
     return {
       criteria: item.criterion,
       points,
-      maxPoints: isIeltsBand ? IELTS_BAND_MAX : points,
+      // Conventional grade payloads carry earned points, not criterion maxima.
+      maxPoints: isIeltsBand ? IELTS_BAND_MAX : 0,
       scale: isIeltsBand ? ('ielts_band' as const) : ('points' as const),
     };
   });
@@ -233,7 +234,9 @@ export const toGrade = (
           value: resolvedBand,
           max: IELTS_BAND_MAX,
         }
-    : { kind: 'points', value: finalScore, max: maxScore };
+    : finalScoreValue === undefined && rawScoreValue === undefined
+      ? { kind: 'unavailable', label: 'Score unavailable' }
+      : { kind: 'points', value: finalScore, max: maxScore };
 
   return {
     id: grade.id,

@@ -377,8 +377,30 @@ test('toGrade keeps generic assignments on point display metadata', () => {
   assert.equal(grade.scoreDisplay.value, 8);
   assert.equal(grade.scoreDisplay.max, 100);
   assert.deepEqual(grade.rubricBreakdown, [
-    { criteria: 'Evidence', points: 8, maxPoints: 8, scale: 'points' },
+    { criteria: 'Evidence', points: 8, maxPoints: 0, scale: 'points' },
   ]);
+});
+
+test('toGrade distinguishes unavailable conventional scores from an official zero', () => {
+  const submission = {
+    id: 'submission', assignmentId: 'assignment', studentId: 'student',
+    status: 'graded', version: 1,
+  } as Submission;
+  const assignment = {
+    id: 'assignment', type: 'file', maxScore: 20,
+  } as Assignment;
+  const assignments = new Map([[assignment.id, assignment]]);
+  const missing = toGrade(
+    { id: 'grade', submissionId: submission.id }, submission, assignments,
+  );
+  assert.deepEqual(missing.scoreDisplay, {
+    kind: 'unavailable', label: 'Score unavailable',
+  });
+  const zero = toGrade(
+    { id: 'grade', submissionId: submission.id, finalScore: '0' },
+    submission, assignments,
+  );
+  assert.deepEqual(zero.scoreDisplay, { kind: 'points', value: 0, max: 20 });
 });
 
 test('toGrade maps provisional-only feedback records before teacher grading', () => {

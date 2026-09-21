@@ -29,7 +29,7 @@ export const scoreSummary = (grade: Grade) => {
   if (grade.scoreDisplay.kind === 'ielts_band') {
     return {
       primary: formatBandScore(grade.scoreDisplay.value),
-      secondary: null,
+      secondary: 'IELTS band',
       className: 'text-3xl font-medium',
     };
   }
@@ -57,11 +57,12 @@ export const scoreSummary = (grade: Grade) => {
 export const rubricScoreLabel = (item: Grade['rubricBreakdown'][number]) =>
   item.scale === 'ielts_band'
     ? `${formatBandScore(item.points)} / ${formatBandScore(item.maxPoints)}`
-    : `${item.points}/${item.maxPoints}`;
+    : item.maxPoints > 0
+      ? `${item.points}/${item.maxPoints}`
+      : `${item.points} points`;
 
-export const rubricProgressValue = (
-  item: Grade['rubricBreakdown'][number],
-) => (item.maxPoints > 0 ? (item.points / item.maxPoints) * 100 : 0);
+export const rubricProgressValue = (item: Grade['rubricBreakdown'][number]) =>
+  item.maxPoints > 0 ? (item.points / item.maxPoints) * 100 : 0;
 
 export const explanationText = (
   explanation: Record<string, unknown> | undefined,
@@ -76,7 +77,9 @@ export const explanationText = (
     explanation.feedbackMd ??
     explanation.feedback ??
     explanation.content;
-  return typeof preferred === 'string' ? preferred : JSON.stringify(explanation);
+  return typeof preferred === 'string'
+    ? preferred
+    : JSON.stringify(explanation);
 };
 
 export const renderFeedbackContent = (feedback: string) => {
@@ -91,7 +94,9 @@ export const renderFeedbackContent = (feedback: string) => {
         {listItems.map((item, index) => (
           <li key={index} className="flex items-start gap-3">
             <div className="size-1.5 rounded-full bg-primary/70 mt-2 flex-shrink-0" />
-            <span className="text-sm text-foreground/90 leading-relaxed">{item}</span>
+            <span className="text-sm text-foreground/90 leading-relaxed">
+              {item}
+            </span>
           </li>
         ))}
       </ul>,

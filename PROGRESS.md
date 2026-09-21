@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-21:** Fixed inconsistent official-grade demo submission statuses and added an idempotent migration repairing active historical records. Real PostgreSQL/HTTP verified seed status, atomic teacher posts, server-calculated IELTS bands, ownership/deleted-record boundaries and migration replay. 1,085 standard tests plus the enabled migration regression pass; lint/build pass. STU-14 PASS; evidence: `docs/e2e-student-grades-verification.md`.
+
 - **2026-09-21:** Completed OPS-05/07/08/10/15/16 with real PostgreSQL/API verification: added admin-only paginated delivery metadata, mapped duplicate user creation to 409, and made homepage aggregates exclude deleted rows and avoid invented empty averages. Verified actual worker delivery, recipient privacy, role denials, equal-value settings CAS/audit semantics, all audit filters, and atomic aggregation failure. All 77 migrations applied locally; 1,085 backend tests pass (40 existing skips), lint/build and OpenAPI validation pass. Evidence: `docs/e2e-operations-verification.md`.
 
 - **2026-09-21:** Filter private listening transcripts and objective answer keys from student assignment list/detail responses, preserving teacher data, scoring, and Writing sample-release rules. Real API checks confirm privacy before/after submission, correct raw scoring, and intended sample visibility. All 95 assignment/submission/scoring tests, TypeScript, and focused lint pass. ASG-09 PASS; evidence: `docs/e2e-listening-audio-verification.md`.
@@ -226,6 +228,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-21:** Completed STU-14: unavailable conventional scores no longer imply zero, rubric rows no longer invent maxima, IELTS units are explicit, and grade failures offer working retry. Actual Browser/API/PostgreSQL checks cover assignment/detail/grade consistency, rubric/feedback/grader/time, reload, empty isolation and real lock-failure recovery. 270 unit and 224 component tests, lint, TypeScript and build pass. Totals: 115 PASS, 2 FAIL, 1 BLOCKED, 7 DECISION-GATED. Evidence: `docs/e2e-student-grades-verification.md`.
 
 - **2026-09-21:** Fixed the PR frontend CI assertion-safety failure by comparing both analytics download-link absence checks as booleans. The exact coverage command passes all 269 tests; all eight analytics component tests and focused lint pass. Application behavior is unchanged.
 
