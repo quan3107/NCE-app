@@ -4,6 +4,7 @@
  * Why: Preserves a clean controller-service boundary for assignment workflows.
  */
 import { type Request, type Response } from 'express'
+import { recordLearningActivity } from '../analytics/learning-activity.js'
 
 import { createHttpError } from '../../utils/httpError.js'
 import type { CourseManager } from '../courses/courses.types.js'
@@ -35,6 +36,7 @@ export async function getAssignments(req: Request, res: Response): Promise<void>
 
 export async function getAssignmentById(req: Request, res: Response): Promise<void> {
   const assignment = await getAssignment(req.params, getAuthenticatedActor(req))
+  await recordLearningActivity(req.user, assignment.courseId)
   res.status(200).json(assignment)
 }
 
