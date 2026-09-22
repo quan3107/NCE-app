@@ -4,6 +4,7 @@
  * Why: Keeps module wiring centralized and aligns with the PRD's layered architecture.
  */
 import { Router } from "express";
+import { announcementRouter } from './announcements/announcements.routes.js';
 
 import cmsRoutes from './cms/cms.routes.js'
 import { aiFeedbackRouter } from "./ai-feedback/ai-feedback.routes.js";
@@ -63,6 +64,7 @@ apiRouter.use("/audit-logs", auditLogRouter);
 apiRouter.use("/contact", contactRouter);
 apiRouter.use("/enrollments", enrollmentRouter);
 apiRouter.use("/courses", courseRouter);
+apiRouter.use('/courses/:courseId/announcements', announcementRouter);
 apiRouter.use("/config/dashboard-widgets", dashboardWidgetsRouter);
 apiRouter.use("/assignments", assignmentsTopLevelRouter);
 apiRouter.use("/courses/:courseId/assignments", assignmentRouter);

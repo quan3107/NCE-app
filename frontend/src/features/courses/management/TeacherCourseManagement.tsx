@@ -12,7 +12,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useRouter } from '@lib/router';
 
 import { AddStudentDialog } from './components/dialogs/AddStudentDialog';
-import { AnnouncementsTab } from './components/tabs/AnnouncementsTab';
+import { CourseAnnouncements } from '@features/announcements/CourseAnnouncements';
 import { DeadlinesTab } from './components/tabs/DeadlinesTab';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
@@ -238,7 +238,7 @@ export function TeacherCourseManagement({ courseId }: { courseId: string }) {
 
             {enabledTabIds.has('announcements') && (
               <TabsContent value="announcements">
-                <AnnouncementsTab />
+                <CourseAnnouncements key={courseId} courseId={courseId} />
               </TabsContent>
             )}
 

@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { ReactElement } from 'react';
 import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
@@ -177,6 +178,12 @@ export function StudentNotificationsPage() {
                     <div className="flex-1 min-w-0">
                       <h4 className="mb-1">{notification.title}</h4>
                       <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      {notification.type === 'announcement' &&
+                        notification.link?.startsWith('/student/courses/') && (
+                          <Link className="underline" to={notification.link}>
+                            View course announcements
+                          </Link>
+                        )}
                       <p className="text-xs text-muted-foreground mt-2">
                         {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
                       </p>

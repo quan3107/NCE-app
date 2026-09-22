@@ -1,0 +1,128 @@
+# Course announcement contract: drafts, idempotent publication, silent edits, and moderation.
+Announcements:
+  parameters:
+    - $ref: "#/CourseId"
+  get:
+    tags: [courses]
+    summary: List course announcements for current members
+    description: Owners and active co-teachers see drafts and publications; current student enrollments see only publications. Admins can inspect all active courses. Revoked and unenrolled users are denied.
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - in: query
+        name: offset
+        schema: { type: integer, minimum: 0, default: 0 }
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    responses:
+      "200":
+        description: Ordered newest first
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, nextOffset]
+              properties:
+                data:
+                  type: array
+                  items: { $ref: "#/Announcement" }
+                nextOffset: { type: integer, nullable: true }
+      "400": { description: Invalid parameters }
+      "401": { description: Authentication required }
+      "403": { description: Course access denied }
+  post:
+    tags: [courses]
+    summary: Create a course announcement (owner or active co-teacher)
+    description: A client-generated requestId is required. Identical retries return the existing announcement; reuse with different content or after deletion returns 409. Publishing atomically snapshots all current student enrollments and queues one in-app and one email notification per student. Drafts send nothing. Admins cannot author announcements.
+    security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/Content"
+              - type: object
+                required: [requestId]
+                properties:
+                  requestId: { type: string, format: uuid }
+    responses:
+      "201":
+        description: Created or identical request replayed
+        content:
+          application/json:
+            schema: { $ref: "#/Announcement" }
+      "400": { description: Invalid content }
+      "401": { description: Authentication required }
+      "403": { description: Teacher course access required }
+      "409": { description: Request ID already used }
+AnnouncementById:
+  parameters:
+    - $ref: "#/CourseId"
+    - in: path
+      name: announcementId
+      required: true
+      schema: { type: string, format: uuid }
+  patch:
+    tags: [courses]
+    summary: Edit or publish an announcement (owner or active co-teacher)
+    description: Supply the last observed revision. Conflicting edits return 409; identical retries are no-ops. First publication queues notifications once. Published edits are silent and cannot unpublish; delivered notifications retain their original snapshot.
+    security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/Content"
+              - type: object
+                required: [revision]
+                properties:
+                  revision: { type: integer, minimum: 1 }
+    responses:
+      "200":
+        description: Saved or identical edit replayed
+        content:
+          application/json:
+            schema: { $ref: "#/Announcement" }
+      "400": { description: Invalid content }
+      "401": { description: Authentication required }
+      "403": { description: Teacher course access required }
+      "404": { description: Announcement not found }
+      "409": { description: Stale revision }
+  delete:
+    tags: [courses]
+    summary: Delete an announcement (owner, active co-teacher, or admin)
+    description: Soft deletion is idempotent and removes associated notifications from the UI and delivery queue. Already sent or in-flight email cannot be recalled. No deletion notification is sent. Request tombstones prevent accidental recreation on retry.
+    security: [{ BearerAuth: [] }]
+    responses:
+      "204": { description: Deleted or already deleted }
+      "400": { description: Invalid parameters }
+      "401": { description: Authentication required }
+      "403": { description: Course mutation denied }
+      "404": { description: Announcement not found }
+CourseId:
+  in: path
+  name: courseId
+  required: true
+  schema: { type: string, format: uuid }
+Content:
+  type: object
+  required: [title, body]
+  properties:
+    title: { type: string, minLength: 1, maxLength: 200 }
+    body: { type: string, minLength: 1, maxLength: 10000 }
+    publish: { type: boolean, default: false }
+Announcement:
+  type: object
+  required:
+    [id, courseId, title, body, revision, publishedAt, createdAt, updatedAt]
+  properties:
+    id: { type: string, format: uuid }
+    courseId: { type: string, format: uuid }
+    title: { type: string }
+    body: { type: string }
+    revision: { type: integer, minimum: 1 }
+    publishedAt: { type: string, format: date-time, nullable: true }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }

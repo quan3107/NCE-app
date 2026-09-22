@@ -13,6 +13,14 @@ and
 
 ## Backend
 
+- **2026-09-22:** Fixed the announcement database test's CI-only role assumption: inspect effective Data API privileges instead of switching to `authenticated`, which the restricted migration owner cannot assume. PostgreSQL 17 verification reproduced CI's `SET FALSE` membership, confirmed denial, and detected a deliberately granted privilege; focused lint/formatting pass. Runtime permissions remain unchanged.
+
+- **2026-09-22:** Implemented DG-05 course announcement persistence, owner/co-teacher authorization, admin deletion, idempotent publication, and atomic in-app/email fan-out to current students. Revocation checks and uncertain-email quarantine prevent unauthorized reads and blind duplicate delivery. Real PostgreSQL/API checks, all 80 migration replay/history/schema checks, OpenAPI, lint/build, and delivery regressions pass. Brevo accepted the controlled retry; the recipient confirmed inbox delivery with a screenshot. Evidence: `docs/e2e-announcements-verification.md`.
+
+- **2026-09-22:** DG-05 audience and delivery confirmed: all currently enrolled students receive both in-app and email notifications. Together with the confirmed teacher/admin permissions, the story is ready for implementation; verification is pending.
+
+- **2026-09-22:** Recorded DG-05 permissions: teachers may create/edit/delete announcements for their respective courses; admins may delete any announcement. Audience and notification delivery decisions, implementation, and verification remain pending.
+
 - **2026-09-21:** Verified the recovery navigation follow-up against the actual API and disposable PostgreSQL. An account row lock held the reset pending until Browser navigation completed; releasing it produced HTTP 200, a changed password, and a consumed token. No backend application change or acceptance-response mock was used.
 
 - **2026-09-21:** Implemented DG-01 using Brevo, hashed single-use 30-minute reset tokens, generic responses, recipient/IP limits, and atomic password/token/all-session changes. Real HTTP and 13 PostgreSQL recovery/session tests verify expiry, reuse, password policy, old/new login, rollback, and concurrent login/refresh revocation. Backend lint/build, 1,090 tests, all 79 migration replay/history/schema checks, and OpenAPI pass. After API-key reactivation and sending-IP authorization, Brevo accepted the real Browser retry and the controlled recipient confirmed email receipt. The user completed the emailed-link reset; real API checks confirmed token consumption, old-password rejection, emailed-token reuse rejection, and revocation of both still-unexpired saved access/refresh sessions. DG-01 passes. All implementation-head PR checks passed. Evidence: `docs/e2e-password-recovery-verification.md`.
@@ -240,6 +248,12 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-22:** Replaced announcement examples with accessible draft/publish/edit/delete controls and added student reading/notification navigation plus admin moderation. Real Browser/API/PostgreSQL verifies persistence, role boundaries, both notification channels, deletion, error/retry, and pending-save navigation; screenshots inspected. All 270 unit and 256 component tests, lint, typecheck, and build pass. DG-05 passes; evidence: `docs/e2e-announcements-verification.md`.
+
+- **2026-09-22:** Marked DG-05 ready for implementation after audience and both notification channels were confirmed. Catalog now has four decision-gated stories and one ready for implementation; no runtime changes.
+
+- **2026-09-22:** Recorded course announcement management permissions in the story catalog. No announcement UI changes yet; audience and notification delivery remain undecided.
 
 - **2026-09-21:** Fenced password-recovery success/error/finally effects and URL cleanup with the existing mutation lifetime guard. Added BrowserRouter regressions for late success and failure after navigation. All 251 component tests, lint, typecheck, and build pass. Real Chromium/API/PostgreSQL verification preserved `/forgot-password`, the destination draft, and the correct form after reload; screenshot inspected. Evidence: `docs/e2e-password-recovery-verification.md`.
 

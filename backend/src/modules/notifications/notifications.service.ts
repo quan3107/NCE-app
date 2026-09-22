@@ -11,6 +11,7 @@ import {
 } from '../../prisma/index.js'
 
 import { logger } from '../../config/logger.js'
+import { courseAssignmentAccessWhere } from '../courses/courses.shared.js'
 import { prisma } from '../../prisma/client.js'
 import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
 import {
@@ -67,7 +68,20 @@ export async function listNotifications(actor: NotificationActor, query: unknown
   const limit = rawLimit ?? DEFAULT_NOTIFICATION_LIMIT
 
   const notifications = await prisma.notification.findMany({
-    where: { deletedAt: null, userId: actor.id },
+    where: {
+      deletedAt: null,
+      userId: actor.id,
+      OR: [
+        { announcementId: null },
+        {
+          channel: 'inapp',
+          announcement: {
+            deletedAt: null,
+            course: courseAssignmentAccessWhere(actor, 'read'),
+          },
+        },
+      ],
+    },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
     ...(cursor
@@ -117,6 +131,15 @@ export async function getNotificationById(params: unknown, actor: NotificationAc
 
   if (actor.role !== UserRole.admin) {
     where.userId = actor.id
+    where.OR = [
+      { announcementId: null },
+      {
+        announcement: {
+          deletedAt: null,
+          course: courseAssignmentAccessWhere(actor, 'read'),
+        },
+      },
+    ]
   }
 
   const notification = await prisma.notification.findFirst({
@@ -161,6 +184,14 @@ export async function resendNotification(params: unknown) {
     throw createHttpError(409, 'Notification is not in a resendable state.', {
       status: notification.status,
     })
+  }
+
+  // Unknown announcement deliveries require provider reconciliation, never blind replay.
+  if (notification.announcementId && notification.status === 'delivery_unknown') {
+    throw createHttpError(
+      409,
+      'Confirm delivery with the email provider; an uncertain announcement cannot be resent safely.',
+    )
   }
 
   const resendResult = await prisma.notification.updateMany({

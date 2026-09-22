@@ -48,6 +48,7 @@ model User {
 }
 
 model Course {
+  announcements CourseAnnouncement[]
   id           String       @id @default(uuid()) @db.Uuid
   title        String
   description  String?
@@ -192,6 +193,8 @@ model Grade {
 }
 
 model Notification {
+  announcementId String? @map("announcement_id") @db.Uuid
+  announcement CourseAnnouncement? @relation(fields: [announcementId], references: [id])
   id        String              @id @default(uuid()) @db.Uuid
   userId    String              @map("user_id") @db.Uuid
   type      String
@@ -219,6 +222,29 @@ model Notification {
   @@index([status, deletedAt, deadLetteredAt, id], map: "notifications_status_deletedAt_deadLetteredAt_id_idx")
   @@index([status, deletedAt, updatedAt, id], map: "notifications_status_deletedAt_updatedAt_id_idx")
   @@map("notifications")
+  @@unique([announcementId, userId, channel])
+}
+
+// Publication and its recipient snapshot commit together; request keys survive deletion.
+model CourseAnnouncement {
+  id String @id @default(uuid()) @db.Uuid
+  courseId String @map("course_id") @db.Uuid
+  course Course @relation(fields: [courseId], references: [id])
+  creatorId String @map("creator_id") @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  requestHash String @map("request_hash")
+  title String
+  body String
+  revision Int @default(1)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  notifications Notification[]
+
+  @@unique([creatorId, requestId])
+  @@index([courseId, deletedAt, createdAt])
+  @@map("course_announcements")
 }
 
 model NotificationTypeConfig {

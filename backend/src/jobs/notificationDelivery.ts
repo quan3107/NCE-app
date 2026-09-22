@@ -4,9 +4,10 @@
  * Why: Separates delivery concerns from scheduling and reminder logic.
  */
 import { logger } from '../config/logger.js'
+import { config } from '../config/env.js'
 import { resolveNotificationTypeEnabledForUsers } from '../modules/notification-preferences/notification-preferences.service.js'
 import { prisma } from '../prisma/client.js'
-import { sendNotificationEmail } from '../utils/emailClient.js'
+import { EmailDeliveryUncertainError, sendNotificationEmail } from '../utils/emailClient.js'
 
 const DELIVERY_BATCH_SIZE = 50
 const DEFAULT_MAX_DELIVERY_ATTEMPTS = 3
@@ -17,6 +18,7 @@ const EMAIL_SUBJECTS: Record<string, string> = {
   graded: 'Assignment graded',
   new_submission: 'New student submission',
   weekly_digest: 'Weekly assignment digest',
+  announcement: 'Course announcement',
 }
 
 export async function handleDeliverQueuedJob(): Promise<void> {
@@ -93,6 +95,35 @@ export async function handleDeliverQueuedJob(): Promise<void> {
     }
 
     try {
+      if (notification.announcementId) {
+        const accessible = await prisma.courseAnnouncement.findFirst({
+          where: {
+            id: notification.announcementId,
+            deletedAt: null,
+            course: {
+              deletedAt: null,
+              enrollments: {
+                some: {
+                  userId: notification.userId,
+                  roleInCourse: 'student',
+                  deletedAt: null,
+                  user: { deletedAt: null, role: 'student' },
+                },
+              },
+            },
+          },
+        })
+        if (!accessible) {
+          await prisma.notification.updateMany({
+            where: { id: notification.id, status: 'sending' },
+            data: {
+              status: 'suppressed',
+              failureReason: 'announcement_no_longer_accessible',
+            },
+          })
+          continue
+        }
+      }
       if (notification.user.role === 'teacher') {
         const cacheKey = `${notification.userId}:${notification.type}`
         let enabled = teacherPreferenceCache.get(cacheKey)
@@ -143,7 +174,7 @@ export async function handleDeliverQueuedJob(): Promise<void> {
 
       if (notification.channel === 'email') {
         const subject = EMAIL_SUBJECTS[notification.type] ?? 'Notification update'
-        const bodyText = [
+        let bodyText = [
           subject,
           '',
           `Recipient: ${notification.user.fullName}`,
@@ -151,6 +182,20 @@ export async function handleDeliverQueuedJob(): Promise<void> {
           'Payload:',
           JSON.stringify(notification.payload ?? {}, null, 2),
         ].join('\n')
+        if (
+          notification.announcementId && notification.payload &&
+          typeof notification.payload === 'object' && !Array.isArray(notification.payload)
+        ) {
+          const payload = notification.payload
+          bodyText = [
+            String(payload.courseTitle ?? ''),
+            String(payload.title ?? ''),
+            '',
+            String(payload.message ?? ''),
+            '',
+            `${config.cors.allowedOrigins[0] ?? ''}/student/courses/${String(payload.courseId ?? '')}/announcements`,
+          ].join('\n')
+        }
 
         if (!notification.user.email) {
           throw new Error('Missing recipient email')
@@ -164,6 +209,10 @@ export async function handleDeliverQueuedJob(): Promise<void> {
         })
       }
     } catch (error) {
+      if (notification.announcementId && error instanceof EmailDeliveryUncertainError) {
+        await markDeliveryUnknown(notification.id)
+        continue
+      }
       await recordDeliveryFailure(notification, error, now)
       continue
     }
