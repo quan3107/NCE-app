@@ -90,6 +90,7 @@ export function useCreateSubmissionMutation() {
     }) => createSubmission(assignmentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [SUBMISSIONS_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['grades:list'] });
     },
   });
 }
