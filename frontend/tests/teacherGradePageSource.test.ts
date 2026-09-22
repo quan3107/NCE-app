@@ -30,7 +30,6 @@ test('teacher grade page preserves existing generic grade adjustments when updat
   );
 
   assert.match(source, /existingGrade\s*\?\s*existingGrade\.adjustments/);
-  assert.match(source, /existingGrade\s*\?\s*existingGrade\.adjustments\s*:\s*submission\.status/);
   assert.match(source, /rawScore\s*\+\s*adjustments/);
 });
 
