@@ -4,6 +4,11 @@
  * Why: Keeps routing definitions isolated from middleware wiring for clarity.
  */
 import { Router } from "express";
+import {
+  inspectGoogleLink,
+  linkGoogleAccount,
+  declineGoogleLink,
+} from "./auth.google.link.controller.js";
 
 import { config } from "../../config/env.js";
 import {
@@ -24,6 +29,13 @@ import {
 } from "./auth.recovery.js";
 
 export const authRouter = Router();
+authRouter.get("/google/link", limitAuthRoute("googleCallback"), inspectGoogleLink);
+authRouter.post("/google/link", limitAuthRoute("googleCallback"), linkGoogleAccount);
+authRouter.post(
+  "/google/link/cancel",
+  limitAuthRoute("googleCallback"),
+  declineGoogleLink,
+);
 
 authRouter.post(
   "/forgot-password",
