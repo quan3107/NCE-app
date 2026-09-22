@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import { toAssignment, toSubmission } from '../src/features/assignments/api.mappers';
 import { createIeltsAssignmentConfig, normalizeIeltsAssignmentConfig } from '../src/lib/ielts';
 
-test('toAssignment formats structured late policies for student display', () => {
+test('toAssignment supersedes historical penalty policies with the confirmed cutoff contract', () => {
   const assignment = toAssignment(
     {
       id: 'assignment-1',
@@ -27,7 +27,8 @@ test('toAssignment formats structured late policies for student display', () => 
     'IELTS 4-Skill UIUX Sandbox',
   );
 
-  assert.equal(assignment.latePolicy, '15% late penalty');
+  assert.match(assignment.latePolicy, /24 hours without a score penalty/);
+  assert.doesNotMatch(assignment.latePolicy, /15%/);
 });
 
 test('toAssignment maps IELTS assignments max scores to the band scale', () => {
