@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@lib/apiClient';
 import type { Notification } from '@domain';
 import { queryClient } from '@lib/queryClient';
+import { formatDate } from '@lib/utils';
 
 const NOTIFICATIONS_KEY = ['notifications', 'list'] as const;
 
@@ -34,6 +35,8 @@ export const mapApiNotificationToNotification = (
 ): Notification => {
   const payload = notification.payload ?? {};
   const payloadRecord = payload as Record<string, unknown>;
+  const isDeadline = notification.type === 'due_soon' && typeof payloadRecord.assignmentId === 'string';
+  const deadline = typeof payloadRecord.dueAt === 'string' ? new Date(payloadRecord.dueAt) : null;
 
   return {
     id: notification.id,
@@ -41,16 +44,18 @@ export const mapApiNotificationToNotification = (
     // Preserve raw backend notification keys so new types work without frontend deploys.
     type: notification.type,
     title:
-      typeof payloadRecord.title === 'string'
+      isDeadline ? `Due soon: ${String(payloadRecord.assignmentTitle ?? 'Assignment')}` : typeof payloadRecord.title === 'string'
         ? payloadRecord.title
         : notification.type.replace(/_/g, ' '),
     message:
-      typeof payloadRecord.message === 'string'
+      isDeadline && deadline && Number.isFinite(deadline.getTime())
+        ? `${String(payloadRecord.courseTitle ?? '')} · Due ${formatDate(deadline, 'datetime')}. Late work has no score penalty; submissions close 24 hours later.`
+        : typeof payloadRecord.message === 'string'
         ? payloadRecord.message
         : 'You have a new notification.',
     timestamp: new Date(notification.createdAt),
     read: Boolean(notification.readAt) || notification.status === 'read',
-    link: typeof payloadRecord.link === 'string' ? payloadRecord.link : undefined,
+    link: isDeadline ? `/student/assignments/${encodeURIComponent(String(payloadRecord.assignmentId))}` : typeof payloadRecord.link === 'string' ? payloadRecord.link : undefined,
   };
 };
 
