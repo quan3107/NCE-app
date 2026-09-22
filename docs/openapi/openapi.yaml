@@ -39,6 +39,8 @@ tags:
   - name: nce-learning
 
 paths:
+  /api/v1/courses/{courseId}/reminders:
+    $ref: './paths/course-reminders.yaml#/CourseReminders'
   /api/v1/courses/{courseId}/announcements:
     $ref: './paths/announcements.yaml#/Announcements'
   /api/v1/courses/{courseId}/announcements/{announcementId}:
