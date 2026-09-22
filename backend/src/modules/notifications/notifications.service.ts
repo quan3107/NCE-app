@@ -11,6 +11,7 @@ import {
 } from '../../prisma/index.js'
 
 import { logger } from '../../config/logger.js'
+import { isReminderEligible } from '../../jobs/deadlineReminders.js'
 import { courseAssignmentAccessWhere } from '../courses/courses.shared.js'
 import { prisma } from '../../prisma/client.js'
 import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
@@ -71,6 +72,15 @@ export async function listNotifications(actor: NotificationActor, query: unknown
     where: {
       deletedAt: null,
       userId: actor.id,
+      AND: [
+        { type: { not: 'weekly_digest' } },
+        {
+          OR: [
+            { type: { not: 'due_soon' } },
+            { type: 'due_soon', channel: 'inapp', status: 'sent' },
+          ],
+        },
+      ],
       OR: [
         { announcementId: null },
         {
@@ -94,8 +104,18 @@ export async function listNotifications(actor: NotificationActor, query: unknown
 
   const hasMore = notifications.length > limit
   const visibleNotifications = hasMore ? notifications.slice(0, limit) : notifications
-  const data = visibleNotifications.map(toDisplayNotification)
-  const nextCursor = hasMore ? (data[data.length - 1]?.id ?? null) : null
+  const eligibility = await Promise.all(
+    visibleNotifications.map(
+      (item) =>
+        item.type !== 'due_soon' || isReminderEligible(actor.id, item.payload, false),
+    ),
+  )
+  const data = visibleNotifications
+    .filter((_item, index) => eligibility[index])
+    .map(toDisplayNotification)
+  const nextCursor = hasMore
+    ? (visibleNotifications[visibleNotifications.length - 1]?.id ?? null)
+    : null
 
   return {
     data,
@@ -149,6 +169,15 @@ export async function getNotificationById(params: unknown, actor: NotificationAc
     throw createNotFoundError('Notification', notificationId)
   }
   if (actor.role !== UserRole.admin) {
+    if (
+      notification.type === 'weekly_digest' ||
+      (notification.type === 'due_soon' &&
+        (notification.channel !== 'inapp' ||
+          notification.status !== 'sent' ||
+          !(await isReminderEligible(actor.id, notification.payload, false))))
+    ) {
+      throw createNotFoundError('Notification', notificationId)
+    }
     return toDisplayNotification(notification)
   }
   return notification
@@ -187,10 +216,13 @@ export async function resendNotification(params: unknown) {
   }
 
   // Unknown announcement deliveries require provider reconciliation, never blind replay.
-  if (notification.announcementId && notification.status === 'delivery_unknown') {
+  if (
+    (notification.announcementId || notification.type === 'due_soon') &&
+    notification.status === 'delivery_unknown'
+  ) {
     throw createHttpError(
       409,
-      'Confirm delivery with the email provider; an uncertain announcement cannot be resent safely.',
+      'Confirm delivery with the email provider; this uncertain notification cannot be resent safely.',
     )
   }
 
