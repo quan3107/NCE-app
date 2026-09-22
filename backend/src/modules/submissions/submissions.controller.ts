@@ -4,6 +4,8 @@
  * Why: Retains separation between HTTP handling and domain operations.
  */
 import { type Request, type Response } from "express";
+import { prisma } from "../../config/prismaClient.js";
+import { recordLearningActivity } from "../analytics/learning-activity.js";
 
 import {
   createSubmission,
@@ -28,6 +30,12 @@ export async function postSubmission(
 ): Promise<void> {
   const payload = createSubmissionSchema.parse(req.body);
   const submission = await createSubmission(req.params, payload, req.user);
+  // A successful unchanged save/retry is still participation, even if persistence did not mutate a row.
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: submission.assignmentId },
+    select: { courseId: true },
+  });
+  if (assignment) await recordLearningActivity(req.user, assignment.courseId);
   res.status(201).json((await withRecordingMetadata([submission]))[0]);
 }
 
