@@ -15,6 +15,7 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent } from '@components/ui/card';
 import { Skeleton } from '@components/ui/skeleton';
 import { useRouter } from '@lib/router';
+import { apiClient } from '@lib/apiClient';
 import {
   useCompleteNceLessonMutation,
   useSaveNceAttemptDraftMutation,
@@ -52,6 +53,18 @@ export function StudentNceLessonPage() {
   const lessons = loadedLessons.length > 0 ? loadedLessons : pathQuery.data?.lessons ?? [];
   const lessonIndex = lessons.findIndex((item) => item.id === lessonId);
   const lesson = lessonIndex >= 0 ? lessons[lessonIndex] : null;
+  const hasOpenedLesson = Boolean(lesson);
+  useEffect(() => {
+    if (!hasOpenedLesson) return;
+    // Record an opened lesson, never a path/dashboard fetch. The server rechecks access.
+    void apiClient('/api/v1/analytics/lesson-view', {
+      method: 'POST',
+      auth: 'required',
+      body: { courseId, lessonId },
+    }).catch(() => {
+      // A telemetry outage must not interrupt reading.
+    });
+  }, [courseId, lessonId, hasOpenedLesson]);
   const nextLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : undefined;
   const paginationMeta = pathQuery.data?.pagination;
   const hasMorePathPages = Boolean(
