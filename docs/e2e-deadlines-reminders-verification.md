@@ -1,7 +1,7 @@
 <!-- Scope: DG-06 acceptance evidence. Purpose: Record real deadline, replacement, and reminder behavior. -->
 # Assignment deadlines and course reminders verification
 
-Verified on 2026-09-22 using the real local API on port 4012, frontend on port 3017, in-app Browser, and disposable PostgreSQL 17 database `nce_deadlines` on port 55443. All 81 migrations and reference seeds were replayed. Acceptance requests were not mocked. The controlled recipient confirmed receipt of the real reminder email.
+Verified on 2026-09-22 using the real local API on port 4012, frontend on port 3017, in-app Browser, and disposable PostgreSQL 17 database `nce_deadlines` on port 55443. All 82 migrations and reference seeds were replayed. Acceptance requests were not mocked. The controlled recipient confirmed receipt of the real reminder email.
 
 ## Confirmed contract
 
@@ -21,6 +21,17 @@ Verified on 2026-09-22 using the real local API on port 4012, frontend on port 3
 - API tests verified self-only preference access, denied teacher/outsider/other-course writes, rejected forged user fields, and continued announcement fan-out to a muted student.
 - Concurrent and repeated worker runs produced one reminder per channel. Actual in-app delivery displayed the assignment title, course, local deadline, and a working **View assignment** link. Database tests verified queued mute, enrollment removal, changed-deadline suppression, a new deadline occurrence, and no weekly digest output. Browser screenshots of the sidebar, cutoff/error states, and notification list were inspected for readability and layout.
 
+## Review corrections and acceptance rerun
+
+The initial verification missed three defects: the generic teacher form still deducted five points from ungraded late work, a form opened before a completed replacement could grade the new work, and an unchanged submission retry could skip failed scoring. All three now have permanent regressions and a real Browser/API/PostgreSQL rerun.
+
+- A teacher entered 80 for ungraded late text work; the Browser displayed 80 and PostgreSQL stored raw/final scores of 80 with no adjustment. Existing historical adjustments retain their stored reasons and amounts.
+- The teacher kept a version-one form open while the student replaced the work through the real API. Posting the old form returned 409 and retained its feedback; PostgreSQL showed version two, the old grade archived, and no current grade. Reloading and grading version two succeeded. HTTP grade writes require the reviewed submission version and compare it under the submission lock. AI approval/finalization takes that same lock and rejects replacement-tombstoned drafts.
+- A temporary PostgreSQL trigger rejected objective grade insertion after the reading submission had persisted. Browser submission returned an error and retained the answer. After removing the trigger, the same Browser submission succeeded with version one, no revision history, one active grade, and one graded notification per channel. Regenerated completion time/duration metadata does not turn this retry into new student work.
+- Eight real database acceptance tests additionally cover a failed teacher-notification insert followed by successful retries. Submission notices use a unique durable event key; the new migration backfills legacy keys. Grade publication is queued in the grade transaction. Matching AI feedback is reused on automatic submission retries; component/service regressions cover historical adjustments, background form refetches, and stale AI decisions.
+
+All temporary failure triggers were removed. The review rerun used invalid-domain fixture recipients with email workers disabled and sent no further real email. Browser grade and failure-dialog screenshots were inspected.
+
 ## Email delivery
 
 The real Brevo adapter first received a deliberate invalid-key response (401), exercising the existing retry state. The same notification was retried with the configured key and accepted at **2026-09-22 03:03:01 UTC / 10:03:01 Vietnam time**. The approved recipient explicitly replied **“Received.”** A subsequent worker replay left exactly one email and one in-app notification for that occurrence and did not send again. Automated fixtures used invalid-domain recipients and deferred their email delivery; only the separately approved recipient received the controlled email.
@@ -29,9 +40,9 @@ Provider acceptance and inbox confirmation are separate evidence. A send already
 
 ## Regression checks
 
-- Backend: 1,086 standard tests passed (62 environment-gated tests skipped); the six real API/PostgreSQL acceptance tests were enabled and passed separately. The suite includes a stale-grade concurrency regression. Lint and TypeScript build passed.
-- Frontend: 270 unit tests and 259 rendered component tests passed; lint, typecheck, and production build passed.
-- All 81 migration history/replay checks, bidirectional schema diff, database governance checks, and OpenAPI validation passed.
-- Local evidence logs are under `/tmp/nce-deadlines`; credentials and personal recipient data are excluded from this document and the patch.
+- Backend: 1,092 standard tests passed (64 environment-gated tests skipped); eight real API/PostgreSQL acceptance tests were enabled and passed separately. Lint and TypeScript build passed.
+- Frontend: 270 unit tests and 262 rendered component tests passed; lint, typecheck, and production build passed.
+- All 82 migration history/replay checks, bidirectional schema diff, and OpenAPI validation passed. Database governance checks passed for the original deadline migration and were repeated for the notification event-key migration.
+- Local evidence logs are under `/tmp/nce-deadlines` and `/tmp/nce-deadlines-review`; credentials and personal recipient data are excluded from this document and the patch.
 
 Existing historical grades are not rewritten. Revision history remains private; this change does not add a history-browsing UI. The migration preserves legacy reminder occurrence keys and suppresses duplicate unsent legacy reminders and pending weekly digests.
