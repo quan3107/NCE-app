@@ -148,7 +148,7 @@ describe('AI teacher review audit semantics', () => {
     )
 
     const events = prisma.auditLog.create.mock.calls.map((call) => call[0].data)
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1)
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2)
     expect(prisma.grade.findFirst).toHaveBeenCalledWith({
       where: { id: gradeId, deletedAt: null },
     })
@@ -184,7 +184,7 @@ describe('AI teacher review audit semantics', () => {
     )
 
     const events = prisma.auditLog.create.mock.calls.map((call) => call[0].data)
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1)
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2)
     expect(events).toContainEqual(
       expect.objectContaining({
         action: 'ai_feedback.writing_finalized',
