@@ -151,3 +151,30 @@ directions, schema governance and activity/runtime-role SQL probes were run.
 The focused admin tests cover UTC boundaries, validation, role denial, null/zero
 distinctions and formula-safe CSV. Hosted deployment and production-scale
 performance were not exercised.
+
+### Assignment-open follow-up — 2026-09-22
+
+The student detail route renders assignment-list cache data, so it now explicitly
+calls the authorized single-assignment endpoint after its data loads, including
+return navigation with cached data. List/dashboard browsing does not call it.
+The server still owns identity/time, enrollment/publication checks and daily
+deduplication; a failed activity request does not interrupt reading.
+
+Repeated acceptance used the real Browser/app/API and a fresh PostgreSQL 17
+database replayed from all 86 migrations, running as `nce_runtime`. Bob began
+with no activity and no submissions. Login, dashboard and assignment list kept
+activity at zero; opening an assignment without saving/submitting created one
+fact. Repeated opens retained one fact and zero submissions. Clearing only the
+disposable fact and returning through the cached list/detail navigation created
+it again, proving cached data does not suppress tracking. Revoked enrollment
+and unpublished assignment opens created no facts; direct API checks also
+returned 404 for these cases and another student's unassigned course.
+Fixture access was restored after those checks.
+
+The real admin page, API and CSV reconciled to one observed active learner and
+two learners with no observed activity. Assignment and report screenshots were
+inspected. Frontend typecheck/lint/build and all 269 component tests passed,
+including two new route regressions; 19 backend analytics/authorization tests
+passed. Export and the prepared-link download helper were retried in the only
+connected browser (in-app browser); neither yielded a retrievable download.
+The browser-to-filesystem CSV limitation above remains unverified.
