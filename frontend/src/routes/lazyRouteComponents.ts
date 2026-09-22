@@ -17,6 +17,9 @@ export const AdminCoursesPage = lazy(() =>
 export const AdminDashboardPage = lazy(() =>
   import('@features/admin/components/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })),
 );
+export const AdminAnalyticsPage = lazy(() =>
+  import('@features/analytics/components/AdminAnalyticsPage').then((module) => ({ default: module.AdminAnalyticsPage })),
+);
 export const AdminEnrollmentsPage = lazy(() =>
   import('@features/admin/components/AdminEnrollmentsPage').then((module) => ({ default: module.AdminEnrollmentsPage })),
 );
