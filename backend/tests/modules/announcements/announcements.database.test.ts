@@ -300,17 +300,14 @@ databaseDescribe('course announcements through the real API and PostgreSQL', () 
           .send({ ...content, title: 'Revoked', revision: 1 })
       ).status,
     ).toBe(403)
-    // Verify browser/Data API roles cannot bypass the backend announcement service.
-    const client = await owner.connect()
-    try {
-      await client.query('BEGIN')
-      await client.query('SET LOCAL ROLE authenticated')
-      await expect(client.query('SELECT * FROM course_announcements')).rejects.toThrow(
-        /permission denied/,
+    // Inspect effective privileges without requiring the owner to assume Data API roles.
+    for (const role of ['anon', 'authenticated']) {
+      const privileges = await owner.query(
+        `SELECT has_table_privilege($1, 'public.course_announcements',
+          'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS allowed`,
+        [role],
       )
-    } finally {
-      await client.query('ROLLBACK')
-      client.release()
+      expect(privileges.rows[0].allowed).toBe(false)
     }
   })
 })
