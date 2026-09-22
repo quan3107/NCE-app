@@ -56,7 +56,7 @@ export function StudentAssignmentSubmissionSummary({
     <Card>
       <CardHeader>
         <CardTitle>Your Submission</CardTitle>
-        <CardDescription>Submitted work and history</CardDescription>
+        <CardDescription>Current submitted work</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-4 bg-muted/50 rounded-lg">
