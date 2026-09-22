@@ -178,6 +178,9 @@ export function StudentNotificationsPage() {
                     <div className="flex-1 min-w-0">
                       <h4 className="mb-1">{notification.title}</h4>
                       <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      {notification.type === 'due_soon' && notification.link?.startsWith('/student/assignments/') && (
+                        <Link className="underline" to={notification.link}>View assignment</Link>
+                      )}
                       {notification.type === 'announcement' &&
                         notification.link?.startsWith('/student/courses/') && (
                           <Link className="underline" to={notification.link}>
