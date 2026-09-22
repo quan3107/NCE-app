@@ -193,6 +193,12 @@ export function StudentEnrolledCoursesPanel({
                 onClick={() => navigate('/courses/' + course.id)}
               >
                 <h4 className="mb-1">{course.title}</h4>
+                <Button variant="link" onClick={event => {
+                  event.stopPropagation();
+                  navigate(`/student/courses/${course.id}/announcements`);
+                }}>
+                  Announcements
+                </Button>
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{course.teacher}</span>
