@@ -291,7 +291,7 @@ export function ListeningAssignmentForm({ value, onChange, onAudioSelect, showPr
       </CardHeader>
       <CardContent><StudentIeltsAttemptForm type="listening" config={value}
         attempt={previewAttempt} onChange={setPreviewAttempt} nextAttempt={1}
-        maxAttempts={value.attempts.maxAttempts}
+        maxAttempts={null}
         listeningAudioUrls={Object.fromEntries(Object.entries(uploadedAudio).map(([id, audio]) => [id, audio.url]))} />
       </CardContent>
     </Card>
