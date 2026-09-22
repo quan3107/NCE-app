@@ -9,6 +9,7 @@ import { createAuthError, isUniqueConstraintError } from './auth.errors.js'
 import { assertUserIsActive, type ActiveUserRecord } from './auth.users.js'
 import { createGoogleLinkChallenge, type GoogleLinkRequired } from './auth.google.link.js'
 import type { GoogleProfile } from './auth.google.profile.js'
+import { normalizeGoogleIssuer } from './auth.google.issuer.js'
 
 type IdentityWithUser = { id: string; emailVerified: boolean; user: ActiveUserRecord }
 const selectUserFields = {
@@ -23,7 +24,9 @@ export async function findOrCreateGoogleIdentity(
   profile: GoogleProfile,
 ): Promise<IdentityWithUser | GoogleLinkRequired> {
   if (!profile.emailVerified) throw createAuthError(401, 'Google email must be verified.')
-  const { providerSubject, providerIssuer, normalizedEmail, fullName } = profile
+  const { providerSubject, normalizedEmail, fullName } = profile
+  const providerIssuer = normalizeGoogleIssuer(profile.providerIssuer)
+  if (!providerIssuer) throw createAuthError(401, 'Google issuer is not trusted.')
   const existingIdentity = await prisma.identity.findFirst({
     where: { provider: 'google', providerSubject },
     include: { user: true },
@@ -32,7 +35,7 @@ export async function findOrCreateGoogleIdentity(
     if (
       existingIdentity.deletedAt ||
       existingIdentity.user.deletedAt ||
-      existingIdentity.providerIssuer !== providerIssuer
+      normalizeGoogleIssuer(existingIdentity.providerIssuer) !== providerIssuer
     ) {
       throw createAuthError(
         409,
