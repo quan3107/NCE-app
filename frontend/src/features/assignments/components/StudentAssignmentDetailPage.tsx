@@ -66,7 +66,10 @@ function StudentAssignmentDetail({ assignmentId }: { assignmentId: string }) {
         existingStatus: submission?.status,
       })
     : null;
-  const hasReachedMaxAttempts = Boolean(attemptAvailability?.hasReachedMaxAttempts);
+  // Replacements remain available until the submission cutoff, regardless of legacy attempt caps.
+  const hasReachedMaxAttempts = false;
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
 
   useEffect(() => {
     if (!showSubmitDialog || !ieltsType) {
@@ -111,16 +114,20 @@ function StudentAssignmentDetail({ assignmentId }: { assignmentId: string }) {
     );
   }
   const dueDate = assignment.dueAt;
-  const now = new Date();
-  const isOverdue = Boolean(dueDate && dueDate < now && !submission);
+  const now = new Date(clock);
+  const isOverdue = Boolean(dueDate && dueDate < now);
+  const isClosed = Boolean(dueDate && clock >= dueDate.getTime() + 86_400_000);
   const hoursUntilDue = dueDate
     ? (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60)
     : Number.POSITIVE_INFINITY;
   const isDueSoon = hoursUntilDue <= 48 && hoursUntilDue > 0;
-  const canResubmit = Boolean(submission && submission.status !== 'graded' && !hasReachedMaxAttempts);
+  const canResubmit = Boolean(submission && !isClosed);
 
   const submitAssignment = async (mode: 'draft' | 'submitted') => {
     if (pending.current || isUploadBusy) return;
+    if (dueDate && Date.now() >= dueDate.getTime() + 86_400_000) {
+      setSubmissionError('Submissions closed 24 hours after the deadline.'); return;
+    }
     if (!currentUser?.id) {
       toast.error('Unable to submit without a student account.');
       return;
@@ -229,9 +236,15 @@ function StudentAssignmentDetail({ assignmentId }: { assignmentId: string }) {
           <StudentAssignmentHeaderActions
             submission={submission}
             isOverdue={isOverdue}
+            isClosed={isClosed}
             canResubmit={canResubmit}
             hasReachedMaxAttempts={hasReachedMaxAttempts}
-            onOpenSubmit={() => setShowSubmitDialog(true)}
+            onOpenSubmit={() => {
+              setSubmissionContent(submission?.content ?? submission?.link ?? '');
+              setUploadedFiles(submission?.files ?? []);
+              setSubmissionError(null);
+              setShowSubmitDialog(true);
+            }}
           />
         }
       />
@@ -271,7 +284,7 @@ function StudentAssignmentDetail({ assignmentId }: { assignmentId: string }) {
         ieltsConfig={ieltsConfig}
         ieltsAttempt={ieltsAttempt}
         ieltsNextAttempt={attemptAvailability?.nextAttempt}
-        ieltsMaxAttempts={attemptAvailability?.maxAttempts}
+        ieltsMaxAttempts={undefined}
         onOpenChange={setShowSubmitDialog}
         onSubmissionContentChange={(value) => { setSubmissionContent(value); setSubmissionError(null); }}
         onUploadedFilesChange={setUploadedFiles}
