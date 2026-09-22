@@ -188,6 +188,7 @@ export class ObjectiveExplanationPollingTimeoutError extends Error {
 }
 
 type UpsertGradeRequest = {
+  expectedSubmissionVersion: number;
   rubricBreakdown?: Array<{ criterion: string; points: number }>;
   rawScore?: number;
   adjustments?: Array<{ reason: string; delta: number }>;
