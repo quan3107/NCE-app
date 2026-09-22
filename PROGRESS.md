@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-22:** Implemented DG-06 server-clock deadlines, inclusive 24-hour cutoff, grade-preserving replacements, objective regrading, durable dual-channel reminders, course muting, queued eligibility checks, and digest suppression. Real API/PostgreSQL concurrency and boundary checks, 81 migration replay/history/schema checks, governance, OpenAPI, lint/build, and regression tests pass. Brevo accepted the controlled retry and the recipient confirmed receipt. Evidence: `docs/e2e-deadlines-reminders-verification.md`.
+
 - **2026-09-22:** Fixed the announcement database test's CI-only role assumption: inspect effective Data API privileges instead of switching to `authenticated`, which the restricted migration owner cannot assume. PostgreSQL 17 verification reproduced CI's `SET FALSE` membership, confirmed denial, and detected a deliberately granted privilege; focused lint/formatting pass. Runtime permissions remain unchanged.
 
 - **2026-09-22:** Implemented DG-05 course announcement persistence, owner/co-teacher authorization, admin deletion, idempotent publication, and atomic in-app/email fan-out to current students. Revocation checks and uncertain-email quarantine prevent unauthorized reads and blind duplicate delivery. Real PostgreSQL/API checks, all 80 migration replay/history/schema checks, OpenAPI, lint/build, and delivery regressions pass. Brevo accepted the controlled retry; the recipient confirmed inbox delivery with a screenshot. Evidence: `docs/e2e-announcements-verification.md`.
@@ -248,6 +250,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-22:** Completed DG-06 no-penalty/cutoff/replacement UI, persistent course reminder control, and usable reminder links. Real Browser/API checks cover on-time and late replacements, cutoff error with retained work, disabled closed controls, mute failure/retry/reload, and pending-save navigation; screenshots inspected. All 270 unit and 259 component tests, lint, typecheck, and build pass. DG-06 passes; evidence: `docs/e2e-deadlines-reminders-verification.md`.
 
 - **2026-09-22:** Replaced announcement examples with accessible draft/publish/edit/delete controls and added student reading/notification navigation plus admin moderation. Real Browser/API/PostgreSQL verifies persistence, role boundaries, both notification channels, deletion, error/retry, and pending-save navigation; screenshots inspected. All 270 unit and 256 component tests, lint, typecheck, and build pass. DG-05 passes; evidence: `docs/e2e-announcements-verification.md`.
 
