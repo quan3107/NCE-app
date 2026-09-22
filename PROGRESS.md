@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-22:** Fixed the announcement database test's CI-only role assumption: inspect effective Data API privileges instead of switching to `authenticated`, which the restricted migration owner cannot assume. PostgreSQL 17 verification reproduced CI's `SET FALSE` membership, confirmed denial, and detected a deliberately granted privilege; focused lint/formatting pass. Runtime permissions remain unchanged.
+
 - **2026-09-22:** Implemented DG-05 course announcement persistence, owner/co-teacher authorization, admin deletion, idempotent publication, and atomic in-app/email fan-out to current students. Revocation checks and uncertain-email quarantine prevent unauthorized reads and blind duplicate delivery. Real PostgreSQL/API checks, all 80 migration replay/history/schema checks, OpenAPI, lint/build, and delivery regressions pass. Brevo accepted the controlled retry; the recipient confirmed inbox delivery with a screenshot. Evidence: `docs/e2e-announcements-verification.md`.
 
 - **2026-09-22:** DG-05 audience and delivery confirmed: all currently enrolled students receive both in-app and email notifications. Together with the confirmed teacher/admin permissions, the story is ready for implementation; verification is pending.
