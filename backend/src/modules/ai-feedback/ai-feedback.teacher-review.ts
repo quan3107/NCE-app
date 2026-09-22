@@ -3,25 +3,26 @@
  * Purpose: Publish, reject, and list teacher-reviewed AI writing feedback drafts.
  * Why: AI feedback remains draft material until an authorized teacher decides it.
  */
-import type { RequestActor } from "../../middleware/requestActor.js";
+import { findDraftForDecision, type ReviewDraft } from './ai-feedback.review-lookup.js'
+import type { RequestActor } from '../../middleware/requestActor.js'
 import {
   AssignmentType,
   EnrollmentRole,
   Prisma,
   UserRole,
   type AiFeedbackDraftStatus,
-} from "../../prisma/index.js";
-import { prisma } from "../../prisma/client.js";
-import { createHttpError, createNotFoundError } from "../../utils/httpError.js";
-import { semanticValuesEqual } from "../../utils/semanticValue.js";
+} from '../../prisma/index.js'
+import { prisma } from '../../prisma/client.js'
+import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
+import { semanticValuesEqual } from '../../utils/semanticValue.js'
 import {
   validateIeltsCriterionBreakdown,
   type IeltsCriterionScore,
-} from "../scoring/ieltsManualGrading.js";
+} from '../scoring/ieltsManualGrading.js'
 import {
   AI_FEEDBACK_AUDIT_ACTIONS,
   recordAiFeedbackAudit,
-} from "../audit-logs/ai-feedback-audit.js";
+} from '../audit-logs/ai-feedback-audit.js'
 import {
   aiWritingFeedbackApprovalBodySchema,
   aiWritingFeedbackRejectBodySchema,
@@ -29,121 +30,102 @@ import {
   writingFeedbackRequestParamsSchema,
   type WritingFeedbackHistoryResponse,
   type WritingFeedbackReviewResponse,
-} from "./ai-feedback.schema.js";
+} from './ai-feedback.schema.js'
 
-type ReviewDraft = {
-  id: string;
-  submissionId: string;
-  assignmentId: string;
-  status: string;
-  visibilityMode: "teacher_reviewed" | "instant_student_visible" | "hidden";
-  generatedFeedback: unknown;
-  teacherEditedFeedback: unknown;
-  normalizedCriterionSuggestions: unknown;
-  decision: string | null;
-  decisionActorId: string | null;
-  decidedAt: Date | null;
-  finalizedAt: Date | null;
-  failureCode: string | null;
-  failureMessage: string | null;
-  gradeId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type DraftWithSubmission = ReviewDraft & {
+export type DraftWithSubmission = ReviewDraft & {
   submission: {
-    id: string;
+    id: string
     grade: {
-      id: string;
-      feedback: string | null;
-      deletedAt: Date | null;
-    } | null;
+      id: string
+      feedback: string | null
+      deletedAt: Date | null
+    } | null
     assignment: {
-      type: AssignmentType;
+      type: AssignmentType
       course: {
-        ownerId: string;
+        ownerId: string
         enrollments: Array<{
-          userId: string;
-          roleInCourse: EnrollmentRole;
-          deletedAt: Date | null;
-        }>;
-      } | null;
-    };
-  };
-};
+          userId: string
+          roleInCourse: EnrollmentRole
+          deletedAt: Date | null
+        }>
+      } | null
+    }
+  }
+}
 
 type AiFeedbackDraftClient = {
   aiFeedbackDraft: {
-    updateMany: typeof prisma.aiFeedbackDraft.updateMany;
-    findUnique: typeof prisma.aiFeedbackDraft.findUnique;
-  };
-};
+    updateMany: typeof prisma.aiFeedbackDraft.updateMany
+    findUnique: typeof prisma.aiFeedbackDraft.findUnique
+  }
+}
 
 const decidableDraftStatuses: AiFeedbackDraftStatus[] = [
-  "accepted",
-  "review_required",
-  "failed",
-];
-const decidableDraftStatusSet = new Set<AiFeedbackDraftStatus>(decidableDraftStatuses);
+  'accepted',
+  'review_required',
+  'failed',
+]
+const decidableDraftStatusSet = new Set<AiFeedbackDraftStatus>(decidableDraftStatuses)
 
 function jsonObjectOrUndefined(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value)
+  return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
-    : undefined;
+    : undefined
 }
 
 function jsonArrayOrUndefined(value: unknown): unknown[] | undefined {
-  return Array.isArray(value) ? value : undefined;
+  return Array.isArray(value) ? value : undefined
 }
 
 function toJsonObject(value: Record<string, unknown>): Prisma.InputJsonObject {
-  return value as Prisma.InputJsonObject;
+  return value as Prisma.InputJsonObject
 }
 
 function toJsonArray(value: unknown[]): Prisma.InputJsonArray {
-  return value as Prisma.InputJsonArray;
+  return value as Prisma.InputJsonArray
 }
 
 function toIso(value: Date | null): string | null {
-  return value ? value.toISOString() : null;
+  return value ? value.toISOString() : null
 }
 
 function toReviewResponse(draft: ReviewDraft): WritingFeedbackReviewResponse {
   return {
     id: draft.id,
-    status: draft.status as WritingFeedbackReviewResponse["status"],
+    status: draft.status as WritingFeedbackReviewResponse['status'],
     visibilityMode: draft.visibilityMode,
     ...(jsonObjectOrUndefined(draft.generatedFeedback)
       ? { feedback: jsonObjectOrUndefined(draft.generatedFeedback) }
       : {}),
     ...(draft.failureCode ? { failureCode: draft.failureCode } : {}),
     ...(draft.failureMessage ? { failureMessage: draft.failureMessage } : {}),
-    decision: draft.decision as WritingFeedbackReviewResponse["decision"] | undefined,
+    decision: draft.decision as WritingFeedbackReviewResponse['decision'] | undefined,
     gradeId: draft.gradeId,
     decidedAt: toIso(draft.decidedAt),
     finalizedAt: toIso(draft.finalizedAt),
     teacherEditedFeedback: jsonObjectOrUndefined(draft.teacherEditedFeedback) ?? null,
     normalizedCriterionSuggestions:
       jsonArrayOrUndefined(draft.normalizedCriterionSuggestions) ?? null,
-  };
+  }
 }
 
 async function claimDraftDecision(
   client: AiFeedbackDraftClient,
   input: {
-    draft: DraftWithSubmission;
-    actorId: string;
-    decision: "approved" | "rejected" | "finalized";
-    gradeId?: string;
-    teacherEditedFeedback?: Prisma.InputJsonObject;
-    normalizedCriterionSuggestions?: Prisma.InputJsonArray;
-    decidedAt: Date;
+    draft: DraftWithSubmission
+    actorId: string
+    decision: 'approved' | 'rejected' | 'finalized'
+    gradeId?: string
+    teacherEditedFeedback?: Prisma.InputJsonObject
+    normalizedCriterionSuggestions?: Prisma.InputJsonArray
+    decidedAt: Date
   },
 ): Promise<ReviewDraft> {
   const updated = await client.aiFeedbackDraft.updateMany({
     where: {
       id: input.draft.id,
+      deletedAt: null,
       decision: null,
       status: {
         in: decidableDraftStatuses,
@@ -157,30 +139,30 @@ async function claimDraftDecision(
       teacherEditedFeedback: input.teacherEditedFeedback,
       normalizedCriterionSuggestions: input.normalizedCriterionSuggestions,
       decidedAt: input.decidedAt,
-      finalizedAt: input.decision === "finalized" ? input.decidedAt : undefined,
+      finalizedAt: input.decision === 'finalized' ? input.decidedAt : undefined,
     },
-  });
+  })
 
   if (updated.count === 0) {
-    throw createHttpError(409, "AI feedback draft has already been decided.");
+    throw createHttpError(409, 'AI feedback draft has already been decided.')
   }
 
   const decidedDraft = await client.aiFeedbackDraft.findUnique({
     where: { id: input.draft.id },
-  });
+  })
 
   if (!decidedDraft) {
-    throw createNotFoundError("AI feedback draft", input.draft.id);
+    throw createNotFoundError('AI feedback draft', input.draft.id)
   }
 
-  return decidedDraft as ReviewDraft;
+  return decidedDraft as ReviewDraft
 }
 
 function courseWhereForTeacher(actor: RequestActor) {
   if (actor.role === UserRole.admin) {
     return {
       deletedAt: null,
-    };
+    }
   }
 
   return {
@@ -197,27 +179,27 @@ function courseWhereForTeacher(actor: RequestActor) {
         },
       },
     ],
-  };
+  }
 }
 
 function assertTeacherReviewActor(
   actor: RequestActor | undefined,
 ): asserts actor is RequestActor {
   if (!actor) {
-    throw createHttpError(401, "Authentication is required to review AI feedback.");
+    throw createHttpError(401, 'Authentication is required to review AI feedback.')
   }
 
   if (actor.role !== UserRole.teacher && actor.role !== UserRole.admin) {
-    throw createHttpError(403, "Only teachers and admins can review AI feedback.");
+    throw createHttpError(403, 'Only teachers and admins can review AI feedback.')
   }
 }
 
 function assertCanReviewDraft(draft: DraftWithSubmission, actor: RequestActor): void {
   if (actor.role === UserRole.admin) {
-    return;
+    return
   }
 
-  const course = draft.submission.assignment.course;
+  const course = draft.submission.assignment.course
   const teachesCourse =
     course?.ownerId === actor.id ||
     course?.enrollments.some(
@@ -225,34 +207,34 @@ function assertCanReviewDraft(draft: DraftWithSubmission, actor: RequestActor): 
         enrollment.userId === actor.id &&
         enrollment.roleInCourse === EnrollmentRole.teacher &&
         enrollment.deletedAt === null,
-    );
+    )
 
   if (!teachesCourse) {
     throw createHttpError(
       403,
-      "You do not have permission to review this AI feedback draft.",
-    );
+      'You do not have permission to review this AI feedback draft.',
+    )
   }
 }
 
 function assertDraftCanBeDecided(draft: DraftWithSubmission): void {
-  if (draft.decision || ["approved", "rejected", "finalized"].includes(draft.status)) {
-    throw createHttpError(409, "AI feedback draft has already been decided.");
+  if (draft.decision || ['approved', 'rejected', 'finalized'].includes(draft.status)) {
+    throw createHttpError(409, 'AI feedback draft has already been decided.')
   }
 
   if (!decidableDraftStatusSet.has(draft.status as AiFeedbackDraftStatus)) {
-    throw createHttpError(409, "AI feedback draft is not ready for teacher review.");
+    throw createHttpError(409, 'AI feedback draft is not ready for teacher review.')
   }
 }
 
 function assertExistingGrade(draft: DraftWithSubmission) {
-  const grade = draft.submission.grade;
+  const grade = draft.submission.grade
 
   if (!grade || grade.deletedAt) {
-    throw createHttpError(409, "AI feedback approval requires an existing grade.");
+    throw createHttpError(409, 'AI feedback approval requires an existing grade.')
   }
 
-  return grade;
+  return grade
 }
 
 function validateCriterionSuggestions(
@@ -260,92 +242,33 @@ function validateCriterionSuggestions(
   suggestions: IeltsCriterionScore[] | undefined,
 ): void {
   if (!suggestions) {
-    return;
+    return
   }
 
   if (draft.submission.assignment.type !== AssignmentType.writing) {
     throw createHttpError(
       400,
-      "AI feedback criterion suggestions are only supported for writing assignments.",
-    );
+      'AI feedback criterion suggestions are only supported for writing assignments.',
+    )
   }
 
   try {
-    validateIeltsCriterionBreakdown(AssignmentType.writing, suggestions);
+    validateIeltsCriterionBreakdown(AssignmentType.writing, suggestions)
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
-        : "Invalid AI feedback criterion suggestions.";
-    throw createHttpError(400, message);
+        : 'Invalid AI feedback criterion suggestions.'
+    throw createHttpError(400, message)
   }
-}
-
-async function findDraftForDecision(
-  submissionId: string,
-  draftId: string,
-): Promise<DraftWithSubmission> {
-  const draft = await prisma.aiFeedbackDraft.findFirst({
-    where: {
-      id: draftId,
-      submissionId,
-      deletedAt: null,
-      submission: {
-        deletedAt: null,
-        assignment: {
-          deletedAt: null,
-          course: {
-            deletedAt: null,
-          },
-        },
-      },
-    },
-    include: {
-      submission: {
-        select: {
-          id: true,
-          grade: {
-            select: {
-              id: true,
-              feedback: true,
-              deletedAt: true,
-            },
-          },
-          assignment: {
-            select: {
-              type: true,
-              course: {
-                select: {
-                  ownerId: true,
-                  enrollments: {
-                    select: {
-                      userId: true,
-                      roleInCourse: true,
-                      deletedAt: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!draft) {
-    throw createNotFoundError("AI feedback draft", draftId);
-  }
-
-  return draft as DraftWithSubmission;
 }
 
 export async function listAiWritingFeedbackDrafts(
   params: unknown,
   actor?: RequestActor,
-): Promise<WritingFeedbackHistoryResponse["drafts"]> {
-  assertTeacherReviewActor(actor);
-  const { submissionId } = writingFeedbackRequestParamsSchema.parse(params);
+): Promise<WritingFeedbackHistoryResponse['drafts']> {
+  assertTeacherReviewActor(actor)
+  const { submissionId } = writingFeedbackRequestParamsSchema.parse(params)
   const drafts = await prisma.aiFeedbackDraft.findMany({
     where: {
       submissionId,
@@ -359,57 +282,61 @@ export async function listAiWritingFeedbackDrafts(
         },
       },
     },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-  });
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+  })
 
-  return drafts.map((draft) => toReviewResponse(draft as ReviewDraft));
+  return drafts.map((draft) => toReviewResponse(draft as ReviewDraft))
 }
 
 async function publishAiWritingFeedbackDraft(
   params: unknown,
   payload: unknown,
   actor: RequestActor | undefined,
-  decision: "approved" | "finalized",
+  decision: 'approved' | 'finalized',
 ): Promise<WritingFeedbackReviewResponse> {
-  assertTeacherReviewActor(actor);
-  const { submissionId, draftId } = writingFeedbackDraftParamsSchema.parse(params);
-  const data = aiWritingFeedbackApprovalBodySchema.parse(payload);
-  const draft = await findDraftForDecision(submissionId, draftId);
+  assertTeacherReviewActor(actor)
+  const { submissionId, draftId } = writingFeedbackDraftParamsSchema.parse(params)
+  const data = aiWritingFeedbackApprovalBodySchema.parse(payload)
+  const draft = await findDraftForDecision(submissionId, draftId)
 
-  assertCanReviewDraft(draft, actor);
-  assertDraftCanBeDecided(draft);
-  if (decision === "finalized" && draft.visibilityMode !== "instant_student_visible") {
+  assertCanReviewDraft(draft, actor)
+  assertDraftCanBeDecided(draft)
+  if (decision === 'finalized' && draft.visibilityMode !== 'instant_student_visible') {
     throw createHttpError(
       409,
-      "Only instant-visible AI feedback drafts can be finalized through this endpoint.",
-    );
+      'Only instant-visible AI feedback drafts can be finalized through this endpoint.',
+    )
   }
-  const gradeReference = assertExistingGrade(draft);
+  const gradeReference = assertExistingGrade(draft)
   validateCriterionSuggestions(
     draft,
     data.normalizedCriterionSuggestions as IeltsCriterionScore[] | undefined,
-  );
+  )
 
-  const decidedAt = new Date();
-  const teacherEditedFeedback = toJsonObject({ feedbackMd: data.feedbackMd });
+  const decidedAt = new Date()
+  const teacherEditedFeedback = toJsonObject({ feedbackMd: data.feedbackMd })
   const normalizedCriterionSuggestions = data.normalizedCriterionSuggestions
     ? toJsonArray(data.normalizedCriterionSuggestions)
-    : undefined;
+    : undefined
 
   const updated = await prisma.$transaction(async (tx) => {
+    // Match replacement lock order; its draft tombstone invalidates reviews of old work.
+    await tx.$queryRaw(
+      Prisma.sql`SELECT id FROM submissions WHERE id = ${submissionId}::uuid FOR UPDATE`,
+    )
     await tx.$queryRaw(Prisma.sql`
       SELECT "id"
       FROM "grades"
       WHERE "id" = ${gradeReference.id}::uuid
       FOR UPDATE
-    `);
+    `)
     const grade = await tx.grade.findFirst({
       where: { id: gradeReference.id, deletedAt: null },
-    });
+    })
     if (!grade) {
-      throw createHttpError(409, "AI feedback approval requires an existing grade.");
+      throw createHttpError(409, 'AI feedback approval requires an existing grade.')
     }
-    const feedbackChanged = !semanticValuesEqual(grade.feedback, data.feedbackMd);
+    const feedbackChanged = !semanticValuesEqual(grade.feedback, data.feedbackMd)
     const decidedDraft = await claimDraftDecision(tx, {
       draft,
       actorId: actor.id,
@@ -418,7 +345,7 @@ async function publishAiWritingFeedbackDraft(
       teacherEditedFeedback,
       normalizedCriterionSuggestions,
       decidedAt,
-    });
+    })
 
     await tx.grade.update({
       where: { id: grade.id },
@@ -427,49 +354,49 @@ async function publishAiWritingFeedbackDraft(
         graderId: actor.id,
         gradedAt: decidedAt,
       },
-    });
+    })
 
     const reviewEventData = {
       submissionId,
       assignmentId: draft.assignmentId,
       gradeId: grade.id,
       feedbackChanged,
-    };
-    if (decision === "approved") {
+    }
+    if (decision === 'approved') {
       await recordAiFeedbackAudit(
         {
           actorId: actor.id,
           action: AI_FEEDBACK_AUDIT_ACTIONS.writingApproved,
-          entity: "ai_feedback_draft",
+          entity: 'ai_feedback_draft',
           entityId: draft.id,
           eventData: {
             ...reviewEventData,
-            teacherDecision: "approved",
+            teacherDecision: 'approved',
           },
         },
         tx,
-      );
+      )
     } else {
       await recordAiFeedbackAudit(
         {
           actorId: actor.id,
           action: AI_FEEDBACK_AUDIT_ACTIONS.writingFinalized,
-          entity: "ai_feedback_draft",
+          entity: 'ai_feedback_draft',
           entityId: draft.id,
           eventData: {
             ...reviewEventData,
-            teacherDecision: "finalized",
+            teacherDecision: 'finalized',
           },
         },
         tx,
-      );
+      )
     }
     if (feedbackChanged) {
       await recordAiFeedbackAudit(
         {
           actorId: actor.id,
           action: AI_FEEDBACK_AUDIT_ACTIONS.gradeFeedbackUpdated,
-          entity: "grade",
+          entity: 'grade',
           entityId: grade.id,
           eventData: {
             submissionId,
@@ -480,13 +407,13 @@ async function publishAiWritingFeedbackDraft(
           },
         },
         tx,
-      );
+      )
     }
 
-    return decidedDraft;
-  });
+    return decidedDraft
+  })
 
-  return toReviewResponse(updated as ReviewDraft);
+  return toReviewResponse(updated as ReviewDraft)
 }
 
 export function approveAiWritingFeedbackDraft(
@@ -494,7 +421,7 @@ export function approveAiWritingFeedbackDraft(
   payload: unknown,
   actor?: RequestActor,
 ): Promise<WritingFeedbackReviewResponse> {
-  return publishAiWritingFeedbackDraft(params, payload, actor, "approved");
+  return publishAiWritingFeedbackDraft(params, payload, actor, 'approved')
 }
 
 export function finalizeAiWritingFeedbackDraft(
@@ -502,7 +429,7 @@ export function finalizeAiWritingFeedbackDraft(
   payload: unknown,
   actor?: RequestActor,
 ): Promise<WritingFeedbackReviewResponse> {
-  return publishAiWritingFeedbackDraft(params, payload, actor, "finalized");
+  return publishAiWritingFeedbackDraft(params, payload, actor, 'finalized')
 }
 
 export async function rejectAiWritingFeedbackDraft(
@@ -510,47 +437,47 @@ export async function rejectAiWritingFeedbackDraft(
   payload: unknown,
   actor?: RequestActor,
 ): Promise<WritingFeedbackReviewResponse> {
-  assertTeacherReviewActor(actor);
-  const { submissionId, draftId } = writingFeedbackDraftParamsSchema.parse(params);
-  const data = aiWritingFeedbackRejectBodySchema.parse(payload ?? {});
-  const draft = await findDraftForDecision(submissionId, draftId);
+  assertTeacherReviewActor(actor)
+  const { submissionId, draftId } = writingFeedbackDraftParamsSchema.parse(params)
+  const data = aiWritingFeedbackRejectBodySchema.parse(payload ?? {})
+  const draft = await findDraftForDecision(submissionId, draftId)
 
-  assertCanReviewDraft(draft, actor);
-  assertDraftCanBeDecided(draft);
+  assertCanReviewDraft(draft, actor)
+  assertDraftCanBeDecided(draft)
 
-  const decidedAt = new Date();
+  const decidedAt = new Date()
   const teacherEditedFeedback = data.reason
     ? toJsonObject({ rejectionReason: data.reason })
-    : undefined;
+    : undefined
 
   const updated = await prisma.$transaction(async (tx) => {
     const decidedDraft = await claimDraftDecision(tx, {
       draft,
       actorId: actor.id,
-      decision: "rejected",
+      decision: 'rejected',
       teacherEditedFeedback,
       decidedAt,
-    });
+    })
 
     await recordAiFeedbackAudit(
       {
         actorId: actor.id,
         action: AI_FEEDBACK_AUDIT_ACTIONS.writingRejected,
-        entity: "ai_feedback_draft",
+        entity: 'ai_feedback_draft',
         entityId: draft.id,
         eventData: {
           submissionId,
           assignmentId: draft.assignmentId,
           ...(draft.gradeId ? { gradeId: draft.gradeId } : {}),
-          teacherDecision: "rejected",
+          teacherDecision: 'rejected',
           feedbackChanged: Boolean(data.reason),
         },
       },
       tx,
-    );
+    )
 
-    return decidedDraft;
-  });
+    return decidedDraft
+  })
 
-  return toReviewResponse(updated as ReviewDraft);
+  return toReviewResponse(updated as ReviewDraft)
 }
