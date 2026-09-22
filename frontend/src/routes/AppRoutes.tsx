@@ -19,6 +19,7 @@ import {
   AdminCmsPage,
   AdminCoursesPage,
   AdminDashboardPage,
+  AdminAnalyticsPage,
   AdminEnrollmentsPage,
   AdminProfilePage,
   AdminSettingsPage,
@@ -237,6 +238,7 @@ export function AppRoutes() {
 
         <Route element={<RoleGuard allowedRoles={['admin']} />}>
           <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="admin/analytics" element={<AdminAnalyticsPage />} />
           <Route path="admin/users" element={<AdminUsersPage />} />
           <Route path="admin/courses" element={<AdminCoursesPage />} />
           <Route path="admin/courses/:courseId/announcements" element={<AnnouncementsPage />} />
