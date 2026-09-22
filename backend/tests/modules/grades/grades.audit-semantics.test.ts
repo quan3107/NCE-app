@@ -12,6 +12,7 @@ vi.mock('../../../src/prisma/client.js', () => ({
     $transaction: vi.fn(),
     submission: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
     },
     grade: {
@@ -55,6 +56,9 @@ const existingGrade = {
 describe('grades.service.upsertGrade audit semantics', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    prisma.submission.findUnique.mockImplementation(
+      async () => await prisma.submission.findFirst.mock.results.at(-1)?.value,
+    )
     prisma.$transaction.mockImplementation(async (callback) => callback(prisma))
     prisma.submission.findFirst.mockResolvedValue({
       id: submissionId,

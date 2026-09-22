@@ -4,35 +4,35 @@
  * Why: Allows frontend filters and labels to be backend-driven with safe, logged fallbacks.
  */
 
-import type { UserRole } from "../../prisma/index.js";
+import type { UserRole } from '../../prisma/index.js'
 
-import { logger } from "../../config/logger.js";
-import { prisma } from "../../prisma/client.js";
-import { getFallbackNotificationTypes } from "./notification-config.fallback.js";
-import type { NotificationTypesResponse } from "./notification-config.schema.js";
-import { toNotificationTypeConfigItem } from "./notification-config.visuals.js";
+import { logger } from '../../config/logger.js'
+import { prisma } from '../../prisma/client.js'
+import { getFallbackNotificationTypes } from './notification-config.fallback.js'
+import type { NotificationTypesResponse } from './notification-config.schema.js'
+import { toNotificationTypeConfigItem } from './notification-config.visuals.js'
 
-type FallbackReason = "db_empty_for_role" | "query_failed" | "invalid_rows";
+type FallbackReason = 'db_empty_for_role' | 'query_failed' | 'invalid_rows'
 
 function toFallbackTypes(
   role: UserRole,
   reason: FallbackReason,
   details: Record<string, unknown> = {},
 ) {
-  const fallback = getFallbackNotificationTypes(role);
+  const fallback = getFallbackNotificationTypes(role)
 
   logger.warn(
     {
-      event: "notification_types_fallback_used",
+      event: 'notification_types_fallback_used',
       reason,
       role,
       fallback_count: fallback.length,
       ...details,
     },
-    "Using fallback notification types configuration",
-  );
+    'Using fallback notification types configuration',
+  )
 
-  return fallback;
+  return fallback.filter((item) => item.id !== 'weekly_digest')
 }
 
 export async function getNotificationTypesForRole(
@@ -44,13 +44,13 @@ export async function getNotificationTypesForRole(
         role,
         enabled: true,
       },
-      orderBy: [{ sortOrder: "asc" }, { type: "asc" }],
-    });
+      orderBy: [{ sortOrder: 'asc' }, { type: 'asc' }],
+    })
 
     if (rows.length === 0) {
       return {
-        types: toFallbackTypes(role, "db_empty_for_role"),
-      };
+        types: toFallbackTypes(role, 'db_empty_for_role'),
+      }
     }
 
     const mapped = rows.map((row) =>
@@ -65,29 +65,29 @@ export async function getNotificationTypesForRole(
         enabled: row.enabled,
         sortOrder: row.sortOrder,
       }),
-    );
+    )
 
     const invalidCount = mapped.filter(
       (item) => item.id.length === 0 || item.label.length === 0,
-    ).length;
+    ).length
 
     if (invalidCount > 0) {
       return {
-        types: toFallbackTypes(role, "invalid_rows", {
+        types: toFallbackTypes(role, 'invalid_rows', {
           invalid_count: invalidCount,
           row_count: rows.length,
         }),
-      };
+      }
     }
 
     return {
-      types: mapped,
-    };
+      types: mapped.filter((item) => item.id !== 'weekly_digest'),
+    }
   } catch (error) {
     return {
-      types: toFallbackTypes(role, "query_failed", {
+      types: toFallbackTypes(role, 'query_failed', {
         err: error,
       }),
-    };
+    }
   }
 }

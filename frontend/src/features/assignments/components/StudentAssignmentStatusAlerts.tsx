@@ -52,6 +52,7 @@ export function StudentAssignmentStatusAlerts({
               ? `Submitted on ${formatDate(new Date(submission.submittedAt), 'datetime')}`
               : 'Draft saved'}
             {submission.version > 1 && ` (Version ${submission.version})`}
+            {submission.submittedAt && dueDate && new Date(submission.submittedAt) > dueDate && ' · Late — no score penalty'}
           </AlertDescription>
         </Alert>
       )}

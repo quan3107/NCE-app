@@ -11,6 +11,7 @@ import {
   UserRole,
 } from '../../prisma/index.js'
 
+import { buildGradeReadWhere } from './grades.read-access.js'
 import { prisma } from '../../prisma/client.js'
 import { createHttpError, createNotFoundError } from '../../utils/httpError.js'
 import { semanticValuesEqual } from '../../utils/semanticValue.js'
@@ -57,74 +58,6 @@ const learnerFacingFeedbackKeys = new Set([
   'improvement_areas',
   'next_steps',
 ])
-
-function buildGradeReadWhere(
-  submissionId: string,
-  actor: GradingActor | undefined,
-): Prisma.GradeWhereInput {
-  if (!actor) {
-    throw createHttpError(401, 'Authentication is required to view grades.')
-  }
-
-  const activeSubmission = {
-    deletedAt: null,
-    assignment: {
-      deletedAt: null,
-      course: {
-        deletedAt: null,
-      },
-    },
-  }
-
-  if (actor.role === UserRole.admin) {
-    return {
-      submissionId,
-      deletedAt: null,
-      submission: activeSubmission,
-    }
-  }
-
-  if (actor.role === UserRole.student) {
-    return {
-      submissionId,
-      deletedAt: null,
-      submission: {
-        ...activeSubmission,
-        studentId: actor.id,
-      },
-    }
-  }
-
-  if (actor.role === UserRole.teacher) {
-    return {
-      submissionId,
-      deletedAt: null,
-      submission: {
-        deletedAt: null,
-        assignment: {
-          deletedAt: null,
-          course: {
-            deletedAt: null,
-            OR: [
-              { ownerId: actor.id },
-              {
-                enrollments: {
-                  some: {
-                    userId: actor.id,
-                    roleInCourse: EnrollmentRole.teacher,
-                    deletedAt: null,
-                  },
-                },
-              },
-            ],
-          },
-        },
-      },
-    }
-  }
-
-  throw createHttpError(403, 'You do not have permission to view this grade.')
-}
 
 function assertCanGradeSubmission(
   submission: SubmissionForGrading,
@@ -329,6 +262,7 @@ export async function upsertGrade(
   params: unknown,
   payload: unknown,
   actor?: GradingActor,
+  expectedSubmissionPayload?: unknown,
 ) {
   const { submissionId } = submissionScopedParamsSchema.parse(params)
   const data = gradePayloadSchema.parse(payload)
@@ -401,6 +335,21 @@ export async function upsertGrade(
       WHERE "id" = ${submissionId}::uuid
       FOR UPDATE
     `)
+    const lockedSubmission = await tx.submission.findUnique({
+      where: { id: submissionId },
+    })
+    if (
+      !lockedSubmission ||
+      (expectedSubmissionPayload === undefined &&
+        ((lockedSubmission.payload as { version?: number } | null)?.version ?? 1) !==
+          (data.expectedSubmissionVersion ?? 1)) ||
+      !semanticValuesEqual(
+        lockedSubmission.payload,
+        expectedSubmissionPayload ?? submission.payload,
+      )
+    ) {
+      throw createHttpError(409, 'The student replaced this work. Reload before grading.')
+    }
     const gradeBefore = await tx.grade.findFirst({
       where: { submissionId, deletedAt: null },
     })
@@ -429,19 +378,42 @@ export async function upsertGrade(
         gradedAt,
       },
       update: {
+        deletedAt: null,
         ...(gradeContentChanged ? { graderId: actor.id, gradedAt } : {}),
-        rubricBreakdown,
-        rawScore: normalizedData.rawScore,
-        adjustments,
-        finalScore: normalizedData.finalScore,
-        band: normalizedData.band,
-        feedback: normalizedData.feedbackMd,
+        rubricBreakdown: rubricBreakdown ?? (!gradeBefore ? Prisma.DbNull : undefined),
+        rawScore: normalizedData.rawScore ?? (!gradeBefore ? null : undefined),
+        adjustments: adjustments ?? (!gradeBefore ? Prisma.DbNull : undefined),
+        finalScore: normalizedData.finalScore ?? (!gradeBefore ? null : undefined),
+        band: normalizedData.band ?? (!gradeBefore ? null : undefined),
+        feedback: normalizedData.feedbackMd ?? (!gradeBefore ? null : undefined),
       },
     })
     await tx.submission.update({
       where: { id: submissionId },
       data: { status: 'graded' },
     })
+    // Queue publication atomically with the grade, so a scoring retry cannot lose it.
+    if (gradeContentChanged) {
+      const channels: NotificationChannel[] = ['inapp', 'email']
+      const payloadJson: Prisma.InputJsonObject = {
+        submissionId,
+        assignmentId: submission.assignment.id,
+        assignmentTitle: submission.assignment.title,
+        courseId: submission.assignment.courseId,
+        courseTitle: submission.assignment.course?.title ?? '',
+        gradedAt: new Date().toISOString(),
+      }
+
+      await enqueueNotification(
+        {
+          userId: submission.student.id,
+          type: 'graded',
+          payload: payloadJson,
+          channels,
+        },
+        tx,
+      )
+    }
     return { gradeBefore, grade }
   })
   await writeGradeAuditLog({
@@ -451,23 +423,6 @@ export async function upsertGrade(
     graderId: actor.id,
     before: gradeBefore,
     after: grade,
-  })
-
-  const channels: NotificationChannel[] = ['inapp', 'email']
-  const payloadJson: Prisma.InputJsonObject = {
-    submissionId,
-    assignmentId: submission.assignment.id,
-    assignmentTitle: submission.assignment.title,
-    courseId: submission.assignment.courseId,
-    courseTitle: submission.assignment.course?.title ?? '',
-    gradedAt: new Date().toISOString(),
-  }
-
-  await enqueueNotification({
-    userId: submission.student.id,
-    type: 'graded',
-    payload: payloadJson,
-    channels,
   })
 
   return grade

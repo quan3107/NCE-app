@@ -160,11 +160,6 @@ describe("notification-config.service", () => {
         icon: "clock",
         accent: "warning",
       }),
-      expect.objectContaining({
-        id: "weekly_digest",
-        icon: "inbox",
-        accent: "neutral",
-      }),
     ]);
   });
 

@@ -42,6 +42,8 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   const [scoreError, setScoreError] = useState<string | null>(null);
   const [pendingAiDecision, setPendingAiDecision] = useState<AiFeedbackPendingDecision | null>(null);
   const [appliedGradeStateKey, setAppliedGradeStateKey] = useState<string | null>(null);
+  // Freeze the reviewed version with the form; background refetches must not bless old feedback.
+  const [reviewedSubmissionVersion, setReviewedSubmissionVersion] = useState<number | null>(null);
   const { submissions, assignments, isLoading, error } = useAssignmentResources();
   const upsertGradeMutation = useUpsertGradeMutation();
   const approveAiFeedbackMutation = useApproveWritingFeedbackMutation(submissionId);
@@ -119,6 +121,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     setScores(nextFormState.scores);
     setRawScoreInput(nextFormState.rawScoreInput);
     setFeedback(nextFormState.feedback);
+    setReviewedSubmissionVersion(submission.version);
     setAppliedGradeStateKey(nextGradeStateKey);
   }, [
     appliedGradeStateKey,
@@ -181,9 +184,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
     ? 0
     : existingGrade
       ? existingGrade.adjustments
-      : submission.status === 'late'
-        ? -5
-        : 0;
+      : 0;
   const finalScore = rawScore + adjustments;
 
   const handleSubmit = async () => {
@@ -201,6 +202,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       toast.error('Unable to grade without a teacher account.');
       return;
     }
+    if (reviewedSubmissionVersion === null) return;
     if (!Number.isFinite(rawScore) || rawScore < 0) {
       setScoreError('Raw score must be a valid non-negative number.');
       return;
@@ -219,8 +221,7 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
           points: scores[criterion.key] ?? 0,
         }))
       : undefined;
-    const adjustmentsList =
-      adjustments !== 0 ? [{ reason: 'Late submission', delta: adjustments }] : undefined;
+    // Existing adjustments stay in storage; never invent or relabel a late deduction.
 
     const feedbackForGrade = pendingAiDecision?.feedbackMd ?? feedback.trim();
     const feedbackMdForGrade = existingGrade ? feedbackForGrade : feedbackForGrade || undefined;
@@ -237,9 +238,9 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
       await upsertGradeMutation.mutateAsync({
         submissionId,
         payload: {
+          expectedSubmissionVersion: reviewedSubmissionVersion,
           rubricBreakdown,
           rawScore,
-          adjustments: adjustmentsList,
           finalScore,
           band: ieltsGradingMode ? finalScore : undefined,
           feedbackMd: feedbackMdForGrade,

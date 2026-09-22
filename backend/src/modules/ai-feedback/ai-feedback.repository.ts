@@ -3,91 +3,79 @@
  * Purpose: Persist AI feedback drafts and objective explanations.
  * Why: Keeps AI-generated data separate from final teacher-approved grade feedback.
  */
-import { z } from "zod";
 
-import { prisma } from "../../prisma/client.js";
-import { Prisma, type AiFeedbackDraftStatus } from "../../prisma/index.js";
-import { createHttpError } from "../../utils/httpError.js";
+import { prisma } from '../../prisma/client.js'
+import { Prisma, type AiFeedbackDraftStatus } from '../../prisma/index.js'
+import { createHttpError } from '../../utils/httpError.js'
 import {
   AI_FEEDBACK_AUDIT_ACTIONS,
   recordAiFeedbackAudit,
-} from "../audit-logs/ai-feedback-audit.js";
+} from '../audit-logs/ai-feedback-audit.js'
 import {
   aiFeedbackDraftDecisionInputSchema,
   aiGenerationStatusRequestSchema,
   createAiFeedbackDraftSchema,
   findAiObjectiveExplanationByCacheKeySchema,
-  studentVisibleAiFeedbackDraftParamsSchema,
   supersedeAiFeedbackDraftsSchema,
   upsertAiObjectiveExplanationSchema,
-} from "./ai-feedback.schema.js";
+} from './ai-feedback.schema.js'
 import {
   assertSubmissionAssignmentMatches,
   getActiveSubmissionAssignment,
   isUniqueConstraintError,
-} from "./ai-feedback.repository.integrity.js";
+} from './ai-feedback.repository.integrity.js'
 import {
   enqueueDraftGenerationJob,
   enqueueObjectiveExplanationGenerationJob,
-} from "./ai-feedback.queue.js";
+} from './ai-feedback.queue.js'
+
+export {
+  getStudentVisibleAiFeedbackDraft,
+  findLatestAiFeedbackDraftBySubmission,
+} from './ai-feedback.draft-reads.js'
 
 type GenerationStatus = {
-  kind: "writing_draft" | "objective_explanation";
-  id: string;
-  status: string;
-  failureCode: string | null;
-  failureMessage: string | null;
-  retryCount: number;
-  nextRetryAt: Date | null;
-  lastAttemptAt: Date | null;
-  updatedAt: Date;
-};
+  kind: 'writing_draft' | 'objective_explanation'
+  id: string
+  status: string
+  failureCode: string | null
+  failureMessage: string | null
+  retryCount: number
+  nextRetryAt: Date | null
+  lastAttemptAt: Date | null
+  updatedAt: Date
+}
 
-const activeGenerationStatuses = ["queued", "running"] as const;
-const studentVisibleDraftStatuses = ["accepted", "approved", "finalized"] as const;
+const activeGenerationStatuses = ['queued', 'running'] as const
 const supersedableDraftStatuses = [
-  "queued",
-  "running",
-  "accepted",
-  "review_required",
-  "approved",
-] as const;
-
-const instantVisibleAssignmentConfigSchema = z
-  .object({
-    aiPolicy: z
-      .object({
-        writingFeedbackMode: z.literal("instant_student_visible"),
-      })
-      .passthrough(),
-  })
-  .passthrough();
+  'queued',
+  'running',
+  'accepted',
+  'review_required',
+  'approved',
+] as const
 
 function toJsonObject(value: Record<string, unknown>): Prisma.InputJsonObject {
-  return value as Prisma.InputJsonObject;
+  return value as Prisma.InputJsonObject
 }
 
 function toJsonArray(value: unknown[]): Prisma.InputJsonArray {
-  return value as Prisma.InputJsonArray;
+  return value as Prisma.InputJsonArray
 }
 
 function statusForDecision(decision: string): AiFeedbackDraftStatus {
   switch (decision) {
-    case "accepted":
-      return "accepted";
-    case "approved":
-      return "approved";
-    case "rejected":
-      return "rejected";
-    case "finalized":
-      return "finalized";
+    case 'accepted':
+      return 'accepted'
+    case 'approved':
+      return 'approved'
+    case 'rejected':
+      return 'rejected'
+    case 'finalized':
+      return 'finalized'
     default:
-      throw createHttpError(400, "Unsupported AI feedback draft decision.");
+      throw createHttpError(400, 'Unsupported AI feedback draft decision.')
   }
-}
-
-function isInstantVisibleAssignmentPolicy(assignmentConfig: unknown): boolean {
-  return instantVisibleAssignmentConfigSchema.safeParse(assignmentConfig).success;
 }
 
 async function findActiveAiFeedbackDraft(submissionId: string) {
@@ -102,7 +90,7 @@ async function findActiveAiFeedbackDraft(submissionId: string) {
           },
         },
         {
-          status: "failed",
+          status: 'failed',
           nextRetryAt: {
             not: null,
           },
@@ -112,14 +100,14 @@ async function findActiveAiFeedbackDraft(submissionId: string) {
     select: {
       id: true,
     },
-  });
+  })
 }
 
 export async function findActiveAiFeedbackDraftSubmissionIds(
   submissionIds: string[],
 ): Promise<Set<string>> {
   if (submissionIds.length === 0) {
-    return new Set();
+    return new Set()
   }
 
   const drafts = await prisma.aiFeedbackDraft.findMany({
@@ -135,7 +123,7 @@ export async function findActiveAiFeedbackDraftSubmissionIds(
           },
         },
         {
-          status: "failed",
+          status: 'failed',
           nextRetryAt: {
             not: null,
           },
@@ -145,24 +133,24 @@ export async function findActiveAiFeedbackDraftSubmissionIds(
     select: {
       submissionId: true,
     },
-  });
+  })
 
-  return new Set(drafts.map((draft) => draft.submissionId));
+  return new Set(drafts.map((draft) => draft.submissionId))
 }
 
 function createActiveDraftConflict(draftId: string) {
   return createHttpError(
     409,
-    "An AI feedback draft is already queued or running for this submission.",
+    'An AI feedback draft is already queued or running for this submission.',
     { draftId },
-  );
+  )
 }
 
 function isTerminalFailedObjectiveExplanation(explanation: {
-  nextRetryAt: Date | null;
-  status: string;
+  nextRetryAt: Date | null
+  status: string
 }): boolean {
-  return explanation.status === "failed" && !explanation.nextRetryAt;
+  return explanation.status === 'failed' && !explanation.nextRetryAt
 }
 
 async function softDeleteObjectiveExplanation(explanationId: string): Promise<void> {
@@ -173,18 +161,18 @@ async function softDeleteObjectiveExplanation(explanationId: string): Promise<vo
     data: {
       deletedAt: new Date(),
     },
-  });
+  })
 }
 
 function objectiveExplanationCacheWhere(data: {
-  submissionId: string;
-  assignmentId: string;
-  requesterId: string;
-  questionId: string;
-  deterministicResult: string;
-  promptVersion: string;
-  sourceContextHash: string;
-  routeKey: string;
+  submissionId: string
+  assignmentId: string
+  requesterId: string
+  questionId: string
+  deterministicResult: string
+  promptVersion: string
+  sourceContextHash: string
+  routeKey: string
 }) {
   return {
     submissionId: data.submissionId,
@@ -196,18 +184,18 @@ function objectiveExplanationCacheWhere(data: {
     routeKey: data.routeKey,
     requesterId: data.requesterId,
     deletedAt: null,
-  };
+  }
 }
 
 export async function createAiFeedbackDraft(input: unknown) {
-  const data = createAiFeedbackDraftSchema.parse(input);
-  const submission = await getActiveSubmissionAssignment(data.submissionId);
-  assertSubmissionAssignmentMatches(submission, data.assignmentId);
+  const data = createAiFeedbackDraftSchema.parse(input)
+  const submission = await getActiveSubmissionAssignment(data.submissionId)
+  assertSubmissionAssignmentMatches(submission, data.assignmentId)
 
-  const activeDraft = await findActiveAiFeedbackDraft(data.submissionId);
+  const activeDraft = await findActiveAiFeedbackDraft(data.submissionId)
 
   if (activeDraft) {
-    throw createActiveDraftConflict(activeDraft.id);
+    throw createActiveDraftConflict(activeDraft.id)
   }
 
   try {
@@ -240,118 +228,52 @@ export async function createAiFeedbackDraft(input: unknown) {
         nextRetryAt: data.nextRetryAt,
         lastAttemptAt: data.lastAttemptAt,
       },
-    });
+    })
 
-    if (data.status === "queued" && data.generationJob) {
+    if (data.status === 'queued' && data.generationJob) {
       try {
-        await enqueueDraftGenerationJob(draft.id, data.generationJob);
+        await enqueueDraftGenerationJob(draft.id, data.generationJob)
       } catch (error) {
         await recordAiFeedbackAudit({
           actorId: data.requesterId,
           action: AI_FEEDBACK_AUDIT_ACTIONS.writingFailed,
-          entity: "ai_feedback_draft",
+          entity: 'ai_feedback_draft',
           entityId: draft.id,
           eventData: {
             submissionId: data.submissionId,
             assignmentId: submission.assignmentId,
             ...(data.gradeId ? { gradeId: data.gradeId } : {}),
-            routeKey: data.routeKey as "low_cost" | "premium",
-            provider: data.provider as "openai-compatible",
+            routeKey: data.routeKey as 'low_cost' | 'premium',
+            provider: data.provider as 'openai-compatible',
             model: data.model,
             promptVersion: data.promptVersion,
-            status: "failed",
-            failureCode: "queue_enqueue_failed",
+            status: 'failed',
+            failureCode: 'queue_enqueue_failed',
             outputGenerated: false,
           },
-        });
-        throw error;
+        })
+        throw error
       }
     }
 
-    return draft;
+    return draft
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
-      throw error;
+      throw error
     }
 
-    const concurrentDraft = await findActiveAiFeedbackDraft(data.submissionId);
+    const concurrentDraft = await findActiveAiFeedbackDraft(data.submissionId)
     if (!concurrentDraft) {
-      throw error;
+      throw error
     }
 
-    throw createActiveDraftConflict(concurrentDraft.id);
+    throw createActiveDraftConflict(concurrentDraft.id)
   }
-}
-
-export async function getStudentVisibleAiFeedbackDraft(input: unknown) {
-  const { submissionId, studentId } =
-    studentVisibleAiFeedbackDraftParamsSchema.parse(input);
-  const draft = await prisma.aiFeedbackDraft.findFirst({
-    where: {
-      submissionId,
-      deletedAt: null,
-      visibilityMode: "instant_student_visible",
-      status: {
-        in: [...studentVisibleDraftStatuses],
-      },
-      submission: {
-        studentId,
-        deletedAt: null,
-        assignment: {
-          deletedAt: null,
-          course: {
-            deletedAt: null,
-          },
-        },
-      },
-    },
-    include: {
-      submission: {
-        select: {
-          assignment: {
-            select: {
-              assignmentConfig: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  if (!draft) {
-    return null;
-  }
-
-  return isInstantVisibleAssignmentPolicy(draft.submission.assignment.assignmentConfig)
-    ? draft
-    : null;
-}
-
-export async function findLatestAiFeedbackDraftBySubmission(submissionId: string) {
-  return prisma.aiFeedbackDraft.findFirst({
-    where: {
-      submissionId,
-      deletedAt: null,
-    },
-    select: {
-      id: true,
-      submissionId: true,
-      status: true,
-      visibilityMode: true,
-      generatedFeedback: true,
-      failureCode: true,
-      failureMessage: true,
-    },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-  });
 }
 
 export async function recordAiFeedbackDraftDecision(input: unknown) {
-  const data = aiFeedbackDraftDecisionInputSchema.parse(input);
-  const decidedAt = new Date();
+  const data = aiFeedbackDraftDecisionInputSchema.parse(input)
+  const decidedAt = new Date()
 
   return prisma.aiFeedbackDraft.update({
     where: {
@@ -366,13 +288,13 @@ export async function recordAiFeedbackDraftDecision(input: unknown) {
         : undefined,
       status: statusForDecision(data.decision),
       decidedAt,
-      finalizedAt: data.decision === "finalized" ? decidedAt : undefined,
+      finalizedAt: data.decision === 'finalized' ? decidedAt : undefined,
     },
-  });
+  })
 }
 
 export async function supersedeAiFeedbackDrafts(input: unknown) {
-  const data = supersedeAiFeedbackDraftsSchema.parse(input);
+  const data = supersedeAiFeedbackDraftsSchema.parse(input)
 
   return prisma.aiFeedbackDraft.updateMany({
     where: {
@@ -388,15 +310,15 @@ export async function supersedeAiFeedbackDrafts(input: unknown) {
       },
     },
     data: {
-      status: "superseded",
+      status: 'superseded',
     },
-  });
+  })
 }
 
 export async function upsertAiObjectiveExplanation(input: unknown) {
-  const data = upsertAiObjectiveExplanationSchema.parse(input);
-  const submission = await getActiveSubmissionAssignment(data.submissionId);
-  assertSubmissionAssignmentMatches(submission, data.assignmentId);
+  const data = upsertAiObjectiveExplanationSchema.parse(input)
+  const submission = await getActiveSubmissionAssignment(data.submissionId)
+  assertSubmissionAssignmentMatches(submission, data.assignmentId)
 
   const cacheWhere = objectiveExplanationCacheWhere({
     submissionId: data.submissionId,
@@ -407,17 +329,17 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
     sourceContextHash: data.sourceContextHash,
     routeKey: data.routeKey,
     requesterId: data.requesterId,
-  });
+  })
   const existingExplanation = await prisma.aiObjectiveExplanation.findFirst({
     where: cacheWhere,
-  });
+  })
 
   if (existingExplanation) {
     if (!isTerminalFailedObjectiveExplanation(existingExplanation)) {
-      return existingExplanation;
+      return existingExplanation
     }
 
-    await softDeleteObjectiveExplanation(existingExplanation.id);
+    await softDeleteObjectiveExplanation(existingExplanation.id)
   }
 
   const createExplanation = async () => {
@@ -443,67 +365,64 @@ export async function upsertAiObjectiveExplanation(input: unknown) {
         nextRetryAt: data.nextRetryAt,
         lastAttemptAt: data.lastAttemptAt,
       },
-    });
+    })
 
-    if (data.status === "queued" && data.generationJob) {
+    if (data.status === 'queued' && data.generationJob) {
       try {
-        await enqueueObjectiveExplanationGenerationJob(
-          explanation.id,
-          data.generationJob,
-        );
+        await enqueueObjectiveExplanationGenerationJob(explanation.id, data.generationJob)
       } catch (error) {
         await recordAiFeedbackAudit({
           actorId: data.requesterId,
           action: AI_FEEDBACK_AUDIT_ACTIONS.explanationFailed,
-          entity: "ai_objective_explanation",
+          entity: 'ai_objective_explanation',
           entityId: explanation.id,
           eventData: {
             submissionId: data.submissionId,
             assignmentId: submission.assignmentId,
-            routeKey: data.routeKey as "low_cost" | "premium",
-            provider: data.provider as "openai-compatible",
+            routeKey: data.routeKey as 'low_cost' | 'premium',
+            provider: data.provider as 'openai-compatible',
             model: data.model,
             promptVersion: data.promptVersion,
-            status: "failed",
-            failureCode: "queue_enqueue_failed",
+            status: 'failed',
+            failureCode: 'queue_enqueue_failed',
             outputGenerated: false,
           },
-        });
-        throw error;
+        })
+        throw error
       }
     }
 
-    return explanation;
-  };
+    return explanation
+  }
 
   try {
-    return await createExplanation();
+    return await createExplanation()
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
-      throw error;
+      throw error
     }
 
     const concurrentExplanation = await prisma.aiObjectiveExplanation.findFirst({
       where: cacheWhere,
-    });
+    })
 
     if (!concurrentExplanation) {
-      throw error;
+      throw error
     }
 
     if (isTerminalFailedObjectiveExplanation(concurrentExplanation)) {
-      await softDeleteObjectiveExplanation(concurrentExplanation.id);
-      return createExplanation();
+      await softDeleteObjectiveExplanation(concurrentExplanation.id)
+      return createExplanation()
     }
 
-    return concurrentExplanation;
+    return concurrentExplanation
   }
 }
 
 export async function findAiObjectiveExplanationByCacheKey(input: unknown) {
-  const data = findAiObjectiveExplanationByCacheKeySchema.parse(input);
-  const submission = await getActiveSubmissionAssignment(data.submissionId);
-  assertSubmissionAssignmentMatches(submission, data.assignmentId);
+  const data = findAiObjectiveExplanationByCacheKeySchema.parse(input)
+  const submission = await getActiveSubmissionAssignment(data.submissionId)
+  assertSubmissionAssignmentMatches(submission, data.assignmentId)
 
   return prisma.aiObjectiveExplanation.findFirst({
     where: objectiveExplanationCacheWhere({
@@ -516,12 +435,12 @@ export async function findAiObjectiveExplanationByCacheKey(input: unknown) {
       routeKey: data.routeKey,
       requesterId: data.requesterId,
     }),
-  });
+  })
 }
 
 function toGenerationStatus(
-  kind: GenerationStatus["kind"],
-  record: Omit<GenerationStatus, "kind"> | null,
+  kind: GenerationStatus['kind'],
+  record: Omit<GenerationStatus, 'kind'> | null,
 ): GenerationStatus | null {
   return record
     ? {
@@ -535,13 +454,13 @@ function toGenerationStatus(
         lastAttemptAt: record.lastAttemptAt,
         updatedAt: record.updatedAt,
       }
-    : null;
+    : null
 }
 
 export async function getAiGenerationStatus(
   input: unknown,
 ): Promise<GenerationStatus | null> {
-  const data = aiGenerationStatusRequestSchema.parse(input);
+  const data = aiGenerationStatusRequestSchema.parse(input)
   const select = {
     id: true,
     status: true,
@@ -551,17 +470,17 @@ export async function getAiGenerationStatus(
     nextRetryAt: true,
     lastAttemptAt: true,
     updatedAt: true,
-  } as const;
+  } as const
 
-  if (data.kind === "writing_draft") {
+  if (data.kind === 'writing_draft') {
     const record = await prisma.aiFeedbackDraft.findUnique({
       where: {
         id: data.id,
       },
       select,
-    });
+    })
 
-    return toGenerationStatus("writing_draft", record);
+    return toGenerationStatus('writing_draft', record)
   }
 
   const record = await prisma.aiObjectiveExplanation.findUnique({
@@ -569,7 +488,7 @@ export async function getAiGenerationStatus(
       id: data.id,
     },
     select,
-  });
+  })
 
-  return toGenerationStatus("objective_explanation", record);
+  return toGenerationStatus('objective_explanation', record)
 }

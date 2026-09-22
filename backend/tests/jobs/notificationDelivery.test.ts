@@ -6,6 +6,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('../../src/jobs/deadlineReminders.js', () => ({
+  isReminderEligible: vi.fn().mockResolvedValue(true),
+}))
+
 vi.mock('../../src/prisma/client.js', () => ({
   prisma: {
     courseAnnouncement: { findFirst: vi.fn() },
@@ -37,6 +41,7 @@ vi.mock('../../src/config/logger.js', () => ({
   },
 }))
 
+const { isReminderEligible } = await import('../../src/jobs/deadlineReminders.js')
 const prismaModule = await import('../../src/prisma/client.js')
 const notificationPreferencesModule =
   await import('../../src/modules/notification-preferences/notification-preferences.service.js')
@@ -53,23 +58,63 @@ const { handleDeliverQueuedJob } = await import('../../src/jobs/notificationDeli
 
 describe('jobs.notificationDelivery', () => {
   it('suppresses announcements when the recipient loses course access before delivery', async () => {
-    prisma.notification.findMany.mockResolvedValue([{ id: 'announcement-email', announcementId: 'announcement', userId: 'student', channel: 'email', type: 'announcement', user: { role: 'student', email: 'student@example.invalid' } }])
+    prisma.notification.findMany.mockResolvedValue([
+      {
+        id: 'announcement-email',
+        announcementId: 'announcement',
+        userId: 'student',
+        channel: 'email',
+        type: 'announcement',
+        user: { role: 'student', email: 'student@example.invalid' },
+      },
+    ])
     prisma.courseAnnouncement.findFirst.mockResolvedValue(null)
     await handleDeliverQueuedJob()
     expect(sendNotificationEmail).not.toHaveBeenCalled()
-    expect(prisma.notification.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'suppressed', failureReason: 'announcement_no_longer_accessible' } }))
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          status: 'suppressed',
+          failureReason: 'announcement_no_longer_accessible',
+        },
+      }),
+    )
   })
 
   it('quarantines uncertain announcement email responses without retrying', async () => {
-    prisma.notification.findMany.mockResolvedValue([{ id: 'announcement-email', announcementId: 'announcement', userId: 'student', channel: 'email', type: 'announcement', payload: {}, user: { role: 'student', email: 'student@example.invalid' } }])
+    prisma.notification.findMany.mockResolvedValue([
+      {
+        id: 'announcement-email',
+        announcementId: 'announcement',
+        userId: 'student',
+        channel: 'email',
+        type: 'announcement',
+        payload: {},
+        user: { role: 'student', email: 'student@example.invalid' },
+      },
+    ])
     prisma.courseAnnouncement.findFirst.mockResolvedValue({ id: 'announcement' })
-    sendNotificationEmail.mockRejectedValue(new emailModule.EmailDeliveryUncertainError('Response lost'))
+    sendNotificationEmail.mockRejectedValue(
+      new emailModule.EmailDeliveryUncertainError('Response lost'),
+    )
     await handleDeliverQueuedJob()
-    expect(prisma.notification.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'announcement-email', deletedAt: null, status: 'sending' }, data: { failureReason: 'delivery_state_unknown', nextAttemptAt: null, status: 'delivery_unknown' } }))
-    expect(prisma.notification.updateMany.mock.calls.some(([args]) => args.data.attemptCount)).toBe(false)
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'announcement-email', deletedAt: null, status: 'sending' },
+        data: {
+          failureReason: 'delivery_state_unknown',
+          nextAttemptAt: null,
+          status: 'delivery_unknown',
+        },
+      }),
+    )
+    expect(
+      prisma.notification.updateMany.mock.calls.some(([args]) => args.data.attemptCount),
+    ).toBe(false)
   })
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.mocked(isReminderEligible).mockResolvedValue(true)
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-30T10:00:00.000Z'))
     prisma.notification.updateMany.mockImplementation(async (args) => {

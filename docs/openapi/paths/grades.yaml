@@ -51,7 +51,9 @@ SubmissionGrade:
       Creates or updates a grade. For IELTS writing and speaking assignments,
       the server validates official IELTS criteria, requires 0.5-increment band
       values from 0 to 9, and derives rawScore, finalScore, and band from the
-      submitted criterion breakdown.
+      submitted criterion breakdown. The required expectedSubmissionVersion must
+      identify the work the teacher reviewed; stale forms are rejected under the
+      submission lock without publishing a grade or feedback.
     parameters:
       - in: path
         name: submissionId
@@ -72,6 +74,12 @@ SubmissionGrade:
           application/json:
             schema:
               $ref: '../schemas/grades.yaml#/Grade'
+      '409':
+        description: The submitted work was replaced; reload and review the current version
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
         content:

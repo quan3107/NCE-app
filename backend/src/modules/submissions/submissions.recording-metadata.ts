@@ -10,10 +10,19 @@ type SubmissionRecord = { studentId: string; payload: unknown }
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export async function withRecordingMetadata<T extends SubmissionRecord>(submissions: T[]): Promise<T[]> {
+export async function withRecordingMetadata<T extends SubmissionRecord>(
+  submissions: T[],
+): Promise<T[]> {
+  // Historical grades/content are retained for recovery, not exposed as current learner work.
+  submissions = submissions.map((submission) => {
+    const safe = { ...submission } as T & { revisionHistory?: unknown }
+    delete safe.revisionHistory
+    return safe
+  })
   const ids = new Set<string>()
   for (const submission of submissions) {
-    if (!record(submission.payload) || !Array.isArray(submission.payload.recordings)) continue
+    if (!record(submission.payload) || !Array.isArray(submission.payload.recordings))
+      continue
     for (const item of submission.payload.recordings) {
       if (record(item) && typeof item.fileId === 'string') ids.add(item.fileId)
     }
@@ -21,18 +30,36 @@ export async function withRecordingMetadata<T extends SubmissionRecord>(submissi
   if (!ids.size) return submissions
   const files = await prisma.file.findMany({
     where: { id: { in: [...ids] }, deletedAt: null },
-    select: { id: true, ownerId: true, objectKey: true, size: true, mime: true, checksum: true },
+    select: {
+      id: true,
+      ownerId: true,
+      objectKey: true,
+      size: true,
+      mime: true,
+      checksum: true,
+    },
   })
-  const byId = new Map(files.map(file => [file.id, file]))
-  return submissions.map(submission => {
+  const byId = new Map(files.map((file) => [file.id, file]))
+  return submissions.map((submission) => {
     const payload = submission.payload
     if (!record(payload) || !Array.isArray(payload.recordings)) return submission
-    return { ...submission, payload: { ...payload, recordings: payload.recordings.map(item => {
-      if (!record(item) || typeof item.fileId !== 'string') return item
-      const file = byId.get(item.fileId)
-      if (!file || file.ownerId !== submission.studentId) return item
-      return { ...item, fileName: path.basename(file.objectKey), size: file.size,
-        mime: file.mime, checksum: file.checksum }
-    }) } }
+    return {
+      ...submission,
+      payload: {
+        ...payload,
+        recordings: payload.recordings.map((item) => {
+          if (!record(item) || typeof item.fileId !== 'string') return item
+          const file = byId.get(item.fileId)
+          if (!file || file.ownerId !== submission.studentId) return item
+          return {
+            ...item,
+            fileName: path.basename(file.objectKey),
+            size: file.size,
+            mime: file.mime,
+            checksum: file.checksum,
+          }
+        }),
+      },
+    }
   }) as T[]
 }

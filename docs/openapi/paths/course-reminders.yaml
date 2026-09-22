@@ -1,0 +1,51 @@
+# Course reminder API: persistent self-only preferences, independent of announcements.
+CourseReminders:
+  parameters:
+    - in: path
+      name: courseId
+      required: true
+      schema: { type: string, format: uuid }
+  get:
+    tags: [courses]
+    summary: Read my course reminder mute preference
+    security: [{ BearerAuth: [] }]
+    responses:
+      '200':
+        description: Current student's persistent preference
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [muted]
+              properties:
+                muted: { type: boolean }
+      '401': { description: Authentication required }
+      '403': { description: Active student enrollment required }
+  put:
+    tags: [courses]
+    summary: Mute or unmute my course deadline reminders
+    description: Affects both reminder channels only; course announcements remain enabled. No weekly digests are generated. The user identity is always derived from the authenticated session.
+    security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [muted]
+            properties:
+              muted: { type: boolean }
+    responses:
+      '200':
+        description: Preference saved
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [muted]
+              properties:
+                muted: { type: boolean }
+      '400': { description: Invalid payload }
+      '401': { description: Authentication required }
+      '403': { description: Active student enrollment required }

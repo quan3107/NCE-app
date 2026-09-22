@@ -51,12 +51,6 @@ export function IeltsAssignmentContentEditor<T extends IeltsAssignmentConfig>({
     } as T);
   };
 
-  const handleAttemptsChange = (updates: Partial<IeltsAssignmentBase['attempts']>) => {
-    onChange({
-      ...value,
-      attempts: { ...value.attempts, ...updates },
-    } as T);
-  };
 
   return (
     <div className="space-y-6">
@@ -133,33 +127,7 @@ export function IeltsAssignmentContentEditor<T extends IeltsAssignmentConfig>({
             <CardDescription>Submission limits</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="unlimited-attempts" className="text-sm cursor-pointer">
-                Unlimited Attempts
-              </Label>
-              <Switch
-                id="unlimited-attempts"
-                checked={value.attempts.maxAttempts === null}
-                onCheckedChange={(checked) =>
-                  handleAttemptsChange({ maxAttempts: checked ? null : 1 })
-                }
-              />
-            </div>
-
-            {value.attempts.maxAttempts !== null && (
-              <div className="space-y-2">
-                <label className="text-sm">Max Attempts</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={value.attempts.maxAttempts}
-                  onChange={(e) =>
-                    handleAttemptsChange({ maxAttempts: parseInt(e.target.value) || 1 })
-                  }
-                />
-              </div>
-            )}
+            <p className="text-sm text-muted-foreground">Students may replace work until 24 hours after the submission deadline. No late score penalty applies.</p>
           </CardContent>
         </Card>
       </div>

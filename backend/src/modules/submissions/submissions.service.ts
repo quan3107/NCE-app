@@ -28,15 +28,11 @@ import { writeAuditLogSafely } from '../audit-logs/audit-logs.service.js'
 import {
   applyAssignmentSubmissionPolicy,
   assertAssignmentPublishedForSubmission,
-  assertExistingSubmissionCanTransition,
   assertStudentEnrolledForSubmission,
 } from './submissions.eligibility.js'
-import {
-  applyIeltsTimingRules,
-  parseSubmittedAt,
-  readMaxAttempts,
-} from './submissions.timing.js'
+import { applyIeltsTimingRules, parseSubmittedAt } from './submissions.timing.js'
 import { assertSubmittedIeltsPayloadHasContent } from './submissions.ielts-content.js'
+import { persistSubmission } from './submissions.persistence.js'
 import { getOwnedCompletedSubmissionFiles } from '../files/files.service.js'
 
 type SubmissionAssignmentForAiFeedback = {
@@ -257,169 +253,55 @@ export async function createSubmission(
   // Cast validated payloads to Prisma JSON input for storage.
   const payloadJson = validatedPayload as Prisma.InputJsonObject
 
-  const existing = await prisma.submission.findUnique({
-    where: {
-      assignmentId_studentId: {
-        assignmentId,
-        studentId: user.id,
-      },
-    },
-  })
-
-  if (existing) {
-    const { current, updatedSubmission, payloadWithVersion } = await prisma.$transaction(
-      async (tx) => {
-        await tx.$queryRaw(Prisma.sql`
-          SELECT "id"
-          FROM "submissions"
-          WHERE "id" = ${existing.id}::uuid
-          FOR UPDATE
-        `)
-        const current = await tx.submission.findUnique({
-          where: {
-            assignmentId_studentId: {
-              assignmentId,
-              studentId: user.id,
-            },
-          },
-        })
-        if (!current) {
-          throw createNotFoundError('Submission', existing.id)
-        }
-        assertExistingSubmissionCanTransition({
-          existingStatus: current.status,
-          nextStatus: status,
-        })
-        assertSubmittedIeltsPayloadHasContent({
-          type: assignment.type,
-          status,
-          payload: validatedPayload,
-        })
-
-        const currentPayload = current.payload as Prisma.InputJsonObject
-        const existingVersion =
-          typeof currentPayload?.version === 'number' ? currentPayload.version : 1
-        const isSameAttempt = current.status === 'draft'
-        const nextVersion = isSameAttempt ? existingVersion : existingVersion + 1
-        const maxAttempts = readMaxAttempts(
-          assignment.assignmentConfig,
-          isIeltsAssignment,
-        )
-        if (maxAttempts !== undefined && nextVersion > maxAttempts) {
-          throw createHttpError(409, 'Maximum attempts reached for this assignment.')
-        }
-        const payloadWithVersion: Prisma.InputJsonObject = {
-          ...payloadJson,
-          version: nextVersion,
-        }
-        const updatedSubmission = await tx.submission.update({
-          where: { id: current.id },
-          data: {
-            status,
-            submittedAt,
-            payload: payloadWithVersion,
-          },
-        })
-        return { current, updatedSubmission, payloadWithVersion }
-      },
-    )
-    let action: 'submission.updated' | 'submission.submitted' = 'submission.updated'
-    if (current.status === 'draft' && status !== 'draft') {
-      action = 'submission.submitted'
-    }
-    await writeSubmissionAuditLog({
-      actorId: user.id,
-      action,
-      assignmentId,
-      courseId: assignment.courseId,
-      studentId: user.id,
-      submissionId: updatedSubmission.id,
-      statusBefore: current.status,
-      statusAfter: status,
-      submittedAtBefore: current.submittedAt,
-      submittedAtAfter: updatedSubmission.submittedAt,
-      payloadBefore: current.payload,
-      payloadAfter: payloadWithVersion,
-    })
-    if (
-      (status === 'submitted' || status === 'late') &&
-      (assignment.type === 'reading' || assignment.type === 'listening')
-    ) {
-      await autoScoreSubmission(updatedSubmission.id)
-    }
-    await enqueueWritingFeedbackAfterSubmission({
-      assignment,
-      status,
-      studentId: user.id,
-      submissionId: updatedSubmission.id,
-    })
-    await notifyTeachersAboutSubmittedWork({
-      assignment,
-      studentId: user.id,
-      submission: updatedSubmission,
-      status,
-    })
-    return updatedSubmission
-  }
-
-  // The first persisted version is server-owned; clients cannot skip attempt history.
-  const payloadVersion = 1
-  const maxAttempts = readMaxAttempts(assignment.assignmentConfig, isIeltsAssignment)
-  if (maxAttempts !== undefined && payloadVersion > maxAttempts) {
-    throw createHttpError(409, 'Maximum attempts reached for this assignment.')
-  }
   assertSubmittedIeltsPayloadHasContent({
     type: assignment.type,
     status,
     payload: validatedPayload,
   })
-  const payloadWithVersion: Prisma.InputJsonObject = {
-    ...payloadJson,
-    version: payloadVersion,
-  }
-
-  const createdSubmission = await prisma.submission.create({
-    data: {
-      assignmentId,
-      studentId: user.id,
-      status,
-      submittedAt,
-      payload: payloadWithVersion,
-    },
-  })
-  await writeSubmissionAuditLog({
-    actorId: user.id,
-    action: 'submission.created',
-    assignmentId,
-    courseId: assignment.courseId,
+  const { submission, previous, changed } = await persistSubmission({
+    assignment,
     studentId: user.id,
-    submissionId: createdSubmission.id,
-    statusBefore: null,
-    statusAfter: status,
-    submittedAtBefore: null,
-    submittedAtAfter: createdSubmission.submittedAt,
-    payloadBefore: null,
-    payloadAfter: payloadWithVersion,
+    status,
+    payload: payloadJson,
   })
+  if (changed)
+    await writeSubmissionAuditLog({
+      actorId: user.id,
+      action: previous
+        ? previous.status === 'draft' && submission.status !== 'draft'
+          ? 'submission.submitted'
+          : 'submission.updated'
+        : 'submission.created',
+      assignmentId,
+      courseId: assignment.courseId,
+      studentId: user.id,
+      submissionId: submission.id,
+      statusBefore: previous?.status ?? null,
+      statusAfter: submission.status,
+      submittedAtBefore: previous?.submittedAt,
+      submittedAtAfter: submission.submittedAt,
+      payloadBefore: previous?.payload,
+      payloadAfter: submission.payload,
+    })
   if (
-    (status === 'submitted' || status === 'late') &&
+    submission.status !== 'draft' &&
     (assignment.type === 'reading' || assignment.type === 'listening')
   ) {
-    await autoScoreSubmission(createdSubmission.id)
+    await autoScoreSubmission(submission.id)
   }
   await enqueueWritingFeedbackAfterSubmission({
     assignment,
-    status,
+    status: submission.status === 'graded' ? 'submitted' : submission.status,
     studentId: user.id,
-    submissionId: createdSubmission.id,
+    submissionId: submission.id,
   })
   await notifyTeachersAboutSubmittedWork({
     assignment,
     studentId: user.id,
-    submission: createdSubmission,
-    status,
+    submission,
+    status: submission.status === 'graded' ? 'submitted' : submission.status,
   })
-  return createdSubmission
+  return submission
 }
 
 export async function getSubmissionById(params: unknown) {
@@ -442,7 +324,7 @@ export async function getUngradedSubmissionsCount(teacherId: string): Promise<nu
     where: {
       deletedAt: null,
       status: { in: ['submitted', 'late'] },
-      grade: null,
+      OR: [{ grade: null }, { grade: { deletedAt: { not: null } } }],
       assignment: {
         course: {
           ownerId: teacherId,

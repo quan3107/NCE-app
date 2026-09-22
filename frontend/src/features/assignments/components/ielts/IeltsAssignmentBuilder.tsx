@@ -60,15 +60,6 @@ export function IeltsAssignmentBuilder({
     });
   };
 
-  const updateAttempts = (maxAttempts: number | null) => {
-    onChange({
-      ...value,
-      attempts: {
-        ...value.attempts,
-        maxAttempts,
-      },
-    });
-  };
 
   return (
     <div className="ielts-authoring space-y-8">
@@ -152,18 +143,7 @@ export function IeltsAssignmentBuilder({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Max Attempts</Label>
-              <Input
-                type="number"
-                min={1}
-                value={value.attempts.maxAttempts ?? ''}
-                onChange={(event) =>
-                  updateAttempts(event.target.value ? Number(event.target.value) : null)
-                }
-                placeholder="Unlimited"
-              />
-            </div>
+            <p className="text-sm text-muted-foreground">Students may replace work until 24 hours after the submission deadline, with no late score penalty.</p>
           </Card>
 
           <AiPolicyControls type={type} value={value} onChange={onChange} />

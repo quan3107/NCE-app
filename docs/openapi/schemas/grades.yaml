@@ -74,7 +74,12 @@ Grade:
 
 UpsertGradeRequest:
   type: object
+  required: [expectedSubmissionVersion]
   properties:
+    expectedSubmissionVersion:
+      type: integer
+      minimum: 1
+      description: Version of the submitted work reviewed by the teacher. A replacement causes a 409; reload and review the current work before grading again.
     rubricBreakdown:
       type: array
       description: >

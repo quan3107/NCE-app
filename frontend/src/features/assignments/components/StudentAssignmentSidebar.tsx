@@ -5,6 +5,7 @@
  */
 
 import type { Assignment } from '@domain';
+import { CourseReminderToggle } from '@features/courses/CourseReminderToggle';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Label } from '@components/ui/label';
@@ -58,12 +59,13 @@ export function StudentAssignmentSidebar({
               <p className={isOverdue ? 'text-red-600 font-medium' : ''}>
                 {dueDate ? formatDate(dueDate, 'datetime') : 'Not set'}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">UTC+07:00 (Bangkok)</p>
+              <p className="text-xs text-muted-foreground mt-1">{Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
             </div>
           </div>
           <div>
             <Label>Late Policy</Label>
             <p className="text-sm mt-2 text-muted-foreground">{assignment.latePolicy}</p>
+            {dueDate && <p className="text-sm mt-2">Submissions and replacements close: {formatDate(new Date(dueDate.getTime() + 86_400_000), 'datetime')}</p>}
           </div>
           <div>
             <Label>Max Score</Label>
@@ -82,6 +84,7 @@ export function StudentAssignmentSidebar({
         </CardHeader>
         <CardContent>
           <h4 className="mb-1">{assignment.courseName}</h4>
+          <CourseReminderToggle key={assignment.courseId} courseId={assignment.courseId} />
           <Button variant="outline" size="sm" className="w-full mt-3" onClick={onViewAssignments}>
             View All Assignments
           </Button>
