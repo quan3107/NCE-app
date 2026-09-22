@@ -13,6 +13,7 @@ datasource db {
 }
 
 model User {
+  learningActivityDays LearningActivityDay[]
   id            String         @id @default(uuid()) @db.Uuid
   email         String         @unique @db.Citext
   password      String?        @map("password_hash")
@@ -65,6 +66,7 @@ model GoogleLinkChallenge {
 }
 
 model Course {
+  learningActivityDays LearningActivityDay[]
   announcements CourseAnnouncement[]
   id           String       @id @default(uuid()) @db.Uuid
   title        String
@@ -89,6 +91,26 @@ model Course {
   @@index([deletedAt, createdAt], map: "courses_deletedAt_createdAt_idx")
   @@index([ownerId])
   @@map("courses")
+}
+
+// Daily participation is deliberately independent of answers and submission versions.
+model LearningActivityDay {
+  studentId String @map("student_id") @db.Uuid
+  courseId String @map("course_id") @db.Uuid
+  day DateTime @default(dbgenerated("((CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text))::date")) @db.Date
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  @@id([studentId, courseId, day])
+  @@index([courseId, day], map: "learning_activity_days_course_day_idx")
+  @@index([day], map: "learning_activity_days_day_idx")
+  @@map("learning_activity_days")
+}
+
+model LearningActivityCoverage {
+  id Int @id @default(1)
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz
+  @@map("learning_activity_coverage")
 }
 
 model Enrollment {
