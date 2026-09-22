@@ -301,6 +301,7 @@ export async function markNotificationsRead(payload: unknown, actor: Notificatio
 }
 
 type EnqueueNotificationInput = {
+  eventKey?: string
   userId: string
   type: string
   payload: Prisma.InputJsonObject
@@ -309,19 +310,24 @@ type EnqueueNotificationInput = {
 
 export async function enqueueNotification(
   input: EnqueueNotificationInput,
+  client: Pick<Prisma.TransactionClient, 'notification'> = prisma,
 ): Promise<void> {
   const payload = (input.payload ?? {}) as Prisma.InputJsonObject
   if (input.channels.length === 0) {
     return
   }
 
-  await prisma.notification.createMany({
+  await client.notification.createMany({
+    ...(input.eventKey ? { skipDuplicates: true } : {}),
     data: input.channels.map((channel) => ({
       userId: input.userId,
       type: input.type,
       payload,
       channel,
       status: 'queued',
+      ...(input.eventKey
+        ? { eventKey: `${input.eventKey}:${input.userId}:${channel}` }
+        : {}),
     })),
   })
 }
