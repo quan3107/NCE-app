@@ -12,6 +12,7 @@ import type { Role } from '@domain';
 import { useAuthStore } from '@store/authStore';
 import { RouteLoading } from '@routes/RouteLoading';
 import { PasswordRecoveryRoute } from '@routes/PasswordRecovery';
+import { AnnouncementsPage } from '@features/announcements/AnnouncementsPage';
 import {
   AboutRoute,
   AdminAuditLogsPage,
@@ -203,6 +204,7 @@ export function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route element={<RoleGuard allowedRoles={['student']} />}>
           <Route path="student/dashboard" element={<DashboardStudentRoute />} />
+          <Route path="student/courses/:courseId/announcements" element={<AnnouncementsPage />} />
           <Route path="student/assignments" element={<StudentAssignmentsPage />} />
           <Route path="student/assignments/:assignmentId" element={<StudentAssignmentDetailWrapper />} />
           <Route path="student/nce" element={<StudentNcePathPage />} />
@@ -215,6 +217,7 @@ export function AppRoutes() {
         <Route element={<RoleGuard allowedRoles={['teacher']} />}>
           <Route path="teacher/dashboard" element={<DashboardTeacherRoute />} />
           <Route path="teacher/courses" element={<TeacherCoursesPage />} />
+          <Route path="teacher/courses/:courseId/announcements" element={<AnnouncementsPage />} />
           <Route path="teacher/courses/:courseId/manage" element={<TeacherCourseManagementWrapper />} />
           <Route path="teacher/nce-lessons" element={<TeacherNceLessonsPage />} />
           <Route path="teacher/nce-lessons/new" element={<TeacherNceLessonEditorWrapper />} />
@@ -236,6 +239,7 @@ export function AppRoutes() {
           <Route path="admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="admin/users" element={<AdminUsersPage />} />
           <Route path="admin/courses" element={<AdminCoursesPage />} />
+          <Route path="admin/courses/:courseId/announcements" element={<AnnouncementsPage />} />
           <Route path="admin/enrollments" element={<AdminEnrollmentsPage />} />
           <Route path="admin/logs" element={<AdminAuditLogsPage />} />
           <Route path="admin/content" element={<AdminCmsPage />} />
