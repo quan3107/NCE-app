@@ -281,7 +281,8 @@ const assignmentConfigSchemasByType: Record<IeltsAssignmentType, z.ZodTypeAny> =
 
 const submissionBaseSchema = z
   .object({
-    version: configVersionSchema.optional().default(1),
+    // Submission versions count replacements; assignment config versions remain fixed at v1.
+    version: z.number().int().positive().optional().default(1),
     attempt: z.number().int().min(1).optional(),
     startedAt: z.string().optional(),
     submittedAt: z.string().optional(),
