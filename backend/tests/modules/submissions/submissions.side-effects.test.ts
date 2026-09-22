@@ -354,4 +354,53 @@ describe('submissions.service.createSubmission', () => {
       status: 'active',
     })
   })
+  it('retries objective scoring after persistence succeeded but scoring failed', async () => {
+    const assignment = {
+      id: assignmentId,
+      courseId: '8a7c1b41-2a1c-4f6d-9f6d-3f2a0e8e2c15',
+      type: 'reading',
+      title: 'Reading',
+      dueAt: null,
+      latePolicy: null,
+      publishedAt: new Date(),
+      assignmentConfig: { timing: { enabled: false }, sections: [] },
+    }
+    prisma.assignment.findFirst.mockResolvedValue(assignment as never)
+    let saved: Submission | null = null
+    prisma.submission.findUnique.mockImplementation(async () => saved)
+    prisma.submission.create.mockImplementation(async ({ data }) => {
+      saved = {
+        id: '2520f0dd-918a-4c2b-9544-b922eac066e5',
+        deletedAt: null,
+        ...data,
+      } as Submission
+      return saved as Submission
+    })
+    const scoring = await import('../../../src/modules/scoring/ieltsScoring.service.js')
+    vi.mocked(scoring.autoScoreSubmission)
+      .mockRejectedValueOnce(new Error('temporary scoring database failure'))
+      .mockResolvedValueOnce({} as never)
+    const input = {
+      status: 'submitted' as const,
+      payload: { answers: [{ questionId: 'q1', value: 'A' }] },
+    }
+    await expect(
+      createSubmission({ assignmentId }, input, { id: studentId, role: 'student' }),
+    ).rejects.toThrow('temporary scoring')
+    expect(saved).not.toBeNull()
+    await createSubmission(
+      { assignmentId },
+      {
+        ...input,
+        payload: {
+          ...input.payload,
+          submittedAt: new Date().toISOString(),
+          durationSeconds: 40,
+        },
+      },
+      { id: studentId, role: 'student' },
+    )
+    expect(prisma.submission.update).not.toHaveBeenCalled()
+    expect(scoring.autoScoreSubmission).toHaveBeenCalledTimes(2)
+  })
 })
