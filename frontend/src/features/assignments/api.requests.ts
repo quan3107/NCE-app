@@ -14,6 +14,12 @@ import type {
   UpdateAssignmentRequest,
 } from './api.types';
 
+// Detail opens must reach the server even when the assignment list is cached.
+export const fetchAssignment = (courseId: string, assignmentId: string): Promise<ApiAssignment> =>
+  apiClient<ApiAssignment>(`/api/v1/courses/${courseId}/assignments/${assignmentId}`, {
+    auth: 'required',
+  });
+
 export const fetchAssignments = async (courseIds: string[]): Promise<ApiAssignment[]> => {
   if (courseIds.length === 0) {
     return [];

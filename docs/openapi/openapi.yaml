@@ -141,6 +141,10 @@ paths:
 
   /api/v1/analytics/teacher:
     $ref: './paths/analytics.yaml#/TeacherAnalytics'
+  /api/v1/analytics/admin:
+    $ref: './paths/admin-analytics.yaml#/AdminAnalytics'
+  /api/v1/analytics/lesson-view:
+    $ref: './paths/admin-analytics.yaml#/LessonView'
 
   /api/v1/audit-logs:
     $ref: './paths/audit-logs.yaml#/AuditLogs'

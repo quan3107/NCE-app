@@ -497,3 +497,24 @@ and
 - **2026-07-24:** No frontend application files changed for the database seed-policy, bootstrap privilege, timeout, administrative test-client fixes, or follow-up runbook clarification.
 
 - **2026-07-24:** No frontend application files changed for the backend owner-job, seed-lifecycle, and database-test cleanup fixes.
+
+## Backend — DG-07 platform analytics (2026-09-22)
+
+- Added admin-only bounded PostgreSQL report/CSV with UTC date/course scope, current eligible populations, distinct participation, explicit progress denominators, current submission/grade versions, and separate late-window/missing and IELTS/percentage metrics.
+- Added server-timestamped daily activity facts, authenticated resource-open tracking, transactional learning-write triggers, deduplication, visible coverage start, RLS and column-only trusted aggregation grants. Published-course status is explicitly unavailable because no publication field exists.
+- Real disposable PostgreSQL/API reconciliation, authorization, writes/replacements, boundary/deletion/zero cases, CSV content, migration replay/history/schema diffs and role/governance probes verified. Backend tests: 1,105 passed, 86 environment-gated skips. See `docs/admin-analytics.md` for definitions and verification limits.
+
+## Frontend — DG-07 platform analytics (2026-09-22)
+
+- Added discoverable admin analytics navigation/page, native UTC/course filters, daily chart with accessible table, current progress, submission/result tables, coverage/empty states, update time and CSV controls with a direct-link fallback. Opened NCE lessons record authorized participation without counting dashboard/path-list visits.
+- Real Browser checks covered navigation, keyboard/date/course filters, empty/unavailable history, loading/error/retry, role protection and screenshot review; frontend tests: 270 unit and 267 component tests passed, plus types/lint/build.
+- Acceptance remains partial: the available in-app browser did not expose a completed CSV file download, despite real CSV preparation and verified API content. Browser file saving is unverified; DG-07 is not marked PASS. Existing unrelated local changes were preserved.
+
+## Backend — assignment-open review follow-up (2026-09-22)
+
+- Existing single-assignment authorization/daily tracking verified against the real API and disposable database: inaccessible enrollment/publication returned 404, repeated opens deduplicated, and identity/time remained server-owned. No backend implementation or schema changes were needed; 19 focused analytics/authorization tests passed.
+
+## Frontend — assignment-open review follow-up (2026-09-22)
+
+- Connected the actual student assignment detail route to the authorized single-assignment request on open, including cached return navigation, without counting list/dashboard browsing. Added two route regression tests; all 269 component tests, typecheck, lint and build passed.
+- Real Browser/API/database acceptance confirmed zero activity after login/dashboard/list, one daily fact after assignment-only reading, no submissions, cached reopens/deduplication, inaccessible assignment exclusion, and admin active count of one. CSV download was retried but file saving remains unverified in the available in-app browser; DG-07 remains partially verified.

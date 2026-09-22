@@ -366,6 +366,8 @@ jobs:
           docker exec -i "${{ job.services.postgres.id }}" \
             psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
             < backend/tests/prisma/schemaGovernance.probe.sql
+          docker exec -i "${{ job.services.postgres.id }}" psql -U nce -d nce_test -v ON_ERROR_STOP=1 \
+            < backend/tests/prisma/adminAnalytics.probe.sql
 
       - name: Lint backend
         run: npm run lint

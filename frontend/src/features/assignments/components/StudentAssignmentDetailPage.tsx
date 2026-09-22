@@ -29,6 +29,7 @@ import {
 } from '@features/assignments/components/ielts/student/studentIeltsAttempt.logic';
 import { createStudentIeltsAttemptFromPayload } from '@features/assignments/components/ielts/student/studentIeltsAttemptHydration';
 import { toSubmission } from '@features/assignments/api.mappers';
+import { fetchAssignment } from '@features/assignments/api.requests';
 
 export function StudentAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
   const { currentUser, sessionGeneration } = useAuthStore();
@@ -51,6 +52,13 @@ function StudentAssignmentDetail({ assignmentId }: { assignmentId: string }) {
   const [ieltsAttempt, setIeltsAttempt] = useState(() => createInitialStudentIeltsAttempt());
   const createSubmissionMutation = useCreateSubmissionMutation();
   const assignment = assignments.find((a) => a.id === assignmentId);
+  const courseId = assignment?.courseId;
+  useEffect(() => {
+    if (isLoading || error || !courseId || currentUser.role !== 'student') return;
+    // This route renders list-cache data. Reauthorize each open on the server so
+    // cached navigation records participation too; telemetry must not block reading.
+    void fetchAssignment(courseId, assignmentId).catch(() => undefined);
+  }, [assignmentId, courseId, currentUser.role, error, isLoading]);
   const submission = useMemo(
     () =>
       submissions.find((item) => item.assignmentId === assignmentId && item.studentId === currentUser?.id) ??
