@@ -38,7 +38,8 @@ AssignmentSubmissions:
       - BearerAuth: []
   post:
     tags: [submissions]
-    summary: Create submission (student)
+    summary: Create or replace submission (student)
+    description: Server time at persistence determines lateness. Exactly at dueAt is on time; after dueAt is late without automatic score deductions. All writes close at dueAt plus 24 elapsed hours (inclusive cutoff). Before cutoff, replacements supersede legacy attempt caps and preserve previous content and grades in private revision history; current work requires grading again. Identical retries are no-ops. No dueAt means no deadline cutoff.
     parameters:
       - in: path
         name: assignmentId
@@ -54,11 +55,17 @@ AssignmentSubmissions:
             $ref: '../schemas/submissions.yaml#/CreateSubmissionRequest'
     responses:
       '201':
-        description: Submission created
+        description: Submission created, replaced, or identical retry returned
         content:
           application/json:
             schema:
               $ref: '../schemas/submissions.yaml#/Submission'
+      '409':
+        description: Submission cutoff reached, assignment changed during the request, or invalid draft transition
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
       '401':
         description: Unauthorized
         content:
