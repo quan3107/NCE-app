@@ -77,6 +77,7 @@ export function TeacherCoursesPage() {
                   >
                     Manage Course
                   </Button>
+                  <Button variant="outline" className="w-full" onClick={() => navigate(`/teacher/courses/${course.id}/announcements`)}>Announcements</Button>
                 </CardContent>
               </Card>
             ))}
