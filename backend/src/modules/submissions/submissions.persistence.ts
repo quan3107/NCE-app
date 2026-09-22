@@ -10,6 +10,14 @@ import {
 } from './submissions.eligibility.js'
 import type { SubmissionStatus } from './submissions.timing.js'
 
+function comparableWork(payload: Prisma.InputJsonObject) {
+  const work = { ...payload }
+  // The IELTS form regenerates completion metadata on retry; it is not new student work.
+  delete work.submittedAt
+  delete work.durationSeconds
+  return work
+}
+
 export async function persistSubmission(input: {
   assignment: Pick<Assignment, 'id' | 'type' | 'assignmentConfig'>
   studentId: string
@@ -77,7 +85,7 @@ export async function persistSubmission(input: {
       delete previous.version
       if (
         !current.deletedAt &&
-        semanticValuesEqual(previous, payload) &&
+        semanticValuesEqual(comparableWork(previous), comparableWork(payload)) &&
         (current.status === 'draft') === (status === 'draft')
       ) {
         return { submission: current, previous: current, changed: false }
