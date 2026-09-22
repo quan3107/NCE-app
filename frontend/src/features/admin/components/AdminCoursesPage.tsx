@@ -17,6 +17,7 @@ import { Plus, Edit, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useAdminUsersQuery, useCreateCourseMutation } from '@features/admin/api';
 import { useCoursesQuery } from '@features/courses/api';
+import { Link } from 'react-router-dom';
 
 export function AdminCoursesPage() {
   const { data: courses = [], isLoading, error, refetch } = useCoursesQuery();
@@ -97,6 +98,7 @@ export function AdminCoursesPage() {
                       <TableCell>{course.schedule}</TableCell>
                       <TableCell>{course.enrolled}</TableCell>
                       <TableCell className="text-right">
+                        <Link className="underline" to={`/admin/courses/${course.id}/announcements`}>Announcements</Link>
                         <Button variant="ghost" size="sm">
                           <Edit className="size-4" />
                         </Button>
