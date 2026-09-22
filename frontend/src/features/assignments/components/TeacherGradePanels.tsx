@@ -324,7 +324,7 @@ function GradeSummaryPanel({
         </div>
         {adjustments !== 0 && (
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Late Penalty</span>
+            <span className="text-muted-foreground">Existing adjustments</span>
             <span className="font-medium text-red-600">{adjustments}</span>
           </div>
         )}
