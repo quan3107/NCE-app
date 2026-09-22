@@ -35,7 +35,7 @@ vi.mock("node:crypto", async () => {
 });
 
 vi.mock("../../../src/config/prismaClient.js", () => {
-  const user = { findFirst: vi.fn(), create: vi.fn() };
+  const user = { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn() };
   const identity = { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() };
   const authSession = {
     create: vi.fn(),
