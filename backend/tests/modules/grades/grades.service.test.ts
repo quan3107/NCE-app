@@ -101,6 +101,20 @@ describe('grades.service.upsertGrade', () => {
     expect(prisma.grade.upsert).not.toHaveBeenCalled()
   })
 
+  it('rejects feedback from a form opened before an already-completed replacement', async () => {
+    prisma.submission.findFirst.mockResolvedValueOnce(
+      buildSubmission({ payload: { version: 2 } }) as never,
+    )
+    await expect(
+      upsertGrade(
+        { submissionId },
+        { expectedSubmissionVersion: 1, rawScore: 80, finalScore: 80 },
+        { id: teacherId, role: UserRole.teacher },
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 })
+    expect(prisma.grade.upsert).not.toHaveBeenCalled()
+  })
+
   it('persists the authenticated teacher as grader without a graderId payload', async () => {
     prisma.submission.findFirst.mockResolvedValueOnce(buildSubmission() as never)
 
@@ -133,6 +147,7 @@ describe('grades.service.upsertGrade', () => {
         userId: studentId,
         type: 'graded',
       }),
+      prisma,
     )
     expect(grade).toEqual({ id: 'grade-1' })
   })
