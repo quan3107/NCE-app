@@ -180,13 +180,22 @@ GoogleCallback:
           type: string
     responses:
       '200':
-        description: OAuth completed
+        description: OAuth completed for an existing identity or new account
         content:
           application/json:
             schema:
               $ref: '../schemas/auth.yaml#/AuthSuccessResponse'
       '303':
-        description: Redirects to configured return URL
+        description: Redirects to configured return URL with googleAuth=success, error, or link_required. Matching password accounts require separate consent and password verification.
+      '202':
+        description: Verified Google email matches a password account; HttpOnly linking cookie set. No identity or session created.
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [link_required] }
       '400':
         description: Bad request
         content:

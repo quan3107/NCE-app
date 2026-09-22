@@ -81,7 +81,7 @@ describe("Google OAuth display names", () => {
         }),
       });
     prisma.identity.findFirst.mockResolvedValueOnce(null);
-    prisma.user.findFirst.mockResolvedValueOnce(null);
+    prisma.user.findUnique.mockResolvedValueOnce(null);
 
     await expect(
       completeGoogleAuthorization(

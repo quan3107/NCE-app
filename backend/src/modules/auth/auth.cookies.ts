@@ -131,7 +131,7 @@ export const sanitizeReturnTo = (
 
 export const appendReturnStatus = (
   target: string,
-  status: "success" | "error",
+  status: "success" | "error" | "link_required",
   message?: string,
 ): string => {
   try {

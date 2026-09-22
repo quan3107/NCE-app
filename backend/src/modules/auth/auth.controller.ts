@@ -4,6 +4,7 @@
  * Why: Provides Express-compatible handlers without exposing transport details to the services.
  */
 import { type Request, type Response } from "express";
+import { GOOGLE_LINK_COOKIE } from "./auth.google.link.js";
 
 import {
   buildGoogleAuthorizationUrl,
@@ -186,6 +187,16 @@ export async function completeGoogleAuth(
 
     clearGoogleOAuthCookies(res);
     clearGoogleCookie(res, GOOGLE_RETURN_COOKIE_NAME);
+    if ("status" in result) {
+      setGoogleCookie(res, GOOGLE_LINK_COOKIE, result.token);
+      res.set("Cache-Control", "no-store");
+      if (resolvedReturnTo) {
+        res.redirect(303, appendReturnStatus(resolvedReturnTo, "link_required"));
+      } else {
+        res.status(202).json({ status: "link_required" });
+      }
+      return;
+    }
     setRefreshCookie(res, result.refreshToken);
 
     if (resolvedReturnTo) {

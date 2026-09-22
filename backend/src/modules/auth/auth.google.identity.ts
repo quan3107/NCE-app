@@ -1,223 +1,95 @@
 /**
  * File: src/modules/auth/auth.google.identity.ts
- * Purpose: Link Google identities to existing or new users.
- * Why: Keeps identity persistence logic isolated from OAuth networking concerns.
+ * Purpose: Resolve Google identities without trusting email as account ownership.
+ * Why: Existing password accounts require explicit password-verified linking.
  */
-import { IdentityProvider, UserRole, UserStatus } from "../../prisma/index.js";
+import { prisma } from '../../config/prismaClient.js'
+import { normalizedDisplayNameSchema } from '../../utils/displayNameValidation.js'
+import { createAuthError, isUniqueConstraintError } from './auth.errors.js'
+import { assertUserIsActive, type ActiveUserRecord } from './auth.users.js'
+import { createGoogleLinkChallenge, type GoogleLinkRequired } from './auth.google.link.js'
+import type { GoogleProfile } from './auth.google.profile.js'
+import { normalizeGoogleIssuer } from './auth.google.issuer.js'
 
-import { prisma } from "../../config/prismaClient.js";
-import { normalizedDisplayNameSchema } from "../../utils/displayNameValidation.js";
-import { createAuthError, isUniqueConstraintError } from "./auth.errors.js";
-import { assertUserIsActive, type ActiveUserRecord } from "./auth.users.js";
-import type { GoogleProfile } from "./auth.google.profile.js";
-
-type IdentityWithUser = {
-  id: string;
-  emailVerified: boolean;
-  user: ActiveUserRecord;
-};
-
+type IdentityWithUser = { id: string; emailVerified: boolean; user: ActiveUserRecord }
 const selectUserFields = {
   id: true,
   email: true,
   fullName: true,
   role: true,
   status: true,
-} as const;
+} as const
 
 export async function findOrCreateGoogleIdentity(
   profile: GoogleProfile,
-): Promise<IdentityWithUser> {
-  const {
-    providerSubject,
-    providerIssuer,
-    normalizedEmail,
-    emailVerified,
-    fullName,
-  } = profile;
-
-  // Reuse the same lookup whenever we need to recover from race conditions during identity creation.
-  const findIdentityWithUser = async (): Promise<IdentityWithUser | null> =>
-    prisma.identity.findFirst({
-      where: {
-        provider: IdentityProvider.google,
-        providerSubject,
-        deletedAt: null,
-        user: {
-          deletedAt: null,
-        },
-      },
-      select: {
-        id: true,
-        emailVerified: true,
-        user: {
-          select: selectUserFields,
-        },
-      },
-    });
-
-  let identityRecord = await findIdentityWithUser();
-
-  if (!identityRecord) {
-    // Attach Google to an existing account when the email is already registered locally.
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        email: normalizedEmail,
-        deletedAt: null,
-      },
-      select: selectUserFields,
-    });
-
-    if (existingUser) {
-      assertUserIsActive(existingUser);
-      try {
-        const createdIdentity = await prisma.identity.create({
-          data: {
-            userId: existingUser.id,
-            provider: IdentityProvider.google,
-            providerSubject,
-            providerIssuer,
-            email: normalizedEmail,
-            emailVerified,
-          },
-          select: {
-            id: true,
-            emailVerified: true,
-          },
-        });
-        identityRecord = {
-          id: createdIdentity.id,
-          emailVerified: createdIdentity.emailVerified,
-          user: existingUser,
-        };
-      } catch (error) {
-        if (isUniqueConstraintError(error)) {
-          identityRecord = await findIdentityWithUser();
-          if (identityRecord && identityRecord.user.id !== existingUser.id) {
-            throw createAuthError(
-              409,
-              "Google account is already linked to another user.",
-            );
-          }
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      // No prior record exists, so create a new active student linked to the Google identity.
-      const parsedFullName = normalizedDisplayNameSchema.safeParse(fullName);
-      if (!parsedFullName.success) {
-        throw createAuthError(
-          400,
-          "Google account name does not meet display-name requirements. Update your Google profile and try again.",
-        );
-      }
-      try {
-        identityRecord = await prisma.$transaction(async (tx) => {
-          const createdUser = await tx.user.create({
-            data: {
-              email: normalizedEmail,
-              fullName: parsedFullName.data,
-              password: null,
-              role: UserRole.student,
-              status: UserStatus.active,
-            },
-            select: selectUserFields,
-          });
-
-          const createdIdentity = await tx.identity.create({
-            data: {
-              userId: createdUser.id,
-              provider: IdentityProvider.google,
-              providerSubject,
-              providerIssuer,
-              email: normalizedEmail,
-              emailVerified,
-            },
-            select: {
-              id: true,
-              emailVerified: true,
-            },
-          });
-
-          return {
-            id: createdIdentity.id,
-            emailVerified: createdIdentity.emailVerified,
-            user: createdUser,
-          };
-        });
-      } catch (error) {
-        if (isUniqueConstraintError(error)) {
-          identityRecord = await findIdentityWithUser();
-
-          if (!identityRecord) {
-            // A conflicting insert happened in parallel; fall back to linking the existing email owner.
-            const fallbackUser = await prisma.user.findFirst({
-              where: {
-                email: normalizedEmail,
-                deletedAt: null,
-              },
-              select: selectUserFields,
-            });
-
-            if (!fallbackUser) {
-              throw createAuthError(
-                409,
-                "Google account could not be linked. Please try again.",
-              );
-            }
-
-            assertUserIsActive(fallbackUser);
-            try {
-              const createdIdentity = await prisma.identity.create({
-                data: {
-                  userId: fallbackUser.id,
-                  provider: IdentityProvider.google,
-                  providerSubject,
-                  providerIssuer,
-                  email: normalizedEmail,
-                  emailVerified,
-                },
-                select: {
-                  id: true,
-                  emailVerified: true,
-                },
-              });
-              identityRecord = {
-                id: createdIdentity.id,
-                emailVerified: createdIdentity.emailVerified,
-                user: fallbackUser,
-              };
-            } catch (nestedError) {
-              if (isUniqueConstraintError(nestedError)) {
-                identityRecord = await findIdentityWithUser();
-                if (
-                  identityRecord &&
-                  identityRecord.user.id !== fallbackUser.id
-                ) {
-                  throw createAuthError(
-                    409,
-                    "Google account is already linked to another user.",
-                  );
-                }
-              } else {
-                throw nestedError;
-              }
-            }
-          }
-        } else {
-          throw error;
-        }
-      }
+): Promise<IdentityWithUser | GoogleLinkRequired> {
+  if (!profile.emailVerified) throw createAuthError(401, 'Google email must be verified.')
+  const { providerSubject, normalizedEmail, fullName } = profile
+  const providerIssuer = normalizeGoogleIssuer(profile.providerIssuer)
+  if (!providerIssuer) throw createAuthError(401, 'Google issuer is not trusted.')
+  const existingIdentity = await prisma.identity.findFirst({
+    where: { provider: 'google', providerSubject },
+    include: { user: true },
+  })
+  if (existingIdentity) {
+    if (
+      existingIdentity.deletedAt ||
+      existingIdentity.user.deletedAt ||
+      normalizeGoogleIssuer(existingIdentity.providerIssuer) !== providerIssuer
+    ) {
+      throw createAuthError(
+        409,
+        'Google identity is unavailable or conflicts with an existing identity.',
+      )
     }
+    assertUserIsActive(existingIdentity.user)
+    return existingIdentity
   }
-
-  if (!identityRecord) {
+  const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+  if (existingUser) {
+    if (existingUser.deletedAt)
+      throw createAuthError(403, 'Account is not active. Contact support for assistance.')
+    assertUserIsActive(existingUser)
+    return createGoogleLinkChallenge(profile, existingUser.id)
+  }
+  const parsedName = normalizedDisplayNameSchema.safeParse(fullName)
+  if (!parsedName.success)
     throw createAuthError(
-      500,
-      "Unable to link Google account. Please try again later.",
-    );
+      400,
+      'Google account name does not meet display-name requirements. Update your Google profile and try again.',
+    )
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: normalizedEmail,
+          fullName: parsedName.data,
+          password: null,
+          role: 'student',
+          status: 'active',
+        },
+        select: selectUserFields,
+      })
+      const identity = await tx.identity.create({
+        data: {
+          userId: user.id,
+          provider: 'google',
+          providerSubject,
+          providerIssuer,
+          email: normalizedEmail,
+          emailVerified: true,
+        },
+        select: { id: true, emailVerified: true },
+      })
+      return { ...identity, user }
+    })
+  } catch (error) {
+    // Never auto-link in race recovery; a new attempt resolves the committed owner.
+    if (isUniqueConstraintError(error))
+      throw createAuthError(
+        409,
+        'Account changed during Google sign-in. Please try again.',
+      )
+    throw error
   }
-
-  return identityRecord;
 }

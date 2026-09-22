@@ -13,6 +13,10 @@ and
 
 ## Backend
 
+- **2026-09-22:** Fixed Google issuer compatibility for existing identities and linking proofs: normalize only Google's two trusted spellings, canonicalize new writes, and check both aliases for email conflicts. Both-direction regressions, untrusted issuer/ownership denials, 1,100 backend tests, 22 PostgreSQL linking tests, lint, and build pass. Fresh real Google OAuth verified legacy stored-issuer login. Evidence: `docs/e2e-google-account-linking-verification.md`.
+
+- **2026-09-22:** Implemented DG-03 password-confirmed Google linking with expiring browser-bound proofs, atomic consumption, shared password rate limits, and account/identity conflict checks. Real Google OAuth plus Browser/API/PostgreSQL verified linking, data preservation, both login methods, cancellation, incorrect password, expiry, status denial, and conflicts. Backend checks and 29 database auth tests pass; 84 migrations, schema governance, and OpenAPI pass. Evidence: `docs/e2e-google-account-linking-verification.md`.
+
 - **2026-09-22:** Implemented DG-06 deadlines, grade-preserving replacements, dual-channel reminders and course muting. Review fixes require the reviewed version under lock, reject stale AI decisions, and recover scoring/notification failures on identical retries with durable deduplication. Real API/PostgreSQL checks (8), 82 migration history/replay/schema checks, governance, OpenAPI, lint/build, and 1,092 tests pass. Controlled email receipt confirmed. Evidence: `docs/e2e-deadlines-reminders-verification.md`.
 
 - **2026-09-22:** Fixed the announcement database test's CI-only role assumption: inspect effective Data API privileges instead of switching to `authenticated`, which the restricted migration owner cannot assume. PostgreSQL 17 verification reproduced CI's `SET FALSE` membership, confirmed denial, and detected a deliberately granted privilege; focused lint/formatting pass. Runtime permissions remain unchanged.
@@ -250,6 +254,10 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-22:** Reverified the existing linking dialog and success flow with real Google OAuth after the issuer compatibility fix. Google and password sign-in both reached the original disposable account's dashboard; screenshots inspected. No frontend source changes. Live provider emitted the HTTPS issuer; reverse incoming spelling is covered deterministically.
+
+- **2026-09-22:** Completed DG-03 consent/password dialog, cancellation and expired-proof recovery, and post-link Google/password sign-in choices. Real Google OAuth and the actual API verified both login methods on the preserved account; screenshots inspected. Frontend lint, types, build, 270 unit tests, and 267 component tests pass. DG-03 passes; evidence: `docs/e2e-google-account-linking-verification.md`.
 
 - **2026-09-22:** Completed DG-06 cutoff/replacement UI and course reminders. Review fixes remove the remaining automatic late deduction and bind teacher feedback to the reviewed version. Real Browser/API/PostgreSQL verified late 80 stays 80, stale-form rejection, and successful scoring-failure retry without a replacement. Historical adjustments remain intact; screenshots inspected. All 270 unit and 262 component tests, lint, typecheck, and build pass. Evidence: `docs/e2e-deadlines-reminders-verification.md`.
 

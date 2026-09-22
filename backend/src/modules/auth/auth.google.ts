@@ -23,6 +23,7 @@ import { fetchGoogleProfile } from './auth.google.profile.js'
 import { findOrCreateGoogleIdentity } from './auth.google.identity.js'
 import type { AuthSessionResult, SessionContext } from './auth.types.js'
 import { writeAuthAuditLogSafely } from './auth.audit.js'
+import type { GoogleLinkRequired } from './auth.google.link.js'
 
 type CompleteGoogleAuthorizationOptions = {
   redirectUri: string
@@ -36,7 +37,7 @@ export { buildGoogleAuthorizationUrl }
 export async function completeGoogleAuthorization(
   query: unknown,
   options: CompleteGoogleAuthorizationOptions,
-): Promise<AuthSessionResult> {
+): Promise<AuthSessionResult | GoogleLinkRequired> {
   const { redirectUri, expectedState, codeVerifier, context } = options
 
   assertValidRedirectUri(redirectUri)
@@ -76,10 +77,11 @@ export async function completeGoogleAuthorization(
 
   const refreshToken = generateRefreshToken()
 
-  const { finalUser, session, identityId, emailVerifiedUpdated } = await runWithRole(
+  const result = await runWithRole(
     { role: 'service_role', userRole: 'service_role' },
     async () => {
       const identityRecord = await findOrCreateGoogleIdentity(profile)
+      if ('status' in identityRecord) return identityRecord
 
       const finalUser = identityRecord.user
       assertUserIsActive(finalUser)
@@ -107,6 +109,8 @@ export async function completeGoogleAuthorization(
     },
   )
 
+  if ('status' in result) return result
+  const { finalUser, session, identityId, emailVerifiedUpdated } = result
   const accessToken = signAccessToken({
     userId: finalUser.id,
     familyId: session.familyId,

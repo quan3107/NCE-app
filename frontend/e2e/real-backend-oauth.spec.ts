@@ -12,6 +12,7 @@ const temporaryCookieNames = new Set([
   'googleOAuthState',
   'googleOAuthVerifier',
   'googleOAuthReturnTo',
+  'googleLinkToken',
 ]);
 
 async function expectTemporaryCookiesCleared(context: BrowserContext) {
@@ -39,6 +40,27 @@ async function logoutFromShell(page: Page) {
     .click();
   await page.getByRole('menuitem', { name: 'Logout' }).click();
   await expect(page).toHaveURL(/\/login$/);
+}
+
+// This synthetic provider regression is separate from real Google acceptance.
+// Seeded password-only accounts now require the same explicit linking consent.
+async function finishProviderLogin(page: Page, role: string, landing: string) {
+  await page.getByRole('link', { name: `Continue as ${role}` }).click();
+  await page.waitForURL((url) =>
+    url.pathname === landing || url.searchParams.get('googleAuth') === 'link_required',
+  );
+  if (new URL(page.url()).searchParams.get('googleAuth') === 'link_required') {
+    const password = process.env.PLAYWRIGHT_TEST_PASSWORD ?? '';
+    expect(password, 'PLAYWRIGHT_TEST_PASSWORD is required for linking.').not.toBe('');
+    await page.getByLabel('Existing account password').fill(password);
+    await page.getByRole('button', { name: 'Link accounts', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Google account linked' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Continue with Google' }).click();
+    await page.getByRole('link', { name: `Continue as ${role}` }).click();
+  }
+  await expect(page).toHaveURL(new RegExp(`${landing}$`));
 }
 
 for (const account of [
@@ -69,8 +91,7 @@ for (const account of [
 
     try {
       await beginGoogleSignIn(page);
-      await page.getByRole('link', { name: `Continue as ${account.role}` }).click();
-      await expect(page).toHaveURL(new RegExp(`${account.landing}$`));
+      await finishProviderLogin(page, account.role, account.landing);
       expect(remoteProviderRequests).toEqual([]);
       expect(callbackUrl).toContain('state=');
       await expectTemporaryCookiesCleared(context);
@@ -110,8 +131,7 @@ test('cancellation and token failure clear artifacts and remain retryable', asyn
 
       await page.getByRole('button', { name: 'Return to login' }).click();
       await page.getByRole('button', { name: 'Continue with Google' }).click();
-      await page.getByRole('link', { name: 'Continue as Student' }).click();
-      await expect(page).toHaveURL(/\/student\/dashboard$/);
+      await finishProviderLogin(page, 'Student', '/student/dashboard');
       await logoutFromShell(page);
     } finally {
       await revokeContextSession(context);
@@ -173,7 +193,6 @@ test('back navigation releases the OAuth reservation and allows retry', async ({
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeEnabled();
 
   await page.getByRole('button', { name: 'Continue with Google' }).click();
-  await page.getByRole('link', { name: 'Continue as Student' }).click();
-  await expect(page).toHaveURL(/\/student\/dashboard$/);
+  await finishProviderLogin(page, 'Student', '/student/dashboard');
   await logoutFromShell(page);
 });

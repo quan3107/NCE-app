@@ -8,15 +8,12 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { config } from "../../config/env.js";
 import { createAuthError } from "./auth.errors.js";
 import { consumeGoogleTestAuthorizationCode } from "./auth.google.fixture.js";
+import { GOOGLE_ALLOWED_ISSUERS } from "./auth.google.issuer.js";
 
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_ENDPOINT =
   "https://openidconnect.googleapis.com/v1/userinfo";
 const GOOGLE_JWKS_ENDPOINT = "https://www.googleapis.com/oauth2/v3/certs";
-const GOOGLE_ALLOWED_ISSUERS = [
-  "https://accounts.google.com",
-  "accounts.google.com",
-] as const;
 const GOOGLE_ID_TOKEN_CLOCK_TOLERANCE = "5 minutes";
 const GOOGLE_ID_TOKEN_MAX_AGE = "1 hour";
 const GOOGLE_ID_TOKEN_REQUIRED_CLAIMS = ["exp", "iat", "sub"];

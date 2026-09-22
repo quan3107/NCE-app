@@ -16,6 +16,8 @@ Use disposable local or test-environment data for every mutation story. Verify b
 
 <!-- prettier-ignore-start -->
 
+**Google account-linking update (2026-09-22): 121 PASS, 0 FAIL, 1 BLOCKED, 2 DECISION-GATED, and 1 DEFERRED (125 total).** DG-03 passes [real Google OAuth, Browser/API, and PostgreSQL verification](e2e-google-account-linking-verification.md). This supersedes the earlier implementation totals; DG-04 remains deferred.
+
 ## Public Experience
 
 ### PUB-01 — Navigate the public site on desktop
@@ -419,6 +421,8 @@ Use disposable local or test-environment data for every mutation story. Verify b
 
 **Goal:** As a registrant, I can review binding Terms and Privacy before accepting. **Preconditions:** Product/legal supplies authoritative destinations or modal content; current controls are informational placeholders. **Steps:** 1) open both items. 2) navigate by keyboard. 3) return to the form without losing input. **Expected:** Confirmed legal content is reachable and acceptance behavior is explicit; do not assert destination/content until approved. **E2E (2026-08-16):** DECISION-GATED — Terms and Privacy actions currently announce placeholder behavior rather than presenting invented legal content; product-approved documents are required.
 ### DG-03 — Link matching password and Google identities
+
+**Implementation and E2E (2026-09-22): PASS.** Real Google OAuth prompted for explicit consent and the existing password. Cancellation and incorrect passwords left the identities unlinked; successful linking preserved the original account and enrollment data, and both subsequent login methods reached that account. Expiry, replay, status restrictions, and identity conflicts were rejected with authoritative database checks. Concurrency, rollback, password changes, and shared rate limits also pass real PostgreSQL regressions. See [verification evidence](e2e-google-account-linking-verification.md). This supersedes the earlier pending and decision-gated entries below.
 
 **Goal:** As a user with the same verified email, I can intentionally link Google without creating a duplicate account. **Preconditions:** Product confirms linking endpoint, consent dialog, status rules, and recovery behavior. **Steps:** 1) start Google with a matching password account. 2) review and confirm/cancel link. 3) test suspended/pending users and issuer/subject conflicts. **Expected:** One user owns both identities only after explicit confirmation, duplicates are blocked, and no test becomes a release gate before implementation is confirmed. **E2E (2026-08-16):** DECISION-GATED — Google/password identity linking was not inferred; dummy OAuth credentials keep current behavior safe pending explicit account-linking policy.
 ### DG-04 — Author and complete quizzes
