@@ -13,7 +13,7 @@ and
 
 ## Backend
 
-- **2026-09-22:** Implemented DG-06 server-clock deadlines, inclusive 24-hour cutoff, grade-preserving replacements, objective regrading, durable dual-channel reminders, course muting, queued eligibility checks, and digest suppression. Real API/PostgreSQL concurrency and boundary checks, 81 migration replay/history/schema checks, governance, OpenAPI, lint/build, and regression tests pass. Brevo accepted the controlled retry and the recipient confirmed receipt. Evidence: `docs/e2e-deadlines-reminders-verification.md`.
+- **2026-09-22:** Implemented DG-06 deadlines, grade-preserving replacements, dual-channel reminders and course muting. Review fixes require the reviewed version under lock, reject stale AI decisions, and recover scoring/notification failures on identical retries with durable deduplication. Real API/PostgreSQL checks (8), 82 migration history/replay/schema checks, governance, OpenAPI, lint/build, and 1,092 tests pass. Controlled email receipt confirmed. Evidence: `docs/e2e-deadlines-reminders-verification.md`.
 
 - **2026-09-22:** Fixed the announcement database test's CI-only role assumption: inspect effective Data API privileges instead of switching to `authenticated`, which the restricted migration owner cannot assume. PostgreSQL 17 verification reproduced CI's `SET FALSE` membership, confirmed denial, and detected a deliberately granted privilege; focused lint/formatting pass. Runtime permissions remain unchanged.
 
@@ -251,7 +251,7 @@ and
 
 ## Frontend
 
-- **2026-09-22:** Completed DG-06 no-penalty/cutoff/replacement UI, persistent course reminder control, and usable reminder links. Real Browser/API checks cover on-time and late replacements, cutoff error with retained work, disabled closed controls, mute failure/retry/reload, and pending-save navigation; screenshots inspected. All 270 unit and 259 component tests, lint, typecheck, and build pass. DG-06 passes; evidence: `docs/e2e-deadlines-reminders-verification.md`.
+- **2026-09-22:** Completed DG-06 cutoff/replacement UI and course reminders. Review fixes remove the remaining automatic late deduction and bind teacher feedback to the reviewed version. Real Browser/API/PostgreSQL verified late 80 stays 80, stale-form rejection, and successful scoring-failure retry without a replacement. Historical adjustments remain intact; screenshots inspected. All 270 unit and 262 component tests, lint, typecheck, and build pass. Evidence: `docs/e2e-deadlines-reminders-verification.md`.
 
 - **2026-09-22:** Replaced announcement examples with accessible draft/publish/edit/delete controls and added student reading/notification navigation plus admin moderation. Real Browser/API/PostgreSQL verifies persistence, role boundaries, both notification channels, deletion, error/retry, and pending-save navigation; screenshots inspected. All 270 unit and 256 component tests, lint, typecheck, and build pass. DG-05 passes; evidence: `docs/e2e-announcements-verification.md`.
 
