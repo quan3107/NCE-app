@@ -12,6 +12,8 @@ Use disposable local or test-environment data for every mutation story. Verify b
 
 **Announcement implementation update (2026-09-22): 119 PASS, 0 FAIL, 1 BLOCKED, and 5 DECISION-GATED (125 total, before the separately recorded quiz deferral).** DG-05 passes the [real Browser/API/PostgreSQL and delivered-email verification](e2e-announcements-verification.md).
 
+**Deadline implementation update (2026-09-22): 120 PASS, 0 FAIL, 1 BLOCKED, and 4 DECISION-GATED (125 total, before the separately recorded quiz deferral).** DG-06 passes the [real deadline, replacement, and delivered-reminder verification](e2e-deadlines-reminders-verification.md).
+
 <!-- prettier-ignore-start -->
 
 ## Public Experience
@@ -428,6 +430,8 @@ Use disposable local or test-environment data for every mutation story. Verify b
 
 **Goal:** As a teacher, I can draft and publish course announcements to enrolled students. **Preconditions:** An owned or actively co-taught course and controlled verification recipients. **Steps:** 1) save/reload a draft and publish. 2) verify enrolled-only reading and both notification channels. 3) edit silently, retry duplicate/concurrent submissions, and delete as teacher/admin. 4) check denied mutations, failure/retry, and navigation while pending. **Expected:** Durable course-scoped content and exactly one publication notification per recipient/channel. **E2E (2026-09-22): PASS** — Real Browser, bearer-authenticated API, and disposable PostgreSQL verify the complete flow; Brevo acceptance and recipient-confirmed inbox screenshot verify actual email delivery. **Historical E2E (2026-08-16):** DECISION-GATED — informational examples only, now superseded.
 ### DG-06 — Enforce advanced late-policy and reminder schedules
+
+**Current status (2026-09-22): PASS.** No automatic late score penalties. Exactly at the deadline is on time; later work is late. All submission writes close at or after the deadline plus 24 elapsed hours. Before cutoff, students may replace submitted or graded work; prior content/grades are privately archived and current work requires grading again. T-24h reminders use both in-app and email with minute polling, durable duplicate prevention, queued eligibility checks, and persistent course muting. Announcements remain enabled; weekly digests are disabled. Real Browser/API/PostgreSQL checks and recipient-confirmed email delivery pass. These rules and the [acceptance evidence](e2e-deadlines-reminders-verification.md) supersede the historical requirements below.
 
 **Goal:** As a learner and teacher, flat-percent, per-day decay, hard close, resubmission history, T-24h/T-2h reminders, weekly digest, debounce, and course muting behave predictably. **Preconditions:** Product confirms which historical PRD rules are active and their exact timezone/channel semantics. **Steps:** 1) exercise each confirmed policy at boundary times. 2) submit/resubmit. 3) run workers and preferences. **Expected:** Only confirmed active rules become release gates; server-configured current behavior takes precedence over historical constants. **E2E (2026-08-16):** DECISION-GATED — Current assignment details expose simple percentage late copy only; grace, caps, reminders, and attempt-window semantics need product confirmation.
 ### DG-07 — View system-wide admin analytics
