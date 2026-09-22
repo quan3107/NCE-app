@@ -5,9 +5,13 @@
  */
 import { logger } from '../config/logger.js'
 import { config } from '../config/env.js'
+import { isReminderEligible } from './deadlineReminders.js'
 import { resolveNotificationTypeEnabledForUsers } from '../modules/notification-preferences/notification-preferences.service.js'
 import { prisma } from '../prisma/client.js'
-import { EmailDeliveryUncertainError, sendNotificationEmail } from '../utils/emailClient.js'
+import {
+  EmailDeliveryUncertainError,
+  sendNotificationEmail,
+} from '../utils/emailClient.js'
 
 const DELIVERY_BATCH_SIZE = 50
 const DEFAULT_MAX_DELIVERY_ATTEMPTS = 3
@@ -95,6 +99,17 @@ export async function handleDeliverQueuedJob(): Promise<void> {
     }
 
     try {
+      if (
+        notification.type === 'weekly_digest' ||
+        (notification.type === 'due_soon' &&
+          !(await isReminderEligible(notification.userId, notification.payload)))
+      ) {
+        await prisma.notification.updateMany({
+          where: { id: notification.id, status: 'sending' },
+          data: { status: 'suppressed', failureReason: 'reminder_no_longer_eligible' },
+        })
+        continue
+      }
       if (notification.announcementId) {
         const accessible = await prisma.courseAnnouncement.findFirst({
           where: {
@@ -183,8 +198,10 @@ export async function handleDeliverQueuedJob(): Promise<void> {
           JSON.stringify(notification.payload ?? {}, null, 2),
         ].join('\n')
         if (
-          notification.announcementId && notification.payload &&
-          typeof notification.payload === 'object' && !Array.isArray(notification.payload)
+          notification.announcementId &&
+          notification.payload &&
+          typeof notification.payload === 'object' &&
+          !Array.isArray(notification.payload)
         ) {
           const payload = notification.payload
           bodyText = [
@@ -194,6 +211,24 @@ export async function handleDeliverQueuedJob(): Promise<void> {
             String(payload.message ?? ''),
             '',
             `${config.cors.allowedOrigins[0] ?? ''}/student/courses/${String(payload.courseId ?? '')}/announcements`,
+          ].join('\n')
+        }
+        if (
+          notification.type === 'due_soon' &&
+          notification.payload &&
+          typeof notification.payload === 'object' &&
+          !Array.isArray(notification.payload)
+        ) {
+          const payload = notification.payload
+          bodyText = [
+            String(payload.courseTitle ?? ''),
+            String(payload.assignmentTitle ?? ''),
+            '',
+            `Submission deadline (UTC): ${String(payload.dueAt ?? '')}`,
+            'Late submissions have no score penalty. Submissions and replacements close 24 hours after the deadline.',
+            '',
+            `${config.cors.allowedOrigins[0] ?? ''}/student/assignments/${String(payload.assignmentId ?? '')}`,
+            'You can mute deadline reminders from the assignment’s Course panel.',
           ].join('\n')
         }
 
@@ -209,7 +244,10 @@ export async function handleDeliverQueuedJob(): Promise<void> {
         })
       }
     } catch (error) {
-      if (notification.announcementId && error instanceof EmailDeliveryUncertainError) {
+      if (
+        (notification.announcementId || notification.type === 'due_soon') &&
+        error instanceof EmailDeliveryUncertainError
+      ) {
         await markDeliveryUnknown(notification.id)
         continue
       }
