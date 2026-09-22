@@ -136,7 +136,7 @@ databaseDescribe('deadline and course reminders through the real API', () => {
     const grade = await request(app)
       .put(`/api/v1/submissions/${submissionId}/grade`)
       .set('Authorization', auth(0))
-      .send({ rawScore: 87, finalScore: 87 })
+      .send({ expectedSubmissionVersion: 2, rawScore: 87, finalScore: 87 })
     expect(grade.status).toBe(200)
     expect(Number(grade.body.finalScore)).toBe(87)
   })
