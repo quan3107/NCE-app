@@ -13,7 +13,7 @@ and
 
 ## Backend
 
-- **2026-09-22:** Implemented DG-03 password-confirmed Google linking with expiring browser-bound proofs, atomic consumption, shared password rate limits, and account/identity conflict checks. Real Google OAuth plus Browser/API/PostgreSQL verified linking, data preservation, both login methods, cancellation, incorrect password, expiry, status denial, and conflicts. Backend checks and 29 database auth tests pass; 83 migrations and OpenAPI pass. Evidence: `docs/e2e-google-account-linking-verification.md`.
+- **2026-09-22:** Implemented DG-03 password-confirmed Google linking with expiring browser-bound proofs, atomic consumption, shared password rate limits, and account/identity conflict checks. Real Google OAuth plus Browser/API/PostgreSQL verified linking, data preservation, both login methods, cancellation, incorrect password, expiry, status denial, and conflicts. Backend checks and 29 database auth tests pass; 84 migrations, schema governance, and OpenAPI pass. Evidence: `docs/e2e-google-account-linking-verification.md`.
 
 - **2026-09-22:** Implemented DG-06 deadlines, grade-preserving replacements, dual-channel reminders and course muting. Review fixes require the reviewed version under lock, reject stale AI decisions, and recover scoring/notification failures on identical retries with durable deduplication. Real API/PostgreSQL checks (8), 82 migration history/replay/schema checks, governance, OpenAPI, lint/build, and 1,092 tests pass. Controlled email receipt confirmed. Evidence: `docs/e2e-deadlines-reminders-verification.md`.
 
