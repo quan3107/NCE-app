@@ -14,6 +14,7 @@ import { authRateLimiter } from './auth.rate-limit.js'
 import { lockSessionUser } from './auth.sessions.js'
 import { assertActiveUser } from './auth.users.js'
 import type { GoogleProfile } from './auth.google.profile.js'
+import { GOOGLE_ALLOWED_ISSUERS, normalizeGoogleIssuer } from './auth.google.issuer.js'
 import type { SessionContext } from './auth.types.js'
 
 const serviceRole = { role: 'service_role', userRole: 'service_role' } as const
@@ -41,6 +42,8 @@ export async function createGoogleLinkChallenge(
   profile: GoogleProfile,
   userId: string,
 ): Promise<GoogleLinkRequired> {
+  const issuer = normalizeGoogleIssuer(profile.providerIssuer)
+  if (!issuer) throw createAuthError(401, 'Google issuer is not trusted.')
   await lockSessionUser(userId)
   const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null } })
   if (
@@ -61,7 +64,7 @@ export async function createGoogleLinkChallenge(
       tokenHash: hashValue(token),
       userId,
       subject: profile.providerSubject,
-      issuer: profile.providerIssuer,
+      issuer,
       email: profile.normalizedEmail,
       passwordFingerprint: hashValue(user.password!),
       expiresAt: new Date(Date.now() + GOOGLE_LINK_TTL_MS),
@@ -84,6 +87,7 @@ export async function readGoogleLinkChallenge(token: string | null) {
     })
     if (
       !challenge ||
+      !normalizeGoogleIssuer(challenge.issuer) ||
       challenge.expiresAt.getTime() <= Date.now() ||
       challenge.user.deletedAt ||
       !challenge.user.password ||
@@ -138,6 +142,7 @@ export async function confirmGoogleLink(
   )
   if (
     !candidate ||
+    !normalizeGoogleIssuer(candidate.issuer) ||
     candidate.id !== data.challengeId ||
     candidate.expiresAt.getTime() <= Date.now()
   )
@@ -171,6 +176,8 @@ export async function confirmGoogleLink(
       )
         throw invalid()
       assertActiveUser(fresh.user)
+      const issuer = normalizeGoogleIssuer(fresh.issuer)
+      if (!issuer) throw invalid()
       // Include deleted identities: they cannot silently be resurrected/reassigned.
       const identities = await prisma.identity.findMany({
         where: {
@@ -178,7 +185,7 @@ export async function confirmGoogleLink(
           OR: [
             { userId: fresh.userId },
             { providerSubject: fresh.subject },
-            { providerIssuer: fresh.issuer, email: fresh.email },
+            { providerIssuer: { in: [...GOOGLE_ALLOWED_ISSUERS] }, email: fresh.email },
           ],
         },
       })
@@ -188,7 +195,7 @@ export async function confirmGoogleLink(
           userId: fresh.userId,
           provider: 'google',
           providerSubject: fresh.subject,
-          providerIssuer: fresh.issuer,
+          providerIssuer: issuer,
           email: fresh.email,
           emailVerified: true,
         },
