@@ -340,6 +340,9 @@ export async function upsertGrade(
     })
     if (
       !lockedSubmission ||
+      (expectedSubmissionPayload === undefined &&
+        ((lockedSubmission.payload as { version?: number } | null)?.version ?? 1) !==
+          (data.expectedSubmissionVersion ?? 1)) ||
       !semanticValuesEqual(
         lockedSubmission.payload,
         expectedSubmissionPayload ?? submission.payload,
@@ -389,6 +392,28 @@ export async function upsertGrade(
       where: { id: submissionId },
       data: { status: 'graded' },
     })
+    // Queue publication atomically with the grade, so a scoring retry cannot lose it.
+    if (gradeContentChanged) {
+      const channels: NotificationChannel[] = ['inapp', 'email']
+      const payloadJson: Prisma.InputJsonObject = {
+        submissionId,
+        assignmentId: submission.assignment.id,
+        assignmentTitle: submission.assignment.title,
+        courseId: submission.assignment.courseId,
+        courseTitle: submission.assignment.course?.title ?? '',
+        gradedAt: new Date().toISOString(),
+      }
+
+      await enqueueNotification(
+        {
+          userId: submission.student.id,
+          type: 'graded',
+          payload: payloadJson,
+          channels,
+        },
+        tx,
+      )
+    }
     return { gradeBefore, grade }
   })
   await writeGradeAuditLog({
@@ -398,23 +423,6 @@ export async function upsertGrade(
     graderId: actor.id,
     before: gradeBefore,
     after: grade,
-  })
-
-  const channels: NotificationChannel[] = ['inapp', 'email']
-  const payloadJson: Prisma.InputJsonObject = {
-    submissionId,
-    assignmentId: submission.assignment.id,
-    assignmentTitle: submission.assignment.title,
-    courseId: submission.assignment.courseId,
-    courseTitle: submission.assignment.course?.title ?? '',
-    gradedAt: new Date().toISOString(),
-  }
-
-  await enqueueNotification({
-    userId: submission.student.id,
-    type: 'graded',
-    payload: payloadJson,
-    channels,
   })
 
   return grade
