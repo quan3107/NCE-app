@@ -1,6 +1,6 @@
 /**
  * Location: src/routes/OAuth.tsx
- * Purpose: Handle the simulated OAuth callback route and redirect users post-login.
+ * Purpose: Handle the Google OAuth callback and intentional account linking.
  * Why: Keeps the OAuth flow encapsulated within routing after the refactor.
  */
 
@@ -12,6 +12,7 @@ import { Progress } from '@components/ui/progress';
 import { ApiError } from '@lib/apiClient';
 import { useAuthStore } from '@store/authStore';
 import { useRouter } from '@lib/router';
+import { GoogleLinkDialog } from './GoogleLinkDialog';
 
 type OAuthStatus = 'working' | 'success' | 'error';
 
@@ -46,6 +47,10 @@ export function OAuthRoute() {
       cancelCompletion();
     };
 
+    if (googleStatus === 'link_required') {
+      cancelCompletion();
+      return cleanupCompletion;
+    }
     if (googleStatus === 'error') {
       cancelCompletion();
       setStatus('error');
@@ -114,6 +119,8 @@ export function OAuthRoute() {
   }, [currentUser, navigate, status]);
 
   const showError = status === 'error';
+
+  if (googleStatus === 'link_required') return <GoogleLinkDialog />;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#E6F0FF] via-[#BFD9FF]/30 to-background p-4">
