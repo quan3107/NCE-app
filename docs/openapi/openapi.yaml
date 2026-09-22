@@ -61,6 +61,10 @@ paths:
     $ref: './paths/auth.yaml#/GoogleStart'
   /api/v1/auth/google/callback:
     $ref: './paths/auth.yaml#/GoogleCallback'
+  /api/v1/auth/google/link:
+    $ref: './paths/google-link.yaml#/Link'
+  /api/v1/auth/google/link/cancel:
+    $ref: './paths/google-link.yaml#/Cancel'
 
   /api/v1/me:
     $ref: './paths/me.yaml#/Me'
