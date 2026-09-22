@@ -1,0 +1,83 @@
+# Admin descriptive analytics and authenticated lesson-open participation.
+AdminAnalytics:
+  get:
+    tags: [analytics]
+    summary: Read platform analytics (active administrators only)
+    description: >-
+      Returns one current database snapshot. UTC from/to dates are inclusive; default
+      last 30 days including today, maximum 366 days, no future dates. Date filters
+      affect activity, submission dates, and deadlines for unsubmitted obligations.
+      Overview and progress are explicitly current-state metrics. Course filters
+      apply to every section. Published-course counts are null because courses have
+      no publication field. Active learners are unique currently enrolled active
+      student accounts with a recorded qualifying learning action; login/dashboard
+      alone do not qualify. Daily buckets deduplicate across courses. Coverage starts
+      with the first recorded action and does not invent historical activity.
+      Progress denominators are current eligible student-lesson or student-assignment
+      opportunities. Results separate IELTS skill bands and percentages normalized to
+      configured assignment maxScore (default 100). Replaced versions and deleted
+      records are excluded. Missing means no current submission at deadline + 24 hours;
+      earlier late-window work is separate. No automatic score penalties apply.
+      Student details are limited to the first 100 matching names/IDs with an explicit
+      truncation flag; aggregate counts remain complete. Course/result tables exceeding
+      500 rows return 422 rather than silently truncating. Database execution is bounded
+      by a 10-second statement timeout. CSV contains field/value rows for every JSON
+      value, with identical authorization and filters, formula-safe strings and explicit
+      Unavailable values for nulls. Exports are newly generated snapshots, not historical
+      frozen reports; generatedAt identifies their update time.
+    parameters:
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+      - { name: courseId, in: query, schema: { type: string, format: uuid } }
+      - {
+          name: format,
+          in: query,
+          schema: { type: string, enum: [json, csv], default: json },
+        }
+    responses:
+      '200':
+        description: Authorized report. Responses use Cache-Control no-store.
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/admin-analytics.yaml#/AdminAnalytics'
+          text/csv:
+            schema: { type: string }
+      '400': { description: Invalid or unexpected filter }
+      '401': { description: Authentication required }
+      '403': { description: Active administrator required }
+      '404': { description: Selected course does not exist or was deleted }
+      '422':
+        { description: Narrow the course or date filter to reduce report size }
+      '500':
+        {
+          description: Report unavailable; retry without interpreting missing values as zero,
+        }
+LessonView:
+  post:
+    tags: [analytics]
+    summary: Record an authenticated student opening an available enrolled lesson
+    description: >-
+      Accepts only courseId and lessonId. Identity comes from the authoritative
+      authenticated actor; timestamp and UTC day come from PostgreSQL. Requires active
+      student enrollment and a currently available published lesson and parent catalog.
+      Concurrent repeated requests deduplicate to one student/course/day participation
+      fact. No arbitrary identity, timestamp, event kind, or lesson contents are accepted.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [courseId, lessonId]
+            properties:
+              courseId: { type: string, format: uuid }
+              lessonId: { type: string, format: uuid }
+    responses:
+      '204': { description: Participation recorded or already recorded today }
+      '400': { description: Invalid or unexpected input }
+      '401': { description: Authentication required }
+      '403': { description: Active student required }
+      '404':
+        { description: No available published lesson in an enrolled course }
