@@ -75,6 +75,7 @@ model Course {
 }
 
 model Enrollment {
+  remindersMuted Boolean @default(false) @map("reminders_muted")
   id           String         @id @default(uuid()) @db.Uuid
   courseId     String         @map("course_id") @db.Uuid
   userId       String         @map("user_id") @db.Uuid
@@ -147,6 +148,7 @@ model RubricTemplate {
 }
 
 model Submission {
+  revisionHistory Json @default("[]") @map("revision_history")
   id           String           @id @default(uuid()) @db.Uuid
   assignmentId String           @map("assignment_id") @db.Uuid
   studentId    String           @map("student_id") @db.Uuid
@@ -193,6 +195,7 @@ model Grade {
 }
 
 model Notification {
+  reminderKey String? @unique @map("reminder_key")
   announcementId String? @map("announcement_id") @db.Uuid
   announcement CourseAnnouncement? @relation(fields: [announcementId], references: [id])
   id        String              @id @default(uuid()) @db.Uuid
