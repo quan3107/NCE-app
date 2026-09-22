@@ -195,6 +195,7 @@ model Grade {
 }
 
 model Notification {
+  eventKey String? @unique @map("event_key")
   reminderKey String? @unique @map("reminder_key")
   announcementId String? @map("announcement_id") @db.Uuid
   announcement CourseAnnouncement? @relation(fields: [announcementId], references: [id])
