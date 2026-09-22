@@ -1,0 +1,145 @@
+# Admin analytics: nullable values preserve missing data and bounded arrays preserve response limits.
+AdminAnalytics:
+  type: object
+  required:
+    [generatedAt, filters, overview, engagement, submissions, progress, results]
+  properties:
+    generatedAt: { type: string, format: date-time }
+    filters:
+      type: object
+      required: [from, to, courseId, timezone]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        courseId: { type: string, nullable: true, format: uuid }
+        timezone: { type: string, enum: [UTC] }
+    overview:
+      type: object
+      required:
+        [
+          students,
+          teachers,
+          courses,
+          publishedCourses,
+          enrollments,
+          eligibleLearners,
+        ]
+      properties:
+        students: { type: integer, minimum: 0 }
+        teachers: { type: integer, minimum: 0 }
+        courses: { type: integer, minimum: 0 }
+        publishedCourses:
+          {
+            type: integer,
+            nullable: true,
+            description: Always null; no course publication field exists.,
+          }
+        enrollments: { type: integer, minimum: 0 }
+        eligibleLearners: { type: integer, minimum: 0 }
+    engagement:
+      type: object
+      required:
+        [
+          trackingSince,
+          completeCoverage,
+          observedActive,
+          noObservedActivity,
+          students,
+          studentsTruncated,
+          trend,
+        ]
+      properties:
+        trackingSince: { type: string, nullable: true, format: date-time }
+        completeCoverage: { type: boolean }
+        observedActive: { type: integer, nullable: true, minimum: 0 }
+        noObservedActivity: { type: integer, minimum: 0 }
+        studentsTruncated: { type: boolean }
+        students:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+        trend:
+          type: array
+          maxItems: 366
+          items:
+            type: object
+            required: [day, learners, coverage]
+            properties:
+              day: { type: string, format: date }
+              learners: { type: integer, nullable: true, minimum: 0 }
+              coverage:
+                { type: string, enum: [tracked, partial or unavailable] }
+    submissions:
+      type: object
+      required:
+        [
+          submitted,
+          onTime,
+          late,
+          noDeadline,
+          awaitingGrading,
+          lateWindow,
+          missing,
+        ]
+      properties:
+        submitted: { type: integer, minimum: 0 }
+        onTime: { type: integer, minimum: 0 }
+        late: { type: integer, minimum: 0 }
+        noDeadline: { type: integer, minimum: 0 }
+        awaitingGrading: { type: integer, minimum: 0 }
+        lateWindow: { type: integer, minimum: 0 }
+        missing: { type: integer, minimum: 0 }
+    progress:
+      type: array
+      maxItems: 500
+      items:
+        type: object
+        required:
+          [
+            courseId,
+            courseTitle,
+            learners,
+            lessonOpportunities,
+            completedLessons,
+            assignmentOpportunities,
+            submittedAssignments,
+          ]
+        properties:
+          courseId: { type: string, format: uuid }
+          courseTitle: { type: string }
+          learners: { type: integer, minimum: 0 }
+          lessonOpportunities: { type: integer, minimum: 0 }
+          completedLessons: { type: integer, minimum: 0 }
+          assignmentOpportunities: { type: integer, minimum: 0 }
+          submittedAssignments: { type: integer, minimum: 0 }
+    results:
+      type: array
+      maxItems: 500
+      items:
+        type: object
+        required:
+          [
+            courseId,
+            courseTitle,
+            assignmentId,
+            assignmentTitle,
+            skill,
+            scale,
+            samples,
+            average,
+          ]
+        properties:
+          courseId: { type: string, format: uuid }
+          courseTitle: { type: string }
+          assignmentId: { type: string, format: uuid }
+          assignmentTitle: { type: string }
+          skill: { type: string }
+          scale:
+            { type: string, enum: ['IELTS band (0–9)', 'Percentage of maximum'] }
+          samples: { type: integer, minimum: 0 }
+          average: { type: number, nullable: true }
