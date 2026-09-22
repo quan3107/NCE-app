@@ -17,26 +17,6 @@ const safeParseJson = (value: string): Record<string, unknown> | null => {
   }
 };
 
-const formatPercent = (value: number): string =>
-  Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
-
-const formatLatePolicy = (policy: Record<string, unknown> | string | null): string => {
-  if (!policy) {
-    return '';
-  }
-
-  const record = typeof policy === 'string' ? safeParseJson(policy) : policy;
-  if (!record) {
-    return typeof policy === 'string' ? policy : JSON.stringify(policy);
-  }
-
-  if (record.type === 'percent' && typeof record.value === 'number') {
-    return `${formatPercent(record.value)}% late penalty`;
-  }
-
-  return JSON.stringify(record);
-};
-
 const maxScoreForAssignment = (
   type: ApiAssignment['type'],
   assignmentConfig: Record<string, unknown> | null,
@@ -48,7 +28,7 @@ const maxScoreForAssignment = (
 };
 
 export const toAssignment = (assignment: ApiAssignment, courseName: string): Assignment => {
-  const latePolicy = formatLatePolicy(assignment.latePolicy);
+  const latePolicy = assignment.dueAt ? 'Late submissions are accepted for 24 hours without a score penalty. You may replace submitted work before the cutoff; replacements need grading again.' : 'No submission deadline or late score penalty.';
 
   const assignmentConfig =
     typeof assignment.assignmentConfig === 'string'
