@@ -31,6 +31,7 @@ model User {
   files         File[]
   sessions      AuthSession[]
   identities    Identity[]
+  googleLinkChallenges GoogleLinkChallenge[]
   auditLogs     AuditLog[]     @relation("AuditActor")
   dashboardWidgetPreferences UserDashboardWidgetPreference[]
   aiFeedbackRequests AiFeedbackDraft[] @relation("AiFeedbackDraftRequester")
@@ -45,6 +46,21 @@ model User {
 
   @@index([deletedAt, createdAt], map: "users_deletedAt_createdAt_idx")
   @@map("users")
+}
+
+// Short-lived server-only proof of a verified Google callback; never a session.
+model GoogleLinkChallenge {
+  id String @id @default(uuid()) @db.Uuid
+  tokenHash String @unique @map("token_hash")
+  userId String @map("user_id") @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject String
+  issuer String
+  email String @db.Citext
+  passwordFingerprint String @map("password_fingerprint")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  @@index([expiresAt])
+  @@map("google_link_challenges")
 }
 
 model Course {
