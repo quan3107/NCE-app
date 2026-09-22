@@ -12,6 +12,7 @@ import type { Submission } from '@domain';
 type StudentAssignmentHeaderActionsProps = {
   submission: Submission | null;
   isOverdue: boolean;
+  isClosed?: boolean;
   canResubmit: boolean;
   hasReachedMaxAttempts: boolean;
   onOpenSubmit: () => void;
@@ -19,17 +20,16 @@ type StudentAssignmentHeaderActionsProps = {
 
 export function StudentAssignmentHeaderActions({
   submission,
-  isOverdue,
+  isClosed = false,
   canResubmit,
   hasReachedMaxAttempts,
   onOpenSubmit,
 }: StudentAssignmentHeaderActionsProps) {
+  if (isClosed) return <Button disabled>Submissions closed</Button>;
   if (!submission) {
     return (
-      <Button onClick={onOpenSubmit} disabled={isOverdue || hasReachedMaxAttempts}>
-        {isOverdue
-          ? 'Past Due'
-          : hasReachedMaxAttempts
+      <Button onClick={onOpenSubmit} disabled={hasReachedMaxAttempts}>
+        {hasReachedMaxAttempts
             ? 'Max Attempts Reached'
             : 'Submit Assignment'}
       </Button>
