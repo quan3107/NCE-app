@@ -15,6 +15,7 @@ import {
   confirmGoogleLink,
   cancelGoogleLink,
   readGoogleLinkChallenge,
+  createGoogleLinkChallenge,
 } from '../../../src/modules/auth/auth.google.link.js'
 import { handlePasswordLogin } from '../../../src/modules/auth/auth.password.js'
 import { resetAuthRateLimiter } from '../../../src/modules/auth/auth.rate-limit.js'
@@ -45,7 +46,7 @@ suite(
       await owner.query('DELETE FROM users WHERE id=ANY($1::uuid[])', [users])
       await owner.end()
     })
-    async function fixture() {
+    async function fixture(providerIssuer = 'https://accounts.google.com') {
       const id = randomUUID()
       users.push(id)
       const email = `link-${id}@example.invalid`
@@ -56,7 +57,7 @@ suite(
       )
       const profile = {
         providerSubject: randomUUID(),
-        providerIssuer: 'https://accounts.google.com',
+        providerIssuer,
         normalizedEmail: email,
         emailVerified: true,
         fullName: 'Google Name',
@@ -79,6 +80,86 @@ suite(
           .rows[0].count,
       )
     }
+    it.each(['accounts.google.com', 'https://accounts.google.com'])(
+      'canonicalizes %s proofs and accepts legacy pending proofs',
+      async (issuer) => {
+        const f = await fixture(issuer)
+        const proof = await owner.query(
+          'SELECT issuer FROM google_link_challenges WHERE id=$1',
+          [f.body.challengeId],
+        )
+        expect(proof.rows[0].issuer).toBe('https://accounts.google.com')
+        await owner.query('UPDATE google_link_challenges SET issuer=$2 WHERE id=$1', [
+          f.body.challengeId,
+          issuer,
+        ])
+        await readGoogleLinkChallenge(f.token)
+        await confirmGoogleLink(f.token, f.body, {})
+        const identity = await owner.query(
+          'SELECT provider_issuer FROM identities WHERE user_id=$1',
+          [f.id],
+        )
+        expect(identity.rows[0].provider_issuer).toBe('https://accounts.google.com')
+        const result = await runWithRole(role, () =>
+          findOrCreateGoogleIdentity(f.profile),
+        )
+        expect(result).toMatchObject({ user: { id: f.id } })
+      },
+    )
+    it.each(['accounts.google.com', 'https://accounts.google.com'])(
+      'rejects another owner with the same email under %s, even for a different subject',
+      async (issuer) => {
+        const f = await fixture(
+          issuer === 'accounts.google.com'
+            ? 'https://accounts.google.com'
+            : 'accounts.google.com',
+        )
+        const g = await fixture()
+        await owner.query('UPDATE google_link_challenges SET issuer=$2 WHERE id=$1', [
+          f.body.challengeId,
+          f.profile.providerIssuer,
+        ])
+        await runWithRole(role, () =>
+          prisma.identity.create({
+            data: {
+              userId: g.id,
+              provider: 'google',
+              providerSubject: g.profile.providerSubject,
+              providerIssuer: issuer,
+              email: f.email,
+              emailVerified: true,
+            },
+          }),
+        )
+        await expect(confirmGoogleLink(f.token, f.body, {})).rejects.toMatchObject({
+          statusCode: 409,
+        })
+        expect(await identityCount(f.id)).toBe(0)
+        expect(await identityCount(g.id)).toBe(1)
+      },
+    )
+    it('rejects untrusted issuers at challenge creation, read, and confirmation', async () => {
+      const f = await fixture()
+      await expect(
+        runWithRole(role, () =>
+          createGoogleLinkChallenge(
+            { ...f.profile, providerIssuer: 'untrusted-issuer' },
+            f.id,
+          ),
+        ),
+      ).rejects.toMatchObject({ statusCode: 401 })
+      await owner.query('UPDATE google_link_challenges SET issuer=$2 WHERE id=$1', [
+        f.body.challengeId,
+        'untrusted-issuer',
+      ])
+      await expect(readGoogleLinkChallenge(f.token)).rejects.toMatchObject({
+        statusCode: 400,
+      })
+      await expect(confirmGoogleLink(f.token, f.body, {})).rejects.toMatchObject({
+        statusCode: 400,
+      })
+      expect(await identityCount(f.id)).toBe(0)
+    })
     it('requires consent and browser proof; keeps the original account and password', async () => {
       const f = await fixture()
       expect(await identityCount(f.id)).toBe(0)
@@ -250,27 +331,30 @@ suite(
       ).rejects.toMatchObject({ statusCode: 403 })
       expect(await identityCount(f.id)).toBe(0)
     })
-    it('never reassigns a subject that was linked to another account while consent was pending', async () => {
-      const f = await fixture()
-      const g = await fixture()
-      await runWithRole(role, () =>
-        prisma.identity.create({
-          data: {
-            userId: g.id,
-            provider: 'google',
-            providerSubject: f.profile.providerSubject,
-            providerIssuer: f.profile.providerIssuer,
-            email: g.email,
-            emailVerified: true,
-          },
-        }),
-      )
-      await expect(confirmGoogleLink(f.token, f.body, {})).rejects.toMatchObject({
-        statusCode: 409,
-      })
-      expect(await identityCount(f.id)).toBe(0)
-      expect(await identityCount(g.id)).toBe(1)
-    })
+    it.each(['accounts.google.com', 'https://accounts.google.com'])(
+      'never reassigns a subject linked to another owner under %s',
+      async (issuer) => {
+        const f = await fixture()
+        const g = await fixture()
+        await runWithRole(role, () =>
+          prisma.identity.create({
+            data: {
+              userId: g.id,
+              provider: 'google',
+              providerSubject: f.profile.providerSubject,
+              providerIssuer: issuer,
+              email: g.email,
+              emailVerified: true,
+            },
+          }),
+        )
+        await expect(confirmGoogleLink(f.token, f.body, {})).rejects.toMatchObject({
+          statusCode: 409,
+        })
+        expect(await identityCount(f.id)).toBe(0)
+        expect(await identityCount(g.id)).toBe(1)
+      },
+    )
     it('rolls back identity creation if challenge consumption fails', async () => {
       const f = await fixture()
       const trigger = `link_failure_${process.pid}`
