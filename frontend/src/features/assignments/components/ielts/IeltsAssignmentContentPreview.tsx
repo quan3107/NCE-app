@@ -68,9 +68,7 @@ export function IeltsAssignmentContentPreview({
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                {value.attempts.maxAttempts === null
-                  ? 'Unlimited attempts'
-                  : `${value.attempts.maxAttempts} attempts`}
+                Replacements allowed until 24 hours after the submission deadline.
               </p>
             </CardContent>
           </Card>
