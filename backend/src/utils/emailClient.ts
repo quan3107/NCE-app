@@ -13,6 +13,9 @@ type EmailPayload = {
   bodyText: string;
 };
 
+// A rejected HTTP request is retryable; a lost response may already have delivered mail.
+export class EmailDeliveryUncertainError extends Error {}
+
 export async function sendNotificationEmail(
   payload: EmailPayload,
 ): Promise<void> {
@@ -39,9 +42,14 @@ export async function sendNotificationEmail(
       accept: "application/json",
     },
     body: JSON.stringify(body),
+  }).catch(() => {
+    throw new EmailDeliveryUncertainError("Email provider response unavailable");
   });
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      throw new EmailDeliveryUncertainError("Email provider outcome uncertain");
+    }
     const errorBody = await response.text();
     logger.error(
       {
@@ -59,6 +67,6 @@ export async function sendNotificationEmail(
       to: payload.to,
       subject: payload.subject,
     },
-    "Brevo email delivered",
+    "Brevo email accepted",
   );
 }
