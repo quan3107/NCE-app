@@ -5,6 +5,10 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('../../../src/jobs/deadlineReminders.js', () => ({
+  isReminderEligible: vi.fn().mockResolvedValue(true),
+}))
+
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
     notification: {
@@ -34,9 +38,9 @@ const {
 const notificationWithRecoveryMetadata = {
   id: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
   userId: '8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3',
-  type: 'due_soon',
+  type: 'graded',
   payload: { title: 'Due soon' },
-  channel: 'email',
+  channel: 'inapp',
   status: 'dead_letter',
   sentAt: null,
   readAt: null,
@@ -89,7 +93,7 @@ describe('notifications.service', () => {
     expect(result.data[0]).toMatchObject({
       id: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
       userId: '8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3',
-      type: 'due_soon',
+      type: 'graded',
       status: 'dead_letter',
     })
     expectNoRecoveryMetadata(result.data[0] as Record<string, unknown>)
@@ -109,7 +113,7 @@ describe('notifications.service', () => {
     expect(result).toMatchObject({
       id: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
       userId: '8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3',
-      type: 'due_soon',
+      type: 'graded',
       status: 'dead_letter',
     })
     expectNoRecoveryMetadata(result as Record<string, unknown>)
@@ -127,15 +131,15 @@ describe('notifications.service', () => {
 
     const result = await createNotification({
       userId: '8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3',
-      template: 'due_soon',
-      channel: 'email',
+      template: 'graded',
+      channel: 'inapp',
       payload: { title: 'Due soon' },
     })
 
     expect(result).toMatchObject({
       id: '7f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c2',
       userId: '8f6c9f72-1e95-4f36-8f06-0f0a9ed0b1c3',
-      type: 'due_soon',
+      type: 'graded',
       status: 'queued',
     })
     expectNoRecoveryMetadata(result as Record<string, unknown>)
