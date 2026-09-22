@@ -264,34 +264,34 @@ export async function createSubmission(
     status,
     payload: payloadJson,
   })
-  if (!changed) return submission
-  await writeSubmissionAuditLog({
-    actorId: user.id,
-    action: previous
-      ? previous.status === 'draft' && submission.status !== 'draft'
-        ? 'submission.submitted'
-        : 'submission.updated'
-      : 'submission.created',
-    assignmentId,
-    courseId: assignment.courseId,
-    studentId: user.id,
-    submissionId: submission.id,
-    statusBefore: previous?.status ?? null,
-    statusAfter: submission.status,
-    submittedAtBefore: previous?.submittedAt,
-    submittedAtAfter: submission.submittedAt,
-    payloadBefore: previous?.payload,
-    payloadAfter: submission.payload,
-  })
+  if (changed)
+    await writeSubmissionAuditLog({
+      actorId: user.id,
+      action: previous
+        ? previous.status === 'draft' && submission.status !== 'draft'
+          ? 'submission.submitted'
+          : 'submission.updated'
+        : 'submission.created',
+      assignmentId,
+      courseId: assignment.courseId,
+      studentId: user.id,
+      submissionId: submission.id,
+      statusBefore: previous?.status ?? null,
+      statusAfter: submission.status,
+      submittedAtBefore: previous?.submittedAt,
+      submittedAtAfter: submission.submittedAt,
+      payloadBefore: previous?.payload,
+      payloadAfter: submission.payload,
+    })
   if (
-    (submission.status === 'submitted' || submission.status === 'late') &&
+    submission.status !== 'draft' &&
     (assignment.type === 'reading' || assignment.type === 'listening')
   ) {
     await autoScoreSubmission(submission.id)
   }
   await enqueueWritingFeedbackAfterSubmission({
     assignment,
-    status: submission.status,
+    status: submission.status === 'graded' ? 'submitted' : submission.status,
     studentId: user.id,
     submissionId: submission.id,
   })
