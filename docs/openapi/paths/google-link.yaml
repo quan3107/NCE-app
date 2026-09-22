@@ -1,0 +1,70 @@
+# Location: OpenAPI Google linking endpoints.
+# Purpose: Document password-confirmed, single-use linking without automatic login.
+# Why: Email matching is insufficient proof of ownership.
+Link:
+  get:
+    tags: [auth]
+    summary: Inspect the browser's pending Google link
+    description: Requires the five-minute HttpOnly googleLinkToken cookie set by a verified Google callback. Response is never cached. The challenge ID is an additional CSRF proof for mutations.
+    security: []
+    responses:
+      "200":
+        description: Pending challenge
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeId, email, expiresAt]
+              properties:
+                challengeId: { type: string, format: uuid }
+                email: { type: string, format: email }
+                expiresAt: { type: string, format: date-time }
+      "400": { description: "Missing, invalid, used, or expired challenge" }
+      "403": { description: Account is not active }
+      "429": { description: Authentication rate limit exceeded }
+  post:
+    tags: [auth]
+    summary: Consent to linking Google after verifying the existing password
+    description: Requires the same HttpOnly cookie and challenge ID. Atomically links the verified Google identity to the unchanged active password account and consumes the challenge. Does not issue a session; sign in with Google or password afterward. Incorrect passwords leave identities unlinked and share password-login rate limits. A new Google attempt replaces any earlier challenge for this account.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [challengeId, consent, password]
+            properties:
+              challengeId: { type: string, format: uuid }
+              consent: { type: boolean, enum: [true] }
+              password: { type: string, minLength: 1, maxLength: 1024 }
+    responses:
+      "204": { description: Linked and challenge consumed; no session issued }
+      "400":
+        {
+          description: "Invalid consent, changed account, or invalid/expired/replayed challenge",
+        }
+      "401": { description: Incorrect password; no link created }
+      "403": { description: Account is not active }
+      "409": { description: Identity conflicts; nothing reassigned }
+      "429": { description: Authentication rate limit exceeded }
+Cancel:
+  post:
+    tags: [auth]
+    summary: Cancel a pending link without linking identities
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [challengeId]
+            properties:
+              challengeId: { type: string, format: uuid }
+    responses:
+      "204": { description: Challenge removed and cookie cleared }
+      "400": { description: Invalid or already consumed challenge/cookie }
+      "429": { description: Authentication rate limit exceeded }
