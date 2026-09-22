@@ -59,6 +59,7 @@ model GoogleLinkChallenge {
   email String @db.Citext
   passwordFingerprint String @map("password_fingerprint")
   expiresAt DateTime @map("expires_at") @db.Timestamptz
+  @@index([userId])
   @@index([expiresAt])
   @@map("google_link_challenges")
 }
