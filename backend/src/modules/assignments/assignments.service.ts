@@ -29,6 +29,8 @@ import {
 } from './assignments.schema.js'
 import { validateWritingRubrics } from './assignments.helpers.js'
 import { assignmentForStudent } from './assignments.student-content.js'
+import { collectionPage, collectionPageQuerySchema } from '../../utils/collectionPage.js'
+import { courseAssignmentAccessWhere } from '../courses/courses.shared.js'
 import { parseAssignmentConfigForType } from './ielts.schema.js'
 import { buildAssignmentUpdateData } from './assignments.update.js'
 
@@ -62,6 +64,36 @@ export async function listAssignments(params: unknown, actor: CourseManager) {
       : {}),
   })
   return actor.role === UserRole.student ? assignments.map(assignmentForStudent) : assignments
+}
+
+export async function listAccessibleAssignments(query: unknown, actor: CourseManager) {
+  const { cursor, limit } = collectionPageQuerySchema.parse(query)
+  const assignments = await prisma.assignment.findMany({
+    where: {
+      deletedAt: null,
+      course: courseAssignmentAccessWhere(actor, 'read'),
+      ...(actor.role === UserRole.student ? { publishedAt: { not: null } } : {}),
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    ...(actor.role === UserRole.student
+      ? { include: {
+          submissions: {
+            where: { studentId: actor.id, deletedAt: null },
+            select: { id: true, status: true, grade: { select: { gradedAt: true } } },
+            take: 1,
+          },
+        } }
+      : {}),
+  })
+  const page = collectionPage(assignments, limit)
+  return {
+    ...page,
+    items: actor.role === UserRole.student
+      ? page.items.map(assignmentForStudent)
+      : page.items,
+  }
 }
 
 /**

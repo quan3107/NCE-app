@@ -13,6 +13,8 @@ and
 
 ## Backend
 
+- **2026-09-23:** Added role-scoped, 100-row cursor pages for accessible assignments and submissions, preserving learner answer/sample filtering and speaking recording metadata. All 1,108 backend tests pass (86 environment-gated skips), plus lint, build, and OpenAPI validation. Browser verification used controlled local API fixtures because the configured database is hosted.
+
 - **2026-09-22:** Fixed Google issuer compatibility for existing identities and linking proofs: normalize only Google's two trusted spellings, canonicalize new writes, and check both aliases for email conflicts. Both-direction regressions, untrusted issuer/ownership denials, 1,100 backend tests, 22 PostgreSQL linking tests, lint, and build pass. Fresh real Google OAuth verified legacy stored-issuer login. Evidence: `docs/e2e-google-account-linking-verification.md`.
 
 - **2026-09-22:** Implemented DG-03 password-confirmed Google linking with expiring browser-bound proofs, atomic consumption, shared password rate limits, and account/identity conflict checks. Real Google OAuth plus Browser/API/PostgreSQL verified linking, data preservation, both login methods, cancellation, incorrect password, expiry, status denial, and conflicts. Backend checks and 29 database auth tests pass; 84 migrations, schema governance, and OpenAPI pass. Evidence: `docs/e2e-google-account-linking-verification.md`.
@@ -254,6 +256,8 @@ and
 - **Archived milestone:** PR-40 introduced the NCE content schema and `seed:nce-content`; full details remain in the backend archive.
 
 ## Frontend
+
+- **2026-09-23:** Replaced per-course assignment and per-assignment submission requests with paged collection reads and actor-scoped query keys. A local @Browser fixture rendered 120 assignments and submissions across three courses using two requests per collection; the assignment list retained all 120. Updated the classroom workflow fixture for the new endpoints; both mocked browser tests pass. All 271 frontend unit and 269 component tests pass, plus lint, typecheck, and build.
 
 - **2026-09-22:** Reverified the existing linking dialog and success flow with real Google OAuth after the issuer compatibility fix. Google and password sign-in both reached the original disposable account's dashboard; screenshots inspected. No frontend source changes. Live provider emitted the HTTPS issuer; reverse incoming spelling is covered deterministically.
 

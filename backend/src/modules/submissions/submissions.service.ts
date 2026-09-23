@@ -34,6 +34,9 @@ import { applyIeltsTimingRules, parseSubmittedAt } from './submissions.timing.js
 import { assertSubmittedIeltsPayloadHasContent } from './submissions.ielts-content.js'
 import { persistSubmission } from './submissions.persistence.js'
 import { getOwnedCompletedSubmissionFiles } from '../files/files.service.js'
+import { collectionPage, collectionPageQuerySchema } from '../../utils/collectionPage.js'
+import { courseAssignmentAccessWhere } from '../courses/courses.shared.js'
+import type { CourseManager } from '../courses/courses.types.js'
 
 type SubmissionAssignmentForAiFeedback = {
   type: string
@@ -175,6 +178,26 @@ export async function listSubmissions(
     take: limit,
     skip: offset,
   })
+}
+
+export async function listAccessibleSubmissions(query: unknown, actor: CourseManager) {
+  const { cursor, limit } = collectionPageQuerySchema.parse(query)
+  const isStudent = actor.role === UserRole.student
+  const submissions = await prisma.submission.findMany({
+    where: {
+      deletedAt: null,
+      ...(isStudent ? { studentId: actor.id } : {}),
+      assignment: {
+        deletedAt: null,
+        ...(isStudent ? { publishedAt: { not: null } } : {}),
+        course: courseAssignmentAccessWhere(actor, 'read'),
+      },
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  })
+  return collectionPage(submissions, limit)
 }
 
 export async function createSubmission(

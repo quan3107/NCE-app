@@ -2,6 +2,51 @@
 # Purpose: Define assignment OpenAPI path items.
 # Why: Documents course-scoped assignment endpoints.
 
+AccessibleAssignments:
+  get:
+    tags: [assignments]
+    summary: Page through assignments visible to the authenticated user
+    description: Students receive only published assignments from enrolled courses with private answer keys and unreleased samples removed. Teachers receive assignments in owned or actively co-taught courses; admins receive assignments in active courses.
+    parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+        description: Last assignment ID from the previous page.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 100
+    responses:
+      '200':
+        description: Bounded assignment page
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, nextCursor]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../schemas/assignments.yaml#/Assignment'
+                nextCursor:
+                  type: string
+                  format: uuid
+                  nullable: true
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
 CourseAssignments:
   get:
     tags: [assignments]

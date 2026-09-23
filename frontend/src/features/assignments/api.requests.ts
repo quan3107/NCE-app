@@ -20,21 +20,29 @@ export const fetchAssignment = (courseId: string, assignmentId: string): Promise
     auth: 'required',
   });
 
-export const fetchAssignments = async (courseIds: string[]): Promise<ApiAssignment[]> => {
-  if (courseIds.length === 0) {
-    return [];
-  }
+type CollectionPage<T> = { items: T[]; nextCursor: string | null };
 
-  const results = await Promise.all(
-    courseIds.map(courseId =>
-      apiClient<ApiAssignment[]>(`/api/v1/courses/${courseId}/assignments`, {
-        auth: 'required',
-      }),
-    ),
-  );
+async function fetchCollection<T>(path: string): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | null = null;
 
-  return results.flat();
-};
+  do {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    const page: CollectionPage<T> = await apiClient<CollectionPage<T>>(`${path}${query}`, {
+      auth: 'required',
+    });
+    items.push(...page.items);
+    if (page.nextCursor === cursor && cursor !== null) {
+      throw new Error('Collection pagination did not advance.');
+    }
+    cursor = page.nextCursor;
+  } while (cursor);
+
+  return items;
+}
+
+export const fetchAssignments = (): Promise<ApiAssignment[]> =>
+  fetchCollection<ApiAssignment>('/api/v1/assignments/accessible');
 
 export const createAssignment = async (
   courseId: string,
@@ -65,21 +73,8 @@ export const updateAssignment = async (
   );
 };
 
-export const fetchSubmissions = async (assignmentIds: string[]): Promise<ApiSubmission[]> => {
-  if (assignmentIds.length === 0) {
-    return [];
-  }
-
-  const results = await Promise.all(
-    assignmentIds.map(assignmentId =>
-      apiClient<ApiSubmission[]>(`/api/v1/assignments/${assignmentId}/submissions`, {
-        auth: 'required',
-      }),
-    ),
-  );
-
-  return results.flat();
-};
+export const fetchSubmissions = (): Promise<ApiSubmission[]> =>
+  fetchCollection<ApiSubmission>('/api/v1/submissions/accessible');
 
 export const createSubmission = async (
   assignmentId: string,

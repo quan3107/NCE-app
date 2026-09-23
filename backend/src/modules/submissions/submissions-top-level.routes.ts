@@ -19,11 +19,17 @@ import {
   postWritingFeedbackRegeneration,
   postWritingFeedbackRejection,
 } from "../ai-feedback/ai-feedback.controller.js";
-import { getUngradedSubmissionsCount } from "./submissions.controller.js";
+import { getAccessibleSubmissions, getUngradedSubmissionsCount } from "./submissions.controller.js";
 
 export const submissionsTopLevelRouter = Router();
 
 submissionsTopLevelRouter.use(authGuard);
+
+submissionsTopLevelRouter.get(
+  '/accessible',
+  roleGuard([UserRole.admin, UserRole.teacher, UserRole.student]),
+  getAccessibleSubmissions,
+);
 
 /**
  * GET /api/v1/submissions/pending-count

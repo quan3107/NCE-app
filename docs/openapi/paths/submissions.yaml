@@ -2,6 +2,57 @@
 # Purpose: Define submission OpenAPI path items.
 # Why: Documents submission endpoints scoped to assignments.
 
+AccessibleSubmissions:
+  get:
+    tags: [submissions]
+    summary: Page through submissions visible to the authenticated user
+    description: Students receive only their own submissions for published assignments in enrolled courses. Teachers receive submissions in owned or actively co-taught courses; admins receive submissions in active courses. Private revision history is omitted.
+    parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+        description: Last submission ID from the previous page.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 100
+    responses:
+      '200':
+        description: Bounded submission page
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, nextCursor]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../schemas/submissions.yaml#/Submission'
+                nextCursor:
+                  type: string
+                  format: uuid
+                  nullable: true
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+      '403':
+        description: Forbidden
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/ErrorResponse'
+    security:
+      - BearerAuth: []
+
 AssignmentSubmissions:
   get:
     tags: [submissions]
