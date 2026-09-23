@@ -129,6 +129,18 @@ export async function installClassroomApi(page: Page): Promise<ClassroomApiState
     if (path === `/courses/${courseId}/rubrics` && method === 'GET') {
       return fulfillJson(route, []);
     }
+    if (path === '/assignments/accessible' && method === 'GET') {
+      const items = api.activeUser.role === 'student'
+        ? api.assignments.filter((assignment) => assignment.publishedAt !== null)
+        : api.assignments;
+      return fulfillJson(route, { items, nextCursor: null });
+    }
+    if (path === '/submissions/accessible' && method === 'GET') {
+      const items = api.activeUser.role === 'student'
+        ? api.submissions.filter((submission) => submission.studentId === api.activeUser.id)
+        : api.submissions;
+      return fulfillJson(route, { items, nextCursor: null });
+    }
     if (path === `/courses/${courseId}/assignments` && method === 'GET') {
       return fulfillJson(route, api.assignments);
     }

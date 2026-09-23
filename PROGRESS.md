@@ -257,7 +257,7 @@ and
 
 ## Frontend
 
-- **2026-09-23:** Replaced per-course assignment and per-assignment submission requests with paged collection reads and actor-scoped query keys. A local @Browser fixture rendered 120 assignments and submissions across three courses using two requests per collection; the assignment list retained all 120. All 271 frontend unit and 269 component tests pass, plus lint, typecheck, and build.
+- **2026-09-23:** Replaced per-course assignment and per-assignment submission requests with paged collection reads and actor-scoped query keys. A local @Browser fixture rendered 120 assignments and submissions across three courses using two requests per collection; the assignment list retained all 120. Updated the classroom workflow fixture for the new endpoints; both mocked browser tests pass. All 271 frontend unit and 269 component tests pass, plus lint, typecheck, and build.
 
 - **2026-09-22:** Reverified the existing linking dialog and success flow with real Google OAuth after the issuer compatibility fix. Google and password sign-in both reached the original disposable account's dashboard; screenshots inspected. No frontend source changes. Live provider emitted the HTTPS issuer; reverse incoming spelling is covered deterministically.
 
