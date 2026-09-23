@@ -28,19 +28,19 @@ import type {
 } from './api.types';
 import { ASSIGNMENTS_KEY, ENROLLMENTS_KEY, SUBMISSIONS_KEY } from './api.types';
 
-function useAssignmentsQuery(courseIds: string[], enabled: boolean) {
+function useAssignmentsQuery(userId: string, role: string, enabled: boolean) {
   return useQuery({
-    queryKey: [ASSIGNMENTS_KEY, ...courseIds],
-    queryFn: () => fetchAssignments(courseIds),
-    enabled: enabled && courseIds.length > 0,
+    queryKey: [ASSIGNMENTS_KEY, userId, role],
+    queryFn: fetchAssignments,
+    enabled,
   });
 }
 
-function useSubmissionsQuery(assignmentIds: string[], enabled: boolean) {
+function useSubmissionsQuery(userId: string, role: string, enabled: boolean) {
   return useQuery({
-    queryKey: [SUBMISSIONS_KEY, ...assignmentIds],
-    queryFn: () => fetchSubmissions(assignmentIds),
-    enabled: enabled && assignmentIds.length > 0,
+    queryKey: [SUBMISSIONS_KEY, userId, role],
+    queryFn: fetchSubmissions,
+    enabled,
   });
 }
 
@@ -120,13 +120,8 @@ export function useAssignmentResources() {
     return new Map(courses.map(course => [course.id, course.title]));
   }, [coursesQuery.data]);
 
-  const courseIds = useMemo(
-    () => (coursesQuery.data ? coursesQuery.data.map(course => course.id) : []),
-    [coursesQuery.data],
-  );
-
   const isAuthenticated = currentUser.role !== 'public' && currentUser.id.length > 0;
-  const assignmentsQuery = useAssignmentsQuery(courseIds, isAuthenticated);
+  const assignmentsQuery = useAssignmentsQuery(currentUser.id, currentUser.role, isAuthenticated);
   const assignments = useMemo(() => {
     const data = assignmentsQuery.data ?? [];
     return data.map(assignment =>
@@ -134,17 +129,12 @@ export function useAssignmentResources() {
     );
   }, [assignmentsQuery.data, courseMap]);
 
-  const assignmentIds = useMemo(
-    () => (assignmentsQuery.data ? assignmentsQuery.data.map(item => item.id) : []),
-    [assignmentsQuery.data],
-  );
-
   // Submissions list supports students (scoped to their own submissions) and staff.
   const canViewSubmissions =
     currentUser.role === 'admin' ||
     currentUser.role === 'teacher' ||
     currentUser.role === 'student';
-  const submissionsQuery = useSubmissionsQuery(assignmentIds, canViewSubmissions);
+  const submissionsQuery = useSubmissionsQuery(currentUser.id, currentUser.role, canViewSubmissions && isAuthenticated);
   const submissions = useMemo(
     () => (submissionsQuery.data ?? []).map(toSubmission),
     [submissionsQuery.data],

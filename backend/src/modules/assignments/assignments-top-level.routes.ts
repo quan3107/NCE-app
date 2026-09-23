@@ -8,11 +8,13 @@ import { Router } from "express";
 
 import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
-import { getPendingAssignmentsCount } from "./assignments.controller.js";
+import { getAccessibleAssignments, getPendingAssignmentsCount } from "./assignments.controller.js";
 
 export const assignmentsTopLevelRouter = Router();
 
 assignmentsTopLevelRouter.use(authGuard);
+
+assignmentsTopLevelRouter.get('/accessible', getAccessibleAssignments);
 
 /**
  * GET /api/v1/assignments/pending-count

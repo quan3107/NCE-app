@@ -13,6 +13,7 @@ import {
   deleteAssignment,
   getAssignment,
   listAssignments,
+  listAccessibleAssignments,
   updateAssignment,
   getPendingAssignmentsCount as getPendingAssignmentsCountService,
 } from './assignments.service.js'
@@ -32,6 +33,10 @@ function getAuthenticatedActor(req: Request): CourseManager {
 export async function getAssignments(req: Request, res: Response): Promise<void> {
   const assignments = await listAssignments(req.params, getAuthenticatedActor(req))
   res.status(200).json(assignments)
+}
+
+export async function getAccessibleAssignments(req: Request, res: Response): Promise<void> {
+  res.status(200).json(await listAccessibleAssignments(req.query, getAuthenticatedActor(req)))
 }
 
 export async function getAssignmentById(req: Request, res: Response): Promise<void> {

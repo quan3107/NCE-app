@@ -4,7 +4,7 @@
  * Why: Ensures valid payloads persist once assignment types are verified.
  */
 import { describe, expect, it, beforeEach, vi } from 'vitest'
-import type { Assignment, Submission } from '../../../src/prisma/index.js'
+import { UserRole, type Assignment, type Submission } from '../../../src/prisma/index.js'
 
 vi.mock('../../../src/prisma/client.js', () => ({
   prisma: {
@@ -59,7 +59,7 @@ const auditLogsModule =
   await import('../../../src/modules/audit-logs/audit-logs.service.js')
 const writeAuditLogSafely = vi.mocked(auditLogsModule.writeAuditLogSafely, true)
 
-const { createSubmission, listSubmissions } =
+const { createSubmission, listSubmissions, listAccessibleSubmissions } =
   await import('../../../src/modules/submissions/submissions.service.js')
 const { createSubmissionSchema } =
   await import('../../../src/modules/submissions/submissions.schema.js')
@@ -385,6 +385,59 @@ describe('submissions.service.createSubmission', () => {
         }),
       }),
     )
+  })
+
+  it('pages only the student’s submissions in enrolled published courses', async () => {
+    prisma.submission.findMany.mockResolvedValueOnce([
+      { id: assignmentId, payload: {} },
+      { id: studentId, payload: {} },
+    ] as never)
+
+    const page = await listAccessibleSubmissions({ limit: '1' }, {
+      id: studentId,
+      role: UserRole.student,
+    })
+
+    expect(prisma.submission.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        deletedAt: null,
+        studentId,
+        assignment: {
+          deletedAt: null,
+          publishedAt: { not: null },
+          course: {
+            deletedAt: null,
+            enrollments: { some: { userId: studentId, roleInCourse: 'student', deletedAt: null } },
+          },
+        },
+      },
+      take: 2,
+    }))
+    expect(page.items).toHaveLength(1)
+    expect(page.nextCursor).toBe(assignmentId)
+  })
+
+  it('scopes staff collection reads to owned or co-taught courses', async () => {
+    const teacherId = '8dcb332c-ef1d-47ab-bd98-63f04c90fb75'
+    prisma.submission.findMany.mockResolvedValueOnce([])
+
+    await listAccessibleSubmissions({}, { id: teacherId, role: UserRole.teacher })
+
+    expect(prisma.submission.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        deletedAt: null,
+        assignment: {
+          deletedAt: null,
+          course: {
+            deletedAt: null,
+            OR: [
+              { ownerId: teacherId },
+              { enrollments: { some: { userId: teacherId, roleInCourse: 'teacher', deletedAt: null } } },
+            ],
+          },
+        },
+      },
+    }))
   })
 
   it('rejects client-supplied student identity fields', () => {

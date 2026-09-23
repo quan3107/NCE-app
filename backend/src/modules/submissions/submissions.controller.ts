@@ -6,15 +6,23 @@
 import { type Request, type Response } from "express";
 import { prisma } from "../../config/prismaClient.js";
 import { recordLearningActivity } from "../analytics/learning-activity.js";
+import { createHttpError } from '../../utils/httpError.js';
 
 import {
   createSubmission,
   getSubmissionById,
   listSubmissions,
+  listAccessibleSubmissions,
   getUngradedSubmissionsCount as getUngradedSubmissionsCountService,
 } from "./submissions.service.js";
 import { createSubmissionSchema } from "./submissions.schema.js";
 import { withRecordingMetadata } from "./submissions.recording-metadata.js";
+
+export async function getAccessibleSubmissions(req: Request, res: Response): Promise<void> {
+  if (!req.user) throw createHttpError(401, 'Unauthorized');
+  const page = await listAccessibleSubmissions(req.query, req.user);
+  res.status(200).json({ ...page, items: await withRecordingMetadata(page.items) });
+}
 
 export async function getSubmissions(
   req: Request,

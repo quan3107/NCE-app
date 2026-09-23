@@ -31,6 +31,7 @@ const {
   deleteAssignment,
   getAssignment,
   listAssignments,
+  listAccessibleAssignments,
   updateAssignment,
 } = await import('../../../src/modules/assignments/assignments.service.js')
 
@@ -123,6 +124,41 @@ describe('assignments.service course authorization', () => {
         },
       }),
     )
+  })
+
+  it('pages student-visible assignments across courses without exposing private answers', async () => {
+    prisma.assignment.findMany.mockResolvedValueOnce([
+      { id: assignmentId, type: 'listening', assignmentConfig: { answer: 'private' }, submissions: [] },
+      { id: courseId, type: 'text', assignmentConfig: null, submissions: [] },
+    ] as never)
+
+    const page = await listAccessibleAssignments({ limit: '1' }, student)
+
+    expect(prisma.assignment.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        deletedAt: null,
+        publishedAt: { not: null },
+        course: studentCourseFilter,
+      },
+      take: 2,
+    }))
+    expect(page.items).toHaveLength(1)
+    expect(JSON.stringify(page.items)).not.toContain('private')
+    expect(page.nextCursor).toBe(assignmentId)
+  })
+
+  it('uses owner and co-teacher scope on the next collection page', async () => {
+    prisma.assignment.findMany.mockResolvedValueOnce([])
+
+    await listAccessibleAssignments({ cursor: assignmentId, limit: '25' }, coTeacher)
+
+    expect(prisma.assignment.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { deletedAt: null, course: teacherCourseFilter(coTeacher.id) },
+      cursor: { id: assignmentId },
+      skip: 1,
+      take: 26,
+    }))
+    await expect(listAccessibleAssignments({ limit: '101' }, coTeacher)).rejects.toThrow()
   })
 
   it('lists assignments for a co-teacher enrolled in the course', async () => {

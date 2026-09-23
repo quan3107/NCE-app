@@ -122,6 +122,8 @@ paths:
 
   /api/v1/assignments/pending-count:
     $ref: './paths/assignments.yaml#/PendingAssignmentsCount'
+  /api/v1/assignments/accessible:
+    $ref: './paths/assignments.yaml#/AccessibleAssignments'
 
   /api/v1/submissions/pending-count:
     $ref: './paths/submissions.yaml#/PendingSubmissionsCount'
@@ -221,6 +223,8 @@ paths:
 
   /api/v1/assignments/{assignmentId}/submissions:
     $ref: './paths/submissions.yaml#/AssignmentSubmissions'
+  /api/v1/submissions/accessible:
+    $ref: './paths/submissions.yaml#/AccessibleSubmissions'
   /api/v1/assignments/{assignmentId}/submissions/{submissionId}:
     $ref: './paths/submissions.yaml#/AssignmentSubmissionById'
 
