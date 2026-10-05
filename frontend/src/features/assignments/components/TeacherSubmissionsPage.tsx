@@ -11,15 +11,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
 import { formatDate } from '@lib/utils';
-import { useAssignmentResources } from '@features/assignments/api';
+import { useStaffPage, STAFF_SUBMISSIONS_KEY, type SubmissionSummary } from '../staff-api';
+import { StaffPagination } from './StaffPagination';
 
 export function TeacherSubmissionsPage() {
   const { navigate } = useRouter();
-  const { submissions, assignments, isLoading, error } = useAssignmentResources();
-
-  const reviewSubmissions = submissions.filter(
-    submission => submission.status === 'submitted' || submission.status === 'late',
-  );
+  const query = useStaffPage<SubmissionSummary>('/submissions/summaries', STAFF_SUBMISSIONS_KEY);
+  const { isLoading, error } = query;
+  const reviewSubmissions = query.data?.items ?? [];
 
   return (
     <div>
@@ -52,7 +51,6 @@ export function TeacherSubmissionsPage() {
                     </TableCell></TableRow>
                   )}
                   {reviewSubmissions.map(submission => {
-                    const assignment = assignments.find(a => a.id === submission.assignmentId);
                     return (
                       <TableRow
                         key={submission.id}
@@ -60,7 +58,7 @@ export function TeacherSubmissionsPage() {
                         onClick={() => navigate(`/teacher/grade/${submission.id}`)}
                       >
                         <TableCell className="font-medium">{submission.studentName}</TableCell>
-                        <TableCell>{assignment?.title}</TableCell>
+                        <TableCell>{submission.assignmentTitle}</TableCell>
                         <TableCell>{formatDate(new Date(submission.submittedAt!), 'datetime')}</TableCell>
                         <TableCell>
                           <Badge
@@ -89,6 +87,7 @@ export function TeacherSubmissionsPage() {
             )}
           </CardContent>
         </Card>
+        <StaffPagination {...query} total={query.data?.total} hasNext={Boolean(query.data?.nextCursor)} busy={query.isFetching} />
       </div>
     </div>
   );
