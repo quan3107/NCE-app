@@ -5,6 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { ApiError, apiClient } from '@lib/apiClient';
 import type {
   IeltsAssignmentTypeRecord as IeltsAssignmentType,
@@ -146,7 +147,7 @@ export function useEnabledAssignmentTypes() {
 export function useEnabledReadingQuestionTypes() {
   const { data, ...rest } = useIeltsConfig();
   
-  const enabledTypes = data?.question_types.reading.filter(qt => qt.enabled) ?? [];
+  const enabledTypes = useMemo(() => data?.question_types.reading.filter(qt => qt.enabled) ?? [], [data]);
   
   return {
     data: enabledTypes,
@@ -206,7 +207,7 @@ export function useEnabledSpeakingPartTypes() {
 export function useEnabledCompletionFormats() {
   const { data, ...rest } = useIeltsConfig();
   
-  const enabledFormats = data?.completion_formats.filter(cf => cf.enabled) ?? [];
+  const enabledFormats = useMemo(() => data?.completion_formats.filter(cf => cf.enabled) ?? [], [data]);
   
   return {
     data: enabledFormats,
