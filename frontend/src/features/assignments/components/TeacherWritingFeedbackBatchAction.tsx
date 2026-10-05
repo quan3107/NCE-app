@@ -19,7 +19,7 @@ import { toast } from 'sonner@2.0.3';
 
 type Props = {
   assignment: Assignment;
-  submissions: Submission[];
+  submissions: Array<Pick<Submission, 'id' | 'status' | 'studentName'>>;
 };
 
 type BatchSummary = {
@@ -46,7 +46,7 @@ const writingFeedbackEnabled = (assignment: Assignment): boolean => {
   );
 };
 
-const selectableSubmission = (submission: Submission): boolean =>
+const selectableSubmission = (submission: Pick<Submission, 'status'>): boolean =>
   ['submitted', 'late', 'graded'].includes(submission.status);
 
 const summarizeBatch = (response: WritingFeedbackBatchResponse): BatchSummary => {
