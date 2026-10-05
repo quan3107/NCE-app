@@ -1,0 +1,352 @@
+{
+  "rawEvidence": "/tmp/nce-x07-performance-20260926/profile-before",
+  "conditions": {
+    "cpuSlowdown": 4,
+    "latencyMs": 150,
+    "downloadBytesPerSecond": 200000,
+    "uploadBytesPerSecond": 93750
+  },
+  "results": [
+    {
+      "name": "upload-buffer",
+      "wallMs": 1544.074684000001,
+      "stages": [
+        {
+          "label": "file-read",
+          "start": 5716.9000000059605,
+          "duration": 89.20000000298023
+        },
+        {
+          "label": "sha256",
+          "start": 5806.100000008941,
+          "duration": 13.5
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 4701.70000000298,
+          "duration": 1039
+        }
+      ],
+      "topFrames": [
+        {
+          "function": "(program)",
+          "url": "",
+          "line": 0,
+          "selfMs": 867.003
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 7228,
+          "selfMs": 625.436
+        },
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": 0,
+          "selfMs": 210.327
+        },
+        {
+          "function": "(garbage collector)",
+          "url": "",
+          "line": 0,
+          "selfMs": 54.665
+        },
+        {
+          "function": "atob",
+          "url": "",
+          "line": 0,
+          "selfMs": 18.299
+        },
+        {
+          "function": "digest",
+          "url": "",
+          "line": 0,
+          "selfMs": 13.505
+        },
+        {
+          "function": "ce",
+          "url": "http://127.0.0.1:3018/assets/StudentAssignmentDetailPage-Dn9bQx3u.js",
+          "line": 1,
+          "selfMs": 6.606
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 7229,
+          "selfMs": 5.639
+        }
+      ]
+    },
+    {
+      "name": "upload-path",
+      "wallMs": 474.18523599999935,
+      "stages": [
+        {
+          "label": "file-read",
+          "start": 4742.899999991059,
+          "duration": 43.20000000298023
+        },
+        {
+          "label": "sha256",
+          "start": 4786.0999999940395,
+          "duration": 13.299999997019768
+        }
+      ],
+      "longTasks": [],
+      "topFrames": [
+        {
+          "function": "(program)",
+          "url": "",
+          "line": 0,
+          "selfMs": 574.758
+        },
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": 0,
+          "selfMs": 146.821
+        },
+        {
+          "function": "digest",
+          "url": "",
+          "line": 0,
+          "selfMs": 13.1
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 0,
+          "selfMs": 10.038
+        },
+        {
+          "function": "ce",
+          "url": "http://127.0.0.1:3018/assets/StudentAssignmentDetailPage-Dn9bQx3u.js",
+          "line": 1,
+          "selfMs": 4.775
+        },
+        {
+          "function": "(garbage collector)",
+          "url": "",
+          "line": 0,
+          "selfMs": 4.31
+        },
+        {
+          "function": "arrayBuffer",
+          "url": "",
+          "line": 0,
+          "selfMs": 3.921
+        },
+        {
+          "function": "evaluate",
+          "url": "",
+          "line": 296,
+          "selfMs": 3.464
+        }
+      ]
+    },
+    {
+      "name": "reading-type",
+      "wallMs": 4663.876724000002,
+      "stages": [],
+      "longTasks": [
+        {
+          "start": 40159.79999999702,
+          "duration": 161
+        },
+        {
+          "start": 40436.59999999404,
+          "duration": 182
+        },
+        {
+          "start": 40678.39999999106,
+          "duration": 134
+        },
+        {
+          "start": 40868.69999998808,
+          "duration": 233
+        },
+        {
+          "start": 41159.29999999702,
+          "duration": 208
+        },
+        {
+          "start": 41425,
+          "duration": 148
+        },
+        {
+          "start": 41630.79999999702,
+          "duration": 133
+        },
+        {
+          "start": 41820,
+          "duration": 155
+        },
+        {
+          "start": 42033.19999998808,
+          "duration": 200
+        },
+        {
+          "start": 42290.59999999404,
+          "duration": 133
+        },
+        {
+          "start": 42480.29999999702,
+          "duration": 207
+        },
+        {
+          "start": 42742.39999999106,
+          "duration": 125
+        },
+        {
+          "start": 42924.29999999702,
+          "duration": 191
+        },
+        {
+          "start": 43170.09999999404,
+          "duration": 123
+        },
+        {
+          "start": 43351,
+          "duration": 143
+        },
+        {
+          "start": 43549.59999999404,
+          "duration": 138
+        },
+        {
+          "start": 43744.29999999702,
+          "duration": 133
+        },
+        {
+          "start": 43933.79999999702,
+          "duration": 115
+        },
+        {
+          "start": 44104.39999999106,
+          "duration": 184
+        },
+        {
+          "start": 44344.79999999702,
+          "duration": 175
+        },
+        {
+          "start": 44577.09999999404,
+          "duration": 173
+        }
+      ],
+      "topFrames": [
+        {
+          "function": "(program)",
+          "url": "",
+          "line": 0,
+          "selfMs": 2329.013
+        },
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": 0,
+          "selfMs": 419.406
+        },
+        {
+          "function": "Nl",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 73.746
+        },
+        {
+          "function": "(garbage collector)",
+          "url": "",
+          "line": 0,
+          "selfMs": 54.78
+        },
+        {
+          "function": "Fo",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 6,
+          "selfMs": 54.117
+        },
+        {
+          "function": "pc",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 52.264
+        },
+        {
+          "function": "",
+          "url": "http://127.0.0.1:3018/assets/select-C06etNZ_.js",
+          "line": 1,
+          "selfMs": 42.104
+        },
+        {
+          "function": "lc",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 40.172
+        }
+      ]
+    },
+    {
+      "name": "reading-switch",
+      "wallMs": 532.8690519999946,
+      "stages": [],
+      "longTasks": [
+        {
+          "start": 45195.09999999404,
+          "duration": 374
+        }
+      ],
+      "topFrames": [
+        {
+          "function": "(program)",
+          "url": "",
+          "line": 0,
+          "selfMs": 395.906
+        },
+        {
+          "function": "set value",
+          "url": "",
+          "line": 0,
+          "selfMs": 55.123
+        },
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": 0,
+          "selfMs": 27.599
+        },
+        {
+          "function": "setAttribute",
+          "url": "",
+          "line": 0,
+          "selfMs": 22.29
+        },
+        {
+          "function": "(garbage collector)",
+          "url": "",
+          "line": 0,
+          "selfMs": 6.683
+        },
+        {
+          "function": "addEventListener",
+          "url": "",
+          "line": 0,
+          "selfMs": 6.128
+        },
+        {
+          "function": "pc",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 5.819
+        },
+        {
+          "function": "Ul",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 5.324
+        }
+      ]
+    }
+  ]
+}
