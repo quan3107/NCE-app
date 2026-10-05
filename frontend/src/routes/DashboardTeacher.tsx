@@ -13,7 +13,7 @@ import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
 import { formatDistanceToNow } from '@lib/utils';
 import { useTeacherAnalyticsQuery } from '@features/analytics/api';
-import { useAssignmentResources } from '@features/assignments/api';
+import { useStaffOverview } from '@features/assignments/staff-api';
 import { useCoursesQuery } from '@features/courses/api';
 import { DashboardStatsGrid } from '@features/dashboard-config/components/DashboardStatsGrid';
 import { DashboardWidgetEditor } from '@features/dashboard-config/components/DashboardWidgetEditor';
@@ -24,28 +24,25 @@ export function DashboardTeacherRoute() {
   const { navigate } = useRouter();
   const [isWidgetEditorOpen, setIsWidgetEditorOpen] = useState(false);
   const dashboardConfig = useDashboardConfig();
-  const { assignments, submissions, isLoading: assignmentsLoading, error: assignmentsError } =
-    useAssignmentResources();
+  const overview = useStaffOverview();
   const coursesQuery = useCoursesQuery();
   const analyticsQuery = useTeacherAnalyticsQuery();
 
   const isLoading =
-    assignmentsLoading ||
+    overview.isLoading ||
     coursesQuery.isLoading ||
     analyticsQuery.isLoading ||
     dashboardConfig.isLoading;
   const error =
-    assignmentsError ??
+    overview.error ??
     coursesQuery.error ??
     analyticsQuery.error ??
     dashboardConfig.error ??
     null;
 
-  const processedSubmissions = submissions.filter(
-    submission => submission.status === 'submitted' || submission.status === 'late',
-  );
+  const processedSubmissions = overview.data?.recentSubmissions ?? [];
 
-  const openSubmissions = processedSubmissions.length;
+  const openSubmissions = overview.data?.pendingSubmissions ?? 0;
   const avgTurnaround = analyticsQuery.data?.averageTurnaroundDays ?? null;
   const onTimeRate = analyticsQuery.data?.onTimeRate ?? null;
   const totalStudents = (coursesQuery.data ?? []).reduce(
@@ -53,7 +50,7 @@ export function DashboardTeacherRoute() {
     0,
   );
   const widgetMetrics = {
-    'teacher.assignments_active': assignments.filter((assignment) => assignment.status === 'published').length,
+    'teacher.assignments_active': overview.data?.activeAssignments ?? 0,
     'teacher.submissions_pending_grading': openSubmissions,
     'teacher.students_total': totalStudents,
     'teacher.submissions_on_time_rate': onTimeRate,
@@ -143,14 +140,13 @@ export function DashboardTeacherRoute() {
             <CardContent>
               <div className="space-y-3">
                 {processedSubmissions.slice(0, 3).map(submission => {
-                  const assignment = assignments.find(a => a.id === submission.assignmentId);
                   return (
                     <div key={submission.id} className="flex items-start gap-3 rounded-[8px] border bg-background/45 p-3">
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-[8px] bg-secondary text-primary">
                         <FileText className="size-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{assignment?.title}</p>
+                        <p className="font-medium truncate">{submission.assignmentTitle}</p>
                         <p className="text-sm text-muted-foreground">{submission.studentName}</p>
                         <Badge variant="secondary" className="text-xs mt-1">
                           {formatDistanceToNow(new Date(submission.submittedAt!), { addSuffix: true })}
