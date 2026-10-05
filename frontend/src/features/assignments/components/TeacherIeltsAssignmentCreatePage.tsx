@@ -16,7 +16,8 @@ import { useAutoSave } from '@lib/use-auto-save';
 import { useMutationLifetime } from '@lib/useMutationLifetime';
 import { createIeltsAssignmentConfig, type IeltsAssignmentConfig, type IeltsAssignmentType } from '@lib/ielts';
 import type { AssignmentType } from '@domain';
-import { useAssignmentResources, useCreateAssignmentMutation } from '@features/assignments/api';
+import { useCreateAssignmentMutation } from '@features/assignments/api';
+import { useCoursesQuery } from '@features/courses/api';
 import { IeltsTypeSelection } from './ielts/authoring/IeltsTypeSelection';
 import { GenericAssignmentTypeSelection, type GenericAssignmentType } from './GenericAssignmentTypeSelection';
 import { TeacherGenericAssignmentCreatePage } from './TeacherGenericAssignmentCreatePage';
@@ -35,7 +36,7 @@ import {
 
 export function TeacherIeltsAssignmentCreatePage() {
   const { navigate } = useRouter();
-  const { courses, isLoading, error, refetch } = useAssignmentResources();
+  const { data: courses = [], isLoading, error, refetch } = useCoursesQuery();
   const [isRetrying, setIsRetrying] = useState(false);
   const createAssignmentMutation = useCreateAssignmentMutation();
   const submitLock = useRef(false);
