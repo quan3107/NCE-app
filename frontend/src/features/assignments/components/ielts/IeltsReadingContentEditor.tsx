@@ -6,7 +6,7 @@
  *      maintaining the same two-column layout as the preview.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import type { IeltsReadingConfig, IeltsQuestion, IeltsReadingSection } from '@lib/ielts';
 import { groupQuestionsByType } from '@lib/ielts';
 import { useEnabledReadingQuestionTypes, useEnabledCompletionFormats } from '@features/ielts-config/api';
@@ -14,7 +14,7 @@ import { Textarea } from '@components/ui/textarea';
 import { Input } from '@components/ui/input';
 import { Button } from '@components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@components/ui/tabs';
-import { QuestionEditor } from './QuestionEditor';
+import { ReadingQuestionList } from './ReadingQuestionList';
 import { Plus, X, ChevronLeft, ChevronRight, Group } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
@@ -36,6 +36,8 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
 
   const { data: questionTypes, isLoading: isLoadingQuestionTypes, error: questionTypesError } = useEnabledReadingQuestionTypes();
   const { data: completionFormats, isLoading: isLoadingCompletionFormats, error: completionFormatsError } = useEnabledCompletionFormats();
+  const questionTypeOptions = useMemo(() => questionTypes?.map(qt => ({ value: qt.id, label: qt.label })) ?? [], [questionTypes]);
+  const completionFormatOptions = useMemo(() => completionFormats?.map(cf => ({ value: cf.id, label: cf.label })) ?? [], [completionFormats]);
 
   const ranges = useMemo(() => {
     let cursor = 1;
@@ -109,6 +111,12 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
     handleUpdateSection(sectionId, { questions: newQuestions });
   };
 
+  // Stable delegates read the latest committed draft, so memoized questions never overwrite passage edits.
+  const handlers = useRef({ update: handleUpdateQuestion, remove: handleDeleteQuestion });
+  useLayoutEffect(() => { handlers.current = { update: handleUpdateQuestion, remove: handleDeleteQuestion }; });
+  const updateQuestion = useCallback((sectionId: string, questionId: string, question: IeltsQuestion) => handlers.current.update(sectionId, questionId, question), []);
+  const removeQuestion = useCallback((sectionId: string, questionId: string) => handlers.current.remove(sectionId, questionId), []);
+
   const handleGroupByType = () => {
     if (!activeSection) return;
 
@@ -153,8 +161,6 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
     );
   }
 
-  const questionTypeOptions = questionTypes?.map(qt => ({ value: qt.id, label: qt.label })) ?? [];
-  const completionFormatOptions = completionFormats?.map(cf => ({ value: cf.id, label: cf.label })) ?? [];
 
   return (
     <div className="rounded-[14px] border bg-card overflow-hidden">
@@ -263,20 +269,10 @@ export function IeltsReadingContentEditor({ value, onChange }: IeltsReadingConte
 
               <div className="flex-1 overflow-y-auto p-6 lg:p-8 scrollbar-visible">
                 <div className="space-y-4">
-                  {activeSection.questions.map((question, index) => (
-                    <QuestionEditor
-                      key={question.id}
-                      question={question}
-                      questionNumber={activeRange?.start ? activeRange.start + index : index + 1}
-                      onChange={(updated) =>
-                        handleUpdateQuestion(activeSection.id, question.id, updated)
-                      }
-                      onDelete={() => handleDeleteQuestion(activeSection.id, question.id)}
-                      showDelete={activeSection.questions.length > 1}
-                      questionTypes={questionTypeOptions}
-                      completionFormats={completionFormatOptions}
-                    />
-                  ))}
+                  <ReadingQuestionList key={activeSection.id} questions={activeSection.questions}
+                    sectionId={activeSection.id} start={activeRange?.start ?? 1}
+                    update={updateQuestion} remove={removeQuestion}
+                    questionTypes={questionTypeOptions} completionFormats={completionFormatOptions} />
                   
                   <Button
                     variant="outline"
