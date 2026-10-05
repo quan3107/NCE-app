@@ -11,7 +11,8 @@ import { PageHeader } from '@components/common/PageHeader';
 import { Button } from '@components/ui/button';
 import { useRouter } from '@lib/router';
 import { toast } from 'sonner@2.0.3';
-import { useAssignmentResources, markSubmissionAsGraded } from '@features/assignments/api';
+import { markSubmissionAsGraded } from '@features/assignments/api';
+import { useStaffSubmission } from '../staff-api';
 import {
   useApproveWritingFeedbackMutation,
   useFinalizeWritingFeedbackMutation,
@@ -44,15 +45,11 @@ export function TeacherGradeFormPage({ submissionId }: { submissionId: string })
   const [appliedGradeStateKey, setAppliedGradeStateKey] = useState<string | null>(null);
   // Freeze the reviewed version with the form; background refetches must not bless old feedback.
   const [reviewedSubmissionVersion, setReviewedSubmissionVersion] = useState<number | null>(null);
-  const { submissions, assignments, isLoading, error } = useAssignmentResources();
+  const { submission, assignment, isLoading, error } = useStaffSubmission(submissionId);
   const upsertGradeMutation = useUpsertGradeMutation();
   const approveAiFeedbackMutation = useApproveWritingFeedbackMutation(submissionId);
   const finalizeAiFeedbackMutation = useFinalizeWritingFeedbackMutation(submissionId);
 
-  const submission = submissions.find((item) => item.id === submissionId);
-  const assignment = submission
-    ? assignments.find((item) => item.id === submission.assignmentId)
-    : null;
 
   const gradeSubmissions = useMemo(() => (submission ? [submission] : []), [submission]);
   const gradeAssignments = useMemo(() => (assignment ? [assignment] : []), [assignment]);
