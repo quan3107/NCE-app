@@ -1,0 +1,281 @@
+{
+  "rawEvidence": "/tmp/nce-x07-performance-fixes-20261001/profile-final",
+  "conditions": {
+    "cpuSlowdown": 4,
+    "latencyMs": 150,
+    "downloadBytesPerSecond": 200000,
+    "uploadBytesPerSecond": 93750
+  },
+  "results": [
+    {
+      "name": "upload-buffer",
+      "wallMs": 861.7764580000003,
+      "stages": [
+        {
+          "label": "file-read",
+          "start": 4623.699999988079,
+          "syncMs": 2,
+          "duration": 42.20000001788139
+        },
+        {
+          "label": "sha256",
+          "start": 4665.9000000059605,
+          "syncMs": 7.0999999940395355,
+          "duration": 7.4000000059604645
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 4086.5999999940395,
+          "duration": 548
+        }
+      ],
+      "fileChange": 4621.199999988079,
+      "checksum": "d7acae69f70b7ccc394736eecea1ade7e7513dc1c7caec6f6686679492ff64b7",
+      "topFrames": [
+        {
+          "function": "(program)",
+          "url": "",
+          "line": 0,
+          "selfMs": 439.095
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 7228,
+          "selfMs": 345.841
+        },
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": 0,
+          "selfMs": 183.427
+        },
+        {
+          "function": "(garbage collector)",
+          "url": "",
+          "line": 0,
+          "selfMs": 29.287
+        },
+        {
+          "function": "atob",
+          "url": "",
+          "line": 0,
+          "selfMs": 10.392
+        },
+        {
+          "function": "digest",
+          "url": "",
+          "line": 0,
+          "selfMs": 7.185
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 7229,
+          "selfMs": 6.231
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 0,
+          "selfMs": 5.601
+        }
+      ],
+      "checksumMatchesSelectedBytes": true
+    },
+    {
+      "name": "upload-path",
+      "wallMs": 302.29304299999967,
+      "stages": [
+        {
+          "label": "file-read",
+          "start": 4055,
+          "syncMs": 2.2999999821186066,
+          "duration": 21.799999982118607
+        },
+        {
+          "label": "sha256",
+          "start": 4076.7999999821186,
+          "syncMs": 7,
+          "duration": 7
+        }
+      ],
+      "longTasks": [],
+      "fileChange": 4051.5,
+      "checksum": "d7acae69f70b7ccc394736eecea1ade7e7513dc1c7caec6f6686679492ff64b7",
+      "topFrames": [
+        {
+          "function": "(program)",
+          "url": "",
+          "line": 0,
+          "selfMs": 292.541
+        },
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": 0,
+          "selfMs": 162.806
+        },
+        {
+          "function": "digest",
+          "url": "",
+          "line": 0,
+          "selfMs": 6.377
+        },
+        {
+          "function": "(garbage collector)",
+          "url": "",
+          "line": 0,
+          "selfMs": 3.636
+        },
+        {
+          "function": "arrayBuffer",
+          "url": "",
+          "line": 0,
+          "selfMs": 2.832
+        },
+        {
+          "function": "ce",
+          "url": "http://127.0.0.1:3018/assets/StudentAssignmentDetailPage-DIGr9Wq4.js",
+          "line": 1,
+          "selfMs": 2.619
+        },
+        {
+          "function": "pc",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 2.388
+        },
+        {
+          "function": "se",
+          "url": "http://127.0.0.1:3018/assets/StudentAssignmentDetailPage-DIGr9Wq4.js",
+          "line": 1,
+          "selfMs": 2.232
+        }
+      ],
+      "checksumMatchesSelectedBytes": true
+    },
+    {
+      "name": "reading-type",
+      "wallMs": 1617.3663429999997,
+      "stages": [],
+      "longTasks": [],
+      "fileChange": null,
+      "checksum": null,
+      "topFrames": [
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": 0,
+          "selfMs": 860.656
+        },
+        {
+          "function": "(program)",
+          "url": "",
+          "line": 0,
+          "selfMs": 800.489
+        },
+        {
+          "function": "(garbage collector)",
+          "url": "",
+          "line": 0,
+          "selfMs": 8.898
+        },
+        {
+          "function": "lc",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 7.08
+        },
+        {
+          "function": "Fo",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 6,
+          "selfMs": 6.753
+        },
+        {
+          "function": "focus",
+          "url": "",
+          "line": 0,
+          "selfMs": 5.511
+        },
+        {
+          "function": "gb",
+          "url": "http://127.0.0.1:3018/assets/AiPolicyControls-CNuFauNp.js",
+          "line": 101,
+          "selfMs": 4.759
+        },
+        {
+          "function": "Re",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 5,
+          "selfMs": 4.689
+        }
+      ]
+    },
+    {
+      "name": "reading-switch",
+      "wallMs": 142.47103199999765,
+      "stages": [],
+      "longTasks": [
+        {
+          "start": 6148.800000011921,
+          "duration": 91
+        }
+      ],
+      "fileChange": null,
+      "checksum": null,
+      "topFrames": [
+        {
+          "function": "(program)",
+          "url": "",
+          "line": 0,
+          "selfMs": 118.169
+        },
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": 0,
+          "selfMs": 23.78
+        },
+        {
+          "function": "set value",
+          "url": "",
+          "line": 0,
+          "selfMs": 14.046
+        },
+        {
+          "function": "",
+          "url": "http://127.0.0.1:3018/assets/select-BllbXGUz.js",
+          "line": 1,
+          "selfMs": 4.02
+        },
+        {
+          "function": "s",
+          "url": "http://127.0.0.1:3018/assets/button-hWORkaZP.js",
+          "line": 1,
+          "selfMs": 3.277
+        },
+        {
+          "function": "fc",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 2.639
+        },
+        {
+          "function": "lc",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 8,
+          "selfMs": 2.221
+        },
+        {
+          "function": "Fo",
+          "url": "http://127.0.0.1:3018/assets/dist-CGBKZ3_z.js",
+          "line": 6,
+          "selfMs": 2.21
+        }
+      ]
+    }
+  ]
+}
