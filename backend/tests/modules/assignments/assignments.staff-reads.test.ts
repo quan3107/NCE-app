@@ -102,6 +102,38 @@ describe('staff reads', () => {
     expect(db.submission.findMany).not.toHaveBeenCalled()
     expect(db.submission.count).not.toHaveBeenCalled()
   })
+  it('keeps assignment cursor authorization while tolerating a deleted boundary', async () => {
+    db.assignment.findFirst.mockResolvedValue({ id } as never)
+    db.assignment.findMany.mockResolvedValue([])
+    db.assignment.count.mockResolvedValue(60)
+    const result = await listStaffAssignments({ limit: 50, cursor: id }, teacher)
+    expect(result.total).toBe(60)
+    const anchorWhere = db.assignment.findFirst.mock.calls[0]![0]!.where
+    expect(anchorWhere).not.toHaveProperty('deletedAt')
+    expect(anchorWhere).toMatchObject({
+      id,
+      course: { deletedAt: null, OR: [{ ownerId: teacher.id }, expect.anything()] },
+    })
+    const pageArgs = db.assignment.findMany.mock.calls[0]![0]!
+    expect(pageArgs).toMatchObject({
+      cursor: { id },
+      take: 51,
+      where: { deletedAt: null, id: { not: id }, course: anchorWhere!.course },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    })
+    expect(pageArgs).not.toHaveProperty('skip')
+    expect(db.assignment.count).toHaveBeenCalledWith({
+      where: { deletedAt: null, course: anchorWhere!.course },
+    })
+  })
+  it('rejects an assignment cursor outside actor scope before page/count reads', async () => {
+    db.assignment.findFirst.mockResolvedValue(null)
+    await expect(listStaffAssignments({ cursor: id }, teacher)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+    expect(db.assignment.findMany).not.toHaveBeenCalled()
+    expect(db.assignment.count).not.toHaveBeenCalled()
+  })
   it('supports assignment-scoped pages including drafts/grades without pending filtering', async () => {
     db.submission.findMany.mockResolvedValue([])
     db.submission.count.mockResolvedValue(0)
