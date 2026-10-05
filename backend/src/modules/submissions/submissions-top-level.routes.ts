@@ -20,10 +20,16 @@ import {
   postWritingFeedbackRejection,
 } from "../ai-feedback/ai-feedback.controller.js";
 import { getAccessibleSubmissions, getUngradedSubmissionsCount } from "./submissions.controller.js";
+import { getSubmissionSummaries, getSubmissionDetail } from '../assignments/assignments.staff-controller.js';
+import { getGradeBatch } from '../grades/grades.batch-read.js';
 
 export const submissionsTopLevelRouter = Router();
 
 submissionsTopLevelRouter.use(authGuard);
+submissionsTopLevelRouter.post('/grades', roleGuard([UserRole.admin, UserRole.teacher, UserRole.student]), getGradeBatch);
+const staff = roleGuard([UserRole.teacher, UserRole.admin]);
+submissionsTopLevelRouter.get('/summaries', staff, getSubmissionSummaries);
+submissionsTopLevelRouter.get('/:submissionId/detail', staff, getSubmissionDetail);
 
 submissionsTopLevelRouter.get(
   '/accessible',
