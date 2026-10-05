@@ -25,7 +25,7 @@ AssignmentSummaries:
   get:
     tags: [assignments]
     summary: List teacher/admin assignment summaries with complete submission counts
-    description: Newest creation first, with descending ID tie-break. No assignment configs or submission payloads are included. Follow nextCursor for all accessible records.
+    description: Newest creation first, with descending ID tie-break. No assignment configs or submission payloads are included. Follow nextCursor for all accessible records. A soft-deleted boundary assignment still anchors the next page without skipping work while its course remains accessible and active. Missing cursors and cursors outside the current actor's course scope return 404.
     security:
       - BearerAuth: []
     parameters:
@@ -44,6 +44,8 @@ AssignmentSummaries:
         $ref: "#/Unauthorized"
       "403":
         $ref: "#/Forbidden"
+      "404":
+        $ref: "#/NotFound"
 
 SubmissionSummaries:
   get:
