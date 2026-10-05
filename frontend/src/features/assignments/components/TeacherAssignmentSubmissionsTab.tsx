@@ -13,17 +13,21 @@ import { formatDistanceToNow } from '@lib/utils';
 import type { Assignment, Submission } from '@domain';
 import { Eye, FileText } from 'lucide-react';
 import { TeacherWritingFeedbackBatchAction } from './TeacherWritingFeedbackBatchAction';
+import { useStaffPage, STAFF_SUBMISSIONS_KEY, type SubmissionSummary } from '../staff-api';
+import { StaffPagination } from './StaffPagination';
 
 type TeacherAssignmentSubmissionsTabProps = {
   assignment: Assignment;
-  submissions: Submission[];
 };
 
 export function TeacherAssignmentSubmissionsTab({
   assignment,
-  submissions,
 }: TeacherAssignmentSubmissionsTabProps) {
   const { navigate } = useRouter();
+  const query = useStaffPage<SubmissionSummary>('/submissions/summaries', STAFF_SUBMISSIONS_KEY, { assignmentId: assignment.id, pending: 'false' });
+  const submissions: Array<Pick<Submission, 'id' | 'status' | 'studentName' | 'submittedAt'>> = (query.data?.items ?? []).map(item => ({ ...item, submittedAt: item.submittedAt ? new Date(item.submittedAt) : undefined }));
+  if (query.isLoading) return <Card><CardContent className="py-12 text-center">Loading submissions...</CardContent></Card>;
+  if (query.error) return <Card><CardContent className="py-12 text-center text-destructive">{query.error.message}</CardContent></Card>;
 
   if (submissions.length === 0) {
     return (
@@ -35,6 +39,7 @@ export function TeacherAssignmentSubmissionsTab({
             Students haven&apos;t submitted any work for this assignment.
           </p>
         </CardContent>
+        <StaffPagination {...query} total={query.data?.total} hasNext={Boolean(query.data?.nextCursor)} busy={query.isFetching} />
       </Card>
     );
   }
@@ -42,6 +47,7 @@ export function TeacherAssignmentSubmissionsTab({
   return (
     <div className="space-y-4">
       <TeacherWritingFeedbackBatchAction
+        key={query.page}
         assignment={assignment}
         submissions={submissions}
       />
@@ -113,6 +119,7 @@ export function TeacherAssignmentSubmissionsTab({
           </Table>
         </CardContent>
       </Card>
+      <StaffPagination {...query} total={query.data?.total} hasNext={Boolean(query.data?.nextCursor)} busy={query.isFetching} />
     </div>
   );
 }
