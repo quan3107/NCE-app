@@ -6,12 +6,88 @@ Why: Measured improvements, proven causes and release acceptance are different c
 
 # X-07 performance fixes — 2026-10-01
 
-**Focused fixes verified; X-07 remains BLOCKED for full acceptance.** Approved
+**Current performance baseline adopted by the user on 2026-10-05; measured on
+2026-10-01. Focused fixes verified; X-07 remains BLOCKED for full acceptance.** Approved
 performance targets, a physical mid-range device baseline and hosted storage
 transfer evidence remain outstanding. The earlier
 [baseline report](e2e-x07-performance-verification.md) is retained as historical
 evidence; its statement that application behavior was unchanged applies to that
 September 26 measurement, not this follow-up.
+
+## Current baseline — adopted 2026-10-05
+
+The October 1 post-fix measurements in this report and
+[`performance/x07/fixes-20261001/`](performance/x07/fixes-20261001/) are the
+reference for future performance comparisons. The implementation is committed
+on `perf/launch-scale-performance` through
+`4a093b11c53f8ee99911a0c3adc3a75c763b9e86`. Measurement occurred before those
+commits; the evidence's revision field records the original starting checkout,
+with the performance changes then uncommitted. Adoption does not represent a
+new measurement run or alter the retained evidence.
+
+Compare future production builds using the same 100-student fixture, 50 paced
+accounts (48 students/two teachers), workload, browser throttles, viewport and
+sample counts documented below. Record changed conditions separately. Browser
+medians, exploratory interaction samples and API percentiles remain separate
+measurements. September 26 results are the historical pre-fix comparison.
+
+This establishes the current measured reference, without setting numerical
+release targets or removing the physical-device, hosted-transfer, font-delivery
+and sample-size limits. Full X-07 acceptance remains BLOCKED.
+
+## Assignment pagination review — 2026-10-05
+
+The assignment summary query still used Prisma `cursor + skip: 1`. A regression
+using the actual `listStaffAssignments` handler and Prisma/PostgreSQL reproduced
+the omission: read two of six assignments, soft-delete the second assignment,
+then continue paging. Both an owner and an active co-teacher saw only five of the
+six original IDs across those pages; the first remaining matching row was skipped.
+Foreign/missing cursors also returned a page instead of an authorization-scoped
+404. Before the fix, three of four new database tests failed; the active-boundary
+case passed.
+
+Assignment paging now follows the existing submission-page approach: validate
+the anchor against the caller's accessible active courses without requiring that
+the assignment remain active, then exclude its ID instead of skipping a matching
+row. Native `createdAt DESC, id DESC` cursor ordering preserves PostgreSQL
+microseconds and equal-timestamp tie-breaks. Counts retain the complete active
+scope independently of the cursor. Missing/foreign cursors and cursors whose
+course access was revoked return 404; an admin retains access to every active
+course. A deleted course is not an accessible anchor.
+
+All 12 focused tests pass, including four database regressions. The database
+fixtures include timestamps differing only in microseconds within one JavaScript
+millisecond and an equal-timestamp pair. They verify the exact concatenated ID
+sequence without duplicates, live totals changing from six to five after deletion,
+an active boundary, foreign/missing cursors, revoked co-teacher enrollment,
+deleted-course denial and admin scope. Tests use the actual handler with a real
+Prisma owner transaction against the retained disposable PostgreSQL 17 database;
+application course authorization is exercised, while HTTP authentication/runtime
+role policy is covered by the earlier API evidence rather than these transactions.
+Every fixture/mutation rolls back. Post-test retained counts remain 103 users,
+four courses, 120 assignments, 4,848 submissions and 3,400 grades, with no cursor
+fixture users remaining. The disposable container was stopped after verification.
+
+Backend lint, production build/type checking, focused formatting and OpenAPI
+validation pass. The full available suite passes 1,122 tests with 90 environment-
+gated skips; four of those skipped cases are the database regressions separately
+run with `RUN_DATABASE_TESTS=true`. Raw before/after logs are retained at
+`/tmp/nce-assignment-cursor-before-20261005.log` and
+`/tmp/nce-assignment-cursor-after-20261005.log`; build/full-suite logs use the
+same `/tmp/nce-assignment-cursor-*-20261005.log` prefix.
+
+```bash
+cd backend
+# Point DATABASE_URL and DIRECT_URL only at the disposable local database.
+RUN_DATABASE_TESTS=true npm test -- --run \
+  tests/modules/assignments/assignments.staff-pagination.database.test.ts \
+  tests/modules/assignments/assignments.staff-reads.test.ts
+```
+
+No frontend code/layout changed, so this follow-up records database correctness
+without claiming new screenshot or browser performance evidence. The adopted
+October 1 measurements predate this cursor correction; no new load/performance
+run or full X-07 acceptance is claimed. Existing uncommitted edits are preserved.
 
 ## Scope and implementation
 
@@ -67,7 +143,7 @@ measurements are separate from the API load generator. Three cold samples per
 route; actions are exploratory single samples, not p95s or field INP. Both runs
 share the same machine, but CPU frequency/background work is not controlled.
 
-| Measurement | September 26 baseline | October 1 follow-up |
+| Measurement | September 26 historical pre-fix | October 1 current baseline |
 | --- | ---: | ---: |
 | Public LCP median | 10.212 s | 2.308 s [2.244–2.380] |
 | Public response-body transfer | 1,763,802 B | 249,074 B |
@@ -143,7 +219,7 @@ collection/offset request model for comparison. This is 50 active accounts, not
 Final numeric results are retained in
 [API summary](performance/x07/fixes-20261001/api-summary.json).
 
-| API measurement | Baseline | Follow-up |
+| API measurement | Historical pre-fix | Current baseline |
 | --- | ---: | ---: |
 | Requests / activities in 300 seconds | 6,274 / 2,701 | 5,874 / 2,722 |
 | Requests / activities per second | 20.913 / 9.003 | 19.580 / 9.073 |
