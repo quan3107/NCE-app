@@ -9,7 +9,9 @@ import { Card, CardContent } from '@components/ui/card';
 import { Button } from '@components/ui/button';
 import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
-import { useAssignmentResources, useUpdateAssignmentMutation } from '@features/assignments/api';
+import { useUpdateAssignmentMutation } from '@features/assignments/api';
+import { useStaffAssignment } from '../staff-api';
+import { useCoursesQuery } from '@features/courses/api';
 import { useCourseRubricsQuery } from '@features/rubrics/api';
 import {
   isIeltsAssignmentType,
@@ -32,7 +34,11 @@ import type { Assignment } from '@domain';
 
 export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: string }) {
   const { navigate } = useRouter();
-  const { assignments, submissions, courses, isLoading, error } = useAssignmentResources();
+  const detail = useStaffAssignment(assignmentId);
+  const coursesQuery = useCoursesQuery();
+  const courses = coursesQuery.data ?? [];
+  const isLoading = detail.isLoading || coursesQuery.isLoading;
+  const error = detail.error ?? coursesQuery.error;
   const updateAssignmentMutation = useUpdateAssignmentMutation();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -41,26 +47,17 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
 
   const [isRubricModalOpen, setIsRubricModalOpen] = useState(false);
 
-  const assignment = assignments.find(item => item.id === assignmentId) ?? null;
+  const assignment = detail.assignment;
 
   const rubricsQuery = useCourseRubricsQuery(assignment?.courseId ?? '');
   const rubrics = rubricsQuery.data ?? [];
 
   const course = courses.find(item => item.id === assignment?.courseId) ?? null;
-  const assignmentSubmissions = useMemo(
-    () => submissions.filter(item => item.assignmentId === assignmentId),
-    [assignmentId, submissions],
-  );
-
-  const submittedCount = assignmentSubmissions.filter(item =>
-    ['submitted', 'late', 'graded'].includes(item.status),
-  ).length;
-  const gradedCount = assignmentSubmissions.filter(item => item.status === 'graded').length;
-  const pendingCount = assignmentSubmissions.filter(item =>
-    ['submitted', 'late'].includes(item.status),
-  ).length;
-  const lateCount = assignmentSubmissions.filter(item => item.status === 'late').length;
-  const totalStudents = course?.enrolled ?? Math.max(assignmentSubmissions.length, 0);
+  const submittedCount = detail.counts?.submitted ?? 0;
+  const gradedCount = detail.counts?.graded ?? 0;
+  const pendingCount = detail.counts?.pending ?? 0;
+  const lateCount = detail.counts?.late ?? 0;
+  const totalStudents = course?.enrolled ?? detail.counts?.total ?? 0;
   const submissionRate =
     totalStudents > 0 ? Math.round((submittedCount / totalStudents) * 100) : 0;
   const onTimeRate =
@@ -265,7 +262,6 @@ export function TeacherAssignmentDetailPage({ assignmentId }: { assignmentId: st
             assignment={activeAssignment}
             originalDueAt={assignment.dueAt}
             courseTitle={course?.title ?? activeAssignment.courseName}
-            submissions={assignmentSubmissions}
             statsCards={statsCards}
             statsSummary={{
               totalStudents,
