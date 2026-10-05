@@ -11,11 +11,15 @@ import { PageHeader } from '@components/common/PageHeader';
 import { useRouter } from '@lib/router';
 import { formatDate } from '@lib/utils';
 import { Plus, Clock, FileText, Edit } from 'lucide-react';
-import { useAssignmentResources } from '@features/assignments/api';
+import { useStaffPage, type AssignmentSummary } from '../staff-api';
+import { ASSIGNMENTS_KEY } from '../api.types';
+import { StaffPagination } from './StaffPagination';
 
 export function TeacherAssignmentsPage() {
   const { navigate } = useRouter();
-  const { assignments, submissions, isLoading, error } = useAssignmentResources();
+  const query = useStaffPage<AssignmentSummary>('/assignments/summaries', ASSIGNMENTS_KEY);
+  const { isLoading, error } = query;
+  const assignments = query.data?.items ?? [];
 
   const renderBody = () => {
     if (isLoading) {
@@ -60,8 +64,8 @@ export function TeacherAssignmentsPage() {
                       event.stopPropagation();
                       navigate(`/teacher/assignments/${assignment.id}/detail`);
                     }}>{assignment.title}</button></h3>
-                    <Badge variant={assignment.status === 'published' ? 'default' : 'secondary'} className="capitalize">
-                      {assignment.status}
+                    <Badge variant={assignment.publishedAt ? 'default' : 'secondary'} className="capitalize">
+                      {assignment.publishedAt ? 'published' : 'draft'}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mb-3">{assignment.courseName}</p>
@@ -69,12 +73,12 @@ export function TeacherAssignmentsPage() {
                     <div className="flex items-center gap-2">
                       <Clock className="size-4 text-muted-foreground" />
                       <span>
-                        Due: {assignment.dueAt ? formatDate(assignment.dueAt, 'datetime') : 'Not set'}
+                        Due: {assignment.dueAt ? formatDate(new Date(assignment.dueAt), 'datetime') : 'Not set'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <FileText className="size-4 text-muted-foreground" />
-                      <span>{submissions.filter(s => s.assignmentId === assignment.id).length} submissions</span>
+                      <span>{assignment.submissionCount} submissions</span>
                     </div>
                   </div>
                 </div>
@@ -111,6 +115,7 @@ export function TeacherAssignmentsPage() {
       />
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {renderBody()}
+        <StaffPagination {...query} total={query.data?.total} hasNext={Boolean(query.data?.nextCursor)} busy={query.isFetching} />
       </div>
     </div>
   );
