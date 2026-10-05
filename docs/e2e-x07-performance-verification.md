@@ -6,10 +6,11 @@ Why: Real user activity, browser responsiveness, and approved SLOs require separ
 
 # X-07 launch-scale performance measurement — 2026-09-26
 
-**Follow-up (2026-10-01):** Authorized fixes and repeated verification are recorded
-in [X-07 performance fixes](e2e-x07-performance-fixes.md). This baseline remains
-historical evidence; full acceptance is still blocked on approved targets and
-the required device/storage evidence.
+**Current baseline adopted (2026-10-05):** The October 1 post-fix measurements in
+[X-07 performance fixes](e2e-x07-performance-fixes.md#current-baseline--adopted-2026-10-05)
+are the reference for future comparisons. This September 26 report remains the
+historical pre-fix baseline; full acceptance is still blocked on approved targets
+and the required device/storage evidence.
 
 Testing was reopened for the user-confirmed **100 total students and 50 simultaneous
 users**. The measurements are complete; **X-07 remains BLOCKED for full acceptance**.
