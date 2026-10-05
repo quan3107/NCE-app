@@ -124,6 +124,12 @@ paths:
     $ref: './paths/assignments.yaml#/PendingAssignmentsCount'
   /api/v1/assignments/accessible:
     $ref: './paths/assignments.yaml#/AccessibleAssignments'
+  /api/v1/assignments/overview:
+    $ref: './paths/staff-reads.yaml#/StaffOverview'
+  /api/v1/assignments/summaries:
+    $ref: './paths/staff-reads.yaml#/AssignmentSummaries'
+  /api/v1/assignments/{assignmentId}/overview:
+    $ref: './paths/staff-reads.yaml#/AssignmentOverview'
 
   /api/v1/submissions/pending-count:
     $ref: './paths/submissions.yaml#/PendingSubmissionsCount'
@@ -225,6 +231,12 @@ paths:
     $ref: './paths/submissions.yaml#/AssignmentSubmissions'
   /api/v1/submissions/accessible:
     $ref: './paths/submissions.yaml#/AccessibleSubmissions'
+  /api/v1/submissions/summaries:
+    $ref: './paths/staff-reads.yaml#/SubmissionSummaries'
+  /api/v1/submissions/{submissionId}/detail:
+    $ref: './paths/staff-reads.yaml#/SubmissionDetail'
+  /api/v1/submissions/grades:
+    $ref: './paths/grade-batch.yaml#/GradeBatch'
   /api/v1/assignments/{assignmentId}/submissions/{submissionId}:
     $ref: './paths/submissions.yaml#/AssignmentSubmissionById'
 
