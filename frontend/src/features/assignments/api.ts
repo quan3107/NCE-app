@@ -27,6 +27,7 @@ import type {
   UpdateAssignmentRequest,
 } from './api.types';
 import { ASSIGNMENTS_KEY, ENROLLMENTS_KEY, SUBMISSIONS_KEY } from './api.types';
+import { STAFF_SUBMISSIONS_KEY } from './staff-api';
 
 function useAssignmentsQuery(userId: string, role: string, enabled: boolean) {
   return useQuery({
@@ -58,6 +59,7 @@ export function useCreateAssignmentMutation() {
       createAssignment(courseId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY] });
+      queryClient.invalidateQueries({ queryKey: [STAFF_SUBMISSIONS_KEY] });
     },
   });
 }
@@ -75,6 +77,7 @@ export function useUpdateAssignmentMutation() {
     }) => updateAssignment(courseId, assignmentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY] });
+      queryClient.invalidateQueries({ queryKey: [STAFF_SUBMISSIONS_KEY] });
     },
   });
 }
@@ -90,12 +93,16 @@ export function useCreateSubmissionMutation() {
     }) => createSubmission(assignmentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [SUBMISSIONS_KEY] });
+      queryClient.invalidateQueries({ queryKey: [STAFF_SUBMISSIONS_KEY] });
+      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY] });
       queryClient.invalidateQueries({ queryKey: ['grades:list'] });
     },
   });
 }
 
 export function markSubmissionAsGraded(submissionId: string) {
+  queryClient.invalidateQueries({ queryKey: [STAFF_SUBMISSIONS_KEY] });
+  queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY] });
   queryClient.setQueriesData<ApiSubmission[]>(
     { queryKey: [SUBMISSIONS_KEY], exact: false },
     (data) => {
