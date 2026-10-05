@@ -129,6 +129,108 @@ export async function installClassroomApi(page: Page): Promise<ClassroomApiState
     if (path === `/courses/${courseId}/rubrics` && method === 'GET') {
       return fulfillJson(route, []);
     }
+    // Staff views now read summaries and fetch full content only when opened.
+    const staffRead =
+      path === '/assignments/overview' ||
+      path === '/assignments/summaries' ||
+      path === '/submissions/summaries' ||
+      /^\/(assignments\/[^/]+\/overview|submissions\/[^/]+\/detail)$/.test(path);
+    if (staffRead && api.activeUser.role !== 'teacher') {
+      return fulfillJson(route, { message: 'Forbidden.' }, 403);
+    }
+    const submissionSummary = (submission: ApiSubmission) => ({
+      id: submission.id,
+      assignmentId: submission.assignmentId,
+      studentId: submission.studentId,
+      status: submission.status,
+      submittedAt: submission.submittedAt,
+      studentName: student.name,
+      assignmentTitle: api.assignments.find((item) => item.id === submission.assignmentId)?.title,
+    });
+    if (path === '/assignments/overview' && method === 'GET') {
+      return fulfillJson(route, {
+        activeAssignments: api.assignments.filter((item) => item.publishedAt !== null).length,
+        pendingSubmissions: api.submissions.filter((item) => item.status === 'submitted').length,
+        recentSubmissions: api.submissions
+          .filter((item) => item.status === 'submitted')
+          .slice(-3)
+          .reverse()
+          .map(submissionSummary),
+      });
+    }
+    if (path === '/assignments/summaries' && method === 'GET') {
+      return fulfillJson(
+        route,
+        collectionPage(
+          api.assignments.map((assignment) => ({
+            id: assignment.id,
+            courseId: assignment.courseId,
+            title: assignment.title,
+            type: assignment.type,
+            dueAt: assignment.dueAt,
+            publishedAt: assignment.publishedAt,
+            courseName: courseResponse().title,
+            submissionCount: api.submissions.filter((item) => item.assignmentId === assignment.id)
+              .length,
+          })),
+          url,
+        ),
+      );
+    }
+    if (path === '/submissions/summaries' && method === 'GET') {
+      const assignmentId = url.searchParams.get('assignmentId');
+      const items = api.submissions.filter(
+        (item) =>
+          (!assignmentId || item.assignmentId === assignmentId) &&
+          (url.searchParams.get('pending') === 'false' || item.status === 'submitted'),
+      );
+      return fulfillJson(route, collectionPage(items.map(submissionSummary), url));
+    }
+    const assignmentOverview = path.match(/^\/assignments\/([^/]+)\/overview$/);
+    const assignmentDetail = path.match(/^\/courses\/[^/]+\/assignments\/([^/]+)$/);
+    if ((assignmentOverview || assignmentDetail) && method === 'GET') {
+      const assignment = api.assignments.find(
+        (item) => item.id === (assignmentOverview ?? assignmentDetail)?.[1],
+      );
+      if (!assignment || (api.activeUser.role === 'student' && !assignment.publishedAt)) {
+        return fulfillJson(route, { message: 'Assignment not found.' }, 404);
+      }
+      if (assignmentDetail) return fulfillJson(route, assignment);
+      const submissions = api.submissions.filter((item) => item.assignmentId === assignment.id);
+      return fulfillJson(route, {
+        assignment: { ...assignment, courseName: courseResponse().title },
+        counts: {
+          total: submissions.length,
+          submitted: submissions.length,
+          pending: submissions.filter((item) => item.status === 'submitted').length,
+          graded: submissions.filter((item) => item.status === 'graded').length,
+          late: 0,
+        },
+      });
+    }
+    const submissionDetail = path.match(/^\/submissions\/([^/]+)\/detail$/);
+    if (submissionDetail && method === 'GET') {
+      const submission = api.submissions.find((item) => item.id === submissionDetail[1]);
+      const assignment = api.assignments.find((item) => item.id === submission?.assignmentId);
+      return submission && assignment
+        ? fulfillJson(route, {
+            submission,
+            assignment: { ...assignment, courseName: courseResponse().title },
+          })
+        : fulfillJson(route, { message: 'Submission not found.' }, 404);
+    }
+    if (path === '/submissions/grades' && method === 'POST') {
+      const { submissionIds } = parseRequestBody<{ submissionIds: string[] }>(request.postData());
+      const accessibleIds = api.submissions
+        .filter((item) => api.activeUser.role === 'teacher' || item.studentId === api.activeUser.id)
+        .map((item) => item.id);
+      return fulfillJson(route, {
+        items: api.grades.filter(
+          (grade) =>
+            submissionIds.includes(grade.submissionId) && accessibleIds.includes(grade.submissionId),
+        ),
+      });
+    }
     if (path === '/assignments/accessible' && method === 'GET') {
       const items = api.activeUser.role === 'student'
         ? api.assignments.filter((assignment) => assignment.publishedAt !== null)
@@ -196,6 +298,18 @@ export async function installClassroomApi(page: Page): Promise<ClassroomApiState
 
 function parseRequestBody<T>(body: string | null): T {
   return body ? (JSON.parse(body) as T) : ({} as T);
+}
+
+function collectionPage<T extends { id: string }>(items: T[], url: URL) {
+  const cursor = url.searchParams.get('cursor');
+  const offset = cursor ? items.findIndex((item) => item.id === cursor) + 1 : 0;
+  const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') ?? 50)));
+  const page = items.slice(offset, offset + limit);
+  return {
+    items: page,
+    total: items.length,
+    nextCursor: offset + limit < items.length ? (page.at(-1)?.id ?? null) : null,
+  };
 }
 
 function fulfillJson(route: Route, body: unknown, status = 200) {
