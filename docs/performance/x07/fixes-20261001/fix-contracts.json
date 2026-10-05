@@ -1,0 +1,316 @@
+{
+  "staff": [
+    {
+      "role": "teacher1",
+      "assignments": 60,
+      "assignmentPages": [
+        {
+          "rows": 50,
+          "total": 60
+        },
+        {
+          "rows": 10,
+          "total": 60
+        }
+      ],
+      "pending": 700,
+      "queuePages": [
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        }
+      ],
+      "countParity": true,
+      "detailParity": true,
+      "gradedCursorSkipsNoPendingRows": true
+    },
+    {
+      "role": "teacher2",
+      "assignments": 60,
+      "assignmentPages": [
+        {
+          "rows": 50,
+          "total": 60
+        },
+        {
+          "rows": 10,
+          "total": 60
+        }
+      ],
+      "pending": 700,
+      "queuePages": [
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        },
+        {
+          "rows": 50,
+          "total": 700
+        }
+      ],
+      "countParity": true,
+      "detailParity": true,
+      "gradedCursorSkipsNoPendingRows": true
+    },
+    {
+      "role": "admin",
+      "assignments": 120,
+      "assignmentPages": [
+        {
+          "rows": 50,
+          "total": 120
+        },
+        {
+          "rows": 50,
+          "total": 120
+        },
+        {
+          "rows": 20,
+          "total": 120
+        }
+      ],
+      "pending": 1400,
+      "queuePages": [
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        },
+        {
+          "rows": 50,
+          "total": 1400
+        }
+      ],
+      "countParity": true,
+      "detailParity": true,
+      "gradedCursorSkipsNoPendingRows": true
+    }
+  ],
+  "grades": [
+    {
+      "student": "student1",
+      "submissions": 49,
+      "grades": 34,
+      "batchMatchesIndividual": true,
+      "staffDenied": true
+    },
+    {
+      "student": "student100",
+      "submissions": 48,
+      "grades": 34,
+      "batchMatchesIndividual": true,
+      "staffDenied": true
+    }
+  ],
+  "access": [
+    {
+      "anonymousDenied": true,
+      "teacherForeignCourseDenied": true,
+      "studentForeignGradeOmitted": true,
+      "oversizedRequestsDenied": true
+    }
+  ]
+}
