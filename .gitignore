@@ -87,3 +87,7 @@ docs/*
 !docs/ai-feedback-setup.md
 !docs/npm-security-update-path-2026-05-25.md
 !docs/e2e-user-stories.md
+!docs/e2e-x07-performance-verification.md
+!docs/e2e-x07-performance-fixes.md
+!docs/performance/
+!docs/performance/**
