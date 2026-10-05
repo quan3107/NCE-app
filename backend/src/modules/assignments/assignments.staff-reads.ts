@@ -56,12 +56,22 @@ export async function getStaffOverview(actor: CourseManager) {
 export async function listStaffAssignments(query: unknown, actor: CourseManager) {
   const { cursor, limit } = collectionPageQuerySchema.parse(query)
   const where = assignmentWhere(actor)
+  // A deleted boundary still anchors the page within an accessible active course.
+  // Exclude its ID instead of skip:1, which drops a live row when the anchor is
+  // filtered out. Keep the native cursor for PostgreSQL timestamp precision.
+  const anchor = cursor
+    ? await prisma.assignment.findFirst({
+        where: { id: cursor, course: where.course },
+        select: { id: true },
+      })
+    : null
+  if (cursor && !anchor) throw createNotFoundError('Assignment cursor', cursor)
   const [rows, total] = await Promise.all([
     prisma.assignment.findMany({
-      where,
+      where: { ...where, ...(cursor ? { id: { not: cursor } } : {}) },
       take: limit + 1,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      ...(cursor ? { cursor: { id: cursor } } : {}),
       select: {
         id: true,
         courseId: true,
