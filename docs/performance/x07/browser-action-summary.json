@@ -1,0 +1,294 @@
+{
+  "source": {
+    "date": "2026-09-26",
+    "revision": "c2714fe0e3b5b70fe5310aab40aef1b7f4fd4547",
+    "rawEvidence": "/tmp/nce-x07-performance-20260926",
+    "acceptance": "Measurements only; no approved SLO or release PASS",
+    "scripts": "docs/performance/x07"
+  },
+  "actions": [
+    {
+      "name": "student-assignment-list",
+      "readyMs": 969.5228499999998,
+      "requestCount": 6,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 72,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 52.69999998807907,
+        "p95": 52.69999998807907,
+        "max": 52.69999998807907
+      },
+      "longTasks": { "n": 2, "p50": 53, "p95": 173, "max": 173 },
+      "domElements": 1714,
+      "failure": null
+    },
+    {
+      "name": "student-search-type",
+      "readyMs": 1404.3885380000002,
+      "requestCount": 2,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 176,
+      "eventToTwoFramesMs": {
+        "n": 28,
+        "p50": 47.099999994039536,
+        "p95": 147.70000000298023,
+        "max": 158.90000000596046
+      },
+      "longTasks": { "n": 2, "p50": 82, "p95": 125, "max": 125 },
+      "domElements": 893,
+      "failure": null
+    },
+    {
+      "name": "upload-open",
+      "readyMs": 2970.777419000001,
+      "requestCount": 30,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 232,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 138.09999999403954,
+        "p95": 138.09999999403954,
+        "max": 138.09999999403954
+      },
+      "longTasks": { "n": 3, "p50": 95, "p95": 135, "max": 135 },
+      "domElements": 202,
+      "failure": null
+    },
+    {
+      "name": "upload-2MiB-failure",
+      "readyMs": 1457.9947120000015,
+      "requestCount": 1,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 0,
+      "eventToTwoFramesMs": { "n": 0, "p50": null, "p95": null, "max": 0 },
+      "longTasks": { "n": 1, "p50": 1002, "p95": 1002, "max": 1002 },
+      "domElements": 219,
+      "failure": null
+    },
+    {
+      "name": "teacher-analytics-route",
+      "readyMs": 1418.5397589999993,
+      "requestCount": 5,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 104,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 80.20000000298023,
+        "p95": 80.20000000298023,
+        "max": 80.20000000298023
+      },
+      "longTasks": { "n": 3, "p50": 92, "p95": 362, "max": 362 },
+      "domElements": 288,
+      "failure": null
+    },
+    {
+      "name": "teacher-analytics-filter",
+      "readyMs": 418.4556840000005,
+      "requestCount": 1,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 0,
+      "eventToTwoFramesMs": { "n": 0, "p50": null, "p95": null, "max": 0 },
+      "longTasks": { "n": 2, "p50": 75, "p95": 76, "max": 76 },
+      "domElements": 274,
+      "failure": null
+    },
+    {
+      "name": "teacher-submissions-queue",
+      "readyMs": 36284.660146,
+      "requestCount": 30,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 72,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 50.599999994039536,
+        "p95": 50.599999994039536,
+        "max": 50.599999994039536
+      },
+      "longTasks": { "n": 2, "p50": 78, "p95": 748, "max": 748 },
+      "domElements": 5748,
+      "failure": null
+    },
+    {
+      "name": "teacher-assignment-list",
+      "readyMs": 803.2466799999966,
+      "requestCount": 5,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 168,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 143.09999999403954,
+        "p95": 143.09999999403954,
+        "max": 143.09999999403954
+      },
+      "longTasks": { "n": 2, "p50": 77, "p95": 146, "max": 146 },
+      "domElements": 1765,
+      "failure": null
+    },
+    {
+      "name": "large-reading-open",
+      "readyMs": 2276.3482220000005,
+      "requestCount": 24,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 144,
+      "eventToTwoFramesMs": { "n": 1, "p50": 122, "p95": 122, "max": 122 },
+      "longTasks": { "n": 2, "p50": 71, "p95": 113, "max": 113 },
+      "domElements": 415,
+      "failure": null
+    },
+    {
+      "name": "large-reading-edit",
+      "readyMs": 857.668608,
+      "requestCount": 5,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 232,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 214.6000000089407,
+        "p95": 214.6000000089407,
+        "max": 214.6000000089407
+      },
+      "longTasks": { "n": 4, "p50": 200, "p95": 320, "max": 320 },
+      "domElements": 1098,
+      "failure": null
+    },
+    {
+      "name": "large-reading-type",
+      "readyMs": 4039.431095,
+      "requestCount": 3,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 224,
+      "eventToTwoFramesMs": {
+        "n": 40,
+        "p50": 157.1000000089407,
+        "p95": 209,
+        "max": 229
+      },
+      "longTasks": { "n": 20, "p50": 129, "p95": 177, "max": 200 },
+      "domElements": 1098,
+      "failure": null
+    },
+    {
+      "name": "large-reading-expand",
+      "readyMs": 576.0182209999912,
+      "requestCount": 2,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 400,
+      "eventToTwoFramesMs": {
+        "n": 2,
+        "p50": 21.099999994039536,
+        "p95": 29.299999997019768,
+        "max": 29.299999997019768
+      },
+      "longTasks": { "n": 1, "p50": 373, "p95": 373, "max": 373 },
+      "domElements": 1128,
+      "failure": null
+    },
+    {
+      "name": "audit-first-page",
+      "readyMs": 2891.839718999996,
+      "requestCount": 28,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 0,
+      "eventToTwoFramesMs": { "n": 0, "p50": null, "p95": null, "max": 0 },
+      "longTasks": { "n": 3, "p50": 84, "p95": 177, "max": 177 },
+      "domElements": 660,
+      "failure": null
+    },
+    {
+      "name": "audit-next-page",
+      "readyMs": 564.189876000004,
+      "requestCount": 1,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 88,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 57.400000005960464,
+        "p95": 57.400000005960464,
+        "max": 57.400000005960464
+      },
+      "longTasks": { "n": 2, "p50": 59, "p95": 73, "max": 73 },
+      "domElements": 660,
+      "pagination": { "firstRows": 50, "secondRows": 50, "overlap": 0 },
+      "failure": null
+    },
+    {
+      "name": "audit-previous-page",
+      "readyMs": 532.5325699999958,
+      "requestCount": 1,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 64,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 37.099999994039536,
+        "p95": 37.099999994039536,
+        "max": 37.099999994039536
+      },
+      "longTasks": { "n": 1, "p50": 116, "p95": 116, "max": 116 },
+      "domElements": 660,
+      "restoredFirstPage": true,
+      "failure": null
+    },
+    {
+      "name": "student-grades-route",
+      "readyMs": 2751.691438,
+      "requestCount": 58,
+      "gradeRequests": 48,
+      "gradeStatuses": { "200": 34, "404": 14 },
+      "maxInteractionEventMs": 104,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 84.79999999701977,
+        "p95": 84.79999999701977,
+        "max": 84.79999999701977
+      },
+      "longTasks": { "n": 3, "p50": 79, "p95": 90, "max": 90 },
+      "domElements": 705,
+      "failure": null
+    },
+    {
+      "name": "upload-failure-remove",
+      "readyMs": 187.3976500000008,
+      "requestCount": 0,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 184,
+      "eventToTwoFramesMs": { "n": 1, "p50": 46.5, "p95": 46.5, "max": 46.5 },
+      "longTasks": { "n": 0, "p50": null, "p95": null, "max": 0 },
+      "domElements": 202,
+      "failure": null
+    },
+    {
+      "name": "upload-failure-cancel",
+      "readyMs": 145.75090199999977,
+      "requestCount": 0,
+      "gradeRequests": 0,
+      "gradeStatuses": {},
+      "maxInteractionEventMs": 80,
+      "eventToTwoFramesMs": {
+        "n": 1,
+        "p50": 53.30000001192093,
+        "p95": 53.30000001192093,
+        "max": 53.30000001192093
+      },
+      "longTasks": { "n": 1, "p50": 60, "p95": 60, "max": 60 },
+      "domElements": 173,
+      "failure": null
+    }
+  ]
+}
