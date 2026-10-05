@@ -22,6 +22,8 @@ vi.mock('@features/assignments/api', () => ({
   markSubmissionAsGraded: vi.fn(),
 }));
 vi.mock('@lib/router', () => ({ useRouter: () => ({ navigate }) }));
+vi.mock('@features/assignments/staff-api', () => ({ useStaffSubmission: () => ({ submission: undefined, assignment: null, isLoading: state.isLoading, error: state.error }) }));
+vi.mock('@features/courses/api', () => ({ useCoursesQuery: () => ({ data: state.courses, isLoading: state.isLoading, error: state.error, refetch: state.refetch }) }));
 // Editor internals are covered separately; these regressions target route gates.
 vi.mock('../src/features/assignments/components/TeacherIeltsAssignmentEditor', () => ({ TeacherIeltsAssignmentEditor: () => null }));
 vi.mock('../src/features/assignments/components/TeacherGradePanels', () => ({ TeacherGradePanels: () => null }));
