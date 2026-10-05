@@ -1,0 +1,128 @@
+{
+  "source": {
+    "date": "2026-10-01",
+    "revision": "c2714fe0e3b5b70fe5310aab40aef1b7f4fd4547",
+    "rawEvidence": "/tmp/nce-x07-performance-fixes-20261001",
+    "acceptance": "Measurements only; no approved SLO or release PASS",
+    "scripts": "docs/performance/x07"
+  },
+  "collections": [
+    {
+      "role": "admin",
+      "name": "assignments",
+      "pages": 2,
+      "rows": 120,
+      "uniqueRows": 120,
+      "pageSizes": [100, 20],
+      "pageMs": {
+        "n": 2,
+        "p50": 4.605742000000006,
+        "p95": 5.164582999999993,
+        "max": 5.164582999999993
+      },
+      "bytes": 147204,
+      "drainMs": 9.858917000000005
+    },
+    {
+      "role": "admin",
+      "name": "submissions",
+      "pages": 49,
+      "rows": 4848,
+      "uniqueRows": 4848,
+      "pageSizes": [
+        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+        100, 100, 100, 100, 100, 100, 48
+      ],
+      "pageMs": {
+        "n": 49,
+        "p50": 6.611199000000028,
+        "p95": 12.808596000000023,
+        "max": 14.212149999999994
+      },
+      "bytes": 11961605,
+      "drainMs": 343.283877
+    },
+    {
+      "role": "teacher",
+      "name": "assignments",
+      "pages": 1,
+      "rows": 60,
+      "uniqueRows": 60,
+      "pageSizes": [60],
+      "pageMs": {
+        "n": 1,
+        "p50": 4.998220999999944,
+        "p95": 4.998220999999944,
+        "max": 4.998220999999944
+      },
+      "bytes": 73585,
+      "drainMs": 5.046594000000027
+    },
+    {
+      "role": "teacher",
+      "name": "submissions",
+      "pages": 25,
+      "rows": 2448,
+      "uniqueRows": 2448,
+      "pageSizes": [
+        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 48
+      ],
+      "pageMs": {
+        "n": 25,
+        "p50": 6.5765010000000075,
+        "p95": 12.274514999999951,
+        "max": 13.326786999999968
+      },
+      "bytes": 6039593,
+      "drainMs": 179.90104599999995
+    }
+  ],
+  "uploads": [
+    {
+      "fileName": "essay.pdf",
+      "mime": "application/pdf",
+      "size": 2097152,
+      "status": 503,
+      "ms": 4.801719000000048,
+      "message": "File storage is not configured. Contact the administrator."
+    },
+    {
+      "fileName": "recording.wav",
+      "mime": "audio/wav",
+      "size": 10485760,
+      "status": 503,
+      "ms": 3.2139329999999973,
+      "message": "File storage is not configured. Contact the administrator."
+    }
+  ],
+  "sharedIpLoginBurst": {
+    "users": 50,
+    "source": "127.0.0.80",
+    "defaultLimit": "Password login uses failure counters; other auth routes use 30 attempts/IP/minute",
+    "statuses": { "200": 50 },
+    "latencyMs": {
+      "n": 50,
+      "p50": 341.3283959999999,
+      "p95": 592.961786,
+      "max": 625.615743
+    }
+  },
+  "database": {
+    "submissions": "4848",
+    "drafts": "48",
+    "grades": "3400",
+    "audit_rows": "2357",
+    "migrations": "86",
+    "files": "0"
+  },
+  "drafts": {
+    "min_version": 1,
+    "max_version": 1,
+    "students": "48",
+    "workload_drafts": "48"
+  },
+  "authoring": { "readingAssignments": 4, "configsUnchanged": true }
+}
