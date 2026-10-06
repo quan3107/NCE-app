@@ -1,0 +1,10 @@
+{
+  "tool": "ImageMagick 7",
+  "original": 1574061,
+  "webp": 58962,
+  "webp1280": 41780,
+  "fullSize": "1672x941",
+  "smallSize": "1280x720",
+  "originalToFullWebpPSNR": 42.9575,
+  "preservedArtwork": true
+}

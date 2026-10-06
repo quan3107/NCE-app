@@ -1,0 +1,151 @@
+# File: docs/openapi/schemas/staff-reads.yaml
+# Purpose: Define small staff DTOs and complete aggregates.
+# Why: Overview responses omit learner work while full detail remains available.
+
+SubmissionSummary:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      assignmentId,
+      studentId,
+      status,
+      submittedAt,
+      studentName,
+      assignmentTitle,
+    ]
+  properties:
+    id:
+      type: string
+      format: uuid
+    assignmentId:
+      type: string
+      format: uuid
+    studentId:
+      type: string
+      format: uuid
+    status:
+      $ref: "./common.yaml#/SubmissionStatus"
+    submittedAt:
+      type: string
+      format: date-time
+      nullable: true
+    studentName:
+      type: string
+    assignmentTitle:
+      type: string
+AssignmentSummary:
+  type: object
+  additionalProperties: false
+  required:
+    [id, courseId, title, type, dueAt, publishedAt, courseName, submissionCount]
+  properties:
+    id:
+      type: string
+      format: uuid
+    courseId:
+      type: string
+      format: uuid
+    title:
+      type: string
+    type:
+      $ref: "./common.yaml#/AssignmentType"
+    dueAt:
+      type: string
+      format: date-time
+      nullable: true
+    publishedAt:
+      type: string
+      format: date-time
+      nullable: true
+    courseName:
+      type: string
+    submissionCount:
+      type: integer
+      minimum: 0
+PageMetadata:
+  type: object
+  required: [nextCursor, total]
+  properties:
+    nextCursor:
+      type: string
+      format: uuid
+      nullable: true
+    total:
+      type: integer
+      minimum: 0
+AssignmentPage:
+  allOf:
+    - $ref: "#/PageMetadata"
+    - type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/AssignmentSummary"
+SubmissionPage:
+  allOf:
+    - $ref: "#/PageMetadata"
+    - type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/SubmissionSummary"
+StaffOverview:
+  type: object
+  required: [activeAssignments, pendingSubmissions, recentSubmissions]
+  properties:
+    activeAssignments:
+      type: integer
+      minimum: 0
+      description: Accessible assignments with non-null publishedAt.
+    pendingSubmissions:
+      type: integer
+      minimum: 0
+      description: All accessible active submissions with submitted or late status.
+    recentSubmissions:
+      type: array
+      maxItems: 3
+      items:
+        $ref: "#/SubmissionSummary"
+StaffAssignment:
+  allOf:
+    - $ref: "./assignments.yaml#/Assignment"
+    - type: object
+      required: [courseName]
+      properties:
+        courseName:
+          type: string
+AssignmentOverview:
+  type: object
+  required: [assignment, counts]
+  properties:
+    assignment:
+      $ref: "#/StaffAssignment"
+    counts:
+      type: object
+      required: [total, submitted, pending, graded, late]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        submitted:
+          type: integer
+          minimum: 0
+          description: Submitted, late and graded submissions.
+        pending:
+          type: integer
+          minimum: 0
+          description: Submitted and late submissions.
+        graded:
+          type: integer
+          minimum: 0
+        late:
+          type: integer
+          minimum: 0

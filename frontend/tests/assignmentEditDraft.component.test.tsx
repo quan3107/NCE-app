@@ -32,6 +32,8 @@ vi.mock("@features/assignments/api", () => ({
   }),
 }));
 vi.mock("@lib/router", () => ({ useRouter: () => ({ navigate: vi.fn() }) }));
+vi.mock('@features/assignments/staff-api', () => ({ useStaffAssignment: () => ({ assignment: state.assignment, isLoading: false }) }));
+vi.mock('@features/courses/api', () => ({ useCoursesQuery: () => ({ data: [], isLoading: false }) }));
 afterEach(cleanup);
 
 test("a cache refresh preserves the current local draft and a new resource initializes independently", () => {

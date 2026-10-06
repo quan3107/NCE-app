@@ -154,7 +154,7 @@ function sanitizeLearnerFeedback(value: unknown): Record<string, unknown> | null
   return Object.keys(sanitized).length > 0 ? sanitized : null
 }
 
-function toStudentAiFeedback(draft: StudentAiFeedbackDraft) {
+export function toStudentAiFeedback(draft: StudentAiFeedbackDraft) {
   if (!draft || draft.status !== 'accepted') {
     return undefined
   }
@@ -171,7 +171,7 @@ function toStudentAiFeedback(draft: StudentAiFeedbackDraft) {
   }
 }
 
-function toProvisionalOnlyGrade(draft: StudentAiFeedbackDraft, submissionId: string) {
+export function toProvisionalOnlyGrade(draft: StudentAiFeedbackDraft, submissionId: string) {
   if (!draft) {
     return undefined
   }
@@ -242,7 +242,7 @@ async function writeGradeAuditLog(input: {
   })
 }
 
-function feedbackLabelForGrade(grade: {
+export function feedbackLabelForGrade(grade: {
   aiFeedbackDrafts?: Array<{
     status: string
     visibilityMode: string

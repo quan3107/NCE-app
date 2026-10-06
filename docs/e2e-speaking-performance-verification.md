@@ -8,10 +8,12 @@ Why: Separate verified defect fixes from unsupported storage and performance cla
 
 The initial pre-R2 run below left STU-10 and X-07 **BLOCKED for full acceptance**.
 The later [real R2 rerun](r2-storage-verification.md) supersedes the storage blocker:
-STU-10 now passes after the concurrent upload and metadata fixes; X-07 remains
-BLOCKED with performance acceptance deferred by the user. Their recorded rendering
-and audit pagination defects are fixed, but successful speaking media persistence
-cannot be verified against the application's placeholder storage implementation.
+STU-10 now passes after the concurrent upload and metadata fixes. X-07 testing was
+reopened on 2026-09-26 for 100 students/50 simultaneous users; see the
+[production-build launch-scale measurements](e2e-x07-performance-verification.md).
+X-07 remains BLOCKED for full acceptance pending approved SLOs and the outstanding
+device/storage baseline. The results below are the historical pre-R2/development
+run; its placeholder-storage failure is superseded by the real R2 verification.
 No production performance SLO or mid-range device baseline is defined in the
 repository. These results do not claim production-scale performance acceptance.
 

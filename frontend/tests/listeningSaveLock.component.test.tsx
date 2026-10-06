@@ -14,6 +14,7 @@ vi.mock('@features/assignments/api', () => ({
   useCreateAssignmentMutation: () => ({ mutateAsync: mocks.create, isPending: false }),
 }));
 vi.mock('@lib/router', () => ({ useRouter: () => ({ navigate: mocks.navigate }) }));
+vi.mock('@features/courses/api', () => ({ useCoursesQuery: () => ({ data: [{ id: 'course', title: 'Course' }], isLoading: false }) }));
 vi.mock('@lib/use-auto-save', () => ({ useAutoSave: () => ({ clearDraft: vi.fn() }) }));
 vi.mock('../src/features/assignments/components/teacherIeltsCreate.logic', async (original) => {
   const actual = await original<typeof import('../src/features/assignments/components/teacherIeltsCreate.logic')>();

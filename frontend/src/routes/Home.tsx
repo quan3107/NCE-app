@@ -5,6 +5,8 @@
  */
 
 import { CallToAction } from '@components/marketing/CallToAction'
+import { useEffect } from 'react'
+import { preloadHeroArtwork } from '@components/marketing/heroArtwork'
 import { Button } from '@components/ui/button'
 import { FeaturedCourses } from '@components/marketing/FeaturedCourses'
 import { HeroSection } from '@components/marketing/HeroSection'
@@ -16,6 +18,7 @@ import { useRouter } from '@lib/router'
 export function HomeRoute() {
   const { navigate } = useRouter()
   const homepageQuery = useHomepageContentQuery()
+  useEffect(preloadHeroArtwork, [])
 
   if (homepageQuery.isLoading) {
     return (

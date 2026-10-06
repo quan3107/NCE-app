@@ -11,6 +11,7 @@ import { Button } from '@components/ui/button'
 import type { StatItem } from '@features/marketing/types'
 
 import { StatsOverview } from './StatsOverview'
+import { heroArtworkMedia, heroArtworkSources } from './heroArtwork'
 
 type HeroSectionProps = {
   badge: string
@@ -36,12 +37,19 @@ export function HeroSection({
   return (
     <section className="relative overflow-hidden bg-background">
       <div className="absolute inset-0 hidden lg:block">
-        <img
-          src="/assets/minimal-study-hero.png"
+        <picture>
+          <source media={heroArtworkMedia} type="image/webp"
+            srcSet={heroArtworkSources} sizes="100vw" />
+          <img
+          src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
           alt=""
           aria-hidden="true"
+          width={1672}
+          height={941}
+          fetchPriority="high"
           className="size-full object-cover object-center"
         />
+        </picture>
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/10" />
       </div>
 

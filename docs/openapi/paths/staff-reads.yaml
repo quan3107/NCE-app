@@ -1,0 +1,178 @@
+# File: docs/openapi/paths/staff-reads.yaml
+# Purpose: Document bounded staff pages and aggregate/detail reads.
+# Why: Complete scoped counts and explicit pagination replace collection drains.
+
+StaffOverview:
+  get:
+    tags: [assignments]
+    summary: Get teacher/admin dashboard counts and three recent pending submissions
+    description: Counts include all active accessible assignments/submissions. Teachers are scoped to courses they own or teach; admins see all active courses.
+    security:
+      - BearerAuth: []
+    responses:
+      "200":
+        description: Complete counts and at most three recent summaries
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff-reads.yaml#/StaffOverview"
+      "401":
+        $ref: "#/Unauthorized"
+      "403":
+        $ref: "#/Forbidden"
+
+AssignmentSummaries:
+  get:
+    tags: [assignments]
+    summary: List teacher/admin assignment summaries with complete submission counts
+    description: Newest creation first, with descending ID tie-break. No assignment configs or submission payloads are included. Follow nextCursor for all accessible records. A soft-deleted boundary assignment still anchors the next page without skipping work while its course remains accessible and active. Missing cursors and cursors outside the current actor's course scope return 404.
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: "#/Cursor"
+      - $ref: "#/Limit"
+    responses:
+      "200":
+        description: One bounded page and the full scoped total
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff-reads.yaml#/AssignmentPage"
+      "400":
+        $ref: "#/InvalidQuery"
+      "401":
+        $ref: "#/Unauthorized"
+      "403":
+        $ref: "#/Forbidden"
+      "404":
+        $ref: "#/NotFound"
+
+SubmissionSummaries:
+  get:
+    tags: [submissions]
+    summary: List teacher/admin submission summaries
+    description: Newest creation first, with descending ID tie-break. Pending includes submitted and late work. pending=false includes every status. Totals use the same filters as the page; payloads and revision history are omitted. A boundary row graded or soft-deleted between requests still anchors the next page without skipping work. Cursors outside the current assignment/course scope return 404.
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: "#/Cursor"
+      - $ref: "#/Limit"
+      - in: query
+        name: assignmentId
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: pending
+        schema:
+          type: string
+          enum: ["true", "false"]
+          default: "true"
+    responses:
+      "200":
+        description: One bounded page and the full filtered total
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff-reads.yaml#/SubmissionPage"
+      "400":
+        $ref: "#/InvalidQuery"
+      "401":
+        $ref: "#/Unauthorized"
+      "403":
+        $ref: "#/Forbidden"
+      "404":
+        $ref: "#/NotFound"
+
+AssignmentOverview:
+  get:
+    tags: [assignments]
+    summary: Get one teacher/admin assignment and aggregate status counts
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Complete assignment content and counts without submission bodies
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff-reads.yaml#/AssignmentOverview"
+      "400":
+        $ref: "#/InvalidQuery"
+      "401":
+        $ref: "#/Unauthorized"
+      "403":
+        $ref: "#/Forbidden"
+      "404":
+        $ref: "#/NotFound"
+
+SubmissionDetail:
+  get:
+    tags: [submissions]
+    summary: Get one complete teacher/admin submission and its assignment
+    description: Applies the same active course/assignment scope as staff summaries. Recording metadata is resolved as on existing submission reads.
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: path
+        name: submissionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Full submission and assignment
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [submission, assignment]
+              properties:
+                submission:
+                  $ref: "../schemas/submissions.yaml#/Submission"
+                assignment:
+                  $ref: "../schemas/staff-reads.yaml#/StaffAssignment"
+      "400":
+        $ref: "#/InvalidQuery"
+      "401":
+        $ref: "#/Unauthorized"
+      "403":
+        $ref: "#/Forbidden"
+      "404":
+        $ref: "#/NotFound"
+
+Cursor:
+  in: query
+  name: cursor
+  description: Last ID returned by the previous page; omit for the first page.
+  schema:
+    type: string
+    format: uuid
+Limit:
+  in: query
+  name: limit
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 100
+InvalidQuery:
+  description: Malformed ID, unsupported filter, or page limit outside 1–100
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/common.yaml#/ErrorResponse"
+Unauthorized:
+  description: Authentication required
+Forbidden:
+  description: Only teachers and admins may access staff reads
+NotFound:
+  description: Record is absent, deleted, or outside the caller's course scope

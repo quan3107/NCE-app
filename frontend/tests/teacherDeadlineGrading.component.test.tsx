@@ -40,6 +40,9 @@ vi.mock('@features/assignments/api', () => ({
   }),
   markSubmissionAsGraded: vi.fn(),
 }));
+vi.mock('@features/assignments/staff-api', () => ({
+  useStaffSubmission: () => ({ submission: state.submission, assignment: state.assignment }),
+}));
 vi.mock('@features/grades/api', () => ({
   useGradesQuery: () => ({
     data: state.existingGrade ? [state.existingGrade] : [],

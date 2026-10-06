@@ -65,6 +65,27 @@ export async function getStudentVisibleAiFeedbackDraft(input: unknown) {
     : null
 }
 
+/** Fetch at most one current visible draft per owned submission with the same policy gate. */
+export async function getStudentVisibleAiFeedbackDrafts(submissionIds: string[], studentId: string) {
+  const rows = await prisma.submission.findMany({
+    where: { id: { in: submissionIds }, studentId, deletedAt: null, assignment: { deletedAt: null, course: { deletedAt: null } } },
+    select: {
+      id: true,
+      assignment: { select: { assignmentConfig: true } },
+      aiFeedbackDrafts: {
+        where: { deletedAt: null, visibilityMode: 'instant_student_visible', status: { in: [...studentVisibleDraftStatuses] } },
+        orderBy: { createdAt: 'desc' }, take: 1,
+      },
+    },
+  })
+  return new Map(rows.flatMap(row => {
+    const draft = row.aiFeedbackDrafts[0]
+    return draft && isInstantVisibleAssignmentPolicy(row.assignment.assignmentConfig)
+      ? [[row.id, { ...draft, submission: { assignment: row.assignment } }] as const]
+      : []
+  }))
+}
+
 export async function findLatestAiFeedbackDraftBySubmission(submissionId: string) {
   return prisma.aiFeedbackDraft.findFirst({
     where: {

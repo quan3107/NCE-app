@@ -268,6 +268,23 @@ const fetchGrades = async (
     return [];
   }
 
+  // Keep individual grading reads unchanged; list views use bounded batches.
+  if (submissions.length > 1) {
+    const result: Grade[] = [];
+    const byId = new Map(submissions.map(submission => [submission.id, submission]));
+    for (let offset = 0; offset < submissions.length; offset += 100) {
+      const page = await apiClient<{ items: ApiGrade[] }>('/submissions/grades', {
+        auth: 'required', method: 'POST',
+        body: { submissionIds: submissions.slice(offset, offset + 100).map(submission => submission.id) },
+      });
+      for (const grade of page.items) {
+        const submission = byId.get(grade.submissionId);
+        if (submission) result.push(toGrade(grade, submission, assignmentMap));
+      }
+    }
+    return result;
+  }
+
   const results = await Promise.all(
     submissions.map(async (submission) => {
       try {

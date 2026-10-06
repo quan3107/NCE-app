@@ -1,0 +1,13 @@
+{
+  "source": {
+    "date": "2026-10-01",
+    "revision": "c2714fe0e3b5b70fe5310aab40aef1b7f4fd4547",
+    "rawEvidence": "/tmp/nce-x07-performance-fixes-20261001",
+    "acceptance": "Measurements only; no approved SLO or release PASS",
+    "scripts": "docs/performance/x07"
+  },
+  "browser": "152.0.7977.82",
+  "initialLoads": "browser-load-summary.json",
+  "actions": "browser-action-summary.json",
+  "limitations": "Three cold samples per route under synthetic CDP throttles; one unthrottled reference and one sample per action; event durations are not field INP."
+}

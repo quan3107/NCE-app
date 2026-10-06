@@ -25,7 +25,9 @@ import {
   type IeltsAssignmentConfig,
   type IeltsAssignmentType,
 } from '@lib/ielts';
-import { useAssignmentResources, useUpdateAssignmentMutation } from '@features/assignments/api';
+import { useUpdateAssignmentMutation } from '@features/assignments/api';
+import { useStaffAssignment } from '../staff-api';
+import { useCoursesQuery } from '@features/courses/api';
 import {
   fromDateTimeLocalValue,
   toDateTimeLocalValue,
@@ -49,14 +51,15 @@ const emptyForm: AssignmentFormState = {
 
 export function TeacherAssignmentEditPage({ assignmentId }: { assignmentId: string }) {
   const { navigate } = useRouter();
-  const { assignments, courses, isLoading, error } = useAssignmentResources();
+  const detail = useStaffAssignment(assignmentId);
+  const coursesQuery = useCoursesQuery();
+  const courses = coursesQuery.data ?? [];
+  const isLoading = detail.isLoading || coursesQuery.isLoading;
+  const error = detail.error ?? coursesQuery.error;
   const updateAssignmentMutation = useUpdateAssignmentMutation();
   const captureLifetime = useMutationLifetime();
   const pending = useRef(false);
-  const assignment = useMemo(
-    () => assignments.find((item) => item.id === assignmentId) ?? null,
-    [assignments, assignmentId],
-  );
+  const assignment = detail.assignment;
   const course = useMemo(
     () => courses.find((item) => item.id === assignment?.courseId),
     [courses, assignment?.courseId],

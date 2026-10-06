@@ -5,7 +5,7 @@
  */
 
 import type { ReactNode } from 'react';
-import type { Assignment, Submission } from '@domain';
+import type { Assignment } from '@domain';
 import type { IeltsAssignmentConfig } from '@lib/ielts';
 import { Badge } from '@components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
@@ -33,7 +33,6 @@ type TeacherAssignmentDetailTabsProps = {
   assignment: Assignment;
   originalDueAt?: Date | null;
   courseTitle: string;
-  submissions: Submission[];
   statsCards: TeacherAssignmentStatCard[];
   statsSummary: TeacherAssignmentStatsSummary;
   ieltsConfig: IeltsAssignmentConfig | null;
@@ -49,7 +48,6 @@ export function TeacherAssignmentDetailTabs({
   assignment,
   originalDueAt,
   courseTitle,
-  submissions,
   statsCards,
   statsSummary,
   ieltsConfig,
@@ -102,7 +100,6 @@ export function TeacherAssignmentDetailTabs({
       <TabsContent value="submissions" className="space-y-6">
         <TeacherAssignmentSubmissionsTab
           assignment={assignment}
-          submissions={submissions}
         />
       </TabsContent>
 

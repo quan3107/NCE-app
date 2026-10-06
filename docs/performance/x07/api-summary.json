@@ -1,0 +1,287 @@
+{
+  "source": {
+    "date": "2026-09-26",
+    "revision": "c2714fe0e3b5b70fe5310aab40aef1b7f4fd4547",
+    "rawEvidence": "/tmp/nce-x07-performance-20260926",
+    "acceptance": "Measurements only; no approved SLO or release PASS",
+    "scripts": "docs/performance/x07"
+  },
+  "datasetAtStart": {
+    "users": 103,
+    "courses": 4,
+    "enrollments": 200,
+    "assignments": 120,
+    "submissions": 4848,
+    "grades": 3400,
+    "drafts": 48
+  },
+  "datasetAtStartEvidence": "Database count in supplement.log, collected before the corrected run",
+  "conditions": {
+    "users": 50,
+    "students": 48,
+    "teachers": 2,
+    "rampMs": 30000,
+    "warmupMs": 60000,
+    "measurementMs": 300000,
+    "pacing": "3–8 seconds after each completed activity",
+    "network": "HTTP keepalive loopback, no synthetic network latency or CPU throttle; same host generator/API/PostgreSQL",
+    "pool": "API pg.Pool default 10; transaction maxWait default 5000ms; no application tuning",
+    "login": "separate loopback source addresses; all authentication defaults retained; password login uses failure counters"
+  },
+  "fixtureHistorical": {
+    "users": 103,
+    "courses": 4,
+    "enrollments": 200,
+    "assignments": 120,
+    "submissions": 4800,
+    "grades": 3400,
+    "learning_activity_days": 100
+  },
+  "requests": 6274,
+  "errors": 0,
+  "requestsPerSecond": 20.913333333333334,
+  "bytes": 227076412,
+  "latencyMs": {
+    "n": 6274,
+    "p50": 42.795011999987764,
+    "p95": 95.51532300002873,
+    "p99": 128.76566800003638,
+    "max": 231.11713299999246
+  },
+  "peakInflight": 26,
+  "actions": 2701,
+  "actionsPerSecond": 9.003333333333334,
+  "activityErrors": 0,
+  "endpoints": {
+    "GET /assignments/:id/submissions": {
+      "n": 468,
+      "p50": 17.63875199999893,
+      "p95": 34.43037800001912,
+      "p99": 47.80728100000124,
+      "max": 73.45277500001248,
+      "errors": 0,
+      "bytes": 4335696,
+      "statuses": { "200": 468 }
+    },
+    "GET /submissions/accessible": {
+      "n": 873,
+      "p50": 32.58426400000462,
+      "p95": 66.93554100001347,
+      "p99": 94.09160200000042,
+      "max": 126.73317599999427,
+      "errors": 0,
+      "bytes": 159877755,
+      "statuses": { "200": 873 }
+    },
+    "POST /assignments/:id/submissions": {
+      "n": 433,
+      "p50": 78.04467199998908,
+      "p95": 126.30926500004716,
+      "p99": 174.45411400002195,
+      "max": 231.11713299999246,
+      "errors": 0,
+      "bytes": 1059984,
+      "statuses": { "201": 433 }
+    },
+    "GET /assignments/accessible": {
+      "n": 899,
+      "p50": 34.94159000000218,
+      "p95": 67.6551679999975,
+      "p99": 104.3473079999967,
+      "max": 130.97929999999178,
+      "errors": 0,
+      "bytes": 58701779,
+      "statuses": { "200": 899 }
+    },
+    "GET /courses": {
+      "n": 450,
+      "p50": 49.46958399997675,
+      "p95": 101.55209400001331,
+      "p99": 123.2591399999801,
+      "max": 139.89928599999985,
+      "errors": 0,
+      "bytes": 614250,
+      "statuses": { "200": 450 }
+    },
+    "GET /config/dashboard-widgets": {
+      "n": 450,
+      "p50": 44.50760799998534,
+      "p95": 95.8914850000001,
+      "p99": 121.58091100002639,
+      "max": 132.9748350000009,
+      "errors": 0,
+      "bytes": 487458,
+      "statuses": { "200": 450 }
+    },
+    "GET /assignments/pending-count": {
+      "n": 432,
+      "p50": 49.940316000021994,
+      "p95": 104.93860900000436,
+      "p99": 130.94607099998393,
+      "max": 145.30033199995523,
+      "errors": 0,
+      "bytes": 5184,
+      "statuses": { "200": 432 }
+    },
+    "GET /notifications": {
+      "n": 450,
+      "p50": 49.277161000005435,
+      "p95": 101.80647000001045,
+      "p99": 128.67454499995802,
+      "max": 142.1106419999851,
+      "errors": 0,
+      "bytes": 900,
+      "statuses": { "200": 450 }
+    },
+    "GET /me": {
+      "n": 450,
+      "p50": 56.48354699998163,
+      "p95": 105.6608160000178,
+      "p99": 140.89989600000263,
+      "max": 146.17559299999266,
+      "errors": 0,
+      "bytes": 1150578,
+      "statuses": { "200": 450 }
+    },
+    "GET /me/dashboard-config": {
+      "n": 450,
+      "p50": 52.67648999999801,
+      "p95": 103.86875200000941,
+      "p99": 138.25273100001505,
+      "max": 149.36742799996864,
+      "errors": 0,
+      "bytes": 467820,
+      "statuses": { "200": 450 }
+    },
+    "GET /submissions/:id/grade": {
+      "n": 432,
+      "p50": 41.21225599999889,
+      "p95": 72.56771299999673,
+      "p99": 107.72444900000119,
+      "max": 155.13523300003726,
+      "errors": 0,
+      "bytes": 180720,
+      "statuses": { "200": 336, "404": 96 }
+    },
+    "GET /courses/:id/assignments/:id": {
+      "n": 451,
+      "p50": 26.26633500002208,
+      "p95": 48.867673000029754,
+      "p99": 60.7512229999993,
+      "max": 103.22596299997531,
+      "errors": 0,
+      "bytes": 176792,
+      "statuses": { "200": 451 }
+    },
+    "GET /analytics/teacher": {
+      "n": 36,
+      "p50": 78.48554299998796,
+      "p95": 149.8566480000154,
+      "p99": 150.81695900001796,
+      "max": 150.81695900001796,
+      "errors": 0,
+      "bytes": 17496,
+      "statuses": { "200": 36 }
+    }
+  },
+  "activities": {
+    "student:submission-page": {
+      "n": 433,
+      "p50": 17.655212999961805,
+      "p95": 34.750110999972094,
+      "p99": 47.83471500000451,
+      "max": 73.50439300001017,
+      "errors": 0
+    },
+    "student:draft-save": {
+      "n": 433,
+      "p50": 78.11630900000455,
+      "p95": 126.3636969999643,
+      "p99": 174.47590600000694,
+      "max": 231.2141390000179,
+      "errors": 0
+    },
+    "student:dashboard": {
+      "n": 432,
+      "p50": 57.13612200002535,
+      "p95": 110.25981399999,
+      "p99": 143.5348920000106,
+      "max": 149.93657000001986,
+      "errors": 0
+    },
+    "student:grade-detail": {
+      "n": 432,
+      "p50": 41.29610799998045,
+      "p95": 72.66547599999467,
+      "p99": 107.85519699999713,
+      "max": 155.15073799999664,
+      "errors": 0
+    },
+    "student:assignment-detail": {
+      "n": 433,
+      "p50": 26.69006399999489,
+      "p95": 49.014827999984846,
+      "p99": 60.81368799999473,
+      "max": 103.2614440000034,
+      "errors": 0
+    },
+    "student:assignment-list": {
+      "n": 432,
+      "p50": 25.641512000001967,
+      "p95": 49.07053900000756,
+      "p99": 73.83991199999582,
+      "max": 114.0334509999957,
+      "errors": 0
+    },
+    "teacher:assignment-list": {
+      "n": 17,
+      "p50": 22.127448999963235,
+      "p95": 36.384846000000834,
+      "p99": 36.384846000000834,
+      "max": 36.384846000000834,
+      "errors": 0
+    },
+    "teacher:dashboard": {
+      "n": 18,
+      "p50": 706.9729740000039,
+      "p95": 803.0825559999794,
+      "p99": 803.0825559999794,
+      "max": 803.0825559999794,
+      "errors": 0
+    },
+    "teacher:assignment-detail": {
+      "n": 18,
+      "p50": 17.779712999996264,
+      "p95": 37.37291899998672,
+      "p99": 37.37291899998672,
+      "max": 37.37291899998672,
+      "errors": 0
+    },
+    "teacher:submission-page": {
+      "n": 18,
+      "p50": 17.697695000009844,
+      "p95": 26.34429000003729,
+      "p99": 26.34429000003729,
+      "max": 26.34429000003729,
+      "errors": 0
+    },
+    "teacher:analytics-filter": {
+      "n": 18,
+      "p50": 54.04028499999549,
+      "p95": 78.66023100004531,
+      "p99": 78.66023100004531,
+      "max": 78.66023100004531,
+      "errors": 0
+    },
+    "teacher:submission-next-page": {
+      "n": 17,
+      "p50": 18.53711000000476,
+      "p95": 33.79708899999969,
+      "p99": 33.79708899999969,
+      "max": 33.79708899999969,
+      "errors": 0
+    }
+  },
+  "measurementStartedAt": "2026-09-26T10:09:33.646Z",
+  "drainTailMs": 136.26099499996053
+}

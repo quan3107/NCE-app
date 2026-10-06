@@ -9,10 +9,15 @@ import { Router } from "express";
 import { authGuard } from "../../middleware/authGuard.js";
 import { roleGuard } from "../../middleware/roleGuard.js";
 import { getAccessibleAssignments, getPendingAssignmentsCount } from "./assignments.controller.js";
+import { getOverview, getAssignmentSummaries, getAssignmentOverview } from './assignments.staff-controller.js';
 
 export const assignmentsTopLevelRouter = Router();
 
 assignmentsTopLevelRouter.use(authGuard);
+const staff = roleGuard([UserRole.teacher, UserRole.admin]);
+assignmentsTopLevelRouter.get('/overview', staff, getOverview);
+assignmentsTopLevelRouter.get('/summaries', staff, getAssignmentSummaries);
+assignmentsTopLevelRouter.get('/:assignmentId/overview', staff, getAssignmentOverview);
 
 assignmentsTopLevelRouter.get('/accessible', getAccessibleAssignments);
 

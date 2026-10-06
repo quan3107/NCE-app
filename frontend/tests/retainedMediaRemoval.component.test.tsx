@@ -34,6 +34,7 @@ vi.mock("@features/files/fileUpload", () => ({
   uploadFileWithProgress: mocks.upload,
 }));
 vi.mock("@lib/router", () => ({ useRouter: () => ({ navigate: vi.fn() }) }));
+vi.mock('@features/courses/api', () => ({ useCoursesQuery: () => ({ data: [{ id: 'course', title: 'Course' }], isLoading: false }) }));
 vi.mock("@lib/use-auto-save", () => ({
   useAutoSave: () => ({ clearDraft: vi.fn() }),
 }));
